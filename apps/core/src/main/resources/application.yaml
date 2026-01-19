@@ -16,6 +16,7 @@ spring:
 #      driver-class-name: org.postgresql.Driver
 
 min-io:
-  url: localhost:9000
+  url: http://localhost:9000
   username: minioadmin
   password: minioadmin
+  enabled: true

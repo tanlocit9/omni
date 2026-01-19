@@ -5,18 +5,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
-@Component
+@Configuration
 public class MinioConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(MinioConfig.class);
 
-  @Value("min-io.url")
+  @Value("${min-io.url}")
   private String minIOUrl;
-  @Value("min-io.username")
+  @Value("${min-io.username}")
   private String minIOUsername;
-  @Value("min-io.password")
+  @Value("${min-io.password}")
   private String minIOPassword;
 
   @Bean

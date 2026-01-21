@@ -4,11 +4,14 @@ import com.omnistorage.storage.application.dtos.FileDeleteResult;
 import com.omnistorage.storage.application.dtos.FileUploadResult;
 import com.omnistorage.storage.core.configs.StorageProviderRegistry;
 import com.omnistorage.storage.core.enums.StorageProvider;
+import com.omnistorage.storage.core.events.FileUploadedEvent;
 import com.omnistorage.storage.core.ports.DeletablePort;
 import com.omnistorage.storage.core.ports.ReadablePort;
 import com.omnistorage.storage.core.ports.WritablePort;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,6 +20,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.zip.ZipEntry;
@@ -27,29 +31,60 @@ import java.util.zip.ZipOutputStream;
 @RequiredArgsConstructor
 public class FileUseCaseService implements FileUseCase {
     private final StorageProviderRegistry registry;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
+    @Transactional
     public List<FileUploadResult> uploadBulk(StorageProvider provider, String bucket, MultipartFile[] files) {
         var writer = registry.getPort(provider, WritablePort.class);
 
-        // Use Virtual Threads to handle parallel upload
+        log.info("Start uploading");
+
+        // Step 1: Upload files in parallel
+        List<FileUploadResult> results;
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Future<FileUploadResult>> futures = Arrays.stream(files).map(file ->
                     executor.submit(() -> {
                         try {
-                            writer.write(bucket, file.getOriginalFilename(), file.getInputStream(), file.getContentType());
-                            return new FileUploadResult(file.getOriginalFilename(), true, "Success");
+                            var fileId = String.valueOf(UUID.randomUUID());
+                            writer.write(bucket, fileId, file.getInputStream(), file.getContentType());
+                            // Return result with fileId for event publishing later
+                            return new FileUploadResult(
+                                    file.getOriginalFilename(),
+                                    fileId,  // Add fileId to result
+                                    file.getContentType(),
+                                    true,
+                                    "Success"
+                            );
                         } catch (Exception e) {
-                            return new FileUploadResult(file.getOriginalFilename(), false, e.getMessage());
+                            return new FileUploadResult(file.getOriginalFilename(), null, null, false, e.getMessage());
                         }
                     })
             ).toList();
 
-            return futures.stream().map(this::waitForFuture).toList();
+            results = futures.stream().map(this::waitForFuture).toList();
         }
+
+        // Step 2: Publish events in main thread (inside transaction)
+        results.stream()
+                .filter(FileUploadResult::success)
+                .forEach(result -> {
+                    eventPublisher.publishEvent(
+                            new FileUploadedEvent(
+                                    result.fileId(),
+                                    bucket,
+                                    result.contentType(),
+                                    provider
+                            )
+                    );
+                });
+
+        log.info("Published {} events", results.stream().filter(FileUploadResult::success).count());
+        return results;
     }
 
     @Override
+    @Transactional
     public void downloadBulkAsZip(StorageProvider provider, String bucket, List<String> fileNames, OutputStream outputStream) {
         var reader = registry.getPort(provider, ReadablePort.class);
 

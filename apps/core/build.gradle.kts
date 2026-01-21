@@ -34,8 +34,18 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.springframework.modulith:spring-modulith-starter-jpa")
+    implementation(
+        "org.springframework.modulith:spring-modulith-events-api:${
+            property("springModulithVersion")
+        }"
+    )
+    // Source: https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-function-context
+//    implementation("org.springframework.cloud:spring-cloud-function-context:5.0.0")
+    // Third party
+    // Source: https://mvnrepository.com/artifact/net.coobird/thumbnailator
     implementation("io.minio:minio:8.6.0")
-//    implementation("io.hypersistence:hypersistence-utils-hibernate-60:3.9.4")
+    implementation("net.coobird:thumbnailator:0.4.1")
+    //    implementation("io.hypersistence:hypersistence-utils-hibernate-60:3.9.4")
 
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")

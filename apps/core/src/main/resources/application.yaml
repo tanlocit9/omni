@@ -14,7 +14,16 @@ spring:
 #      username: ${MASTER_DB_USER:postgres}
 #      password: ${MASTER_DB_PASS:your_password}
 #      driver-class-name: org.postgresql.Driver
-
+logging:
+  level:
+    org:
+      springframework:
+        modulith: DEBUG
+    com:
+      omnistorage:
+        storage:
+          modules:
+            thumbnails: DEBUG
 min-io:
   url: http://localhost:9000
   username: minioadmin

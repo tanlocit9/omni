@@ -13,9 +13,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable) // Quan trọng: Disable CSRF để test upload qua Postman
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/storage/**").permitAll() // Cho phép truy cập storage
+                        .requestMatchers("/api/v1/storage/**").permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();

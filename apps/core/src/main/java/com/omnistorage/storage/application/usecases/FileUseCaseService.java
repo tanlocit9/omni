@@ -5,6 +5,7 @@ import com.omnistorage.storage.application.dtos.FileUploadResult;
 import com.omnistorage.storage.core.configs.StorageProviderRegistry;
 import com.omnistorage.storage.core.enums.StorageProvider;
 import com.omnistorage.storage.core.events.FileUploadedEvent;
+import com.omnistorage.storage.core.exceptions.file.FileDownloadFailedException;
 import com.omnistorage.storage.core.ports.DeletablePort;
 import com.omnistorage.storage.core.ports.ReadablePort;
 import com.omnistorage.storage.core.ports.WritablePort;
@@ -31,6 +32,7 @@ import java.util.zip.ZipOutputStream;
 @RequiredArgsConstructor
 public class FileUseCaseService implements FileUseCase {
     private final StorageProviderRegistry registry;
+
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -68,16 +70,14 @@ public class FileUseCaseService implements FileUseCase {
         // Step 2: Publish events in main thread (inside transaction)
         results.stream()
                 .filter(FileUploadResult::success)
-                .forEach(result -> {
-                    eventPublisher.publishEvent(
-                            new FileUploadedEvent(
-                                    result.fileId(),
-                                    bucket,
-                                    result.contentType(),
-                                    provider
-                            )
-                    );
-                });
+                .forEach(result -> eventPublisher.publishEvent(
+                        new FileUploadedEvent(
+                                result.fileId(),
+                                bucket,
+                                result.contentType(),
+                                provider
+                        )
+                ));
 
         log.info("Published {} events", results.stream().filter(FileUploadResult::success).count());
         return results;
@@ -102,7 +102,8 @@ public class FileUseCaseService implements FileUseCase {
             }
             zos.finish();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to create ZIP archive", e);
+            log.error("Failed to create ZIP archive: {}", e.getMessage());
+            throw new FileDownloadFailedException("Failed to create ZIP archive");
         }
     }
 

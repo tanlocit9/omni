@@ -5,12 +5,14 @@ import com.omnistorage.storage.core.enums.StorageProvider;
 import com.omnistorage.storage.core.ports.DeletablePort;
 import com.omnistorage.storage.core.ports.ReadablePort;
 import com.omnistorage.storage.core.ports.WritablePort;
-import io.minio.*;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;

@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: storage
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:h2:mem:storage
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+#    master:
+#      jdbc-url: ${MASTER_DB_URL:jdbc:postgresql://localhost:5432/sips_admin_db}
+#      username: ${MASTER_DB_USER:postgres}
+#      password: ${MASTER_DB_PASS:your_password}
+#      driver-class-name: org.postgresql.Driver
+logging:
+  level:
+    org:
+      springframework:
+        modulith: DEBUG
+    com:
+      omnistorage:
+        storage:
+          modules:
+            thumbnails: DEBUG
+min-io:
+  url: http://localhost:9000
+  username: minioadmin
+  password: minioadmin
+  enabled: true

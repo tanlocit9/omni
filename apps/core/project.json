@@ -1,0 +1,20 @@
+{
+  "name": "platform",
+  "root": "apps/core",
+  "projectType": "application",
+  "targets": {
+    "bootRun": {
+      "dependsOn": [
+        "build"
+      ]
+    }
+  },
+  "build": {
+    "continuous": true,
+    "options": {
+      "args": [
+        "--continuous"
+      ]
+    }
+  }
+}

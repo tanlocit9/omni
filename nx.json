@@ -1,15 +1,12 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
-    "production": [
-      "default",
-      "!{projectRoot}/src/test/**/*"
-    ],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": ["default", "!{projectRoot}/src/test/**/*"],
     "sharedGlobals": []
+  },
+  "sync": {
+    "globalGenerators": ["@nxlv/python:pkg-sync"]
   },
   "plugins": [
     {
@@ -33,9 +30,10 @@
         "classesTargetName": "classes",
         "buildTargetName": "build"
       },
-      "exclude": [
-        "apps\\core\\gradlew.bat"
-      ]
+      "exclude": ["apps\\core\\gradlew.bat"]
+    },
+    {
+      "plugin": "@nxlv/python"
     }
   ]
 }

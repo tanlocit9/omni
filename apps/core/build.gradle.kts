@@ -2,9 +2,11 @@ plugins {
     java
     id("org.springframework.boot") version "4.0.1"
     id("io.spring.dependency-management") version "1.1.7"
+
+    id("dev.nx.gradle.project-graph") version("0.1.12")
 }
 
-group = "com.omnistorage"
+group = "com.omni"
 version = "0.0.1-SNAPSHOT"
 description = "A server to manage upload file "
 
@@ -71,4 +73,10 @@ dependencyManagement {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+allprojects {
+    apply {
+        plugin("dev.nx.gradle.project-graph")
+    }
 }

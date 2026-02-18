@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 		sharedModules = {"core"},
 		additionalPackages = {"modules"}
 )
-@SpringBootApplication(scanBasePackages = "com.omni.core")
+@SpringBootApplication(scanBasePackages = "com.omni.platform")
 public class PlatformApplication {
 
 	public static void main(String[] args) {

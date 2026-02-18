@@ -3,18 +3,19 @@
   "root": "apps/core",
   "projectType": "application",
   "targets": {
-    "bootRun": {
-      "dependsOn": [
-        "build"
-      ]
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "gradlew bootRun",
+        "cwd": "{projectRoot}"
+      }
     }
   },
   "build": {
-    "continuous": true,
+    "executor": "nx:run-commands",
     "options": {
-      "args": [
-        "--continuous"
-      ]
+      "command": "gradlew build --continuous",
+      "cwd": "{projectRoot}"
     }
   }
 }

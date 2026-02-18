@@ -1,0 +1,10 @@
+{
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "concurrently --names \"JAVA,ANALYTICS\" --prefix \"[{name}]\" --prefix-colors \"blue,green\" \"nx serve java-api\" \"nx serve analytics\""
+      }
+    }
+  }
+}

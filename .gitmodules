@@ -1,0 +1,3 @@
+[submodule "externals/vnstock-etl"]
+	path = externals/vnstock-etl
+	url = https://github.com/tanlocit9/baocaotaichinh.git

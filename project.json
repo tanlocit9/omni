@@ -1,7 +1,21 @@
 {
   "targets": {
+    "init": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "git submodule sync",
+          "git submodule update --init --recursive",
+          "docker compose up -d"
+        ],
+        "parallel": false
+      }
+    },
     "dev": {
       "executor": "nx:run-commands",
+      "dependsOn": [
+        "init"
+      ],
       "options": {
         "command": "concurrently --names \"JAVA,ANALYTICS\" --prefix \"[{name}]\" --prefix-colors \"blue,green\" \"nx serve platform --configuration=dev\" \"nx serve analytics\""
       }

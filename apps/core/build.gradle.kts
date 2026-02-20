@@ -2,7 +2,7 @@ plugins {
     java
     id("org.springframework.boot") version "4.0.1"
     id("io.spring.dependency-management") version "1.1.7"
-    id("dev.nx.gradle.project-graph") version("0.1.12")
+    id("dev.nx.gradle.project-graph") version ("0.1.12")
 }
 
 group = "com.omni"
@@ -29,7 +29,9 @@ repositories {
 extra["springModulithVersion"] = "2.0.1"
 
 dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
@@ -46,6 +48,7 @@ dependencies {
     // Source: https://mvnrepository.com/artifact/net.coobird/thumbnailator
     implementation("io.minio:minio:8.6.0")
     implementation("net.coobird:thumbnailator:0.4.1")
+
     //    implementation("io.hypersistence:hypersistence-utils-hibernate-60:3.9.4")
 
     compileOnly("org.projectlombok:lombok")

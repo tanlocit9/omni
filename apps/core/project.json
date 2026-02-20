@@ -6,9 +6,17 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "gradlew bootRun",
         "cwd": "{projectRoot}"
-      }
+      },
+      "configurations": {
+        "dev": {
+          "command": "gradlew bootRun --args='--spring.profiles.active=dev'"
+        },
+        "prod": {
+          "command": "gradlew bootRun --args='--spring.profiles.active=prod'"
+        }
+      },
+      "defaultConfiguration": "dev"
     }
   },
   "build": {

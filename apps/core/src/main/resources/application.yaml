@@ -1,14 +1,14 @@
 spring:
   application:
-    name: storage
+    name: platform
   threads:
     virtual:
       enabled: true
-  datasource:
-    url: jdbc:h2:mem:storage
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  flyway:
+    enabled: true
+    locations: filesystem:../../database/migrations
+    baseline-on-migrate: true
+    baseline-version: 1
 #    master:
 #      jdbc-url: ${MASTER_DB_URL:jdbc:postgresql://localhost:5432/sips_admin_db}
 #      username: ${MASTER_DB_USER:postgres}
@@ -19,11 +19,13 @@ logging:
     org:
       springframework:
         modulith: DEBUG
+      flywaydb: DEBUG
     com:
-      omnistorage:
-        storage:
+      omni:
+        platform:
           modules:
             thumbnails: DEBUG
+
 min-io:
   url: http://localhost:9000
   username: minioadmin

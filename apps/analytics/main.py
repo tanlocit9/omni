@@ -1,10 +1,18 @@
-# from vnstock import register_user
-# register_user(api_key='vnstock_RANDOM_KEY')
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-app = FastAPI()
+from app.controllers.v1.stock import router as stock_router
+from app.core.database import Base, engine
 
 
-@app.get("/hello")
-def hello():
-    return {"msg": "Hello API!"}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(stock_router, prefix="/v1")

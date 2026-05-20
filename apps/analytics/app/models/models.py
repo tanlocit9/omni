@@ -1,10 +1,12 @@
-from typing import Optional
+from __future__ import annotations
+
 import datetime
 import decimal
+from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, Column, Computed, Date, DateTime, Double, ForeignKeyConstraint, Index, Integer, Numeric, PrimaryKeyConstraint, String, Table, Text, Time, UniqueConstraint, text
+from sqlalchemy import BigInteger, Boolean, Column, Computed, Date, DateTime, Double, ForeignKeyConstraint, Index, \
+    Integer, Numeric, PrimaryKeyConstraint, String, Table, Text, Time, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
-from __future__ import annotations
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -83,8 +85,10 @@ class Industries(Base):
     parent_code: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
 
-    industries: Mapped[Optional['Industries']] = relationship('Industries', remote_side=[icb_code], back_populates='industries_reverse')
-    industries_reverse: Mapped[list['Industries']] = relationship('Industries', remote_side=[parent_code], back_populates='industries')
+    industries: Mapped[Optional['Industries']] = relationship('Industries', remote_side=[icb_code],
+                                                              back_populates='industries_reverse')
+    industries_reverse: Mapped[list['Industries']] = relationship('Industries', remote_side=[parent_code],
+                                                                  back_populates='industries')
     stock_industry: Mapped[list['StockIndustry']] = relationship('StockIndustry', back_populates='industries')
 
 
@@ -201,7 +205,8 @@ class Stocks(Base):
     stock_exchange: Mapped[list['StockExchange']] = relationship('StockExchange', back_populates='stocks')
     stock_industry: Mapped[list['StockIndustry']] = relationship('StockIndustry', back_populates='stocks')
     subsidiaries: Mapped[list['Subsidiaries']] = relationship('Subsidiaries', back_populates='stocks')
-    portfolio_transactions: Mapped[list['PortfolioTransactions']] = relationship('PortfolioTransactions', back_populates='stocks')
+    portfolio_transactions: Mapped[list['PortfolioTransactions']] = relationship('PortfolioTransactions',
+                                                                                 back_populates='stocks')
     watchlist_items: Mapped[list['WatchlistItems']] = relationship('WatchlistItems', back_populates='stocks')
 
 
@@ -243,7 +248,8 @@ class TechnicalIndicators(Base):
     value: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     value2: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     value3: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
-    calculated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    calculated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime,
+                                                                       server_default=text('CURRENT_TIMESTAMP'))
 
 
 class Users(Base):
@@ -259,8 +265,10 @@ class Users(Base):
     role: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'user'::text"))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text('true'))
     timezone: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'Asia/Ho_Chi_Minh'::text"))
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False, server_default=text('CURRENT_TIMESTAMP'))
-    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False, server_default=text('CURRENT_TIMESTAMP'))
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False,
+                                                          server_default=text('CURRENT_TIMESTAMP'))
+    updated_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False,
+                                                          server_default=text('CURRENT_TIMESTAMP'))
     password_hash: Mapped[Optional[str]] = mapped_column(Text)
     display_name: Mapped[Optional[str]] = mapped_column(Text)
     settings_json: Mapped[Optional[dict]] = mapped_column(JSONB)
@@ -329,7 +337,8 @@ class CashFlowStatement(Base):
     __table_args__ = (
         ForeignKeyConstraint(['symbol'], ['stocks.ticker'], name='cash_flow_statement_symbol_fkey'),
         PrimaryKeyConstraint('id', name='cash_flow_statement_pkey'),
-        UniqueConstraint('symbol', 'period', 'year', 'quarter', name='cash_flow_statement_symbol_period_year_quarter_key'),
+        UniqueConstraint('symbol', 'period', 'year', 'quarter',
+                         name='cash_flow_statement_symbol_period_year_quarter_key'),
         Index('idx_cash_flow_period', 'period'),
         Index('idx_cash_flow_symbol', 'symbol'),
         Index('idx_cash_flow_year', 'year')
@@ -347,7 +356,8 @@ class CashFlowStatement(Base):
     profit_loss_investment_activities: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     interest_income: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     interest_and_dividend_income: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
-    net_cash_flow_from_operating_activities_before_working_capital: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
+    net_cash_flow_from_operating_activities_before_working_capital: Mapped[Optional[decimal.Decimal]] = mapped_column(
+        Numeric)
     increase_decrease_receivables: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     increase_decrease_inventory: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     increase_decrease_payables: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
@@ -375,7 +385,8 @@ class CashFlowStatement(Base):
     net_cash_flow_period: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     cash_and_cash_equivalents_beginning: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
     cash_and_cash_equivalents_ending: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric)
-    free_cash_flow: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric, Computed('(net_cash_from_operating_activities + purchase_purchase_fixed_assets)', persisted=True))
+    free_cash_flow: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric, Computed(
+        '(net_cash_from_operating_activities + purchase_purchase_fixed_assets)', persisted=True))
     data_json: Mapped[Optional[str]] = mapped_column(Text)
     source: Mapped[Optional[str]] = mapped_column(Text, server_default=text("'VCI'::text"))
     audited: Mapped[Optional[bool]] = mapped_column(Boolean, server_default=text('false'))
@@ -528,7 +539,8 @@ class FinancialReports(Base):
     __table_args__ = (
         ForeignKeyConstraint(['symbol'], ['stocks.ticker'], name='financial_reports_symbol_fkey'),
         PrimaryKeyConstraint('id', name='financial_reports_pkey'),
-        UniqueConstraint('symbol', 'report_type', 'period', 'year', 'quarter', name='financial_reports_symbol_report_type_period_year_quarter_key'),
+        UniqueConstraint('symbol', 'report_type', 'period', 'year', 'quarter',
+                         name='financial_reports_symbol_report_type_period_year_quarter_key'),
         Index('idx_financial_reports_period', 'period'),
         Index('idx_financial_reports_symbol', 'symbol'),
         Index('idx_financial_reports_type', 'report_type'),
@@ -701,7 +713,8 @@ class Portfolios(Base):
     updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
 
     user: Mapped['Users'] = relationship('Users', back_populates='portfolios')
-    portfolio_transactions: Mapped[list['PortfolioTransactions']] = relationship('PortfolioTransactions', back_populates='portfolio')
+    portfolio_transactions: Mapped[list['PortfolioTransactions']] = relationship('PortfolioTransactions',
+                                                                                 back_populates='portfolio')
 
 
 class PriceAlerts(Base):
@@ -906,7 +919,8 @@ class Watchlists(Base):
 class PortfolioTransactions(Base):
     __tablename__ = 'portfolio_transactions'
     __table_args__ = (
-        ForeignKeyConstraint(['portfolio_id'], ['portfolios.id'], ondelete='CASCADE', name='portfolio_transactions_portfolio_id_fkey'),
+        ForeignKeyConstraint(['portfolio_id'], ['portfolios.id'], ondelete='CASCADE',
+                             name='portfolio_transactions_portfolio_id_fkey'),
         ForeignKeyConstraint(['symbol'], ['stocks.ticker'], name='portfolio_transactions_symbol_fkey'),
         PrimaryKeyConstraint('id', name='portfolio_transactions_pkey'),
         Index('idx_portfolio_txn_date', 'txn_date'),
@@ -923,7 +937,8 @@ class PortfolioTransactions(Base):
     txn_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     fee: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric, server_default=text('0'))
     tax: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric, server_default=text('0'))
-    total_amount: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric, Computed('((((quantity)::numeric * price) + fee) + tax)', persisted=True))
+    total_amount: Mapped[Optional[decimal.Decimal]] = mapped_column(Numeric, Computed(
+        '((((quantity)::numeric * price) + fee) + tax)', persisted=True))
     note: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
 
@@ -935,7 +950,8 @@ class WatchlistItems(Base):
     __tablename__ = 'watchlist_items'
     __table_args__ = (
         ForeignKeyConstraint(['symbol'], ['stocks.ticker'], name='watchlist_items_symbol_fkey'),
-        ForeignKeyConstraint(['watchlist_id'], ['watchlists.id'], ondelete='CASCADE', name='watchlist_items_watchlist_id_fkey'),
+        ForeignKeyConstraint(['watchlist_id'], ['watchlists.id'], ondelete='CASCADE',
+                             name='watchlist_items_watchlist_id_fkey'),
         PrimaryKeyConstraint('id', name='watchlist_items_pkey'),
         UniqueConstraint('watchlist_id', 'symbol', name='watchlist_items_watchlist_id_symbol_key'),
         Index('idx_watchlist_items_symbol', 'symbol'),

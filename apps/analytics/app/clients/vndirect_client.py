@@ -16,6 +16,7 @@ class VNDirectClient:
             "q": f"code:{symbol}",
             "size": size,
             "page": page,
+            "sort": "date",
         }
         async with httpx.AsyncClient(headers=self.HEADERS) as client:
             res = await client.get(self.BASE_URL, params=params)
@@ -33,3 +34,8 @@ class VNDirectClient:
             records.extend(page_data.get("data", []))
 
         return records
+
+    async def fetch_recent_stock(self, symbol: str, size: int) -> list[dict]:
+        """Fetch only the most recent `size` records (single page)."""
+        response = await self.fetch_stock(symbol, page=1, size=size)
+        return response.get("data", [])

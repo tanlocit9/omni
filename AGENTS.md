@@ -78,9 +78,14 @@ Spring Modulith modular monolith. Package layout under `com.omni.platform`:
 
 ```
 application/
-  controllers/     # REST controllers (e.g. StorageController)
-  dtos/            # Request/response DTOs
-  usecases/        # Application use cases
+  controllers/
+    StorageController.java   # REST controller for file storage API (upload/delete/etc.)
+  dtos/
+    FileDeleteResult.java    # DTO for file deletion response
+    FileUploadResult.java    # DTO for file upload response
+  usecases/
+    FileUseCase.java         # Interface for file storage operations
+    FileUseCaseService.java  # Implementation of FileUseCase business logic
 core/
   adapters/        # AbstractStorageAdapter + StorageProviderRegistry
   configs/         # Spring configuration classes
@@ -116,7 +121,19 @@ nx test platform                           # JUnit 5 tests
 
 ### Database
 - PostgreSQL 16 in production/dev; H2 in-memory for tests
-- Migrations live in `database/migrations/V*.sql` (V1–V12)
+- Migrations live in `database/migrations/V*.sql` (V1–V12) as Flyway SQL scripts:
+  - `V1__create_users.sql`: Creates tables for user accounts and management.
+  - `V2__create_reference_data.sql`: Handles static lookup or reference data.
+  - `V3__create_stocks.sql`: Creates tables for listing public companies and stock tickers.
+  - `V4__create_company_info.sql`: Defines schemas for company metadata and profiles.
+  - `V5__create_price_data.sql`: Holds historical stock price/quote transactions.
+  - `V6__create_financial_statements.sql`: Represents balance sheets, income statements, and cash flows.
+  - `V7__create_financial_ratios.sql`: Stores computed financial and fundamental ratios.
+  - `V8__create_technical_indicators.sql`: Stores technical analysis indicators (moving averages, RSI, etc.).
+  - `V9__create_events_news.sql`: Stores news articles, corporate events, and market announcements.
+  - `V10__create_portfolio.sql`: Tracks user investment portfolios and transactions.
+  - `V11__create_screener_alerts.sql`: Configures watchlists and customized screener alert rules.
+  - `V12__create_sync_ops.sql`: Audits and tracks background ETL sync operation metadata.
 - Schema covers: users, reference data, stocks, company info, price data, financial statements, financial ratios, technical indicators, events/news, portfolio, screener alerts, sync operations
 
 ---
@@ -137,18 +154,26 @@ Layered architecture under `app/`:
 
 ```
 app/
-  controllers/v1/
-    stock.py         # FastAPI router — stock endpoints
-  services/
-    stock_service.py # Business logic
-  providers/
-    stock_provider.py # FastAPI Depends() providers
   clients/
-    vndirect_client.py # External VNDirect API client
+    vndirect_client.py        # External VNDirect API client
+  controllers/v1/
+    stock.py                  # FastAPI router — stock endpoints
+  core/
+    database.py               # Database engine, session maker, and Base model setup
   dtos/stock/
-    sync_stock_dto.py  # Pydantic DTOs
-main.py              # FastAPI app entry point, router registration
-debug.py             # Debug entry point
+    sync_stock_dto.py         # Pydantic DTOs for stock syncing
+  models/
+    models.py                 # SQLAlchemy declarative models representing the database schema
+  providers/
+    stock_provider.py         # FastAPI Depends() providers (DI for DB sessions/services)
+  repositories/
+    stock_prices_repository.py # Repository managing stock price data persistence
+  scripts/
+    gen_models.py             # Script to automatically generate/update database models
+  services/
+    stock_service.py          # Business logic for stock analytics & data fetching
+main.py                       # FastAPI app entry point, router registration
+debug.py                      # Debug entry point
 ```
 
 Key patterns:

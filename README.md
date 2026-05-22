@@ -1,107 +1,168 @@
-# New Nx Repository
+# Omni Monorepo Workspace
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Welcome to **Omni**, a high-performance monorepo utilizing an **Nx 22.5** workspace. This repository hosts a modular and analytical stock platform built on modern enterprise frameworks.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+The workspace comprises two primary applications:
+*   **Platform API (`apps/core`)**: Java 21 / Spring Boot 4 Modular Monolith (Spring Modulith) managing platform logic, user security, object storage, and metadata orchestration.
+*   **Analytics API (`apps/analytics`)**: Python 3.14 / FastAPI analytics service specializing in Vietnamese stock market data processing and analysis.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
-## Finish your Nx platform setup
+---
 
-🚀 [Finish setting up your workspace](https://cloud.nx.app/connect/YyHMkSD4fe) to get faster builds with remote caching, distributed task execution, and self-healing CI. [Learn more about Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud).
+## 🛠️ Prerequisites
 
-## Generate a library
+Before setting up the project, ensure your local development machine has the following tools installed:
 
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+1.  **Git**: For cloning the repository and managing submodules.
+2.  **Node.js (v18.x or v20.x+) & npm**: Used to run Nx workspace orchestrators, formatters, and dependency checkers.
+3.  **Java Development Kit (JDK) 21**: Recommended Adoptium Temurin JVM for building and running the platform backend.
+4.  **Python 3.14+**: Required for the analytics environment.
+5.  **`uv`**: A fast, modern Python package installer and resolver. Install it via:
+    *   *macOS/Linux:* `curl -LsSf https://astral.sh/uv/install.sh | sh`
+    *   *Windows (PowerShell):* `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+6.  **Docker & Docker Compose**: Necessary to spin up local database and object storage infrastructure.
+
+---
+
+## 🚀 Getting Started (First-Time Setup)
+
+Setting up the entire project is streamlined through Nx targets. Follow these steps to get everything up and running:
+
+### 1. Clone the Repository
+Clone the project along with its submodules:
+```bash
+git clone --recursive <repository-url>
+cd omni
 ```
 
-## Run tasks
-
-To build the library use:
-
-```sh
-npx nx build pkg1
+### 2. Install Workspace Tooling (Node/Nx)
+Install root dependencies that manage Nx commands:
+```bash
+npm install
 ```
 
-To run any task with Nx use:
+### 3. Initialize the Workspace
+Run the automated initialization target to sync the submodules and spin up Docker containers (PostgreSQL, MinIO, pgAdmin) in the background:
+```bash
+nx run omni:init
+```
+*(This command runs `git submodule sync/update` and starts up Docker Compose in detached mode).*
 
-```sh
-npx nx <target> <project-name>
+### 4. Setup Python Environment
+Create the Python virtual environment and synchronize dependencies for the `analytics` application:
+```bash
+nx run analytics:sync
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+---
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 💻 Running the Applications
 
-## Versioning and releasing
-
-To version and release the library use
-
+### Run both apps concurrently (Development Mode)
+To boot up both the **Java Platform API** and the **FastAPI Analytics API** simultaneously with hot-reload enabled, run:
+```bash
+nx run omni:dev
 ```
-npx nx release
-```
+This leverages the `concurrently` tool to stream logs from both backend processes to a single terminal window with distinct prefixes (`[JAVA]` and `[ANALYTICS]`).
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+### Run applications individually
 
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+#### ☕ Java Platform API (`apps/core`)
+```bash
+# Serve with the dev profile (default)
+nx serve platform
 
-## Keep TypeScript project references up to date
+# Serve with the prod profile
+nx serve platform --configuration=prod
 
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
+# Run JUnit 5 test suite
+nx test platform
 
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
-
-```sh
-npx nx sync
-```
-
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
-
-```sh
-npx nx sync:check
+# Build executable JAR
+nx build platform
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+#### 🐍 Python Analytics API (`apps/analytics`)
+```bash
+# Serve FastAPI with hot-reloading (uvicorn-hmr)
+nx serve analytics
 
-## Nx Cloud
+# Run pytest suite with coverage reports
+nx test analytics
 
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+# Format codebase using Ruff
+nx format analytics
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Set up CI (non-Github Actions CI)
-
-**Note:** This is only required if your CI provider is not GitHub Actions.
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+# Lint codebase using Ruff
+nx lint analytics
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+---
 
-## Install Nx Console
+## 🗄️ Local Infrastructure & Credentials
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+Local database and cloud infrastructure services are automatically managed using Docker Compose. Here are the access points and default credentials:
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+| Service | Image | Local Port | Access Endpoint / GUI | Credentials |
+| :--- | :--- | :--- | :--- | :--- |
+| **PostgreSQL 16** | `postgres:16` | `5432` | `jdbc:postgresql://localhost:5432/omni` | **User:** `postgres`<br>**Password:** `postgres`<br>**Database:** `omni` |
+| **MinIO Object Storage** | `quay.io/minio/minio` | `9000` (API)<br>`9001` (Console) | [http://localhost:9001](http://localhost:9001) | **User:** `minioadmin`<br>**Password:** `minioadmin` |
+| **pgAdmin 4** | `dpage/pgadmin4` | `5050` (Web UI) | [http://localhost:5050](http://localhost:5050) | **Email:** `admin@admin.com`<br>**Password:** `admin` |
 
-## Useful links
+---
 
-Learn more:
+## 🔄 Database Migrations (Flyway)
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+The database schema is managed via **Flyway SQL migrations**. 
+*   Migration files are located in `database/migrations/V*__*.sql`.
+*   Migrations are automatically executed when the **Java Platform API (`platform`)** is served or built.
+*   **To add a new migration**: Simply place a new SQL script in `database/migrations/` using the convention: `V<N>__<description>.sql` (e.g. `V13__add_new_table.sql`). Flyway will apply it automatically on the next server startup.
 
-And join the Nx community:
+---
 
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 📦 Analytics Python Package Management
+
+The Python analytics workspace uses Astral's **`uv`** package manager. Do not run `uv` or `pip` directly; instead, use the provided Nx scripts:
+
+*   **Add a dependency**:
+    ```bash
+    nx run analytics:add --name="<package-name-with-version>"
+    # Example: nx run analytics:add --name="pandas>=2.2.0"
+    ```
+*   **Remove a dependency**:
+    ```bash
+    nx run analytics:remove --name="<package-name>"
+    ```
+*   **Synchronize venv with lock file**:
+    ```bash
+    nx run analytics:sync
+    ```
+*   **Generate/update the lock file**:
+    ```bash
+    nx run analytics:lock
+    ```
+
+---
+
+## ❓ Troubleshooting
+
+### 1. Docker Port Conflicts
+If you see an error like `bind: address already in use` when initializing the workspace:
+*   Ensure you do not have another local instance of PostgreSQL running on port `5432`.
+*   Ensure port `9000` or `9001` is not being occupied by another service or an active MinIO daemon.
+*   Stop conflicting services, or run `docker compose down` inside `omni` to purge existing dead containers.
+
+### 2. Git Submodules are missing or out of sync
+If files in `externals/vnstock-etl` are blank or throw import errors during startup:
+*   Run the submodule updater command manually:
+    ```bash
+    git submodule update --init --recursive
+    ```
+
+### 3. Python Virtual Environment (`.venv`) issues
+If the analytics service fails due to missing Python libraries or pathing problems:
+*   Clear the local virtual environment and rebuild it:
+    ```bash
+    rm -rf apps/analytics/.venv
+    nx run analytics:sync
+    ```
+*   Verify that `uv` is installed and globally discoverable by your system.

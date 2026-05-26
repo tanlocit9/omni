@@ -1,4 +1,4 @@
-package com.omni.platform.core.adapters;
+package com.omni.platform.infrastructure.adapters;
 
 import com.omni.platform.core.enums.StorageCapability;
 import com.omni.platform.core.ports.DeletablePort;
@@ -14,6 +14,7 @@ import java.util.Set;
 public abstract class AbstractStorageAdapter implements StorageProviderInfo {
 
     protected boolean isActive = false;
+
     protected String lastErrorMessage;
 
     protected abstract void doValidate() throws Exception;

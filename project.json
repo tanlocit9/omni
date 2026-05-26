@@ -17,7 +17,7 @@
         "init"
       ],
       "options": {
-        "command": "concurrently --names \"JAVA,ANALYTICS\" --prefix \"[{name}]\" --prefix-colors \"blue,green\" \"nx serve platform --configuration=dev\" \"nx serve analytics\""
+        "command": "concurrently --names \"JAVA,ANALYZER,INGESTOR\" --prefix \"[{name}]\" --prefix-colors \"blue,green,magenta\" \"nx serve platform --configuration=dev\" \"nx serve analyzer\" \"nx serve ingestor\""
       }
     }
   }

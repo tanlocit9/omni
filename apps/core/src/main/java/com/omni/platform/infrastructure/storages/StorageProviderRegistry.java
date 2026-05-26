@@ -1,9 +1,9 @@
-package com.omni.platform.core.configs;
+package com.omni.platform.infrastructure.storages;
 
-import com.omni.platform.core.adapters.AbstractStorageAdapter;
 import com.omni.platform.core.enums.StorageCapability;
 import com.omni.platform.core.enums.StorageProvider;
 import com.omni.platform.core.ports.StorageProviderInfo;
+import com.omni.platform.infrastructure.adapters.AbstractStorageAdapter;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;

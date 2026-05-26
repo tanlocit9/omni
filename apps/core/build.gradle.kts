@@ -49,7 +49,7 @@ dependencies {
     // Source: https://mvnrepository.com/artifact/net.coobird/thumbnailator
     implementation("io.minio:minio:8.6.0")
     implementation("net.coobird:thumbnailator:0.4.1")
-
+    implementation("org.springframework.boot:spring-boot-starter-kafka:4.0.0")
     //    implementation("io.hypersistence:hypersistence-utils-hibernate-60:3.9.4")
 
     compileOnly("org.projectlombok:lombok")

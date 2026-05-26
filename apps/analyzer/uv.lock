@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "analytics"
+name = "analyzer"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [

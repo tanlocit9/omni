@@ -1,10 +1,10 @@
 package com.omni.platform.modules.minio.adapters;
 
-import com.omni.platform.core.adapters.AbstractStorageAdapter;
 import com.omni.platform.core.enums.StorageProvider;
 import com.omni.platform.core.ports.DeletablePort;
 import com.omni.platform.core.ports.ReadablePort;
 import com.omni.platform.core.ports.WritablePort;
+import com.omni.platform.infrastructure.adapters.AbstractStorageAdapter;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;

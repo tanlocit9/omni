@@ -1,9 +1,9 @@
 package com.omni.platform.modules.thumbails.services;
 
-import com.omni.platform.core.configs.StorageProviderRegistry;
 import com.omni.platform.core.events.FileUploadedEvent;
 import com.omni.platform.core.ports.ReadablePort;
 import com.omni.platform.core.ports.WritablePort;
+import com.omni.platform.infrastructure.storages.StorageProviderRegistry;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.coobird.thumbnailator.Thumbnails;

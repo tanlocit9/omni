@@ -2,13 +2,13 @@ package com.omni.platform.application.usecases;
 
 import com.omni.platform.application.dtos.FileDeleteResult;
 import com.omni.platform.application.dtos.FileUploadResult;
-import com.omni.platform.core.configs.StorageProviderRegistry;
 import com.omni.platform.core.enums.StorageProvider;
 import com.omni.platform.core.events.FileUploadedEvent;
 import com.omni.platform.core.exceptions.file.FileDownloadFailedException;
 import com.omni.platform.core.ports.DeletablePort;
 import com.omni.platform.core.ports.ReadablePort;
 import com.omni.platform.core.ports.WritablePort;
+import com.omni.platform.infrastructure.storages.StorageProviderRegistry;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

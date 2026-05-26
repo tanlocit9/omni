@@ -1,8 +1,8 @@
 {
-  "name": "analytics",
+  "name": "ingestor",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "sourceRoot": "apps/analytics/app",
+  "sourceRoot": "apps/ingestor/app",
   "targets": {
     "python": {
       "executor": "@nxlv/python:run-commands",
@@ -11,20 +11,6 @@
         "cwd": "{projectRoot}",
         "forwardAllArgs": true
       }
-    },
-    "deploy": {
-      "executor": "@nxlv/python:sls-deploy",
-      "dependsOn": [
-        "build"
-      ],
-      "options": {}
-    },
-    "package": {
-      "executor": "@nxlv/python:sls-package",
-      "dependsOn": [
-        "build"
-      ],
-      "options": {}
     },
     "lock": {
       "executor": "@nxlv/python:lock",
@@ -98,18 +84,9 @@
     "serve": {
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run uvicorn-hmr main:app",
+        "command": "uv run python main.py",
         "forwardAllArgs": true,
         "cwd": "{projectRoot}"
-      },
-      "cache": false
-    },
-    "debug": {
-      "executor": "@nxlv/python:run-commands",
-      "options": {
-        "command": "uv run python debug.py",
-        "cwd": "{projectRoot}",
-        "forwardAllArgs": false
       },
       "cache": false
     },

@@ -1,4 +1,4 @@
-package com.omni.platform.core.configs;
+package com.omni.platform.infrastructure.securities;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

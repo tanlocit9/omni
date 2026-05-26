@@ -9,11 +9,21 @@ spring:
     locations: filesystem:../../database/migrations
     baseline-on-migrate: true
     baseline-version: 1
-#    master:
-#      jdbc-url: ${MASTER_DB_URL:jdbc:postgresql://localhost:5432/sips_admin_db}
-#      username: ${MASTER_DB_USER:postgres}
-#      password: ${MASTER_DB_PASS:your_password}
-#      driver-class-name: org.postgresql.Driver
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: platform-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+    topics:
+      stock-sync: stock-sync
+      stock-sync-status: stock-sync-status
+
 logging:
   level:
     org:
@@ -31,3 +41,9 @@ min-io:
   username: minioadmin
   password: minioadmin
   enabled: true
+
+  #    master:
+  #      jdbc-url: ${MASTER_DB_URL:jdbc:postgresql://localhost:5432/sips_admin_db}
+  #      username: ${MASTER_DB_USER:postgres}
+  #      password: ${MASTER_DB_PASS:your_password}
+  #      driver-class-name: org.postgresql.Driver

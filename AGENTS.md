@@ -19,13 +19,14 @@
 
 ## Workspace Overview
 
-This is an **Nx 22.5 monorepo** named `omni`. It contains two applications and no shared libraries yet.
+This is an **Nx 22.5 monorepo** named `omni`. It contains three applications and no shared libraries yet.
 
 ```
 omni/
 ├── apps/
-│   ├── core/          # Java 21 / Spring Boot 4 — file storage & platform API
-│   └── analytics/     # Python 3.14 / FastAPI — Vietnamese stock analytics
+│   ├── core/          # Java 21 / Spring Boot 4 — Platform API & Storage Orchestration
+│   ├── analyzer/      # Python 3.14 / FastAPI — Analytical REST API & Direct DB Sync
+│   └── ingestor/      # Python 3.14 / Async Event Worker — Parquet Data Lake Sync
 ├── database/
 │   └── migrations/    # Flyway SQL migrations (V1–V12)
 ├── externals/
@@ -41,21 +42,25 @@ omni/
 ## Running the Workspace
 
 ### First-time setup
+
 ```bash
 nx run omni:init
 # Runs: git submodule sync/update, then docker compose up -d
 ```
 
-### Run both apps together (development)
+### Run all apps together (development)
+
 ```bash
 nx run omni:dev
-# Starts platform (Java) and analytics (Python) concurrently with hot-reload
+# Starts platform (Java), analyzer (Python/FastAPI), and ingestor (Python/worker) concurrently
+# Logs prefixed with [JAVA], [ANALYZER], [INGESTOR]
 ```
 
 ### Infrastructure only
+
 ```bash
 docker compose up -d
-# Starts: PostgreSQL 16 (5432), MinIO (9000/9001), pgAdmin (5050)
+# Starts: PostgreSQL 16 (5432), Kafka (9092), MinIO (9000/9001), pgAdmin (5050)
 ```
 
 ---
@@ -63,29 +68,31 @@ docker compose up -d
 ## App: `platform` (apps/core)
 
 ### Stack
+
 - Java 21 (Adoptium JVM), Spring Boot 4.0.1
 - Spring Modulith (modular monolith)
 - Spring Data JPA + Hibernate + PostgreSQL
 - Spring Security
 - Flyway (database migrations)
 - MinIO client (S3-compatible object storage)
-- Thumbnailator (image processing)
 - Lombok
 - Build: Gradle 8 via `@nx/gradle` plugin
 
 ### Architecture
+
 Spring Modulith modular monolith. Package layout under `com.omni.platform`:
 
 ```
 application/
   controllers/
-    StorageController.java   # REST controller for file storage API (upload/delete/etc.)
+    StorageController.java   # REST controller for file storage API
+    StockController.java     # REST controller — triggers stock sync via Kafka
   dtos/
-    FileDeleteResult.java    # DTO for file deletion response
-    FileUploadResult.java    # DTO for file upload response
+    FileDeleteResult.java
+    FileUploadResult.java
   usecases/
-    FileUseCase.java         # Interface for file storage operations
-    FileUseCaseService.java  # Implementation of FileUseCase business logic
+    FileUseCase.java
+    FileUseCaseService.java
 core/
   adapters/        # AbstractStorageAdapter + StorageProviderRegistry
   configs/         # Spring configuration classes
@@ -97,16 +104,19 @@ core/
                    #             ListablePort, ShareablePort
 modules/
   minio/           # MinIO storage adapter implementation
-  thumbails/       # Thumbnail generation module
+  kafka/           # Kafka producer (stock-sync) + consumer (@KafkaListener stock-sync-status)
+  thumbnails/      # Thumbnail generation module
 ```
 
 Key patterns:
+
 - **Ports & Adapters**: Storage operations are defined as port interfaces; modules implement them.
 - **Registry pattern**: `StorageProviderRegistry` resolves the correct adapter at runtime.
 - **Event-driven async**: `@EnableAsync` + Spring events for post-upload processing.
-- **Shared module**: `core` is declared as a shared module in `@Modulith`.
+- **Kafka integration**: Platform publishes `stock-sync` commands and consumes `stock-sync-status` results to update `update_log` and `sync_config`.
 
 ### Nx targets
+
 ```bash
 nx serve platform                          # bootRun with dev profile (default)
 nx serve platform --configuration=prod     # bootRun with prod profile
@@ -115,41 +125,45 @@ nx test platform                           # JUnit 5 tests
 ```
 
 ### Configuration files
+
 - `apps/core/src/main/resources/application.yaml` — base config
-- `apps/core/src/main/resources/application-dev.yaml` — dev profile (local DB, MinIO)
+- `apps/core/src/main/resources/application-dev.yaml` — dev profile (local DB, MinIO, Kafka)
 - `apps/core/src/main/resources/application-test.yaml` — test profile (H2 in-memory)
 
 ### Database
+
 - PostgreSQL 16 in production/dev; H2 in-memory for tests
-- Migrations live in `database/migrations/V*.sql` (V1–V12) as Flyway SQL scripts:
-  - `V1__create_users.sql`: Creates tables for user accounts and management.
-  - `V2__create_reference_data.sql`: Handles static lookup or reference data.
-  - `V3__create_stocks.sql`: Creates tables for listing public companies and stock tickers.
-  - `V4__create_company_info.sql`: Defines schemas for company metadata and profiles.
-  - `V5__create_price_data.sql`: Holds historical stock price/quote transactions.
-  - `V6__create_financial_statements.sql`: Represents balance sheets, income statements, and cash flows.
-  - `V7__create_financial_ratios.sql`: Stores computed financial and fundamental ratios.
-  - `V8__create_technical_indicators.sql`: Stores technical analysis indicators (moving averages, RSI, etc.).
-  - `V9__create_events_news.sql`: Stores news articles, corporate events, and market announcements.
-  - `V10__create_portfolio.sql`: Tracks user investment portfolios and transactions.
-  - `V11__create_screener_alerts.sql`: Configures watchlists and customized screener alert rules.
-  - `V12__create_sync_ops.sql`: Audits and tracks background ETL sync operation metadata.
-- Schema covers: users, reference data, stocks, company info, price data, financial statements, financial ratios, technical indicators, events/news, portfolio, screener alerts, sync operations
+- Migrations live in `database/migrations/V*.sql` (V1–V12):
+  - `V1__create_users.sql`: User accounts and management.
+  - `V2__create_reference_data.sql`: Static lookup / reference data.
+  - `V3__create_stocks.sql`: Public companies and stock tickers.
+  - `V4__create_company_info.sql`: Company metadata and profiles.
+  - `V5__create_price_data.sql`: Historical stock price transactions.
+  - `V6__create_financial_statements.sql`: Balance sheets, income statements, cash flows.
+  - `V7__create_financial_ratios.sql`: Computed financial and fundamental ratios.
+  - `V8__create_technical_indicators.sql`: Technical analysis indicators (MA, RSI, etc.).
+  - `V9__create_events_news.sql`: News articles, corporate events, market announcements.
+  - `V10__create_portfolio.sql`: User investment portfolios and transactions.
+  - `V11__create_screener_alerts.sql`: Watchlists and screener alert rules.
+  - `V12__create_sync_ops.sql`: Background ETL sync operation audit log.
 
 ---
 
-## App: `analytics` (apps/analytics)
+## App: `analyzer` (apps/analyzer)
 
 ### Stack
+
 - Python 3.14+, FastAPI 0.128.8
 - Uvicorn with hot-reload (`uvicorn-hmr`)
 - Package manager: `uv`
-- vnstock 0.2.9.2.3 (Vietnamese stock market data)
+- SQLAlchemy 2.0 (Async Engine) + PostgreSQL
 - httpx + requests (HTTP clients)
+- VNDirect API HTTP client
 - Ruff (linter + formatter)
 - pytest + pytest-cov + pytest-html
 
 ### Architecture
+
 Layered architecture under `app/`:
 
 ```
@@ -159,17 +173,15 @@ app/
   controllers/v1/
     stock.py                  # FastAPI router — stock endpoints
   core/
-    database.py               # Database engine, session maker, and Base model setup
+    database.py               # Database engine, session maker, Base model setup
   dtos/stock/
     sync_stock_dto.py         # Pydantic DTOs for stock syncing
   models/
-    models.py                 # SQLAlchemy declarative models representing the database schema
+    models.py                 # SQLAlchemy declarative models
   providers/
-    stock_provider.py         # FastAPI Depends() providers (DI for DB sessions/services)
+    stock_provider.py         # FastAPI Depends() providers
   repositories/
-    stock_prices_repository.py # Repository managing stock price data persistence
-  scripts/
-    gen_models.py             # Script to automatically generate/update database models
+    stock_prices_repository.py
   services/
     stock_service.py          # Business logic for stock analytics & data fetching
 main.py                       # FastAPI app entry point, router registration
@@ -177,46 +189,140 @@ debug.py                      # Debug entry point
 ```
 
 Key patterns:
+
 - **Dependency injection**: FastAPI `Depends()` wires providers into controllers.
 - **Async endpoints**: Use `async def` for all route handlers and service methods.
 - **Versioned routing**: All routes are prefixed `/v1`.
 
+### Endpoints
+
+- `GET /v1/stocks/` — Query stock pricing history from PostgreSQL.
+- `POST /v1/stocks/sync` — On-demand historical price retrieval from VNDirect API, committed to `stock_prices` with conflict avoidance.
+
 ### Nx targets
+
 ```bash
-nx serve analytics          # uvicorn-hmr with hot-reload
-nx test analytics           # pytest with coverage
-nx lint analytics           # ruff check
-nx format analytics         # ruff format
-nx build analytics          # build dist package
-nx debug analytics          # run debug.py
-nx run analytics:add        # add a Python dependency
-nx run analytics:remove     # remove a Python dependency
-nx run analytics:lock       # update uv.lock
-nx run analytics:sync       # sync virtualenv from lock file
+nx serve analyzer           # uvicorn-hmr with hot-reload
+nx test analyzer            # pytest with coverage
+nx lint analyzer            # ruff check
+nx format analyzer          # ruff format
+nx build analyzer           # build dist package
+nx debug analyzer           # run debug.py
+nx run analyzer:add         # add a Python dependency
+nx run analyzer:remove      # remove a Python dependency
+nx run analyzer:lock        # update uv.lock
+nx run analyzer:sync        # sync virtualenv from lock file
 ```
 
 ### Code style
+
 - Line length: 88 characters
 - Ruff rules: E, F, UP, B, SIM, I (pycodestyle, Pyflakes, pyupgrade, bugbear, simplify, isort)
-- All rules are auto-fixable via `nx format analytics`
+- All rules are auto-fixable via `nx format analyzer`
 
-### Testing
-- Tests live in `apps/analytics/tests/`
-- Coverage reports: `coverage/apps/analytics/`
-- HTML test reports: `reports/apps/analytics/unittests/`
-- Run single-pass (no watch): `nx test analytics`
+---
+
+## App: `ingestor` (apps/ingestor)
+
+### Stack
+
+- Python 3.14+, `aiokafka` (async Kafka consumer & producer)
+- `boto3` (S3-compatible client — MinIO, AWS S3, Cloudflare R2)
+- `pandas`, `pyarrow` (in-memory Parquet processing)
+- FastAPI (HTTP entry point for manual trigger and health check)
+- Package manager: `uv`
+- Ruff (linter + formatter)
+- pytest
+
+### Architecture
+
+Ports & Adapters under `app/`:
+
+```
+app/
+  ports/
+    event_consumer.py         # Abstract interface: poll() / publish()
+  adapters/
+    kafka_consumer.py         # aiokafka — default (self-hosted Kafka / MSK)
+    upstash_consumer.py       # HTTP REST — Upstash free tier alternative
+  handlers/
+    stock_sync.py             # Business logic: download parquet → merge → upload
+  api.py                      # FastAPI HTTP entry point (manual trigger + health)
+main.py                       # Event router + asyncio concurrency control
+```
+
+Key patterns:
+
+- **Transport abstraction**: All Kafka interaction goes through the `EventConsumer` port. Swap adapters via env var without touching handlers.
+- **Event router**: `main.py` dispatches messages to the correct handler by topic name.
+- **Bounded concurrency**: `asyncio.Semaphore(MAX_CONCURRENT_TASKS)` limits parallel processing; safe for I/O-bound Parquet workloads.
+- **HTTP entry point**: `api.py` exposes `/trigger/{symbol}` and `/health` — doubles as the FaaS invocation target when migrating to Lambda or Cloud Run.
+
+### Kafka topics
+
+| Topic               | Direction | Description                                                                                                      |
+| :------------------ | :-------- | :--------------------------------------------------------------------------------------------------------------- |
+| `stock-sync`        | Consume   | Sync command from platform: `{"symbol": "STB", "limit": 50}`                                                     |
+| `stock-sync-status` | Publish   | Result back to platform: `{"symbol", "status", "recordsInserted", "totalRecords", "durationMs", "errorMessage"}` |
+
+### Nx targets
+
+```bash
+nx serve ingestor           # Run event consumer loop
+nx test ingestor            # pytest
+nx lint ingestor            # ruff check
+nx format ingestor          # ruff format
+nx run ingestor:add         # add a Python dependency
+nx run ingestor:remove      # remove a Python dependency
+nx run ingestor:lock        # update uv.lock
+nx run ingestor:sync        # sync virtualenv from lock file
+```
 
 ---
 
 ## Infrastructure (docker-compose.yaml)
 
-| Service   | Image            | Port(s)       | Credentials                        |
-|-----------|------------------|---------------|------------------------------------|
-| postgres  | postgres:16      | 5432          | user: postgres / pass: postgres / db: omni |
-| minio     | quay.io/minio/minio | 9000, 9001 | user: minioadmin / pass: minioadmin |
-| pgadmin   | dpage/pgadmin4   | 5050          | email: admin@admin.com / pass: admin |
+| Service  | Image                | Port(s)    | Credentials                                     |
+| -------- | -------------------- | ---------- | ----------------------------------------------- |
+| postgres | postgres:16          | 5432       | user: postgres / pass: postgres / db: omni      |
+| minio    | quay.io/minio/minio  | 9000, 9001 | user: minioadmin / pass: minioadmin             |
+| pgadmin  | dpage/pgadmin4       | 5050       | email: admin@admin.com / pass: admin            |
+| kafka    | apache/kafka (KRaft) | 9092       | PLAINTEXT://kafka:29092 (no auth for local dev) |
 
 All services have health checks and use named Docker volumes for persistence.
+
+---
+
+## Deployment: Oracle Always Free (Default Target)
+
+The `docker-compose.yaml` runs as-is on an Oracle Always Free ARM VM (4 Ampere A1 cores, 24 GB RAM). No architecture changes are needed for deployment.
+
+```bash
+# On Oracle VM (Ubuntu 22.04 ARM)
+sudo apt update && sudo apt install -y docker.io docker-compose-plugin
+git clone --recursive <repository-url>
+cd omni
+docker compose up -d
+```
+
+### Cloud portability
+
+All external service endpoints are configured via environment variables. To migrate to AWS/GCP, only env vars change — no code changes required:
+
+| Component      | Oracle VM         | AWS          | GCP       |
+| :------------- | :---------------- | :----------- | :-------- |
+| Kafka          | Self-hosted KRaft | MSK          | Pub/Sub   |
+| Object Storage | MinIO             | S3           | GCS       |
+| PostgreSQL     | Self-hosted       | RDS          | Cloud SQL |
+| Compute        | Docker Compose    | ECS / Lambda | Cloud Run |
+
+S3 endpoint switching (no code change):
+
+```bash
+S3_ENDPOINT_URL=http://minio:9000                          # Oracle VM
+S3_ENDPOINT_URL=https://<id>.r2.cloudflarestorage.com     # Cloudflare R2
+# Unset entirely for AWS S3
+```
 
 ---
 
@@ -228,38 +334,46 @@ All services have health checks and use named Docker volumes for persistence.
 
 ## Common Workflows
 
-### Add a Python dependency to analytics
+### Add a Python dependency
+
 ```bash
-nx run analytics:add --name=<package>
-# example: nx run analytics:add --name="sqlalchemy[asyncio]>=2.0"
-# no need to run lock separately — uv updates uv.lock automatically on add
+nx run analyzer:add --name="sqlalchemy[asyncio]>=2.0"
+nx run ingestor:add --name="aiokafka>=0.11"
+# uv updates uv.lock automatically — no separate lock step needed
 ```
 
 ### Run all tests
+
 ```bash
 nx run-many -t test
 ```
 
 ### Run affected tests only (after changes)
+
 ```bash
 nx affected -t test
 ```
 
-### Lint and format analytics
+### Lint and format Python apps
+
 ```bash
-nx lint analytics
-nx format analytics
+nx lint analyzer && nx format analyzer
+nx lint ingestor && nx format ingestor
 ```
 
 ### Apply a new database migration
-Add a new file `database/migrations/V<N>__<description>.sql` following the existing naming convention. Flyway picks it up automatically on next app start.
+
+Add `database/migrations/V<N>__<description>.sql` following the existing naming convention. Flyway picks it up automatically on next platform startup.
 
 ---
 
 ## What NOT to do
 
-- Do not run `gradle`, `uvicorn`, `pytest`, or `uv` directly — always go through `nx`.
+- Do not run `gradle`, `uvicorn`, `pytest`, `uv`, or `kafka-*` CLI tools directly — always go through `nx`.
+- Do not use `npx` — use locally installed binaries via `nx` targets only.
 - Do not run `npm run dev` or any long-running watcher commands in the agent — tell the user to run them manually.
-- Do not commit secrets. The `docker-compose.yaml` credentials are for local dev only.
+- Do not commit secrets. All credentials in `docker-compose.yaml` are for local dev only.
 - Do not modify files inside `externals/vnstock-etl/` unless explicitly working on the ETL submodule.
 - Do not add shared libraries to `packages/` without first discussing the dependency graph impact with the user.
+- Do not import cloud-vendor SDKs (boto3 session with hardcoded regions, AWS-specific clients, etc.) directly in handler business logic — always go through the port interface.
+- Do not call Kafka broker directly from `handlers/` — always use the `EventConsumer` port.

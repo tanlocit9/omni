@@ -21,8 +21,12 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
     topics:
-      stock-sync: stock-sync
-      stock-sync-status: stock-sync-status
+      sync-job: sync-job
+
+app:
+  scheduler:
+    stock-sync:
+      cron: '0 0 1 * * *'
 
 logging:
   level:

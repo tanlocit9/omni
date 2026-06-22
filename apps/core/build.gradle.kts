@@ -3,6 +3,7 @@ plugins {
     id("org.springframework.boot") version "4.0.1"
     id("io.spring.dependency-management") version "1.1.7"
     id("dev.nx.gradle.project-graph") version ("0.1.12")
+    kotlin("jvm") version "2.0.21"
 }
 
 group = "com.omni"
@@ -33,6 +34,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
@@ -43,15 +45,12 @@ dependencies {
             property("springModulithVersion")
         }"
     )
-    // Source: https://mvnrepository.com/artifact/org.springframework.cloud/spring-cloud-function-context
-//    implementation("org.springframework.cloud:spring-cloud-function-context:5.0.0")
     // Third party
-    // Source: https://mvnrepository.com/artifact/net.coobird/thumbnailator
     implementation("io.minio:minio:8.6.0")
     implementation("net.coobird:thumbnailator:0.4.1")
-    implementation("org.springframework.boot:spring-boot-starter-kafka:4.0.0")
-    //    implementation("io.hypersistence:hypersistence-utils-hibernate-60:3.9.4")
 
+    implementation("org.springframework.boot:spring-boot-starter-kafka:4.0.0")
+    implementation("io.hypersistence:hypersistence-utils-hibernate-71:3.15.3")
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     runtimeOnly("org.postgresql:postgresql")

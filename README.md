@@ -25,41 +25,46 @@ omni/
 ```
 
 ### 1. Platform Core API (`apps/core`)
-*   **Tech Stack**: Java 21, Spring Boot 4.0.1, Spring Modulith, Spring Data JPA + Hibernate, PostgreSQL, Flyway, and MinIO client.
-*   **Role**: Serves as the central command orchestrator. It manages user accounts, portfolio tracking, screener alerts, and metadata synchronization.
-*   **Design Pattern**: Clean Ports & Adapters architecture. Storage providers are resolved dynamically at runtime using the `StorageProviderRegistry`.
-*   **Database Migrations**: Handles automated SQL-based database migrations via Flyway on service startup.
+
+- **Tech Stack**: Java 21, Spring Boot 4.0.1, Spring Modulith, Spring Data JPA + Hibernate, PostgreSQL, Flyway, MinIO client.
+- **Role**: Central command orchestrator. Manages user accounts, portfolio tracking, screener alerts, and metadata synchronization.
+- **Design Pattern**: Clean Ports & Adapters architecture. Storage providers are resolved dynamically at runtime using the `StorageProviderRegistry`.
+- **Database Migrations**: Automated SQL-based migrations via Flyway on service startup.
 
 ### 2. Stock Ingestor Service (`apps/ingestor`)
-*   **Tech Stack**: Python 3.14, `aiokafka` (async Kafka consumer & producer), `minio` (S3-compatible SDK), `pandas`, and `pyarrow`.
-*   **Role**: A stateless, highly-scalable consumer that subscribes to synchronization commands. It performs high-speed in-memory updates directly over the Parquet-based S3 data lake.
-*   **Ingestion Pipeline**:
-    1. Consumes event requests from the `stock-sync` topic.
-    2. Downloads the existing `.parquet` history from MinIO.
-    3. Fetches the latest incremental records using the internal generator.
-    4. Merges old and new records in-memory using Pandas and deduplicates by `date`.
-    5. Streams the updated history back to MinIO as a clean Parquet chunk.
-    6. Emits processing metrics back to the `stock-sync-status` topic.
+
+- **Tech Stack**: Python 3.14, `aiokafka` (async Kafka consumer), `boto3` (S3-compatible client), `pandas`, `pyarrow`, `FastAPI` (HTTP entry point).
+- **Role**: Async event-driven worker that subscribes to synchronization commands and performs high-speed in-memory updates over the Parquet-based S3 data lake.
+- **Design Pattern**: Ports & Adapters — Kafka client is abstracted behind `EventConsumer` interface, making the transport layer swappable without touching business logic.
+- **Ingestion Pipeline**:
+  1. Consumes event requests from the `stock-sync` topic.
+  2. Downloads the existing `.parquet` history from object storage.
+  3. Fetches the latest incremental records using the internal generator.
+  4. Merges old and new records in-memory using Pandas and deduplicates by `date`.
+  5. Streams the updated history back to object storage as a clean Parquet chunk.
+  6. Emits processing metrics back to the `stock-sync-status` topic.
+- **Concurrency**: Uses `asyncio.Semaphore` to process multiple messages concurrently (bounded by configurable `MAX_CONCURRENT_TASKS`), safe for I/O-bound workloads.
 
 ### 3. Stock Analyzer API (`apps/analyzer`)
-*   **Tech Stack**: Python 3.14, FastAPI, SQLAlchemy 2.0 (Async Engine), PostgreSQL, and a VNDirect API HTTP client.
-*   **Role**: Exposes analytical endpoints and on-demand DB-to-API synchronization.
-*   **Endpoints**:
-    *   `GET /v1/stocks/`: Queries current stock pricing history from PostgreSQL.
-    *   `POST /v1/stocks/sync`: Triggers on-demand historical prices retrieval from the VNDirect API and commits them directly to the `stock_prices` table in PostgreSQL with conflict avoidance.
+
+- **Tech Stack**: Python 3.14, FastAPI, SQLAlchemy 2.0 (Async Engine), PostgreSQL, VNDirect API HTTP client.
+- **Role**: Exposes analytical endpoints and on-demand DB-to-API synchronization.
+- **Endpoints**:
+  - `GET /v1/stocks/` — Queries current stock pricing history from PostgreSQL.
+  - `POST /v1/stocks/sync` — Triggers on-demand historical prices retrieval from the VNDirect API and commits them directly to the `stock_prices` table with conflict avoidance.
 
 ---
 
 ## 🔄 End-to-End Event-Driven Sync Pipeline
 
-To keep the database clean and workloads optimized, heavy file-based synchronization runs completely asynchronously over a bidirectional event loop:
+Heavy file-based synchronization runs completely asynchronously over a bidirectional event loop:
 
 ```
  ┌────────────────────────────────────────────────────────┐
  │                      platform (Java)                   │
  │                                                        │
- │  1. POST /api/stocks/sync?symbol=XYZ                    │
- │  2. Query `update_log` / `sync_config` -> Calc `limit`  │
+ │  1. POST /api/stocks/sync?symbol=XYZ                   │
+ │  2. Query `update_log` / `sync_config` -> Calc `limit` │
  │  3. Publish `stock-sync` command                       │
  └─────────────────────────┬──────────────────────────────┘
                            │
@@ -78,7 +83,7 @@ To keep the database clean and workloads optimized, heavy file-based synchroniza
  │  5. Publish `stock-sync-status` metrics                │
  └─────────────────────────┬──────────────────────────────┘
                            │
-                           │ Payload: {"symbol": "XYZ", "status": "success", "recordsInserted": 100, ...}
+                           │ Payload: {"symbol": "XYZ", "status": "success", ...}
                            ▼
                 [ Topic: stock-sync-status ]
                            │
@@ -94,17 +99,14 @@ To keep the database clean and workloads optimized, heavy file-based synchroniza
 
 ### Kafka Message Formats
 
-#### 1. Sync Request Topic (`stock-sync`)
-Published by the Java Platform to request historical synchronization:
+#### Sync Request Topic (`stock-sync`)
+
 ```json
-{
-  "symbol": "STB",
-  "limit": 50
-}
+{ "symbol": "STB", "limit": 50 }
 ```
 
-#### 2. Sync Status Topic (`stock-sync-status`)
-Emitted by the Python Ingestor upon finishing data updates:
+#### Sync Status Topic (`stock-sync-status`)
+
 ```json
 {
   "symbol": "STB",
@@ -118,30 +120,139 @@ Emitted by the Python Ingestor upon finishing data updates:
 
 ---
 
+## 🏗️ Ingestor: Ports & Adapters Design
+
+The `ingestor` abstracts its transport layer so business logic remains cloud-agnostic:
+
+```
+ingestor/
+├── ports/
+│   └── event_consumer.py      # Abstract interface: poll() / publish()
+├── adapters/
+│   ├── kafka_consumer.py      # aiokafka — used on self-hosted Kafka (default)
+│   └── upstash_consumer.py    # HTTP REST — used on Upstash free tier
+├── handlers/
+│   └── stock_sync.py          # Business logic — never imports transport directly
+└── main.py                    # Event router + concurrency control
+```
+
+**Event router pattern:**
+
+```python
+# main.py
+HANDLERS = {
+    "stock-sync": handle_stock_sync,
+}
+
+sem = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
+
+async def dispatch(msg):
+    async with sem:
+        handler = HANDLERS.get(msg["topic"])
+        if handler:
+            await handler(msg["value"])
+
+async def run():
+    while True:
+        messages = await consumer.poll()
+        if messages:
+            await asyncio.gather(
+                *[dispatch(msg) for msg in messages],
+                return_exceptions=True
+            )
+        else:
+            await asyncio.sleep(2)
+```
+
+**HTTP entry point** (for manual trigger and health check, doubles as serverless entry point when migrating to Cloud Run / Lambda):
+
+```python
+# api.py — runs alongside consumer loop
+@app.post("/trigger/{symbol}")
+async def manual_trigger(symbol: str):
+    await handle_stock_sync({"symbol": symbol, "limit": 100})
+    return {"status": "ok"}
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+```
+
+---
+
+## ☁️ Deployment: Oracle Always Free (Recommended)
+
+### Why Oracle Always Free VM
+
+Oracle provides **Always Free** ARM Compute (Ampere A1) — permanently free with no expiry:
+
+| Resource | Allocation           |
+| :------- | :------------------- |
+| CPU      | 4 Ampere A1 cores    |
+| RAM      | 24 GB                |
+| Storage  | 200 GB boot volume   |
+| Network  | 10 TB outbound/month |
+
+The `docker-compose.yaml` runs as-is on the Oracle VM — no architecture changes needed. Self-hosted Kafka (KRaft mode), MinIO, and PostgreSQL all run on the same instance, which is the closest environment to a real production setup while remaining at zero cost.
+
+### Deployment Setup
+
+```bash
+# On Oracle VM (Ubuntu 22.04 ARM)
+sudo apt update && sudo apt install -y docker.io docker-compose-plugin
+git clone --recursive <repository-url>
+cd omni
+docker compose up -d
+```
+
+### Cloud Portability (Migration Path)
+
+All external dependencies are configured via environment variables. Migrating to AWS, GCP, or any other provider requires only env var changes:
+
+| Component      | Oracle VM (Free)    | AWS          | GCP       |
+| :------------- | :------------------ | :----------- | :-------- |
+| Kafka          | Self-hosted (KRaft) | MSK          | Pub/Sub   |
+| Object Storage | MinIO               | S3           | GCS       |
+| PostgreSQL     | Self-hosted         | RDS          | Cloud SQL |
+| Compute        | Docker Compose      | ECS / Lambda | Cloud Run |
+
+`boto3` S3 client in `ingestor` and `analyzer` requires only `endpoint_url` change when switching between MinIO, AWS S3, or Cloudflare R2:
+
+```bash
+S3_ENDPOINT_URL=http://minio:9000          # Oracle VM (MinIO)
+S3_ENDPOINT_URL=https://<id>.r2.cloudflarestorage.com  # Cloudflare R2
+# Unset for AWS S3 (boto3 default)
+```
+
+When migrating to FaaS (Lambda / Cloud Run), the HTTP entry point in `ingestor/api.py` becomes the new invocation target — business logic in `handlers/` remains unchanged.
+
+---
+
 ## ⚙️ Key Rules & Cloud-Agnostic Guardrails
 
-*   **S3 Abstraction**: All file-based operations must utilize standard S3 configurations (e.g., using `boto3` or `minio` in Python). Swapping the storage tier from MinIO to AWS S3, Cloudflare R2, or Google Cloud Storage is done solely via environmental variables.
-*   **Infrastructure Portability**: Services must remain completely decoupled from specific cloud vendor runtimes (e.g., no AWS Lambda-specific zip-packing in code). Microservices must remain standard containerized OCI images.
-*   **12-Factor Settings**: All API credentials, database strings, broker hosts, and object store buckets must be fully configurable through runtime Environment Variables.
+- **S3 Abstraction**: All file-based operations use standard S3 configuration via `boto3`. Storage tier is swapped solely via `S3_ENDPOINT_URL` environment variable.
+- **Infrastructure Portability**: Services are standard containerized OCI images with no cloud-vendor runtime dependencies.
+- **12-Factor Settings**: All credentials, connection strings, broker hosts, and bucket names are configured through runtime environment variables.
+- **Transport Abstraction**: Kafka client is isolated behind the `EventConsumer` port — swap `kafka_consumer.py` for `upstash_consumer.py` (or any future adapter) without touching handlers.
 
 ---
 
 ## 🛠️ Prerequisites
 
-*   **Node.js (v18+ or v20+) & npm**: Workspace orchestration.
-*   **Java JDK 21**: Temurin JVM recommended.
-*   **Python 3.14+**: Application runtime.
-*   **`uv`**: Ultra-fast Python package resolver.
-    *   *macOS/Linux:* `curl -LsSf https://astral.sh/uv/install.sh | sh`
-    *   *Windows:* `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
-*   **Docker & Docker Compose**: Local database, Kafka, and storage.
+- **Node.js (v18+ or v20+) & npm**: Workspace orchestration.
+- **Java JDK 21**: Temurin JVM recommended.
+- **Python 3.14+**: Application runtime.
+- **`uv`**: Ultra-fast Python package resolver.
+  - _macOS/Linux:_ `curl -LsSf https://astral.sh/uv/install.sh | sh`
+  - _Windows:_ `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+- **Docker & Docker Compose**: Local database, Kafka, and storage.
 
 ---
 
-## 🚀 Getting Started & Initialization
+## 🚀 Getting Started
 
 ### 1. Initialize Workspace Infrastructure
-Clone this monorepo along with its submodules, install workspace dependencies, and initialize the background services (PostgreSQL, Kafka, MinIO, pgAdmin):
+
 ```bash
 git clone --recursive <repository-url>
 cd omni
@@ -150,12 +261,9 @@ nx run omni:init
 ```
 
 ### 2. Synchronize Python Environments
-Set up virtual environments and pull lockfile dependencies for both Python applications:
-```bash
-# Sync analyzer
-nx run analyzer:sync
 
-# Sync ingestor
+```bash
+nx run analyzer:sync
 nx run ingestor:sync
 ```
 
@@ -163,16 +271,18 @@ nx run ingestor:sync
 
 ## 💻 Running the Monorepo
 
-### Running Concurrently (Development Mode)
-To boot all three core components (Java Platform API, FastAPI Analyzer API, and the event-driven Ingestor Service) concurrently with hot-reload enabled, simply run:
+### Development Mode (all services concurrently)
+
 ```bash
 nx run omni:dev
 ```
-Logs are automatically streamed together and labeled with prefixes `[JAVA]`, `[ANALYZER]`, and `[INGESTOR]`.
+
+Logs are streamed with prefixes `[JAVA]`, `[ANALYZER]`, and `[INGESTOR]`.
 
 ### Individual Application Tasks
 
-#### ☕ Platform API (`apps/core`)
+#### Platform API (`apps/core`)
+
 ```bash
 nx serve platform                          # Run Boot app (dev profile)
 nx serve platform --configuration=prod     # Run Boot app (prod profile)
@@ -180,7 +290,8 @@ nx build platform                          # Build executable JAR
 nx test platform                           # Run JUnit 5 tests
 ```
 
-#### 📥 Ingestor Service (`apps/ingestor`)
+#### Ingestor Service (`apps/ingestor`)
+
 ```bash
 nx serve ingestor                          # Run event consumer loop
 nx test ingestor                           # Run unit tests
@@ -188,7 +299,8 @@ nx lint ingestor                           # Run Ruff lint check
 nx format ingestor                         # Auto-format Python code
 ```
 
-#### 🐍 Analyzer API (`apps/analyzer`)
+#### Analyzer API (`apps/analyzer`)
+
 ```bash
 nx serve analyzer                          # Run FastAPI via uvicorn-hmr
 nx test analyzer                           # Run pytest suite
@@ -201,37 +313,35 @@ nx debug analyzer                          # Run local debugging
 
 ## 🗄️ Local Infrastructure & Credentials
 
-Managed by Docker Compose under standard local ports:
+Managed by Docker Compose:
 
-| Service | Local Port | Access Endpoint | Credentials |
-| :--- | :--- | :--- | :--- |
-| **PostgreSQL 16** | `5432` | `jdbc:postgresql://localhost:5432/omni` | `postgres` / `postgres` (DB: `omni`) |
+| Service           | Local Port      | Access Endpoint                                | Credentials                                        |
+| :---------------- | :-------------- | :--------------------------------------------- | :------------------------------------------------- |
+| **PostgreSQL 16** | `5432`          | `jdbc:postgresql://localhost:5432/omni`        | `postgres` / `postgres` (DB: `omni`)               |
 | **MinIO Storage** | `9000` / `9001` | [http://localhost:9001](http://localhost:9001) | `minioadmin` / `minioadmin` (Bucket: `stock-data`) |
-| **pgAdmin 4** | `5050` | [http://localhost:5050](http://localhost:5050) | `admin@admin.com` / `admin` |
-| **Apache Kafka** | `9092` | `localhost:9092` | Listener: `PLAINTEXT://kafka:29092` |
+| **pgAdmin 4**     | `5050`          | [http://localhost:5050](http://localhost:5050) | `admin@admin.com` / `admin`                        |
+| **Apache Kafka**  | `9092`          | `localhost:9092`                               | Listener: `PLAINTEXT://kafka:29092`                |
 
 ---
 
 ## 📦 Python Dependency Management
 
-Dependency management in `analyzer` and `ingestor` goes through standard Nx commands utilizing **`uv`**:
-
 ```bash
-# Add a Python package to the analyzer (e.g. numpy)
+# Add a package
 nx run analyzer:add --name="numpy>=1.26.0"
 
-# Remove a Python package from the ingestor
+# Remove a package
 nx run ingestor:remove --name="requests"
 
-# Sync packages in your virtualenv
+# Sync virtualenv
 nx run <project-name>:sync
 
 # Update lockfile
 nx run <project-name>:lock
 ```
-*(Substitute `<project-name>` with either `analyzer` or `ingestor` as needed).*
 
 ---
 
 ## 🗃️ Database Migrations (Flyway)
-The relational database schemas (covering tables like `users`, `stocks`, `stock_prices`, `sync_config`, and `update_log`) are managed inside `database/migrations/V*__*.sql`. Migrations are auto-applied on Platform API startup. To add new tables, add a standard migration script under `database/migrations/` and boot the server.
+
+Schemas (`users`, `stocks`, `stock_prices`, `sync_config`, `update_log`) are managed in `database/migrations/V*__*.sql` and auto-applied on Platform API startup. To add new tables, add a migration script and boot the server.

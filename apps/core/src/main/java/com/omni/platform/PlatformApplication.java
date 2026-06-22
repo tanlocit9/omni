@@ -2,14 +2,18 @@ package com.omni.platform;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.modulith.Modulith;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableAsync
+@EnableScheduling
 @Modulith(
-		sharedModules = {"core"},
+		sharedModules = {"shared"},
 		additionalPackages = {"modules"}
 )
+@EntityScan(basePackages = {"com.omni.platform.modules"})
 @SpringBootApplication(scanBasePackages = "com.omni.platform")
 public class PlatformApplication {
 

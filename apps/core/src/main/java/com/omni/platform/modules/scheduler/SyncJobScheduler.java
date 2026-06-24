@@ -22,7 +22,7 @@ public class SyncJobScheduler {
     private final SyncJobRepository syncJobRepository;
     private final SyncSymbolsJobProducer syncSymbolsJobProducer;
 
-    @Scheduled(fixedDelayString = "${scheduler.scan.interval-ms:60000}")
+    @Scheduled(fixedDelayString = "${scheduler.scan.interval-ms:30000}")
     @Transactional
     public void scan() {
         Instant now = Instant.now();

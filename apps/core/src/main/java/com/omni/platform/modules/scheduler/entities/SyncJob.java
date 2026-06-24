@@ -37,6 +37,7 @@ public class SyncJob extends AuditableEntity {
     @Column(name = "fallback_sources", columnDefinition = "jsonb")
     private List<DataSource> fallbackSources = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "job_type", nullable = false)
     private JobType jobType;
 

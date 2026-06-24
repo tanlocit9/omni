@@ -16,7 +16,10 @@ public class KafkaPublisher {
     private final JsonMapper jsonMapper;
 
     public void publish(String topic, String key, Object message) {
-        kafkaTemplate.send(topic, key, jsonMapper.writeValueAsString(message))
+        String payload = jsonMapper.writeValueAsString(message);
+        log.info("Publishing to topic [{}] key [{}] payload: {}", topic, key, payload);
+
+        kafkaTemplate.send(topic, key, payload)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish job [{}]: {}", key, ex.getMessage());

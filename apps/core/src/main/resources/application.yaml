@@ -21,7 +21,7 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
     topics:
-      sync-job: sync-job
+      sync-symbols-job: sync-symbols-job
 
 app:
   scheduler:

@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -23,7 +24,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
 
     private final SyncJobSymbolRepository jobSymbolRepository;
 
-    @Value("${spring.kafka.topics.sync-job}")
+    @Value("${spring.kafka.topics.sync-symbols-job}")
     private String topic;
 
     public SyncSymbolsJobProducer(
@@ -56,8 +57,9 @@ public class SyncSymbolsJobProducer extends JobProducer {
                                 job.getId(),
                                 log.getId(),
                                 symbol.getSymbol().getCode(),
-                                symbol.getLastOffset(),
-                                timestamps,
+                                symbol.getLastOffset() != null ? symbol.getLastOffset().truncatedTo(ChronoUnit.SECONDS)
+                                        : null,
+                                timestamps.truncatedTo(ChronoUnit.SECONDS),
                                 job.getConfigJson())))
                 .toList();
     }

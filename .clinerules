@@ -1,0 +1,151 @@
+# Data Storage Convention (Market Data)
+
+## General Principles
+
+- Organize data by business domain, not by sector or use case.
+- Sector, industry, exchange, and company information must be stored as metadata, not encoded into folder structures.
+- Folder names use lowercase and kebab-case.
+- File names use lowercase and kebab-case, except ticker symbols which always preserve their official uppercase format.
+- Store datasets in Apache Parquet unless another format is explicitly required.
+
+## Directory Structure
+
+```text
+stock-data/
+├── metadata/
+│   ├── symbols.parquet
+│   ├── companies.parquet
+│   ├── exchanges.parquet
+│   ├── sectors.parquet
+│   ├── industries.parquet
+│   └── trading-calendar.parquet
+│
+├── eod/
+│   ├── hose/
+│   │   ├── HPG.parquet
+│   │   ├── FPT.parquet
+│   │   └── ...
+│   ├── hnx/
+│   ├── upcom/
+│   └── index/
+│
+├── intraday/
+├── financials/
+├── fundamentals/
+├── corporate-actions/
+├── ownership/
+├── news/
+├── macro/
+├── derivatives/
+├── warrants/
+├── etf/
+├── screener/
+├── cache/
+└── temp/
+```
+
+## EOD Storage
+
+Each ticker owns one Parquet file containing its complete historical daily data.
+
+Example:
+
+```text
+stock-data/eod/hose/HPG.parquet
+stock-data/eod/hnx/SHS.parquet
+```
+
+Schema example:
+
+```
+date
+open
+high
+low
+close
+volume
+value
+adjusted_close
+...
+```
+
+## Financial Data
+
+Financial statements are grouped by ticker.
+
+```text
+financials/
+    HPG/
+        income-statement.parquet
+        balance-sheet.parquet
+        cash-flow.parquet
+        ratios.parquet
+```
+
+## Metadata
+
+Metadata should contain all lookup information.
+
+Examples:
+
+- symbol
+- exchange
+- company
+- sector
+- industry
+- isin
+- listing_date
+- status
+
+Application code should always resolve metadata first before loading market data.
+
+## Naming Rules
+
+Folders
+
+- lowercase
+- kebab-case
+
+Examples:
+
+```
+corporate-actions
+trading-calendar
+major-shareholder
+```
+
+Files
+
+- lowercase
+- kebab-case
+
+Examples:
+
+```
+income-statement.parquet
+balance-sheet.parquet
+cash-flow.parquet
+symbols.parquet
+```
+
+Ticker files
+
+- Keep official ticker casing.
+
+Examples:
+
+```
+HPG.parquet
+FPT.parquet
+VCI.parquet
+VNINDEX.parquet
+```
+
+## Design Philosophy
+
+- Organize by business domain.
+- Never organize market data by sector.
+- Metadata drives relationships.
+- One ticker = one data file.
+- Prefer immutable historical datasets.
+- Keep directory structures stable as new data sources are added.

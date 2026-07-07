@@ -21,12 +21,18 @@ spring:
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
     topics:
-      sync-symbols-job: sync-symbols-job
+      topic-sync-stock-prices: topic-sync-stock-prices
+      topic-sync-symbols: topic-sync-symbols
+      topic-upsert-symbols: topic-upsert-symbols
+      sync-job-status: sync-job-status
 
 app:
   scheduler:
-    stock-sync:
-      cron: '0 0 1 * * *'
+    global:
+      fixedDelayString: '30000'
+  seed:
+    job-definitions:
+      enabled: true
 
 logging:
   level:

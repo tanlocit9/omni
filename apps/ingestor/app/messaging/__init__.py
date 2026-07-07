@@ -1,0 +1,1 @@
+"""Messaging helpers and Kafka consumer orchestration."""

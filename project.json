@@ -13,9 +13,7 @@
     },
     "dev": {
       "executor": "nx:run-commands",
-      "dependsOn": [
-        "init"
-      ],
+      "dependsOn": ["init"],
       "options": {
         "command": "concurrently --names \"JAVA,ANALYZER,INGESTOR\" --prefix \"[{name}]\" --prefix-colors \"blue,green,magenta\" \"nx serve platform --configuration=dev\" \"nx serve analyzer\" \"nx serve ingestor\""
       }

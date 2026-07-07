@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.114" timestamp="2026-07-06T21:34:07.555817+07:00" hostname="Sod-PC"><testcase classname="tests.test_kafka_consumer" name="test_kafka_consumer_exports_consume_loop" time="0.009" /></testsuite></testsuites>

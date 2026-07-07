@@ -5,25 +5,15 @@
     "libsDir": "libs"
   },
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
-    "production": [
-      "default",
-      "!{projectRoot}/src/test/**/*"
-    ],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": ["default", "!{projectRoot}/src/test/**/*"],
     "sharedGlobals": []
   },
   "sync": {
-    "globalGenerators": [
-      "@nxlv/python:pkg-sync"
-    ],
+    "globalGenerators": ["@nxlv/python:pkg-sync"],
     "applyChanges": true
   },
-  "nxIgnorePatterns": [
-    "out"
-  ],
+  "nxIgnorePatterns": ["out"],
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
@@ -46,9 +36,7 @@
         "classesTargetName": "classes",
         "buildTargetName": "build"
       },
-      "exclude": [
-        "apps\\core\\gradlew.bat"
-      ]
+      "exclude": ["apps\\core\\gradlew.bat"]
     },
     {
       "plugin": "@nxlv/python",

@@ -14,16 +14,12 @@
     },
     "deploy": {
       "executor": "@nxlv/python:sls-deploy",
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "options": {}
     },
     "package": {
       "executor": "@nxlv/python:sls-package",
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "options": {}
     },
     "lock": {
@@ -50,9 +46,7 @@
     },
     "build": {
       "executor": "@nxlv/python:build",
-      "outputs": [
-        "{projectRoot}/dist"
-      ],
+      "outputs": ["{projectRoot}/dist"],
       "options": {
         "outputPath": "{projectRoot}/dist",
         "publish": false,
@@ -65,10 +59,7 @@
       "executor": "@nxlv/python:ruff-check",
       "outputs": [],
       "options": {
-        "lintFilePatterns": [
-          "app",
-          "tests"
-        ]
+        "lintFilePatterns": ["app", "tests"]
       },
       "cache": true
     },
@@ -76,10 +67,7 @@
       "executor": "@nxlv/python:ruff-format",
       "outputs": [],
       "options": {
-        "filePatterns": [
-          "app",
-          "tests"
-        ]
+        "filePatterns": ["app", "tests"]
       },
       "cache": true
     },

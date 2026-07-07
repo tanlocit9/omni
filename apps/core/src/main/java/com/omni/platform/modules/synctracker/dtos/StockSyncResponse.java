@@ -1,8 +1,10 @@
 package com.omni.platform.modules.synctracker.dtos;
 
 /**
- * DTO representing the response from the Python ingestor after processing a sync request.
- * This will be serialized to JSON and sent to the {@code stock-sync-status} Kafka topic.
+ * DTO representing the response from the Python ingestor after processing a
+ * sync request.
+ * This will be serialized to JSON and sent to the {@code stock-sync-status}
+ * Kafka topic.
  */
 public class StockSyncResponse {
 

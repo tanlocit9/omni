@@ -5,11 +5,11 @@ import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.omni.platform.modules.scheduler.entities.SyncJob;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.producers.SyncStockPriceJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncSymbolsJobProducer;
-import com.omni.platform.modules.scheduler.repositories.SyncJobRepository;
+import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,14 +19,14 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SyncJobScheduler {
 
-    private final SyncJobRepository syncJobRepository;
-    private final SyncSymbolsJobProducer syncSymbolsJobProducer;
+    private final JobDefinitionRepository jobDefinitionRepository;
+    private final SyncStockPriceJobProducer syncStockPriceProducer;
+    private final SyncSymbolsJobProducer symbolsJobProducer;
 
-    @Scheduled(fixedDelayString = "${scheduler.scan.interval-ms:30000}")
-    @Transactional
+    @Scheduled(fixedDelayString = "${app.scheduler.global.fixedDelayString:30000}")
     public void scan() {
         Instant now = Instant.now();
-        List<SyncJob> dueJobs = syncJobRepository.findJobsDue(now);
+        List<JobDefinition> dueJobs = jobDefinitionRepository.findJobsDue(now);
 
         if (dueJobs.isEmpty()) {
             log.debug("No due jobs at {}", now);
@@ -35,10 +35,11 @@ public class SyncJobScheduler {
 
         log.info("Found {} due job(s)", dueJobs.size());
 
-        for (SyncJob job : dueJobs) {
+        for (JobDefinition job : dueJobs) {
             try {
                 switch (job.getJobType()) {
-                    case STOCK_PRICE -> syncSymbolsJobProducer.publish(job, now);
+                    case SYNC_STOCK_PRICE -> syncStockPriceProducer.publish(job, now);
+                    case SYNC_SYMBOLS -> symbolsJobProducer.publish(job, now);
                     default -> {
                     }
                 }

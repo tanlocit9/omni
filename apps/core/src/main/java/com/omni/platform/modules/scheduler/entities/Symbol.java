@@ -1,8 +1,5 @@
 package com.omni.platform.modules.scheduler.entities;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -10,8 +7,6 @@ import com.omni.platform.shared.entities.BaseEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
@@ -35,7 +30,4 @@ public class Symbol extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "meta_json", columnDefinition = "jsonb")
     private java.util.Map<String, Object> metaJson;
-
-    @OneToMany(mappedBy = "symbol", fetch = FetchType.LAZY)
-    private List<SyncJobSymbol> jobSymbols = new ArrayList<>();
 }

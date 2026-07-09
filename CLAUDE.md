@@ -12,3 +12,18 @@
 - For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
 
 <!-- nx configuration end-->
+
+---
+
+# Codebase Architecture & Guidelines
+
+For detailed codebase architecture, workspace structure, application specifications, and development guidelines, refer to **AGENTS.md**.
+
+That file contains comprehensive information about:
+- Workspace overview and structure
+- Application-specific tech stacks and architectures
+- Infrastructure configuration
+- Deployment targets and cloud portability
+- S3 data lake path configuration
+- Common workflows
+- Development best practices

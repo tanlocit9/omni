@@ -326,6 +326,64 @@ S3_ENDPOINT_URL=https://<id>.r2.cloudflarestorage.com     # Cloudflare R2
 
 ---
 
+## S3 Data Lake Path Configuration
+
+The stock-data bucket follows a centralized, configuration-driven path structure defined in `configs/shared/s3-paths.yaml`.
+
+### Path Structure
+
+```
+stock-data/
+├── symbols/
+│   ├── hose.parquet
+│   ├── hnx.parquet
+│   └── upcom.parquet
+└── eod/
+    ├── hose/
+    │   ├── hpg.parquet
+    │   ├── fpt.parquet
+    │   └── ...
+    ├── hnx/
+    └── upcom/
+```
+
+### Path Builder Functions (Python)
+
+The ingestor's `Settings` class provides path builder methods:
+
+```python
+from app.settings import settings
+
+# Symbol metadata path
+settings.get_symbols_path("HOSE")  # → symbols/hose.parquet
+
+# EOD price data path
+settings.get_eod_path("HOSE", "HPG")  # → eod/hose/hpg.parquet
+```
+
+### Key Rules
+
+1. **Lowercase normalization**: Exchange names and ticker codes are automatically converted to lowercase in paths
+   - Exchange: `HOSE` → `hose`, `HNX` → `hnx`, `UPCOM` → `upcom`
+   - Ticker: `HPG` → `hpg`, `FPT` → `fpt`
+
+2. **No bucket/objectName in Kafka messages**: The Java producer (`SyncStockPriceJobProducer`) does not send bucket or objectName metadata. The ingestor derives paths from the symbolKey using path builders.
+
+3. **Pattern-based configuration**: Paths are defined using `{variable}` placeholders in YAML:
+   ```yaml
+   eod:
+     base: "eod/"
+     pattern: "{exchange}/{code}.parquet"
+   ```
+
+4. **No temporal partitioning**: Files are merged/overwritten in place. No `dt=` or `run_id=` folders.
+
+5. **Future expansion ready**: Configuration includes placeholder paths for financials, corporate-actions, ownership, news, etc.
+
+**See:** `docs/S3_PATH_CONFIGURATION.md` for complete documentation.
+
+---
+
 ## External Submodule
 
 `externals/vnstock-etl` is a Git submodule. After cloning, run `nx run omni:init` to initialize it. Do not edit files inside `externals/` directly unless working specifically on the ETL pipeline.

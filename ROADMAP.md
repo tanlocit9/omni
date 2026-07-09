@@ -133,6 +133,136 @@ Prompted by competitor analysis (Stockbase-class products: AI report summaries, 
 - [ ] **Extended visualization set**: revenue waterfall, margin trend, cashflow trend, debt structure, share dilution, insider ownership, DuPont ROE decomposition.
 - [ ] **Explicitly deprioritized**: ML-based automatic valuation/forecasting (revenue/profit prediction via Prophet/XGBoost/LSTM-style models). Revisit only after the scenario/DCF tooling above is solid and if there's clear demand — not before.
 
+## Phase 7 — Developer Experience & Web Frontend
+
+Inspired by the Truyen reference architecture — simplify development workflow while maintaining Omni's sophisticated microservices design. This phase can proceed in parallel with Phases 0–6 since it's infrastructure-focused.
+
+**Prerequisite**: None (can start immediately).
+
+### 7.1 Docker Compose Integration
+
+- [ ] **Create Dockerfiles** for each application:
+  - `apps/core/Dockerfile` — Multi-stage build: Gradle build → slim JRE runtime
+  - `apps/analyzer/Dockerfile` — Python 3.14 + uv, FastAPI with uvicorn
+  - `apps/ingestor/Dockerfile` — Python 3.14 + uv, async worker
+  - `apps/web/Dockerfile` — Node.js + Nuxt.js (Phase 7.2)
+  
+- [ ] **Enhance `docker-compose.yaml`** to include all services:
+  ```yaml
+  services:
+    # Existing: postgres, kafka, minio, pgadmin
+    
+    platform:
+      build: ./apps/core
+      depends_on: [postgres, kafka, minio]
+      environment:
+        - SPRING_PROFILES_ACTIVE=dev
+        - DATABASE_URL=jdbc:postgresql://postgres:5432/omni
+      ports: ["8080:8080"]
+      volumes: ["./apps/core:/app"]
+    
+    analyzer:
+      build: ./apps/analyzer
+      depends_on: [postgres]
+      ports: ["8000:8000"]
+      volumes: ["./apps/analyzer:/app"]
+    
+    ingestor:
+      build: ./apps/ingestor
+      depends_on: [kafka, minio]
+      volumes: ["./apps/ingestor:/app"]
+    
+    web:
+      build: ./apps/web
+      depends_on: [platform]
+      ports: ["3000:3000"]
+      volumes: ["./apps/web:/app"]
+  ```
+
+- [ ] **Benefits**:
+  - Single command: `docker compose up` starts entire system (like Truyen)
+  - Java platform still controls workflow via Kafka (no scheduler service needed)
+  - Volume mounts enable hot-reload during development
+  - Production-ready: same compose file works on Oracle Always Free VM
+
+### 7.2 Web Frontend (Nuxt.js)
+
+- [ ] **Scaffold `apps/web/`** as a new Nx project:
+  ```
+  apps/web/                    # Nuxt.js frontend
+    ├── pages/
+    │   ├── index.vue          # Dashboard/stock screener
+    │   ├── stocks/
+    │   │   └── [symbol].vue   # Stock detail page (charts, financials)
+    │   └── admin/
+    │       └── sync.vue       # Trigger sync jobs (calls Java platform API)
+    ├── components/
+    │   ├── StockChart.vue     # TradingView-style price charts
+    │   ├── PriceTable.vue     # Historical prices table
+    │   ├── AnalysisCard.vue   # Technical analysis display (Phase 1)
+    │   └── SyncStatus.vue     # Real-time job status from Kafka
+    ├── composables/
+    │   ├── useStockApi.ts     # API client for Java platform (port 8080)
+    │   └── useAnalyzerApi.ts  # API client for analyzer (port 8000)
+    └── nuxt.config.ts
+  ```
+
+- [ ] **Integration points**:
+  - Calls Java platform REST API (`http://platform:8080`) to trigger sync jobs, manage watchlists
+  - Queries analyzer API (`http://analyzer:8000`) for stock data and analysis results
+  - Real-time updates via SSE/WebSocket from platform for job status (optional future enhancement)
+
+- [ ] **Key pages** (incremental rollout):
+  1. **Dashboard** — Market overview, top movers, recent syncs
+  2. **Stock detail** — Price chart, technical analysis (Phase 1), patterns (Phase 1), fundamentals (Phase 6)
+  3. **Screener** — Filter stocks by ranking scores (Phase 3)
+  4. **Admin/Sync** — Manual sync trigger, job history, system health
+
+### 7.3 Development Workflow
+
+- [ ] **Add Nx targets** to `project.json` (root):
+  ```json
+  {
+    "docker-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose up --build"
+      }
+    },
+    "docker-down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose down"
+      }
+    },
+    "docker-logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose logs -f {args.service}"
+      }
+    }
+  }
+  ```
+
+- [ ] **Update documentation**:
+  - `README.md` — Add "Quick Start with Docker" section
+  - `AGENTS.md` — Document new Docker workflow and web app structure
+  - Keep existing `nx run omni:dev` for local development without Docker
+
+### 7.4 Production Deployment
+
+- [ ] **Oracle Always Free VM setup** (current default target):
+  - Same `docker-compose.yaml` runs on ARM VM (4 cores, 24GB RAM)
+  - No code changes needed — just env var updates for production endpoints
+  
+- [ ] **Cloud portability** (future):
+  - AWS: ECS for containers, MSK for Kafka, S3 for storage
+  - GCP: Cloud Run, Pub/Sub, GCS
+  - Cloudflare: R2 for storage (same S3 API)
+  - Only env vars change — S3 endpoint, Kafka bootstrap servers, etc.
+
+---
+
 ## Competitor Watchlist
 
 Maintain a running list, reviewed whenever a new competing product surfaces. For each entry, capture:
@@ -144,6 +274,7 @@ Maintain a running list, reviewed whenever a new competing product surfaces. For
 **Tracked so far:**
 
 - **Stockbase** — AI report summaries, sector valuation comparison, beta ML-based auto-valuation (self-disclosed as unstable), RAG chatbot over annual reports. Product-focused, not platform-focused; no visible ETL/data-platform layer. See Phase 6 above for Omni's response.
+- **Truyen** (reference architecture) — Unified Docker Compose, Nuxt.js frontend, simple polling worker. Good developer experience, but lacks event-driven architecture and data lake design. Omni adopts the Docker/frontend patterns while keeping Kafka + MinIO sophistication. See Phase 7 above.
 - FireAnt, Simplize, CafeF, Vietstock, InvestingPro, FinChat — not yet analyzed; add entries as reviewed.
 
 ---
@@ -151,6 +282,7 @@ Maintain a running list, reviewed whenever a new competing product surfaces. For
 ## Explicitly not ported
 
 - The legacy `worker.py` loop — fully superseded by the ingestor's Kafka + shared-package pipeline.
+- Truyen's polling worker pattern — replaced by Kafka event-driven architecture (Java platform controls flow).
 - `backtest_service.py` — rebuild on top of the new indicator/pattern primitives once Phase 1 is solid, rather than porting the old standalone version.
 
 ---
@@ -162,3 +294,4 @@ Maintain a running list, reviewed whenever a new competing product surfaces. For
 3. **Analysis/ranking endpoint strategy**: Compute on-demand from MinIO (low latency limit, fresh data) or serve cached Postgres result (fast, may go stale)? Decide per-endpoint.
 4. **MinIO data retention policy**: If Parquet schemas evolve (e.g., new indicator added later), do old files need backfill or migration tooling, or is a clean slate acceptable?
 5. **Phase 6 scope**: Is "Financial report intelligence" (DCF tools, embeddings, chatbot) actually on the roadmap, or is it exploratory? Confirm before committing resources.
+6. **Phase 7 frontend framework**: Nuxt.js (SSR, Vue ecosystem) or Next.js (RSC, React ecosystem)? Both support the required features; choose based on team preference.

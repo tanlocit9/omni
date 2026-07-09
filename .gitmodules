@@ -1,3 +1,6 @@
 [submodule "externals/vnstock-etl"]
 	path = externals/vnstock-etl
 	url = https://github.com/tanlocit9/baocaotaichinh.git
+[submodule "externals/truyen"]
+	path = externals/truyen
+	url = https://gitlab.com/linhnguyenphong991/truyen.git

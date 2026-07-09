@@ -239,6 +239,78 @@ When migrating to FaaS (Lambda / Cloud Run), the HTTP entry point in `ingestor/a
 
 ---
 
+## 📁 S3 Data Lake Structure
+
+The stock-data bucket follows a standardized, lowercase path structure defined in `configs/shared/s3-paths.yaml`. All path construction is centralized and configuration-driven.
+
+### Current Implementation
+
+```
+stock-data/
+├── symbols/
+│   ├── hose.parquet
+│   ├── hnx.parquet
+│   └── upcom.parquet
+└── eod/
+    ├── hose/
+    │   ├── hpg.parquet
+    │   ├── fpt.parquet
+    │   └── ...
+    ├── hnx/
+    └── upcom/
+```
+
+### Path Naming Conventions
+
+1. **Lowercase normalization**: Exchange names and ticker codes are automatically converted to lowercase in paths (`HOSE` → `hose`, `HPG` → `hpg`)
+2. **Folder names**: Use kebab-case (`corporate-actions/`, `income-statement.parquet`)
+3. **No temporal partitioning**: Files are overwritten or merged in place (no `dt=` or `run_id=` folders)
+4. **One ticker = one file**: Each ticker has a single Parquet file per data type
+5. **Metadata separation**: Sector, industry, and classification metadata stored in separate metadata files, not in paths
+
+### Path Building in Code
+
+**Python (Ingestor):**
+```python
+from app.settings import settings
+
+# Symbol metadata path
+path = settings.get_symbols_path("HOSE")  # Returns: symbols/hose.parquet
+
+# EOD price data path  
+path = settings.get_eod_path("HOSE", "HPG")  # Returns: eod/hose/hpg.parquet
+```
+
+**Configuration File:** `configs/shared/s3-paths.yaml`
+
+```yaml
+stock-data:
+  bucket: stock-data
+  paths:
+    symbols:
+      base: "symbols/"
+      pattern: "{exchange}.parquet"
+    eod:
+      base: "eod/"
+      pattern: "{exchange}/{code}.parquet"
+```
+
+### Future Expansion Paths
+
+The configuration file includes documented placeholders for upcoming features:
+- `intraday/` — Intraday price data
+- `financials/` — Financial statements (income statement, balance sheet, cash flow)
+- `fundamentals/` — Financial ratios and metrics
+- `corporate-actions/` — Corporate events and announcements
+- `ownership/` — Shareholder data
+- `news/` — News articles
+- `macro/` — Macroeconomic indicators
+- `derivatives/`, `warrants/`, `etf/` — Alternative instruments
+
+**See:** `docs/S3_PATH_CONFIGURATION.md` for detailed documentation.
+
+---
+
 ## 🛠️ Prerequisites
 
 - **Node.js (v18+ or v20+) & npm**: Workspace orchestration via Nx 22.5.1.

@@ -33,12 +33,6 @@ public class SyncStockPriceJobProducer extends JobProducer {
     @Value("${spring.kafka.topics.topic-sync-stock-prices}")
     private String topic;
 
-    @Value("${app.scheduler.sync-stock-prices.bucket:}")
-    private String bucket;
-
-    @Value("${app.scheduler.sync-stock-prices.object-name:}")
-    private String objectName;
-
     public SyncStockPriceJobProducer(
             JobService jobService,
             KafkaPublisher kafkaPublisher,
@@ -76,8 +70,6 @@ public class SyncStockPriceJobProducer extends JobProducer {
                     if (job.getConfigJson() != null) {
                         metadata.putAll(job.getConfigJson());
                     }
-                    metadata.put("bucket", bucket);
-                    metadata.put("objectName", objectName);
 
                     return new KafkaMessage(
                             symbol.symbolKey(),

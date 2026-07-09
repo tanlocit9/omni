@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:../../configs/shared/topics.yaml
   application:
     name: platform
   threads:
@@ -11,7 +13,6 @@ spring:
     baseline-version: 1
 
   kafka:
-    bootstrap-servers: localhost:9092
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -20,11 +21,6 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       auto-offset-reset: earliest
-    topics:
-      topic-sync-stock-prices: topic-sync-stock-prices
-      topic-sync-symbols: topic-sync-symbols
-      topic-upsert-symbols: topic-upsert-symbols
-      sync-job-status: sync-job-status
 
 app:
   scheduler:
@@ -47,9 +43,6 @@ logging:
             thumbnails: DEBUG
 
 min-io:
-  url: http://localhost:9000
-  username: minioadmin
-  password: minioadmin
   enabled: true
 
   #    master:

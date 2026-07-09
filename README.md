@@ -15,7 +15,7 @@ omni/
 │   ├── analyzer/      # Python 3.14 / FastAPI — Analytical REST API & Direct DB Sync
 │   └── ingestor/      # Python 3.14 / Async Event Worker — Stateless Parquet Data Lake Sync
 ├── database/
-│   └── migrations/    # Flyway SQL migrations (V1–V12)
+│   └── migrations/    # Flyway SQL migrations (V1–V3)
 ├── externals/
 │   └── vnstock-etl/   # Git submodule — ETL pipeline for stock data
 ├── docker-compose.yaml
@@ -42,7 +42,7 @@ omni/
   3. Fetches the latest incremental records using the configured stock client (VNDirect API).
   4. Merges old and new records in-memory using Pandas and deduplicates by `date`.
   5. Streams the updated history back to MinIO as a clean Parquet chunk.
-  6. Publishes processing metrics to `stock-sync-status` topic (details: `symbol`, `jobId`, `logId`, `status`, `recordsInserted`, `totalRecords`, `durationMs`, `errorMessage`).
+  6. Publishes processing metrics to `topic-sync-job-status` topic (details: `symbol`, `jobId`, `logId`, `status`, `recordsInserted`, `totalRecords`, `durationMs`, `errorMessage`).
 - **Concurrency**: Uses `asyncio.Semaphore` to process multiple messages concurrently (bounded by configurable `MAX_CONCURRENT_TASKS`), safe for I/O-bound workloads.
 
 ### 3. Stock Analyzer API (`apps/analyzer`)
@@ -86,14 +86,14 @@ Heavy file-based synchronization runs completely asynchronously over a bidirecti
  │  2. Fetch recent incremental records via stock client  │
  │  3. Merge (pd.concat) & Deduplicate (drop_duplicates)  │
  │  4. Stream updated `.parquet` back to MinIO            │
- │  5. Publish `stock-sync-status` metrics                │
+ │  5. Publish `topic-sync-job-status` metrics                  │
  └─────────────────────────┬──────────────────────────────┘
                            │
                            │ Payload: {"symbol": "XYZ", "jobId", "logId",
                            │           "status": "success", "recordsInserted",
                            │           "totalRecords", "durationMs", ...}
                            ▼
-                [ Topic: stock-sync-status ]
+                [ Topic: topic-sync-job-status ]
                            │
                            ▼
  ┌────────────────────────────────────────────────────────┐
@@ -120,7 +120,7 @@ Heavy file-based synchronization runs completely asynchronously over a bidirecti
 }
 ```
 
-#### Sync Status Topic (`stock-sync-status`)
+#### Sync Status Topic (`topic-sync-job-status`)
 
 ```json
 {
@@ -158,9 +158,10 @@ ingestor/
 
 **Event router pattern** (main.py):
 
-- Listens to `topic-sync-stock-prices` topic
-- Dispatches to stock sync handler by registry
-- Publishes results to `stock-sync-status` topic
+- Listens to `topic-sync-stock-prices` and `topic-sync-symbols` topics
+- Dispatches to appropriate handler based on topic
+- Publishes results to `topic-sync-job-status` topic
+- Publishes symbol upserts to `topic-upsert-symbols` topic
 - Bounded concurrency via `asyncio.Semaphore`
 
 **HTTP entry point** (api.py — optional, for manual triggers or serverless):
@@ -275,12 +276,12 @@ nx run ingestor:sync
 | Topic                     | Direction | Consumer Group | Description                                                                                                          |
 | :------------------------ | :-------- | :------------- | :------------------------------------------------------------------------------------------------------------------- |
 | `topic-sync-stock-prices` | Inbound   | ingestor       | Sync command from Platform: `{"symbol", "source", "fromOffset", "toOffset", "jobId", "logId"}`                       |
-| `stock-sync-status`       | Outbound  | —              | Result from Ingestor: `{"symbol", "jobId", "logId", "status", "recordsInserted", "totalRecords", "durationMs", ...}` |
+| `topic-sync-job-status`   | Outbound  | —              | Result from Ingestor: `{"symbol", "jobId", "logId", "status", "recordsInserted", "totalRecords", "durationMs", ...}` |
 
 **Configuration** (environment variables):
 
 - `SYNC_SYMBOLS_JOBS` — Inbound topic name (default: `topic-sync-stock-prices`)
-- `STATUS_TOPIC` — Outbound topic name (default: `stock-sync-status`)
+- `STATUS_TOPIC` — Outbound topic name (default: `topic-sync-job-status`)
 - `KAFKA_BOOTSTRAP_SERVERS` — Broker addresses (default: `localhost:9092`)
 - `CONSUMER_GROUP_ID` — Ingestor consumer group (default: `ingestor`)
 
@@ -363,8 +364,25 @@ Schemas are managed in `database/migrations/V*__*.sql` and auto-applied on Platf
 
 **Active Migrations** (V1–V3):
 
-- `V1__create_sync_job_table.sql` — Tracks sync job metadata and execution history.
-- `V2__create_sync_job_log_table.sql` — Detailed logging for each sync operation.
-- `V3__create_symbol_table.sql` — Stock symbols and reference data.
+- `V1__create_job_definition_table.sql` — Job type definitions and configuration templates
+- `V2__create_job_execution_history_table.sql` — Audit log of all job executions with status and metrics
+- `V3__create_symbol_table.sql` — Stock ticker symbols with exchange and metadata
 
-**Note**: Reference migrations (V4–V12) for historical stock data, company info, financial statements, and user portfolios exist in `database/refs/` but are not currently applied. To add new tables, create a new migration script in `database/migrations/V<N>__<description>.sql` following the Flyway naming convention and restart the Platform API.
+### Adding New Migrations
+
+Create a new migration file in `database/migrations/`:
+
+```bash
+# File naming convention: V<N>__<description>.sql
+database/migrations/V4__create_stock_prices_table.sql
+```
+
+Flyway automatically detects and applies new migrations on Platform API startup. Migrations are idempotent and run in version order.
+
+### Migration Best Practices
+
+- Use explicit column types and constraints
+- Add indexes for foreign keys and frequently queried columns
+- Include `created_at` and `updated_at` timestamps
+- Use `ON DELETE CASCADE` or `ON DELETE SET NULL` for foreign keys
+- Test migrations on a dev database before deploying

@@ -6,8 +6,8 @@ from typing import Any
 import pandas as pd
 from aiokafka import AIOKafkaProducer
 
-from app.config import EOD_PREFIX, SYNC_JOB_STATUS_TOPIC
 from app.messaging.status import build_status
+from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
 from app.storage.minio_client import get_minio_client
@@ -68,7 +68,11 @@ async def process_stock_price_message(
         new_df = await fetch_stock_data(client, code, limit)
 
         minio = get_minio_client()
-        object_name = object_name_override or f"{EOD_PREFIX}{symbol_key}.parquet"
+        if object_name_override:
+            object_name = object_name_override
+        else:
+            exchange, code = symbol_key.split("-", 1)
+            object_name = settings.get_eod_path(exchange, code)
         existing_df = read_existing_parquet(minio, object_name, bucket=bucket)
 
         combined = pd.concat([existing_df, new_df])
@@ -99,7 +103,7 @@ async def process_stock_price_message(
         )
 
     await producer.send_and_wait(
-        SYNC_JOB_STATUS_TOPIC,
+        settings.sync_job_status_topic,
         key=status["symbolKey"].encode() if status.get("symbolKey") else None,
         value=json.dumps(status).encode(),
     )

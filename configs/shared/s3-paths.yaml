@@ -1,0 +1,92 @@
+# S3 Path Configuration
+# Defines standardized path structure for the stock-data bucket
+# Following conventions: lowercase, kebab-case folders, uppercase ticker files
+
+stock-data:
+  bucket: stock-data
+  
+  paths:
+    # Symbol metadata (exchange-level)
+    # Pattern: symbols/{exchange}.parquet
+    # Examples: symbols/hose.parquet, symbols/hnx.parquet, symbols/upcom.parquet
+    symbols:
+      base: "symbols/"
+      pattern: "{exchange}.parquet"
+    
+    # End-of-day price data (ticker-level)
+    # Pattern: eod/{exchange}/{code}.parquet
+    # Examples: eod/hose/hpg.parquet, eod/hnx/shs.parquet, eod/upcom/vci.parquet
+    eod:
+      base: "eod/"
+      pattern: "{exchange}/{code}.parquet"
+    
+    # Future expansion paths (not yet implemented)
+    # These paths are defined for future features
+    
+    # Intraday price data (ticker-level)
+    # Pattern: intraday/{exchange}/{code}.parquet
+    intraday:
+      base: "intraday/"
+      pattern: "{exchange}/{code}.parquet"
+    
+    # Financial statements (ticker-level, by statement type)
+    # Pattern: financials/{code}/{statement_type}.parquet
+    # Examples: financials/hpg/income-statement.parquet, financials/hpg/balance-sheet.parquet
+    financials:
+      base: "financials/"
+      pattern: "{code}/{statement_type}.parquet"
+    
+    # Fundamental ratios (ticker-level)
+    # Pattern: fundamentals/{code}/ratios.parquet
+    fundamentals:
+      base: "fundamentals/"
+      pattern: "{code}/ratios.parquet"
+    
+    # Corporate actions and events (ticker-level)
+    # Pattern: corporate-actions/{code}/events.parquet
+    corporate-actions:
+      base: "corporate-actions/"
+      pattern: "{code}/events.parquet"
+    
+    # Ownership data (ticker-level)
+    # Pattern: ownership/{code}/shareholders.parquet
+    ownership:
+      base: "ownership/"
+      pattern: "{code}/shareholders.parquet"
+    
+    # News articles (ticker-level or market-level)
+    # Pattern: news/{code}/articles.parquet
+    news:
+      base: "news/"
+      pattern: "{code}/articles.parquet"
+    
+    # Macroeconomic indicators
+    # Pattern: macro/{indicator}.parquet
+    macro:
+      base: "macro/"
+      pattern: "{indicator}.parquet"
+    
+    # Derivatives data
+    # Pattern: derivatives/{exchange}/{code}.parquet
+    derivatives:
+      base: "derivatives/"
+      pattern: "{exchange}/{code}.parquet"
+    
+    # Warrants data
+    # Pattern: warrants/{exchange}/{code}.parquet
+    warrants:
+      base: "warrants/"
+      pattern: "{exchange}/{code}.parquet"
+    
+    # ETF data
+    # Pattern: etf/{exchange}/{code}.parquet
+    etf:
+      base: "etf/"
+      pattern: "{exchange}/{code}.parquet"
+
+# Path Construction Rules:
+# 1. All exchange names and codes are lowercase in paths (hose, hnx, upcom, hpg, fpt)
+# 2. Folder names use kebab-case (corporate-actions, income-statement)
+# 3. No temporal partitioning (dt=/run_id=) - files are overwritten/merged in place
+# 4. One ticker = one data file per path type
+# 5. Metadata (sector, industry) stored in separate metadata files, not in paths

@@ -1,14 +1,14 @@
 import json
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
 from aiokafka import AIOKafkaProducer
-import math
 
-from app.config import SYMBOLS_PREFIX, SYNC_JOB_STATUS_TOPIC, TOPIC_UPSERT_SYMBOLS
 from app.messaging.status import build_status
+from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
 from app.stocks.sectors_cache import get_cached_sectors
@@ -59,7 +59,9 @@ async def process_sync_symbols_message(
             merged_df = symbols_df
 
         minio = get_minio_client()
-        object_name = object_name_override or f"{SYMBOLS_PREFIX}{exchange}.parquet"
+        object_name = (
+            object_name_override or settings.get_symbols_path(exchange)
+        )
         write_parquet_to_minio(minio, merged_df, object_name, bucket=bucket)
 
         if "delistedDate" in merged_df.columns:
@@ -98,7 +100,7 @@ async def process_sync_symbols_message(
         )
 
     await producer.send_and_wait(
-        SYNC_JOB_STATUS_TOPIC,
+        settings.sync_job_status_topic,
         key=status["exchange"].encode() if status.get("exchange") else None,
         value=json.dumps(status).encode(),
     )
@@ -164,7 +166,7 @@ async def publish_symbol_upsert_batch(
     )
 
     result = await producer.send_and_wait(
-        TOPIC_UPSERT_SYMBOLS,
+        settings.topic_upsert_symbols,
         key=exchange.encode(),
         value=json.dumps(event).encode(),
     )

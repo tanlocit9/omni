@@ -26,7 +26,7 @@ public class JobStatusConsumer {
     private final JobExecutionHistoryRepository historyRepository;
     private final JsonMapper jsonMapper;
 
-    @KafkaListener(topics = "${spring.kafka.consumer.topic.stock-sync-status:stock-sync-status}", groupId = "${spring.kafka.consumer.group-id:platform-group}")
+    @KafkaListener(topics = "${kafka.topics.topic-sync-job-status:topic-sync-job-status}", groupId = "${spring.kafka.consumer.group-id:platform-group}")
     @Transactional
     public void handleSyncStatus(ConsumerRecord<String, String> record) {
         try {
@@ -43,7 +43,7 @@ public class JobStatusConsumer {
         JobExecutionHistory history = historyRepository.findById(logId)
                 .orElseThrow(() -> new IllegalStateException("JobExecutionHistory not found: " + logId));
 
-        history.setStatus(JobStatus.valueOf(response.status()));
+        history.setStatus(JobStatus.valueOf(response.status().toUpperCase()));
         history.setError(response.errorMessage());
         history.setStartedAt(response.startedAt());
         history.setFinishedAt(response.finishedAt());

@@ -13,21 +13,28 @@ public class MinioConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(MinioConfig.class);
 
-    @Value("${min-io.url}")
-    private String minIOUrl;
+    @Value("${minio.endpoint}")
+    private String minIOEndpoint;
 
-    @Value("${min-io.username}")
-    private String minIOUsername;
+    @Value("${minio.access-key}")
+    private String minIOAccessKey;
 
-    @Value("${min-io.password}")
-    private String minIOPassword;
+    @Value("${minio.secret-key}")
+    private String minIOSecretKey;
 
     @Bean
     public MinioClient MinioClient() {
         logger.info("Bean MinIO created");
         return MinioClient.builder()
-                .endpoint(minIOUrl)
-                .credentials(minIOUsername, minIOPassword)
+                .endpoint(normalizedEndpoint())
+                .credentials(minIOAccessKey, minIOSecretKey)
                 .build();
+    }
+
+    private String normalizedEndpoint() {
+        if (minIOEndpoint.startsWith("http://") || minIOEndpoint.startsWith("https://")) {
+            return minIOEndpoint;
+        }
+        return "http://" + minIOEndpoint;
     }
 }

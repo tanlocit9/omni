@@ -34,6 +34,10 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_SYMBOL_COUNT = "symbolCount";
         public static final String CONFIG_KEY_BUCKET = "bucket";
         public static final String CONFIG_KEY_OBJECT_NAME = "objectName";
+        public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
+        public static final String CONFIG_KEY_SECTOR_TAXONOMY = "sectorTaxonomy";
+        public static final String CONFIG_KEY_SECTOR_LEVEL = "sectorLevel";
+        public static final String CONFIG_KEY_SECTOR_MAPPINGS = "sectorMappings";
 
         private static final String SECTOR_FINANCE = "FINANCIALS";
         private static final String SECTOR_BANK = "BANKS";
@@ -50,7 +54,9 @@ public class JobDefinitionConfig {
                         JobType.SYNC_SYMBOLS,
                         "Sync symbol master list",
                         CRON_03_00_MONTHLY,
-                        Map.of(CONFIG_KEY_EXCHANGES, VIETNAM_EXCHANGES)));
+                        Map.of(
+                                        CONFIG_KEY_EXCHANGES, VIETNAM_EXCHANGES,
+                                        CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, false)));
 
         private static final List<JobDefinitionSeed> SYNC_STOCK_PRICE_SEEDS = List.of(
                         new JobDefinitionSeed(

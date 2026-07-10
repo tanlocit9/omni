@@ -1,6 +1,9 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
@@ -63,7 +66,7 @@ public class SyncStockPriceJobProducer extends JobProducer {
                 .map(symbol -> {
                     Instant fromOffset = jobExecutionHistoryRepository
                             .findLastOffset(job.getId(), symbol.symbolKey())
-                            .map(Instant::parse)
+                            .map(offset -> parseOffset(offset, symbol.symbolKey()))
                             .orElse(null);
 
                     Map<String, Object> metadata = new HashMap<>();
@@ -93,6 +96,23 @@ public class SyncStockPriceJobProducer extends JobProducer {
                 "Published sync job [{}] for source [{}]",
                 job.getId(),
                 job.getSource());
+    }
+
+    private Instant parseOffset(String offset, String symbolKey) {
+        try {
+            return Instant.parse(offset);
+        } catch (DateTimeParseException instantParseException) {
+            try {
+                return LocalDate.parse(offset).atStartOfDay().toInstant(ZoneOffset.UTC);
+            } catch (DateTimeParseException localDateParseException) {
+                log.warn(
+                        "Ignoring invalid new_offset [{}] for symbol [{}]",
+                        offset,
+                        symbolKey,
+                        localDateParseException);
+                return null;
+            }
+        }
     }
 
     private List<String> extractSectors(Map<String, Object> config) {

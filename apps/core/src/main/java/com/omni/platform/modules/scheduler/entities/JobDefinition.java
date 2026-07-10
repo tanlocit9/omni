@@ -25,7 +25,8 @@ import lombok.Setter;
 @Entity
 @Table(name = "job_definition", uniqueConstraints = @UniqueConstraint(name = "uq_job_definition_source_type", columnNames = {
         "source",
-        "job_type" }), indexes = @Index(name = "idx_job_definition_next_run", columnList = "next_run, is_active"))
+        "job_type",
+        "cron_expr" }), indexes = @Index(name = "idx_job_definition_next_run", columnList = "next_run, is_active"))
 @Getter
 @Setter
 public class JobDefinition extends AuditableEntity {

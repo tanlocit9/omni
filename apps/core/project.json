@@ -17,13 +17,13 @@
         }
       },
       "defaultConfiguration": "dev"
-    }
-  },
-  "build": {
-    "executor": "nx:run-commands",
-    "options": {
-      "command": "gradlew build --continuous",
-      "cwd": "{projectRoot}"
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "gradlew build",
+        "cwd": "{projectRoot}"
+      }
     }
   }
 }

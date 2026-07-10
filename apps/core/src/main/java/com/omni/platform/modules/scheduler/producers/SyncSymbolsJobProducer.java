@@ -14,7 +14,9 @@ import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
+import com.omni.platform.modules.scheduler.constants.SectorSeedConfig;
 import com.omni.platform.modules.scheduler.messaging.SyncSymbolsJobMessage;
+import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
@@ -31,13 +33,16 @@ public class SyncSymbolsJobProducer extends JobProducer {
     private String topic;
 
     private final SymbolRepository symbolRepository;
+    private final SectorRepository sectorRepository;
 
     public SyncSymbolsJobProducer(
             JobService jobService,
             KafkaPublisher kafkaPublisher,
-            SymbolRepository symbolRepository) {
+            SymbolRepository symbolRepository,
+            SectorRepository sectorRepository) {
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
+        this.sectorRepository = sectorRepository;
     }
 
     @Override
@@ -62,6 +67,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
                     Integer symbolCount = symbolCountsByExchange.getOrDefault(exchange, 0);
                     Map<String, Object> messageConfig = new java.util.HashMap<>(job.getConfigJson());
                     messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SYMBOL_COUNT, symbolCount);
+                    enrichSectorConfig(messageConfig);
 
                     return new KafkaMessage(
                             exchange,
@@ -84,6 +90,60 @@ public class SyncSymbolsJobProducer extends JobProducer {
                 "Published sync-symbols job [{}] for source [{}]",
                 job.getId(),
                 job.getSource());
+    }
+
+    private void enrichSectorConfig(Map<String, Object> messageConfig) {
+        boolean includeSectorClassification = Boolean.TRUE.equals(
+                messageConfig.get(JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION));
+
+        if (!includeSectorClassification) {
+            messageConfig.putIfAbsent(JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, false);
+            return;
+        }
+
+        String taxonomy = String.valueOf(messageConfig.getOrDefault(
+                JobDefinitionConfig.CONFIG_KEY_SECTOR_TAXONOMY,
+                SectorSeedConfig.DEFAULT_TAXONOMY)).toUpperCase();
+        Integer level = parseSectorLevel(messageConfig.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL));
+
+        messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SECTOR_TAXONOMY, taxonomy);
+        messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, level);
+
+        List<Map<String, Object>> mappings = sectorRepository.findActiveMappings(taxonomy, level).stream()
+                .map(mapping -> Map.<String, Object>of(
+                        "taxonomy", mapping.getTaxonomy(),
+                        "level", mapping.getLevel(),
+                        "sourceCode", mapping.getSourceCode(),
+                        "canonicalCode", mapping.getCanonicalCode()))
+                .toList();
+
+        if (mappings.isEmpty() && sectorRepository.count() == 0) {
+            mappings = SectorSeedConfig.SECTOR_SEEDS.stream()
+                    .filter(seed -> taxonomy.equals(seed.taxonomy()) && level.equals(seed.taxonomyLevel()))
+                    .map(seed -> Map.<String, Object>of(
+                            "taxonomy", seed.taxonomy(),
+                            "level", seed.taxonomyLevel(),
+                            "sourceCode", seed.sourceCode(),
+                            "canonicalCode", seed.code()))
+                    .toList();
+        }
+
+        messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SECTOR_MAPPINGS, mappings);
+    }
+
+    private Integer parseSectorLevel(Object rawLevel) {
+        if (rawLevel instanceof Number number) {
+            return number.intValue();
+        }
+        if (rawLevel != null) {
+            try {
+                return Integer.parseInt(rawLevel.toString());
+            } catch (NumberFormatException ignored) {
+                log.warn("Invalid sectorLevel [{}], falling back to default [{}]", rawLevel,
+                        SectorSeedConfig.DEFAULT_LEVEL);
+            }
+        }
+        return SectorSeedConfig.DEFAULT_LEVEL;
     }
 
     private List<String> extractExchanges(Map<String, Object> config) {

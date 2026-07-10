@@ -24,7 +24,9 @@ Consolidated plan for (1) building analysis/ranking/news capabilities based on s
 
 - **Raw / time-series data** (OHLCV history, indicator inputs, news content, anything bulk or symbol-keyed) → **MinIO** (Parquet), not Postgres.
 - **Sync universe rollout** is sector-first: prioritize core groups such as `banks`, `financials`, and other selected sectors before expanding to the full market. Sector controls which symbols are scheduled for sync; it does **not** change the canonical S3 layout (`eod/{exchange}/{symbol}.parquet`).
-- **Sector metadata** (sector code, name, taxonomy/source, membership effective date) → **Postgres** as symbol classification metadata, enabling reproducible sector baskets and comparisons.
+- **Sector metadata** is optional enrichment inside the existing `SYNC_SYMBOLS` job, not a separate dependent job. When enabled, ingestor fetches ICB classifications, preserves raw ICB fields, applies the Java-provided canonical sector mapping, writes the enriched symbol Parquet, and publishes the same canonical representation back to Java.
+- **Java core owns sector reference data**: canonical sector constants/seed, PostgreSQL `sector` records, hierarchy, mapping validation, and `symbol.sector_id`. Ingestor owns external ICB retrieval and normalization only.
+- **Sector sync failure must not erase good symbol or sector data**. Because enrichment is optional, a VNDirect symbol snapshot may still succeed with warnings while retaining the last-known sector classification.
 - **Computed results** (analysis scores, ranking outputs, ratings, alerts, job/log metadata) → **Postgres**, via Flyway-managed schema.
 - **`analyzer`** stops reading `stock_prices` from Postgres directly. It reads raw price/history data from MinIO (same `EOD/{symbol}.parquet` layout the ingestor already writes), computes on it, and persists only the _output_ rows to Postgres.
 - **`ingestor`** keeps owning the MinIO write path for raw sync data; no change to its core responsibility, but it now shares its MinIO client/connection code with `analyzer` instead of each service rolling its own.
@@ -71,7 +73,12 @@ This decision gates every phase below — nothing in Phase 1+ should write raw d
 ### 0.4 Documentation & Config
 
 - [ ] **Standardize `ticker` vs `symbol` naming** across the shared package's models before anything else builds on top of them.
-- [ ] **Define sector taxonomy and prioritized sync universe** — choose the sector classification source, map symbols to stable sector codes (starting with `banks`, `financials`, and other priority groups), and allow sync jobs to select symbols by sector.
+- [ ] **Implement optional sector enrichment in `SYNC_SYMBOLS`** — controlled by job config (for example `includeSectorClassification`, default `false`); do not introduce a separate sector-sync job.
+- [ ] **Add Java-owned sector reference data** — seed canonical sectors from the existing Java constants, persist them in PostgreSQL, expose active sectors for future job-definition UI, and attach `symbol.sector_id`.
+- [ ] **Preserve raw and canonical classifications** — symbol Parquet keeps raw ICB level/code/names plus canonical `sector_code`; Java sends the active DB/seed mapping with the symbol job so ingestor writes the same canonical code that PostgreSQL uses.
+- [ ] **Protect last-known-good classifications** — when optional ICB enrichment is disabled or unavailable, keep existing sector columns/relations instead of clearing them.
+- [ ] **Define the prioritized EOD sync universe** — stock-price jobs select symbols using canonical sector codes (starting with banking, securities/financial services, and other priority groups); sector selection does not change canonical S3 paths.
+- [ ] See [Sector Implementation Plan](docs/SECTOR_IMPLEMENTATION_PLAN.md) for schema, payload, failure semantics, and rollout steps.
 - [ ] **Fix AGENTS.md and README.md** — correct topic names (`topic-sync-stock-prices`, not `stock-sync`) and clarify analyzer's role (MinIO reader, not Postgres reader).
 - [ ] **Secrets/config audit** for anything building on legacy services — no hardcoded API keys or credentials land in Omni.
 
@@ -304,4 +311,4 @@ Maintain a running list, reviewed whenever a new competing product surfaces. For
 4. **MinIO data retention policy**: If Parquet schemas evolve (e.g., new indicator added later), do old files need backfill or migration tooling, or is a clean slate acceptable?
 5. **Phase 6 scope**: Is "Financial report intelligence" (DCF tools, embeddings, chatbot) actually on the roadmap, or is it exploratory? Confirm before committing resources.
 6. **Phase 7 frontend framework**: Nuxt.js (SSR, Vue ecosystem) or Next.js (RSC, React ecosystem)? Both support the required features; choose based on team preference.
-7. **Sector taxonomy and weighting**: Which source defines sector membership, how are changes versioned, and when should the MVP move from equal-weighted sector indices to market-cap weighting?
+7. **Sector benchmark weighting**: Use equal weighting for the MVP; decide when reliable market-cap data is sufficient to introduce a market-cap-weighted comparison. Sector enrichment itself is already decided: optional within `SYNC_SYMBOLS`, with Java-owned canonical mappings and raw ICB data retained.

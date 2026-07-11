@@ -4,11 +4,21 @@ import java.util.Map;
 import java.util.UUID;
 
 public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessage {
-    UUID jobId();
+    UUID jobDefinitionId();
 
-    UUID logId();
+    UUID executionId();
+
+    UUID parentExecutionId();
 
     String source();
 
     Map<String, Object> metadata();
+
+    default UUID jobId() {
+        return jobDefinitionId();
+    }
+
+    default UUID logId() {
+        return executionId();
+    }
 }

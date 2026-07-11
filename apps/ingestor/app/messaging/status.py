@@ -14,13 +14,20 @@ def build_status(
     error_message: str | None = None,
 ) -> dict[str, Any]:
     finished_at = datetime.now(UTC)
+    job_definition_id = payload.get("jobDefinitionId") or payload.get("jobId")
+    execution_id = payload.get("executionId") or payload.get("logId")
+    parent_execution_id = payload.get("parentExecutionId")
+
     return {
         key_field: key_value or payload.get(key_field, "unknown"),
-        "jobId": payload.get("jobId"),
-        "logId": payload.get("logId"),
+        "jobDefinitionId": job_definition_id,
+        "executionId": execution_id,
+        "parentExecutionId": parent_execution_id,
         "status": status,
-        "recordsInserted": records_inserted,
-        "totalRecords": total_records,
+        "metaJson": {
+            "recordsInserted": records_inserted,
+            "totalRecords": total_records,
+        },
         "newOffset": new_offset,
         "startedAt": started_at.isoformat(),
         "finishedAt": finished_at.isoformat(),

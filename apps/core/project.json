@@ -1,27 +1,32 @@
 {
   "name": "platform",
-  "root": "apps/core",
   "projectType": "application",
+  "root": "apps/core",
   "targets": {
-    "serve": {
+    "build": {
       "executor": "nx:run-commands",
       "options": {
+        "command": "gradlew build",
         "cwd": "{projectRoot}"
-      },
+      }
+    },
+    "serve": {
       "configurations": {
         "dev": {
-          "command": "gradlew bootRun --args='--spring.profiles.active=dev'"
+          "command": "gradlew bootRun --continuous",
+          "options": {
+            "env": {
+              "SPRING_PROFILES_ACTIVE": "dev"
+            }
+          }
         },
         "prod": {
           "command": "gradlew bootRun --args='--spring.profiles.active=prod'"
         }
       },
-      "defaultConfiguration": "dev"
-    },
-    "build": {
+      "defaultConfiguration": "dev",
       "executor": "nx:run-commands",
       "options": {
-        "command": "gradlew build",
         "cwd": "{projectRoot}"
       }
     }

@@ -55,8 +55,10 @@ Published payload on processing complete:
 {
   "symbol": "STB",
   "status": "success",
-  "recordsInserted": 50,
-  "totalRecords": 1550,
+  "metaJson": {
+    "recordsInserted": 50,
+    "totalRecords": 1550
+  },
   "durationMs": 350,
   "errorMessage": null
 }

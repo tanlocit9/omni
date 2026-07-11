@@ -64,7 +64,7 @@ async def process_sync_symbols_message(
         symbols = await client.fetch_symbols(exchange=exchange)
         symbols_df = pd.DataFrame(symbols)
 
-        validate_symbols_snapshot(symbols_df, exchange)
+        symbols_df = validate_symbols_snapshot(symbols_df, exchange)
 
         minio = get_minio_client()
         object_name = object_name_override or settings.get_symbols_path(exchange)
@@ -120,8 +120,9 @@ async def process_sync_symbols_message(
 
         await publish_symbol_upsert_batch(
             producer,
-            job_id=payload.get("jobId"),
-            log_id=payload.get("logId"),
+            job_definition_id=payload.get("jobDefinitionId") or payload.get("jobId"),
+            execution_id=payload.get("executionId") or payload.get("logId"),
+            parent_execution_id=payload.get("parentExecutionId"),
             exchange=exchange,
             merged_df=active_df,
             expected_count=expected_count or current_count,
@@ -157,28 +158,55 @@ async def process_sync_symbols_message(
     )
 
 
-def validate_symbols_snapshot(symbols_df: pd.DataFrame, exchange: str) -> None:
+def validate_symbols_snapshot(symbols_df: pd.DataFrame, exchange: str) -> pd.DataFrame:
     required = {"code", "floor", "status"}
     missing = required - set(symbols_df.columns)
     if missing:
         raise ValueError(f"Missing required symbol fields: {sorted(missing)}")
 
-    duplicated = symbols_df.duplicated(subset=["floor", "code"])
+    validated_df = symbols_df.copy()
+    validated_df["_normalized_floor"] = (
+        validated_df["floor"].dropna().astype(str).str.upper()
+    )
+    validated_df["_normalized_code"] = (
+        validated_df["code"].dropna().astype(str).str.upper()
+    )
+
+    duplicated = validated_df.duplicated(
+        subset=["_normalized_floor", "_normalized_code"],
+        keep="first",
+    )
     if duplicated.any():
         sample = (
-            symbols_df.loc[duplicated, ["floor", "code"]].head(10).to_dict("records")
+            validated_df.loc[
+                duplicated,
+                ["_normalized_floor", "_normalized_code"],
+            ]
+            .rename(
+                columns={
+                    "_normalized_floor": "exchange",
+                    "_normalized_code": "code",
+                }
+            )
+            .head(10)
+            .to_dict("records")
         )
-        raise ValueError(
-            f"Duplicate (exchange, code) rows in symbol snapshot: {sample}"
+        logger.warning(
+            "Deduplicating %s duplicate (exchange, code) rows in symbol snapshot: %s",
+            int(duplicated.sum()),
+            sample,
         )
+        validated_df = validated_df.loc[~duplicated].copy()
 
-    exchange_values = set(symbols_df["floor"].dropna().astype(str).str.upper().unique())
+    exchange_values = set(validated_df["_normalized_floor"].dropna().unique())
     if exchange.upper() not in exchange_values:
         logger.warning(
             "Fetched symbol snapshot for %s but floor values are %s",
             exchange,
             sorted(exchange_values),
         )
+
+    return validated_df.drop(columns=["_normalized_floor", "_normalized_code"])
 
 
 def normalize_symbols_dataframe(
@@ -257,9 +285,11 @@ def apply_canonical_sector_mapping(df: pd.DataFrame, metadata: dict[str, Any]) -
     df["sourceSectorNameVi"] = df.get(source_name_vi_column)
     df["sourceSectorNameEn"] = df.get(source_name_en_column)
     df["sectorCode"] = df["sourceSectorCode"].map(
-        lambda source_code: mapping_by_source_code.get(str(source_code))
-        if pd.notna(source_code)
-        else None
+        lambda source_code: (
+            mapping_by_source_code.get(str(source_code))
+            if pd.notna(source_code)
+            else None
+        )
     )
 
 
@@ -278,9 +308,7 @@ def preserve_previous_classification(
     previous["code"] = previous["code"].astype(str).str.upper()
     previous["exchange"] = previous["exchange"].astype(str).str.upper()
     available_columns = [
-        column
-        for column in CLASSIFICATION_COLUMNS
-        if column in previous.columns
+        column for column in CLASSIFICATION_COLUMNS if column in previous.columns
     ]
     merge_columns = ["exchange", "code", *available_columns]
     if len(merge_columns) <= 2:
@@ -297,9 +325,7 @@ def calculate_classification_metrics(
     vnd_count = len(df)
     icb_count = len(sectors)
     matched_count = (
-        int(df["sourceSectorCode"].notna().sum())
-        if "sourceSectorCode" in df
-        else 0
+        int(df["sourceSectorCode"].notna().sum()) if "sourceSectorCode" in df else 0
     )
     mapped_count = int(df["sectorCode"].notna().sum()) if "sectorCode" in df else 0
     unmatched_count = max(vnd_count - matched_count, 0)
@@ -400,8 +426,9 @@ def _row_to_symbol_record(row: pd.Series) -> dict[str, Any] | None:
 async def publish_symbol_upsert_batch(
     producer: AIOKafkaProducer,
     *,
-    job_id: str | None,
-    log_id: str | None,
+    job_definition_id: str | None,
+    execution_id: str | None,
+    parent_execution_id: str | None,
     exchange: str,
     merged_df: pd.DataFrame,
     expected_count: int,
@@ -412,9 +439,12 @@ async def publish_symbol_upsert_batch(
         if rec is not None
     ]
 
+    effective_parent_execution_id = parent_execution_id or execution_id
+
     event = {
-        "jobId": job_id,
-        "logId": log_id,
+        "jobDefinitionId": job_definition_id,
+        "executionId": execution_id,
+        "parentExecutionId": effective_parent_execution_id,
         "exchange": exchange,
         "expectedCount": expected_count,
         "actualCount": len(records),

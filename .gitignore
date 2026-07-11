@@ -75,3 +75,16 @@ out
 **/htmlcov/
 
 reports
+# Added by code-review-graph
+.code-review-graph/
+
+QODER.md
+GEMINI.md
+.gemini
+.claude
+.kiro
+.cursorrules
+.mcp.json
+.windsurfrules
+.qoder
+.opencode.json

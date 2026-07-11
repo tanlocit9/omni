@@ -70,6 +70,6 @@ public class JobExecutionHistory extends AuditableEntity {
     private Map<String, Object> metaJson;
 
     public enum JobStatus {
-        PENDING, RUNNING, SUCCESS, FAILED
+        PENDING, RUNNING, SUCCESS, FAILED, ERROR
     }
 }

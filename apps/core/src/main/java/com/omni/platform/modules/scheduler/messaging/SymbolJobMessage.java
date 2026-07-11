@@ -5,7 +5,12 @@ import java.util.Map;
 import java.util.UUID;
 
 public record SymbolJobMessage(
-                UUID jobId, UUID logId, String source,
-                String symbolKey, Instant fromOffset, Instant toOffset,
-                Map<String, Object> metadata) implements JobMessage {
+        UUID jobDefinitionId,
+        UUID executionId,
+        UUID parentExecutionId,
+        String source,
+        String symbolKey,
+        Instant fromOffset,
+        Instant toOffset,
+        Map<String, Object> metadata) implements JobMessage {
 }

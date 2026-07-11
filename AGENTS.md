@@ -1,3 +1,33 @@
+Pasted markdown.md
+File
+đây là file agents.md
+
+Worked for 14s
+Đã đọc file AGENTS.md. Tôi sẽ áp dụng cho các tác vụ Omni tiếp theo, đặc biệt:
+
+Luôn chạy build, test, lint, format qua Nx.
+
+Tôn trọng kiến trúc riêng của platform, analyzer, ingestor.
+
+Không sửa externals/vnstock-etl nếu chưa được yêu cầu.
+
+Không đưa thông tin S3 path vào Kafka message; ingestor tự dựng path.
+
+Không chạy watcher dài hạn.
+
+Không hard-code cloud SDK, credentials hoặc gọi Kafka trực tiếp từ handler.
+
+Lưu ý: một số nội dung có vẻ chưa theo kịp code hiện tại, như tên topic stock-sync, cấu trúc migration V1–V12 và mô tả analyzer ghi trực tiếp PostgreSQL. Khi làm việc với repository, tôi sẽ ưu tiên code thực tế, sau đó đề xuất cập nhật AGENTS.md nếu phát hiện sai lệch.
+
+cập nhật thêm nội dung rằng khi sửa code liên quan đến consumer và producer thì cập nhật ở cả 2 phía
+
+Worked for 40s
+Đã cập nhật vào AGENTS.md:
+
+Khi thay đổi topic, event schema, ý nghĩa field, serialization, validation hoặc contract xử lý lỗi, phải kiểm tra và cập nhật đồng bộ cả producer lẫn consumer, bao gồm test và tài liệu liên quan.
+
+Pasted%20markdown.md
+
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
 
@@ -364,16 +394,18 @@ settings.get_eod_path("HOSE", "HPG")  # → eod/hose/hpg.parquet
 ### Key Rules
 
 1. **Lowercase normalization**: Exchange names and ticker codes are automatically converted to lowercase in paths
+
    - Exchange: `HOSE` → `hose`, `HNX` → `hnx`, `UPCOM` → `upcom`
    - Ticker: `HPG` → `hpg`, `FPT` → `fpt`
 
 2. **No bucket/objectName in Kafka messages**: The Java producer (`SyncStockPriceJobProducer`) does not send bucket or objectName metadata. The ingestor derives paths from the symbolKey using path builders.
 
 3. **Pattern-based configuration**: Paths are defined using `{variable}` placeholders in YAML:
+
    ```yaml
    eod:
-     base: "eod/"
-     pattern: "{exchange}/{code}.parquet"
+     base: 'eod/'
+     pattern: '{exchange}/{code}.parquet'
    ```
 
 4. **No temporal partitioning**: Files are merged/overwritten in place. No `dt=` or `run_id=` folders.
@@ -427,6 +459,7 @@ Add `database/migrations/V<N>__<description>.sql` following the existing naming 
 
 ## What NOT to do
 
+- Do not update a Kafka producer or consumer in isolation. When changing a topic, event schema, field semantics, serialization, validation, or error-handling contract, review and update both the producer and consumer sides in the same change, including their tests and documentation where applicable.
 - Do not run `gradle`, `uvicorn`, `pytest`, `uv`, or `kafka-*` CLI tools directly — always go through `nx`.
 - Do not use `npx` — use locally installed binaries via `nx` targets only.
 - Do not run `npm run dev` or any long-running watcher commands in the agent — tell the user to run them manually.
@@ -435,3 +468,42 @@ Add `database/migrations/V<N>__<description>.sql` following the existing naming 
 - Do not add shared libraries to `packages/` without first discussing the dependency graph impact with the user.
 - Do not import cloud-vendor SDKs (boto3 session with hardcoded regions, AWS-specific clients, etc.) directly in handler business logic — always go through the port interface.
 - Do not call Kafka broker directly from `handlers/` — always use the `EventConsumer` port.
+
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context` | Need source snippets for review — token-efficient |
+| `get_impact_radius` | Understanding blast radius of a change |
+| `get_affected_flows` | Finding which execution paths are impacted |
+| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes` | Finding functions/classes by name or keyword |
+| `get_architecture_overview` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.

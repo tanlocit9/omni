@@ -5,7 +5,11 @@ import java.util.Map;
 import java.util.UUID;
 
 public record SyncSymbolsJobMessage(
-                UUID jobId, UUID logId, String source,
-                String exchange, Instant timestamp,
-                Map<String, Object> metadata) implements JobMessage {
+        UUID jobDefinitionId,
+        UUID executionId,
+        UUID parentExecutionId,
+        String source,
+        String exchange,
+        Instant timestamp,
+        Map<String, Object> metadata) implements JobMessage {
 }

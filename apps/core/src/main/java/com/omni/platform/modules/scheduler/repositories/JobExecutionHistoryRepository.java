@@ -18,6 +18,8 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
 
     List<JobExecutionHistory> findByJobIdAndStatus(UUID jobId, JobExecutionHistory.JobStatus status);
 
+    List<JobExecutionHistory> findAllByParentLogId(UUID parentLogId);
+
     @Query(value = """
             SELECT new_offset FROM job_execution_history
             WHERE job_id = :jobId

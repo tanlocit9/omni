@@ -53,7 +53,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
     @Override
     protected List<KafkaMessage> buildMessages(
             JobDefinition job,
-            JobExecutionHistory log,
+            JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
 
         List<String> exchanges = extractExchanges(job.getConfigJson());
@@ -69,11 +69,18 @@ public class SyncSymbolsJobProducer extends JobProducer {
                     messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SYMBOL_COUNT, symbolCount);
                     enrichSectorConfig(messageConfig);
 
+                    JobExecutionHistory childJobExecutionHistory = jobService.createSymbolChildExecution(
+                            jobExecutionHistory.getId(),
+                            exchange,
+                            messageConfig,
+                            timestamps);
+
                     return new KafkaMessage(
                             exchange,
                             new SyncSymbolsJobMessage(
                                     job.getId(),
-                                    log.getId(),
+                                    childJobExecutionHistory.getId(),
+                                    jobExecutionHistory.getId(),
                                     job.getSource().toString(),
                                     exchange,
                                     timestamps.truncatedTo(ChronoUnit.SECONDS),

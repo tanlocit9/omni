@@ -8,5 +8,5 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: none   # create | validate | update | none
-    show-sql: true
+      ddl-auto: none # create | validate | update | none
+    show-sql: false

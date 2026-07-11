@@ -56,7 +56,7 @@ public class SyncStockPriceJobProducer extends JobProducer {
     @Override
     protected List<KafkaMessage> buildMessages(
             JobDefinition job,
-            JobExecutionHistory log,
+            JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
         List<String> sectors = extractSectors(job.getConfigJson());
         List<SymbolKeyProjection> symbols = symbolRepository.findBySectors(
@@ -74,11 +74,18 @@ public class SyncStockPriceJobProducer extends JobProducer {
                         metadata.putAll(job.getConfigJson());
                     }
 
+                    JobExecutionHistory childJobExcutionHistory = jobService.createSymbolChildExecution(
+                            jobExecutionHistory.getId(),
+                            symbol.symbolKey(),
+                            metadata,
+                            timestamps);
+
                     return new KafkaMessage(
                             symbol.symbolKey(),
                             new SymbolJobMessage(
                                     job.getId(),
-                                    log.getId(),
+                                    childJobExcutionHistory.getId(),
+                                    jobExecutionHistory.getId(),
                                     job.getSource().toString(),
                                     symbol.symbolKey(),
                                     fromOffset,

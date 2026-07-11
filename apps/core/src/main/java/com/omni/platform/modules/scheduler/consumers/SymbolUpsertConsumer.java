@@ -1,5 +1,6 @@
 package com.omni.platform.modules.scheduler.consumers;
 
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,11 +13,13 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.Sector;
 import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage;
 import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage.SymbolRecord;
 import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
+import com.omni.platform.modules.scheduler.services.JobService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +32,7 @@ public class SymbolUpsertConsumer {
 
     private final SymbolRepository symbolRepository;
     private final SectorRepository sectorRepository;
+    private final JobService jobService;
     private final JsonMapper jsonMapper;
 
     @KafkaListener(topics = "${kafka.topics.topic-upsert-symbols:topic-upsert-symbols}", groupId = "${spring.kafka.consumer.group-id:platform-group}")
@@ -48,18 +52,45 @@ public class SymbolUpsertConsumer {
 
         if (symbols == null || symbols.isEmpty()) {
             log.warn(
-                    "Received empty symbol upsert batch for [{}] (jobId={}, logId={}), skipping to avoid mass deactivation",
-                    event.exchange(), event.jobId(), event.logId());
+                    "Received empty symbol upsert batch for [{}] (jobDefinitionId={}, executionId={}, parentExecutionId={}), skipping to avoid mass deactivation",
+                    event.exchange(), jobDefinitionId(event), executionId(event), parentExecutionId(event));
             return;
         }
 
         log.info("Applying symbol upsert batch for [{}]: {} records (expected {})",
                 event.exchange(), event.actualCount(), event.expectedCount());
 
+        int successfulUpserts = 0;
+        int failedUpserts = 0;
+
         for (SymbolRecord r : symbols) {
-            UUID sectorId = resolveSectorId(r);
-            String metaJson = jsonMapper.writeValueAsString(toMeta(r));
-            symbolRepository.upsertOne(r.code(), r.exchange(), sectorId, metaJson);
+            JobExecutionHistory childExecution = createChildExecutionIfTracked(event, r);
+
+            try {
+                UUID sectorId = resolveSectorId(r);
+                String metaJson = jsonMapper.writeValueAsString(toMeta(r));
+                symbolRepository.upsertOne(r.code(), r.exchange(), sectorId, metaJson);
+                successfulUpserts++;
+
+                if (childExecution != null) {
+                    jobService.markExecutionSuccess(
+                            childExecution,
+                            1,
+                            0,
+                            Instant.now(),
+                            toExecutionMeta(event, r));
+                }
+            } catch (Exception exc) {
+                failedUpserts++;
+                if (childExecution != null) {
+                    jobService.markExecutionFailed(
+                            childExecution,
+                            exc.getMessage(),
+                            Instant.now(),
+                            toExecutionMeta(event, r));
+                }
+                log.error("Failed to upsert symbol [{}]: {}", symbolKey(event, r), exc.getMessage(), exc);
+            }
         }
 
         Set<String> incomingCodes = symbols.stream()
@@ -67,8 +98,56 @@ public class SymbolUpsertConsumer {
                 .collect(Collectors.toSet());
         symbolRepository.deactivateMissing(event.exchange(), incomingCodes);
 
-        log.info("Symbol upsert complete for [{}]: upserted={} deactivatedCheck against {} codes",
-                event.exchange(), symbols.size(), incomingCodes.size());
+        UUID parentExecutionId = parentExecutionId(event);
+        if (parentExecutionId != null) {
+            jobService.aggregateParentExecution(parentExecutionId);
+        }
+
+        log.info(
+                "Symbol upsert complete for [{}]: success={} failed={} deactivatedCheck against {} codes",
+                event.exchange(), successfulUpserts, failedUpserts, incomingCodes.size());
+
+        if (failedUpserts > 0) {
+            throw new IllegalStateException(
+                    "Symbol upsert batch completed with " + failedUpserts + " failed records for " + event.exchange());
+        }
+    }
+
+    private JobExecutionHistory createChildExecutionIfTracked(SymbolUpsertMessage event, SymbolRecord record) {
+        UUID parentExecutionId = parentExecutionId(event);
+        if (parentExecutionId == null) {
+            return null;
+        }
+
+        return jobService.createSymbolChildExecution(
+                parentExecutionId,
+                symbolKey(event, record),
+                toExecutionMeta(event, record),
+                Instant.now());
+    }
+
+    private String symbolKey(SymbolUpsertMessage event, SymbolRecord record) {
+        String exchange = !isBlank(record.exchange()) ? record.exchange() : event.exchange();
+        return exchange + "-" + record.code();
+    }
+
+    private Map<String, Object> toExecutionMeta(SymbolUpsertMessage event, SymbolRecord record) {
+        Map<String, Object> meta = new LinkedHashMap<>();
+        putIfPresent(meta, "symbolKey", symbolKey(event, record));
+        putIfPresent(meta, "jobDefinitionId", jobDefinitionId(event));
+        putIfPresent(meta, "executionId", executionId(event));
+        putIfPresent(meta, "parentExecutionId", parentExecutionId(event));
+        putIfPresent(meta, "exchange", !isBlank(record.exchange()) ? record.exchange() : event.exchange());
+        putIfPresent(meta, "code", record.code());
+        putIfPresent(meta, "expectedCount", event.expectedCount());
+        putIfPresent(meta, "actualCount", event.actualCount());
+        putIfPresent(meta, "detectedAt", event.detectedAt().toString());
+        putIfPresent(meta, "sectorCode", record.sectorCode());
+        putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
+        putIfPresent(meta, "sectorLevel", record.sectorLevel());
+        putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
+        putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        return meta;
     }
 
     private UUID resolveSectorId(SymbolRecord record) {
@@ -111,7 +190,7 @@ public class SymbolUpsertConsumer {
     private Map<String, Object> toMeta(SymbolRecord record) {
         Map<String, Object> meta = new LinkedHashMap<>();
         if (record.meta() != null) {
-            meta.putAll(record.meta());
+            record.meta().forEach((key, value) -> putIfPresent(meta, key, value));
         }
 
         putIfPresent(meta, "type", record.type());
@@ -145,8 +224,23 @@ public class SymbolUpsertConsumer {
 
     private void putIfPresent(Map<String, Object> meta, String key, Object value) {
         if (value != null) {
-            meta.put(key, value);
+            meta.put(key, String.valueOf(value));
         }
+    }
+
+    private UUID jobDefinitionId(SymbolUpsertMessage event) {
+        return event.jobDefinitionId() != null ? event.jobDefinitionId() : event.jobId();
+    }
+
+    private UUID executionId(SymbolUpsertMessage event) {
+        return event.executionId() != null ? event.executionId() : event.logId();
+    }
+
+    private UUID parentExecutionId(SymbolUpsertMessage event) {
+        if (event.parentExecutionId() != null) {
+            return event.parentExecutionId();
+        }
+        return event.logId() != null ? event.logId() : event.executionId();
     }
 
     private boolean isBlank(String value) {

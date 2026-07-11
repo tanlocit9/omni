@@ -6,7 +6,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public record SymbolUpsertMessage(UUID jobId, UUID logId,
+public record SymbolUpsertMessage(
+        UUID jobDefinitionId,
+        UUID executionId,
+        UUID parentExecutionId,
+        UUID jobId,
+        UUID logId,
         String exchange,
         int expectedCount,
         int actualCount,

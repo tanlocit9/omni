@@ -10,8 +10,8 @@ from app.messaging.status import build_status
 from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
-from app.storage.minio_client import get_minio_client
-from app.storage.parquet import read_existing_parquet, write_parquet_to_minio
+
+from py_common.storage.parquet import ParquetStorage
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ async def process_stock_price_message(
     raw_msg: bytes,
     producer: AIOKafkaProducer,
     default_client: StockClient,
+    parquet_storage: ParquetStorage,
 ) -> None:
     started_at = datetime.now(UTC)
     payload: dict[str, Any] = {}
@@ -50,10 +51,10 @@ async def process_stock_price_message(
     try:
         payload = json.loads(raw_msg.decode())
         symbol_key = payload["symbolKey"]
-        _exchange, code = symbol_key.split("-", 1)
+        exchange, code = symbol_key.split("-", 1)
 
         metadata = payload.get("metadata") or {}
-        bucket = metadata.get("bucket")
+        # bucket = metadata.get("bucket") # Bucket is now managed by ParquetStorage
         object_name_override = metadata.get("objectName")
 
         source = payload.get("source")
@@ -67,19 +68,14 @@ async def process_stock_price_message(
         limit = compute_limit(from_date, to_date)
         new_df = await fetch_stock_data(client, code, limit)
 
-        minio = get_minio_client()
-        if object_name_override:
-            object_name = object_name_override
-        else:
-            exchange, code = symbol_key.split("-", 1)
-            object_name = settings.get_eod_path(exchange, code)
-        existing_df = read_existing_parquet(minio, object_name, bucket=bucket)
+        object_name = object_name_override or settings.get_eod_path(exchange, code)
+        existing_df = await parquet_storage.read_optional_dataframe(object_name)
 
         combined = pd.concat([existing_df, new_df])
         combined = combined.drop_duplicates(subset=["date"])
         combined = combined.sort_values("date")
 
-        write_parquet_to_minio(minio, combined, object_name, bucket=bucket)
+        await parquet_storage.write_dataframe(object_name, combined)
 
         status = build_status(
             "symbolKey",

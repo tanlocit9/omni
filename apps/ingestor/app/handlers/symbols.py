@@ -12,8 +12,8 @@ from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
 from app.stocks.sectors_cache import get_cached_sectors
-from app.storage.minio_client import get_minio_client
-from app.storage.parquet import read_existing_parquet, write_parquet_to_minio
+
+from py_common.storage.parquet import ParquetStorage
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ async def process_sync_symbols_message(
     raw_msg: bytes,
     producer: AIOKafkaProducer,
     default_client: StockClient,
+    parquet_storage: ParquetStorage,
 ) -> None:
     started_at = datetime.now(UTC)
     payload: dict[str, Any] = {}
@@ -55,7 +56,7 @@ async def process_sync_symbols_message(
         metadata = payload.get("metadata") or {}
         expected_count = metadata.get("symbolCount")
         include_sector = bool(metadata.get("includeSectorClassification", False))
-        bucket = metadata.get("bucket")
+        # bucket = metadata.get("bucket") # Bucket is now managed by ParquetStorage
         object_name_override = metadata.get("objectName")
 
         source = payload.get("source")
@@ -66,9 +67,8 @@ async def process_sync_symbols_message(
 
         symbols_df = validate_symbols_snapshot(symbols_df, exchange)
 
-        minio = get_minio_client()
         object_name = object_name_override or settings.get_symbols_path(exchange)
-        previous_df = read_existing_parquet(minio, object_name, bucket=bucket)
+        previous_df = await parquet_storage.read_optional_dataframe(object_name)
 
         warnings: list[str] = []
         classification_source = "NONE"
@@ -110,7 +110,7 @@ async def process_sync_symbols_message(
             if status_warning:
                 warnings.append(status_warning)
 
-        write_parquet_to_minio(minio, canonical_df, object_name, bucket=bucket)
+        await parquet_storage.write_dataframe(object_name, canonical_df)
 
         active_df = canonical_df
         if "delistedDate" in active_df.columns:

@@ -1,9 +1,11 @@
 import logging
 from pathlib import Path
-
-import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from py_common.config.loader import load_yaml
+from py_common.config.models import KafkaSettings, MinioSettings, StorageSettings
+from py_common.config.paths import StockDataPaths
 
 logger = logging.getLogger(__name__)
 
@@ -15,82 +17,71 @@ _SHARED_S3_PATHS_YAML = (
 )
 
 
-def _load_shared_yaml(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    return yaml.safe_load(path.read_text()) or {}
-
-
-_shared = _load_shared_yaml(_SHARED_TOPICS_YAML)
-_s3_config = _load_shared_yaml(_SHARED_S3_PATHS_YAML)
-_spring = _shared.get("spring", {})
-_kafka = _spring.get("kafka", {})
-_topics = _kafka.get("topics", {})
-_minio = _shared.get("min-io", {})
-
-_stock_data = _s3_config.get("stock-data", {})
-_s3_paths = _stock_data.get("paths", {})
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    kafka_bootstrap: str = Field(
-        default=_kafka.get("bootstrap-servers", "localhost:9092"),
-    )
-    kafka_consumer_group_id: str = "analyzer-group"
+    # Kafka
+    kafka: KafkaSettings = Field(default_factory=KafkaSettings)
     kafka_retry_interval_seconds: int = 3
 
-    topic_sync_stock_prices: str = Field(
-        default=_topics.get("topic-sync-stock-prices", "topic-sync-stock-prices"),
-    )
-    topic_sync_symbols: str = Field(
-        default=_topics.get("topic-sync-symbols", "topic-sync-symbols"),
-    )
-    topic_upsert_symbols: str = Field(
-        default=_topics.get("topic-upsert-symbols", "topic-upsert-symbols"),
-    )
-    sync_job_status_topic: str = Field(
-        default=_topics.get("topic-sync-job-status", "topic-sync-job-status"),
-    )
+    topic_sync_stock_prices: str = "topic-sync-stock-prices"
+    topic_sync_symbols: str = "topic-sync-symbols"
+    topic_upsert_symbols: str = "topic-upsert-symbols"
+    sync_job_status_topic: str = "topic-sync-job-status"
 
-    minio_endpoint: str = Field(default=_minio.get("endpoint", "localhost:9000"))
-    minio_access_key: str = Field(default=_minio.get("access-key", "minioadmin"))
-    minio_secret_key: str = Field(default=_minio.get("secret-key", "minioadmin"))
-    minio_bucket: str = Field(
-        default=_minio.get("bucket") or _stock_data.get("bucket", "stock-data")
-    )
+    # Storage
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    minio: MinioSettings = Field(default_factory=MinioSettings)
 
+    stock_data_paths: StockDataPaths | None = None
     default_stock_source: str = "VND"
 
-    def get_symbols_path(self, exchange: str) -> str:
-        """Build S3 path for symbol metadata file.
-        
-        Args:
-            exchange: Exchange name (will be normalized to lowercase)
-            
-        Returns:
-            Path like: symbols/hose.parquet
-        """
-        symbols_cfg = _s3_paths.get("symbols", {})
-        base = symbols_cfg.get("base", "symbols/")
-        pattern = symbols_cfg.get("pattern", "{exchange}.parquet")
-        return base + pattern.format(exchange=exchange.lower())
+    def __init__(self, **values):
+        super().__init__(**values)
+        self._load_shared_configs()
 
-    def get_eod_path(self, exchange: str, code: str) -> str:
-        """Build S3 path for EOD price data file.
-        
-        Args:
-            exchange: Exchange name (will be normalized to lowercase)
-            code: Stock ticker code (will be normalized to lowercase)
-            
-        Returns:
-            Path like: eod/hose/hpg.parquet
-        """
-        eod_cfg = _s3_paths.get("eod", {})
-        base = eod_cfg.get("base", "eod/")
-        pattern = eod_cfg.get("pattern", "{exchange}/{code}.parquet")
-        return base + pattern.format(exchange=exchange.lower(), code=code.lower())
+    def _load_shared_configs(self) -> None:
+        # Load topics and basic kafka/minio from topics.yaml
+        shared = load_yaml(_SHARED_TOPICS_YAML)
+        spring = shared.get("spring", {})
+        kafka_cfg = spring.get("kafka", {})
+        topics = kafka_cfg.get("topics", {})
+
+        self.kafka.bootstrap_servers = kafka_cfg.get(
+            "bootstrap-servers", self.kafka.bootstrap_servers
+        )
+
+        self.topic_sync_stock_prices = topics.get(
+            "topic-sync-stock-prices", self.topic_sync_stock_prices
+        )
+        self.topic_sync_symbols = topics.get(
+            "topic-sync-symbols", self.topic_sync_symbols
+        )
+        self.topic_upsert_symbols = topics.get(
+            "topic-upsert-symbols", self.topic_upsert_symbols
+        )
+        self.sync_job_status_topic = topics.get(
+            "topic-sync-job-status", self.sync_job_status_topic
+        )
+
+        minio_cfg = shared.get("min-io", {})
+        if minio_cfg:
+            self.minio.endpoint = minio_cfg.get(
+                "endpoint", self.minio.endpoint
+            )
+            self.minio.access_key = minio_cfg.get(
+                "access-key", self.minio.access_key
+            )
+            self.minio.secret_key = minio_cfg.get(
+                "secret-key", self.minio.secret_key
+            )
+            self.minio.bucket = minio_cfg.get(
+                "bucket", self.minio.bucket
+            )
+
+        # Load S3 paths
+        s3_cfg = load_yaml(_SHARED_S3_PATHS_YAML)
+        self.stock_data_paths = StockDataPaths.from_config(s3_cfg)
 
 
 settings = Settings()

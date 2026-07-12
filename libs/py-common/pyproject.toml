@@ -1,44 +1,39 @@
 [tool.coverage.run]
 branch = true
-source = ["app"]
+source = ["py_common"]
 
 [tool.coverage.report]
 exclude_lines = ['if TYPE_CHECKING:']
 show_missing = true
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
 addopts = """
  --cov
- --cov-report html:'../../coverage/apps/ingestor/html'
- --cov-report xml:'../../coverage/apps/ingestor/coverage.xml'
- --html='../../reports/apps/ingestor/unittests/html/index.html'
- --junitxml='../../reports/apps/ingestor/unittests/junit.xml'
+ --cov-report html:'../../coverage/libs/py-common/html'
+ --cov-report xml:'../../coverage/libs/py-common/coverage.xml'
+ --html='../../reports/libs/py-common/unittests/html/index.html'
+ --junitxml='../../reports/libs/py-common/unittests/junit.xml'
 """
 
 [project]
-name = "ingestor"
-version = "1.0.0"
-description = "Stock Sync Ingestor Microservice."
+name = "omni-py-common"
+version = "0.1.0"
+description = "Shared Python library for Omni platform services"
 requires-python = ">=3.12,<3.14"
-readme = 'README.md'
+readme = "README.md"
 dependencies = [
-    "aiokafka>=0.12.0",
-    "httpx>=0.28.1",
-    "pandas>=2.2.0",
-    "pyarrow>=15.0.0",
     "minio>=7.2.0",
-    "pydantic-settings>=2.7.1",
-    "pyyaml>=6.0.2",
-    "python-dotenv>=1.0.1",
-    "ruff>=0.15.1",
-    "omni-py-common",
+    "pandas>=2.3.0",
+    "pyarrow>=17.0.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "pyyaml>=6.0.0",
 ]
 
-[tool.uv.sources]
-omni-py-common = { workspace = true }
-
 [tool.hatch.build.targets.wheel]
-packages = ["ingestor"]
+packages = ["py_common"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -46,10 +41,13 @@ allow-direct-references = true
 [dependency-groups]
 dev = [
     "pytest>=8.3.4",
-    "pytest-sugar>=1.0.0",
+    "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
-    "pytest-html>=4.1.1",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.15.1",
 ]
+
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

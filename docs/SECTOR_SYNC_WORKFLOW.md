@@ -1,80 +1,43 @@
 # Sector Sync Workflow
 
-## Purpose
-
 Sector sync is an optional enrichment path inside the existing `SYNC_SYMBOLS` workflow. It adds canonical sector codes and raw ICB classification metadata to symbol master data while preserving normal symbol synchronization when sector enrichment is disabled or unavailable.
 
 This workflow is intentionally not a separate job. Sector data travels with the symbol snapshot because the authoritative symbol-sector relation is `symbol.sector_id`.
 
-## Components
+## 1. Components and Ownership
 
-```text
-Platform / Java Core
-  ├─ JobDefinition config
-  ├─ SyncSymbolsJobProducer
-  ├─ SectorRepository
-  ├─ SymbolUpsertConsumer
-  └─ SymbolRepository
+| Component | Responsibility |
+| --- | --- |
+| Platform / Java Core | Owns `JobDefinition` config, scheduler execution tracking, `SyncSymbolsJobProducer`, canonical sector mappings, `SymbolUpsertConsumer`, and symbol persistence. |
+| Ingestor / Python | Consumes sync-symbols requests, fetches symbol data, optionally enriches sectors, writes symbol Parquet snapshots, publishes full symbol snapshots, and publishes status. |
+| PostgreSQL | Stores Platform-owned sectors, symbols, job definitions, and execution history. |
+| S3/MinIO | Stores `symbols/{exchange}.parquet`. |
+| Kafka | Carries sync-symbols requests, symbol-upsert snapshots, and job-status events. |
 
-Ingestor / Python
-  ├─ app.handlers.symbols
-  ├─ stock client factory
-  ├─ VNDirect symbol client
-  ├─ Vietcap/VCI sector client
-  ├─ MinIO Parquet storage helpers
-  └─ Kafka producer
+## 2. Canonical Identifiers
 
-Storage
-  ├─ PostgreSQL sector table
-  ├─ PostgreSQL symbol table
-  └─ S3/MinIO symbols/{exchange}.parquet
-```
+| Field | Meaning | Scope |
+| --- | --- | --- |
+| `jobDefinitionId` | Scheduled job configuration ID | Shared by all executions of one job definition |
+| `parentExecutionId` | Scheduler-run execution ID | Present when Platform creates a parent scheduler execution for exchange fan-out |
+| `executionId` | Individual exchange-task execution ID | Unique per dispatched exchange task |
 
-## Topics
+Legacy aliases are compatibility only:
 
-### Inbound to ingestor
+| Legacy field | Canonical field |
+| --- | --- |
+| `jobId` | `jobDefinitionId` |
+| `logId` | `executionId` |
 
-The Java platform publishes symbol jobs to the configured sync-symbols topic.
+## 3. Topics
 
-Typical local/default topic name:
+| Topic | Direction | Kafka key | Payload |
+| --- | --- | --- | --- |
+| `topic-sync-symbols` | Platform -> Ingestor | `exchange` | Symbol-master sync request |
+| `topic-upsert-symbols` | Ingestor -> Platform | `exchange` | Full symbol snapshot for one exchange |
+| `topic-sync-job-status` | Ingestor -> Platform | `exchange` for symbol-sync tasks | Job status |
 
-```text
-topic-sync-symbols
-```
-
-Message key:
-
-```text
-{exchange}
-```
-
-### Outbound to Java platform
-
-The ingestor publishes canonical symbol upsert batches.
-
-Typical local/default topic name:
-
-```text
-topic-upsert-symbols
-```
-
-Message key:
-
-```text
-{exchange}
-```
-
-### Status topic
-
-The ingestor publishes job status messages to the configured job-status topic.
-
-Typical local/default topic name:
-
-```text
-topic-sync-job-status
-```
-
-## Job Configuration
+## 4. Job Configuration
 
 Sector enrichment is opt-in.
 
@@ -93,7 +56,7 @@ Behavior:
 - skip VCI sector call;
 - preserve sector columns from existing Parquet snapshot when present;
 - publish normal symbol upsert records;
-- return `success`.
+- publish successful status if processing succeeds.
 
 ### Enrichment enabled
 
@@ -113,19 +76,29 @@ Behavior:
 - merge by symbol code;
 - map source ICB code to Java-owned canonical sector code;
 - write enriched Parquet;
-- publish enriched symbol upsert records.
+- publish enriched symbol upsert records;
+- publish status with the identifiers echoed from the request.
 
-## Sync-Symbols Request Contract
+## 5. Sync-Symbols Request Contract
+
+Topic: `topic-sync-symbols`
+
+Producer: Platform `SyncSymbolsJobProducer`
+
+Consumer: Ingestor `process_symbols_message`
+
+Kafka key: `exchange`
 
 The Java producer sends one message per exchange.
 
 ```json
 {
-  "jobId": "fece86d5-2a86-4a54-a9da-3b44f905ef87",
-  "logId": "ff96a85f-91fb-42c8-a235-c923a730f20d",
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "44444444-4444-4444-8444-444444444444",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
   "source": "VND",
   "exchange": "HOSE",
-  "detectedAt": "2026-07-10T00:00:00Z",
+  "timestamp": "2026-07-12T12:00:00Z",
   "metadata": {
     "symbolCount": 500,
     "includeSectorClassification": true,
@@ -143,43 +116,51 @@ The Java producer sends one message per exchange.
 }
 ```
 
-### Metadata fields
+Field notes:
 
 | Field | Required | Owner | Description |
 | --- | --- | --- | --- |
-| `symbolCount` | No | Java | Current active symbol count used for reporting. |
-| `includeSectorClassification` | No | Java | Enables VCI sector enrichment when `true`. Defaults to `false`. |
-| `sectorTaxonomy` | Required when enrichment enabled | Java | Source taxonomy. Current default is `ICB`. |
-| `sectorLevel` | Required when enrichment enabled | Java | Source taxonomy level used for canonical mapping. Current default is `3`. |
-| `sectorMappings` | Required when enrichment enabled | Java | Active source-code to canonical-code mapping. |
+| `jobDefinitionId` | Yes | Platform | Scheduled job definition ID. |
+| `executionId` | Yes | Platform | Exchange task execution ID. |
+| `parentExecutionId` | Optional but expected for scheduled fan-out | Platform | Parent scheduler-run execution ID shared by exchange tasks. |
+| `source` | Yes | Platform | Symbol source identifier. |
+| `exchange` | Yes | Platform | Exchange to synchronize. |
+| `timestamp` | Yes | Platform | Scheduler timestamp. This is the implemented field name; do not use `detectedAt` for the request. |
+| `metadata.symbolCount` | No | Platform | Current active symbol count used for reporting. |
+| `metadata.includeSectorClassification` | No | Platform | Enables VCI sector enrichment when `true`. Defaults to `false`. |
+| `metadata.sectorTaxonomy` | Required when enrichment enabled | Platform | Source taxonomy. Current default is `ICB`. |
+| `metadata.sectorLevel` | Required when enrichment enabled | Platform | Source taxonomy level used for canonical mapping. Current default is `3`. |
+| `metadata.sectorMappings` | Required when enrichment enabled | Platform | Active source-code to canonical-code mapping. |
 
-### Mapping rules
+## 6. Mapping Rules
 
 - Java is the canonical mapping owner.
 - Python applies the mapping provided in the message.
 - Python must not maintain a separate canonical sector mapping table.
 - Source sector names are metadata only; source sector codes are used for matching.
 
-## Java Producer Behavior
+## 7. Java Producer Behavior
 
 `SyncSymbolsJobProducer`:
 
 1. extracts configured exchanges, defaulting to `HOSE`, `HNX`, and `UPCOM`;
-2. counts active symbols by exchange;
-3. copies `job_definition.config_json` into message metadata;
-4. sets `includeSectorClassification=false` when enrichment is disabled or absent;
-5. when enrichment is enabled:
+2. creates exchange-level execution tracking and includes `executionId`;
+3. includes `parentExecutionId` when the scheduler created a parent execution for the run;
+4. counts active symbols by exchange;
+5. copies `job_definition.config_json` into message metadata;
+6. sets `includeSectorClassification=false` when enrichment is disabled or absent;
+7. when enrichment is enabled:
    - normalizes taxonomy to uppercase;
    - parses `sectorLevel`;
    - loads active mappings from PostgreSQL;
-   - falls back to `SectorSeedConfig` only if the `sector` table is empty;
+   - falls back to seeded sector config only if the `sector` table is empty;
    - writes mappings to `metadata.sectorMappings`;
-6. publishes a sync-symbols message keyed by exchange.
+8. publishes a sync-symbols message keyed by exchange.
 
-## Ingestor Processing Flow
+## 8. Ingestor Processing Flow
 
 ```text
-process_sync_symbols_message
+process_symbols_message
   ├─ parse payload
   ├─ resolve stock client from payload.source
   ├─ fetch symbols from VNDirect
@@ -191,13 +172,13 @@ process_sync_symbols_message
   ├─ preserve previous classification when needed
   ├─ validate classification coverage
   ├─ write symbols/{exchange}.parquet
-  ├─ publish symbol upsert batch
+  ├─ publish full symbol upsert batch
   └─ publish status
 ```
 
-## Validation
+## 9. Validation
 
-Before replacing the Parquet snapshot, the ingestor validates:
+Before replacing the Parquet snapshot, Ingestor validates:
 
 - required fields exist:
   - `code`
@@ -206,7 +187,7 @@ Before replacing the Parquet snapshot, the ingestor validates:
 - `(floor, code)` is unique;
 - fetched floor values include the requested exchange.
 
-When enrichment is enabled and VCI data is available, the ingestor calculates:
+When enrichment is enabled and VCI data is available, Ingestor calculates:
 
 | Metric | Meaning |
 | --- | --- |
@@ -224,11 +205,11 @@ warning < 98%
 failure < 90%
 ```
 
-If coverage is below `90%`, processing fails and the status becomes `error`.
+If coverage is below `90%`, processing fails and the status becomes `ERROR`.
 
-## Canonical Parquet Schema
+## 10. Canonical Parquet Schema
 
-The ingestor writes one symbol snapshot per exchange:
+Ingestor writes one symbol snapshot per exchange:
 
 ```text
 symbols/{exchange}.parquet
@@ -277,27 +258,36 @@ Rules:
 - Missing ICB matches do not erase previous classifications for fallback paths.
 - New paths must not include sector names, sector codes, dates, or run IDs.
 
-## Symbol Upsert Event Contract
+## 11. Symbol-Upsert Event Contract
 
-The ingestor publishes a canonical event to Java after writing Parquet.
+Topic: `topic-upsert-symbols`
+
+Producer: Ingestor `process_symbols_message`
+
+Consumer: Platform `SymbolUpsertConsumer`
+
+Kafka key: `exchange`
+
+The event is a full exchange snapshot. Do not publish sector-filtered or partial subsets to this topic.
 
 ```json
 {
-  "jobId": "fece86d5-2a86-4a54-a9da-3b44f905ef87",
-  "logId": "ff96a85f-91fb-42c8-a235-c923a730f20d",
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "44444444-4444-4444-8444-444444444444",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
   "exchange": "HOSE",
   "expectedCount": 500,
   "actualCount": 500,
-  "detectedAt": "2026-07-10T00:00:00Z",
+  "timestamp": "2026-07-12T12:00:00Z",
   "symbols": [
     {
       "code": "VCB",
       "exchange": "HOSE",
       "type": "STOCK",
       "status": "LISTED",
-      "isin": "...",
-      "companyId": "...",
-      "companyName": "...",
+      "isin": "VN000000VCB4",
+      "companyId": "VCB",
+      "companyName": "Joint Stock Commercial Bank for Foreign Trade of Vietnam",
       "listedDate": "2009-06-30",
       "sectorCode": "BANKING",
       "sectorTaxonomy": "ICB",
@@ -305,26 +295,26 @@ The ingestor publishes a canonical event to Java after writing Parquet.
       "sourceSectorCode": "8350",
       "sourceSectorNameVi": "Ngân hàng",
       "sourceSectorNameEn": "Banks",
-      "icbLv1Code": "...",
-      "icbLv1NameVi": "...",
-      "icbLv1NameEn": "...",
-      "icbLv2Code": "...",
-      "icbLv2NameVi": "...",
-      "icbLv2NameEn": "...",
+      "icbLv1Code": "8000",
+      "icbLv1NameVi": "Tài chính",
+      "icbLv1NameEn": "Financials",
+      "icbLv2Code": "8300",
+      "icbLv2NameVi": "Ngân hàng",
+      "icbLv2NameEn": "Banks",
       "icbLv3Code": "8350",
       "icbLv3NameVi": "Ngân hàng",
       "icbLv3NameEn": "Banks",
-      "icbLv4Code": "...",
-      "icbLv4NameVi": "...",
-      "icbLv4NameEn": "...",
-      "classificationUpdatedAt": "2026-07-10T00:00:00Z",
+      "icbLv4Code": "8357",
+      "icbLv4NameVi": "Ngân hàng thương mại",
+      "icbLv4NameEn": "Commercial Banks",
+      "classificationUpdatedAt": "2026-07-12T12:00:00Z",
       "meta": {}
     }
   ]
 }
 ```
 
-## Java Consumer Behavior
+## 12. Java Consumer Behavior
 
 `SymbolUpsertConsumer` processes each record as follows:
 
@@ -337,7 +327,7 @@ The ingestor publishes a canonical event to Java after writing Parquet.
 5. Existing `symbol.sector_id` is preserved when incoming classification is missing or unknown.
 6. After processing a non-empty batch, missing active symbols for the exchange are deactivated.
 
-## Full Snapshot Safety Rule
+## 13. Full Snapshot Safety Rule
 
 Current Java consumer behavior assumes `topic-upsert-symbols` contains a full exchange symbol snapshot.
 
@@ -353,30 +343,55 @@ Therefore:
 - do not publish sector-filtered or partial subsets to this topic;
 - before introducing partial upsert batches, add an explicit `fullSnapshot` or `snapshotScope` field and guard deactivation logic.
 
-## Status Contract
+## 14. Status Contract
+
+Topic: `topic-sync-job-status`
+
+Producer: Ingestor `build_status`
+
+Consumer: Platform `JobStatusConsumer`
+
+Kafka key: exchange identifier for symbol-sync tasks.
 
 ### Success
 
 ```json
 {
-  "exchange": "HOSE",
-  "status": "success",
+  "symbolKey": "HOSE",
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "44444444-4444-4444-8444-444444444444",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
+  "status": "SUCCESS",
   "recordsInserted": 500,
   "totalRecords": 500,
-  "classificationSource": "FRESH"
+  "newOffset": "2026-07-12T12:00:00Z",
+  "startedAt": "2026-07-12T12:00:01.000000+00:00",
+  "finishedAt": "2026-07-12T12:00:08.000000+00:00",
+  "durationMs": 7000,
+  "errorMessage": null,
+  "warnings": []
 }
 ```
 
 ### Partial success with stale classification
 
+If the current implementation emits partial success, document it as a non-canonical status extension. Platform status handling should be checked before relying on any value beyond `SUCCESS` and `ERROR`.
+
 ```json
 {
-  "exchange": "HOSE",
-  "status": "partial_success",
+  "symbolKey": "HOSE",
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "44444444-4444-4444-8444-444444444444",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
+  "status": "SUCCESS",
   "recordsInserted": 500,
   "totalRecords": 500,
-  "warnings": ["VCI classification unavailable; reused previous snapshot"],
-  "classificationSource": "STALE"
+  "newOffset": "2026-07-12T12:00:00Z",
+  "startedAt": "2026-07-12T12:00:01.000000+00:00",
+  "finishedAt": "2026-07-12T12:00:08.000000+00:00",
+  "durationMs": 7000,
+  "errorMessage": null,
+  "warnings": ["VCI classification unavailable; reused previous snapshot"]
 }
 ```
 
@@ -384,28 +399,49 @@ Therefore:
 
 ```json
 {
-  "exchange": "HOSE",
-  "status": "error",
+  "symbolKey": "HOSE",
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "44444444-4444-4444-8444-444444444444",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
+  "status": "ERROR",
+  "recordsInserted": 0,
+  "totalRecords": 0,
+  "newOffset": null,
+  "startedAt": "2026-07-12T12:00:01.000000+00:00",
+  "finishedAt": "2026-07-12T12:00:03.000000+00:00",
+  "durationMs": 2000,
   "errorMessage": "VCI classification unavailable and no previous symbol snapshot exists"
 }
 ```
 
-## Failure Matrix
+## 15. Failure Matrix
 
 | Scenario | Previous snapshot exists | Result |
 | --- | --- | --- |
-| Enrichment disabled | No | Sync symbols, no sector classification, `success`. |
-| Enrichment disabled | Yes | Sync symbols, preserve previous classification, `success`. |
-| Enrichment enabled, VCI succeeds | Either | Sync symbols, write fresh classification, `success` or `partial_success` if warnings exist. |
-| Enrichment enabled, VCI fails | Yes | Sync symbols, preserve stale classification, `partial_success`. |
-| Enrichment enabled, VCI fails | No | Do not write new snapshot, publish `error`. |
-| Classification coverage below 98% | Either | Write snapshot if at least 90%, publish warning/`partial_success`. |
-| Classification coverage below 90% | Either | Fail processing, publish `error`. |
+| Enrichment disabled | No | Sync symbols, no sector classification, `SUCCESS`. |
+| Enrichment disabled | Yes | Sync symbols, preserve previous classification, `SUCCESS`. |
+| Enrichment enabled, VCI succeeds | Either | Sync symbols, write fresh classification, `SUCCESS`; include warnings if coverage is degraded but accepted. |
+| Enrichment enabled, VCI fails | Yes | Sync symbols, preserve stale classification, `SUCCESS` with warning if implemented by the handler. |
+| Enrichment enabled, VCI fails | No | Do not write new snapshot, publish `ERROR`. |
+| Classification coverage below 98% | Either | Write snapshot if at least 90%, publish warning when implemented. |
+| Classification coverage below 90% | Either | Fail processing, publish `ERROR`. |
 
-## Operational Notes
+## 16. Backward Compatibility
+
+Current Ingestor status-building code still accepts legacy request aliases:
+
+| Accepted alias | Canonical field |
+| --- | --- |
+| `jobId` | `jobDefinitionId` |
+| `logId` | `executionId` |
+
+Do not use these aliases in new examples or new producers. They are compatibility only, not the canonical contract.
+
+## 17. Operational Notes
 
 - Use source codes, not names, for matching.
 - Keep official ticker casing in metadata and user-facing surfaces.
 - S3 object paths are lowercase-normalized by path builders.
 - Do not hard-code `symbols/{exchange}.parquet`; use `settings.get_symbols_path(exchange)`.
 - Do not add sector or industry folders to symbol or EOD paths.
+- `topic-upsert-symbols` remains a full-snapshot topic until the Java consumer deactivation behavior is explicitly guarded for partial batches.

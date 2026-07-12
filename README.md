@@ -11,11 +11,12 @@ Omni consists of three main services organized inside the `apps/` directory, sup
 ```
 omni/
 ├── apps/
-│   ├── core/          # Java 21 / Spring Boot 4 — Platform API & Storage Orchestration
-│   ├── analyzer/      # Python 3.14 / FastAPI — Analytical REST API & Direct DB Sync
-│   └── ingestor/      # Python 3.14 / Async Event Worker — Stateless Parquet Data Lake Sync
+│   ├── core/          # Java 21 / Spring Boot 4 — Platform API, scheduler, orchestration
+│   ├── analyzer/      # Python 3.14 / FastAPI — Analytical API boundary
+│   └── ingestor/      # Python 3.14 / Async Event Worker — Parquet Data Lake Sync
+├── configs/shared/    # Shared Kafka topic and S3 path configuration
 ├── database/
-│   └── migrations/    # Flyway SQL migrations (V1–V3)
+│   └── migrations/    # Flyway SQL migrations
 ├── externals/
 │   └── vnstock-etl/   # Git submodule — ETL pipeline for stock data
 ├── docker-compose.yaml
@@ -26,8 +27,8 @@ omni/
 
 ### 1. Platform Core API (`apps/core`)
 
-- **Tech Stack**: Java 21, Spring Boot 4.0.1, Spring Modulith, Spring Data JPA + Hibernate, PostgreSQL, Flyway, MinIO client.
-- **Role**: Central command orchestrator. Manages user accounts, portfolio tracking, screener alerts, and metadata synchronization.
+- **Tech Stack**: Java 21, Spring Boot 4.0.1, Spring Modulith, Spring Data JPA + Hibernate, PostgreSQL, Flyway, MinIO client, Kafka.
+- **Role**: Central command orchestrator. Manages user accounts, portfolio tracking, screener alerts, scheduler job definitions, parent/child execution tracking, Kafka request production, and status consumption.
 - **Design Pattern**: Clean Ports & Adapters architecture. Storage providers are resolved dynamically at runtime using the `StorageProviderRegistry`.
 - **Database Migrations**: Automated SQL-based migrations via Flyway on service startup.
 
@@ -37,61 +38,59 @@ omni/
 - **Role**: Async event-driven worker that subscribes to stock synchronization commands and performs high-speed in-memory Parquet updates to MinIO object storage.
 - **Design Pattern**: Ports & Adapters — Kafka client and stock data sources are abstracted behind port interfaces, making the transport layer swappable without touching business logic. Registry pattern for stock clients (VNDirect default).
 - **Ingestion Pipeline**:
-  1. Consumes sync requests from the `topic-sync-stock-prices` topic (details: `symbol`, `source`, `fromOffset`, `toOffset`, `jobId`, `logId`).
-  2. Downloads the existing `.parquet` history from MinIO (path prefix: `EOD/{symbol}.parquet`).
-  3. Fetches the latest incremental records using the configured stock client (VNDirect API).
-  4. Merges old and new records in-memory using Pandas and deduplicates by `date`.
-  5. Streams the updated history back to MinIO as a clean Parquet chunk.
-  6. Publishes processing metrics to `topic-sync-job-status` topic (details: `symbol`, `jobId`, `logId`, `status`, `recordsInserted`, `totalRecords`, `durationMs`, `errorMessage`).
+  1. Consumes stock-price requests from `topic-sync-stock-prices` and symbol-master requests from `topic-sync-symbols`.
+  2. Derives object paths from shared path builders, for example `eod/{exchange}/{code}.parquet` and `symbols/{exchange}.parquet`.
+  3. Fetches external market data using the configured stock client.
+  4. Merges and deduplicates records in-memory using Pandas and PyArrow.
+  5. Writes complete ticker-owned or exchange-owned Parquet snapshots to MinIO/S3.
+  6. Publishes processing metrics to `topic-sync-job-status` and full symbol snapshots to `topic-upsert-symbols`.
 - **Concurrency**: Uses `asyncio.Semaphore` to process multiple messages concurrently (bounded by configurable `MAX_CONCURRENT_TASKS`), safe for I/O-bound workloads.
 
 ### 3. Stock Analyzer API (`apps/analyzer`)
 
-- **Tech Stack**: Python 3.14, FastAPI 0.128.8, SQLAlchemy 2.0 (Async Engine), asyncpg, PostgreSQL, VNDirect API HTTP client.
-- **Role**: REST-only analytical API for querying stock data and on-demand synchronization from external sources.
-- **Endpoints** (all under `/v1`):
-  - `GET /v1/stocks/?symbol=STB` — Queries stock pricing history from PostgreSQL.
-  - `POST /v1/stocks/sync?symbol=STB` — Triggers on-demand historical price retrieval from the VNDirect API and commits them directly to the database with conflict avoidance.
-- **Note**: Analyzer is independent of the Kafka pipeline and operates as a pure REST API layer over PostgreSQL.
+- **Tech Stack**: Python 3.14, FastAPI 0.128.8, Pydantic settings, Kafka and MinIO infrastructure adapters.
+- **Role**: Analytical API boundary. Analyzer no longer owns stock persistence or synchronization execution.
+- **Current maturity**:
+  - Compatibility stock endpoints remain available, but they do not own Platform scheduler jobs and do not persist stock prices directly to PostgreSQL.
+  - `KafkaEventPublisher` and `MinioObjectStorage` are infrastructure foundations for future analytical integrations.
+  - Analyzer must not bypass Platform-owned orchestration or Ingestor-owned Parquet writes.
 
 ---
 
 ## 🔄 End-to-End Event-Driven Sync Pipeline
 
-Heavy file-based synchronization runs completely asynchronously over a bidirectional event loop. The Platform API orchestrates syncs through Kafka; the Analyzer API operates independently:
+Heavy file-based synchronization runs asynchronously over Kafka. Platform owns scheduler orchestration and execution tracking; Ingestor owns external data retrieval and Parquet writes. Analyzer is not in the stock-sync execution path.
 
 ```
  ┌────────────────────────────────────────────────────────┐
  │                      platform (Java)                   │
  │                                                        │
- │  1. POST /api/stocks/sync?symbol=XYZ                   │
- │  2. Query `update_log` / `sync_config` → Calc params   │
- │  3. Publish `topic-sync-stock-prices` command                 │
+ │  1. Scheduler selects due job definitions              │
+ │  2. Create parent execution and child task executions  │
+ │  3. Publish `topic-sync-stock-prices` commands         │
  └─────────────────────────┬──────────────────────────────┘
                            │
-     ┌─────────────────────┴──────────────────────┐
-     │                                            │
-     ▼                                            ▼
-[Topic: topic-sync-stock-prices]                  [Analyzer API]
-     │                                    (independent)
-     │ Payload: {"symbol": "XYZ",         GET /v1/stocks/
-     │           "source": "vnd",          POST /v1/stocks/sync
-     │           "jobId", "logId", ...}    → Queries PostgreSQL directly
-     │                                     → Fetches from VNDirect
-     ▼                                        on-demand (no Kafka)
+                           ▼
+              [Topic: topic-sync-stock-prices]
+                           │
+                           │ Payload: {"symbolKey": "HOSE-HPG",
+                           │           "jobDefinitionId",
+                           │           "executionId",
+                           │           "parentExecutionId", ...}
+                           ▼
  ┌────────────────────────────────────────────────────────┐
  │                    ingestor (Python)                   │
  │                                                        │
- │  1. Fetch existing `EOD/XYZ.parquet` from MinIO        │
+ │  1. Fetch existing `eod/hose/hpg.parquet` from MinIO   │
  │  2. Fetch recent incremental records via stock client  │
- │  3. Merge (pd.concat) & Deduplicate (drop_duplicates)  │
+ │  3. Merge and deduplicate records                      │
  │  4. Stream updated `.parquet` back to MinIO            │
- │  5. Publish `topic-sync-job-status` metrics                  │
+ │  5. Publish `topic-sync-job-status` metrics            │
  └─────────────────────────┬──────────────────────────────┘
                            │
-                           │ Payload: {"symbol": "XYZ", "jobId", "logId",
-                           │           "status": "success", "recordsInserted",
-                           │           "totalRecords", "durationMs", ...}
+                           │ Payload: {"symbolKey": "HOSE-HPG",
+                           │           "executionId", "status",
+                           │           "recordsInserted", ...}
                            ▼
                 [ Topic: topic-sync-job-status ]
                            │
@@ -99,38 +98,41 @@ Heavy file-based synchronization runs completely asynchronously over a bidirecti
  ┌────────────────────────────────────────────────────────┐
  │                      platform (Java)                   │
  │                                                        │
- │  1. Consume status (if listener configured)            │
- │  2. Persist audit log into PostgreSQL `update_log`     │
- │  3. Update `sync_config` metadata                      │
+ │  1. Consume status                                     │
+ │  2. Update child execution by `executionId`            │
+ │  3. Aggregate parent execution when applicable         │
  └────────────────────────────────────────────────────────┘
 ```
 
 ### Kafka Message Formats
 
-#### Sync Request Topic (`topic-sync-stock-prices`)
+Detailed message contracts are maintained in `docs/STOCK_SYNC_WORKFLOW.md` and `docs/SECTOR_SYNC_WORKFLOW.md`. Short stock-price request example:
 
 ```json
 {
-  "symbol": "STB",
-  "source": "vnd",
-  "fromOffset": 0,
-  "toOffset": 50,
-  "jobId": "job-123",
-  "logId": "log-456"
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "22222222-2222-4222-8222-222222222222",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
+  "source": "VCI",
+  "symbolKey": "HOSE-HPG",
+  "fromOffset": "2024-01-01T00:00:00Z",
+  "toOffset": "2026-07-12T12:00:00Z",
+  "metadata": {}
 }
 ```
 
-#### Sync Status Topic (`topic-sync-job-status`)
+Short status example:
 
 ```json
 {
-  "symbol": "STB",
-  "jobId": "job-123",
-  "logId": "log-456",
-  "status": "success",
-  "recordsInserted": 50,
-  "totalRecords": 1550,
-  "durationMs": 350,
+  "symbolKey": "HOSE-HPG",
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "22222222-2222-4222-8222-222222222222",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
+  "status": "SUCCESS",
+  "recordsInserted": 12,
+  "totalRecords": 2500,
+  "durationMs": 7000,
   "errorMessage": null
 }
 ```
@@ -235,7 +237,7 @@ When migrating to FaaS (Lambda / Cloud Run), the HTTP entry point in `ingestor/a
 - **Kafka Transport Abstraction**: Ingestor's Kafka client is isolated behind port interfaces, allowing swap of Kafka adapters (e.g., Confluent → MSK → Pub/Sub) without touching business logic.
 - **Infrastructure Portability**: Services are standard containerized OCI images with no cloud-vendor runtime dependencies.
 - **12-Factor Settings**: All credentials, connection strings, broker hosts, and bucket names are configured through runtime environment variables.
-- **REST Independence**: Analyzer API operates independently from the event pipeline for flexibility in querying and on-demand syncs.
+- **Service Boundaries**: Platform owns orchestration, Ingestor owns Parquet writes, and Analyzer must not reintroduce direct stock persistence outside agreed service contracts.
 
 ---
 
@@ -345,15 +347,19 @@ nx run ingestor:sync
 
 ## � Kafka Configuration & Topics
 
-| Topic                     | Direction | Consumer Group | Description                                                                                                          |
-| :------------------------ | :-------- | :------------- | :------------------------------------------------------------------------------------------------------------------- |
-| `topic-sync-stock-prices` | Inbound   | ingestor       | Sync command from Platform: `{"symbol", "source", "fromOffset", "toOffset", "jobId", "logId"}`                       |
-| `topic-sync-job-status`   | Outbound  | —              | Result from Ingestor: `{"symbol", "jobId", "logId", "status", "recordsInserted", "totalRecords", "durationMs", ...}` |
+| Topic | Direction from Ingestor | Consumer Group | Description |
+| :--- | :--- | :--- | :--- |
+| `topic-sync-stock-prices` | Inbound | ingestor | Stock-price sync command from Platform with `symbolKey`, `jobDefinitionId`, `executionId`, and optional `parentExecutionId`. |
+| `topic-sync-symbols` | Inbound | ingestor | Symbol-master sync command from Platform, keyed by exchange. |
+| `topic-sync-job-status` | Outbound | — | Job status result from Ingestor to Platform. |
+| `topic-upsert-symbols` | Outbound | — | Full symbol snapshot from Ingestor to Platform, keyed by exchange. |
 
-**Configuration** (environment variables):
+**Configuration** is centralized in `configs/shared/topics.yaml`, with runtime overrides available through service settings:
 
-- `SYNC_SYMBOLS_JOBS` — Inbound topic name (default: `topic-sync-stock-prices`)
-- `STATUS_TOPIC` — Outbound topic name (default: `topic-sync-job-status`)
+- `SYNC_STOCK_PRICES_TOPIC` — Stock-price request topic (default: `topic-sync-stock-prices`)
+- `SYNC_SYMBOLS_TOPIC` — Symbol-master request topic (default: `topic-sync-symbols`)
+- `JOB_STATUS_TOPIC` — Status topic (default: `topic-sync-job-status`)
+- `UPSERT_SYMBOLS_TOPIC` — Symbol snapshot topic (default: `topic-upsert-symbols`)
 - `KAFKA_BOOTSTRAP_SERVERS` — Broker addresses (default: `localhost:9092`)
 - `CONSUMER_GROUP_ID` — Ingestor consumer group (default: `ingestor`)
 
@@ -434,11 +440,7 @@ nx run <project-name>:lock
 
 Schemas are managed in `database/migrations/V*__*.sql` and auto-applied on Platform API startup using Flyway.
 
-**Active Migrations** (V1–V3):
-
-- `V1__create_job_definition_table.sql` — Job type definitions and configuration templates
-- `V2__create_job_execution_history_table.sql` — Audit log of all job executions with status and metrics
-- `V3__create_symbol_table.sql` — Stock ticker symbols with exchange and metadata
+**Active Migrations** are maintained under `database/migrations/`. Check that directory for the current version list before adding new migrations.
 
 ### Adding New Migrations
 

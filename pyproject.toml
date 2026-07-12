@@ -1,0 +1,2 @@
+[tool.uv.workspace]
+members = ["libs/py-common", "apps/ingestor", "apps/analyzer"]

@@ -23,7 +23,6 @@ requires-python = ">=3.14,<4"
 readme = 'README.md'
 dependencies = [
     "aiokafka>=0.11",
-    "asyncpg>=0.30",
     "debugpy>=1.8.20",
     "dotenv>=0.9.9",
     "fastapi>=0.128.8",
@@ -32,8 +31,6 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "requests>=2.32.5",
     "ruff>=0.15.1",
-    "sqlacodegen>=4.0.3",
-    "sqlalchemy[asyncio]>=2.0",
     "uvicorn-hmr[all]>=0.1.1.8",
     "uvicorn[standard]>=0.39.0",
     "vnstock>=0.2.9.2.3",
@@ -49,8 +46,6 @@ allow-direct-references = true
 [dependency-groups]
 dev = [
     "autopep8>=2.3.1",
-    "psycopg2-binary>=2.9",
-    "sqlacodegen>=3.0",
     "ruff>=0.8.2",
     "pytest>=8.3.4",
     "pytest-sugar>=1.0.0",

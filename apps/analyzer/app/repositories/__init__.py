@@ -1,1 +1,0 @@
-from app.repositories.stock_prices_repository import StockPricesRepository

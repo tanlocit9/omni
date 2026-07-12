@@ -1,46 +1,42 @@
 # Stock Analyzer Service (`apps/analyzer`)
 
-Welcome to the **Stock Analyzer Service**, a high-performance Python API designed to serve stock pricing data and orchestrate synchronous on-demand updates from external APIs directly to the database.
+The **Stock Analyzer Service** is a FastAPI application for analytical APIs.
+
+Analyzer no longer owns stock price persistence. It does **not** connect directly to PostgreSQL, does **not** read stock prices from PostgreSQL, and does **not** write synchronized stock prices back to PostgreSQL. Stock synchronization is owned by the platform scheduler and downstream ingestion flow.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Current Responsibilities
 
-- **FastAPI Framework**: Utilizing async API endpoints with type safety via Pydantic and DI using FastAPI `Depends()`.
-- **Database Integration**: Interacts directly with the PostgreSQL database using **SQLAlchemy 2.0 (Async Engine)** and standard Repository/Service patterns.
-- **On-Demand Sync**: Synchronizes ticker history directly from VNDirect to the `stock_prices` PostgreSQL table, complete with `ON CONFLICT DO NOTHING` handling to prevent duplication.
-- **Boilerplate Model Generation**: Employs an automated script (`app/scripts/gen_models.py`) to generate SQLAlchemy declarative models directly reflecting Flyway database migrations.
+- **FastAPI API surface**: Provides versioned HTTP endpoints under `/v1`.
+- **Compatibility stock endpoints**: Existing stock endpoints remain available, but they report that direct PostgreSQL access has been removed.
+- **No direct database access**: Analyzer has no SQLAlchemy engine, PostgreSQL session, repository, generated DB models, or database migration coupling.
+- **Sync delegation**: On-demand stock sync should be triggered through the platform scheduler API instead of Analyzer.
 
 ---
 
 ## 📁 Package Layout
 
-```
+```text
 apps/analyzer/
 ├── app/
-│   ├── clients/
-│   │   └── vndirect_client.py        # External VNDirect HTTP API Client
-│   ├── controllers/v1/
-│   │   └── stock.py                  # API Router (exposes endpoints)
+│   ├── controllers/
+│   │   └── v1/
+│   │       └── stock.py              # API router for stock compatibility endpoints
 │   ├── core/
-│   │   └── database.py               # Async engine and Base metadata definition
-│   ├── dtos/stock/
-│   │   └── sync_stock_dto.py         # Request and Response payloads
-│   ├── models/
-│   │   └── models.py                 # Auto-generated SQLAlchemy Models
+│   │   └── __init__.py
+│   ├── dtos/
+│   │   ├── __init__.py
+│   │   └── stock/
 │   ├── providers/
-│   │   └── stock_provider.py         # FastAPI dependency injection suppliers
-│   ├── repositories/
-│   │   └── stock_prices_repository.py# Database operations for stock prices
-│   ├── scripts/
-│   │   └── gen_models.py             # SQLAlchemy models generator script
+│   │   └── stock_provider.py         # FastAPI dependency provider
 │   └── services/
-│       └── stock_service.py          # Business logic for stock fetching and sync
+│       └── stock_service.py          # Stock compatibility behavior
 ├── tests/
-│   └── test_hello.py                 # Service tests
-├── main.py                           # Application entry point
-├── project.json                      # Nx targets definition
-├── pyproject.toml                    # Poetry/PEP 518 dependencies config
+│   └── test_hello.py                 # Service behavior tests
+├── main.py                           # FastAPI application entry point
+├── project.json                      # Nx targets
+├── pyproject.toml                    # Python dependencies and tooling config
 └── uv.lock                           # Locked exact package versions
 ```
 
@@ -50,25 +46,25 @@ apps/analyzer/
 
 All endpoints are prefixed with `/v1`.
 
-### 1. Retrieve Stock Price History
+### 1. Stock Price History Compatibility Endpoint
 
-Returns the recorded historical price list for a specified ticker.
+Reports that Analyzer no longer reads stock prices directly from PostgreSQL.
 
 - **URL**: `GET /v1/stocks/`
 - **Query Parameters**:
-  - `symbol` (string, required): Ticker symbol (e.g. `STB`).
+  - `symbol` (string, required): Ticker symbol, for example `STB`.
 - **Example Request**:
   ```bash
   curl "http://localhost:8000/v1/stocks/?symbol=STB"
   ```
 
-### 2. Synchronize Ticker On-Demand
+### 2. Stock Sync Compatibility Endpoint
 
-Pulls missing historical quotes since the last recorded date from the VNDirect API and upserts them directly to the database.
+Reports that Analyzer no longer writes stock prices directly to PostgreSQL and points callers to the platform scheduler API.
 
 - **URL**: `POST /v1/stocks/sync`
 - **Query Parameters**:
-  - `symbol` (string, required): Ticker symbol (e.g. `STB`).
+  - `symbol` (string, required): Ticker symbol, for example `STB`.
 - **Example Request**:
   ```bash
   curl -X POST "http://localhost:8000/v1/stocks/sync?symbol=STB"
@@ -81,7 +77,7 @@ Pulls missing historical quotes since the last recorded date from the VNDirect A
 All development tasks should be run through **Nx** from the workspace root to take advantage of caching and standardized workspace environments:
 
 ```bash
-# Serve FastAPI locally with hot-reloading (uvicorn-hmr)
+# Serve FastAPI locally with hot-reloading
 nx serve analyzer
 
 # Run the pytest test suite
@@ -93,7 +89,7 @@ nx lint analyzer
 # Auto-format codebase using Ruff rules
 nx format analyzer
 
-# Run the local python debug script
+# Run the local Python debug script
 nx debug analyzer
 ```
 
@@ -104,27 +100,37 @@ nx debug analyzer
 Do not run `pip` or standard `uv` commands directly in the `apps/analyzer` directory. Instead, orchestrate dependencies via workspace-aware Nx commands:
 
 ```bash
-# Add a package (e.g., pandas)
+# Add a package
 nx run analyzer:add --name="pandas>=2.2.0"
 
 # Remove a package
 nx run analyzer:remove --name="pandas"
 
-# Update lockfile (uv.lock)
+# Update lockfile
 nx run analyzer:lock
 
-# Sync python virtual environment with locked dependencies
+# Sync Python virtual environment with locked dependencies
 nx run analyzer:sync
 ```
 
 ---
 
-## 🛠️ Auto-Generating Database Models
+## Database Boundary
 
-If database migrations (`database/migrations/`) are added or modified, update the SQLAlchemy models in `app/models/models.py` to match:
+Analyzer must remain independent from PostgreSQL persistence concerns.
 
-```bash
-nx run analyzer:run-script app/scripts/gen_models.py
-```
+Do not add:
 
-_(This scans the database schema and rewrites declarative classes, ensuring perfect alignment between Java Flyway migrations and Python SQLAlchemy models)._
+- SQLAlchemy engines or sessions.
+- PostgreSQL drivers such as `asyncpg` or `psycopg`.
+- Database repositories for platform-owned tables.
+- Generated ORM models from Flyway migrations.
+- Direct writes to stock price tables.
+
+If Analyzer needs persisted market data in the future, prefer one of these patterns:
+
+1. Call a platform-owned API that exposes the required read model.
+2. Read from a dedicated analytical store or data lake abstraction.
+3. Add a clearly owned query boundary after agreeing on the service responsibility split.
+
+Stock sync commands should continue to flow through the platform scheduler and ingestor contracts rather than direct Analyzer database writes.

@@ -1,19 +1,10 @@
 {
   "targets": {
-    "init": {
-      "executor": "nx:run-commands",
-      "options": {
-        "commands": [
-          "git submodule sync",
-          "git submodule update --init --recursive",
-          "docker compose up -d"
-        ],
-        "parallel": false
-      }
-    },
     "dev": {
+      "dependsOn": [
+        "init"
+      ],
       "executor": "nx:run-commands",
-      "dependsOn": ["init"],
       "options": {
         "command": "concurrently --names \"JAVA,ANALYZER,INGESTOR\" --prefix \"[{name}]\" --prefix-colors \"blue,green,magenta\" \"nx serve platform --configuration=dev\" \"nx serve analyzer\" \"nx serve ingestor\""
       }
@@ -45,6 +36,17 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "docker compose restart {args.service}"
+      }
+    },
+    "init": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "git submodule sync",
+          "git submodule update --init --recursive",
+          "docker compose -f docker-compose.infra.yaml up -d"
+        ],
+        "parallel": false
       }
     }
   }

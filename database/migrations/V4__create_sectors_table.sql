@@ -1,7 +1,7 @@
 -- =============================================
--- sector: Canonical Java-owned sector taxonomy and external source mapping
+-- sectors: Canonical Java-owned sector taxonomy and external source mapping
 -- =============================================
-CREATE TABLE sector (
+CREATE TABLE sectors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(100) NOT NULL,
     name_vi VARCHAR(255),
@@ -18,13 +18,16 @@ CREATE TABLE sector (
     CONSTRAINT uq_sector_source UNIQUE (taxonomy, taxonomy_level, source_code)
 );
 
-CREATE INDEX idx_sector_parent_id ON sector(parent_id);
-CREATE INDEX idx_sector_active_code ON sector(is_active, code);
+CREATE INDEX idx_sector_parent_id ON sectors(parent_id);
 
-ALTER TABLE symbol
-ADD COLUMN sector_id UUID NULL REFERENCES sector(id);
+CREATE INDEX idx_sector_active_code ON sectors(is_active, code);
 
-CREATE INDEX idx_symbol_sector_id ON symbol(sector_id);
+ALTER TABLE
+    symbols
+ADD
+    COLUMN sector_id UUID NULL REFERENCES sectors(id);
 
-ALTER TABLE symbol
-DROP CONSTRAINT IF EXISTS chk_symbol_sector_uppercase;
+CREATE INDEX idx_symbol_sector_id ON symbols(sector_id);
+
+ALTER TABLE
+    symbols DROP CONSTRAINT IF EXISTS chk_symbol_sector_uppercase;

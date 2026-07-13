@@ -1,7 +1,7 @@
 -- =============================================
--- symbol: Master list of tradeable symbols
+-- symbols: Master list of tradeable symbols
 -- =============================================
-CREATE TABLE symbol (
+CREATE TABLE symbols (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -13,7 +13,7 @@ CREATE TABLE symbol (
 );
 
 ALTER TABLE
-    symbol
+    symbols
 ADD
     CONSTRAINT chk_symbol_sector_uppercase CHECK (
         meta_json ->> 'sector' IS NULL

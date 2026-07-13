@@ -1,4 +1,4 @@
-CREATE TABLE job_definition (
+CREATE TABLE job_definitions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -15,4 +15,4 @@ CREATE TABLE job_definition (
     CONSTRAINT uq_job_definition_source_type UNIQUE (source, job_type, cron_expr)
 );
 
-CREATE INDEX idx_job_definition_next_run ON job_definition (next_run, is_active);
+CREATE INDEX idx_job_definition_next_run ON job_definitions (next_run, is_active);

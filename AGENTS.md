@@ -61,7 +61,9 @@ omni/
 │   └── migrations/    # Flyway SQL migrations (V1–V12)
 ├── externals/
 │   └── vnstock-etl/   # Git submodule — ETL pipeline for stock data
-├── docker-compose.yaml
+├── docker-compose.yaml           # Includes infra and service Compose files
+├── docker-compose.infra.yaml     # PostgreSQL, Kafka, MinIO, pgAdmin
+├── docker-compose.services.yaml  # Platform, analyzer, ingestor
 ├── nx.json
 ├── package.json       # Root — Nx + tooling only, no app code
 └── project.json       # Root-level Nx targets (init, dev)
@@ -89,8 +91,15 @@ nx run omni:dev
 ### Infrastructure only
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.infra.yaml up -d
 # Starts: PostgreSQL 16 (5432), Kafka (9092), MinIO (9000/9001), pgAdmin (5050)
+```
+
+### Full Docker stack
+
+```bash
+docker compose up -d
+# Uses docker-compose.yaml to include both infra and app services
 ```
 
 ---
@@ -310,7 +319,7 @@ nx run ingestor:sync        # sync virtualenv from lock file
 
 ---
 
-## Infrastructure (docker-compose.yaml)
+## Infrastructure (docker-compose.infra.yaml)
 
 | Service  | Image                | Port(s)    | Credentials                                     |
 | -------- | -------------------- | ---------- | ----------------------------------------------- |
@@ -325,7 +334,7 @@ All services have health checks and use named Docker volumes for persistence.
 
 ## Deployment: Oracle Always Free (Default Target)
 
-The `docker-compose.yaml` runs as-is on an Oracle Always Free ARM VM (4 Ampere A1 cores, 24 GB RAM). No architecture changes are needed for deployment.
+The root `docker-compose.yaml` includes `docker-compose.infra.yaml` and `docker-compose.services.yaml`, and runs as-is on an Oracle Always Free ARM VM (4 Ampere A1 cores, 24 GB RAM). No architecture changes are needed for deployment.
 
 ```bash
 # On Oracle VM (Ubuntu 22.04 ARM)

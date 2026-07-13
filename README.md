@@ -19,7 +19,9 @@ omni/
 │   └── migrations/    # Flyway SQL migrations
 ├── externals/
 │   └── vnstock-etl/   # Git submodule — ETL pipeline for stock data
-├── docker-compose.yaml
+├── docker-compose.yaml           # Includes infra and service Compose files
+├── docker-compose.infra.yaml     # PostgreSQL, Kafka, MinIO, pgAdmin
+├── docker-compose.services.yaml  # Platform, analyzer, ingestor
 ├── nx.json
 ├── package.json
 └── project.json
@@ -196,7 +198,7 @@ Oracle provides **Always Free** ARM Compute (Ampere A1) — permanently free wit
 | Storage  | 200 GB boot volume   |
 | Network  | 10 TB outbound/month |
 
-The `docker-compose.yaml` runs as-is on the Oracle VM — no architecture changes needed. Confluent Kafka, MinIO, and PostgreSQL all run on the same instance, which provides a realistic environment similar to production while remaining at zero cost.
+The root `docker-compose.yaml` includes two focused Compose files: `docker-compose.infra.yaml` for PostgreSQL, Kafka, MinIO, and pgAdmin, and `docker-compose.services.yaml` for Platform, Analyzer, and Ingestor. Running `docker compose up -d` from the repository root still starts the complete stack on the Oracle VM with no architecture changes needed.
 
 ### Deployment Setup
 
@@ -206,6 +208,9 @@ sudo apt update && sudo apt install -y docker.io docker-compose-plugin
 git clone --recursive <repository-url>
 cd omni
 docker compose up -d
+
+# Infrastructure only, when app services are run through Nx locally
+docker compose -f docker-compose.infra.yaml up -d
 ```
 
 ### Cloud Portability (Migration Path)

@@ -28,7 +28,7 @@ public interface SectorRepository extends BaseRepository<Sector> {
                 taxonomy_level AS level,
                 source_code AS sourceCode,
                 code AS canonicalCode
-            FROM sector
+            FROM sectors
             WHERE is_active = true
               AND taxonomy = :taxonomy
               AND taxonomy_level = :level

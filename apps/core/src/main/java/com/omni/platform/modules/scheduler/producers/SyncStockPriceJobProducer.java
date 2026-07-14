@@ -33,7 +33,7 @@ public class SyncStockPriceJobProducer extends JobProducer {
     private final SymbolRepository symbolRepository;
     private final JobExecutionHistoryRepository jobExecutionHistoryRepository;
 
-    @Value("${spring.kafka.topics.topic-sync-stock-prices}")
+    @Value("${kafka.topics.topic-sync-stock-prices}")
     private String topic;
 
     public SyncStockPriceJobProducer(

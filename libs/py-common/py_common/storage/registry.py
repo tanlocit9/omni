@@ -30,6 +30,7 @@ from py_common.storage.exceptions import (
     StorageValidationError,
 )
 from py_common.storage.ports import (
+    CopyableStorage,
     DeletableStorage,
     ListableStorage,
     ReadableStorage,
@@ -45,6 +46,7 @@ TStoragePort = TypeVar(
     "TStoragePort",
     ReadableStorage,
     WritableStorage,
+    CopyableStorage,
     DeletableStorage,
     ListableStorage,
 )
@@ -53,6 +55,7 @@ TStoragePort = TypeVar(
 _PORT_TO_CAPABILITY: dict[type, StorageCapability] = {
     ReadableStorage: StorageCapability.READ,
     WritableStorage: StorageCapability.WRITE,
+    CopyableStorage: StorageCapability.COPY,
     DeletableStorage: StorageCapability.DELETE,
     ListableStorage: StorageCapability.LIST,
 }
@@ -181,7 +184,8 @@ class StorageProviderRegistry:
         Args:
             provider: The target storage provider.
             port_type: One of ``ReadableStorage``, ``WritableStorage``,
-                ``DeletableStorage``, or ``ListableStorage``.
+                ``CopyableStorage``, ``DeletableStorage``, or
+                ``ListableStorage``.
 
         Returns:
             The adapter cast to the requested port type.

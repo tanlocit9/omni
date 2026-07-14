@@ -4,12 +4,11 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from py_common.config.models import StockDataPathsSettings
 from py_common.storage.parquet import ParquetStorage
-from py_common.storage.ports import StorageProvider
+from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
 
 from app.dtos.stock.sync_stock_dto import SyncStockRequestDto
 from app.services.stock_service import StockService
-
 
 router = APIRouter()
 

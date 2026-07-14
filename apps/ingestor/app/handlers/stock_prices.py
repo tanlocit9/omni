@@ -53,10 +53,6 @@ async def process_stock_price_message(
         symbol_key = payload["symbolKey"]
         exchange, code = symbol_key.split("-", 1)
 
-        metadata = payload.get("metadata") or {}
-        # bucket = metadata.get("bucket") # Bucket is now managed by ParquetStorage
-        object_name_override = metadata.get("objectName")
-
         source = payload.get("source")
         client = get_or_create_client(source) if source else default_client
 
@@ -68,12 +64,14 @@ async def process_stock_price_message(
         limit = compute_limit(from_date, to_date)
         new_df = await fetch_stock_data(client, code, limit)
 
-        object_name = object_name_override or settings.get_eod_path(exchange, code)
+        object_name = settings.get_eod_path(exchange, code)
         existing_df = await parquet_storage.read_optional_dataframe(object_name)
+        frames = [df for df in (existing_df, new_df) if df is not None and not df.empty]
+        combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
-        combined = pd.concat([existing_df, new_df])
-        combined = combined.drop_duplicates(subset=["date"])
-        combined = combined.sort_values("date")
+        if not combined.empty:
+            combined = combined.drop_duplicates(subset=["date"])
+            combined = combined.sort_values("date")
 
         await parquet_storage.write_dataframe(object_name, combined)
 
@@ -98,8 +96,16 @@ async def process_stock_price_message(
             error_message=str(exc),
         )
 
-    await producer.send_and_wait(
+    result = await producer.send_and_wait(
         settings.sync_job_status_topic,
         key=status["symbolKey"].encode() if status.get("symbolKey") else None,
-        value=json.dumps(status).encode(),
+        value=json.dumps(status, default=str).encode(),
+    )
+
+    logger.info(
+        "Published stock-price sync status for %s to topic=%s partition=%s offset=%s",
+        status.get("symbolKey"),
+        result.topic,
+        result.partition,
+        result.offset,
     )

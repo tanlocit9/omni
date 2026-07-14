@@ -99,23 +99,23 @@ Current response semantics:
 
 Pydantic field names and environment-variable overrides:
 
-| Field | Environment variable | Default source |
-| --- | --- | --- |
-| `kafka_bootstrap` | `KAFKA_BOOTSTRAP` | `spring.kafka.bootstrap-servers` |
-| `topic_sync_stock_prices` | `TOPIC_SYNC_STOCK_PRICES` | `spring.kafka.topics.topic-sync-stock-prices` |
-| `topic_sync_symbols` | `TOPIC_SYNC_SYMBOLS` | `spring.kafka.topics.topic-sync-symbols` |
-| `topic_upsert_symbols` | `TOPIC_UPSERT_SYMBOLS` | `spring.kafka.topics.topic-upsert-symbols` |
-| `topic_sync_job_status` | `TOPIC_SYNC_JOB_STATUS` | `spring.kafka.topics.topic-sync-job-status` |
+| Field                     | Environment variable      | Default source                         |
+| ------------------------- | ------------------------- | -------------------------------------- |
+| `kafka_bootstrap`         | `KAFKA_BOOTSTRAP`         | `kafka.bootstrap-servers`              |
+| `topic_sync_stock_prices` | `TOPIC_SYNC_STOCK_PRICES` | `kafka.topics.topic-sync-stock-prices` |
+| `topic_sync_symbols`      | `TOPIC_SYNC_SYMBOLS`      | `kafka.topics.topic-sync-symbols`      |
+| `topic_upsert_symbols`    | `TOPIC_UPSERT_SYMBOLS`    | `kafka.topics.topic-upsert-symbols`    |
+| `topic_sync_job_status`   | `TOPIC_SYNC_JOB_STATUS`   | `kafka.topics.topic-sync-job-status`   |
 
 ### MinIO settings
 
-| Field | Environment variable | Default source |
-| --- | --- | --- |
-| `minio_endpoint` | `MINIO_ENDPOINT` | `min-io.endpoint` |
-| `minio_access_key` | `MINIO_ACCESS_KEY` | `min-io.access-key` |
-| `minio_secret_key` | `MINIO_SECRET_KEY` | `min-io.secret-key` |
-| `minio_bucket` | `MINIO_BUCKET` | `min-io.bucket` or `stock-data.bucket` |
-| `minio_secure` | `MINIO_SECURE` | `false` |
+| Field              | Environment variable | Default source                         |
+| ------------------ | -------------------- | -------------------------------------- |
+| `minio_endpoint`   | `MINIO_ENDPOINT`     | `min-io.endpoint`                      |
+| `minio_access_key` | `MINIO_ACCESS_KEY`   | `min-io.access-key`                    |
+| `minio_secret_key` | `MINIO_SECRET_KEY`   | `min-io.secret-key`                    |
+| `minio_bucket`     | `MINIO_BUCKET`       | `min-io.bucket` or `stock-data.bucket` |
+| `minio_secure`     | `MINIO_SECURE`       | `false`                                |
 
 ### S3 path builders
 

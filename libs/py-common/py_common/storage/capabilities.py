@@ -24,5 +24,6 @@ class StorageCapability(StrEnum):
 
     READ = "read"
     WRITE = "write"
+    COPY = "copy"
     DELETE = "delete"
     LIST = "list"

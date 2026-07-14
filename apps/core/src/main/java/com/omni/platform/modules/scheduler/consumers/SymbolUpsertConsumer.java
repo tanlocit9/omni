@@ -35,7 +35,7 @@ public class SymbolUpsertConsumer {
     private final JobService jobService;
     private final JsonMapper jsonMapper;
 
-    @KafkaListener(topics = "${kafka.topics.topic-upsert-symbols:topic-upsert-symbols}", groupId = "${spring.kafka.consumer.group-id:platform-group}")
+    @KafkaListener(topics = "${kafka.topics.topic-upsert-symbols:topic-upsert-symbols}", groupId = "${kafka.consumer.group-id:platform-group}")
     @Transactional
     public void handleSymbolUpsert(ConsumerRecord<String, String> record) {
         try {

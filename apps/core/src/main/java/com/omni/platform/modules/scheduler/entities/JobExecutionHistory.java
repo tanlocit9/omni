@@ -21,7 +21,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "job_execution_history")
+@Table(name = "job_execution_histories")
 @Getter
 @Setter
 public class JobExecutionHistory extends AuditableEntity {

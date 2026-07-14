@@ -24,7 +24,12 @@ from py_common.storage.exceptions import (
     StorageWriteError,
 )
 from py_common.storage.parquet import ParquetCodec, ParquetStorage
-from py_common.storage.ports import ReadableStorage, WritableStorage
+from py_common.storage.ports import (
+    CopyableStorage,
+    DeletableStorage,
+    ReadableStorage,
+    WritableStorage,
+)
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
 
@@ -33,8 +38,13 @@ from py_common.storage.registry import StorageProviderRegistry
 # ---------------------------------------------------------------------------
 
 
-def _make_registry(readable: ReadableStorage, writable: WritableStorage) -> StorageProviderRegistry:
-    """Build a registry backed by a fake adapter that exposes both ports."""
+def _make_registry(
+    readable: ReadableStorage,
+    writable: WritableStorage,
+    copyable: CopyableStorage | None = None,
+    deletable: DeletableStorage | None = None,
+) -> StorageProviderRegistry:
+    """Build a registry backed by fake storage ports."""
 
     from py_common.storage.adapters.minio import MinioStorageAdapter
 
@@ -49,9 +59,19 @@ def _make_registry(readable: ReadableStorage, writable: WritableStorage) -> Stor
     )
 
     registry = MagicMock(spec=StorageProviderRegistry)
-    registry.get_port.side_effect = lambda provider, port_type: (
-        readable if port_type is ReadableStorage else writable
-    )
+
+    def _get_port(provider, port_type):
+        if port_type is ReadableStorage:
+            return readable
+        if port_type is WritableStorage:
+            return writable
+        if port_type is CopyableStorage:
+            return copyable or AsyncMock(spec=CopyableStorage)
+        if port_type is DeletableStorage:
+            return deletable or AsyncMock(spec=DeletableStorage)
+        raise AssertionError(f"Unexpected port type: {port_type}")
+
+    registry.get_port.side_effect = _get_port
     return registry
 
 
@@ -167,10 +187,7 @@ class TestParquetStorageRead:
 
     @pytest.fixture()
     def storage(self, readable: AsyncMock, writable: AsyncMock) -> ParquetStorage:
-        registry = MagicMock(spec=StorageProviderRegistry)
-        registry.get_port.side_effect = lambda provider, port_type: (
-            readable if port_type is ReadableStorage else writable
-        )
+        registry = _make_registry(readable, writable)
         return ParquetStorage(
             registry=registry,
             provider=StorageProvider.MINIO,
@@ -245,10 +262,7 @@ class TestParquetStorageWrite:
 
     @pytest.fixture()
     def storage(self, readable: AsyncMock, writable: AsyncMock) -> ParquetStorage:
-        registry = MagicMock(spec=StorageProviderRegistry)
-        registry.get_port.side_effect = lambda provider, port_type: (
-            readable if port_type is ReadableStorage else writable
-        )
+        registry = _make_registry(readable, writable)
         return ParquetStorage(
             registry=registry,
             provider=StorageProvider.MINIO,
@@ -323,6 +337,124 @@ class TestParquetStorageWrite:
         assert list(decoded.index) == [0, 1]
 
 
+class TestParquetStorageReplace:
+    """Tests for best-effort Parquet replacement."""
+
+    @pytest.fixture()
+    def df(self) -> pd.DataFrame:
+        return pd.DataFrame({"date": ["2024-01-01"], "close": [100.0]})
+
+    @pytest.fixture()
+    def readable(self, df: pd.DataFrame) -> AsyncMock:
+        mock = AsyncMock(spec=ReadableStorage)
+        mock.read_bytes.return_value = _encode(df)
+        return mock
+
+    @pytest.fixture()
+    def writable(self) -> AsyncMock:
+        return AsyncMock(spec=WritableStorage)
+
+    @pytest.fixture()
+    def copyable(self) -> AsyncMock:
+        return AsyncMock(spec=CopyableStorage)
+
+    @pytest.fixture()
+    def deletable(self) -> AsyncMock:
+        return AsyncMock(spec=DeletableStorage)
+
+    @pytest.fixture()
+    def storage(
+        self,
+        readable: AsyncMock,
+        writable: AsyncMock,
+        copyable: AsyncMock,
+        deletable: AsyncMock,
+    ) -> ParquetStorage:
+        registry = _make_registry(readable, writable, copyable, deletable)
+        return ParquetStorage(
+            registry=registry,
+            provider=StorageProvider.MINIO,
+            bucket="stock-data",
+        )
+
+    @pytest.mark.asyncio
+    async def test_replace_dataframe_writes_validates_copies_and_deletes(
+        self,
+        storage: ParquetStorage,
+        writable: AsyncMock,
+        copyable: AsyncMock,
+        deletable: AsyncMock,
+        df: pd.DataFrame,
+    ):
+        validator = MagicMock()
+
+        temp_name = await storage.replace_dataframe(
+            "indicators/1d/hose/hpg.parquet",
+            df,
+            temp_object_name="indicators/1d/hose/.tmp/hpg.tmp",
+            validate=validator,
+        )
+
+        assert temp_name == "indicators/1d/hose/.tmp/hpg.tmp"
+        writable.write_bytes.assert_called_once()
+        copyable.copy_object.assert_awaited_once_with(
+            bucket="stock-data",
+            source_object_name="indicators/1d/hose/.tmp/hpg.tmp",
+            target_object_name="indicators/1d/hose/hpg.parquet",
+            content_type="application/vnd.apache.parquet",
+        )
+        deletable.delete.assert_awaited_once_with(
+            "stock-data", "indicators/1d/hose/.tmp/hpg.tmp"
+        )
+        validator.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_replace_dataframe_cleans_temp_when_validation_fails(
+        self,
+        storage: ParquetStorage,
+        copyable: AsyncMock,
+        deletable: AsyncMock,
+        df: pd.DataFrame,
+    ):
+        def fail_validation(_: pd.DataFrame) -> None:
+            raise ValueError("bad schema")
+
+        with pytest.raises(ValueError, match="bad schema"):
+            await storage.replace_dataframe(
+                "indicators/1d/hose/hpg.parquet",
+                df,
+                temp_object_name="indicators/1d/hose/.tmp/hpg.tmp",
+                validate=fail_validation,
+            )
+
+        copyable.copy_object.assert_not_called()
+        deletable.delete.assert_awaited_once_with(
+            "stock-data", "indicators/1d/hose/.tmp/hpg.tmp"
+        )
+
+    @pytest.mark.asyncio
+    async def test_replace_dataframe_swallows_cleanup_failure_after_copy(
+        self,
+        storage: ParquetStorage,
+        copyable: AsyncMock,
+        deletable: AsyncMock,
+        df: pd.DataFrame,
+    ):
+        deletable.delete.side_effect = RuntimeError("denied")
+
+        temp_name = await storage.replace_dataframe(
+            "indicators/1d/hose/hpg.parquet",
+            df,
+            temp_object_name="indicators/1d/hose/.tmp/hpg.tmp",
+        )
+
+        assert temp_name == "indicators/1d/hose/.tmp/hpg.tmp"
+        copyable.copy_object.assert_awaited_once()
+        deletable.delete.assert_awaited_once_with(
+            "stock-data", "indicators/1d/hose/.tmp/hpg.tmp"
+        )
+
+
 class TestParquetDecodeErrorContext:
     """Verify ParquetDecodeError carries correct context at each raise site."""
 
@@ -337,10 +469,7 @@ class TestParquetDecodeErrorContext:
         readable.read_bytes.return_value = b"bad"
         writable = AsyncMock(spec=WritableStorage)
 
-        registry = MagicMock(spec=StorageProviderRegistry)
-        registry.get_port.side_effect = lambda provider, port_type: (
-            readable if port_type is ReadableStorage else writable
-        )
+        registry = _make_registry(readable, writable)
         storage = ParquetStorage(
             registry=registry,
             provider=StorageProvider.MINIO,

@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 
 from py_common.config.constants import ConsumerGroup
+from py_common.config.paths import StockDataPaths
 
 
 class KafkaSettings(BaseModel):
@@ -58,15 +59,19 @@ class MinioSettings(BaseModel):
         description="Whether MinIO adapter is enabled",
     )
     endpoint: str = Field(
+        default="",
         description="MinIO endpoint (host:port)",
     )
     access_key: str = Field(
+        default="",
         description="MinIO access key",
     )
     secret_key: str = Field(
+        default="",
         description="MinIO secret key",
     )
     bucket: str = Field(
+        default="",
         description="Default bucket name",
     )
     secure: bool = Field(
@@ -92,3 +97,6 @@ class StorageSettings(BaseModel):
         default="minio",
         description="Storage provider: minio or aws_s3",
     )
+
+
+StockDataPathsSettings = StockDataPaths

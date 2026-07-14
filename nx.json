@@ -10,7 +10,6 @@
     "sharedGlobals": []
   },
   "sync": {
-    "globalGenerators": ["@nxlv/python:pkg-sync"],
     "applyChanges": true
   },
   "nxIgnorePatterns": ["out"],

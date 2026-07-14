@@ -21,7 +21,7 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
     List<JobExecutionHistory> findAllByParentLogId(UUID parentLogId);
 
     @Query(value = """
-            SELECT new_offset FROM job_execution_history
+            SELECT new_offset FROM job_execution_histories
             WHERE job_id = :jobId
             AND meta_json ->> 'symbolKey' = :symbolKey
             AND new_offset IS NOT NULL

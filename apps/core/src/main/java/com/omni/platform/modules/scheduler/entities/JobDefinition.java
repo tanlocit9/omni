@@ -23,7 +23,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "job_definition", uniqueConstraints = @UniqueConstraint(name = "uq_job_definition_source_type", columnNames = {
+@Table(name = "job_definitions", uniqueConstraints = @UniqueConstraint(name = "uq_job_definition_source_type", columnNames = {
         "source",
         "job_type",
         "cron_expr" }), indexes = @Index(name = "idx_job_definition_next_run", columnList = "next_run, is_active"))

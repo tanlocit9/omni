@@ -1,6 +1,6 @@
 [tool.coverage.run]
 branch = true
-source = ["app"]
+source = ["ingestor"]
 
 [tool.coverage.report]
 exclude_lines = ['if TYPE_CHECKING:']
@@ -19,18 +19,10 @@ addopts = """
 name = "ingestor"
 version = "1.0.0"
 description = "Stock Sync Ingestor Microservice."
-requires-python = ">=3.12,<3.14"
 readme = 'README.md'
 dependencies = [
-    "aiokafka>=0.12.0",
-    "httpx>=0.28.1",
-    "pandas>=2.2.0",
     "pyarrow>=15.0.0",
-    "minio>=7.2.0",
-    "pydantic-settings>=2.7.1",
     "pyyaml>=6.0.2",
-    "python-dotenv>=1.0.1",
-    "ruff>=0.15.1",
     "omni-py-common",
 ]
 
@@ -42,17 +34,6 @@ packages = ["ingestor"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
-
-[dependency-groups]
-dev = [
-    "pytest>=8.3.4",
-    "pytest-sugar>=1.0.0",
-    "pytest-cov>=6.0.0",
-    "pytest-html>=4.1.1",
-]
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.ruff]
 exclude = [

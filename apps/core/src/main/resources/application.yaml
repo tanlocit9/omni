@@ -47,6 +47,14 @@ logging:
 min-io:
   enabled: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'env'
+  endpoint:
+    env:
+      show-values: 'always'
   #    master:
   #      jdbc-url: ${MASTER_DB_URL:jdbc:postgresql://localhost:5432/sips_admin_db}
   #      username: ${MASTER_DB_USER:postgres}

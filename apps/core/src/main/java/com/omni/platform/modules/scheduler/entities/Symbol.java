@@ -16,7 +16,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "symbol", uniqueConstraints = @UniqueConstraint(columnNames = { "code", "exchange" }))
+@Table(name = "symbols", uniqueConstraints = @UniqueConstraint(columnNames = { "code", "exchange" }))
 @Getter
 @Setter
 public class Symbol extends BaseEntity {

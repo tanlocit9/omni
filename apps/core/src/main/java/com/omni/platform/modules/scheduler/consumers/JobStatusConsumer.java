@@ -28,7 +28,7 @@ public class JobStatusConsumer {
     private final JobService jobService;
     private final JsonMapper jsonMapper;
 
-    @KafkaListener(topics = "${kafka.topics.topic-sync-job-status:topic-sync-job-status}", groupId = "${spring.kafka.consumer.group-id:platform-group}")
+    @KafkaListener(topics = "${kafka.topics.topic-sync-job-status}", groupId = "${kafka.consumer.group-id:platform-group}")
     @Transactional
     public void handleSyncStatus(ConsumerRecord<String, String> record) {
         try {

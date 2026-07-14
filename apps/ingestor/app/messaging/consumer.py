@@ -14,7 +14,7 @@ from py_common.storage.exceptions import StorageValidationError
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
-from py_common.storage.minio_client_factory import create_minio_client
+from py_common.storage.adapters import create_minio_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ async def _start_kafka_clients() -> tuple[AIOKafkaConsumer, AIOKafkaProducer]:
                     settings.topic_sync_stock_prices,
                     settings.topic_sync_symbols,
                 ],
-                group_id=settings.kafka.consumer_group_id,
+                group_id=settings.kafka.consumer_group,
             )
             producer = KafkaClientFactory.create_producer(settings.kafka)
 

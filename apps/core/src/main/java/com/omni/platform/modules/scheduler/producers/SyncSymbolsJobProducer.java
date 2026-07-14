@@ -11,10 +11,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
+import com.omni.platform.modules.scheduler.constants.SectorSeedConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
-import com.omni.platform.modules.scheduler.constants.SectorSeedConfig;
 import com.omni.platform.modules.scheduler.messaging.SyncSymbolsJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
@@ -29,7 +29,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
 
     private static final List<String> DEFAULT_EXCHANGES = List.of("HOSE", "HNX", "UPCOM");
 
-    @Value("${spring.kafka.topics.topic-sync-symbols}")
+    @Value("${kafka.topics.topic-sync-symbols}")
     private String topic;
 
     private final SymbolRepository symbolRepository;

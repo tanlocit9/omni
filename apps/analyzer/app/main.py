@@ -1,5 +1,5 @@
-import asyncio
 import logging
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -10,7 +10,6 @@ from py_common.storage.registry import StorageProviderRegistry
 from app.controllers.v1 import stock
 from app.settings import settings
 from app.storage.factory import create_storage_registry
-
 
 _logger = logging.getLogger(__name__)
 

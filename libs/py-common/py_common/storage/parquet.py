@@ -28,7 +28,9 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from pathlib import PurePosixPath
+from uuid import uuid4
 
 import pandas as pd
 
@@ -36,12 +38,14 @@ from py_common.storage.exceptions import (
     ParquetDecodeError,
     StorageObjectNotFoundError,
 )
-from py_common.storage.ports import ReadableStorage, WritableStorage
+from py_common.storage.ports import (
+    CopyableStorage,
+    DeletableStorage,
+    ReadableStorage,
+    WritableStorage,
+)
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +127,8 @@ class ParquetStorage:
     ) -> None:
         self._readable: ReadableStorage = registry.get_port(provider, ReadableStorage)
         self._writable: WritableStorage = registry.get_port(provider, WritableStorage)
+        self._copyable: CopyableStorage = registry.get_port(provider, CopyableStorage)
+        self._deletable: DeletableStorage = registry.get_port(provider, DeletableStorage)
         self._bucket = bucket
 
     # ------------------------------------------------------------------
@@ -222,3 +228,89 @@ class ParquetStorage:
             self._bucket,
             object_name,
         )
+
+    async def replace_dataframe(
+        self,
+        object_name: str,
+        dataframe: pd.DataFrame,
+        *,
+        index: bool = False,
+        temp_object_name: str | None = None,
+        validate: Callable[[pd.DataFrame], None] | None = None,
+    ) -> str:
+        """Best-effort atomic replacement for a Parquet object.
+
+        The candidate DataFrame is written to a temporary object, read back,
+        optionally validated, copied over the final object, and then cleaned up.
+        If any step before the final copy fails, the existing final object is
+        preserved. Object stores do not provide database-style transactions, so
+        this method is explicitly best-effort.
+
+        Args:
+            object_name: Final object key within the configured bucket.
+            dataframe: DataFrame to serialize and replace the final object with.
+            index: Whether to include the DataFrame index. Default ``False``.
+            temp_object_name: Optional explicit temporary object key. Tests and
+                orchestrators can pass this for deterministic cleanup.
+            validate: Optional callback that receives the read-back DataFrame
+                and raises on schema/content validation failure.
+
+        Returns:
+            The temporary object key used for staging.
+
+        Raises:
+            ParquetDecodeError: Temporary bytes are not valid Parquet.
+            StorageWriteError: Temporary write or final copy fails.
+            Any exception raised by ``validate``.
+        """
+        temp_name = temp_object_name or self._build_temp_object_name(object_name)
+
+        await self.write_dataframe(temp_name, dataframe, index=index)
+        try:
+            staged = await self.read_dataframe(temp_name)
+            if validate is not None:
+                validate(staged)
+
+            await self._copyable.copy_object(
+                bucket=self._bucket,
+                source_object_name=temp_name,
+                target_object_name=object_name,
+                content_type=_PARQUET_CONTENT_TYPE,
+            )
+        except Exception:
+            await self._delete_temp_safely(temp_name)
+            raise
+
+        await self._delete_temp_safely(temp_name)
+
+        logger.debug(
+            "Replaced DataFrame (%d rows, %d cols) at '%s/%s' via temp '%s'",
+            len(dataframe),
+            len(dataframe.columns),
+            self._bucket,
+            object_name,
+            temp_name,
+        )
+        return temp_name
+
+    def _build_temp_object_name(self, object_name: str) -> str:
+        path = PurePosixPath(object_name)
+        parent = "" if str(path.parent) == "." else f"{path.parent}/"
+        return f"{parent}.tmp/{path.name}.{uuid4().hex}.tmp"
+
+    async def _delete_temp_safely(self, object_name: str) -> None:
+        try:
+            await self._deletable.delete(self._bucket, object_name)
+        except StorageObjectNotFoundError:
+            logger.debug(
+                "Temporary object '%s/%s' already absent during cleanup",
+                self._bucket,
+                object_name,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to clean up temporary object '%s/%s'",
+                self._bucket,
+                object_name,
+                exc_info=True,
+            )

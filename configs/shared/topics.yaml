@@ -1,11 +1,10 @@
-spring:
-  kafka:
-    bootstrap-servers: localhost:9092
-    topics:
-      topic-sync-stock-prices: topic-sync-stock-prices
-      topic-sync-symbols: topic-sync-symbols
-      topic-upsert-symbols: topic-upsert-symbols
-      topic-sync-job-status: topic-sync-job-status
+kafka:
+  bootstrap-servers: localhost:9092
+  topics:
+    topic-sync-stock-prices: topic-sync-stock-prices
+    topic-sync-symbols: topic-sync-symbols
+    topic-upsert-symbols: topic-upsert-symbols
+    topic-sync-job-status: topic-sync-job-status
 
 min-io:
   endpoint: localhost:9000

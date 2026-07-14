@@ -1,7 +1,8 @@
 """MinIO storage adapter.
 
-Implements ``ReadableStorage``, ``WritableStorage``, ``DeletableStorage``,
-and ``ListableStorage`` on top of the synchronous MinIO Python SDK.
+Implements ``ReadableStorage``, ``WritableStorage``, ``CopyableStorage``,
+``DeletableStorage``, and ``ListableStorage`` on top of the synchronous MinIO
+Python SDK.
 
 All SDK calls are offloaded to a thread pool via ``asyncio.to_thread()`` so
 they never block the event loop.  Both ingestor (aiokafka consumer loop) and
@@ -33,6 +34,7 @@ from py_common.storage.exceptions import (
     StorageWriteError,
 )
 from py_common.storage.ports import (
+    CopyableStorage,
     DeletableStorage,
     ListableStorage,
     ReadableStorage,
@@ -64,6 +66,7 @@ class MinioStorageAdapter(
     BaseStorageAdapter,
     ReadableStorage,
     WritableStorage,
+    CopyableStorage,
     DeletableStorage,
     ListableStorage,
 ):
@@ -213,6 +216,48 @@ class MinioStorageAdapter(
             await asyncio.to_thread(_write)
         except Exception as exc:
             raise StorageWriteError(bucket, object_name, exc) from exc
+
+    # ------------------------------------------------------------------
+    # CopyableStorage
+    # ------------------------------------------------------------------
+
+    async def copy_object(
+        self,
+        bucket: str,
+        source_object_name: str,
+        target_object_name: str,
+        content_type: str | None = None,
+    ) -> None:
+        """Copy an object to another key in the same bucket.
+
+        Args:
+            bucket: Bucket name.
+            source_object_name: Source object key.
+            target_object_name: Target object key.
+            content_type: Optional target content type metadata. MinIO copy
+                preserves source metadata by default; callers should not rely
+                on metadata mutation in this first implementation.
+
+        Raises:
+            StorageObjectNotFoundError: Source object or bucket does not exist.
+            StorageWriteError: Copy operation fails.
+        """
+
+        def _copy() -> None:
+            from minio.commonconfig import CopySource  # noqa: PLC0415
+
+            self._client.copy_object(
+                bucket_name=bucket,
+                object_name=target_object_name,
+                source=CopySource(bucket, source_object_name),
+            )
+
+        try:
+            await asyncio.to_thread(_copy)
+        except Exception as exc:
+            if _is_not_found(exc):
+                raise StorageObjectNotFoundError(bucket, source_object_name) from exc
+            raise StorageWriteError(bucket, target_object_name, exc) from exc
 
     # ------------------------------------------------------------------
     # DeletableStorage

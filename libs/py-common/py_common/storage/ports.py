@@ -100,6 +100,32 @@ class WritableStorage(Protocol):
 
 
 @runtime_checkable
+class CopyableStorage(Protocol):
+    """Port for copying objects within object storage."""
+
+    async def copy_object(
+        self,
+        bucket: str,
+        source_object_name: str,
+        target_object_name: str,
+        content_type: str | None = None,
+    ) -> None:
+        """Copy an object to another key within the same bucket.
+
+        Args:
+            bucket: Bucket (or container) name.
+            source_object_name: Source object key / path within the bucket.
+            target_object_name: Target object key / path within the bucket.
+            content_type: Optional MIME type metadata for the target object.
+
+        Raises:
+            StorageObjectNotFoundError: Source object does not exist.
+            StorageWriteError: Copy operation fails.
+        """
+        ...
+
+
+@runtime_checkable
 class DeletableStorage(Protocol):
     """Port for deleting objects from object storage."""
 

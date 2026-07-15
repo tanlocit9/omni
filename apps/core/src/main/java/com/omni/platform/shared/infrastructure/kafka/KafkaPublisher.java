@@ -17,7 +17,6 @@ public class KafkaPublisher {
 
     public void publish(String topic, String key, Object message) {
         String payload = jsonMapper.writeValueAsString(message);
-        log.info("Publishing to topic [{}] key [{}] payload: {}", topic, key, payload);
 
         kafkaTemplate.send(topic, key, payload)
                 .whenComplete((result, ex) -> {

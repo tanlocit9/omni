@@ -17,10 +17,9 @@ import com.omni.platform.shared.repositories.BaseRepository;
 public interface SymbolRepository extends BaseRepository<Symbol> {
 
   @Query(nativeQuery = true, value = """
-      SELECT s.code, s.exchange FROM symbols s
-      LEFT JOIN sectors sec ON sec.id = s.sector_id
-      WHERE s.is_active = true
-        AND (CAST(:sectors AS text[]) IS NULL OR sec.code = ANY(CAST(:sectors AS text[])))
+      SELECT code, exchange FROM symbols
+      WHERE is_active = true
+        AND (CAST(:sectors AS text[]) IS NULL OR (meta_json ->> 'sector') = ANY(CAST(:sectors AS text[])))
       """)
   List<SymbolKeyProjection> findBySectors(@Param("sectors") String[] sectors);
 

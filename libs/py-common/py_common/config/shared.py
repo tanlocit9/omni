@@ -112,8 +112,7 @@ class BaseAppSettings(BaseSettings):
         return self.stock_data_paths.indicators(timeframe, exchange, code)
 
     def _apply_topics_config(self) -> None:
-        spring = self._shared_topics.get("spring", {})
-        kafka_cfg = spring.get("kafka", {})
+        kafka_cfg = self._shared_topics.get("kafka", {})
         topics_cfg = kafka_cfg.get("topics", {})
 
         self.kafka.bootstrap_servers = kafka_cfg.get(

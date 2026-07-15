@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage.SymbolR
 import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.infrastructure.kafka.AbstractKafkaSubscriptionLogger;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,14 +30,22 @@ import tools.jackson.databind.json.JsonMapper;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class SymbolUpsertConsumer {
+public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
 
     private final SymbolRepository symbolRepository;
     private final SectorRepository sectorRepository;
     private final JobService jobService;
     private final JsonMapper jsonMapper;
 
-    @KafkaListener(topics = "${kafka.topics.topic-upsert-symbols:topic-upsert-symbols}", groupId = "${kafka.consumer.group-id:platform-group}")
+    @Value("${kafka.topics.topic-upsert-symbols}")
+    private String upsertSymbolsTopic;
+
+    @Override
+    protected String topicName() {
+        return upsertSymbolsTopic;
+    }
+
+    @KafkaListener(topics = "${kafka.topics.topic-upsert-symbols}", groupId = "${spring.kafka.consumer.group-id}")
     @Transactional
     public void handleSymbolUpsert(ConsumerRecord<String, String> record) {
         try {

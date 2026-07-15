@@ -1,6 +1,7 @@
 import logging
 
 from py_common.config import BaseAppSettings
+from py_common.config.constants import ConsumerGroup
 
 logger = logging.getLogger(__name__)
 
@@ -13,5 +14,6 @@ class Settings(BaseAppSettings):
 
 
 settings = Settings()
+settings.kafka.consumer_group = ConsumerGroup.INGESTOR
 
 logger.info("Ingestor settings loaded: %s", settings.model_dump())

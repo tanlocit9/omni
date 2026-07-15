@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +15,7 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatu
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.infrastructure.kafka.AbstractKafkaSubscriptionLogger;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,21 +24,34 @@ import tools.jackson.databind.json.JsonMapper;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class JobStatusConsumer {
+public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
 
     private final JobExecutionHistoryRepository historyRepository;
     private final JobService jobService;
     private final JsonMapper jsonMapper;
 
-    @KafkaListener(topics = "${kafka.topics.topic-sync-job-status}", groupId = "${kafka.consumer.group-id:platform-group}")
+    @Value("${kafka.topics.topic-sync-job-status}")
+    private String jobStatusTopic;
+
+    @Override
+    protected String topicName() {
+        return jobStatusTopic;
+    }
+
+    @KafkaListener(topics = "${kafka.topics.topic-sync-job-status}", groupId = "${spring.kafka.consumer.group-id}")
     @Transactional
     public void handleSyncStatus(ConsumerRecord<String, String> record) {
         try {
-            log.debug("Topic topic-sync-job-status received message: {}", record);
+            log.info("JobStatusConsumer received topic={} partition={} offset={} key={} timestamp={} payload={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), record.timestamp(),
+                    record.value());
             JobStatusMessage response = jsonMapper.readValue(record.value(), JobStatusMessage.class);
             applyToLog(response);
         } catch (Exception e) {
-            log.error("Failed to process stock-sync-status message [{}]: {}", record.key(), e.getMessage());
+            log.error(
+                    "Failed to process stock-sync-status message topic={} partition={} offset={} key={} payload={}: {}",
+                    record.topic(), record.partition(), record.offset(), record.key(), record.value(), e.getMessage(),
+                    e);
             throw new RuntimeException("Failed to process stock-sync-status message", e);
         }
     }

@@ -56,8 +56,6 @@ async def process_sync_symbols_message(
         metadata = payload.get("metadata") or {}
         expected_count = metadata.get("symbolCount")
         include_sector = bool(metadata.get("includeSectorClassification", False))
-        # bucket = metadata.get("bucket") # Bucket is now managed by ParquetStorage
-        object_name_override = metadata.get("objectName")
 
         source = payload.get("source")
         client = get_or_create_client(source) if source else default_client
@@ -67,7 +65,7 @@ async def process_sync_symbols_message(
 
         symbols_df = validate_symbols_snapshot(symbols_df, exchange)
 
-        object_name = object_name_override or settings.get_symbols_path(exchange)
+        object_name = settings.get_symbols_path(exchange)
         previous_df = await parquet_storage.read_optional_dataframe(object_name)
 
         warnings: list[str] = []

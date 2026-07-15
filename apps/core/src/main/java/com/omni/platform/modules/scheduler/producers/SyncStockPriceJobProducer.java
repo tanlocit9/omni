@@ -62,6 +62,7 @@ public class SyncStockPriceJobProducer extends JobProducer {
         List<SymbolKeyProjection> symbols = symbolRepository.findBySectors(
                 sectors.isEmpty() ? null : sectors.toArray(new String[0]));
 
+        log.info("Syncing {} symbols with sector data: {}", symbols.size(), sectors);
         return symbols.stream()
                 .map(symbol -> {
                     Instant fromOffset = jobExecutionHistoryRepository
@@ -123,10 +124,10 @@ public class SyncStockPriceJobProducer extends JobProducer {
     }
 
     private List<String> extractSectors(Map<String, Object> config) {
-        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR)) {
+        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTORS)) {
             return List.of();
         }
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR);
+        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTORS);
         if (!(raw instanceof List<?> list)) {
             log.warn("Job configJson has 'sector' key but it's not a List: {}", raw);
             return List.of();

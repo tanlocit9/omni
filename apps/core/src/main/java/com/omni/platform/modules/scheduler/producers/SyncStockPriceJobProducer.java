@@ -30,6 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class SyncStockPriceJobProducer extends JobProducer {
 
+    private static final int DEFAULT_SECTOR_LEVEL = 1;
+    private static final int MIN_SECTOR_LEVEL = 1;
+    private static final int MAX_SECTOR_LEVEL = 4;
+
     private final SymbolRepository symbolRepository;
     private final JobExecutionHistoryRepository jobExecutionHistoryRepository;
 
@@ -58,11 +62,14 @@ public class SyncStockPriceJobProducer extends JobProducer {
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
-        List<String> sectors = extractSectors(job.getConfigJson());
-        List<SymbolKeyProjection> symbols = symbolRepository.findBySectors(
-                sectors.isEmpty() ? null : sectors.toArray(new String[0]));
+        List<String> sectorCodes = extractSectorCodes(job.getConfigJson());
+        int sectorLevel = extractSectorLevel(job.getConfigJson());
 
-        log.info("Syncing {} symbols with sector data: {}", symbols.size(), sectors);
+        List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
+                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                sectorLevel);
+
+        log.info("Syncing {} symbols with sectorCodes: {} at level {}", symbols.size(), sectorCodes, sectorLevel);
         return symbols.stream()
                 .map(symbol -> {
                     Instant fromOffset = jobExecutionHistoryRepository
@@ -123,19 +130,40 @@ public class SyncStockPriceJobProducer extends JobProducer {
         }
     }
 
-    private List<String> extractSectors(Map<String, Object> config) {
-        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTORS)) {
+    private List<String> extractSectorCodes(Map<String, Object> config) {
+        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES)) {
             return List.of();
         }
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTORS);
+        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES);
         if (!(raw instanceof List<?> list)) {
-            log.warn("Job configJson has 'sector' key but it's not a List: {}", raw);
+            log.warn("Job configJson has 'sectorCodes' key but it's not a List: {}", raw);
             return List.of();
         }
         return list.stream()
                 .filter(Objects::nonNull)
                 .map(v -> v.toString().toUpperCase())
                 .toList();
+    }
+
+    private int extractSectorLevel(Map<String, Object> config) {
+        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL)) {
+            return DEFAULT_SECTOR_LEVEL;
+        }
+        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL);
+        int level;
+        try {
+            level = Integer.parseInt(raw.toString());
+        } catch (NumberFormatException e) {
+            log.warn("Job configJson has 'sectorLevel' key but it's not an integer: {}. Falling back to level {}",
+                    raw, DEFAULT_SECTOR_LEVEL);
+            return DEFAULT_SECTOR_LEVEL;
+        }
+        if (level < MIN_SECTOR_LEVEL || level > MAX_SECTOR_LEVEL) {
+            log.warn("Job configJson 'sectorLevel' [{}] out of range [{}-{}]. Falling back to level {}",
+                    level, MIN_SECTOR_LEVEL, MAX_SECTOR_LEVEL, DEFAULT_SECTOR_LEVEL);
+            return DEFAULT_SECTOR_LEVEL;
+        }
+        return level;
     }
 
 }

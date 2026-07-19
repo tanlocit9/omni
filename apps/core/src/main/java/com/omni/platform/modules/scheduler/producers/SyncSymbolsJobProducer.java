@@ -11,12 +11,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
-import com.omni.platform.modules.scheduler.constants.SectorSeedConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SyncSymbolsJobMessage;
-import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
@@ -33,16 +31,13 @@ public class SyncSymbolsJobProducer extends JobProducer {
     private String topic;
 
     private final SymbolRepository symbolRepository;
-    private final SectorRepository sectorRepository;
 
     public SyncSymbolsJobProducer(
             JobService jobService,
             KafkaPublisher kafkaPublisher,
-            SymbolRepository symbolRepository,
-            SectorRepository sectorRepository) {
+            SymbolRepository symbolRepository) {
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
-        this.sectorRepository = sectorRepository;
     }
 
     @Override
@@ -107,50 +102,6 @@ public class SyncSymbolsJobProducer extends JobProducer {
             messageConfig.putIfAbsent(JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, false);
             return;
         }
-
-        String taxonomy = String.valueOf(messageConfig.getOrDefault(
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_TAXONOMY,
-                SectorSeedConfig.DEFAULT_TAXONOMY)).toUpperCase();
-        Integer level = parseSectorLevel(messageConfig.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL));
-
-        messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SECTOR_TAXONOMY, taxonomy);
-        messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, level);
-
-        List<Map<String, Object>> mappings = sectorRepository.findActiveMappings(taxonomy, level).stream()
-                .map(mapping -> Map.<String, Object>of(
-                        "taxonomy", mapping.getTaxonomy(),
-                        "level", mapping.getLevel(),
-                        "sourceCode", mapping.getSourceCode(),
-                        "canonicalCode", mapping.getCanonicalCode()))
-                .toList();
-
-        if (mappings.isEmpty() && sectorRepository.count() == 0) {
-            mappings = SectorSeedConfig.SECTOR_SEEDS.stream()
-                    .filter(seed -> taxonomy.equals(seed.taxonomy()) && level.equals(seed.taxonomyLevel()))
-                    .map(seed -> Map.<String, Object>of(
-                            "taxonomy", seed.taxonomy(),
-                            "level", seed.taxonomyLevel(),
-                            "sourceCode", seed.sourceCode(),
-                            "canonicalCode", seed.code()))
-                    .toList();
-        }
-
-        messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SECTOR_MAPPINGS, mappings);
-    }
-
-    private Integer parseSectorLevel(Object rawLevel) {
-        if (rawLevel instanceof Number number) {
-            return number.intValue();
-        }
-        if (rawLevel != null) {
-            try {
-                return Integer.parseInt(rawLevel.toString());
-            } catch (NumberFormatException ignored) {
-                log.warn("Invalid sectorLevel [{}], falling back to default [{}]", rawLevel,
-                        SectorSeedConfig.DEFAULT_LEVEL);
-            }
-        }
-        return SectorSeedConfig.DEFAULT_LEVEL;
     }
 
     private List<String> extractExchanges(Map<String, Object> config) {

@@ -15,10 +15,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
-import com.omni.platform.modules.scheduler.entities.Sector;
+import com.omni.platform.modules.scheduler.entities.Symbol;
 import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage;
 import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage.SymbolRecord;
-import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.infrastructure.kafka.AbstractKafkaSubscriptionLogger;
@@ -33,7 +32,6 @@ import tools.jackson.databind.json.JsonMapper;
 public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
 
     private final SymbolRepository symbolRepository;
-    private final SectorRepository sectorRepository;
     private final JobService jobService;
     private final JsonMapper jsonMapper;
 
@@ -77,9 +75,8 @@ public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
             JobExecutionHistory childExecution = createChildExecutionIfTracked(event, r);
 
             try {
-                UUID sectorId = resolveSectorId(r);
                 String metaJson = jsonMapper.writeValueAsString(toMeta(r));
-                symbolRepository.upsertOne(r.code(), r.exchange(), sectorId, metaJson);
+                symbolRepository.upsertOne(r.code(), r.exchange(), metaJson);
                 successfulUpserts++;
 
                 if (childExecution != null) {
@@ -152,49 +149,11 @@ public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
         putIfPresent(meta, "expectedCount", event.expectedCount());
         putIfPresent(meta, "actualCount", event.actualCount());
         putIfPresent(meta, "detectedAt", event.detectedAt().toString());
-        putIfPresent(meta, "sectorCode", record.sectorCode());
         putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
         putIfPresent(meta, "sectorLevel", record.sectorLevel());
         putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
         putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
         return meta;
-    }
-
-    private UUID resolveSectorId(SymbolRecord record) {
-        if (isBlank(record.sectorCode())) {
-            return null;
-        }
-
-        return sectorRepository.findByCode(record.sectorCode())
-                .map(sector -> updateSectorMetadata(sector, record).getId())
-                .orElseGet(() -> {
-                    log.warn("Unknown canonical sector code [{}] for symbol [{}], preserving existing sector relation.",
-                            record.sectorCode(), record.code());
-                    return null;
-                });
-    }
-
-    private Sector updateSectorMetadata(Sector sector, SymbolRecord record) {
-        if (isBlank(record.sourceSectorCode()) || isBlank(record.sectorTaxonomy()) || record.sectorLevel() == null) {
-            return sector;
-        }
-
-        if (isBlank(sector.getSourceCode())) {
-            sector.setSourceCode(record.sourceSectorCode());
-        }
-        if (isBlank(sector.getTaxonomy())) {
-            sector.setTaxonomy(record.sectorTaxonomy());
-        }
-        if (sector.getTaxonomyLevel() == null) {
-            sector.setTaxonomyLevel(record.sectorLevel());
-        }
-        if (!isBlank(record.sourceSectorNameVi())) {
-            sector.setNameVi(record.sourceSectorNameVi());
-        }
-        if (!isBlank(record.sourceSectorNameEn())) {
-            sector.setNameEn(record.sourceSectorNameEn());
-        }
-        return sectorRepository.save(sector);
     }
 
     private Map<String, Object> toMeta(SymbolRecord record) {
@@ -203,32 +162,18 @@ public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
             record.meta().forEach((key, value) -> putIfPresent(meta, key, value));
         }
 
-        putIfPresent(meta, "type", record.type());
-        putIfPresent(meta, "status", record.status());
-        putIfPresent(meta, "isin", record.isin());
-        putIfPresent(meta, "companyId", record.companyId());
         putIfPresent(meta, "companyName", record.companyName());
         putIfPresent(meta, "listedDate", record.listedDate());
-        putIfPresent(meta, "sectorCode", record.sectorCode());
         putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
         putIfPresent(meta, "sectorLevel", record.sectorLevel());
         putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
-        putIfPresent(meta, "sourceSectorNameVi", record.sourceSectorNameVi());
-        putIfPresent(meta, "sourceSectorNameEn", record.sourceSectorNameEn());
-        putIfPresent(meta, "icbLv1Code", record.icbLv1Code());
-        putIfPresent(meta, "icbLv1NameVi", record.icbLv1NameVi());
-        putIfPresent(meta, "icbLv1NameEn", record.icbLv1NameEn());
-        putIfPresent(meta, "icbLv2Code", record.icbLv2Code());
-        putIfPresent(meta, "icbLv2NameVi", record.icbLv2NameVi());
-        putIfPresent(meta, "icbLv2NameEn", record.icbLv2NameEn());
-        putIfPresent(meta, "icbLv3Code", record.icbLv3Code());
-        putIfPresent(meta, "icbLv3NameVi", record.icbLv3NameVi());
-        putIfPresent(meta, "icbLv3NameEn", record.icbLv3NameEn());
-        putIfPresent(meta, "icbLv4Code", record.icbLv4Code());
-        putIfPresent(meta, "icbLv4NameVi", record.icbLv4NameVi());
-        putIfPresent(meta, "icbLv4NameEn", record.icbLv4NameEn());
+        putIfPresent(meta, "sectorLv1Code", record.sectorLv1Code());
+        putIfPresent(meta, "sectorLv2Code", record.sectorLv2Code());
+        putIfPresent(meta, "sectorLv3Code", record.sectorLv3Code());
+        putIfPresent(meta, "sectorLv4Code", record.sectorLv4Code());
         putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
 
+        meta.keySet().retainAll(Symbol.META_JSON_ALLOWED_KEYS);
         return meta;
     }
 

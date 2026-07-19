@@ -1,12 +1,11 @@
 package com.omni.platform.modules.scheduler.messaging;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public record SymbolUpsertMessage(
+public record SectorUpsertMessage(
         UUID jobDefinitionId,
         UUID executionId,
         UUID parentExecutionId,
@@ -15,22 +14,16 @@ public record SymbolUpsertMessage(
         String exchange,
         int expectedCount,
         int actualCount,
-        List<SymbolRecord> symbols,
+        List<SectorRecord> sectors,
         Instant detectedAt) {
 
-    public record SymbolRecord(
-            String code,
-            String exchange,
-            String companyId,
-            String companyName,
-            LocalDate listedDate,
+    public record SectorRecord(
+            String sectorCode,
             String sectorTaxonomy,
             Integer sectorLevel,
             String sourceSectorCode,
-            String sectorLv1Code,
-            String sectorLv2Code,
-            String sectorLv3Code,
-            String sectorLv4Code,
+            String sourceSectorNameVi,
+            String sourceSectorNameEn,
             Instant classificationUpdatedAt,
             Map<String, Object> meta) {
     }

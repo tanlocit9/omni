@@ -19,8 +19,8 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "sectors", uniqueConstraints = {
-        @UniqueConstraint(name = "uq_sector_code", columnNames = { "code" }),
-        @UniqueConstraint(name = "uq_sector_source", columnNames = { "taxonomy", "taxonomy_level", "source_code" })
+        @UniqueConstraint(name = "uq_sectors_taxonomy_source_code", columnNames = { "taxonomy", "source_code" }),
+        @UniqueConstraint(name = "uq_sectors_taxonomy_level_code", columnNames = { "taxonomy", "taxonomy_level", "code" })
 })
 @Getter
 @Setter

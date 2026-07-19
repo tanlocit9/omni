@@ -31,11 +31,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "python-dotenv>=1.0.1",
     "ruff>=0.15.1",
-    "omni-py-common",
 ]
-
-[tool.uv.sources]
-omni-py-common = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["ingestor"]

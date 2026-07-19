@@ -1,6 +1,6 @@
 FROM python:3.14-slim
 
-WORKDIR /workspace
+WORKDIR /app
 
 # Prevent Python from writing pyc files and enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -16,20 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.cargo/bin:$PATH"
 
-# Copy workspace dependency files
-COPY pyproject.toml uv.lock* ./
-COPY libs/py-common/pyproject.toml libs/py-common/uv.lock* libs/py-common/
-COPY apps/analyzer/pyproject.toml apps/analyzer/uv.lock* apps/analyzer/
+# Copy dependency files
+COPY apps/analyzer/pyproject.toml apps/analyzer/uv.lock* /app/
 
-# Install analyzer and workspace dependencies
-RUN uv pip install --system --editable apps/analyzer
+# Install dependencies
+RUN uv pip install --system -r pyproject.toml
 
-# Copy application and shared library code
-COPY libs/py-common libs/py-common
-COPY apps/analyzer apps/analyzer
-COPY configs configs
-
-WORKDIR /workspace/apps/analyzer
+# Copy application code
+COPY apps/analyzer /app
 
 EXPOSE 8000
 

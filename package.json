@@ -1,4 +1,9 @@
 {
+  "name": "omni",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {},
+  "private": true,
   "devDependencies": {
     "@nx/gradle": "^22.5.1",
     "@nx/js": "22.5.0",
@@ -12,16 +17,10 @@
     "tslib": "^2.3.0",
     "typescript": "~5.9.2"
   },
-  "license": "MIT",
-  "name": "omni",
-  "private": true,
-  "scripts": {},
-  "version": "0.0.0",
   "workspaces": [
     "packages/*",
     "apps\\core",
     "apps\\analyzer",
-    "apps\\ingestor",
-    "libs\\py-common"
+    "apps\\ingestor"
   ]
 }

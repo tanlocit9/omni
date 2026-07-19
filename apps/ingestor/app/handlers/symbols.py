@@ -65,8 +65,20 @@ async def process_sync_symbols_message(
 
         symbols = await client.fetch_symbols(exchange=exchange)
         symbols_df = pd.DataFrame(symbols)
+        log_symbols_snapshot_diagnostics(
+            symbols_df,
+            exchange=exchange,
+            stage="fetched",
+            expected_count=expected_count,
+        )
 
         symbols_df = validate_symbols_snapshot(symbols_df, exchange)
+        log_symbols_snapshot_diagnostics(
+            symbols_df,
+            exchange=exchange,
+            stage="validated",
+            expected_count=expected_count,
+        )
 
         object_name = settings.get_symbols_path(exchange)
         previous_df = await parquet_storage.read_optional_dataframe(object_name)
@@ -116,8 +128,23 @@ async def process_sync_symbols_message(
 
         active_df = canonical_df
         if "delistedDate" in active_df.columns:
-            active_df = active_df[active_df["delistedDate"].isna()]
+            delisted_mask = active_df["delistedDate"].notna()
+            if delisted_mask.any():
+                logger.warning(
+                    "Keeping %d rows with delistedDate in symbol upsert for %s to avoid false deactivation; sample=%s",
+                    int(delisted_mask.sum()),
+                    exchange,
+                    active_df.loc[delisted_mask, ["exchange", "code", "delistedDate"]]
+                    .head(20)
+                    .to_dict("records"),
+                )
 
+        log_symbols_snapshot_diagnostics(
+            active_df,
+            exchange=exchange,
+            stage="active",
+            expected_count=expected_count,
+        )
         current_count = len(active_df)
 
         job_definition_id = payload.get("jobDefinitionId") or payload.get("jobId")
@@ -224,6 +251,64 @@ def validate_symbols_snapshot(symbols_df: pd.DataFrame, exchange: str) -> pd.Dat
         )
 
     return validated_df.drop(columns=["_normalized_floor", "_normalized_code"])
+
+
+def log_symbols_snapshot_diagnostics(
+    symbols_df: pd.DataFrame,
+    *,
+    exchange: str,
+    stage: str,
+    expected_count: Any,
+) -> None:
+    row_count = len(symbols_df)
+    unique_codes = (
+        int(symbols_df["code"].dropna().astype(str).str.upper().nunique())
+        if "code" in symbols_df.columns
+        else 0
+    )
+    floor_counts = (
+        symbols_df["floor"].dropna().astype(str).str.upper().value_counts().to_dict()
+        if "floor" in symbols_df.columns
+        else {}
+    )
+    exchange_counts = (
+        symbols_df["exchange"].dropna().astype(str).str.upper().value_counts().to_dict()
+        if "exchange" in symbols_df.columns
+        else {}
+    )
+    status_counts = (
+        symbols_df["status"].dropna().astype(str).str.upper().value_counts().to_dict()
+        if "status" in symbols_df.columns
+        else {}
+    )
+    delisted_count = (
+        int(symbols_df["delistedDate"].notna().sum())
+        if "delistedDate" in symbols_df.columns
+        else 0
+    )
+
+    logger.warning(
+        "Symbol snapshot diagnostics stage=%s exchange=%s rows=%d uniqueCodes=%d expected=%s floors=%s exchanges=%s statuses=%s delistedRows=%d",
+        stage,
+        exchange,
+        row_count,
+        unique_codes,
+        expected_count,
+        floor_counts,
+        exchange_counts,
+        status_counts,
+        delisted_count,
+    )
+
+    if expected_count is not None and row_count != expected_count:
+        logger.warning(
+            "Symbol snapshot count mismatch stage=%s exchange=%s expected=%s actualRows=%d uniqueCodes=%d",
+            stage,
+            exchange,
+            expected_count,
+            row_count,
+            unique_codes,
+        )
 
 
 def normalize_sector_value(value: Any) -> Any:

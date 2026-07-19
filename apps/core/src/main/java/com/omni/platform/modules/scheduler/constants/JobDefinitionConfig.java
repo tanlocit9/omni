@@ -37,7 +37,7 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_SYMBOL_COUNT = "symbolCount";
         public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
 
-        private static final String SECTOR_FINANCE = "FINANCIALS";
+        private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";
         private static final String SECTOR_REAL_ESTATE = "REAL_ESTATE";
 

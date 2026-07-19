@@ -33,18 +33,12 @@
       }
     },
     "add": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "uv add {args.name}",
-        "cwd": "libs/py-common"
-      }
+      "executor": "@nxlv/python:add",
+      "options": {}
     },
     "remove": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "uv remove {args.name}",
-        "cwd": "libs/py-common"
-      }
+      "executor": "@nxlv/python:remove",
+      "options": {}
     },
     "lock": {
       "executor": "nx:run-commands",
@@ -54,10 +48,11 @@
       }
     },
     "sync": {
-      "executor": "nx:run-commands",
+      "executor": "@nxlv/python:run-commands",
       "options": {
         "command": "uv sync",
-        "cwd": "libs/py-common"
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": true
       }
     }
   },

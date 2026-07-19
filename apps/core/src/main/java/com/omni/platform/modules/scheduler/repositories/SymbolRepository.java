@@ -15,63 +15,56 @@ import com.omni.platform.shared.repositories.BaseRepository;
 @Repository
 public interface SymbolRepository extends BaseRepository<Symbol> {
 
-    @Query(nativeQuery = true, value = """
-            SELECT code, exchange FROM symbols
-            WHERE is_active = true
-              AND (CAST(:sectors AS text[]) IS NULL OR (meta_json ->> 'sector') = ANY(CAST(:sectors AS text[])))
-            """)
-    List<SymbolKeyProjection> findBySectors(@Param("sectors") String[] sectors);
+        @Query(nativeQuery = true, value = """
+                        SELECT COUNT(id) FROM symbols
+                        WHERE is_active = true
+                          AND exchange = :exchange
+                        """)
+        Integer countByExchange(@Param("exchange") String exchange);
 
-    @Query(nativeQuery = true, value = """
-            SELECT COUNT(id) FROM symbols
-            WHERE is_active = true
-              AND exchange = :exchange
-            """)
-    Integer countByExchange(@Param("exchange") String exchange);
+        @Query(nativeQuery = true, value = """
+                        SELECT exchange, COUNT(id) FROM symbols
+                        WHERE is_active = true
+                        GROUP BY exchange
+                        """)
+        List<Object[]> countAllActiveSymbolsGroupedByExchange();
 
-    @Query(nativeQuery = true, value = """
-            SELECT exchange, COUNT(id) FROM symbols
-            WHERE is_active = true
-            GROUP BY exchange
-            """)
-    List<Object[]> countAllActiveSymbolsGroupedByExchange();
+        @Modifying
+        @Query(nativeQuery = true, value = """
+                        INSERT INTO symbols (code, exchange, is_active, meta_json, created_at, updated_at)
+                        VALUES (:code, :exchange, true, CAST(:metaJson AS jsonb), now(), now())
+                        ON CONFLICT (code, exchange)
+                        DO UPDATE SET
+                            is_active = true,
+                            meta_json = CAST(:metaJson AS jsonb),
+                            updated_at = now()
+                        """)
+        void upsertOne(@Param("code") String code,
+                        @Param("exchange") String exchange,
+                        @Param("metaJson") String metaJson);
 
-    @Modifying
-    @Query(nativeQuery = true, value = """
-            INSERT INTO symbols (code, exchange, is_active, meta_json, created_at, updated_at)
-            VALUES (:code, :exchange, true, CAST(:metaJson AS jsonb), now(), now())
-            ON CONFLICT (code, exchange)
-            DO UPDATE SET
-                is_active = true,
-                meta_json = CAST(:metaJson AS jsonb),
-                updated_at = now()
-            """)
-    void upsertOne(@Param("code") String code,
-            @Param("exchange") String exchange,
-            @Param("metaJson") String metaJson);
+        @Modifying
+        @Query(nativeQuery = true, value = """
+                        UPDATE symbols
+                        SET is_active = false, updated_at = now()
+                        WHERE exchange = :exchange
+                          AND is_active = true
+                          AND code NOT IN (:codes)
+                        """)
+        void deactivateMissing(@Param("exchange") String exchange, @Param("codes") Collection<String> codes);
 
-    @Modifying
-    @Query(nativeQuery = true, value = """
-            UPDATE symbols
-            SET is_active = false, updated_at = now()
-            WHERE exchange = :exchange
-              AND is_active = true
-              AND code NOT IN (:codes)
-            """)
-    void deactivateMissing(@Param("exchange") String exchange, @Param("codes") Collection<String> codes);
+        default List<SymbolKeyProjection> findBySectorCodesAndLevel(String[] sectorCodes, int sectorLevel) {
+                String jsonKey = "sectorLv" + sectorLevel + "Code";
+                return findBySectorCodesAndLevelKey(sectorCodes, jsonKey);
+        }
 
-    default List<SymbolKeyProjection> findBySectorCodesAndLevel(String[] sectorCodes, int sectorLevel) {
-        String jsonKey = "sectorLv" + sectorLevel + "Code";
-        return findBySectorCodesAndLevelKey(sectorCodes, jsonKey);
-    }
-
-    @Query(value = """
-            SELECT exchange || '-' || code AS symbolKey
-            FROM symbol
-            WHERE is_active = TRUE
-              AND (:sectorCodes IS NULL OR meta_json ->> :jsonKey = ANY(:sectorCodes))
-            """, nativeQuery = true)
-    List<SymbolKeyProjection> findBySectorCodesAndLevelKey(
-            @Param("sectorCodes") String[] sectorCodes,
-            @Param("jsonKey") String jsonKey);
+        @Query(value = """
+                        SELECT code, exchange
+                        FROM symbols
+                        WHERE is_active = TRUE
+                          AND (:sectorCodes IS NULL OR meta_json ->> :jsonKey = ANY(:sectorCodes))
+                        """, nativeQuery = true)
+        List<SymbolKeyProjection> findBySectorCodesAndLevelKey(
+                        @Param("sectorCodes") String[] sectorCodes,
+                        @Param("jsonKey") String jsonKey);
 }

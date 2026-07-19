@@ -21,8 +21,6 @@ version = "1.0.0"
 description = "Stock Sync Ingestor Microservice."
 readme = 'README.md'
 dependencies = [
-    "pyarrow>=15.0.0",
-    "pyyaml>=6.0.2",
     "omni-py-common",
 ]
 

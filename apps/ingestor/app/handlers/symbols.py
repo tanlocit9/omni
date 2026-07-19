@@ -18,7 +18,6 @@ from py_common.storage.parquet import ParquetStorage
 logger = logging.getLogger(__name__)
 
 CLASSIFICATION_COLUMNS = [
-    "sectorCode",
     "sectorTaxonomy",
     "sectorLevel",
     "sourceSectorCode",
@@ -27,15 +26,19 @@ CLASSIFICATION_COLUMNS = [
     "icbLv1Code",
     "icbLv1NameVi",
     "icbLv1NameEn",
+    "sectorLv1Code",
     "icbLv2Code",
     "icbLv2NameVi",
     "icbLv2NameEn",
+    "sectorLv2Code",
     "icbLv3Code",
     "icbLv3NameVi",
     "icbLv3NameEn",
+    "sectorLv3Code",
     "icbLv4Code",
     "icbLv4NameVi",
     "icbLv4NameEn",
+    "sectorLv4Code",
     "classificationUpdatedAt",
 ]
 
@@ -74,6 +77,7 @@ async def process_sync_symbols_message(
 
         if include_sector:
             try:
+                logger.info("Fetching sector classification from VCI")
                 vci_client = get_or_create_client("VCI")
                 sectors = await get_cached_sectors(vci_client)
                 classification_source = "FRESH"
@@ -116,11 +120,26 @@ async def process_sync_symbols_message(
 
         current_count = len(active_df)
 
+        job_definition_id = payload.get("jobDefinitionId") or payload.get("jobId")
+        execution_id = payload.get("executionId") or payload.get("logId")
+        parent_execution_id = payload.get("parentExecutionId")
+
+        if include_sector:
+            await publish_sector_upsert_batch(
+                producer,
+                job_definition_id=job_definition_id,
+                execution_id=execution_id,
+                parent_execution_id=parent_execution_id,
+                exchange=exchange,
+                merged_df=active_df,
+                expected_count=expected_count or current_count,
+            )
+
         await publish_symbol_upsert_batch(
             producer,
-            job_definition_id=payload.get("jobDefinitionId") or payload.get("jobId"),
-            execution_id=payload.get("executionId") or payload.get("logId"),
-            parent_execution_id=payload.get("parentExecutionId"),
+            job_definition_id=job_definition_id,
+            execution_id=execution_id,
+            parent_execution_id=parent_execution_id,
             exchange=exchange,
             merged_df=active_df,
             expected_count=expected_count or current_count,
@@ -207,6 +226,20 @@ def validate_symbols_snapshot(symbols_df: pd.DataFrame, exchange: str) -> pd.Dat
     return validated_df.drop(columns=["_normalized_floor", "_normalized_code"])
 
 
+def normalize_sector_value(value: Any) -> Any:
+    if pd.isna(value):
+        return None
+
+    return (
+        str(value)
+        .strip()
+        .upper()
+        .replace("&", "AND")
+        .replace("-", "_")
+        .replace(" ", "_")
+    )
+
+
 def normalize_symbols_dataframe(
     symbols_df: pd.DataFrame,
     *,
@@ -233,10 +266,12 @@ def normalize_symbols_dataframe(
             if "symbol" in df.columns:
                 df = df.drop(columns=["symbol"])
 
-        apply_canonical_sector_mapping(df, metadata)
-        df["classificationUpdatedAt"] = datetime.now(UTC).isoformat()
-    else:
-        preserve_previous_classification(df, previous_df)
+            apply_canonical_sector_mapping(df, metadata)
+            apply_sector_level_codes(df)
+            df["classificationUpdatedAt"] = datetime.now(UTC).isoformat()
+        else:
+            preserve_previous_classification(df, previous_df)
+            apply_sector_level_codes(df)
 
     for column in CLASSIFICATION_COLUMNS:
         if column not in df.columns:
@@ -266,12 +301,6 @@ def _to_canonical_sector_column(column: str) -> str:
 def apply_canonical_sector_mapping(df: pd.DataFrame, metadata: dict[str, Any]) -> None:
     taxonomy = str(metadata.get("sectorTaxonomy", "ICB")).upper()
     level = int(metadata.get("sectorLevel", 3))
-    mappings = metadata.get("sectorMappings") or []
-    mapping_by_source_code = {
-        str(row.get("sourceCode")): row.get("canonicalCode")
-        for row in mappings
-        if row.get("sourceCode") and row.get("canonicalCode")
-    }
 
     source_code_column = f"icbLv{level}Code"
     source_name_vi_column = f"icbLv{level}NameVi"
@@ -282,13 +311,14 @@ def apply_canonical_sector_mapping(df: pd.DataFrame, metadata: dict[str, Any]) -
     df["sourceSectorCode"] = df.get(source_code_column)
     df["sourceSectorNameVi"] = df.get(source_name_vi_column)
     df["sourceSectorNameEn"] = df.get(source_name_en_column)
-    df["sectorCode"] = df["sourceSectorCode"].map(
-        lambda source_code: (
-            mapping_by_source_code.get(str(source_code))
-            if pd.notna(source_code)
-            else None
-        )
-    )
+
+
+def apply_sector_level_codes(df: pd.DataFrame) -> None:
+    for level in range(1, 5):
+        source_column = f"icbLv{level}NameEn"
+        target_column = f"sectorLv{level}Code"
+        if source_column in df.columns:
+            df[target_column] = df[source_column].map(normalize_sector_value)
 
 
 def preserve_previous_classification(
@@ -325,7 +355,6 @@ def calculate_classification_metrics(
     matched_count = (
         int(df["sourceSectorCode"].notna().sum()) if "sourceSectorCode" in df else 0
     )
-    mapped_count = int(df["sectorCode"].notna().sum()) if "sectorCode" in df else 0
     unmatched_count = max(vnd_count - matched_count, 0)
     match_percentage = (matched_count / vnd_count * 100) if vnd_count else 100.0
     return {
@@ -334,7 +363,6 @@ def calculate_classification_metrics(
         "matchedCount": matched_count,
         "unmatchedCount": unmatched_count,
         "matchPercentage": match_percentage,
-        "mappedCanonicalCount": mapped_count,
     }
 
 
@@ -392,33 +420,137 @@ def _row_to_symbol_record(row: pd.Series) -> dict[str, Any] | None:
     return {
         "code": code,
         "exchange": exchange,
-        "type": _clean_value(row.get("type") or row.get("comTypeCode")),
-        "status": _clean_value(row.get("status")),
-        "isin": _clean_value(row.get("isin")),
         "companyId": _clean_value(row.get("companyId") or row.get("organCode")),
         "companyName": _clean_value(row.get("companyName") or row.get("organName")),
         "listedDate": _clean_value(row.get("listedDate")),
-        "sectorCode": _clean_value(row.get("sectorCode")),
         "sectorTaxonomy": _clean_value(row.get("sectorTaxonomy")),
         "sectorLevel": _clean_value(row.get("sectorLevel")),
         "sourceSectorCode": _clean_value(row.get("sourceSectorCode")),
-        "sourceSectorNameVi": _clean_value(row.get("sourceSectorNameVi")),
-        "sourceSectorNameEn": _clean_value(row.get("sourceSectorNameEn")),
-        "icbLv1Code": _clean_value(row.get("icbLv1Code")),
-        "icbLv1NameVi": _clean_value(row.get("icbLv1NameVi")),
-        "icbLv1NameEn": _clean_value(row.get("icbLv1NameEn")),
-        "icbLv2Code": _clean_value(row.get("icbLv2Code")),
-        "icbLv2NameVi": _clean_value(row.get("icbLv2NameVi")),
-        "icbLv2NameEn": _clean_value(row.get("icbLv2NameEn")),
-        "icbLv3Code": _clean_value(row.get("icbLv3Code")),
-        "icbLv3NameVi": _clean_value(row.get("icbLv3NameVi")),
-        "icbLv3NameEn": _clean_value(row.get("icbLv3NameEn")),
-        "icbLv4Code": _clean_value(row.get("icbLv4Code")),
-        "icbLv4NameVi": _clean_value(row.get("icbLv4NameVi")),
-        "icbLv4NameEn": _clean_value(row.get("icbLv4NameEn")),
+        "sectorLv1Code": _clean_value(row.get("sectorLv1Code")),
+        "sectorLv2Code": _clean_value(row.get("sectorLv2Code")),
+        "sectorLv3Code": _clean_value(row.get("sectorLv3Code")),
+        "sectorLv4Code": _clean_value(row.get("sectorLv4Code")),
         "classificationUpdatedAt": _clean_value(row.get("classificationUpdatedAt")),
         "meta": meta,
     }
+
+
+def _row_to_sector_records(row: pd.Series) -> list[dict[str, Any]]:
+    sector_taxonomy = _clean_str(row.get("sectorTaxonomy"))
+    classification_updated_at = _clean_value(row.get("classificationUpdatedAt"))
+    records: list[dict[str, Any]] = []
+
+    for level in range(1, 5):
+        sector_code = _clean_str(row.get(f"sectorLv{level}Code"))
+        if not sector_code:
+            continue
+
+        records.append(
+            {
+                "sectorCode": sector_code,
+                "sectorTaxonomy": sector_taxonomy,
+                "sectorLevel": level,
+                "sourceSectorCode": _clean_str(row.get(f"icbLv{level}Code")),
+                "sourceSectorNameVi": _clean_value(row.get(f"icbLv{level}NameVi")),
+                "sourceSectorNameEn": _clean_value(row.get(f"icbLv{level}NameEn")),
+                "classificationUpdatedAt": classification_updated_at,
+                "meta": {
+                    "source": "sync-symbols",
+                    "sourceSymbolCode": _clean_value(row.get("code")),
+                    "sourceSymbolExchange": _clean_value(row.get("exchange")),
+                },
+            }
+        )
+
+    return records
+
+
+def _dedup_sector_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[Any, Any, Any]] = set()
+    deduped: list[dict[str, Any]] = []
+
+    for rec in records:
+        key = (rec["sectorCode"], rec["sectorTaxonomy"], rec["sectorLevel"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(rec)
+
+    return deduped
+
+
+def _sector_records_from_dataframe(merged_df: pd.DataFrame) -> list[dict[str, Any]]:
+    records_by_key: dict[tuple[Any, Any, Any], dict[str, Any]] = {}
+    for _, row in merged_df.iterrows():
+        for record in _row_to_sector_records(row):
+            key = (
+                record["sectorCode"],
+                record["sectorTaxonomy"],
+                record["sectorLevel"],
+            )
+            existing = records_by_key.get(key)
+            if existing is None:
+                records_by_key[key] = record
+                continue
+
+            for field, value in record.items():
+                if field == "meta":
+                    existing["meta"] = {**existing.get("meta", {}), **value}
+                elif existing.get(field) is None and value is not None:
+                    existing[field] = value
+
+    return list(records_by_key.values())
+
+
+async def publish_sector_upsert_batch(
+    producer: AIOKafkaProducer,
+    *,
+    job_definition_id: str | None,
+    execution_id: str | None,
+    parent_execution_id: str | None,
+    exchange: str,
+    merged_df: pd.DataFrame,
+    expected_count: int,
+) -> None:
+    records = _sector_records_from_dataframe(merged_df)
+
+    if not records:
+        logger.warning("No sector records to publish for %s", exchange)
+        return
+
+    effective_parent_execution_id = parent_execution_id or execution_id
+
+    event = {
+        "jobDefinitionId": job_definition_id,
+        "executionId": execution_id,
+        "parentExecutionId": effective_parent_execution_id,
+        "exchange": exchange,
+        "expectedCount": expected_count,
+        "actualCount": len(records),
+        "sectors": records,
+        "detectedAt": datetime.now(UTC).isoformat(),
+    }
+
+    logger.warning(
+        "Publishing sector upsert batch for %s: expected=%d actual=%d",
+        exchange,
+        expected_count,
+        len(records),
+    )
+
+    result = await producer.send_and_wait(
+        settings.topic_upsert_sectors,
+        key=exchange.encode(),
+        value=json.dumps(event, default=str).encode(),
+    )
+
+    logger.warning(
+        "Published sector upsert batch for %s to topic=%s partition=%s offset=%s",
+        exchange,
+        result.topic,
+        result.partition,
+        result.offset,
+    )
 
 
 async def publish_symbol_upsert_batch(

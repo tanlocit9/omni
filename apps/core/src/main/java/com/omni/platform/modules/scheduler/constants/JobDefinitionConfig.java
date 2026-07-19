@@ -29,15 +29,13 @@ public class JobDefinitionConfig {
         // 3. CONFIG KEYS & VALUES
         // ==========================================
         public static final String CONFIG_KEY_SECTOR = "sector";
-        public static final String CONFIG_KEY_SECTORS = "sectors";
-        public static final String CONFIG_KEY_EXCHANGES = "exchanges";
-        public static final String CONFIG_KEY_SYMBOL_COUNT = "symbolCount";
-        public static final String CONFIG_KEY_BUCKET = "bucket";
-        public static final String CONFIG_KEY_OBJECT_NAME = "objectName";
-        public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
+        public static final String CONFIG_KEY_SECTOR_CODES = "sectorCodes";
         public static final String CONFIG_KEY_SECTOR_TAXONOMY = "sectorTaxonomy";
         public static final String CONFIG_KEY_SECTOR_LEVEL = "sectorLevel";
         public static final String CONFIG_KEY_SECTOR_MAPPINGS = "sectorMappings";
+        public static final String CONFIG_KEY_EXCHANGES = "exchanges";
+        public static final String CONFIG_KEY_SYMBOL_COUNT = "symbolCount";
+        public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
 
         private static final String SECTOR_FINANCE = "FINANCIALS";
         private static final String SECTOR_BANK = "BANKS";
@@ -56,7 +54,7 @@ public class JobDefinitionConfig {
                         CRON_03_00_MONTHLY,
                         Map.of(
                                         CONFIG_KEY_EXCHANGES, VIETNAM_EXCHANGES,
-                                        CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, false)));
+                                        CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, true)));
 
         private static final List<JobDefinitionSeed> SYNC_STOCK_PRICE_SEEDS = List.of(
                         new JobDefinitionSeed(
@@ -65,21 +63,24 @@ public class JobDefinitionConfig {
                                         JobType.SYNC_STOCK_PRICE,
                                         "Sync stock prices - Finance sector",
                                         CRON_18_00_WEEKDAYS,
-                                        Map.of(CONFIG_KEY_SECTORS, List.of(SECTOR_FINANCE))),
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
+                                                        List.of(SECTOR_FINANCE))),
                         new JobDefinitionSeed(
                                         PRIMARY_DATA_SOURCE,
                                         FALL_BACK_DATA_SOURCES,
                                         JobType.SYNC_STOCK_PRICE,
                                         "Sync stock prices - Banking sector",
                                         CRON_18_05_WEEKDAYS,
-                                        Map.of(CONFIG_KEY_SECTORS, List.of(SECTOR_BANK))),
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
+                                                        List.of(SECTOR_BANK))),
                         new JobDefinitionSeed(
                                         PRIMARY_DATA_SOURCE,
                                         FALL_BACK_DATA_SOURCES,
                                         JobType.SYNC_STOCK_PRICE,
                                         "Sync stock prices - Real estate sector",
                                         CRON_18_10_WEEKDAYS,
-                                        Map.of(CONFIG_KEY_SECTORS, List.of(SECTOR_REAL_ESTATE))));
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
+                                                        List.of(SECTOR_REAL_ESTATE))));
 
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,

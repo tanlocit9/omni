@@ -27,7 +27,7 @@ public class JobDefinitionSeeder implements CommandLineRunner {
             return;
         }
 
-        log.info("Starting job definition seeding...");
+        log.info("Starting job definition seeding (config_json override mode)...");
 
         JobDefinitionConfig.JOB_DEFINITION_SEEDS.forEach(seed -> {
 
@@ -35,8 +35,12 @@ public class JobDefinitionSeeder implements CommandLineRunner {
                     seed.source(),
                     seed.jobType(),
                     seed.cronExpr()).ifPresentOrElse(
-                            existing -> log.info("Job definition [{}/{}/{}] already exists, skipping.",
-                                    seed.source(), seed.jobType(), seed.cronExpr()),
+                            existing -> {
+                                existing.setConfigJson(seed.config());
+                                jobDefinitionRepository.save(existing);
+                                log.info("Overrode config_json for job definition [{}/{}] with cron [{}]",
+                                        seed.source(), seed.jobType(), seed.cronExpr());
+                            },
                             () -> {
                                 jobDefinitionRepository.save(seed.toEntity());
                                 log.info("Seeded job definition [{}/{}] with cron [{}]",

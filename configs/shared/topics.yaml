@@ -4,6 +4,7 @@ kafka:
     topic-sync-stock-prices: topic-sync-stock-prices
     topic-sync-symbols: topic-sync-symbols
     topic-upsert-symbols: topic-upsert-symbols
+    topic-upsert-sectors: topic-upsert-sectors
     topic-sync-job-status: topic-sync-job-status
 
 min-io:

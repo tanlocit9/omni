@@ -42,6 +42,7 @@ class TopicSettings(BaseSettings):
     topic_sync_stock_prices: str = Field(default="topic-sync-stock-prices")
     topic_sync_symbols: str = Field(default="topic-sync-symbols")
     topic_upsert_symbols: str = Field(default="topic-upsert-symbols")
+    topic_upsert_sectors: str = Field(default="topic-upsert-sectors")
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
 
 
@@ -95,6 +96,11 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_upsert_symbols
 
     @property
+    def topic_upsert_sectors(self) -> str:
+        """Backward-compatible access to the upsert sectors topic."""
+        return self.topics.topic_upsert_sectors
+
+    @property
     def sync_job_status_topic(self) -> str:
         """Backward-compatible access to the sync job status topic."""
         return self.topics.sync_job_status_topic
@@ -131,6 +137,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_upsert_symbols = topics_cfg.get(
             "topic-upsert-symbols",
             self.topics.topic_upsert_symbols,
+        )
+        self.topics.topic_upsert_sectors = topics_cfg.get(
+            "topic-upsert-sectors",
+            self.topics.topic_upsert_sectors,
         )
         self.topics.sync_job_status_topic = topics_cfg.get(
             "topic-sync-job-status",

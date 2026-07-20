@@ -8,7 +8,7 @@ This document is the authoritative workflow and message-contract reference for E
 | --- | --- |
 | Platform (`apps/core`) | Owns scheduler configuration, job orchestration, parent/child execution tracking, symbol selection, Kafka request production, and status consumption. |
 | Ingestor (`apps/ingestor`) | Owns external market-data retrieval, Parquet merge/write to object storage, and job-status production. |
-| Analyzer (`apps/analyzer`) | Does not own stock-price persistence or sync execution. Current compatibility endpoints do not dispatch these Kafka messages. |
+| Analyzer (`apps/analyzer`) | Owns technical-indicator calculation from MinIO/S3 EOD Parquet files. It does not own stock-price persistence or dispatch stock-price sync commands. |
 | PostgreSQL | Stores Platform-owned job definitions, execution history, and symbol metadata. |
 | MinIO/S3 | Stores Parquet datasets such as `eod/{exchange}/{code}.parquet`. |
 | Kafka | Carries Platform-to-Ingestor requests and Ingestor-to-Platform status events. |
@@ -36,7 +36,8 @@ Compatibility aliases should only appear in explicit backward-compatibility sect
 | --- | --- | --- | --- | --- | --- |
 | `topic-sync-stock-prices` | Producer (`SyncStockPriceJobProducer`) | Consumer (`process_stock_price_message`) | Stock-price sync request (`SymbolJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` |
 | `topic-sync-symbols` | Producer (`SyncSymbolsJobProducer`) | Consumer (`process_symbols_message`) | Symbol-master sync request (`SyncSymbolsJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `exchange` |
-| `topic-sync-job-status` | Consumer (`JobStatusConsumer`) | Producer (`build_status`) | Job status (`JobStatusMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` for stock-price tasks; exchange identifier for symbol sync |
+| `topic-sync-indicators` | Producer (`SyncIndicatorsJobProducer`) | Consumer (`IndicatorKafkaService`) | Indicator calculation request (`IndicatorJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` |
+| `topic-sync-job-status` | Consumer (`JobStatusConsumer`) | Producer (`build_status` / `IndicatorKafkaService`) | Job status (`JobStatusMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` for stock-price and indicator tasks; exchange identifier for symbol sync |
 | `topic-upsert-symbols` | Consumer (`SymbolUpsertConsumer`) | Producer (`process_symbols_message`) | Full symbol snapshot (`SymbolUpsertMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `exchange` |
 
 ## 4. Scheduler Trigger and Job-Definition Selection
@@ -148,7 +149,54 @@ For each stock-price request, Ingestor:
 
 Each ticker owns one complete EOD Parquet file. The workflow does not use temporal partitions such as `dt=` or `run_id=`.
 
-## 9. Status Contract and Correlation
+## 9. Indicator Calculation Contract
+
+Topic: `topic-sync-indicators`
+
+Producer: Platform `SyncIndicatorsJobProducer`
+
+Consumer: Analyzer `IndicatorKafkaService`
+
+Kafka key: `symbolKey`
+
+Canonical JSON example:
+
+```json
+{
+  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
+  "executionId": "22222222-2222-4222-8222-222222222222",
+  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
+  "source": "ANALYZER",
+  "symbolKey": "HOSE-HPG",
+  "timeframe": "1d",
+  "indicators": ["MA20", "MA50", "RSI", "MACD"],
+  "metadata": {}
+}
+```
+
+Field notes:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `jobDefinitionId` | Yes | Platform job definition ID. |
+| `executionId` | Yes | Child execution ID for this symbol task. |
+| `parentExecutionId` | Yes for scheduled fan-out | Parent scheduler-run execution ID. |
+| `source` | Yes | Fixed to `ANALYZER` for indicator jobs. |
+| `symbolKey` | Yes | `{EXCHANGE}-{CODE}` correlation and partitioning key. |
+| `timeframe` | Yes | Canonical indicator timeframe. v1 allows only `1d`. |
+| `indicators` | Yes | Complete fixed v1 set: `MA20`, `MA50`, `RSI`, `MACD`. Partial sets are rejected. |
+| `metadata` | Optional | Non-routing metadata. Do not put `bucket` or `objectName` here for normal operation. |
+
+Analyzer derives both object paths through shared path builders:
+
+```text
+eod/{exchange}/{code}.parquet
+indicators/{timeframe}/{exchange}/{code}.parquet
+```
+
+For each indicator request, Analyzer reads the complete EOD file, recomputes the full indicator series deterministically, replaces the indicator Parquet file, and publishes `recordsProcessed` to `topic-sync-job-status`.
+
+## 10. Status Contract and Correlation
 
 Topic: `topic-sync-job-status`
 
@@ -204,8 +252,9 @@ Field notes:
 | `jobDefinitionId` | Yes | Echoed from request. |
 | `executionId` | Yes | Primary correlation ID for the child execution. |
 | `parentExecutionId` | Optional but expected for scheduled fan-out | Parent scheduler-run execution. |
-| `status` | Yes | `SUCCESS` or `ERROR` from Ingestor. |
-| `recordsInserted` | Yes | Count of newly fetched/inserted records for this run. |
+| `status` | Yes | `SUCCESS` or `ERROR` from Python workers. Platform maps `ERROR` to failed execution state. |
+| `recordsInserted` | Required for stock-price/symbol sync | Count of newly fetched/inserted records for this run. |
+| `recordsProcessed` | Required for indicator sync | Count of rows in the calculated indicator output. Platform also accepts this field before falling back to `recordsInserted`. |
 | `totalRecords` | Yes | Count of records in the resulting Parquet dataset. |
 | `newOffset` | Optional | Offset stored for the next run. |
 | `startedAt` | Yes | ISO-8601 processing start timestamp. |
@@ -215,7 +264,7 @@ Field notes:
 
 Platform updates the child execution identified by `executionId`. If `parentExecutionId` is present, Platform aggregates the parent execution after applying the child status.
 
-## 10. Parent Aggregation Rules
+## 11. Parent Aggregation Rules
 
 Parent aggregation is Platform-owned. A parent execution represents the scheduler run and is derived from child statuses.
 

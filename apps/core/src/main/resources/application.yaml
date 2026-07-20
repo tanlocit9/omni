@@ -26,6 +26,7 @@ spring:
 
 app:
   scheduler:
+    zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     global:
       fixedDelayString: '30000'
   seed:

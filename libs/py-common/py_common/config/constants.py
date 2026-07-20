@@ -60,6 +60,27 @@ class Timeframe(StrEnum):
             ) from None
 
 
+ENABLED_INDICATOR_TIMEFRAMES: frozenset[Timeframe] = frozenset({Timeframe.ONE_DAY})
+
+
+def validate_indicator_timeframe(value: Timeframe | str) -> Timeframe:
+    """Validate a timeframe for v1 indicator calculation.
+
+    The full Timeframe enum remains canonical for known interval validation, while
+    this rule defines which known intervals are enabled for indicator jobs.
+    """
+    timeframe = Timeframe.validate(value) if isinstance(value, str) else value
+    if not isinstance(timeframe, Timeframe):
+        raise ValueError(f"Invalid timeframe '{value}'. Must be a Timeframe or string")
+    if timeframe not in ENABLED_INDICATOR_TIMEFRAMES:
+        enabled = ", ".join(t.value for t in ENABLED_INDICATOR_TIMEFRAMES)
+        raise ValueError(
+            f"Timeframe '{timeframe.value}' is not enabled for indicator calculation. "
+            f"Enabled timeframes: {enabled}"
+        )
+    return timeframe
+
+
 class ConsumerGroup(StrEnum):
     """Standard consumer group prefixes for Kafka consumers.
     

@@ -3,7 +3,7 @@ package com.omni.platform.modules.scheduler.messaging;
 import java.util.Map;
 import java.util.UUID;
 
-public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessage {
+public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessage, IndicatorJobMessage {
     UUID jobDefinitionId();
 
     UUID executionId();

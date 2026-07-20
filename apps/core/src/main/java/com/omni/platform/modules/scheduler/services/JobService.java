@@ -2,12 +2,13 @@ package com.omni.platform.modules.scheduler.services;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,9 @@ public class JobService {
 
     private final JobDefinitionRepository jobDefinitionRepository;
     private final JobExecutionHistoryRepository jobExecutionHistoryRepository;
+
+    @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
+    private String schedulerZone;
 
     public JobExecutionHistory prepareForExecution(
             JobDefinition job,
@@ -59,6 +63,29 @@ public class JobService {
         child.setMetaJson(meta);
 
         return jobExecutionHistoryRepository.save(child);
+    }
+
+    public void markParentWithNoChildren(
+            JobExecutionHistory execution,
+            Instant finishedAt) {
+
+        execution.setStatus(JobExecutionHistory.JobStatus.SUCCESS);
+        execution.setStartedAt(finishedAt);
+        execution.setFinishedAt(finishedAt);
+        execution.setRecordsSynced(0);
+        execution.setRecordsSkipped(0);
+        execution.setError(null);
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        putAllAsStrings(meta, execution.getMetaJson());
+        putIfPresent(meta, "childCount", 0);
+        putIfPresent(meta, "successCount", 0);
+        putIfPresent(meta, "failedCount", 0);
+        putIfPresent(meta, "pendingCount", 0);
+        putIfPresent(meta, "runningCount", 0);
+        execution.setMetaJson(meta);
+
+        jobExecutionHistoryRepository.save(execution);
     }
 
     public void markExecutionSuccess(
@@ -100,6 +127,7 @@ public class JobService {
 
         List<JobExecutionHistory> children = jobExecutionHistoryRepository.findAllByParentLogId(parentLogId);
         if (children.isEmpty()) {
+            markParentWithNoChildren(parent, Instant.now());
             return;
         }
 
@@ -107,7 +135,8 @@ public class JobService {
                 .filter(child -> child.getStatus() == JobExecutionHistory.JobStatus.SUCCESS)
                 .count();
         long failedCount = children.stream()
-                .filter(child -> child.getStatus() == JobExecutionHistory.JobStatus.FAILED)
+                .filter(child -> child.getStatus() == JobExecutionHistory.JobStatus.FAILED
+                        || child.getStatus() == JobExecutionHistory.JobStatus.ERROR)
                 .count();
         long pendingCount = children.stream()
                 .filter(child -> child.getStatus() == JobExecutionHistory.JobStatus.PENDING)
@@ -211,16 +240,16 @@ public class JobService {
         }
 
         CronExpression cron = CronExpression.parse(job.getCronExpr());
+        ZoneId zone = ZoneId.of(schedulerZone);
 
         LocalDateTime nextRun = cron.next(
                 LocalDateTime.ofInstant(
                         now,
-                        ZoneOffset.UTC));
+                        zone));
 
         if (nextRun != null) {
             job.setNextRun(
-                    nextRun.toInstant(
-                            ZoneOffset.UTC));
+                    nextRun.atZone(zone).toInstant());
         }
     }
 

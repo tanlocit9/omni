@@ -15,6 +15,7 @@ def _write_shared_config(root: Path) -> None:
                 "    topic-sync-stock-prices: prices-topic",
                 "    topic-sync-symbols: symbols-topic",
                 "    topic-upsert-symbols: upsert-topic",
+                "    topic-sync-indicators: indicators-topic",
                 "    topic-sync-job-status: status-topic",
                 "min-io:",
                 "  endpoint: minio:9000",
@@ -67,6 +68,7 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path):
     assert settings.topic_sync_stock_prices == "prices-topic"
     assert settings.topic_sync_symbols == "symbols-topic"
     assert settings.topic_upsert_symbols == "upsert-topic"
+    assert settings.topic_sync_indicators == "indicators-topic"
     assert settings.sync_job_status_topic == "status-topic"
     assert settings.stock_data_paths.symbols("HOSE") == "metadata/symbols/hose.parquet"
     assert settings.get_symbols_path("HOSE") == "metadata/symbols/hose.parquet"
@@ -87,5 +89,6 @@ def test_base_app_settings_uses_defaults_when_shared_files_are_absent(tmp_path: 
 
     assert settings.kafka.bootstrap_servers == "localhost:9092"
     assert settings.topic_sync_stock_prices == "topic-sync-stock-prices"
+    assert settings.topic_sync_indicators == "topic-sync-indicators"
     assert settings.minio.bucket == ""
     assert settings.stock_data_paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"

@@ -23,6 +23,7 @@ public class JobDefinitionConfig {
         private static final String CRON_18_00_WEEKDAYS = "0 0 18 * * MON-FRI";
         private static final String CRON_18_05_WEEKDAYS = "0 5 18 * * MON-FRI";
         private static final String CRON_18_10_WEEKDAYS = "0 10 18 * * MON-FRI";
+        private static final String CRON_18_30_WEEKDAYS = "0 30 18 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
 
         // ==========================================
@@ -36,6 +37,11 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_EXCHANGES = "exchanges";
         public static final String CONFIG_KEY_SYMBOL_COUNT = "symbolCount";
         public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
+        public static final String CONFIG_KEY_TIMEFRAME = "timeframe";
+        public static final String CONFIG_KEY_INDICATORS = "indicators";
+
+        public static final String INDICATOR_TIMEFRAME_1D = "1d";
+        public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI", "MACD");
 
         private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";
@@ -82,9 +88,21 @@ public class JobDefinitionConfig {
                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
                                                         List.of(SECTOR_REAL_ESTATE))));
 
+        private static final List<JobDefinitionSeed> SYNC_INDICATORS_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.SYNC_INDICATORS,
+                                        "Sync technical indicators - daily",
+                                        CRON_18_30_WEEKDAYS,
+                                        Map.of(
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_INDICATORS, SUPPORTED_INDICATORS)));
+
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
-                        SYNC_STOCK_PRICE_SEEDS)
+                        SYNC_STOCK_PRICE_SEEDS,
+                        SYNC_INDICATORS_SEEDS)
                         .filter(Objects::nonNull)
                         .flatMap(e -> e.stream())
                         .toList();

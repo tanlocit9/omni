@@ -61,11 +61,11 @@ public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
         JobExecutionHistory history = historyRepository.findById(executionId)
                 .orElseThrow(() -> new IllegalStateException("JobExecutionHistory not found: " + executionId));
 
-        history.setStatus(JobStatus.valueOf(response.status().toUpperCase()));
+        history.setStatus(resolveStatus(response.status()));
         history.setError(response.errorMessage());
         history.setStartedAt(response.startedAt());
         history.setFinishedAt(response.finishedAt());
-        history.setRecordsSynced(getIntMetaValue(response, "recordsInserted"));
+        history.setRecordsSynced(resolveRecordsProcessed(response));
         history.setNewOffset(response.newOffset());
         history.setMetaJson(buildMetaJson(response));
 
@@ -87,12 +87,30 @@ public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
         putIfPresent(meta, "executionId", response.executionId());
         putIfPresent(meta, "parentExecutionId", response.parentExecutionId());
         putIfPresent(meta, "durationMs", response.durationMs());
+        putIfPresent(meta, "recordsProcessed", response.recordsProcessed());
         return meta;
     }
 
-    private int getIntMetaValue(JobStatusMessage response, String key) {
+    private JobStatus resolveStatus(String status) {
+        JobStatus resolved = JobStatus.valueOf(status.toUpperCase());
+        return resolved == JobStatus.ERROR ? JobStatus.FAILED : resolved;
+    }
+
+    private int resolveRecordsProcessed(JobStatusMessage response) {
+        if (response.recordsProcessed() != null) {
+            return response.recordsProcessed();
+        }
+        Integer recordsProcessed = getOptionalIntMetaValue(response, "recordsProcessed");
+        if (recordsProcessed != null) {
+            return recordsProcessed;
+        }
+        Integer recordsInserted = getOptionalIntMetaValue(response, "recordsInserted");
+        return recordsInserted == null ? 0 : recordsInserted;
+    }
+
+    private Integer getOptionalIntMetaValue(JobStatusMessage response, String key) {
         if (response.metaJson() == null) {
-            return 0;
+            return null;
         }
 
         Object value = response.metaJson().get(key);
@@ -104,7 +122,7 @@ public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
             return Integer.parseInt(stringValue);
         }
 
-        return 0;
+        return null;
     }
 
     private void putIfPresent(Map<String, Object> meta, String key, Object value) {

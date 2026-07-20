@@ -44,6 +44,7 @@ class TopicSettings(BaseSettings):
     topic_upsert_symbols: str = Field(default="topic-upsert-symbols")
     topic_upsert_sectors: str = Field(default="topic-upsert-sectors")
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
+    topic_sync_indicators: str = Field(default="topic-sync-indicators")
 
 
 class BaseAppSettings(BaseSettings):
@@ -101,6 +102,11 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_upsert_sectors
 
     @property
+    def topic_sync_indicators(self) -> str:
+        """Backward-compatible access to the sync indicators topic."""
+        return self.topics.topic_sync_indicators
+
+    @property
     def sync_job_status_topic(self) -> str:
         """Backward-compatible access to the sync job status topic."""
         return self.topics.sync_job_status_topic
@@ -145,6 +151,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.sync_job_status_topic = topics_cfg.get(
             "topic-sync-job-status",
             self.topics.sync_job_status_topic,
+        )
+        self.topics.topic_sync_indicators = topics_cfg.get(
+            "topic-sync-indicators",
+            self.topics.topic_sync_indicators,
         )
 
         minio_cfg = self._shared_topics.get("min-io", {})

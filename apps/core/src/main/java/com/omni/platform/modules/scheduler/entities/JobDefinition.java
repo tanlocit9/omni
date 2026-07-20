@@ -63,11 +63,12 @@ public class JobDefinition extends AuditableEntity {
     private List<JobExecutionHistory> executionHistory = new ArrayList<>();
 
     public enum DataSource {
-        VCI, VNSTOCK, TCBS, SSI, FIREANT, VND
+        VCI, VNSTOCK, TCBS, SSI, FIREANT, VND, ANALYZER
     }
 
     public enum JobType {
         SYNC_STOCK_PRICE,
-        SYNC_SYMBOLS
+        SYNC_SYMBOLS,
+        SYNC_INDICATORS
     }
 }

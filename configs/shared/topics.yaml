@@ -6,6 +6,7 @@ kafka:
     topic-upsert-symbols: topic-upsert-symbols
     topic-upsert-sectors: topic-upsert-sectors
     topic-sync-job-status: topic-sync-job-status
+    topic-sync-indicators: topic-sync-indicators
 
 min-io:
   endpoint: localhost:9000

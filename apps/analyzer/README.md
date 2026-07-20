@@ -1,10 +1,10 @@
 # Stock Analyzer Service (`apps/analyzer`)
 
-The **Stock Analyzer Service** is a FastAPI application for analytical APIs.
+The **Stock Analyzer Service** is a FastAPI application and Kafka worker for analytical APIs and technical-indicator calculation.
 
 Analyzer no longer owns stock-price persistence. It does **not** connect directly to PostgreSQL, does **not** read stock prices from PostgreSQL, and does **not** write synchronized stock prices back to PostgreSQL. Stock synchronization is owned by the Platform scheduler and downstream Ingestor flow.
 
-Kafka and MinIO adapters exist in Analyzer as infrastructure foundations, but the current compatibility endpoints do not yet use those adapters for business behavior.
+Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform.
 
 ---
 
@@ -13,10 +13,11 @@ Kafka and MinIO adapters exist in Analyzer as infrastructure foundations, but th
 - **FastAPI API surface**: Provides versioned HTTP endpoints under `/v1`.
 - **Compatibility stock endpoints**: Existing stock endpoints remain available, but they report that direct PostgreSQL access has been removed.
 - **No direct database access**: Analyzer has no SQLAlchemy engine, PostgreSQL session, repository, generated DB models, or database migration coupling.
+- **Indicator Kafka worker**: Consumes Platform-owned `topic-sync-indicators` jobs and publishes status to `topic-sync-job-status`.
+- **MinIO/S3 analytical storage**: Reads EOD files and writes indicator files through shared `ParquetStorage`.
 - **Infrastructure foundations**:
   - `KafkaEventPublisher` can publish JSON events to Kafka.
-  - `MinioObjectStorage` can read bytes from object storage.
-  - These are not yet wired into stock API endpoints.
+  - Shared storage adapters can read and write object-storage data.
 - **Sync delegation**: On-demand stock sync should be triggered through the Platform scheduler API instead of Analyzer.
 
 ---
@@ -41,6 +42,12 @@ apps/analyzer/
 │   │   └── object_storage.py          # Object-storage boundary
 │   ├── providers/
 │   │   └── stock_provider.py          # FastAPI dependency provider
+│   ├── calculations/
+│   │   └── indicators.py              # MA20, MA50, RSI, MACD calculations
+│   ├── indicators/
+│   │   ├── handler.py                 # Reads EOD Parquet and writes indicator Parquet
+│   │   ├── kafka.py                   # Kafka consumer/producer lifecycle
+│   │   └── messages.py                # Indicator job/status contracts
 │   ├── services/
 │   │   └── stock_service.py           # Stock compatibility behavior
 │   └── settings.py                    # Shared topic/S3 config loader and runtime settings
@@ -122,11 +129,27 @@ Pydantic field names and environment-variable overrides:
 Analyzer uses the same path-builder convention as Ingestor:
 
 ```python
-settings.get_symbols_path("HOSE")      # symbols/hose.parquet
-settings.get_eod_path("HOSE", "HPG")   # eod/hose/hpg.parquet
+settings.get_symbols_path("HOSE")                  # symbols/hose.parquet
+settings.get_eod_path("HOSE", "HPG")               # eod/hose/hpg.parquet
+settings.get_indicators_path("1d", "HOSE", "HPG")  # indicators/1d/hose/hpg.parquet
 ```
 
-Exchange names and ticker codes are lowercased in object names. Keep official uppercase symbols in API responses and metadata.
+Exchange names and ticker codes are lowercased in object names. Keep official uppercase symbols in API responses and metadata. Indicator path construction validates canonical timeframe values and v1 currently enables only `1d`.
+
+### Indicator Kafka runtime
+
+Analyzer starts the indicator Kafka worker during FastAPI startup by default. Disable it for tests or local API-only runs with:
+
+```bash
+ANALYZER_INDICATOR_KAFKA_ENABLED=false nx serve analyzer
+```
+
+Contract summary:
+
+| Topic | Direction | Purpose |
+| --- | --- | --- |
+| `topic-sync-indicators` | Consume | Platform requests full-series indicator calculation for one `symbolKey`. |
+| `topic-sync-job-status` | Publish | Analyzer reports `SUCCESS` or `ERROR` with `recordsProcessed`. |
 
 ---
 
@@ -176,14 +199,16 @@ Stock sync commands should continue to flow through the Platform scheduler and I
 
 ---
 
-## Next Integration Step
+## Indicator Calculation Boundary
 
-The next implementation step is one of:
+Indicator jobs must keep producer and consumer contracts synchronized:
 
-1. wire analytical read endpoints to MinIO-backed Parquet data through `ObjectStorage`; or
-2. publish Platform-owned commands through `KafkaEventPublisher` only after the command contract is explicitly agreed and documented.
+- Platform produces `IndicatorJobMessage` to `topic-sync-indicators`.
+- Analyzer consumes that message and validates `timeframe`, `symbolKey`, and the complete v1 indicator set.
+- Analyzer reads `eod/{exchange}/{code}.parquet`, writes `indicators/1d/{exchange}/{code}.parquet`, and publishes `recordsProcessed` status.
+- Platform consumes `topic-sync-job-status`, maps `ERROR` to failed execution state, and aggregates parent executions.
 
-Do not document or advertise Analyzer as querying MinIO or publishing Kafka events for stock workflows until a service or endpoint actually uses those adapters.
+Do not add bucket or object-name routing fields to indicator Kafka messages; object paths are derived from shared path builders.
 
 ---
 

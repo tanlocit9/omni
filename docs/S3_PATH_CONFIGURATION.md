@@ -35,6 +35,17 @@ Examples:
   - eod/upcom/vci.parquet
 ```
 
+#### 3. Technical Indicators (Ticker-level, timeframe-scoped)
+```
+Pattern: indicators/{timeframe}/{exchange}/{code}.parquet
+Examples:
+  - indicators/1d/hose/hpg.parquet
+  - indicators/1d/hnx/shs.parquet
+  - indicators/1d/upcom/vci.parquet
+```
+
+Indicator paths are built from the shared path builder and are currently restricted to the enabled v1 timeframe set: `1d` only. The output file is replaced as a complete full-series calculation for the fixed v1 indicator set: `MA20`, `MA50`, `RSI`, and `MACD`.
+
 ### Future Expansion Paths
 
 The configuration file includes placeholder patterns for future features:
@@ -66,7 +77,9 @@ The configuration file includes placeholder patterns for future features:
    - ❌ No `run_id=abc123/` folders
    - ✅ Direct file paths: `eod/hose/hpg.parquet`
 
-4. **One ticker = one file**: Each ticker has a single Parquet file per data type
+4. **Indicator timeframe validation**: Indicator files use canonical timeframe values and reject unsupported intervals. In v1, only `1d` is enabled for `indicators/{timeframe}/{exchange}/{code}.parquet`.
+
+5. **One ticker = one file**: Each ticker has a single Parquet file per data type and timeframe
 
 5. **Metadata separation**: Sector, industry, and other classification metadata is stored in separate metadata files, not encoded in the path structure
 
@@ -90,6 +103,8 @@ path = settings.get_eod_path("HOSE", "HPG")
 
 **Key features:**
 - Automatic lowercase normalization
+- Rejects empty or whitespace-only exchange/code path parts
+- Validates indicator timeframes through the shared canonical timeframe rule
 - Reads patterns from `s3-paths.yaml`
 - Falls back to sensible defaults if config is missing
 
@@ -113,6 +128,15 @@ object_name = f"{settings.symbols_prefix}{exchange}.parquet"
 # New (path builder with normalization)
 object_name = settings.get_symbols_path(exchange)
 ```
+
+#### Indicators Handler (`apps/analyzer/app/indicators/handler.py`)
+```python
+exchange, code = message.parse_symbol_key()
+eod_path = settings.stock_data_paths.eod(exchange, code)
+indicators_path = settings.stock_data_paths.indicators("1d", exchange, code)
+```
+
+Analyzer reads `eod/{exchange}/{code}.parquet`, calculates the full supported v1 indicator set, and writes `indicators/1d/{exchange}/{code}.parquet` through the shared `ParquetStorage` abstraction.
 
 ## Migration Notes
 

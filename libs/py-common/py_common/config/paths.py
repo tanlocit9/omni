@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from py_common.config.constants import Timeframe
+from py_common.config.constants import Timeframe, validate_indicator_timeframe
 
 
 @dataclass(frozen=True)
@@ -46,6 +46,16 @@ class StockDataPaths:
     indicators_base: str
     indicators_pattern: str
 
+    @staticmethod
+    def _normalize_path_part(value: str | None, name: str) -> str:
+        """Normalize one S3 path component and reject malformed values."""
+        if value is None:
+            raise ValueError(f"{name} must not be None")
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError(f"{name} must not be empty or whitespace-only")
+        return normalized
+
     def symbols(self, exchange: str) -> str:
         """Build S3 path for symbol metadata file.
         
@@ -62,7 +72,7 @@ class StockDataPaths:
             'symbols/hnx.parquet'
         """
         return self.symbols_base + self.symbols_pattern.format(
-            exchange=exchange.lower()
+            exchange=self._normalize_path_part(exchange, "exchange")
         )
 
     def eod(self, exchange: str, code: str) -> str:
@@ -82,7 +92,8 @@ class StockDataPaths:
             'eod/hnx/shs.parquet'
         """
         return self.eod_base + self.eod_pattern.format(
-            exchange=exchange.lower(), code=code.lower()
+            exchange=self._normalize_path_part(exchange, "exchange"),
+            code=self._normalize_path_part(code, "code"),
         )
 
     def indicators(
@@ -115,14 +126,12 @@ class StockDataPaths:
             ValueError: Invalid timeframe 'invalid'.
             Must be one of: 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M
         """
-        # Validate timeframe
-        if isinstance(timeframe, str):
-            timeframe = Timeframe.validate(timeframe)
+        timeframe = validate_indicator_timeframe(timeframe)
 
         return self.indicators_base + self.indicators_pattern.format(
             timeframe=timeframe.value,
-            exchange=exchange.lower(),
-            code=code.lower(),
+            exchange=self._normalize_path_part(exchange, "exchange"),
+            code=self._normalize_path_part(code, "code"),
         )
 
     @classmethod

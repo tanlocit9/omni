@@ -54,6 +54,12 @@ public abstract class JobProducer {
 
                 List<KafkaMessage> messages = buildMessages(job, log, now);
 
+                if (messages.isEmpty()) {
+                        jobService.markParentWithNoChildren(log, now);
+                        postPublish(job, now);
+                        return;
+                }
+
                 publishMessages(messages);
 
                 postPublish(job, now);

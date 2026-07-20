@@ -19,6 +19,13 @@ stock-data:
     eod:
       base: "eod/"
       pattern: "{exchange}/{code}.parquet"
+
+    # Technical indicators (ticker-level, by timeframe)
+    # Pattern: indicators/{timeframe}/{exchange}/{code}.parquet
+    # Examples: indicators/1d/hose/hpg.parquet, indicators/1d/hnx/shs.parquet
+    indicators:
+      base: "indicators/"
+      pattern: "{timeframe}/{exchange}/{code}.parquet"
     
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features

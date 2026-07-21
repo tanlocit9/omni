@@ -36,7 +36,8 @@ def test_eod_and_indicators_normalize_exchange_and_code_consistently(
 
 
 def test_production_yaml_contains_indicators_path_and_composes_exactly():
-    config_path = Path("configs/shared/s3-paths.yaml")
+    repo_root = Path(__file__).resolve().parents[4]
+    config_path = repo_root / "configs" / "shared" / "s3-paths.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))["stock-data"]
 
     paths = StockDataPaths.from_config(config)

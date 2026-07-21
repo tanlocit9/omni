@@ -1,11 +1,11 @@
 import pandas as pd
 
-REQUIRED_EOD_COLUMNS = {"date", "open", "high", "low", "close", "volume"}
+REQUIRED_EOD_COLUMNS = {"date", "open", "high", "low", "close", "nmVolume"}
 INDICATOR_OUTPUT_COLUMNS = [
     "date",
     "ma20",
     "ma50",
-    "rsi",
+    "rsi14",
     "macd",
     "macd_signal",
     "macd_hist",
@@ -36,7 +36,7 @@ def calculate_supported_indicators(dataframe: pd.DataFrame) -> pd.DataFrame:
     result = pd.DataFrame({"date": prepared["date"]})
     result["ma20"] = close.rolling(window=20, min_periods=20).mean()
     result["ma50"] = close.rolling(window=50, min_periods=50).mean()
-    result["rsi"] = _wilder_rsi(close, period=14)
+    result["rsi14"] = _wilder_rsi(close, period=14)
 
     macd, macd_signal, macd_hist = _macd(close)
     result["macd"] = macd

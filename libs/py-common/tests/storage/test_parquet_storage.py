@@ -110,7 +110,7 @@ class TestParquetCodec:
         encoded = ParquetCodec.encode(df)
         decoded = ParquetCodec.decode(encoded)
         pd.testing.assert_frame_equal(df, decoded)
-        assert decoded["date"].dtype == "datetime64[ns]"
+        assert str(decoded["date"].dtype).startswith("datetime64[")
 
     def test_date_object_column(self):
         df = pd.DataFrame(

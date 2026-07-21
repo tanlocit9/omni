@@ -9,6 +9,7 @@ The S3 path structure for the stock-data bucket is now centrally managed through
 **Location:** `configs/shared/s3-paths.yaml`
 
 This YAML file defines:
+
 - The bucket name
 - Path patterns for each data type
 - Future expansion paths (documented but not yet implemented)
@@ -18,6 +19,7 @@ This YAML file defines:
 ### Currently Implemented
 
 #### 1. Symbol Metadata (Exchange-level)
+
 ```
 Pattern: symbols/{exchange}.parquet
 Examples:
@@ -27,6 +29,7 @@ Examples:
 ```
 
 #### 2. End-of-Day Price Data (Ticker-level)
+
 ```
 Pattern: eod/{exchange}/{code}.parquet
 Examples:
@@ -36,6 +39,7 @@ Examples:
 ```
 
 #### 3. Technical Indicators (Ticker-level, timeframe-scoped)
+
 ```
 Pattern: indicators/{timeframe}/{exchange}/{code}.parquet
 Examples:
@@ -49,6 +53,7 @@ Indicator paths are built from the shared path builder and are currently restric
 ### Future Expansion Paths
 
 The configuration file includes placeholder patterns for future features:
+
 - `intraday/` - Intraday price data
 - `financials/` - Financial statements (income statement, balance sheet, cash flow)
 - `fundamentals/` - Financial ratios and fundamental metrics
@@ -65,14 +70,17 @@ The configuration file includes placeholder patterns for future features:
 ### Enforced Rules
 
 1. **Lowercase normalization**: All exchange names and ticker codes are converted to lowercase in paths
+
    - Exchange: `HOSE` → `hose`, `HNX` → `hnx`, `UPCOM` → `upcom`
    - Ticker: `HPG` → `hpg`, `FPT` → `fpt`, `VCI` → `vci`
 
 2. **Folder names**: Use kebab-case
+
    - `corporate-actions/`
    - `income-statement.parquet`
 
 3. **No temporal partitioning**: Files are overwritten or merged in place
+
    - ❌ No `dt=2024-01-01/` folders
    - ❌ No `run_id=abc123/` folders
    - ✅ Direct file paths: `eod/hose/hpg.parquet`
@@ -81,7 +89,7 @@ The configuration file includes placeholder patterns for future features:
 
 5. **One ticker = one file**: Each ticker has a single Parquet file per data type and timeframe
 
-5. **Metadata separation**: Sector, industry, and other classification metadata is stored in separate metadata files, not encoded in the path structure
+6. **Metadata separation**: Sector, industry, and other classification metadata is stored in separate metadata files, not encoded in the path structure
 
 ## Usage in Code
 
@@ -102,6 +110,7 @@ path = settings.get_eod_path("HOSE", "HPG")
 ```
 
 **Key features:**
+
 - Automatic lowercase normalization
 - Rejects empty or whitespace-only exchange/code path parts
 - Validates indicator timeframes through the shared canonical timeframe rule
@@ -111,6 +120,7 @@ path = settings.get_eod_path("HOSE", "HPG")
 ### Handler Usage
 
 #### Stock Prices Handler (`stock_prices.py`)
+
 ```python
 # Old (hard-coded prefix)
 object_name = f"{settings.eod_prefix}{symbol_key}.parquet"
@@ -121,6 +131,7 @@ object_name = settings.get_eod_path(exchange, code)
 ```
 
 #### Symbols Handler (`symbols.py`)
+
 ```python
 # Old (hard-coded prefix)
 object_name = f"{settings.symbols_prefix}{exchange}.parquet"
@@ -130,6 +141,7 @@ object_name = settings.get_symbols_path(exchange)
 ```
 
 #### Indicators Handler (`apps/analyzer/app/indicators/handler.py`)
+
 ```python
 exchange, code = message.parse_symbol_key()
 eod_path = settings.stock_data_paths.eod(exchange, code)
@@ -143,10 +155,12 @@ Analyzer reads `eod/{exchange}/{code}.parquet`, calculates the full supported v1
 ### Breaking Changes
 
 **Path structure change:**
+
 - Old: `EOD/HOSE-HPG.parquet` (uppercase, hyphenated)
 - New: `eod/hose/hpg.parquet` (lowercase, folder structure)
 
 **For existing deployments:**
+
 1. The old `EOD/` and `SYMBOLS/` prefixes are no longer used
 2. Data needs to be migrated to the new path structure
 3. Or maintain backward compatibility by setting `objectName` override in Kafka messages
@@ -169,13 +183,17 @@ When `objectName` is provided, the path builder is bypassed, allowing gradual mi
 ## Benefits
 
 ### 1. Single Source of Truth
+
 All S3 paths defined in one location (`s3-paths.yaml`), not scattered across multiple files.
 
 ### 2. Convention Enforcement
+
 Lowercase and kebab-case rules are baked into the configuration and enforced by the path builders.
 
 ### 3. Cloud Portability
+
 Path patterns work identically across:
+
 - MinIO (local development)
 - AWS S3
 - Google Cloud Storage
@@ -183,12 +201,15 @@ Path patterns work identically across:
 - Oracle Object Storage
 
 ### 4. Documentation
+
 Developers can see the complete data lake structure at a glance without reading code.
 
 ### 5. Refactor Safety
+
 Changing path structure only requires updating YAML, not hunting down string literals in code.
 
 ### 6. Future-Ready
+
 Placeholder paths for upcoming features are already defined, reducing planning overhead.
 
 ## Architecture Decisions
@@ -199,11 +220,12 @@ Instead of hard-coding paths or using simple prefixes, we use configurable patte
 
 ```yaml
 eod:
-  base: "eod/"
-  pattern: "{exchange}/{code}.parquet"
+  base: 'eod/'
+  pattern: '{exchange}/{code}.parquet'
 ```
 
 **Advantages:**
+
 - Flexible: Can change structure without code changes
 - Explicit: Pattern shows exactly what variables are needed
 - Extensible: Easy to add new path types
@@ -214,6 +236,7 @@ eod:
 Stock exchanges and vendors use uppercase ticker symbols (HPG, FPT, VCI), but filesystem conventions favor lowercase:
 
 **Reasons for lowercase:**
+
 1. **Case-sensitive storage**: S3 and most object stores are case-sensitive. Lowercase eliminates ambiguity.
 2. **URL safety**: Lowercase paths work better in URLs and APIs
 3. **Convention**: Most data lakes use lowercase (Hive, Iceberg, Delta Lake)

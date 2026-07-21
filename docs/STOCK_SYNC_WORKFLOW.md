@@ -4,41 +4,41 @@ This document is the authoritative workflow and message-contract reference for E
 
 ## 1. Ownership and Service Boundaries
 
-| Service | Responsibility |
-| --- | --- |
-| Platform (`apps/core`) | Owns scheduler configuration, job orchestration, parent/child execution tracking, symbol selection, Kafka request production, and status consumption. |
-| Ingestor (`apps/ingestor`) | Owns external market-data retrieval, Parquet merge/write to object storage, and job-status production. |
-| Analyzer (`apps/analyzer`) | Owns technical-indicator calculation from MinIO/S3 EOD Parquet files. It does not own stock-price persistence or dispatch stock-price sync commands. |
-| PostgreSQL | Stores Platform-owned job definitions, execution history, and symbol metadata. |
-| MinIO/S3 | Stores Parquet datasets such as `eod/{exchange}/{code}.parquet`. |
-| Kafka | Carries Platform-to-Ingestor requests and Ingestor-to-Platform status events. |
+| Service                    | Responsibility                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform (`apps/core`)     | Owns scheduler configuration, job orchestration, parent/child execution tracking, symbol selection, Kafka request production, and status consumption. |
+| Ingestor (`apps/ingestor`) | Owns external market-data retrieval, Parquet merge/write to object storage, and job-status production.                                                |
+| Analyzer (`apps/analyzer`) | Owns technical-indicator calculation from MinIO/S3 EOD Parquet files. It does not own stock-price persistence or dispatch stock-price sync commands.  |
+| PostgreSQL                 | Stores Platform-owned job definitions, execution history, and symbol metadata.                                                                        |
+| MinIO/S3                   | Stores Parquet datasets such as `eod/{exchange}/{code}.parquet`.                                                                                      |
+| Kafka                      | Carries Platform-to-Ingestor requests and Ingestor-to-Platform status events.                                                                         |
 
 ## 2. Canonical Identifiers
 
-| Field | Meaning | Scope |
-| --- | --- | --- |
-| `jobDefinitionId` | Scheduled job configuration ID | Shared by all executions of one job definition |
-| `parentExecutionId` | Scheduler-run execution ID | Shared by all child tasks created during one scheduler run |
-| `executionId` | Individual task execution ID | Unique per dispatched symbol task |
+| Field               | Meaning                        | Scope                                                      |
+| ------------------- | ------------------------------ | ---------------------------------------------------------- |
+| `jobDefinitionId`   | Scheduled job configuration ID | Shared by all executions of one job definition             |
+| `parentExecutionId` | Scheduler-run execution ID     | Shared by all child tasks created during one scheduler run |
+| `executionId`       | Individual task execution ID   | Unique per dispatched symbol task                          |
 
 Legacy aliases are not canonical:
 
-| Legacy field | Canonical field |
-| --- | --- |
-| `jobId` | `jobDefinitionId` |
-| `logId` | `executionId` |
+| Legacy field | Canonical field   |
+| ------------ | ----------------- |
+| `jobId`      | `jobDefinitionId` |
+| `logId`      | `executionId`     |
 
 Compatibility aliases should only appear in explicit backward-compatibility sections or historical notes.
 
 ## 3. Contract Matrix
 
-| Topic | Java role | Python role | Model / payload | Canonical identifiers | Kafka key |
-| --- | --- | --- | --- | --- | --- |
-| `topic-sync-stock-prices` | Producer (`SyncStockPriceJobProducer`) | Consumer (`process_stock_price_message`) | Stock-price sync request (`SymbolJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` |
-| `topic-sync-symbols` | Producer (`SyncSymbolsJobProducer`) | Consumer (`process_symbols_message`) | Symbol-master sync request (`SyncSymbolsJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `exchange` |
-| `topic-sync-indicators` | Producer (`SyncIndicatorsJobProducer`) | Consumer (`IndicatorKafkaService`) | Indicator calculation request (`IndicatorJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` |
-| `topic-sync-job-status` | Consumer (`JobStatusConsumer`) | Producer (`build_status` / `IndicatorKafkaService`) | Job status (`JobStatusMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` for stock-price and indicator tasks; exchange identifier for symbol sync |
-| `topic-upsert-symbols` | Consumer (`SymbolUpsertConsumer`) | Producer (`process_symbols_message`) | Full symbol snapshot (`SymbolUpsertMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `exchange` |
+| Topic                     | Java role                              | Python role                                         | Model / payload                                       | Canonical identifiers                                 | Kafka key                                                                            |
+| ------------------------- | -------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `topic-sync-stock-prices` | Producer (`SyncStockPriceJobProducer`) | Consumer (`process_stock_price_message`)            | Stock-price sync request (`SymbolJobMessage`)         | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey`                                                                          |
+| `topic-sync-symbols`      | Producer (`SyncSymbolsJobProducer`)    | Consumer (`process_symbols_message`)                | Symbol-master sync request (`SyncSymbolsJobMessage`)  | `jobDefinitionId`, `executionId`, `parentExecutionId` | `exchange`                                                                           |
+| `topic-sync-indicators`   | Producer (`SyncIndicatorsJobProducer`) | Consumer (`IndicatorKafkaService`)                  | Indicator calculation request (`IndicatorJobMessage`) | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey`                                                                          |
+| `topic-sync-job-status`   | Consumer (`JobStatusConsumer`)         | Producer (`build_status` / `IndicatorKafkaService`) | Job status (`JobStatusMessage`)                       | `jobDefinitionId`, `executionId`, `parentExecutionId` | `symbolKey` for stock-price and indicator tasks; exchange identifier for symbol sync |
+| `topic-upsert-symbols`    | Consumer (`SymbolUpsertConsumer`)      | Producer (`process_symbols_message`)                | Full symbol snapshot (`SymbolUpsertMessage`)          | `jobDefinitionId`, `executionId`, `parentExecutionId` | `exchange`                                                                           |
 
 ## 4. Scheduler Trigger and Job-Definition Selection
 
@@ -111,16 +111,16 @@ Canonical JSON example:
 
 Field notes:
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `jobDefinitionId` | Yes | Platform job definition ID. |
-| `executionId` | Yes | Child execution ID for this symbol task. |
-| `parentExecutionId` | Yes for scheduled fan-out | Parent scheduler-run execution ID. |
-| `source` | Yes | External data source identifier used by Ingestor client selection. |
-| `symbolKey` | Yes | `{EXCHANGE}-{CODE}` correlation and partitioning key. |
-| `fromOffset` | Optional | Last successful symbol offset. `null` means fetch from default/full-history behavior. |
-| `toOffset` | Yes | Upper offset for the sync run. |
-| `metadata` | Optional | Non-routing metadata. Do not put `bucket` or `objectName` here for normal operation. |
+| Field               | Required                  | Meaning                                                                               |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------------------- |
+| `jobDefinitionId`   | Yes                       | Platform job definition ID.                                                           |
+| `executionId`       | Yes                       | Child execution ID for this symbol task.                                              |
+| `parentExecutionId` | Yes for scheduled fan-out | Parent scheduler-run execution ID.                                                    |
+| `source`            | Yes                       | External data source identifier used by Ingestor client selection.                    |
+| `symbolKey`         | Yes                       | `{EXCHANGE}-{CODE}` correlation and partitioning key.                                 |
+| `fromOffset`        | Optional                  | Last successful symbol offset. `null` means fetch from default/full-history behavior. |
+| `toOffset`          | Yes                       | Upper offset for the sync run.                                                        |
+| `metadata`          | Optional                  | Non-routing metadata. Do not put `bucket` or `objectName` here for normal operation.  |
 
 S3 object names are derived by Ingestor path builders, not by Kafka message metadata:
 
@@ -176,16 +176,16 @@ Canonical JSON example:
 
 Field notes:
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `jobDefinitionId` | Yes | Platform job definition ID. |
-| `executionId` | Yes | Child execution ID for this symbol task. |
-| `parentExecutionId` | Yes for scheduled fan-out | Parent scheduler-run execution ID. |
-| `source` | Yes | Fixed to `ANALYZER` for indicator jobs. |
-| `symbolKey` | Yes | `{EXCHANGE}-{CODE}` correlation and partitioning key. |
-| `timeframe` | Yes | Canonical indicator timeframe. v1 allows only `1d`. |
-| `indicators` | Yes | Complete fixed v1 set: `MA20`, `MA50`, `RSI`, `MACD`. Partial sets are rejected. |
-| `metadata` | Optional | Non-routing metadata. Do not put `bucket` or `objectName` here for normal operation. |
+| Field               | Required                  | Meaning                                                                              |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------------------ |
+| `jobDefinitionId`   | Yes                       | Platform job definition ID.                                                          |
+| `executionId`       | Yes                       | Child execution ID for this symbol task.                                             |
+| `parentExecutionId` | Yes for scheduled fan-out | Parent scheduler-run execution ID.                                                   |
+| `source`            | Yes                       | Fixed to `ANALYZER` for indicator jobs.                                              |
+| `symbolKey`         | Yes                       | `{EXCHANGE}-{CODE}` correlation and partitioning key.                                |
+| `timeframe`         | Yes                       | Canonical indicator timeframe. v1 allows only `1d`.                                  |
+| `indicators`        | Yes                       | Complete fixed v1 set: `MA20`, `MA50`, `RSI`, `MACD`. Partial sets are rejected.     |
+| `metadata`          | Optional                  | Non-routing metadata. Do not put `bucket` or `objectName` here for normal operation. |
 
 Analyzer derives both object paths through shared path builders:
 
@@ -246,21 +246,21 @@ Canonical error example:
 
 Field notes:
 
-| Field | Required | Meaning |
-| --- | --- | --- |
-| `symbolKey` | Yes for stock-price sync | Correlates the status to the symbol task. |
-| `jobDefinitionId` | Yes | Echoed from request. |
-| `executionId` | Yes | Primary correlation ID for the child execution. |
-| `parentExecutionId` | Optional but expected for scheduled fan-out | Parent scheduler-run execution. |
-| `status` | Yes | `SUCCESS` or `ERROR` from Python workers. Platform maps `ERROR` to failed execution state. |
-| `recordsInserted` | Required for stock-price/symbol sync | Count of newly fetched/inserted records for this run. |
-| `recordsProcessed` | Required for indicator sync | Count of rows in the calculated indicator output. Platform also accepts this field before falling back to `recordsInserted`. |
-| `totalRecords` | Yes | Count of records in the resulting Parquet dataset. |
-| `newOffset` | Optional | Offset stored for the next run. |
-| `startedAt` | Yes | ISO-8601 processing start timestamp. |
-| `finishedAt` | Yes | ISO-8601 processing finish timestamp. |
-| `durationMs` | Yes | Processing duration in milliseconds. |
-| `errorMessage` | Optional | Error detail for failed tasks. |
+| Field               | Required                                    | Meaning                                                                                                                      |
+| ------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `symbolKey`         | Yes for stock-price sync                    | Correlates the status to the symbol task.                                                                                    |
+| `jobDefinitionId`   | Yes                                         | Echoed from request.                                                                                                         |
+| `executionId`       | Yes                                         | Primary correlation ID for the child execution.                                                                              |
+| `parentExecutionId` | Optional but expected for scheduled fan-out | Parent scheduler-run execution.                                                                                              |
+| `status`            | Yes                                         | `SUCCESS` or `ERROR` from Python workers. Platform maps `ERROR` to failed execution state.                                   |
+| `recordsInserted`   | Required for stock-price/symbol sync        | Count of newly fetched/inserted records for this run.                                                                        |
+| `recordsProcessed`  | Required for indicator sync                 | Count of rows in the calculated indicator output. Platform also accepts this field before falling back to `recordsInserted`. |
+| `totalRecords`      | Yes                                         | Count of records in the resulting Parquet dataset.                                                                           |
+| `newOffset`         | Optional                                    | Offset stored for the next run.                                                                                              |
+| `startedAt`         | Yes                                         | ISO-8601 processing start timestamp.                                                                                         |
+| `finishedAt`        | Yes                                         | ISO-8601 processing finish timestamp.                                                                                        |
+| `durationMs`        | Yes                                         | Processing duration in milliseconds.                                                                                         |
+| `errorMessage`      | Optional                                    | Error detail for failed tasks.                                                                                               |
 
 Platform updates the child execution identified by `executionId`. If `parentExecutionId` is present, Platform aggregates the parent execution after applying the child status.
 
@@ -295,10 +295,10 @@ The producer reads the last successful offset for the same symbol before publish
 
 Current Ingestor status-building code still accepts legacy request aliases:
 
-| Accepted alias | Canonical field |
-| --- | --- |
-| `jobId` | `jobDefinitionId` |
-| `logId` | `executionId` |
+| Accepted alias | Canonical field   |
+| -------------- | ----------------- |
+| `jobId`        | `jobDefinitionId` |
+| `logId`        | `executionId`     |
 
 Platform `JobMessage` also exposes Java compatibility accessors `jobId()` and `logId()` that return the canonical identifiers.
 

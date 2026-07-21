@@ -1,9 +1,81 @@
 {
-  "name": "analyzer",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "analyzer",
   "projectType": "application",
+  "release": {
+    "version": {
+      "versionActions": "@nxlv/python/release/version-actions"
+    }
+  },
   "sourceRoot": "apps/analyzer/app",
+  "tags": [],
   "targets": {
+    "add": {
+      "executor": "@nxlv/python:add",
+      "options": {}
+    },
+    "build": {
+      "cache": true,
+      "executor": "@nxlv/python:build",
+      "options": {
+        "bundleLocalDependencies": true,
+        "lockedVersions": true,
+        "outputPath": "{projectRoot}/dist",
+        "publish": false
+      },
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "debug": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run python debug.py",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": false
+      }
+    },
+    "deploy": {
+      "dependsOn": ["build"],
+      "executor": "@nxlv/python:sls-deploy",
+      "options": {}
+    },
+    "format": {
+      "cache": true,
+      "executor": "@nxlv/python:ruff-format",
+      "options": {
+        "filePatterns": ["app", "tests"]
+      },
+      "outputs": []
+    },
+    "install": {
+      "executor": "@nxlv/python:install",
+      "options": {
+        "args": "",
+        "cwd": "{projectRoot}",
+        "debug": false,
+        "silent": false,
+        "verbose": false
+      }
+    },
+    "lint": {
+      "cache": true,
+      "executor": "@nxlv/python:ruff-check",
+      "options": {
+        "lintFilePatterns": ["app", "tests"]
+      },
+      "outputs": []
+    },
+    "lock": {
+      "executor": "@nxlv/python:lock",
+      "options": {
+        "update": false
+      }
+    },
+    "package": {
+      "dependsOn": ["build"],
+      "executor": "@nxlv/python:sls-package",
+      "options": {}
+    },
     "python": {
       "executor": "@nxlv/python:run-commands",
       "options": {
@@ -12,109 +84,38 @@
         "forwardAllArgs": true
       }
     },
-    "deploy": {
-      "executor": "@nxlv/python:sls-deploy",
-      "dependsOn": ["build"],
+    "remove": {
+      "executor": "@nxlv/python:remove",
       "options": {}
     },
-    "package": {
-      "executor": "@nxlv/python:sls-package",
-      "dependsOn": ["build"],
-      "options": {}
-    },
-    "lock": {
-      "executor": "@nxlv/python:lock",
+    "serve": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
       "options": {
-        "update": false
+        "command": "uv run uvicorn-hmr main:app",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": true
       }
     },
     "sync": {
       "executor": "@nxlv/python:sync",
       "options": {}
     },
-    "add": {
-      "executor": "@nxlv/python:add",
-      "options": {}
-    },
-    "update": {
-      "executor": "@nxlv/python:update",
-      "options": {}
-    },
-    "remove": {
-      "executor": "@nxlv/python:remove",
-      "options": {}
-    },
-    "build": {
-      "executor": "@nxlv/python:build",
-      "outputs": ["{projectRoot}/dist"],
-      "options": {
-        "outputPath": "{projectRoot}/dist",
-        "publish": false,
-        "lockedVersions": true,
-        "bundleLocalDependencies": true
-      },
-      "cache": true
-    },
-    "lint": {
-      "executor": "@nxlv/python:ruff-check",
-      "outputs": [],
-      "options": {
-        "lintFilePatterns": ["app", "tests"]
-      },
-      "cache": true
-    },
-    "format": {
-      "executor": "@nxlv/python:ruff-format",
-      "outputs": [],
-      "options": {
-        "filePatterns": ["app", "tests"]
-      },
-      "cache": true
-    },
     "test": {
+      "cache": true,
       "executor": "@nxlv/python:run-commands",
-      "outputs": [
-        "{workspaceRoot}/reports/{projectRoot}/unittests",
-        "{workspaceRoot}/coverage/{projectRoot}"
-      ],
       "options": {
         "command": "uv run pytest tests/",
         "cwd": "{projectRoot}"
       },
-      "cache": true
+      "outputs": [
+        "{workspaceRoot}/reports/{projectRoot}/unittests",
+        "{workspaceRoot}/coverage/{projectRoot}"
+      ]
     },
-    "serve": {
-      "executor": "@nxlv/python:run-commands",
-      "options": {
-        "command": "uv run uvicorn-hmr main:app",
-        "forwardAllArgs": true,
-        "cwd": "{projectRoot}"
-      },
-      "cache": false
-    },
-    "debug": {
-      "executor": "@nxlv/python:run-commands",
-      "options": {
-        "command": "uv run python debug.py",
-        "cwd": "{projectRoot}",
-        "forwardAllArgs": false
-      },
-      "cache": false
-    },
-    "install": {
-      "executor": "@nxlv/python:install",
-      "options": {
-        "silent": false,
-        "args": "",
-        "verbose": false,
-        "debug": false
-      }
-    }
-  },
-  "tags": [],
-  "release": {
-    "version": {
-      "versionActions": "@nxlv/python/release/version-actions"
+    "update": {
+      "executor": "@nxlv/python:update",
+      "options": {}
     }
   }
 }

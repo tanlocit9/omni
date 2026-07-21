@@ -21,7 +21,7 @@ def _job_payload(**overrides):
         "source": "ANALYZER",
         "symbolKey": "HOSE-HPG",
         "timeframe": "1d",
-        "indicators": ["MA20", "MA50", "RSI", "MACD"],
+        "indicators": ["MA20", "MA50", "RSI14", "MACD"],
         "metadata": {"source": "test"},
     }
     payload.update(overrides)
@@ -46,7 +46,7 @@ def test_indicator_job_message_validates_complete_supported_set():
     message = IndicatorJobMessage.model_validate(_job_payload())
 
     assert message.timeframe == "1d"
-    assert message.indicators == ["MA20", "MA50", "RSI", "MACD"]
+    assert message.indicators == ["MA20", "MA50", "RSI14", "MACD"]
     assert message.parse_symbol_key() == ("HOSE", "HPG")
 
 
@@ -76,7 +76,7 @@ def test_calculate_supported_indicators_returns_full_series_columns():
         "date",
         "ma20",
         "ma50",
-        "rsi",
+        "rsi14",
         "macd",
         "macd_signal",
         "macd_hist",

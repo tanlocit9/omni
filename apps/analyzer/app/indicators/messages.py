@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 from py_common.config import validate_indicator_timeframe
 
-SUPPORTED_INDICATORS = ["MA20", "MA50", "RSI", "MACD"]
+SUPPORTED_INDICATORS = ["MA20", "MA50", "RSI14", "MACD"]
 
 
 class IndicatorJobMessage(BaseModel):

@@ -41,7 +41,7 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_INDICATORS = "indicators";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
-        public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI", "MACD");
+        public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD");
 
         private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";
@@ -95,7 +95,8 @@ public class JobDefinitionConfig {
                                         JobType.SYNC_INDICATORS,
                                         "Sync technical indicators - daily",
                                         CRON_18_30_WEEKDAYS,
-                                        Map.of(
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
+                                                        List.of(SECTOR_BANK),
                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                         CONFIG_KEY_INDICATORS, SUPPORTED_INDICATORS)));
 

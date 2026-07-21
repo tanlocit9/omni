@@ -146,10 +146,10 @@ ANALYZER_INDICATOR_KAFKA_ENABLED=false nx serve analyzer
 
 Contract summary:
 
-| Topic | Direction | Purpose |
-| --- | --- | --- |
-| `topic-sync-indicators` | Consume | Platform requests full-series indicator calculation for one `symbolKey`. |
-| `topic-sync-job-status` | Publish | Analyzer reports `SUCCESS` or `ERROR` with `recordsProcessed`. |
+| Topic                   | Direction | Purpose                                                                  |
+| ----------------------- | --------- | ------------------------------------------------------------------------ |
+| `topic-sync-indicators` | Consume   | Platform requests full-series indicator calculation for one `symbolKey`. |
+| `topic-sync-job-status` | Publish   | Analyzer reports `SUCCESS` or `ERROR` with `recordsProcessed`.           |
 
 ---
 

@@ -58,6 +58,7 @@ public class SyncIndicatorsJobProducer extends JobProducer {
         int sectorLevel = extractSectorLevel(jobConfig);
         String timeframe = extractTimeframe(jobConfig);
         List<String> indicators = extractIndicators(jobConfig);
+        String indicatorSource = extractIndicatorSource(jobConfig);
 
         List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
                 sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
@@ -86,6 +87,7 @@ public class SyncIndicatorsJobProducer extends JobProducer {
                                     job.getSource().toString(),
                                     symbol.symbolKey(),
                                     timeframe,
+                                    indicatorSource,
                                     indicators,
                                     metadata));
                 })
@@ -101,6 +103,14 @@ public class SyncIndicatorsJobProducer extends JobProducer {
         Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_TIMEFRAME);
         if (raw == null || raw.toString().isBlank()) {
             return JobDefinitionConfig.INDICATOR_TIMEFRAME_1D;
+        }
+        return raw.toString();
+    }
+
+    private String extractIndicatorSource(Map<String, Object> config) {
+        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_INDICATOR_SOURCE);
+        if (raw == null || raw.toString().isBlank()) {
+            return JobDefinitionConfig.CONFIG_KEY_INDICATOR_SOURCE_CLOSE;
         }
         return raw.toString();
     }

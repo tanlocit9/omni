@@ -9,7 +9,12 @@ from pydantic import Field, PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from py_common.config.loader import load_yaml
-from py_common.config.models import KafkaSettings, MinioSettings, StorageSettings
+from py_common.config.models import (
+    KafkaSettings,
+    MinioSettings,
+    SchedulerSettings,
+    StorageSettings,
+)
 from py_common.config.paths import StockDataPaths
 
 _SHARED_TOPICS_RELATIVE_PATH = Path("configs/shared/topics.yaml")
@@ -51,7 +56,7 @@ class BaseAppSettings(BaseSettings):
     """Base settings for Python services using shared Omni configuration.
 
     Subclasses may declare service-specific fields only. Shared Kafka, MinIO,
-    storage, topic, and stock-data-path settings are populated from
+    storage, scheduler, topic, and stock-data-path settings are populated from
     ``configs/shared/topics.yaml`` and ``configs/shared/s3-paths.yaml``.
     """
 
@@ -61,6 +66,7 @@ class BaseAppSettings(BaseSettings):
     storage: StorageSettings = Field(default_factory=StorageSettings)
     minio: MinioSettings = Field(default_factory=MinioSettings)
     topics: TopicSettings = Field(default_factory=TopicSettings)
+    scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     stock_data_paths: StockDataPaths = Field(
         default_factory=lambda: StockDataPaths.from_config({})
     )
@@ -79,6 +85,7 @@ class BaseAppSettings(BaseSettings):
 
         self._apply_topics_config()
         self._apply_s3_paths_config()
+        self._apply_app_config()
         return self
 
     @property
@@ -119,9 +126,9 @@ class BaseAppSettings(BaseSettings):
         """Build a shared object path for EOD price data."""
         return self.stock_data_paths.eod(exchange, code)
 
-    def get_indicators_path(self, timeframe: str, exchange: str, code: str) -> str:
+    def get_indicators_path(self, source: str, timeframe: str, exchange: str, code: str) -> str:
         """Build a shared object path for indicator data."""
-        return self.stock_data_paths.indicators(timeframe, exchange, code)
+        return self.stock_data_paths.indicators(source, timeframe, exchange, code)
 
     def _apply_topics_config(self) -> None:
         kafka_cfg = self._shared_topics.get("kafka", {})
@@ -163,6 +170,11 @@ class BaseAppSettings(BaseSettings):
             self.minio.access_key = minio_cfg.get("access-key", self.minio.access_key)
             self.minio.secret_key = minio_cfg.get("secret-key", self.minio.secret_key)
             self.minio.bucket = minio_cfg.get("bucket", self.minio.bucket)
+
+    def _apply_app_config(self) -> None:
+        app_cfg = self._shared_topics.get("app", {})
+        scheduler_cfg = app_cfg.get("scheduler", {})
+        self.scheduler.zone = scheduler_cfg.get("zone", self.scheduler.zone)
 
     def _apply_s3_paths_config(self) -> None:
         stock_data_cfg = self._shared_s3_paths.get("stock-data", self._shared_s3_paths)

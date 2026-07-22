@@ -80,6 +80,24 @@ class MinioSettings(BaseModel):
     )
 
 
+class SchedulerSettings(BaseModel):
+    """Scheduler-related application settings.
+    
+    Attributes:
+        zone: IANA timezone identifier used for scheduler defaults
+    
+    Examples:
+        >>> settings = SchedulerSettings(zone="Asia/Ho_Chi_Minh")
+        >>> settings.zone
+        'Asia/Ho_Chi_Minh'
+    """
+
+    zone: str = Field(
+        default="Asia/Ho_Chi_Minh",
+        description="Default scheduler timezone (IANA timezone identifier)",
+    )
+
+
 class StorageSettings(BaseModel):
     """Storage provider configuration.
     

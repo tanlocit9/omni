@@ -38,6 +38,8 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_SYMBOL_COUNT = "symbolCount";
         public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
         public static final String CONFIG_KEY_TIMEFRAME = "timeframe";
+        public static final String CONFIG_KEY_INDICATOR_SOURCE = "indicatorSource";
+        public static final String CONFIG_KEY_INDICATOR_SOURCE_CLOSE = "close";
         public static final String CONFIG_KEY_INDICATORS = "indicators";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
@@ -98,6 +100,7 @@ public class JobDefinitionConfig {
                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
                                                         List.of(SECTOR_BANK),
                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_INDICATOR_SOURCE, CONFIG_KEY_INDICATOR_SOURCE_CLOSE,
                                                         CONFIG_KEY_INDICATORS, SUPPORTED_INDICATORS)));
 
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(

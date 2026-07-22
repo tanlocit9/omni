@@ -14,6 +14,7 @@ class IndicatorJobMessage(BaseModel):
     execution_id: str = Field(alias="executionId")
     parent_execution_id: str | None = Field(default=None, alias="parentExecutionId")
     source: str
+    indicator_source: str = Field(alias="indicatorSource")
     symbol_key: str = Field(alias="symbolKey")
     timeframe: str
     indicators: list[str]

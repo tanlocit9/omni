@@ -8,6 +8,10 @@ kafka:
     topic-sync-job-status: topic-sync-job-status
     topic-sync-indicators: topic-sync-indicators
 
+app:
+  scheduler:
+    zone: Asia/Ho_Chi_Minh
+
 min-io:
   endpoint: localhost:9000
   access-key: minioadmin

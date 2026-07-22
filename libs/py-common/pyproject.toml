@@ -33,6 +33,9 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "ruff>=0.15.21",
     "aiokafka>=0.14.0",
+    "fastapi>=0.128.8",
+    "uvicorn-hmr[all]>=0.1.1.8",
+    "uvicorn[standard]>=0.39.0",
 ]
 
 [tool.hatch.build.targets.wheel]

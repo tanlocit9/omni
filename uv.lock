@@ -40,33 +40,25 @@ version = "1.0.0"
 source = { editable = "apps/analyzer" }
 dependencies = [
     { name = "debugpy" },
-    { name = "fastapi" },
     { name = "omni-py-common" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "pytest-html" },
     { name = "requests" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "uvicorn-hmr", extra = ["all"] },
     { name = "vnstock" },
-    { name = "watchfiles" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "debugpy", specifier = ">=1.8.20" },
-    { name = "fastapi", specifier = ">=0.128.8" },
     { name = "omni-py-common", editable = "libs/py-common" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-asyncio", specifier = ">=0.24.0" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-html", specifier = ">=4.1.1" },
     { name = "requests", specifier = ">=2.32.5" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.39.0" },
-    { name = "uvicorn-hmr", extras = ["all"], specifier = ">=0.1.1.8" },
     { name = "vnstock", specifier = ">=0.2.9.2.3" },
-    { name = "watchfiles", specifier = ">=1.1.1" },
 ]
 
 [[package]]
@@ -734,6 +726,7 @@ version = "0.1.0"
 source = { editable = "libs/py-common" }
 dependencies = [
     { name = "aiokafka" },
+    { name = "fastapi" },
     { name = "httpx" },
     { name = "minio" },
     { name = "pandas" },
@@ -743,6 +736,8 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "ruff" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "uvicorn-hmr", extra = ["all"] },
 ]
 
 [package.dev-dependencies]
@@ -757,6 +752,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiokafka", specifier = ">=0.14.0" },
+    { name = "fastapi", specifier = ">=0.128.8" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "minio", specifier = ">=7.2.0" },
     { name = "pandas", specifier = ">=3.0.0" },
@@ -766,6 +762,8 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "ruff", specifier = ">=0.15.21" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.39.0" },
+    { name = "uvicorn-hmr", extras = ["all"], specifier = ">=0.1.1.8" },
 ]
 
 [package.metadata.requires-dev]

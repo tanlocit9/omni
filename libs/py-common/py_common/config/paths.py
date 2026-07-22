@@ -29,14 +29,14 @@ class StockDataPaths:
         ...     eod_base="eod/",
         ...     eod_pattern="{exchange}/{code}.parquet",
         ...     indicators_base="indicators/",
-        ...     indicators_pattern="{timeframe}/{exchange}/{code}.parquet"
+        ...     indicators_pattern="{source}/{timeframe}/{exchange}/{code}.parquet"
         ... )
         >>> paths.symbols("HOSE")
         'symbols/hose.parquet'
         >>> paths.eod("HOSE", "HPG")
         'eod/hose/hpg.parquet'
-        >>> paths.indicators(Timeframe.ONE_DAY, "HOSE", "HPG")
-        'indicators/1d/hose/hpg.parquet'
+        >>> paths.indicators("close", Timeframe.ONE_DAY, "HOSE", "HPG")
+        'indicators/close/1d/hose/hpg.parquet'
     """
 
     symbols_base: str
@@ -97,30 +97,31 @@ class StockDataPaths:
         )
 
     def indicators(
-        self, timeframe: Timeframe | str, exchange: str, code: str
+        self, source: str, timeframe: Timeframe | str, exchange: str, code: str
     ) -> str:
         """Build S3 path for indicator data file.
         
-        Validates timeframe against allowed values and normalizes exchange/code
+        Validates timeframe against allowed values and normalizes source/exchange/code
         to lowercase.
         
         Args:
+            source: Indicator source column (will be normalized to lowercase)
             timeframe: Timeframe interval (Timeframe enum or string)
             exchange: Exchange name (will be normalized to lowercase)
             code: Stock ticker code (will be normalized to lowercase)
             
         Returns:
-            Path like: indicators/1d/hose/hpg.parquet
+            Path like: indicators/close/1d/hose/hpg.parquet
             
         Raises:
             ValueError: If timeframe is not a valid Timeframe value
             
         Examples:
-            >>> paths.indicators(Timeframe.ONE_DAY, "HOSE", "HPG")
-            'indicators/1d/hose/hpg.parquet'
-            >>> paths.indicators("1h", "HNX", "SHS")
-            'indicators/1h/hnx/shs.parquet'
-            >>> paths.indicators("invalid", "HOSE", "HPG")
+            >>> paths.indicators("close", Timeframe.ONE_DAY, "HOSE", "HPG")
+            'indicators/close/1d/hose/hpg.parquet'
+            >>> paths.indicators("close", "1d", "HNX", "SHS")
+            'indicators/close/1d/hnx/shs.parquet'
+            >>> paths.indicators("close", "invalid", "HOSE", "HPG")
             Traceback (most recent call last):
                 ...
             ValueError: Invalid timeframe 'invalid'.
@@ -129,6 +130,7 @@ class StockDataPaths:
         timeframe = validate_indicator_timeframe(timeframe)
 
         return self.indicators_base + self.indicators_pattern.format(
+            source=self._normalize_path_part(source, "source"),
             timeframe=timeframe.value,
             exchange=self._normalize_path_part(exchange, "exchange"),
             code=self._normalize_path_part(code, "code"),
@@ -145,7 +147,7 @@ class StockDataPaths:
                 "eod": {"base": "eod/", "pattern": "{exchange}/{code}.parquet"},
                 "indicators": {
                     "base": "indicators/",
-                    "pattern": "{timeframe}/{exchange}/{code}.parquet",
+                    "pattern": "{source}/{timeframe}/{exchange}/{code}.parquet",
                 },
             }
         }
@@ -167,7 +169,7 @@ class StockDataPaths:
             },
             ...         "indicators": {
                 "base": "indicators/",
-                "pattern": "{timeframe}/{exchange}/{code}.parquet",
+                "pattern": "{source}/{timeframe}/{exchange}/{code}.parquet",
             },
             ...     }
             ... }
@@ -188,6 +190,6 @@ class StockDataPaths:
             eod_pattern=eod_cfg.get("pattern", "{exchange}/{code}.parquet"),
             indicators_base=indicators_cfg.get("base", "indicators/"),
             indicators_pattern=indicators_cfg.get(
-                "pattern", "{timeframe}/{exchange}/{code}.parquet"
+                "pattern", "{source}/{timeframe}/{exchange}/{code}.parquet"
             ),
         )

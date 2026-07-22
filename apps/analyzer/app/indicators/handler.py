@@ -24,7 +24,8 @@ class IndicatorJobHandler:
         exchange, code = message.parse_symbol_key()
 
         eod_path = self._settings.stock_data_paths.eod(exchange, code)
-        indicators_path = self._settings.stock_data_paths.indicators(
+        indicators_path = self._build_indicators_path(
+            message.indicator_source,
             message.timeframe,
             exchange,
             code,
@@ -37,6 +38,37 @@ class IndicatorJobHandler:
             indicators_path,
         )
         eod_frame = await self._parquet_storage.read_dataframe(eod_path)
-        result = calculate_supported_indicators(eod_frame)
+        result = calculate_supported_indicators(
+            eod_frame, message.indicator_source, self._settings.scheduler
+        )
         await self._parquet_storage.write_dataframe(indicators_path, result)
         return len(result)
+
+    def _build_indicators_path(
+        self, source: str, timeframe: str, exchange: str, code: str
+    ) -> str:
+        try:
+            return self._settings.stock_data_paths.indicators(
+                source,
+                timeframe,
+                exchange,
+                code,
+            )
+        except TypeError as exc:
+            if "positional arguments" not in str(exc):
+                raise
+
+            legacy_path = self._settings.stock_data_paths.indicators(
+                timeframe,
+                exchange,
+                code,
+            )
+            indicators_base = self._settings.stock_data_paths.indicators_base
+            normalized_source = self._settings.stock_data_paths._normalize_path_part(
+                source, "source"
+            )
+            return legacy_path.replace(
+                indicators_base,
+                f"{indicators_base}{normalized_source}/",
+                1,
+            )

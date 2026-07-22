@@ -10,7 +10,7 @@ from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
 from app.settings import AppSettings
-from py_common.config import StockDataPaths
+from py_common.config import SchedulerSettings, StockDataPaths
 
 
 def _job_payload(**overrides):
@@ -37,7 +37,7 @@ def _eod_frame(rows: int = 60) -> pd.DataFrame:
             "high": range(2, rows + 2),
             "low": range(0, rows),
             "close": range(1, rows + 1),
-            "volume": range(100, 100 + rows),
+            "nmVolume": range(100, 100 + rows),
         }
     )
 
@@ -70,7 +70,9 @@ def test_indicator_job_message_rejects_malformed_symbol_key():
 
 
 def test_calculate_supported_indicators_returns_full_series_columns():
-    result = calculate_supported_indicators(_eod_frame())
+    result = calculate_supported_indicators(
+        _eod_frame(), SchedulerSettings(zone="Asia/Ho_Chi_Minh")
+    )
 
     assert list(result.columns) == [
         "date",
@@ -80,8 +82,10 @@ def test_calculate_supported_indicators_returns_full_series_columns():
         "macd",
         "macd_signal",
         "macd_hist",
+        "calculatedAt",
     ]
     assert len(result) == 60
+    assert str(result["calculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
     assert result["ma20"].iloc[18] != result["ma20"].iloc[18]
     assert result["ma20"].iloc[19] == pytest.approx(10.5)
     assert result["ma50"].iloc[49] == pytest.approx(25.5)
@@ -97,7 +101,7 @@ async def test_indicator_handler_reads_eod_and_writes_indicator_path():
             eod_base="eod/",
             eod_pattern="{exchange}/{code}.parquet",
             indicators_base="indicators/",
-            indicators_pattern="{timeframe}/{exchange}/{code}.parquet",
+            indicators_pattern="{source}/{timeframe}/{exchange}/{code}.parquet",
         ),
     )
     parquet_storage = AsyncMock()
@@ -109,7 +113,7 @@ async def test_indicator_handler_reads_eod_and_writes_indicator_path():
     assert records == 60
     parquet_storage.read_dataframe.assert_awaited_once_with("eod/hose/hpg.parquet")
     written_path, written_frame = parquet_storage.write_dataframe.await_args.args
-    assert written_path == "indicators/1d/hose/hpg.parquet"
+    assert written_path == "indicators/close/1d/hose/hpg.parquet"
     assert len(written_frame) == 60
 
 

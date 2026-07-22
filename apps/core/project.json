@@ -13,15 +13,17 @@
     "serve": {
       "configurations": {
         "dev": {
-          "command": "gradlew bootRun --continuous",
-          "options": {
-            "env": {
-              "SPRING_PROFILES_ACTIVE": "dev"
-            }
+          "commands": [
+            "gradlew.bat classes --continuous",
+            "gradlew.bat bootRun"
+          ],
+          "parallel": true,
+          "env": {
+            "SPRING_PROFILES_ACTIVE": "dev"
           }
         },
         "prod": {
-          "command": "gradlew bootRun --args='--spring.profiles.active=prod'"
+          "command": "gradlew.bat bootRun --args='--spring.profiles.active=prod'"
         }
       },
       "defaultConfiguration": "dev",

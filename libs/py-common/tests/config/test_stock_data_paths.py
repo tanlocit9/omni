@@ -14,14 +14,14 @@ def paths() -> StockDataPaths:
         eod_base="eod/",
         eod_pattern="{exchange}/{code}.parquet",
         indicators_base="indicators/",
-        indicators_pattern="{timeframe}/{exchange}/{code}.parquet",
+        indicators_pattern="{source}/{timeframe}/{exchange}/{code}.parquet",
     )
 
 
 def test_indicators_happy_path(paths: StockDataPaths):
     assert (
-        paths.indicators("1d", "HOSE", "HPG")
-        == "indicators/1d/hose/hpg.parquet"
+        paths.indicators("close", "1d", "HOSE", "HPG")
+        == "indicators/close/1d/hose/hpg.parquet"
     )
 
 
@@ -30,8 +30,8 @@ def test_eod_and_indicators_normalize_exchange_and_code_consistently(
 ):
     assert paths.eod(" HOSE ", " HPG ") == "eod/hose/hpg.parquet"
     assert (
-        paths.indicators(Timeframe.ONE_DAY, " HOSE ", " HPG ")
-        == "indicators/1d/hose/hpg.parquet"
+        paths.indicators(" close ", Timeframe.ONE_DAY, " HOSE ", " HPG ")
+        == "indicators/close/1d/hose/hpg.parquet"
     )
 
 
@@ -44,12 +44,12 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
 
     assert config["paths"]["indicators"] == {
         "base": "indicators/",
-        "pattern": "{timeframe}/{exchange}/{code}.parquet",
+        "pattern": "{source}/{timeframe}/{exchange}/{code}.parquet",
     }
     assert paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"
     assert (
-        paths.indicators("1d", "HOSE", "HPG")
-        == "indicators/1d/hose/hpg.parquet"
+        paths.indicators("close", "1d", "HOSE", "HPG")
+        == "indicators/close/1d/hose/hpg.parquet"
     )
 
 
@@ -64,7 +64,7 @@ def test_indicators_rejects_invalid_timeframes(
     paths: StockDataPaths, timeframe: str
 ):
     with pytest.raises(ValueError):
-        paths.indicators(timeframe, "HOSE", "HPG")
+        paths.indicators("close", timeframe, "HOSE", "HPG")
 
 
 @pytest.mark.parametrize("timeframe", ["5m", "1h", Timeframe.ONE_HOUR])
@@ -72,7 +72,7 @@ def test_indicators_rejects_known_but_disabled_timeframes(
     paths: StockDataPaths, timeframe: Timeframe | str
 ):
     with pytest.raises(ValueError, match="not enabled"):
-        paths.indicators(timeframe, "HOSE", "HPG")
+        paths.indicators("close", timeframe, "HOSE", "HPG")
 
 
 @pytest.mark.parametrize("timeframe", ["5m", "1h", Timeframe.ONE_HOUR])
@@ -94,7 +94,7 @@ def test_exchange_rejects_none_empty_and_whitespace_only(
         if method == "eod":
             paths.eod(bad_value, "HPG")  # type: ignore[arg-type]
         else:
-            paths.indicators("1d", bad_value, "HPG")  # type: ignore[arg-type]
+            paths.indicators("close", "1d", bad_value, "HPG")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("method", ["eod", "indicators"])
@@ -108,9 +108,9 @@ def test_code_rejects_none_empty_and_whitespace_only(
         if method == "eod":
             paths.eod("HOSE", bad_value)  # type: ignore[arg-type]
         else:
-            paths.indicators("1d", "HOSE", bad_value)  # type: ignore[arg-type]
+            paths.indicators("close", "1d", "HOSE", bad_value)  # type: ignore[arg-type]
 
 
 def test_eod_and_indicators_return_strings(paths: StockDataPaths):
     assert isinstance(paths.eod("HOSE", "HPG"), str)
-    assert isinstance(paths.indicators("1d", "HOSE", "HPG"), str)
+    assert isinstance(paths.indicators("close", "1d", "HOSE", "HPG"), str)

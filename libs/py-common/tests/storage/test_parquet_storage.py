@@ -286,7 +286,7 @@ class TestParquetStorageWrite:
     async def test_write_dataframe_bytes_are_valid_parquet(
         self, storage: ParquetStorage, writable: AsyncMock
     ):
-        df = pd.DataFrame({"close": [100.0, 101.5], "volume": [1000, 2000]})
+        df = pd.DataFrame({"close": [100.0, 101.5], "nmVolume": [1000, 2000]})
         await storage.write_dataframe("test/out.parquet", df)
 
         written_bytes = writable.write_bytes.call_args.kwargs["data"]

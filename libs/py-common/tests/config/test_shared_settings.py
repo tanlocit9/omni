@@ -17,6 +17,9 @@ def _write_shared_config(root: Path) -> None:
                 "    topic-upsert-symbols: upsert-topic",
                 "    topic-sync-indicators: indicators-topic",
                 "    topic-sync-job-status: status-topic",
+                "app:",
+                "  scheduler:",
+                "    zone: Asia/Bangkok",
                 "min-io:",
                 "  endpoint: minio:9000",
                 "  access-key: access",
@@ -40,7 +43,7 @@ def _write_shared_config(root: Path) -> None:
                 "      pattern: '{exchange}/{code}.parquet'",
                 "    indicators:",
                 "      base: analytics/indicators/",
-                "      pattern: '{timeframe}/{exchange}/{code}.parquet'",
+                "      pattern: '{source}/{timeframe}/{exchange}/{code}.parquet'",
             ]
         ),
         encoding="utf-8",
@@ -70,17 +73,18 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path):
     assert settings.topic_upsert_symbols == "upsert-topic"
     assert settings.topic_sync_indicators == "indicators-topic"
     assert settings.sync_job_status_topic == "status-topic"
+    assert settings.scheduler.zone == "Asia/Bangkok"
     assert settings.stock_data_paths.symbols("HOSE") == "metadata/symbols/hose.parquet"
     assert settings.get_symbols_path("HOSE") == "metadata/symbols/hose.parquet"
     assert settings.stock_data_paths.eod("HOSE", "HPG") == "prices/eod/hose/hpg.parquet"
     assert settings.get_eod_path("HOSE", "HPG") == "prices/eod/hose/hpg.parquet"
     assert (
-        settings.stock_data_paths.indicators("1d", "HOSE", "HPG")
-        == "analytics/indicators/1d/hose/hpg.parquet"
+        settings.stock_data_paths.indicators("close", "1d", "HOSE", "HPG")
+        == "analytics/indicators/close/1d/hose/hpg.parquet"
     )
     assert (
-        settings.get_indicators_path("1d", "HOSE", "HPG")
-        == "analytics/indicators/1d/hose/hpg.parquet"
+        settings.get_indicators_path("close", "1d", "HOSE", "HPG")
+        == "analytics/indicators/close/1d/hose/hpg.parquet"
     )
 
 
@@ -90,5 +94,6 @@ def test_base_app_settings_uses_defaults_when_shared_files_are_absent(tmp_path: 
     assert settings.kafka.bootstrap_servers == "localhost:9092"
     assert settings.topic_sync_stock_prices == "topic-sync-stock-prices"
     assert settings.topic_sync_indicators == "topic-sync-indicators"
+    assert settings.scheduler.zone == "Asia/Ho_Chi_Minh"
     assert settings.minio.bucket == ""
     assert settings.stock_data_paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"

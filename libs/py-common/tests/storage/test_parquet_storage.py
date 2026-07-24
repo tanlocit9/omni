@@ -199,7 +199,9 @@ class TestParquetStorageRead:
         self, storage: ParquetStorage, readable: AsyncMock, df: pd.DataFrame
     ):
         result = await storage.read_dataframe("eod/hose/hpg.parquet")
-        readable.read_bytes.assert_called_once_with("stock-data", "eod/hose/hpg.parquet")
+        readable.read_bytes.assert_called_once_with(
+            "stock-data", "eod/hose/hpg.parquet"
+        )
         pd.testing.assert_frame_equal(result, df)
 
     @pytest.mark.asyncio
@@ -286,7 +288,7 @@ class TestParquetStorageWrite:
     async def test_write_dataframe_bytes_are_valid_parquet(
         self, storage: ParquetStorage, writable: AsyncMock
     ):
-        df = pd.DataFrame({"close": [100.0, 101.5], "nmVolume": [1000, 2000]})
+        df = pd.DataFrame({"close": [100.0, 101.5], "nm_volume": [1000, 2000]})
         await storage.write_dataframe("test/out.parquet", df)
 
         written_bytes = writable.write_bytes.call_args.kwargs["data"]

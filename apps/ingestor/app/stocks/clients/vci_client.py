@@ -99,20 +99,22 @@ class VCIClient(StockClient):
 
     async def fetch_symbols(
         self, symbol: str, *args: Any, **kwargs: Any
-    ) -> pd.DataFrame:
+    ) -> list[dict[str, Any]]:
         raise NotImplementedError("VCIClient does not support stock symbols fetching")
 
-    async def fetch_stock(self, symbol: str, *args: Any, **kwargs: Any) -> pd.DataFrame:
+    async def fetch_stock(
+        self, symbol: str, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         raise NotImplementedError("VCIClient does not support stock price fetching")
 
     async def fetch_recent_stock(
         self, symbol: str, *args: Any, **kwargs: Any
-    ) -> pd.DataFrame:
+    ) -> list[dict[str, Any]]:
         raise NotImplementedError("VCIClient does not support stock price fetching")
 
     async def fetch_all_stock(
         self, symbol: str, *args: Any, **kwargs: Any
-    ) -> pd.DataFrame:
+    ) -> list[dict[str, Any]]:
         raise NotImplementedError("VCIClient does not support stock price fetching")
 
     async def close(self) -> None:

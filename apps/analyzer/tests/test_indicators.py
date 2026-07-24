@@ -40,7 +40,7 @@ def _eod_frame(rows: int = 60) -> pd.DataFrame:
             "high": range(2, rows + 2),
             "low": range(0, rows),
             "close": range(1, rows + 1),
-            "nmVolume": range(100, 100 + rows),
+            "nm_volume": range(100, 100 + rows),
         }
     )
 

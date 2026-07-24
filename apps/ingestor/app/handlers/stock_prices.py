@@ -4,14 +4,14 @@ from datetime import UTC, date, datetime
 
 import pandas as pd
 from aiokafka import AIOKafkaProducer
+from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SymbolJobMessage
 from app.messaging.status import build_status
 from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
-
-from py_common.storage.parquet import ParquetStorage
+from app.stocks.normalization import normalize_record_list_keys
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,18 @@ async def fetch_stock_data(
     if not records:
         return pd.DataFrame()
     return pd.DataFrame(records)
+
+
+def normalize_stock_price_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+
+    normalized_df = pd.DataFrame(normalize_record_list_keys(df.to_dict("records")))
+
+    if "date" not in normalized_df.columns:
+        raise ValueError("Missing required stock price field: 'date'")
+
+    return normalized_df
 
 
 async def process_stock_price_message(
@@ -71,6 +83,7 @@ async def process_stock_price_message(
         combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
         if not combined.empty:
+            combined = normalize_stock_price_dataframe_columns(combined)
             combined = combined.drop_duplicates(subset=["date"])
             combined = combined.sort_values("date")
 

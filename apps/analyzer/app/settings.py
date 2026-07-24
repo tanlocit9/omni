@@ -1,5 +1,5 @@
-from pydantic import Field
 from py_common.config import BaseAppSettings
+from pydantic import Field
 
 
 class AppSettings(BaseAppSettings):

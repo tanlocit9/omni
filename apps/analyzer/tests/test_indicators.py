@@ -4,13 +4,15 @@ from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
+from fastapi.testclient import TestClient
+from py_common.config import SchedulerSettings, StockDataPaths
 
 from app.calculations.indicators import calculate_supported_indicators
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
 from app.settings import AppSettings
-from py_common.config import SchedulerSettings, StockDataPaths
+from main import app
 
 
 def _job_payload(**overrides):
@@ -19,6 +21,7 @@ def _job_payload(**overrides):
         "executionId": "execution-id",
         "parentExecutionId": "parent-execution-id",
         "source": "ANALYZER",
+        "indicatorSource": "close",
         "symbolKey": "HOSE-HPG",
         "timeframe": "1d",
         "indicators": ["MA20", "MA50", "RSI14", "MACD"],
@@ -42,11 +45,13 @@ def _eod_frame(rows: int = 60) -> pd.DataFrame:
     )
 
 
-def test_indicator_job_message_validates_complete_supported_set():
-    message = IndicatorJobMessage.model_validate(_job_payload())
+def test_indicator_job_message_validates_supported_indicator_subset():
+    message = IndicatorJobMessage.model_validate(
+        _job_payload(indicators=["ma20", "macd"])
+    )
 
     assert message.timeframe == "1d"
-    assert message.indicators == ["MA20", "MA50", "RSI14", "MACD"]
+    assert message.indicators == ["MA20", "MACD"]
     assert message.parse_symbol_key() == ("HOSE", "HPG")
 
 
@@ -54,7 +59,8 @@ def test_indicator_job_message_validates_complete_supported_set():
     "overrides",
     [
         {"timeframe": "1h"},
-        {"indicators": ["MA20"]},
+        {"indicators": []},
+        {"indicators": ["MA20", "UNKNOWN"]},
     ],
 )
 def test_indicator_job_message_rejects_unsupported_contracts(overrides):
@@ -69,23 +75,58 @@ def test_indicator_job_message_rejects_malformed_symbol_key():
         message.parse_symbol_key()
 
 
-def test_calculate_supported_indicators_returns_full_series_columns():
+def test_calculate_supported_indicators_returns_requested_indicator_columns():
     result = calculate_supported_indicators(
-        _eod_frame(), SchedulerSettings(zone="Asia/Ho_Chi_Minh")
+        _eod_frame(),
+        "close",
+        ["MA20", "MACD"],
+        SchedulerSettings(zone="Asia/Ho_Chi_Minh"),
     )
 
     assert list(result.columns) == [
         "date",
         "ma20",
-        "ma50",
-        "rsi14",
+        "ma20CalculatedAt",
         "macd",
         "macd_signal",
         "macd_hist",
-        "calculatedAt",
+        "macdCalculatedAt",
     ]
     assert len(result) == 60
-    assert str(result["calculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["ma20CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["macdCalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert result["ma20"].iloc[18] != result["ma20"].iloc[18]
+    assert result["ma20"].iloc[19] == pytest.approx(10.5)
+    assert "ma50" not in result.columns
+    assert "rsi14" not in result.columns
+
+
+def test_calculate_supported_indicators_returns_full_series_columns():
+    result = calculate_supported_indicators(
+        _eod_frame(),
+        "close",
+        ["MA20", "MA50", "RSI14", "MACD"],
+        SchedulerSettings(zone="Asia/Ho_Chi_Minh"),
+    )
+
+    assert list(result.columns) == [
+        "date",
+        "ma20",
+        "ma20CalculatedAt",
+        "ma50",
+        "ma50CalculatedAt",
+        "rsi14",
+        "rsi14CalculatedAt",
+        "macd",
+        "macd_signal",
+        "macd_hist",
+        "macdCalculatedAt",
+    ]
+    assert len(result) == 60
+    assert str(result["ma20CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["ma50CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["rsi14CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["macdCalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
     assert result["ma20"].iloc[18] != result["ma20"].iloc[18]
     assert result["ma20"].iloc[19] == pytest.approx(10.5)
     assert result["ma50"].iloc[49] == pytest.approx(25.5)
@@ -114,7 +155,53 @@ async def test_indicator_handler_reads_eod_and_writes_indicator_path():
     parquet_storage.read_dataframe.assert_awaited_once_with("eod/hose/hpg.parquet")
     written_path, written_frame = parquet_storage.write_dataframe.await_args.args
     assert written_path == "indicators/close/1d/hose/hpg.parquet"
+    assert list(written_frame.columns) == [
+        "date",
+        "ma20",
+        "ma20CalculatedAt",
+        "ma50",
+        "ma50CalculatedAt",
+        "rsi14",
+        "rsi14CalculatedAt",
+        "macd",
+        "macd_signal",
+        "macd_hist",
+        "macdCalculatedAt",
+    ]
     assert len(written_frame) == 60
+
+
+def test_sync_indicators_api_processes_payload_directly():
+    handler = AsyncMock()
+    handler.handle.return_value = 60
+    client = TestClient(app, raise_server_exceptions=False)
+    client.app.state.indicator_handler = handler
+
+    response = client.post("/v1/indicators/sync", json=_job_payload())
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "accepted": True,
+        "symbolKey": "HOSE-HPG",
+        "indicatorSource": "close",
+        "timeframe": "1d",
+        "recordsProcessed": 60,
+    }
+    handler.handle.assert_awaited_once_with(_job_payload())
+
+
+def test_sync_indicators_api_rejects_invalid_payload():
+    handler = AsyncMock()
+    client = TestClient(app, raise_server_exceptions=False)
+    client.app.state.indicator_handler = handler
+
+    response = client.post(
+        "/v1/indicators/sync",
+        json=_job_payload(indicators=["UNKNOWN"]),
+    )
+
+    assert response.status_code == 422
+    handler.handle.assert_not_awaited()
 
 
 @pytest.mark.anyio
@@ -129,7 +216,7 @@ async def test_indicator_kafka_service_publishes_success_status():
     status = await service.process_payload(_job_payload())
 
     assert status.status == "SUCCESS"
-    assert status.recordsProcessed == 60
+    assert status.records_processed == 60
     producer.send_and_wait.assert_awaited_once()
     topic, value = producer.send_and_wait.await_args.args
     assert topic == "topic-sync-job-status"
@@ -147,5 +234,5 @@ async def test_indicator_kafka_service_publishes_error_status_for_invalid_json()
     status = await service.process_payload("not-json")
 
     assert status.status == "ERROR"
-    assert status.recordsProcessed == 0
+    assert status.records_processed == 0
     producer.send_and_wait.assert_awaited_once()

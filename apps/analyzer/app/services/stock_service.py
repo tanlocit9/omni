@@ -3,8 +3,7 @@ class StockService:
         return {
             "symbol": symbol.upper(),
             "message": (
-                "Analyzer no longer reads stock prices directly from "
-                "PostgreSQL."
+                "Analyzer no longer reads stock prices directly from PostgreSQL."
             ),
         }
 

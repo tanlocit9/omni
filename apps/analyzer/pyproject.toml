@@ -29,6 +29,7 @@ dependencies = [
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
     "pytest-html>=4.1.1",
+    "pandas-ta-classic>=0.6.52",
 ]
 
 [tool.uv.sources]

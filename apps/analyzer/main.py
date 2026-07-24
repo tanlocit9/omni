@@ -1,7 +1,8 @@
 import logging
 from typing import Any
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
+from pydantic import ValidationError
 from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
 from py_common.storage.exceptions import StorageError
@@ -12,6 +13,7 @@ from py_common.storage.registry import StorageProviderRegistry
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
+from app.indicators.messages import IndicatorJobMessage
 from app.settings import settings
 from app.storage.factory import create_storage_registry
 
@@ -30,11 +32,14 @@ async def startup_event(app: FastAPI) -> None:
         provider=StorageProvider.MINIO,
         bucket=settings.minio.bucket,
     )
+    app.state.indicator_handler = IndicatorJobHandler(
+        settings,
+        app.state.parquet_storage,
+    )
     if settings.indicator_kafka_enabled:
-        indicator_handler = IndicatorJobHandler(settings, app.state.parquet_storage)
         app.state.indicator_kafka_service = IndicatorKafkaService(
             settings,
-            indicator_handler,
+            app.state.indicator_handler,
         )
         await app.state.indicator_kafka_service.start()
         _logger.info("Storage providers validated and indicator Kafka service started.")
@@ -73,6 +78,43 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.post("/v1/indicators/sync")
+async def sync_indicators(
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Synchronously calculate indicators using the Kafka job payload contract."""
+    try:
+        message = IndicatorJobMessage.model_validate(payload)
+        records_processed = await request.app.state.indicator_handler.handle(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(include_context=False),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except StorageError:
+        raise
+    except Exception as exc:
+        _logger.exception("Direct indicator sync failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Indicator sync failed: {exc}",
+        ) from exc
+
+    return {
+        "accepted": True,
+        "symbolKey": message.symbol_key,
+        "indicatorSource": message.indicator_source,
+        "timeframe": message.timeframe,
+        "recordsProcessed": records_processed,
+    }
 
 
 @app.get("/health")

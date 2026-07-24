@@ -1,11 +1,11 @@
 import json
 import logging
 from datetime import UTC, date, datetime
-from typing import Any
 
 import pandas as pd
 from aiokafka import AIOKafkaProducer
 
+from app.messaging.messages import SymbolJobMessage
 from app.messaging.status import build_status
 from app.settings import settings
 from app.stocks.base import StockClient
@@ -45,21 +45,22 @@ async def process_stock_price_message(
     parquet_storage: ParquetStorage,
 ) -> None:
     started_at = datetime.now(UTC)
-    payload: dict[str, Any] = {}
+    payload: dict[str, object] = {}
     symbol_key = None
 
     try:
         payload = json.loads(raw_msg.decode())
-        symbol_key = payload["symbolKey"]
-        exchange, code = symbol_key.split("-", 1)
+        message = SymbolJobMessage.model_validate(payload)
+        payload = message.status_payload
+        symbol_key = message.symbol_key
+        exchange, code = message.parse_symbol_key()
 
-        source = payload.get("source")
-        client = get_or_create_client(source) if source else default_client
+        client = (
+            get_or_create_client(message.source) if message.source else default_client
+        )
 
-        from_offset = payload.get("fromOffset")
-        to_offset = payload.get("toOffset")
-        from_date = date.fromisoformat(from_offset[:10]) if from_offset else None
-        to_date = date.fromisoformat(to_offset[:10]) if to_offset else date.today()
+        from_date = message.from_offset.date() if message.from_offset else None
+        to_date = message.to_offset.date() if message.to_offset else date.today()
 
         limit = compute_limit(from_date, to_date)
         new_df = await fetch_stock_data(client, code, limit)

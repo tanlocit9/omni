@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 from aiokafka import AIOKafkaProducer
 
+from app.messaging.messages import SyncSymbolsJobMessage
 from app.messaging.status import build_status
 from app.settings import settings
 from app.stocks.base import StockClient
@@ -55,13 +56,16 @@ async def process_sync_symbols_message(
 
     try:
         payload = json.loads(raw_msg.decode())
-        exchange = payload["exchange"]
-        metadata = payload.get("metadata") or {}
-        expected_count = metadata.get("symbolCount")
-        include_sector = bool(metadata.get("includeSectorClassification", False))
+        message = SyncSymbolsJobMessage.model_validate(payload)
+        payload = message.status_payload
+        exchange = message.exchange
+        metadata = message.metadata
+        expected_count = message.expected_count
+        include_sector = message.include_sector_classification
 
-        source = payload.get("source")
-        client = get_or_create_client(source) if source else default_client
+        client = (
+            get_or_create_client(message.source) if message.source else default_client
+        )
 
         symbols = await client.fetch_symbols(exchange=exchange)
         symbols_df = pd.DataFrame(symbols)
@@ -147,9 +151,9 @@ async def process_sync_symbols_message(
         )
         current_count = len(active_df)
 
-        job_definition_id = payload.get("jobDefinitionId") or payload.get("jobId")
-        execution_id = payload.get("executionId") or payload.get("logId")
-        parent_execution_id = payload.get("parentExecutionId")
+        job_definition_id = message.job_definition_id
+        execution_id = message.execution_id
+        parent_execution_id = message.parent_execution_id
 
         if include_sector:
             await publish_sector_upsert_batch(

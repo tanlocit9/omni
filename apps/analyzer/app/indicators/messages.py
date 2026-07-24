@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
 from py_common.config import validate_indicator_timeframe
+from pydantic import BaseModel, Field, field_validator
 
 SUPPORTED_INDICATORS = ["MA20", "MA50", "RSI14", "MACD"]
 
@@ -27,11 +26,16 @@ class IndicatorJobMessage(BaseModel):
 
     @field_validator("indicators")
     @classmethod
-    def validate_complete_indicator_set(cls, value: list[str]) -> list[str]:
+    def validate_supported_indicator_set(cls, value: list[str]) -> list[str]:
         normalized = [indicator.upper() for indicator in value]
-        if normalized != SUPPORTED_INDICATORS:
+        unsupported = [
+            indicator
+            for indicator in normalized
+            if indicator not in SUPPORTED_INDICATORS
+        ]
+        if not normalized or unsupported:
             raise ValueError(
-                "Indicator calculation requires the complete supported set: "
+                "Indicator calculation requires one or more supported indicators: "
                 + ", ".join(SUPPORTED_INDICATORS)
             )
         return normalized
@@ -41,22 +45,3 @@ class IndicatorJobMessage(BaseModel):
         if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
             raise ValueError("symbolKey must use '<exchange>-<code>' format")
         return parts[0], parts[1]
-
-
-class JobStatusMessage(BaseModel):
-    jobDefinitionId: str
-    executionId: str
-    parentExecutionId: str | None
-    symbolKey: str
-    status: str
-    startedAt: datetime
-    finishedAt: datetime
-    errorMessage: str | None = None
-    recordsProcessed: int = 0
-    durationMs: int = 0
-    metaJson: dict[str, Any] = Field(default_factory=dict)
-    newOffset: str | None = None
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)

@@ -39,7 +39,10 @@ class IndicatorJobHandler:
         )
         eod_frame = await self._parquet_storage.read_dataframe(eod_path)
         result = calculate_supported_indicators(
-            eod_frame, message.indicator_source, self._settings.scheduler
+            eod_frame,
+            message.indicator_source,
+            message.indicators,
+            self._settings.scheduler,
         )
         await self._parquet_storage.write_dataframe(indicators_path, result)
         return len(result)

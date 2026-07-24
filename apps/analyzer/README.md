@@ -4,7 +4,7 @@ The **Stock Analyzer Service** is a FastAPI application and Kafka worker for ana
 
 Analyzer no longer owns stock-price persistence. It does **not** connect directly to PostgreSQL, does **not** read stock prices from PostgreSQL, and does **not** write synchronized stock prices back to PostgreSQL. Stock synchronization is owned by the Platform scheduler and downstream Ingestor flow.
 
-Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform.
+Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform. It also exposes a direct synchronous API for callers that need to invoke the same indicator calculation contract without Kafka.
 
 ---
 
@@ -93,6 +93,41 @@ Current response semantics:
 - `accepted: false`
 - message explains that stock sync must be triggered through Platform-owned scheduling.
 
+### 3. Direct Indicator Sync Endpoint
+
+Synchronously calculates indicators for one symbol using the same JSON payload contract as `topic-sync-indicators` Kafka jobs. The endpoint reads EOD Parquet data from MinIO/S3, writes indicator Parquet output, and returns `recordsProcessed` directly. It does not publish a job-status Kafka message.
+
+- **URL**: `POST /v1/indicators/sync`
+- **Body**: `IndicatorJobMessage` JSON payload, including `jobDefinitionId`, `executionId`, `source`, `indicatorSource`, `symbolKey`, `timeframe`, and the complete supported `indicators` set.
+
+```bash
+curl -X POST "http://localhost:8000/v1/indicators/sync" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jobDefinitionId": "job-definition-id",
+    "executionId": "execution-id",
+    "parentExecutionId": null,
+    "source": "ANALYZER",
+    "indicatorSource": "close",
+    "symbolKey": "HOSE-HPG",
+    "timeframe": "1d",
+    "indicators": ["MA20", "MA50", "RSI14", "MACD"],
+    "metadata": {}
+  }'
+```
+
+Example response:
+
+```json
+{
+  "accepted": true,
+  "symbolKey": "HOSE-HPG",
+  "indicatorSource": "close",
+  "timeframe": "1d",
+  "recordsProcessed": 60
+}
+```
+
 ---
 
 ## Shared Configuration
@@ -143,6 +178,8 @@ Analyzer starts the indicator Kafka worker during FastAPI startup by default. Di
 ```bash
 ANALYZER_INDICATOR_KAFKA_ENABLED=false nx serve analyzer
 ```
+
+The direct `POST /v1/indicators/sync` endpoint reuses the same `IndicatorJobMessage` contract and writes the same indicator output path synchronously, but returns the processed record count in the HTTP response instead of publishing to `topic-sync-job-status`.
 
 Contract summary:
 

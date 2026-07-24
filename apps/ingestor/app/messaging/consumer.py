@@ -2,19 +2,18 @@ import asyncio
 import logging
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-
-from app.handlers.stock_prices import process_stock_price_message
-from app.handlers.symbols import process_sync_symbols_message
-from app.settings import settings
-from app.stocks.client_factory import close_cached_clients, get_or_create_client
-
 from py_common.kafka.factory import KafkaClientFactory
+from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.exceptions import StorageValidationError
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
-from py_common.storage.adapters import create_minio_client
+
+from app.handlers.stock_prices import process_stock_price_message
+from app.handlers.symbols import process_sync_symbols_message
+from app.settings import settings
+from app.stocks.client_factory import close_cached_clients, get_or_create_client
 
 logger = logging.getLogger(__name__)
 

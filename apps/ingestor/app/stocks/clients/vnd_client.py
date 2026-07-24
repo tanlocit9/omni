@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 
 from ..base import StockClient
+from ..normalization import normalize_record_list_keys
 from ..registry import StockClientRegistry
 
 
@@ -65,7 +66,7 @@ class VNDirectClient(StockClient):
 
         total_pages = first_page.get("totalPages", 1)
 
-        records = list(first_page.get("data", []))
+        records = normalize_record_list_keys(first_page.get("data", []))
 
         if total_pages > 1:
             tasks = [
@@ -80,7 +81,7 @@ class VNDirectClient(StockClient):
             results = await asyncio.gather(*tasks)
 
             for result in results:
-                records.extend(result.get("data", []))
+                records.extend(normalize_record_list_keys(result.get("data", [])))
 
         return records
 
@@ -95,7 +96,7 @@ class VNDirectClient(StockClient):
             size=size,
         )
 
-        return response.get("data", [])
+        return normalize_record_list_keys(response.get("data", []))
 
     async def fetch_symbols_page(
         self,

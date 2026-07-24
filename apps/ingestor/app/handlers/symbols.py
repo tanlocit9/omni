@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 from aiokafka import AIOKafkaProducer
+from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SyncSymbolsJobMessage
 from app.messaging.status import build_status
@@ -13,8 +14,6 @@ from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
 from app.stocks.sectors_cache import get_cached_sectors
-
-from py_common.storage.parquet import ParquetStorage
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +134,8 @@ async def process_sync_symbols_message(
             delisted_mask = active_df["delistedDate"].notna()
             if delisted_mask.any():
                 logger.warning(
-                    "Keeping %d rows with delistedDate in symbol upsert for %s to avoid false deactivation; sample=%s",
+                    "Keeping %d rows with delistedDate in symbol upsert for %s "
+                    "to avoid false deactivation; sample=%s",
                     int(delisted_mask.sum()),
                     exchange,
                     active_df.loc[delisted_mask, ["exchange", "code", "delistedDate"]]
@@ -292,7 +292,9 @@ def log_symbols_snapshot_diagnostics(
     )
 
     logger.warning(
-        "Symbol snapshot diagnostics stage=%s exchange=%s rows=%d uniqueCodes=%d expected=%s floors=%s exchanges=%s statuses=%s delistedRows=%d",
+        "Symbol snapshot diagnostics stage=%s exchange=%s rows=%d "
+        "uniqueCodes=%d expected=%s floors=%s exchanges=%s statuses=%s "
+        "delistedRows=%d",
         stage,
         exchange,
         row_count,
@@ -306,7 +308,8 @@ def log_symbols_snapshot_diagnostics(
 
     if expected_count is not None and row_count != expected_count:
         logger.warning(
-            "Symbol snapshot count mismatch stage=%s exchange=%s expected=%s actualRows=%d uniqueCodes=%d",
+            "Symbol snapshot count mismatch stage=%s exchange=%s expected=%s "
+            "actualRows=%d uniqueCodes=%d",
             stage,
             exchange,
             expected_count,

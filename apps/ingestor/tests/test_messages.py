@@ -3,7 +3,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from app.messaging.messages import SyncSymbolsJobMessage, SymbolJobMessage
+from app.messaging.messages import SymbolJobMessage, SyncSymbolsJobMessage
 
 
 def test_symbol_job_message_parses_scheduler_payload():

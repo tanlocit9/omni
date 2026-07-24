@@ -39,7 +39,7 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION = "includeSectorClassification";
         public static final String CONFIG_KEY_TIMEFRAME = "timeframe";
         public static final String CONFIG_KEY_INDICATOR_SOURCE = "indicatorSource";
-        public static final String CONFIG_KEY_INDICATOR_SOURCE_CLOSE = "close";
+        public static final String CONFIG_KEY_INDICATOR_SOURCE_CLOSE = "ad_close";
         public static final String CONFIG_KEY_INDICATORS = "indicators";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";

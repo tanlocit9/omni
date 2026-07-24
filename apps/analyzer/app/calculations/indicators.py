@@ -6,7 +6,7 @@ from py_common.config import SchedulerSettings
 
 _logger = logging.getLogger(__name__)
 
-REQUIRED_EOD_COLUMNS = {"date", "open", "high", "low", "close", "nmVolume"}
+REQUIRED_EOD_COLUMNS = {"date", "open", "high", "low", "close", "nm_volume"}
 INDICATOR_OUTPUT_COLUMNS = {
     "MA20": ["ma20", "ma20_calculated_at"],
     "MA50": ["ma50", "ma50_calculated_at"],

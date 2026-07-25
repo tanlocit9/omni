@@ -86,15 +86,15 @@ def test_calculate_supported_indicators_returns_requested_indicator_columns():
     assert list(result.columns) == [
         "date",
         "ma20",
-        "ma20CalculatedAt",
+        "ma20_calculated_at",
         "macd",
         "macd_signal",
         "macd_hist",
-        "macdCalculatedAt",
+        "macd_calculated_at",
     ]
     assert len(result) == 60
-    assert str(result["ma20CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
-    assert str(result["macdCalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["ma20_calculated_at"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["macd_calculated_at"].dt.tz) == "Asia/Ho_Chi_Minh"
     assert result["ma20"].iloc[18] != result["ma20"].iloc[18]
     assert result["ma20"].iloc[19] == pytest.approx(10.5)
     assert "ma50" not in result.columns
@@ -112,21 +112,21 @@ def test_calculate_supported_indicators_returns_full_series_columns():
     assert list(result.columns) == [
         "date",
         "ma20",
-        "ma20CalculatedAt",
+        "ma20_calculated_at",
         "ma50",
-        "ma50CalculatedAt",
+        "ma50_calculated_at",
         "rsi14",
-        "rsi14CalculatedAt",
+        "rsi14_calculated_at",
         "macd",
         "macd_signal",
         "macd_hist",
-        "macdCalculatedAt",
+        "macd_calculated_at",
     ]
     assert len(result) == 60
-    assert str(result["ma20CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
-    assert str(result["ma50CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
-    assert str(result["rsi14CalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
-    assert str(result["macdCalculatedAt"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["ma20_calculated_at"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["ma50_calculated_at"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["rsi14_calculated_at"].dt.tz) == "Asia/Ho_Chi_Minh"
+    assert str(result["macd_calculated_at"].dt.tz) == "Asia/Ho_Chi_Minh"
     assert result["ma20"].iloc[18] != result["ma20"].iloc[18]
     assert result["ma20"].iloc[19] == pytest.approx(10.5)
     assert result["ma50"].iloc[49] == pytest.approx(25.5)
@@ -158,15 +158,15 @@ async def test_indicator_handler_reads_eod_and_writes_indicator_path():
     assert list(written_frame.columns) == [
         "date",
         "ma20",
-        "ma20CalculatedAt",
+        "ma20_calculated_at",
         "ma50",
-        "ma50CalculatedAt",
+        "ma50_calculated_at",
         "rsi14",
-        "rsi14CalculatedAt",
+        "rsi14_calculated_at",
         "macd",
         "macd_signal",
         "macd_hist",
-        "macdCalculatedAt",
+        "macd_calculated_at",
     ]
     assert len(written_frame) == 60
 

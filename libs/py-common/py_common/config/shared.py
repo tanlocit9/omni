@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Self
 
@@ -60,7 +61,10 @@ class BaseAppSettings(BaseSettings):
     ``configs/shared/topics.yaml`` and ``configs/shared/s3-paths.yaml``.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(".env", ".env.local"),
+        extra="ignore",
+    )
 
     kafka: KafkaSettings = Field(default_factory=KafkaSettings)
     storage: StorageSettings = Field(default_factory=StorageSettings)
@@ -86,6 +90,7 @@ class BaseAppSettings(BaseSettings):
         self._apply_topics_config()
         self._apply_s3_paths_config()
         self._apply_app_config()
+        self._apply_flat_environment_overrides()
         return self
 
     @property
@@ -126,7 +131,13 @@ class BaseAppSettings(BaseSettings):
         """Build a shared object path for EOD price data."""
         return self.stock_data_paths.eod(exchange, code)
 
-    def get_indicators_path(self, source: str, timeframe: str, exchange: str, code: str) -> str:
+    def get_indicators_path(
+        self,
+        source: str,
+        timeframe: str,
+        exchange: str,
+        code: str,
+    ) -> str:
         """Build a shared object path for indicator data."""
         return self.stock_data_paths.indicators(source, timeframe, exchange, code)
 
@@ -180,3 +191,14 @@ class BaseAppSettings(BaseSettings):
         stock_data_cfg = self._shared_s3_paths.get("stock-data", self._shared_s3_paths)
         self.minio.bucket = stock_data_cfg.get("bucket", self.minio.bucket)
         self.stock_data_paths = StockDataPaths.from_config(stock_data_cfg)
+
+    def _apply_flat_environment_overrides(self) -> None:
+        """Apply shared flat env vars used by Java, Python, and Compose."""
+        self.kafka.bootstrap_servers = os.getenv(
+            "KAFKA_BOOTSTRAP_SERVERS",
+            self.kafka.bootstrap_servers,
+        )
+        self.minio.endpoint = os.getenv("MINIO_ENDPOINT", self.minio.endpoint)
+        self.minio.access_key = os.getenv("MINIO_ACCESS_KEY", self.minio.access_key)
+        self.minio.secret_key = os.getenv("MINIO_SECRET_KEY", self.minio.secret_key)
+        self.minio.bucket = os.getenv("MINIO_BUCKET", self.minio.bucket)

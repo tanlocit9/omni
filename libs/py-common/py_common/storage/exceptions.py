@@ -106,7 +106,8 @@ class StorageCapabilityNotSupportedError(StorageError):
         self.provider = provider
         self.port_type = port_type
         super().__init__(
-            f"Storage provider '{provider}' does not support port '{port_type.__name__}'"
+            f"Storage provider '{provider}' does not support port "
+            f"'{port_type.__name__}'"
         )
 
 

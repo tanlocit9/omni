@@ -1,14 +1,14 @@
 # Omni Monorepo Workspace
 
-Welcome to **Omni**, a high-performance, cloud-portable stock analytics and data integration platform built inside an **Nx 22.5** monorepo. This workspace coordinates robust, enterprise-grade backends and stateless event-driven consumers, providing a highly automated and optimized ecosystem for financial data tracking.
+Omni is an **Nx 22.5** monorepo for stock analytics and data integration. It coordinates a Java Platform API, Python analytical API, Python event ingestor, PostgreSQL, Kafka, and MinIO/S3-compatible object storage.
+
+For detailed system design, service boundaries, Kafka workflow, deployment architecture, S3 path rules, and guardrails, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
-## 📐 System Architecture & Services
+## Workspace Layout
 
-Omni consists of three main services organized inside the `apps/` directory, supported by local infrastructure:
-
-```
+```text
 omni/
 ├── apps/
 │   ├── core/          # Java 21 / Spring Boot 4 — Platform API, scheduler, orchestration
@@ -17,451 +17,178 @@ omni/
 ├── configs/shared/    # Shared Kafka topic and S3 path configuration
 ├── database/
 │   └── migrations/    # Flyway SQL migrations
-├── externals/
-│   └── vnstock-etl/   # Git submodule — ETL pipeline for stock data
-├── docker-compose.yaml           # Includes infra and service Compose files
-├── docker-compose.infra.yaml     # PostgreSQL, Kafka, MinIO, pgAdmin
-├── docker-compose.services.yaml  # Platform, analyzer, ingestor
+├── externals/         # Git submodules and external references
+├── libs/              # Shared libraries
+├── docker-compose.yaml
+├── docker-compose.infra.yaml
+├── docker-compose.services.yaml
 ├── nx.json
 ├── package.json
 └── project.json
 ```
 
-### 1. Platform Core API (`apps/core`)
+---
 
-- **Tech Stack**: Java 21, Spring Boot 4.0.1, Spring Modulith, Spring Data JPA + Hibernate, PostgreSQL, Flyway, MinIO client, Kafka.
-- **Role**: Central command orchestrator. Manages user accounts, portfolio tracking, screener alerts, scheduler job definitions, parent/child execution tracking, Kafka request production, and status consumption.
-- **Design Pattern**: Clean Ports & Adapters architecture. Storage providers are resolved dynamically at runtime using the `StorageProviderRegistry`.
-- **Database Migrations**: Automated SQL-based migrations via Flyway on service startup.
+## Services
 
-### 2. Stock Ingestor Service (`apps/ingestor`)
-
-- **Tech Stack**: Python 3.14, `aiokafka` 0.12.0+ (async Kafka consumer/producer), `minio` 7.2.0 (S3-compatible client), `pandas` 2.2.0, `pyarrow` 15.0.0.
-- **Role**: Async event-driven worker that subscribes to stock synchronization commands and performs high-speed in-memory Parquet updates to MinIO object storage.
-- **Design Pattern**: Ports & Adapters — Kafka client and stock data sources are abstracted behind port interfaces, making the transport layer swappable without touching business logic. Registry pattern for stock clients (VNDirect default).
-- **Ingestion Pipeline**:
-  1. Consumes stock-price requests from `topic-sync-stock-prices` and symbol-master requests from `topic-sync-symbols`.
-  2. Derives object paths from shared path builders, for example `eod/{exchange}/{code}.parquet` and `symbols/{exchange}.parquet`.
-  3. Fetches external market data using the configured stock client.
-  4. Merges and deduplicates records in-memory using Pandas and PyArrow.
-  5. Writes complete ticker-owned or exchange-owned Parquet snapshots to MinIO/S3.
-  6. Publishes processing metrics to `topic-sync-job-status` and full symbol snapshots to `topic-upsert-symbols`.
-- **Concurrency**: Uses `asyncio.Semaphore` to process multiple messages concurrently (bounded by configurable `MAX_CONCURRENT_TASKS`), safe for I/O-bound workloads.
-
-### 3. Stock Analyzer API (`apps/analyzer`)
-
-- **Tech Stack**: Python 3.14, FastAPI 0.128.8, Pydantic settings, Kafka and MinIO infrastructure adapters.
-- **Role**: Analytical API boundary. Analyzer no longer owns stock persistence or synchronization execution.
-- **Current maturity**:
-  - Compatibility stock endpoints remain available, but they do not own Platform scheduler jobs and do not persist stock prices directly to PostgreSQL.
-  - `KafkaEventPublisher` and `MinioObjectStorage` are infrastructure foundations for future analytical integrations.
-  - Analyzer must not bypass Platform-owned orchestration or Ingestor-owned Parquet writes.
+| Project | Path | Purpose |
+| :--- | :--- | :--- |
+| `platform` | `apps/core` | Java/Spring Platform API. Owns orchestration, scheduler jobs, database migrations, Kafka command production, and Kafka status consumption. |
+| `analyzer` | `apps/analyzer` | Python/FastAPI analytical API boundary. Does not own stock-sync execution or direct stock-price persistence. |
+| `ingestor` | `apps/ingestor` | Python async worker. Consumes stock-sync messages, fetches market data, writes Parquet snapshots, and publishes job status. |
+| `py-common` | `libs/py-common` | Shared Python runtime, storage, messaging, and configuration utilities. |
 
 ---
 
-## 🔄 End-to-End Event-Driven Sync Pipeline
+## Prerequisites
 
-Heavy file-based synchronization runs asynchronously over Kafka. Platform owns scheduler orchestration and execution tracking; Ingestor owns external data retrieval and Parquet writes. Analyzer is not in the stock-sync execution path.
-
-```
- ┌────────────────────────────────────────────────────────┐
- │                      platform (Java)                   │
- │                                                        │
- │  1. Scheduler selects due job definitions              │
- │  2. Create parent execution and child task executions  │
- │  3. Publish `topic-sync-stock-prices` commands         │
- └─────────────────────────┬──────────────────────────────┘
-                           │
-                           ▼
-              [Topic: topic-sync-stock-prices]
-                           │
-                           │ Payload: {"symbolKey": "HOSE-HPG",
-                           │           "jobDefinitionId",
-                           │           "executionId",
-                           │           "parentExecutionId", ...}
-                           ▼
- ┌────────────────────────────────────────────────────────┐
- │                    ingestor (Python)                   │
- │                                                        │
- │  1. Fetch existing `eod/hose/hpg.parquet` from MinIO   │
- │  2. Fetch recent incremental records via stock client  │
- │  3. Merge and deduplicate records                      │
- │  4. Stream updated `.parquet` back to MinIO            │
- │  5. Publish `topic-sync-job-status` metrics            │
- └─────────────────────────┬──────────────────────────────┘
-                           │
-                           │ Payload: {"symbolKey": "HOSE-HPG",
-                           │           "executionId", "status",
-                           │           "recordsInserted", ...}
-                           ▼
-                [ Topic: topic-sync-job-status ]
-                           │
-                           ▼
- ┌────────────────────────────────────────────────────────┐
- │                      platform (Java)                   │
- │                                                        │
- │  1. Consume status                                     │
- │  2. Update child execution by `executionId`            │
- │  3. Aggregate parent execution when applicable         │
- └────────────────────────────────────────────────────────┘
-```
-
-### Kafka Message Formats
-
-Detailed message contracts are maintained in `docs/STOCK_SYNC_WORKFLOW.md` and `docs/SECTOR_SYNC_WORKFLOW.md`. Short stock-price request example:
-
-```json
-{
-  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
-  "executionId": "22222222-2222-4222-8222-222222222222",
-  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
-  "source": "VCI",
-  "symbolKey": "HOSE-HPG",
-  "fromOffset": "2024-01-01T00:00:00Z",
-  "toOffset": "2026-07-12T12:00:00Z",
-  "metadata": {}
-}
-```
-
-Short status example:
-
-```json
-{
-  "symbolKey": "HOSE-HPG",
-  "jobDefinitionId": "11111111-1111-4111-8111-111111111111",
-  "executionId": "22222222-2222-4222-8222-222222222222",
-  "parentExecutionId": "33333333-3333-4333-8333-333333333333",
-  "status": "SUCCESS",
-  "recordsInserted": 12,
-  "totalRecords": 2500,
-  "durationMs": 7000,
-  "errorMessage": null
-}
-```
+- Node.js 18+ or 20+ and npm.
+- Java JDK 21.
+- Python 3.14+.
+- `uv` for Python dependency and environment management.
+- Docker and Docker Compose.
 
 ---
 
-## 🏗️ Ingestor: Ports & Adapters Design
-
-The `ingestor` abstracts both Kafka and stock data sources, allowing independent evolution of transport and data providers:
-
-```
-ingestor/
-├── app/
-│   ├── kafka_consumer.py          # Kafka adapter (aiokafka)
-│   ├── stocks/
-│   │   ├── base.py                # Abstract stock client interface
-│   │   ├── registry.py            # Stock client resolver
-│   │   └── clients/
-│   │       ├── vndirect.py        # VNDirect API client (default)
-│   │       └── mock.py            # Mock data client
-│   └── ...                        # Other utilities
-├── main.py                        # Event router + concurrency control
-└── api.py                         # FastAPI HTTP entry point (optional)
-```
-
-**Event router pattern** (main.py):
-
-- Listens to `topic-sync-stock-prices` and `topic-sync-symbols` topics
-- Dispatches to appropriate handler based on topic
-- Publishes results to `topic-sync-job-status` topic
-- Publishes symbol upserts to `topic-upsert-symbols` topic
-- Bounded concurrency via `asyncio.Semaphore`
-
-**HTTP entry point** (api.py — optional, for manual triggers or serverless):
-
-```python
-@app.post("/trigger/{symbol}")
-async def manual_trigger(symbol: str):
-    await handle_stock_sync({"symbol": symbol, ...})
-    return {"status": "ok"}
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-```
-
-This design allows swapping Kafka for different transports (MSK, Pub/Sub) or stock clients (VNDirect, Yahoo Finance, etc.) without modifying handlers.
-
----
-
-## ☁️ Deployment: Oracle Always Free (Recommended)
-
-### Why Oracle Always Free VM
-
-Oracle provides **Always Free** ARM Compute (Ampere A1) — permanently free with no expiry:
-
-| Resource | Allocation           |
-| :------- | :------------------- |
-| CPU      | 4 Ampere A1 cores    |
-| RAM      | 24 GB                |
-| Storage  | 200 GB boot volume   |
-| Network  | 10 TB outbound/month |
-
-The root `docker-compose.yaml` includes two focused Compose files: `docker-compose.infra.yaml` for PostgreSQL, Kafka, MinIO, and pgAdmin, and `docker-compose.services.yaml` for Platform, Analyzer, and Ingestor. Running `docker compose up -d` from the repository root still starts the complete stack on the Oracle VM with no architecture changes needed.
-
-### Deployment Setup
-
-```bash
-# On Oracle VM (Ubuntu 22.04 ARM)
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-git clone --recursive <repository-url>
-cd omni
-docker compose up -d
-
-# Infrastructure only, when app services are run through Nx locally
-docker compose -f docker-compose.infra.yaml up -d
-```
-
-### Cloud Portability (Migration Path)
-
-All external dependencies are configured via environment variables. Migrating to AWS, GCP, or any other provider requires only env var changes:
-
-| Component      | Oracle VM (Free)   | AWS          | GCP       |
-| :------------- | :----------------- | :----------- | :-------- |
-| Kafka          | Confluent cp-kafka | MSK          | Pub/Sub   |
-| Object Storage | MinIO              | S3           | GCS       |
-| PostgreSQL     | Self-hosted        | RDS          | Cloud SQL |
-| Compute        | Docker Compose     | ECS / Lambda | Cloud Run |
-
-`minio` S3 client in `ingestor` requires only `endpoint_url` change when switching between MinIO, AWS S3, or Cloudflare R2:
-
-```bash
-S3_ENDPOINT_URL=http://minio:9000          # Oracle VM (MinIO)
-S3_ENDPOINT_URL=https://<id>.r2.cloudflarestorage.com  # Cloudflare R2
-# Unset for AWS S3 (boto3 default)
-```
-
-When migrating to FaaS (Lambda / Cloud Run), the HTTP entry point in `ingestor/api.py` becomes the new invocation target — business logic remains unchanged.
-
----
-
-## ⚙️ Key Rules & Cloud-Agnostic Guardrails
-
-- **S3 Abstraction**: File-based operations use S3-compatible clients (`minio` library). Storage tier is swapped solely via `S3_ENDPOINT_URL` environment variable without code changes.
-- **Kafka Transport Abstraction**: Ingestor's Kafka client is isolated behind port interfaces, allowing swap of Kafka adapters (e.g., Confluent → MSK → Pub/Sub) without touching business logic.
-- **Infrastructure Portability**: Services are standard containerized OCI images with no cloud-vendor runtime dependencies.
-- **12-Factor Settings**: All credentials, connection strings, broker hosts, and bucket names are configured through runtime environment variables.
-- **Service Boundaries**: Platform owns orchestration, Ingestor owns Parquet writes, and Analyzer must not reintroduce direct stock persistence outside agreed service contracts.
-
----
-
-## 📁 S3 Data Lake Structure
-
-The stock-data bucket follows a standardized, lowercase path structure defined in `configs/shared/s3-paths.yaml`. All path construction is centralized and configuration-driven.
-
-### Current Implementation
-
-```
-stock-data/
-├── symbols/
-│   ├── hose.parquet
-│   ├── hnx.parquet
-│   └── upcom.parquet
-└── eod/
-    ├── hose/
-    │   ├── hpg.parquet
-    │   ├── fpt.parquet
-    │   └── ...
-    ├── hnx/
-    └── upcom/
-```
-
-### Path Naming Conventions
-
-1. **Lowercase normalization**: Exchange names and ticker codes are automatically converted to lowercase in paths (`HOSE` → `hose`, `HPG` → `hpg`)
-2. **Folder names**: Use kebab-case (`corporate-actions/`, `income-statement.parquet`)
-3. **No temporal partitioning**: Files are overwritten or merged in place (no `dt=` or `run_id=` folders)
-4. **One ticker = one file**: Each ticker has a single Parquet file per data type
-5. **Metadata separation**: Sector, industry, and classification metadata stored in separate metadata files, not in paths
-
-### Path Building in Code
-
-**Python (Ingestor):**
-```python
-from app.settings import settings
-
-# Symbol metadata path
-path = settings.get_symbols_path("HOSE")  # Returns: symbols/hose.parquet
-
-# EOD price data path  
-path = settings.get_eod_path("HOSE", "HPG")  # Returns: eod/hose/hpg.parquet
-```
-
-**Configuration File:** `configs/shared/s3-paths.yaml`
-
-```yaml
-stock-data:
-  bucket: stock-data
-  paths:
-    symbols:
-      base: "symbols/"
-      pattern: "{exchange}.parquet"
-    eod:
-      base: "eod/"
-      pattern: "{exchange}/{code}.parquet"
-```
-
-### Future Expansion Paths
-
-The configuration file includes documented placeholders for upcoming features:
-- `intraday/` — Intraday price data
-- `financials/` — Financial statements (income statement, balance sheet, cash flow)
-- `fundamentals/` — Financial ratios and metrics
-- `corporate-actions/` — Corporate events and announcements
-- `ownership/` — Shareholder data
-- `news/` — News articles
-- `macro/` — Macroeconomic indicators
-- `derivatives/`, `warrants/`, `etf/` — Alternative instruments
-
-**See:** `docs/S3_PATH_CONFIGURATION.md` for detailed documentation.
-
----
-
-## 🛠️ Prerequisites
-
-- **Node.js (v18+ or v20+) & npm**: Workspace orchestration via Nx 22.5.1.
-- **Java JDK 21**: Adoptium JVM recommended.
-- **Python 3.14+**: Application runtime.
-- **`uv`**: Ultra-fast Python package resolver.
-  - _macOS/Linux:_ `curl -LsSf https://astral.sh/uv/install.sh | sh`
-  - _Windows:_ `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
-- **Docker & Docker Compose**: PostgreSQL, Confluent Kafka, MinIO, pgAdmin.
-
----
-
-## 🚀 Getting Started
-
-### 1. Initialize Workspace Infrastructure
+## Quick Start
 
 ```bash
 git clone --recursive <repository-url>
 cd omni
 npm install
+cp .env.example .env
 nx run omni:init
 ```
 
-### 2. Synchronize Python Environments
+Synchronize Python environments:
 
 ```bash
 nx run analyzer:sync
 nx run ingestor:sync
+nx run py-common:sync
 ```
 
----
-
-## � Kafka Configuration & Topics
-
-| Topic | Direction from Ingestor | Consumer Group | Description |
-| :--- | :--- | :--- | :--- |
-| `topic-sync-stock-prices` | Inbound | ingestor | Stock-price sync command from Platform with `symbolKey`, `jobDefinitionId`, `executionId`, and optional `parentExecutionId`. |
-| `topic-sync-symbols` | Inbound | ingestor | Symbol-master sync command from Platform, keyed by exchange. |
-| `topic-sync-job-status` | Outbound | — | Job status result from Ingestor to Platform. |
-| `topic-upsert-symbols` | Outbound | — | Full symbol snapshot from Ingestor to Platform, keyed by exchange. |
-
-**Configuration** is centralized in `configs/shared/topics.yaml`, with runtime overrides available through service settings:
-
-- `SYNC_STOCK_PRICES_TOPIC` — Stock-price request topic (default: `topic-sync-stock-prices`)
-- `SYNC_SYMBOLS_TOPIC` — Symbol-master request topic (default: `topic-sync-symbols`)
-- `JOB_STATUS_TOPIC` — Status topic (default: `topic-sync-job-status`)
-- `UPSERT_SYMBOLS_TOPIC` — Symbol snapshot topic (default: `topic-upsert-symbols`)
-- `KAFKA_BOOTSTRAP_SERVERS` — Broker addresses (default: `localhost:9092`)
-- `CONSUMER_GROUP_ID` — Ingestor consumer group (default: `ingestor`)
-
----
-
-### Development Mode (all services concurrently)
+Run all applications together:
 
 ```bash
 nx run omni:dev
 ```
 
-Logs are streamed with prefixes `[JAVA]`, `[ANALYZER]`, and `[INGESTOR]`.
-
-### Individual Application Tasks
-
-#### Platform API (`apps/core`)
+Start only local infrastructure:
 
 ```bash
-nx serve platform                          # Run Boot app (dev profile)
-nx serve platform --configuration=prod     # Run Boot app (prod profile)
-nx build platform                          # Build executable JAR
-nx test platform                           # Run JUnit 5 tests
+docker compose -f docker-compose.infra.yaml up -d
 ```
 
-#### Ingestor Service (`apps/ingestor`)
+Start the complete Docker stack:
 
 ```bash
-nx serve ingestor                          # Run event consumer loop
-nx test ingestor                           # Run unit tests
-nx lint ingestor                           # Run Ruff lint check
-nx format ingestor                         # Auto-format Python code
-```
-
-#### Analyzer API (`apps/analyzer`)
-
-```bash
-nx serve analyzer                          # Run FastAPI via uvicorn-hmr
-nx test analyzer                           # Run pytest suite
-nx lint analyzer                           # Run Ruff lint check
-nx format analyzer                         # Auto-format Python code
-nx debug analyzer                          # Run local debugging
+docker compose --env-file .env up -d
 ```
 
 ---
 
-## 🗄️ Local Infrastructure & Credentials
+## Nx Commands
 
-Managed by Docker Compose:
-
-| Service             | Local Port      | Access Endpoint                                | Credentials                                        |
-| :------------------ | :-------------- | :--------------------------------------------- | :------------------------------------------------- |
-| **PostgreSQL 16**   | `5432`          | `jdbc:postgresql://localhost:5432/omni`        | `postgres` / `postgres` (DB: `omni`)               |
-| **MinIO Storage**   | `9000` / `9001` | [http://localhost:9001](http://localhost:9001) | `minioadmin` / `minioadmin` (Bucket: `stock-data`) |
-| **pgAdmin 4**       | `5050`          | [http://localhost:5050](http://localhost:5050) | `admin@admin.com` / `admin`                        |
-| **Confluent Kafka** | `9092`          | `PLAINTEXT://localhost:9092`                   | No authentication (local dev only)                 |
-
----
-
-## 📦 Python Dependency Management
+Nx is the canonical entry point for workspace tasks. Inspect targets before running unfamiliar project operations:
 
 ```bash
-# Add a package
+nx show project <project-name>
+```
+
+Common targets:
+
+```bash
+nx run platform:serve
+nx run platform:build
+nx run platform:test
+
+nx run analyzer:serve
+nx run analyzer:test
+nx run analyzer:lint
+nx run analyzer:format
+nx run analyzer:debug
+
+nx run ingestor:serve
+nx run ingestor:test
+nx run ingestor:lint
+nx run ingestor:format
+
+nx run py-common:test
+nx run py-common:lint
+nx run py-common:format
+```
+
+Python dependency operations also go through Nx:
+
+```bash
 nx run analyzer:add --name="numpy>=1.26.0"
-
-# Remove a package
 nx run ingestor:remove --name="requests"
-
-# Sync virtualenv
 nx run <project-name>:sync
-
-# Update lockfile
 nx run <project-name>:lock
 ```
 
 ---
 
-## 🗃️ Database Migrations (Flyway)
+## Local Infrastructure
 
-Schemas are managed in `database/migrations/V*__*.sql` and auto-applied on Platform API startup using Flyway.
+| Service | Local Port | Endpoint | Credentials |
+| :--- | :--- | :--- | :--- |
+| PostgreSQL 16 | `5432` | `jdbc:postgresql://localhost:5432/omni` | `postgres` / `postgres` |
+| MinIO | `9000`, `9001` | [http://localhost:9001](http://localhost:9001) | `minioadmin` / `minioadmin` |
+| pgAdmin 4 | `5050` | [http://localhost:5050](http://localhost:5050) | `admin@admin.com` / `admin` |
+| Kafka | `9092` | `PLAINTEXT://localhost:9092` | No authentication for local development |
 
-**Active Migrations** are maintained under `database/migrations/`. Check that directory for the current version list before adding new migrations.
+Local defaults are stored in `.env.example`. Deployment placeholders are stored in `.env.deploy.example`.
 
-### Adding New Migrations
+---
 
-Create a new migration file in `database/migrations/`:
+## Kafka Topic Overview
 
-```bash
-# File naming convention: V<N>__<description>.sql
-database/migrations/V4__create_stock_prices_table.sql
+Canonical topic configuration lives in [configs/shared/topics.yaml](configs/shared/topics.yaml).
+
+| Topic | Direction from Ingestor | Description |
+| :--- | :--- | :--- |
+| `topic-sync-stock-prices` | Inbound | Stock-price sync command from Platform. |
+| `topic-sync-symbols` | Inbound | Symbol-master sync command from Platform. |
+| `topic-sync-job-status` | Outbound | Job status result from Ingestor to Platform. |
+| `topic-upsert-symbols` | Outbound | Full symbol snapshot from Ingestor to Platform. |
+
+When changing a Kafka topic, schema, serialization rule, validation rule, field meaning, or error-handling contract, update both producer and consumer sides together, including tests and documentation. See [ARCHITECTURE.md](ARCHITECTURE.md#kafka-topics-and-contracts).
+
+---
+
+## S3 Data Lake Paths
+
+Canonical path configuration lives in [configs/shared/s3-paths.yaml](configs/shared/s3-paths.yaml). The stock-data bucket uses lowercase, centralized paths such as:
+
+```text
+symbols/hose.parquet
+eod/hose/hpg.parquet
 ```
 
-Flyway automatically detects and applies new migrations on Platform API startup. Migrations are idempotent and run in version order.
+Kafka messages must not include bucket or object path metadata. Consumers derive storage paths from shared path builders. See [ARCHITECTURE.md](ARCHITECTURE.md#s3-data-lake-structure).
 
-### Migration Best Practices
+---
 
-- Use explicit column types and constraints
-- Add indexes for foreign keys and frequently queried columns
-- Include `created_at` and `updated_at` timestamps
-- Use `ON DELETE CASCADE` or `ON DELETE SET NULL` for foreign keys
-- Test migrations on a dev database before deploying
+## Database Migrations
+
+Flyway migrations are stored in `database/migrations/V*__*.sql` and are applied by Platform on startup.
+
+Before adding a migration:
+
+1. Check the current highest migration version in `database/migrations/`.
+2. Add the next version using `V<N>__<description>.sql`.
+3. Use explicit column types, constraints, indexes, timestamps, and foreign-key behavior.
+4. Test against a development database before deployment.
+
+---
+
+## Important References
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — detailed architecture, service boundaries, Kafka workflow, deployment model, S3 rules, and guardrails.
+- [AGENTS.md](AGENTS.md) — repository workflow and agent rules.
+- [apps/analyzer/README.md](apps/analyzer/README.md) — Analyzer-specific notes.
+- [apps/ingestor/README.md](apps/ingestor/README.md) — Ingestor-specific notes.
+- [configs/shared/topics.yaml](configs/shared/topics.yaml) — Kafka topic configuration.
+- [configs/shared/s3-paths.yaml](configs/shared/s3-paths.yaml) — S3 path configuration.

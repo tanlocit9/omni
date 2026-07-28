@@ -137,27 +137,32 @@ Example response:
 - `configs/shared/topics.yaml`
 - `configs/shared/s3-paths.yaml`
 
+### Environment and shared settings
+
+Analyzer loads stable defaults from shared YAML config and runtime overrides from the root `.env` file. For service-only overrides, copy `apps/analyzer/.env.example` to `apps/analyzer/.env`; Docker Compose loads the root `.env` first and the app-specific file second.
+
+Use flat env names only. They are shared by Java, Python, and Docker Compose, and Python maps them into typed `settings.kafka` and `settings.minio` objects.
+
 ### Kafka settings
 
-Pydantic field names and environment-variable overrides:
-
-| Field                     | Environment variable      | Default source                         |
-| ------------------------- | ------------------------- | -------------------------------------- |
-| `kafka_bootstrap`         | `KAFKA_BOOTSTRAP`         | `kafka.bootstrap-servers`              |
-| `topic_sync_stock_prices` | `TOPIC_SYNC_STOCK_PRICES` | `kafka.topics.topic-sync-stock-prices` |
-| `topic_sync_symbols`      | `TOPIC_SYNC_SYMBOLS`      | `kafka.topics.topic-sync-symbols`      |
-| `topic_upsert_symbols`    | `TOPIC_UPSERT_SYMBOLS`    | `kafka.topics.topic-upsert-symbols`    |
-| `topic_sync_job_status`   | `TOPIC_SYNC_JOB_STATUS`   | `kafka.topics.topic-sync-job-status`   |
+| Settings field | Environment variable | Default source |
+| -------------- | -------------------- | -------------- |
+| `settings.kafka.bootstrap_servers` | `KAFKA_BOOTSTRAP_SERVERS` | `configs/shared/topics.yaml` |
+| `settings.topic_sync_stock_prices` | `SYNC_STOCK_PRICES_TOPIC` | `kafka.topics.topic-sync-stock-prices` |
+| `settings.topic_sync_symbols` | `SYNC_SYMBOLS_TOPIC` | `kafka.topics.topic-sync-symbols` |
+| `settings.topic_sync_indicators` | `SYNC_INDICATORS_TOPIC` | `kafka.topics.topic-sync-indicators` |
+| `settings.topic_upsert_symbols` | `UPSERT_SYMBOLS_TOPIC` | `kafka.topics.topic-upsert-symbols` |
+| `settings.topic_sync_job_status` | `JOB_STATUS_TOPIC` | `kafka.topics.topic-sync-job-status` |
 
 ### MinIO settings
 
-| Field              | Environment variable | Default source                         |
-| ------------------ | -------------------- | -------------------------------------- |
-| `minio_endpoint`   | `MINIO_ENDPOINT`     | `min-io.endpoint`                      |
-| `minio_access_key` | `MINIO_ACCESS_KEY`   | `min-io.access-key`                    |
-| `minio_secret_key` | `MINIO_SECRET_KEY`   | `min-io.secret-key`                    |
-| `minio_bucket`     | `MINIO_BUCKET`       | `min-io.bucket` or `stock-data.bucket` |
-| `minio_secure`     | `MINIO_SECURE`       | `false`                                |
+| Settings field | Environment variable | Default source |
+| -------------- | -------------------- | -------------- |
+| `settings.minio.endpoint` | `MINIO_ENDPOINT` | shared S3 defaults |
+| `settings.minio.access_key` | `MINIO_ACCESS_KEY` | shared S3 defaults |
+| `settings.minio.secret_key` | `MINIO_SECRET_KEY` | shared S3 defaults |
+| `settings.minio.bucket` | `MINIO_BUCKET` | `stock-data.bucket` |
+| `settings.minio.secure` | `MINIO_SECURE` | `false` |
 
 ### S3 path builders
 
@@ -176,7 +181,7 @@ Exchange names and ticker codes are lowercased in object names. Keep official up
 Analyzer starts the indicator Kafka worker during FastAPI startup by default. Disable it for tests or local API-only runs with:
 
 ```bash
-ANALYZER_INDICATOR_KAFKA_ENABLED=false nx serve analyzer
+INDICATOR_KAFKA_ENABLED=false nx serve analyzer
 ```
 
 The direct `POST /v1/indicators/sync` endpoint reuses the same `IndicatorJobMessage` contract and writes the same indicator output path synchronously, but returns the processed record count in the HTTP response instead of publishing to `topic-sync-job-status`.

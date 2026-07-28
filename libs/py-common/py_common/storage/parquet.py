@@ -128,7 +128,10 @@ class ParquetStorage:
         self._readable: ReadableStorage = registry.get_port(provider, ReadableStorage)
         self._writable: WritableStorage = registry.get_port(provider, WritableStorage)
         self._copyable: CopyableStorage = registry.get_port(provider, CopyableStorage)
-        self._deletable: DeletableStorage = registry.get_port(provider, DeletableStorage)
+        self._deletable: DeletableStorage = registry.get_port(
+            provider,
+            DeletableStorage,
+        )
         self._bucket = bucket
 
     # ------------------------------------------------------------------

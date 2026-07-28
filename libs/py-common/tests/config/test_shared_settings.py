@@ -97,3 +97,22 @@ def test_base_app_settings_uses_defaults_when_shared_files_are_absent(tmp_path: 
     assert settings.scheduler.zone == "Asia/Ho_Chi_Minh"
     assert settings.minio.bucket == ""
     assert settings.stock_data_paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"
+
+
+def test_base_app_settings_supports_flat_environment_overrides(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "override-kafka:9092")
+    monkeypatch.setenv("MINIO_ENDPOINT", "http://override-minio:9000")
+    monkeypatch.setenv("MINIO_ACCESS_KEY", "override-access")
+    monkeypatch.setenv("MINIO_SECRET_KEY", "override-secret")
+    monkeypatch.setenv("MINIO_BUCKET", "override-bucket")
+
+    settings = BaseAppSettings(shared_config_root=tmp_path)
+
+    assert settings.kafka.bootstrap_servers == "override-kafka:9092"
+    assert settings.minio.endpoint == "http://override-minio:9000"
+    assert settings.minio.access_key == "override-access"
+    assert settings.minio.secret_key == "override-secret"
+    assert settings.minio.bucket == "override-bucket"

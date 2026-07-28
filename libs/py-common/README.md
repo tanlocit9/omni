@@ -25,22 +25,41 @@ dependencies = [
 
 ### Configuration
 
+`BaseAppSettings` is the shared Python entry point for repository-level config. It loads stable defaults from `configs/shared/topics.yaml` and `configs/shared/s3-paths.yaml`, reads root `.env` / `.env.local`, and applies flat runtime env overrides into typed settings models.
+
+```python
+from py_common.config import BaseAppSettings
+
+settings = BaseAppSettings()
+
+settings.kafka.bootstrap_servers  # KAFKA_BOOTSTRAP_SERVERS override
+settings.minio.endpoint           # MINIO_ENDPOINT override
+settings.topic_sync_stock_prices  # topic-sync-stock-prices by default
+settings.get_symbols_path("HOSE")  # symbols/hose.parquet
+settings.get_eod_path("HOSE", "HPG")  # eod/hose/hpg.parquet
+```
+
+Use flat env variables as the canonical cross-language contract:
+
+```dotenv
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+MINIO_ENDPOINT=http://localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=stock-data
+```
+
+Do not use duplicate nested names such as `KAFKA__BOOTSTRAP_SERVERS` or `MINIO__ENDPOINT`. Java, Python, and Docker Compose all share the flat names above.
+
+For lower-level utilities, load a shared YAML file directly:
+
 ```python
 from pathlib import Path
-from py_common.config import (
-    load_yaml,
-    StockDataPaths,
-    KafkaSettings,
-    MinioSettings,
-    ConsumerGroup,
-    Timeframe,
-)
+from py_common.config import load_yaml, StockDataPaths, Timeframe
 
-# Load configuration
 config = load_yaml(Path("configs/shared/s3-paths.yaml"))
 paths = StockDataPaths.from_config(config["stock-data"])
 
-# Build paths
 paths.symbols("HOSE")  # → symbols/hose.parquet
 paths.eod("HOSE", "HPG")  # → eod/hose/hpg.parquet
 paths.indicators(Timeframe.ONE_DAY, "HOSE", "HPG")  # → indicators/1d/hose/hpg.parquet

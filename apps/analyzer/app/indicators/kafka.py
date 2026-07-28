@@ -39,7 +39,18 @@ class IndicatorKafkaService:
         )
         self._producer = KafkaClientFactory.create_producer(self._settings.kafka)
         await self._consumer.start()
+        _logger.info(
+            "Indicator Kafka consumer connected topic=%s groupId=%s bootstrap=%s",
+            topic,
+            group_id,
+            self._settings.kafka.bootstrap_servers,
+        )
         await self._producer.start()
+        _logger.info(
+            "Indicator Kafka producer connected statusTopic=%s bootstrap=%s",
+            self._settings.sync_job_status_topic,
+            self._settings.kafka.bootstrap_servers,
+        )
         self._task = asyncio.create_task(
             self._consume_loop(), name="indicator-kafka-consumer"
         )
@@ -61,6 +72,13 @@ class IndicatorKafkaService:
     async def _consume_loop(self) -> None:
         assert self._consumer is not None
         async for record in self._consumer:
+            _logger.info(
+                "Received indicator Kafka message topic=%s partition=%s offset=%s key=%s",
+                record.topic,
+                record.partition,
+                record.offset,
+                record.key.decode("utf-8", errors="replace") if record.key else None,
+            )
             payload = (
                 record.value.decode("utf-8")
                 if isinstance(record.value, bytes)
@@ -94,10 +112,17 @@ class IndicatorKafkaService:
 
     async def _publish_status(self, status: JobStatusMessage) -> None:
         assert self._producer is not None
-        await self._producer.send_and_wait(
+        result = await self._producer.send_and_wait(
             self._settings.sync_job_status_topic,
             status.model_dump_json(by_alias=True).encode("utf-8"),
             key=status.symbol_key.encode("utf-8"),
+        )
+        _logger.info(
+            "Published indicator sync status for %s to topic=%s partition=%s offset=%s",
+            status.symbol_key,
+            result.topic,
+            result.partition,
+            result.offset,
         )
 
     def _build_status(

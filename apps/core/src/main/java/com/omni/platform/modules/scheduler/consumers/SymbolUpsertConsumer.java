@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,20 +21,29 @@ import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage;
 import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage.SymbolRecord;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
-import com.omni.platform.shared.infrastructure.kafka.AbstractKafkaSubscriptionLogger;
+import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
+public class SymbolUpsertConsumer extends AbstractConsumer {
 
     private final SymbolRepository symbolRepository;
     private final JobService jobService;
     private final JsonMapper jsonMapper;
+
+    public SymbolUpsertConsumer(
+            ApplicationEventPublisher eventPublisher,
+            SymbolRepository symbolRepository,
+            JobService jobService,
+            JsonMapper jsonMapper) {
+        super(eventPublisher);
+        this.symbolRepository = symbolRepository;
+        this.jobService = jobService;
+        this.jsonMapper = jsonMapper;
+    }
 
     @Value("${kafka.topics.topic-upsert-symbols}")
     private String upsertSymbolsTopic;
@@ -50,6 +60,7 @@ public class SymbolUpsertConsumer extends AbstractKafkaSubscriptionLogger {
             SymbolUpsertMessage event = jsonMapper.readValue(record.value(), SymbolUpsertMessage.class);
             applyUpsert(event);
         } catch (Exception e) {
+            publishMessageProcessingFailed(record, e);
             log.error("Failed to process symbol-upsert message [{}]: {}", record.key(), e.getMessage());
             throw new RuntimeException("Failed to process symbol-upsert message", e);
         }

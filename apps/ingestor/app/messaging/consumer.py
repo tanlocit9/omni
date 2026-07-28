@@ -33,9 +33,16 @@ async def _start_kafka_clients() -> tuple[AIOKafkaConsumer, AIOKafkaProducer]:
 
             await consumer.start()
             await producer.start()
+            logger.info(
+                "Kafka producer ready (statusTopic=%s upsertTopics=%s,%s bootstrap=%s)",
+                settings.sync_job_status_topic,
+                settings.topic_upsert_sectors,
+                settings.topic_upsert_symbols,
+                settings.kafka.bootstrap_servers,
+            )
             await consumer.getmany(timeout_ms=1000)  # Check connectivity
             logger.info(
-                "Kafka consumer ready (topics=%s,%s  bootstrap=%s  source=%s)",
+                "Kafka consumer ready (topics=%s,%s bootstrap=%s source=%s)",
                 settings.topic_sync_stock_prices,
                 settings.topic_sync_symbols,
                 settings.kafka.bootstrap_servers,
@@ -63,6 +70,16 @@ def create_storage_registry() -> StorageProviderRegistry:
 
 
 async def consume_loop() -> None:
+    logger.info(
+        "Starting ingestor consume loop (topics=%s,%s statusTopic=%s bootstrap=%s "
+        "bucket=%s defaultStockSource=%s)",
+        settings.topic_sync_stock_prices,
+        settings.topic_sync_symbols,
+        settings.sync_job_status_topic,
+        settings.kafka.bootstrap_servers,
+        settings.minio.bucket,
+        settings.default_stock_source,
+    )
     default_client = get_or_create_client(settings.default_stock_source)
     consumer, producer = await _start_kafka_clients()
 
@@ -74,8 +91,10 @@ async def consume_loop() -> None:
         logger.critical("Storage validation failed: %s", e)
         raise
 
+    logger.info("Ingestor storage providers validated")
     minio_adapter = registry.get_adapter(StorageProvider.MINIO)
     await minio_adapter.ensure_bucket(settings.minio.bucket)
+    logger.info("Ingestor storage bucket ready: %s", settings.minio.bucket)
 
     parquet_storage = ParquetStorage(
         registry=registry,
@@ -84,7 +103,15 @@ async def consume_loop() -> None:
     )
 
     try:
+        logger.info("Ingestor waiting for Kafka messages")
         async for msg in consumer:
+            logger.info(
+                "Received Kafka message topic=%s partition=%s offset=%s key=%s",
+                msg.topic,
+                msg.partition,
+                msg.offset,
+                msg.key.decode("utf-8", errors="replace") if msg.key else None,
+            )
             if msg.topic == settings.topic_sync_symbols:
                 await process_sync_symbols_message(
                     msg.value, producer, default_client, parquet_storage

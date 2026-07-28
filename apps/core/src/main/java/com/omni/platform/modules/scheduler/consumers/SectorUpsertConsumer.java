@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,19 +15,26 @@ import org.springframework.transaction.annotation.Transactional;
 import com.omni.platform.modules.scheduler.messaging.SectorUpsertMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorUpsertMessage.SectorRecord;
 import com.omni.platform.modules.scheduler.repositories.SectorRepository;
-import com.omni.platform.shared.infrastructure.kafka.AbstractKafkaSubscriptionLogger;
+import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class SectorUpsertConsumer extends AbstractKafkaSubscriptionLogger {
+public class SectorUpsertConsumer extends AbstractConsumer {
 
     private final SectorRepository sectorRepository;
     private final JsonMapper jsonMapper;
+
+    public SectorUpsertConsumer(
+            ApplicationEventPublisher eventPublisher,
+            SectorRepository sectorRepository,
+            JsonMapper jsonMapper) {
+        super(eventPublisher);
+        this.sectorRepository = sectorRepository;
+        this.jsonMapper = jsonMapper;
+    }
 
     @Value("${kafka.topics.topic-upsert-sectors}")
     private String upsertSectorsTopic;
@@ -43,6 +51,7 @@ public class SectorUpsertConsumer extends AbstractKafkaSubscriptionLogger {
             SectorUpsertMessage event = jsonMapper.readValue(record.value(), SectorUpsertMessage.class);
             applyUpsert(event);
         } catch (Exception e) {
+            publishMessageProcessingFailed(record, e);
             log.error("Failed to process sector-upsert message [{}]: {}", record.key(), e.getMessage(), e);
             throw new RuntimeException("Failed to process sector-upsert message", e);
         }

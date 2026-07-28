@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,20 +16,29 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatu
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
-import com.omni.platform.shared.infrastructure.kafka.AbstractKafkaSubscriptionLogger;
+import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
-public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
+public class JobStatusConsumer extends AbstractConsumer {
 
     private final JobExecutionHistoryRepository historyRepository;
     private final JobService jobService;
     private final JsonMapper jsonMapper;
+
+    public JobStatusConsumer(
+            ApplicationEventPublisher eventPublisher,
+            JobExecutionHistoryRepository historyRepository,
+            JobService jobService,
+            JsonMapper jsonMapper) {
+        super(eventPublisher);
+        this.historyRepository = historyRepository;
+        this.jobService = jobService;
+        this.jsonMapper = jsonMapper;
+    }
 
     @Value("${kafka.topics.topic-sync-job-status}")
     private String jobStatusTopic;
@@ -47,7 +57,9 @@ public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
                     record.value());
             JobStatusMessage response = jsonMapper.readValue(record.value(), JobStatusMessage.class);
             applyToLog(response);
+            publishJobStatusNotificationIfNeeded(response);
         } catch (Exception e) {
+            publishMessageProcessingFailed(record, e);
             log.error(
                     "Failed to process stock-sync-status message topic={} partition={} offset={} key={} payload={}: {}",
                     record.topic(), record.partition(), record.offset(), record.key(), record.value(), e.getMessage(),
@@ -73,6 +85,26 @@ public class JobStatusConsumer extends AbstractKafkaSubscriptionLogger {
 
         if (response.parentExecutionId() != null) {
             jobService.aggregateParentExecution(UUID.fromString(response.parentExecutionId()));
+        }
+    }
+
+    private void publishJobStatusNotificationIfNeeded(JobStatusMessage response) {
+        JobStatus status = resolveStatus(response.status());
+        if (status == JobStatus.SUCCESS) {
+            Map<String, Object> metadata = buildMetaJson(response);
+            publishJobCompleted(
+                    "Job completed: " + response.jobDefinitionId(),
+                    "Job completed successfully",
+                    metadata);
+            return;
+        }
+
+        if (status == JobStatus.FAILED) {
+            Map<String, Object> metadata = buildMetaJson(response);
+            publishJobFailed(
+                    "Job failed: " + response.jobDefinitionId(),
+                    response.errorMessage(),
+                    metadata);
         }
     }
 

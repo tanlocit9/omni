@@ -16,7 +16,10 @@ class KafkaClientFactory:
         value_serializer=None,
     ) -> AIOKafkaProducer:
         """Create an AIOKafkaProducer instance."""
-        _logger.debug(f"Creating Kafka producer for bootstrap_servers={settings.bootstrap_servers}")
+        _logger.info(
+            "Creating Kafka producer bootstrap_servers=%s",
+            settings.bootstrap_servers,
+        )
         return AIOKafkaProducer(
             bootstrap_servers=settings.bootstrap_servers,
             value_serializer=value_serializer,
@@ -31,9 +34,11 @@ class KafkaClientFactory:
         auto_offset_reset: str = "earliest",
     ) -> AIOKafkaConsumer:
         """Create an AIOKafkaConsumer instance."""
-        _logger.debug(
-            f"Creating Kafka consumer for topics={topics}, group_id={group_id}, "
-            f"bootstrap_servers={settings.bootstrap_servers}"
+        _logger.info(
+            "Creating Kafka consumer topics=%s group_id=%s bootstrap_servers=%s",
+            topics,
+            group_id,
+            settings.bootstrap_servers,
         )
         if isinstance(topics, list):
             return AIOKafkaConsumer(

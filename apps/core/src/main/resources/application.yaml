@@ -32,6 +32,13 @@ app:
   seed:
     job-definitions:
       enabled: true
+  notifications:
+    telegram:
+      enabled: ${TELEGRAM_NOTIFICATIONS_ENABLED:false}
+      bot-token: ${TELEGRAM_BOT_TOKEN:}
+      chat-id: ${TELEGRAM_CHAT_ID:}
+      parse-mode: ${TELEGRAM_PARSE_MODE:html}
+      api-base-url: ${TELEGRAM_API_BASE_URL:https://api.telegram.org}
 
 logging:
   level:

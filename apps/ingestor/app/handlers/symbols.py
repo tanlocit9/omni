@@ -199,10 +199,17 @@ async def process_sync_symbols_message(
             error_message=str(exc),
         )
 
-    await producer.send_and_wait(
+    result = await producer.send_and_wait(
         settings.sync_job_status_topic,
         key=status["exchange"].encode() if status.get("exchange") else None,
         value=json.dumps(status, default=str).encode(),
+    )
+    logger.info(
+        "Published symbols sync status for %s to topic=%s partition=%s offset=%s",
+        status.get("exchange"),
+        result.topic,
+        result.partition,
+        result.offset,
     )
 
 

@@ -21,7 +21,15 @@ _logger = logging.getLogger(__name__)
 
 
 async def startup_event(app: FastAPI) -> None:
-    _logger.info("Starting up Analyzer service...")
+    _logger.info(
+        "Starting up Analyzer service (indicatorKafkaEnabled=%s bootstrap=%s "
+        "syncIndicatorsTopic=%s statusTopic=%s bucket=%s)",
+        settings.indicator_kafka_enabled,
+        settings.kafka.bootstrap_servers,
+        settings.topic_sync_indicators,
+        settings.sync_job_status_topic,
+        settings.minio.bucket,
+    )
     # Store settings in app state for access in dependencies
     app.state.settings = settings
     # Initialize storage registry and validate providers
@@ -36,13 +44,14 @@ async def startup_event(app: FastAPI) -> None:
         settings,
         app.state.parquet_storage,
     )
+    _logger.info("Analyzer storage providers validated")
     if settings.indicator_kafka_enabled:
         app.state.indicator_kafka_service = IndicatorKafkaService(
             settings,
             app.state.indicator_handler,
         )
         await app.state.indicator_kafka_service.start()
-        _logger.info("Storage providers validated and indicator Kafka service started.")
+        _logger.info("Indicator Kafka service started")
     else:
         _logger.info("Storage providers validated. Indicator Kafka service disabled.")
 

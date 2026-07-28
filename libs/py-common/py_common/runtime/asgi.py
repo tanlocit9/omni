@@ -8,6 +8,8 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI
 
+from py_common.runtime.worker import configure_logging
+
 LifecycleHandler = Callable[[FastAPI], Awaitable[None]]
 
 
@@ -21,6 +23,7 @@ def create_fastapi_app(
     **kwargs: Any,
 ) -> FastAPI:
     """Create a FastAPI app with optional shared lifecycle hooks."""
+    configure_logging()
     app = FastAPI(
         title=title,
         description=description,
@@ -52,4 +55,5 @@ def run_asgi_app(
     **kwargs: Any,
 ) -> None:
     """Run an ASGI app through Uvicorn."""
+    configure_logging()
     uvicorn.run(app, host=host, port=port, reload=reload, **kwargs)

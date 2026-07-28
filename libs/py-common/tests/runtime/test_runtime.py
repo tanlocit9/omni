@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import asynccontextmanager
 from unittest.mock import Mock, patch
 
 import pytest
@@ -25,10 +27,10 @@ async def test_create_fastapi_app_runs_lifecycle_handlers():
         shutdown=shutdown,
     )
 
-    await app.router.startup()
-    await app.router.shutdown()
+    async with app_lifespan(app):
+        assert startup_calls == ["Test Service"]
+        assert shutdown_calls == []
 
-    assert startup_calls == ["Test Service"]
     assert shutdown_calls == ["Test Service"]
 
 
@@ -53,7 +55,12 @@ async def test_create_worker_app_starts_and_stops_worker_task():
         version="1.0.0",
     )
 
-    await app.router.startup()
-    await app.router.shutdown()
+    async with app_lifespan(app):
+        await asyncio.sleep(0)
+        worker.assert_called_once_with()
 
-    worker.assert_called_once_with()
+
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    async with app.router.lifespan_context(app):
+        yield

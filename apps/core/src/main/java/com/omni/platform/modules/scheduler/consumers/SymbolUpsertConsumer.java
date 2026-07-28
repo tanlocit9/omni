@@ -22,6 +22,7 @@ import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage.SymbolR
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
+import com.omni.platform.shared.utils.MetadataUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
@@ -151,47 +152,41 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
 
     private Map<String, Object> toExecutionMeta(SymbolUpsertMessage event, SymbolRecord record) {
         Map<String, Object> meta = new LinkedHashMap<>();
-        putIfPresent(meta, "symbolKey", symbolKey(event, record));
-        putIfPresent(meta, "jobDefinitionId", jobDefinitionId(event));
-        putIfPresent(meta, "executionId", executionId(event));
-        putIfPresent(meta, "parentExecutionId", parentExecutionId(event));
-        putIfPresent(meta, "exchange", !isBlank(record.exchange()) ? record.exchange() : event.exchange());
-        putIfPresent(meta, "code", record.code());
-        putIfPresent(meta, "expectedCount", event.expectedCount());
-        putIfPresent(meta, "actualCount", event.actualCount());
-        putIfPresent(meta, "detectedAt", event.detectedAt().toString());
-        putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
-        putIfPresent(meta, "sectorLevel", record.sectorLevel());
-        putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
-        putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        MetadataUtils.putIfPresent(meta, "symbolKey", symbolKey(event, record));
+        MetadataUtils.putIfPresent(meta, "jobDefinitionId", jobDefinitionId(event));
+        MetadataUtils.putIfPresent(meta, "executionId", executionId(event));
+        MetadataUtils.putIfPresent(meta, "parentExecutionId", parentExecutionId(event));
+        MetadataUtils.putIfPresent(meta, "exchange", !isBlank(record.exchange()) ? record.exchange() : event.exchange());
+        MetadataUtils.putIfPresent(meta, "code", record.code());
+        MetadataUtils.putIfPresent(meta, "expectedCount", event.expectedCount());
+        MetadataUtils.putIfPresent(meta, "actualCount", event.actualCount());
+        MetadataUtils.putIfPresent(meta, "detectedAt", event.detectedAt().toString());
+        MetadataUtils.putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
+        MetadataUtils.putIfPresent(meta, "sectorLevel", record.sectorLevel());
+        MetadataUtils.putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
+        MetadataUtils.putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
         return meta;
     }
 
     private Map<String, Object> toMeta(SymbolRecord record) {
         Map<String, Object> meta = new LinkedHashMap<>();
         if (record.meta() != null) {
-            record.meta().forEach((key, value) -> putIfPresent(meta, key, value));
+            record.meta().forEach((key, value) -> MetadataUtils.putIfPresent(meta, key, value));
         }
 
-        putIfPresent(meta, "companyName", record.companyName());
-        putIfPresent(meta, "listedDate", record.listedDate());
-        putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
-        putIfPresent(meta, "sectorLevel", record.sectorLevel());
-        putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
-        putIfPresent(meta, "sectorLv1Code", record.sectorLv1Code());
-        putIfPresent(meta, "sectorLv2Code", record.sectorLv2Code());
-        putIfPresent(meta, "sectorLv3Code", record.sectorLv3Code());
-        putIfPresent(meta, "sectorLv4Code", record.sectorLv4Code());
-        putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        MetadataUtils.putIfPresent(meta, "companyName", record.companyName());
+        MetadataUtils.putIfPresent(meta, "listedDate", record.listedDate());
+        MetadataUtils.putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
+        MetadataUtils.putIfPresent(meta, "sectorLevel", record.sectorLevel());
+        MetadataUtils.putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
+        MetadataUtils.putIfPresent(meta, "sectorLv1Code", record.sectorLv1Code());
+        MetadataUtils.putIfPresent(meta, "sectorLv2Code", record.sectorLv2Code());
+        MetadataUtils.putIfPresent(meta, "sectorLv3Code", record.sectorLv3Code());
+        MetadataUtils.putIfPresent(meta, "sectorLv4Code", record.sectorLv4Code());
+        MetadataUtils.putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
 
         meta.keySet().retainAll(Symbol.META_JSON_ALLOWED_KEYS);
         return meta;
-    }
-
-    private void putIfPresent(Map<String, Object> meta, String key, Object value) {
-        if (value != null) {
-            meta.put(key, String.valueOf(value));
-        }
     }
 
     private UUID jobDefinitionId(SymbolUpsertMessage event) {

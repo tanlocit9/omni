@@ -2,7 +2,6 @@ package com.omni.platform.modules.notifications.services;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -19,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TelegramNotificationService implements NotificationService {
 
     private static final int MAX_MESSAGE_LENGTH = 4_096;
+    private static final String HTML_PARSE_MODE = "HTML";
 
     private final TelegramNotificationProperties properties;
     private final RestClient telegramRestClient;
@@ -34,9 +34,7 @@ public class TelegramNotificationService implements NotificationService {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("chat_id", properties.chatId());
             payload.put("text", truncate(formatMessage(request)));
-            if (hasText(properties.parseMode())) {
-                payload.put("parse_mode", properties.parseMode());
-            }
+            payload.put("parse_mode", resolveParseMode());
 
             telegramRestClient.post()
                     .uri("/bot{token}/sendMessage", properties.botToken())
@@ -50,19 +48,40 @@ public class TelegramNotificationService implements NotificationService {
 
     private String formatMessage(NotificationRequest request) {
         StringBuilder message = new StringBuilder();
-        message.append("[").append(request.severity()).append("] ").append(request.title());
+        message.append("<b>")
+                .append(escapeHtml(String.valueOf(request.severity())))
+                .append("</b>")
+                .append(" — ")
+                .append("<b>")
+                .append(escapeHtml(defaultText(request.title(), "Untitled notification")))
+                .append("</b>");
+
         if (hasText(request.message())) {
-            message.append(System.lineSeparator()).append(request.message());
-        }
-        if (request.metadata() != null && !request.metadata().isEmpty()) {
             message.append(System.lineSeparator())
                     .append(System.lineSeparator())
-                    .append(request.metadata().entrySet().stream()
-                            .filter(entry -> entry.getValue() != null)
-                            .map(entry -> entry.getKey() + "=" + entry.getValue())
-                            .collect(Collectors.joining(System.lineSeparator())));
+                    .append(escapeHtml(request.message()));
         }
+
+        if (request.metadata() != null && !request.metadata().isEmpty()) {
+            appendMetadata(message, request.metadata());
+        }
+
         return message.toString();
+    }
+
+    private void appendMetadata(StringBuilder message, Map<String, Object> metadata) {
+        String renderedMetadata = metadata.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
+                .map(entry -> "• <b>" + escapeHtml(entry.getKey()) + ":</b> "
+                        + escapeHtml(String.valueOf(entry.getValue())))
+                .reduce((left, right) -> left + System.lineSeparator() + right)
+                .orElse("");
+
+        if (hasText(renderedMetadata)) {
+            message.append(System.lineSeparator())
+                    .append(System.lineSeparator())
+                    .append(renderedMetadata);
+        }
     }
 
     private String truncate(String message) {
@@ -70,6 +89,26 @@ public class TelegramNotificationService implements NotificationService {
             return message;
         }
         return message.substring(0, MAX_MESSAGE_LENGTH - 3) + "...";
+    }
+
+    private String resolveParseMode() {
+        if (hasText(properties.parseMode())) {
+            return properties.parseMode();
+        }
+        return HTML_PARSE_MODE;
+    }
+
+    private String defaultText(String value, String fallback) {
+        if (hasText(value)) {
+            return value;
+        }
+        return fallback;
+    }
+
+    private String escapeHtml(String value) {
+        return value.replace("&", "&#38;")
+                .replace("<", "&#60;")
+                .replace(">", "&#62;");
     }
 
     private boolean hasText(String value) {

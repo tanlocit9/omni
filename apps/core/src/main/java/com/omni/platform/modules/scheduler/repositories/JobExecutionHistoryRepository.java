@@ -4,9 +4,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import jakarta.persistence.LockModeType;
 
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.shared.repositories.BaseRepository;
@@ -14,11 +17,22 @@ import com.omni.platform.shared.repositories.BaseRepository;
 @Repository
 public interface JobExecutionHistoryRepository extends BaseRepository<JobExecutionHistory> {
 
-    Optional<JobExecutionHistory> findTopByJobIdOrderByTriggeredAtDesc(UUID jobId);
-
-    List<JobExecutionHistory> findByJobIdAndStatus(UUID jobId, JobExecutionHistory.JobStatus status);
-
     List<JobExecutionHistory> findAllByParentLogId(UUID parentLogId);
+
+    /**
+     * Loads a job execution row with a database write lock.
+     * <p>
+     * Parent aggregation must call this inside the same transaction that reads child
+     * executions and updates the parent. The lock serializes concurrent final-child
+     * completions for the same parent so exactly one transaction can observe and
+     * publish the first terminal parent transition.
+     *
+     * @param id execution id to lock
+     * @return locked execution row when it exists
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select history from JobExecutionHistory history where history.id = :id")
+    Optional<JobExecutionHistory> findByIdForUpdate(@Param("id") UUID id);
 
     @Query(value = """
             SELECT new_offset FROM job_execution_histories

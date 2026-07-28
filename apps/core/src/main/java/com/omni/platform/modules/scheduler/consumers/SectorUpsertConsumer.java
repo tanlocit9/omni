@@ -16,6 +16,7 @@ import com.omni.platform.modules.scheduler.messaging.SectorUpsertMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorUpsertMessage.SectorRecord;
 import com.omni.platform.modules.scheduler.repositories.SectorRepository;
 import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
+import com.omni.platform.shared.utils.MetadataUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.json.JsonMapper;
@@ -128,24 +129,18 @@ public class SectorUpsertConsumer extends AbstractConsumer {
     private Map<String, Object> toMeta(SectorUpsertMessage event, SectorRecord record) {
         Map<String, Object> meta = new LinkedHashMap<>();
         if (record.meta() != null) {
-            record.meta().forEach((key, value) -> putIfPresent(meta, key, value));
+            record.meta().forEach((key, value) -> MetadataUtils.putIfPresent(meta, key, value));
         }
 
-        putIfPresent(meta, "exchange", event.exchange());
-        putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId() != null ? event.jobDefinitionId() : event.jobId());
-        putIfPresent(meta, "executionId", event.executionId() != null ? event.executionId() : event.logId());
-        putIfPresent(meta, "parentExecutionId", event.parentExecutionId());
-        putIfPresent(meta, "expectedCount", event.expectedCount());
-        putIfPresent(meta, "actualCount", event.actualCount());
-        putIfPresent(meta, "detectedAt", event.detectedAt());
-        putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        MetadataUtils.putIfPresent(meta, "exchange", event.exchange());
+        MetadataUtils.putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId() != null ? event.jobDefinitionId() : event.jobId());
+        MetadataUtils.putIfPresent(meta, "executionId", event.executionId() != null ? event.executionId() : event.logId());
+        MetadataUtils.putIfPresent(meta, "parentExecutionId", event.parentExecutionId());
+        MetadataUtils.putIfPresent(meta, "expectedCount", event.expectedCount());
+        MetadataUtils.putIfPresent(meta, "actualCount", event.actualCount());
+        MetadataUtils.putIfPresent(meta, "detectedAt", event.detectedAt());
+        MetadataUtils.putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
         return meta;
-    }
-
-    private void putIfPresent(Map<String, Object> meta, String key, Object value) {
-        if (value != null) {
-            meta.put(key, String.valueOf(value));
-        }
     }
 
     private boolean isBlank(String value) {

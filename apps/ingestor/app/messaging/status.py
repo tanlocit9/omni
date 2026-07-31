@@ -14,8 +14,8 @@ def build_status(
     error_message: str | None = None,
 ) -> dict[str, Any]:
     finished_at = datetime.now(UTC)
-    job_definition_id = payload.get("jobDefinitionId") or payload.get("jobId")
-    execution_id = payload.get("executionId") or payload.get("logId")
+    job_definition_id = payload.get("jobDefinitionId")
+    execution_id = payload.get("executionId")
     parent_execution_id = payload.get("parentExecutionId")
 
     return {

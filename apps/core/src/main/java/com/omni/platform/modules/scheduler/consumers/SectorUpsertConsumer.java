@@ -133,8 +133,8 @@ public class SectorUpsertConsumer extends AbstractConsumer {
         }
 
         MetadataUtils.putIfPresent(meta, "exchange", event.exchange());
-        MetadataUtils.putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId() != null ? event.jobDefinitionId() : event.jobId());
-        MetadataUtils.putIfPresent(meta, "executionId", event.executionId() != null ? event.executionId() : event.logId());
+        MetadataUtils.putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId());
+        MetadataUtils.putIfPresent(meta, "executionId", event.executionId());
         MetadataUtils.putIfPresent(meta, "parentExecutionId", event.parentExecutionId());
         MetadataUtils.putIfPresent(meta, "expectedCount", event.expectedCount());
         MetadataUtils.putIfPresent(meta, "actualCount", event.actualCount());

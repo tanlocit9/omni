@@ -13,12 +13,4 @@ public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessa
     String source();
 
     Map<String, Object> metadata();
-
-    default UUID jobId() {
-        return jobDefinitionId();
-    }
-
-    default UUID logId() {
-        return executionId();
-    }
 }

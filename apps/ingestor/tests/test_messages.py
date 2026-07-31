@@ -30,20 +30,16 @@ def test_symbol_job_message_parses_scheduler_payload():
     assert message.status_payload["executionId"] == "exec-1"
 
 
-def test_symbol_job_message_accepts_legacy_job_and_log_aliases():
-    message = SymbolJobMessage.model_validate(
-        {
-            "jobId": "legacy-job",
-            "logId": "legacy-log",
-            "symbolKey": "HNX-ABC",
-            "metadata": {},
-        }
-    )
-
-    assert message.job_definition_id == "legacy-job"
-    assert message.execution_id == "legacy-log"
-    assert message.status_payload["jobDefinitionId"] == "legacy-job"
-    assert message.status_payload["executionId"] == "legacy-log"
+def test_symbol_job_message_rejects_legacy_job_and_log_aliases():
+    with pytest.raises(ValidationError):
+        SymbolJobMessage.model_validate(
+            {
+                "jobId": "legacy-job",
+                "logId": "legacy-log",
+                "symbolKey": "HNX-ABC",
+                "metadata": {},
+            }
+        )
 
 
 def test_symbol_job_message_rejects_invalid_symbol_key():

@@ -73,7 +73,7 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         if (symbols == null || symbols.isEmpty()) {
             log.warn(
                     "Received empty symbol upsert batch for [{}] (jobDefinitionId={}, executionId={}, parentExecutionId={}), skipping to avoid mass deactivation",
-                    event.exchange(), jobDefinitionId(event), executionId(event), parentExecutionId(event));
+                    event.exchange(), event.jobDefinitionId(), event.executionId(), event.parentExecutionId());
             return;
         }
 
@@ -117,7 +117,7 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
                 .collect(Collectors.toSet());
         symbolRepository.deactivateMissing(event.exchange(), incomingCodes);
 
-        UUID parentExecutionId = parentExecutionId(event);
+        UUID parentExecutionId = event.parentExecutionId();
         if (parentExecutionId != null) {
             jobService.aggregateParentExecution(parentExecutionId);
         }
@@ -133,7 +133,7 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
     }
 
     private JobExecutionHistory createChildExecutionIfTracked(SymbolUpsertMessage event, SymbolRecord record) {
-        UUID parentExecutionId = parentExecutionId(event);
+        UUID parentExecutionId = event.parentExecutionId();
         if (parentExecutionId == null) {
             return null;
         }
@@ -153,9 +153,9 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
     private Map<String, Object> toExecutionMeta(SymbolUpsertMessage event, SymbolRecord record) {
         Map<String, Object> meta = new LinkedHashMap<>();
         MetadataUtils.putIfPresent(meta, "symbolKey", symbolKey(event, record));
-        MetadataUtils.putIfPresent(meta, "jobDefinitionId", jobDefinitionId(event));
-        MetadataUtils.putIfPresent(meta, "executionId", executionId(event));
-        MetadataUtils.putIfPresent(meta, "parentExecutionId", parentExecutionId(event));
+        MetadataUtils.putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId());
+        MetadataUtils.putIfPresent(meta, "executionId", event.executionId());
+        MetadataUtils.putIfPresent(meta, "parentExecutionId", event.parentExecutionId());
         MetadataUtils.putIfPresent(meta, "exchange", !isBlank(record.exchange()) ? record.exchange() : event.exchange());
         MetadataUtils.putIfPresent(meta, "code", record.code());
         MetadataUtils.putIfPresent(meta, "expectedCount", event.expectedCount());
@@ -187,21 +187,6 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
 
         meta.keySet().retainAll(Symbol.META_JSON_ALLOWED_KEYS);
         return meta;
-    }
-
-    private UUID jobDefinitionId(SymbolUpsertMessage event) {
-        return event.jobDefinitionId() != null ? event.jobDefinitionId() : event.jobId();
-    }
-
-    private UUID executionId(SymbolUpsertMessage event) {
-        return event.executionId() != null ? event.executionId() : event.logId();
-    }
-
-    private UUID parentExecutionId(SymbolUpsertMessage event) {
-        if (event.parentExecutionId() != null) {
-            return event.parentExecutionId();
-        }
-        return event.logId() != null ? event.logId() : event.executionId();
     }
 
     private boolean isBlank(String value) {

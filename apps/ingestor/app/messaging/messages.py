@@ -3,16 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class JobMessage(BaseModel):
     job_definition_id: str = Field(
-        validation_alias=AliasChoices("jobDefinitionId", "jobId"),
+        validation_alias="jobDefinitionId",
         serialization_alias="jobDefinitionId",
     )
     execution_id: str = Field(
-        validation_alias=AliasChoices("executionId", "logId"),
+        validation_alias="executionId",
         serialization_alias="executionId",
     )
     parent_execution_id: str | None = Field(

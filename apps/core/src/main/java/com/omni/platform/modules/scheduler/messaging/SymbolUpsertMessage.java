@@ -10,8 +10,6 @@ public record SymbolUpsertMessage(
         UUID jobDefinitionId,
         UUID executionId,
         UUID parentExecutionId,
-        UUID jobId,
-        UUID logId,
         String exchange,
         int expectedCount,
         int actualCount,

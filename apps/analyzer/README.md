@@ -108,7 +108,7 @@ curl -X POST "http://localhost:8000/v1/indicators/sync" \
     "executionId": "execution-id",
     "parentExecutionId": null,
     "source": "ANALYZER",
-    "indicatorSource": "close",
+    "indicatorSource": "ad_close",
     "symbolKey": "HOSE-HPG",
     "timeframe": "1d",
     "indicators": ["MA20", "MA50", "RSI14", "MACD"],
@@ -122,7 +122,7 @@ Example response:
 {
   "accepted": true,
   "symbolKey": "HOSE-HPG",
-  "indicatorSource": "close",
+  "indicatorSource": "ad_close",
   "timeframe": "1d",
   "recordsProcessed": 60
 }
@@ -169,12 +169,12 @@ Use flat env names only. They are shared by Java, Python, and Docker Compose, an
 Analyzer uses the same path-builder convention as Ingestor:
 
 ```python
-settings.get_symbols_path("HOSE")                  # symbols/hose.parquet
-settings.get_eod_path("HOSE", "HPG")               # eod/hose/hpg.parquet
-settings.get_indicators_path("1d", "HOSE", "HPG")  # indicators/1d/hose/hpg.parquet
+settings.get_symbols_path("HOSE")                              # symbols/hose.parquet
+settings.get_eod_path("HOSE", "HPG")                           # eod/hose/hpg.parquet
+settings.get_indicators_path("ad_close", "1d", "HOSE", "HPG") # indicators/ad_close/1d/hose/hpg.parquet
 ```
 
-Exchange names and ticker codes are lowercased in object names. Keep official uppercase symbols in API responses and metadata. Indicator path construction validates canonical timeframe values and v1 currently enables only `1d`.
+Exchange names and ticker codes are lowercased in object names. Keep official uppercase symbols in API responses and metadata. Indicator path construction validates canonical source/timeframe values; v1 currently uses source `ad_close` and timeframe `1d`.
 
 ### Indicator Kafka runtime
 
@@ -246,9 +246,11 @@ Stock sync commands should continue to flow through the Platform scheduler and I
 Indicator jobs must keep producer and consumer contracts synchronized:
 
 - Platform produces `IndicatorJobMessage` to `topic-sync-indicators`.
-- Analyzer consumes that message and validates `timeframe`, `symbolKey`, and the complete v1 indicator set.
-- Analyzer reads `eod/{exchange}/{code}.parquet`, writes `indicators/1d/{exchange}/{code}.parquet`, and publishes `recordsProcessed` status.
+- Analyzer consumes that message and validates `indicatorSource`, `timeframe`, `symbolKey`, and the complete v1 indicator set.
+- Analyzer reads `eod/{exchange}/{code}.parquet`, writes `indicators/{source}/{timeframe}/{exchange}/{code}.parquet`, and publishes `recordsProcessed` status.
 - Platform consumes `topic-sync-job-status`, maps `ERROR` to failed execution state, and aggregates parent executions.
+
+For the current v1 contract, `{source}` is `ad_close` and `{timeframe}` is `1d`.
 
 Do not add bucket or object-name routing fields to indicator Kafka messages; object paths are derived from shared path builders.
 

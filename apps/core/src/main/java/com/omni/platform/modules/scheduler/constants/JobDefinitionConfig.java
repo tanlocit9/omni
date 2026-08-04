@@ -43,7 +43,7 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_INDICATORS = "indicators";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
-        public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD");
+        public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD", "ICHIMOKU");
 
         private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";

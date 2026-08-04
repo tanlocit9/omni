@@ -73,7 +73,8 @@ class IndicatorKafkaService:
         assert self._consumer is not None
         async for record in self._consumer:
             _logger.info(
-                "Received indicator Kafka message topic=%s partition=%s offset=%s key=%s",
+                "Received indicator Kafka message topic=%s "
+                "partition=%s offset=%s key=%s",
                 record.topic,
                 record.partition,
                 record.offset,

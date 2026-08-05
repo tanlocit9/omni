@@ -6,10 +6,12 @@ from typing import Any
 
 import pandas as pd
 from aiokafka import AIOKafkaProducer
+from py_common.kafka import decode_json_object_payload
+from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
 from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SyncSymbolsJobMessage
-from app.messaging.status import build_status
+from app.messaging.status import build_status, status_publish_key
 from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
@@ -44,17 +46,18 @@ CLASSIFICATION_COLUMNS = [
 
 
 async def process_sync_symbols_message(
-    raw_msg: bytes,
+    raw_msg: str | bytes | dict[str, Any],
     producer: AIOKafkaProducer,
+    status_publisher: JobStatusPublisher,
     default_client: StockClient,
     parquet_storage: ParquetStorage,
-) -> None:
-    started_at = datetime.now(UTC)
+) -> JobStatusMessage:
+    started_at = utc_now()
     payload: dict[str, Any] = {}
     exchange = None
 
     try:
-        payload = json.loads(raw_msg.decode())
+        payload = decode_json_object_payload(raw_msg, "Symbols sync job")
         message = SyncSymbolsJobMessage.model_validate(payload)
         payload = message.status_payload
         exchange = message.exchange
@@ -181,13 +184,16 @@ async def process_sync_symbols_message(
             exchange,
             payload,
             started_at,
-            "partial_success" if warnings else "success",
+            JobStatus.PARTIAL_SUCCESS if warnings else JobStatus.SUCCESS,
             records_inserted=current_count,
             total_records=current_count,
         )
+        status_extras: dict[str, Any] = {
+            "classificationSource": classification_source,
+        }
         if warnings:
-            status["warnings"] = warnings
-        status["classificationSource"] = classification_source
+            status_extras["warnings"] = warnings
+        status = status.model_copy(update=status_extras)
     except Exception as exc:
         logger.exception("Failed to process sync-symbols message: %s", exc)
         status = build_status(
@@ -195,22 +201,12 @@ async def process_sync_symbols_message(
             exchange,
             payload,
             started_at,
-            "error",
+            JobStatus.ERROR,
             error_message=str(exc),
         )
 
-    result = await producer.send_and_wait(
-        settings.sync_job_status_topic,
-        key=status["exchange"].encode() if status.get("exchange") else None,
-        value=json.dumps(status, default=str).encode(),
-    )
-    logger.info(
-        "Published symbols sync status for %s to topic=%s partition=%s offset=%s",
-        status.get("exchange"),
-        result.topic,
-        result.partition,
-        result.offset,
-    )
+    await status_publisher.publish(status, key=status_publish_key(status, "exchange"))
+    return status
 
 
 def validate_symbols_snapshot(symbols_df: pd.DataFrame, exchange: str) -> pd.DataFrame:

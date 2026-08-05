@@ -8,13 +8,13 @@ import yaml
 
 def load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML configuration file.
-    
+
     Args:
         path: Path to YAML file
-        
+
     Returns:
         Dictionary containing parsed YAML content, or empty dict if file not found
-        
+
     Examples:
         >>> from pathlib import Path
         >>> config = load_yaml(Path("config.yaml"))

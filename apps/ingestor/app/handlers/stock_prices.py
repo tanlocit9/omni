@@ -1,13 +1,13 @@
-import json
 import logging
-from datetime import UTC, date, datetime
+from datetime import date
 
 import pandas as pd
-from aiokafka import AIOKafkaProducer
+from py_common.kafka import decode_json_object_payload
+from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
 from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SymbolJobMessage
-from app.messaging.status import build_status
+from app.messaging.status import build_status, status_publish_key
 from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
@@ -51,17 +51,17 @@ def normalize_stock_price_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 async def process_stock_price_message(
-    raw_msg: bytes,
-    producer: AIOKafkaProducer,
+    raw_msg: str | bytes | dict[str, object],
+    status_publisher: JobStatusPublisher,
     default_client: StockClient,
     parquet_storage: ParquetStorage,
-) -> None:
-    started_at = datetime.now(UTC)
+) -> JobStatusMessage:
+    started_at = utc_now()
     payload: dict[str, object] = {}
     symbol_key = None
 
     try:
-        payload = json.loads(raw_msg.decode())
+        payload = decode_json_object_payload(raw_msg, "Stock price sync job")
         message = SymbolJobMessage.model_validate(payload)
         payload = message.status_payload
         symbol_key = message.symbol_key
@@ -94,7 +94,7 @@ async def process_stock_price_message(
             symbol_key,
             payload,
             started_at,
-            "success",
+            JobStatus.SUCCESS,
             records_inserted=len(new_df),
             total_records=len(combined),
             new_offset=to_date.isoformat(),
@@ -106,20 +106,9 @@ async def process_stock_price_message(
             symbol_key,
             payload,
             started_at,
-            "error",
+            JobStatus.ERROR,
             error_message=str(exc),
         )
 
-    result = await producer.send_and_wait(
-        settings.sync_job_status_topic,
-        key=status["symbolKey"].encode() if status.get("symbolKey") else None,
-        value=json.dumps(status, default=str).encode(),
-    )
-
-    logger.info(
-        "Published stock-price sync status for %s to topic=%s partition=%s offset=%s",
-        status.get("symbolKey"),
-        result.topic,
-        result.partition,
-        result.offset,
-    )
+    await status_publisher.publish(status, key=status_publish_key(status, "symbolKey"))
+    return status

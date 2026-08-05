@@ -8,11 +8,11 @@ from py_common.config.paths import StockDataPaths
 
 class KafkaSettings(BaseModel):
     """Kafka connection and configuration settings.
-    
+
     Attributes:
         bootstrap_servers: Kafka broker addresses (comma-separated)
         consumer_group: Consumer group prefix for this service
-    
+
     Examples:
         >>> settings = KafkaSettings(
         ...     bootstrap_servers="localhost:9092",
@@ -34,7 +34,7 @@ class KafkaSettings(BaseModel):
 
 class MinioSettings(BaseModel):
     """MinIO object storage connection settings.
-    
+
     Attributes:
         enabled: Whether MinIO adapter is enabled
         endpoint: MinIO server endpoint (host:port)
@@ -42,7 +42,7 @@ class MinioSettings(BaseModel):
         secret_key: Secret key for authentication
         bucket: Default bucket name for storage operations
         secure: Whether to use HTTPS for connections
-    
+
     Examples:
         >>> settings = MinioSettings(
         ...     endpoint="localhost:9000",
@@ -82,10 +82,10 @@ class MinioSettings(BaseModel):
 
 class SchedulerSettings(BaseModel):
     """Scheduler-related application settings.
-    
+
     Attributes:
         zone: IANA timezone identifier used for scheduler defaults
-    
+
     Examples:
         >>> settings = SchedulerSettings(zone="Asia/Ho_Chi_Minh")
         >>> settings.zone
@@ -100,10 +100,10 @@ class SchedulerSettings(BaseModel):
 
 class StorageSettings(BaseModel):
     """Storage provider configuration.
-    
+
     Attributes:
         provider: Storage provider to use (minio, aws_s3)
-    
+
     Examples:
         >>> from py_common.storage import StorageProvider
         >>> settings = StorageSettings(provider=StorageProvider.MINIO)

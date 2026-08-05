@@ -8,12 +8,12 @@ from py_common.config.constants import Timeframe, validate_indicator_timeframe
 @dataclass(frozen=True)
 class StockDataPaths:
     """S3 path builder for stock data bucket.
-    
+
     All paths follow lowercase normalization rules:
     - Exchange names: HOSE → hose, HNX → hnx, UPCOM → upcom
     - Ticker codes: HPG → hpg, FPT → fpt
     - Timeframes: validated against Timeframe enum
-    
+
     Attributes:
         symbols_base: Base path for symbol metadata
         symbols_pattern: Pattern for symbol file paths
@@ -21,7 +21,7 @@ class StockDataPaths:
         eod_pattern: Pattern for EOD file paths
         indicators_base: Base path for indicator data
         indicators_pattern: Pattern for indicator file paths
-    
+
     Examples:
         >>> paths = StockDataPaths(
         ...     symbols_base="symbols/",
@@ -60,13 +60,13 @@ class StockDataPaths:
 
     def symbols(self, exchange: str) -> str:
         """Build S3 path for symbol metadata file.
-        
+
         Args:
             exchange: Exchange name (will be normalized to lowercase)
-            
+
         Returns:
             Path like: symbols/hose.parquet
-            
+
         Examples:
             >>> paths.symbols("HOSE")
             'symbols/hose.parquet'
@@ -79,14 +79,14 @@ class StockDataPaths:
 
     def eod(self, exchange: str, code: str) -> str:
         """Build S3 path for EOD price data file.
-        
+
         Args:
             exchange: Exchange name (will be normalized to lowercase)
             code: Stock ticker code (will be normalized to lowercase)
-            
+
         Returns:
             Path like: eod/hose/hpg.parquet
-            
+
         Examples:
             >>> paths.eod("HOSE", "HPG")
             'eod/hose/hpg.parquet'
@@ -102,22 +102,22 @@ class StockDataPaths:
         self, source: str, timeframe: Timeframe | str, exchange: str, code: str
     ) -> str:
         """Build S3 path for indicator data file.
-        
+
         Validates timeframe against allowed values and normalizes source/exchange/code
         to lowercase.
-        
+
         Args:
             source: Indicator source column (will be normalized to lowercase)
             timeframe: Timeframe interval (Timeframe enum or string)
             exchange: Exchange name (will be normalized to lowercase)
             code: Stock ticker code (will be normalized to lowercase)
-            
+
         Returns:
             Path like: indicators/close/1d/hose/hpg.parquet
-            
+
         Raises:
             ValueError: If timeframe is not a valid Timeframe value
-            
+
         Examples:
             >>> paths.indicators("close", Timeframe.ONE_DAY, "HOSE", "HPG")
             'indicators/close/1d/hose/hpg.parquet'
@@ -154,7 +154,7 @@ class StockDataPaths:
     @classmethod
     def from_config(cls, config: dict) -> StockDataPaths:
         """Create StockDataPaths from configuration dictionary.
-        
+
         Expected config structure:
         {
             "paths": {
@@ -166,13 +166,13 @@ class StockDataPaths:
                 },
             }
         }
-        
+
         Args:
             config: Configuration dictionary from s3-paths.yaml
-            
+
         Returns:
             Configured StockDataPaths instance
-            
+
         Examples:
             >>> config = {
             ...     "paths": {

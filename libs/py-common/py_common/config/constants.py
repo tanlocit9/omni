@@ -5,10 +5,10 @@ from enum import StrEnum
 
 class Timeframe(StrEnum):
     """Supported timeframe intervals for indicator calculation.
-    
+
     These timeframe values are used in S3 path construction and must match
     the pattern defined in configs/shared/s3-paths.yaml.
-    
+
     Examples:
         >>> Timeframe.ONE_DAY
         '1d'
@@ -32,16 +32,16 @@ class Timeframe(StrEnum):
     @classmethod
     def validate(cls, value: str) -> Timeframe:
         """Validate and convert string to Timeframe enum.
-        
+
         Args:
             value: Timeframe string to validate
-            
+
         Returns:
             Validated Timeframe enum
-            
+
         Raises:
             ValueError: If value is not a valid timeframe
-            
+
         Examples:
             >>> Timeframe.validate("1d")
             <Timeframe.ONE_DAY: '1d'>
@@ -83,10 +83,10 @@ def validate_indicator_timeframe(value: Timeframe | str) -> Timeframe:
 
 class ConsumerGroup(StrEnum):
     """Standard consumer group prefixes for Kafka consumers.
-    
+
     These prefixes ensure consistent naming across services and prevent
     consumer group ID collisions.
-    
+
     Examples:
         >>> ConsumerGroup.INGESTOR.for_topic("symbols-sync")
         'omni-ingestor-symbols-sync'
@@ -100,16 +100,16 @@ class ConsumerGroup(StrEnum):
 
     def for_topic(self, topic: str) -> str:
         """Generate full consumer group ID for a topic.
-        
+
         Combines the service prefix with the topic name to create a unique
         consumer group identifier.
-        
+
         Args:
             topic: Kafka topic name
-            
+
         Returns:
             Full consumer group ID: {prefix}-{topic}
-            
+
         Examples:
             >>> ConsumerGroup.INGESTOR.for_topic("symbols-sync")
             'omni-ingestor-symbols-sync'

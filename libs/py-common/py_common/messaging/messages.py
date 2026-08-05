@@ -14,12 +14,12 @@ class JobStatus(StrEnum):
 
 
 class JobStatusMessage(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
-    job_definition_id: str = Field(alias="jobDefinitionId")
-    execution_id: str = Field(alias="executionId")
+    job_definition_id: str | None = Field(default=None, alias="jobDefinitionId")
+    execution_id: str | None = Field(default=None, alias="executionId")
     parent_execution_id: str | None = Field(default=None, alias="parentExecutionId")
-    symbol_key: str = Field(alias="symbolKey")
+    symbol_key: str | None = Field(default=None, alias="symbolKey")
     status: JobStatus
     started_at: datetime = Field(alias="startedAt")
     finished_at: datetime = Field(alias="finishedAt")
@@ -28,6 +28,32 @@ class JobStatusMessage(BaseModel):
     duration_ms: int = Field(default=0, alias="durationMs")
     meta_json: dict[str, Any] = Field(default_factory=dict, alias="metaJson")
     new_offset: str | None = Field(default=None, alias="newOffset")
+
+
+def calculate_duration_ms(started_at: datetime, finished_at: datetime) -> int:
+    return int((finished_at - started_at).total_seconds() * 1000)
+
+
+def build_job_error_status(
+    *,
+    raw: dict[str, Any],
+    started_at: datetime,
+    finished_at: datetime,
+    error_message: str,
+) -> JobStatusMessage:
+    return JobStatusMessage(
+        job_definition_id=str(raw.get("jobDefinitionId", "")),
+        execution_id=str(raw.get("executionId", "")),
+        parent_execution_id=raw.get("parentExecutionId"),
+        symbol_key=str(raw.get("symbolKey", "")),
+        status=JobStatus.ERROR,
+        started_at=started_at,
+        finished_at=finished_at,
+        error_message=error_message,
+        records_processed=0,
+        duration_ms=calculate_duration_ms(started_at, finished_at),
+        meta_json={"recordsProcessed": 0},
+    )
 
 
 def utc_now() -> datetime:

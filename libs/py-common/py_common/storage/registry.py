@@ -129,9 +129,7 @@ class StorageProviderRegistry:
         for provider, task in tasks.items():
             try:
                 await task
-                logger.info(
-                    "Storage provider '%s' validated successfully", provider
-                )
+                logger.info("Storage provider '%s' validated successfully", provider)
             except StorageValidationError as exc:
                 logger.error(
                     "Storage provider '%s' failed validation: %s", provider, exc

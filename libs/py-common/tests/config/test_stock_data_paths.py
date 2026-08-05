@@ -77,9 +77,7 @@ def test_raw_string_timeframe_validation_uses_canonical_enum():
 
 
 @pytest.mark.parametrize("timeframe", ["bad", "", "  "])
-def test_indicators_rejects_invalid_timeframes(
-    paths: StockDataPaths, timeframe: str
-):
+def test_indicators_rejects_invalid_timeframes(paths: StockDataPaths, timeframe: str):
     with pytest.raises(ValueError):
         paths.indicators("close", timeframe, "HOSE", "HPG")
 

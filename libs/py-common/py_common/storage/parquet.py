@@ -162,9 +162,7 @@ class ParquetStorage:
                 object_name=f"{self._bucket}/{object_name}",
             ) from exc.cause
 
-    async def read_optional_dataframe(
-        self, object_name: str
-    ) -> pd.DataFrame | None:
+    async def read_optional_dataframe(self, object_name: str) -> pd.DataFrame | None:
         """Download and deserialize a Parquet object, returning ``None`` if absent.
 
         Use this when the absence of an object is a normal condition (e.g.

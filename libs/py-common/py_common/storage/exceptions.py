@@ -53,9 +53,7 @@ class StorageValidationError(StorageError):
     ) -> None:
         self.provider = provider
         self.cause = cause
-        super().__init__(
-            f"Storage provider '{provider}' failed validation: {cause}"
-        )
+        super().__init__(f"Storage provider '{provider}' failed validation: {cause}")
 
 
 class StorageProviderNotFoundError(StorageError):
@@ -143,9 +141,7 @@ class StorageObjectNotFoundError(StorageError):
     def __init__(self, bucket: str, object_name: str) -> None:
         self.bucket = bucket
         self.object_name = object_name
-        super().__init__(
-            f"Object not found: s3://{bucket}/{object_name}"
-        )
+        super().__init__(f"Object not found: s3://{bucket}/{object_name}")
 
 
 class StorageReadError(StorageError):
@@ -168,9 +164,7 @@ class StorageReadError(StorageError):
         self.bucket = bucket
         self.object_name = object_name
         self.cause = cause
-        super().__init__(
-            f"Failed to read s3://{bucket}/{object_name}: {cause}"
-        )
+        super().__init__(f"Failed to read s3://{bucket}/{object_name}: {cause}")
 
 
 class StorageWriteError(StorageError):
@@ -191,9 +185,7 @@ class StorageWriteError(StorageError):
         self.bucket = bucket
         self.object_name = object_name
         self.cause = cause
-        super().__init__(
-            f"Failed to write s3://{bucket}/{object_name}: {cause}"
-        )
+        super().__init__(f"Failed to write s3://{bucket}/{object_name}: {cause}")
 
 
 class StorageDeleteError(StorageError):
@@ -214,9 +206,7 @@ class StorageDeleteError(StorageError):
         self.bucket = bucket
         self.object_name = object_name
         self.cause = cause
-        super().__init__(
-            f"Failed to delete s3://{bucket}/{object_name}: {cause}"
-        )
+        super().__init__(f"Failed to delete s3://{bucket}/{object_name}: {cause}")
 
 
 # ---------------------------------------------------------------------------

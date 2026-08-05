@@ -7,6 +7,7 @@ kafka:
     topic-upsert-sectors: topic-upsert-sectors
     topic-sync-job-status: topic-sync-job-status
     topic-sync-indicators: topic-sync-indicators
+    topic-sync-signals: topic-sync-signals
 
 app:
   scheduler:

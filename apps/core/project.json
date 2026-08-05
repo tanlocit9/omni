@@ -19,7 +19,8 @@
           ],
           "parallel": true,
           "env": {
-            "SPRING_PROFILES_ACTIVE": "dev"
+            "SPRING_PROFILES_ACTIVE": "dev",
+            "TELEGRAM_NOTIFICATIONS_ENABLED": "true"
           }
         },
         "prod": {

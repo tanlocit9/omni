@@ -45,6 +45,8 @@ class StockDataPaths:
     eod_pattern: str
     indicators_base: str
     indicators_pattern: str
+    signals_base: str = "signals/"
+    signals_pattern: str = "{strategy}/{timeframe}/{exchange}/{code}.parquet"
 
     @staticmethod
     def _normalize_path_part(value: str | None, name: str) -> str:
@@ -136,6 +138,19 @@ class StockDataPaths:
             code=self._normalize_path_part(code, "code"),
         )
 
+    def signals(
+        self, strategy: str, timeframe: Timeframe | str, exchange: str, code: str
+    ) -> str:
+        """Build S3 path for market signal state data file."""
+        timeframe = validate_indicator_timeframe(timeframe)
+
+        return self.signals_base + self.signals_pattern.format(
+            strategy=self._normalize_path_part(strategy, "strategy"),
+            timeframe=timeframe.value,
+            exchange=self._normalize_path_part(exchange, "exchange"),
+            code=self._normalize_path_part(code, "code"),
+        )
+
     @classmethod
     def from_config(cls, config: dict) -> StockDataPaths:
         """Create StockDataPaths from configuration dictionary.
@@ -182,6 +197,7 @@ class StockDataPaths:
         symbols_cfg = paths_config.get("symbols", {})
         eod_cfg = paths_config.get("eod", {})
         indicators_cfg = paths_config.get("indicators", {})
+        signals_cfg = paths_config.get("signals", {})
 
         return cls(
             symbols_base=symbols_cfg.get("base", "symbols/"),
@@ -191,5 +207,9 @@ class StockDataPaths:
             indicators_base=indicators_cfg.get("base", "indicators/"),
             indicators_pattern=indicators_cfg.get(
                 "pattern", "{source}/{timeframe}/{exchange}/{code}.parquet"
+            ),
+            signals_base=signals_cfg.get("base", "signals/"),
+            signals_pattern=signals_cfg.get(
+                "pattern", "{strategy}/{timeframe}/{exchange}/{code}.parquet"
             ),
         )

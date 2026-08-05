@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.producers.SyncIndicatorsJobProducer;
+import com.omni.platform.modules.scheduler.producers.SyncSignalsJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncStockPriceJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncSymbolsJobProducer;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
@@ -24,6 +25,7 @@ public class SyncJobScheduler {
     private final SyncStockPriceJobProducer syncStockPriceProducer;
     private final SyncSymbolsJobProducer symbolsJobProducer;
     private final SyncIndicatorsJobProducer syncIndicatorsJobProducer;
+    private final SyncSignalsJobProducer syncSignalsJobProducer;
 
     @Scheduled(fixedDelayString = "${app.scheduler.global.fixedDelayString:30000}")
     public void scan() {
@@ -38,11 +40,14 @@ public class SyncJobScheduler {
         log.info("Found {} due job(s)", dueJobs.size());
 
         for (JobDefinition job : dueJobs) {
+            log.info("Dispatching due job [{}] type [{}] source [{}] nextRun [{}] active [{}]", job.getId(),
+                    job.getJobType(), job.getSource(), job.getNextRun(), job.getIsActive());
             try {
                 switch (job.getJobType()) {
                     case SYNC_STOCK_PRICE -> syncStockPriceProducer.publish(job, now);
                     case SYNC_SYMBOLS -> symbolsJobProducer.publish(job, now);
                     case SYNC_INDICATORS -> syncIndicatorsJobProducer.publish(job, now);
+                    case SYNC_SIGNALS -> syncSignalsJobProducer.publish(job, now);
                 }
             } catch (Exception e) {
                 log.error("Failed to dispatch job [{}]: {}", job.getId(), e.getMessage(), e);

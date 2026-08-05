@@ -1,10 +1,10 @@
 # Stock Analyzer Service (`apps/analyzer`)
 
-The **Stock Analyzer Service** is a FastAPI application and Kafka worker for analytical APIs and technical-indicator calculation.
+The **Stock Analyzer Service** is a FastAPI application and Kafka worker for analytical APIs, technical-indicator calculation, and Market Signal V1 calculation.
 
 Analyzer no longer owns stock-price persistence. It does **not** connect directly to PostgreSQL, does **not** read stock prices from PostgreSQL, and does **not** write synchronized stock prices back to PostgreSQL. Stock synchronization is owned by the Platform scheduler and downstream Ingestor flow.
 
-Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform. It also exposes a direct synchronous API for callers that need to invoke the same indicator calculation contract without Kafka.
+Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform. Analyzer also owns Market Signal V1 jobs from `topic-sync-signals`: it reads EOD and indicator Parquet data, writes signal-state Parquet files next to indicators, and publishes only transition metadata back to Platform. It also exposes direct synchronous APIs for callers that need to invoke the same calculation contracts without Kafka.
 
 ---
 
@@ -14,7 +14,8 @@ Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it re
 - **Compatibility stock endpoints**: Existing stock endpoints remain available, but they report that direct PostgreSQL access has been removed.
 - **No direct database access**: Analyzer has no SQLAlchemy engine, PostgreSQL session, repository, generated DB models, or database migration coupling.
 - **Indicator Kafka worker**: Consumes Platform-owned `topic-sync-indicators` jobs and publishes status to `topic-sync-job-status`.
-- **MinIO/S3 analytical storage**: Reads EOD files and writes indicator files through shared `ParquetStorage`.
+- **Signal Kafka worker**: Consumes Platform-owned `topic-sync-signals` jobs, writes signal-state Parquet files, and publishes transition metadata to `topic-sync-job-status`.
+- **MinIO/S3 analytical storage**: Reads EOD files and writes indicator and signal files through shared `ParquetStorage`.
 - **Infrastructure foundations**:
   - `KafkaEventPublisher` can publish JSON events to Kafka.
   - Shared storage adapters can read and write object-storage data.
@@ -48,6 +49,12 @@ apps/analyzer/
 │   │   ├── handler.py                 # Reads EOD Parquet and writes indicator Parquet
 │   │   ├── kafka.py                   # Kafka consumer/producer lifecycle
 │   │   └── messages.py                # Indicator job/status contracts
+│   ├── signals/
+│   │   ├── handler.py                 # Reads EOD/indicator Parquet and writes signal state
+│   │   ├── kafka.py                   # Signal Kafka consumer/status publisher lifecycle
+│   │   ├── messages.py                # Signal job contract
+│   │   ├── storage.py                 # Baseline and transition persistence
+│   │   └── strategy.py                # TREND_MOMENTUM_V1 scoring rules
 │   ├── services/
 │   │   └── stock_service.py           # Stock compatibility behavior
 │   └── settings.py                    # Shared topic/S3 config loader and runtime settings
@@ -128,6 +135,42 @@ Example response:
 }
 ```
 
+### 4. Direct Market Signal Sync Endpoint
+
+Synchronously calculates Market Signal V1 for one symbol using the same JSON payload contract as `topic-sync-signals` Kafka jobs. The endpoint reads EOD and indicator Parquet data from MinIO/S3, writes a signal-state Parquet file, and returns transition details directly. It does not publish a job-status Kafka message.
+
+- **URL**: `POST /v1/signals/sync`
+- **Body**: `SignalJobMessage` JSON payload, including `jobDefinitionId`, `executionId`, optional `parentExecutionId`, `source`, `symbolKey`, `timeframe`, `strategy`, and `metadata`.
+
+```bash
+curl -X POST "http://localhost:8000/v1/signals/sync" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jobDefinitionId": "job-definition-id",
+    "executionId": "execution-id",
+    "parentExecutionId": null,
+    "source": "ANALYZER",
+    "symbolKey": "HOSE-HPG",
+    "timeframe": "1d",
+    "strategy": "TREND_MOMENTUM_V1",
+    "metadata": {}
+  }'
+```
+
+Example response:
+
+```json
+{
+  "accepted": true,
+  "symbolKey": "HOSE-HPG",
+  "strategy": "TREND_MOMENTUM_V1",
+  "timeframe": "1d",
+  "signalChanged": true,
+  "previousSignal": "NEUTRAL",
+  "newSignal": "BULLISH"
+}
+```
+
 ---
 
 ## Shared Configuration
@@ -151,6 +194,7 @@ Use flat env names only. They are shared by Java, Python, and Docker Compose, an
 | `settings.topic_sync_stock_prices` | `SYNC_STOCK_PRICES_TOPIC` | `kafka.topics.topic-sync-stock-prices` |
 | `settings.topic_sync_symbols` | `SYNC_SYMBOLS_TOPIC` | `kafka.topics.topic-sync-symbols` |
 | `settings.topic_sync_indicators` | `SYNC_INDICATORS_TOPIC` | `kafka.topics.topic-sync-indicators` |
+| `settings.topic_sync_signals` | `SYNC_SIGNALS_TOPIC` | `kafka.topics.topic-sync-signals` |
 | `settings.topic_upsert_symbols` | `UPSERT_SYMBOLS_TOPIC` | `kafka.topics.topic-upsert-symbols` |
 | `settings.topic_sync_job_status` | `JOB_STATUS_TOPIC` | `kafka.topics.topic-sync-job-status` |
 
@@ -172,26 +216,32 @@ Analyzer uses the same path-builder convention as Ingestor:
 settings.get_symbols_path("HOSE")                              # symbols/hose.parquet
 settings.get_eod_path("HOSE", "HPG")                           # eod/hose/hpg.parquet
 settings.get_indicators_path("ad_close", "1d", "HOSE", "HPG") # indicators/ad_close/1d/hose/hpg.parquet
+settings.get_signals_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG") # signals/trend_momentum_v1/1d/hose/hpg.parquet
 ```
 
-Exchange names and ticker codes are lowercased in object names. Keep official uppercase symbols in API responses and metadata. Indicator path construction validates canonical source/timeframe values; v1 currently uses source `ad_close` and timeframe `1d`.
+Exchange names, ticker codes, and signal strategy names are lowercased in object names. Keep official uppercase symbols and strategy values in API responses and metadata. Indicator and signal path construction validates canonical timeframe values; v1 currently uses indicator source `ad_close`, timeframe `1d`, and signal strategy `TREND_MOMENTUM_V1`.
 
-### Indicator Kafka runtime
+### Indicator and signal Kafka runtime
 
-Analyzer starts the indicator Kafka worker during FastAPI startup by default. Disable it for tests or local API-only runs with:
+Analyzer starts the indicator and signal Kafka workers during FastAPI startup by default. Disable them for tests or local API-only runs with:
 
 ```bash
-INDICATOR_KAFKA_ENABLED=false nx serve analyzer
+INDICATOR_KAFKA_ENABLED=false SIGNAL_KAFKA_ENABLED=false nx serve analyzer
 ```
 
-The direct `POST /v1/indicators/sync` endpoint reuses the same `IndicatorJobMessage` contract and writes the same indicator output path synchronously, but returns the processed record count in the HTTP response instead of publishing to `topic-sync-job-status`.
+The direct `POST /v1/indicators/sync` and `POST /v1/signals/sync` endpoints reuse their Kafka job-message contracts and write the same object-storage outputs synchronously, but return HTTP responses instead of publishing to `topic-sync-job-status`.
 
 Contract summary:
 
-| Topic                   | Direction | Purpose                                                                  |
-| ----------------------- | --------- | ------------------------------------------------------------------------ |
-| `topic-sync-indicators` | Consume   | Platform requests full-series indicator calculation for one `symbolKey`. |
-| `topic-sync-job-status` | Publish   | Analyzer reports `SUCCESS` or `ERROR` with `recordsProcessed`.           |
+| Topic                   | Direction | Purpose                                                                                 |
+| ----------------------- | --------- | --------------------------------------------------------------------------------------- |
+| `topic-sync-indicators` | Consume   | Platform requests full-series indicator calculation for one `symbolKey`.                |
+| `topic-sync-signals`    | Consume   | Platform requests Market Signal V1 calculation for one `symbolKey`.                     |
+| `topic-sync-job-status` | Publish   | Analyzer reports `SUCCESS` or `ERROR` with `recordsProcessed` and optional signal meta. |
+
+Signal status metadata contains only transition metadata, not signal-state file contents or object paths. On success, `metaJson` may include `signalChanged`, `previousSignal`, `newSignal`, `price`, `signalDate`, `reasonCodes`, `score`, `strategy`, and `timeframe`. The first successful write creates a baseline with `previousSignal: null` and `signalChanged: false`, so Platform does not notify on initial state creation.
+
+Market Signal V1 uses strategy `TREND_MOMENTUM_V1` over EOD `ad_close` plus `MA20`, `MA50`, `RSI14`, `MACD`, and `MACD_SIGNAL` indicator columns. It emits `BULLISH`, `NEUTRAL`, `BEARISH`, or `NO_DECISION`. Scoring is deterministic: price above/below `MA50` is `+2/-2`, `MA20` above/below `MA50` is `+1/-1`, `RSI14` above `55` or below `45` is `+1/-1`, and `MACD` above/below signal is `+1/-1`. Scores `>= 3` are `BULLISH`; scores `<= -3` are `BEARISH`; otherwise `NEUTRAL`. Missing required inputs produce `NO_DECISION` with structured reason codes.
 
 ---
 

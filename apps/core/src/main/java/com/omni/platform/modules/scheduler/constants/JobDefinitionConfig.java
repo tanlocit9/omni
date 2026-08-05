@@ -41,9 +41,11 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_INDICATOR_SOURCE = "indicatorSource";
         public static final String CONFIG_KEY_INDICATOR_SOURCE_CLOSE = "ad_close";
         public static final String CONFIG_KEY_INDICATORS = "indicators";
+        public static final String CONFIG_KEY_SIGNAL_STRATEGY = "strategy";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
         public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD", "ICHIMOKU");
+        public static final String SIGNAL_STRATEGY_TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1";
 
         private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";
@@ -103,10 +105,24 @@ public class JobDefinitionConfig {
                                                         CONFIG_KEY_INDICATOR_SOURCE, CONFIG_KEY_INDICATOR_SOURCE_CLOSE,
                                                         CONFIG_KEY_INDICATORS, SUPPORTED_INDICATORS)));
 
+        private static final List<JobDefinitionSeed> SYNC_SIGNALS_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.SYNC_SIGNALS,
+                                        "Sync market signals - daily BANKS",
+                                        CRON_18_30_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
+                                                        List.of(SECTOR_BANK),
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SIGNAL_STRATEGY,
+                                                        SIGNAL_STRATEGY_TREND_MOMENTUM_V1)));
+
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
                         SYNC_STOCK_PRICE_SEEDS,
-                        SYNC_INDICATORS_SEEDS)
+                        SYNC_INDICATORS_SEEDS,
+                        SYNC_SIGNALS_SEEDS)
                         .filter(Objects::nonNull)
                         .flatMap(e -> e.stream())
                         .toList();

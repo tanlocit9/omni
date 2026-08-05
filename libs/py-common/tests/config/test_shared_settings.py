@@ -16,6 +16,7 @@ def _write_shared_config(root: Path) -> None:
                 "    topic-sync-symbols: symbols-topic",
                 "    topic-upsert-symbols: upsert-topic",
                 "    topic-sync-indicators: indicators-topic",
+                "    topic-sync-signals: signals-topic",
                 "    topic-sync-job-status: status-topic",
                 "app:",
                 "  scheduler:",
@@ -44,6 +45,9 @@ def _write_shared_config(root: Path) -> None:
                 "    indicators:",
                 "      base: analytics/indicators/",
                 "      pattern: '{source}/{timeframe}/{exchange}/{code}.parquet'",
+                "    signals:",
+                "      base: analytics/signals/",
+                "      pattern: '{strategy}/{timeframe}/{exchange}/{code}.parquet'",
             ]
         ),
         encoding="utf-8",
@@ -58,7 +62,12 @@ def test_find_repo_root_from_nested_path(tmp_path: Path):
     assert find_repo_root(nested) == tmp_path
 
 
-def test_base_app_settings_loads_shared_config(tmp_path: Path):
+def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("KAFKA_BOOTSTRAP_SERVERS", raising=False)
+    monkeypatch.delenv("MINIO_ENDPOINT", raising=False)
+    monkeypatch.delenv("MINIO_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("MINIO_SECRET_KEY", raising=False)
+    monkeypatch.delenv("MINIO_BUCKET", raising=False)
     _write_shared_config(tmp_path)
 
     settings = BaseAppSettings(shared_config_root=tmp_path)
@@ -72,6 +81,7 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path):
     assert settings.topic_sync_symbols == "symbols-topic"
     assert settings.topic_upsert_symbols == "upsert-topic"
     assert settings.topic_sync_indicators == "indicators-topic"
+    assert settings.topic_sync_signals == "signals-topic"
     assert settings.sync_job_status_topic == "status-topic"
     assert settings.scheduler.zone == "Asia/Bangkok"
     assert settings.stock_data_paths.symbols("HOSE") == "metadata/symbols/hose.parquet"
@@ -86,14 +96,28 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path):
         settings.get_indicators_path("close", "1d", "HOSE", "HPG")
         == "analytics/indicators/close/1d/hose/hpg.parquet"
     )
+    assert (
+        settings.stock_data_paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
+        == "analytics/signals/trend_momentum_v1/1d/hose/hpg.parquet"
+    )
+    assert (
+        settings.get_signals_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
+        == "analytics/signals/trend_momentum_v1/1d/hose/hpg.parquet"
+    )
 
 
-def test_base_app_settings_uses_defaults_when_shared_files_are_absent(tmp_path: Path):
+def test_base_app_settings_uses_defaults_when_shared_files_are_absent(
+    tmp_path: Path,
+    monkeypatch,
+):
+    monkeypatch.delenv("MINIO_BUCKET", raising=False)
+
     settings = BaseAppSettings(shared_config_root=tmp_path)
 
     assert settings.kafka.bootstrap_servers == "localhost:9092"
     assert settings.topic_sync_stock_prices == "topic-sync-stock-prices"
     assert settings.topic_sync_indicators == "topic-sync-indicators"
+    assert settings.topic_sync_signals == "topic-sync-signals"
     assert settings.scheduler.zone == "Asia/Ho_Chi_Minh"
     assert settings.minio.bucket == ""
     assert settings.stock_data_paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"

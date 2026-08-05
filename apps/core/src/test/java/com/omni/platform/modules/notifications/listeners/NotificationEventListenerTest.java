@@ -9,7 +9,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -18,6 +17,7 @@ import com.omni.platform.modules.notifications.dtos.NotificationRequest.Notifica
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
 import com.omni.platform.modules.notifications.services.NotificationService;
+import com.omni.platform.modules.notifications.templates.OperationalNotificationTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationEventListenerTest {
@@ -25,8 +25,7 @@ class NotificationEventListenerTest {
     @Mock
     private NotificationService notificationService;
 
-    @InjectMocks
-    private NotificationEventListener listener;
+    private final OperationalNotificationTemplate operationalNotificationTemplate = new OperationalNotificationTemplate();
 
     @Test
     void onOperationalNotificationBuildsOperationalNotificationRequest() {
@@ -35,6 +34,8 @@ class NotificationEventListenerTest {
                 "Consumer failed",
                 "Failed to process message",
                 Map.of("topic", "topic-sync-job-status"));
+
+        var listener = new NotificationEventListener(notificationService, operationalNotificationTemplate);
 
         listener.onOperationalNotification(event);
 
@@ -56,6 +57,8 @@ class NotificationEventListenerTest {
                 "Failed to process message",
                 Map.of());
         doThrow(new IllegalStateException("telegram down")).when(notificationService).send(org.mockito.ArgumentMatchers.any());
+
+        var listener = new NotificationEventListener(notificationService, operationalNotificationTemplate);
 
         assertDoesNotThrow(() -> listener.onOperationalNotification(event));
     }

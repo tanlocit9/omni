@@ -51,6 +51,7 @@ class TopicSettings(BaseSettings):
     topic_upsert_sectors: str = Field(default="topic-upsert-sectors")
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
     topic_sync_indicators: str = Field(default="topic-sync-indicators")
+    topic_sync_signals: str = Field(default="topic-sync-signals")
 
 
 class BaseAppSettings(BaseSettings):
@@ -119,6 +120,11 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_sync_indicators
 
     @property
+    def topic_sync_signals(self) -> str:
+        """Backward-compatible access to the sync signals topic."""
+        return self.topics.topic_sync_signals
+
+    @property
     def sync_job_status_topic(self) -> str:
         """Backward-compatible access to the sync job status topic."""
         return self.topics.sync_job_status_topic
@@ -140,6 +146,16 @@ class BaseAppSettings(BaseSettings):
     ) -> str:
         """Build a shared object path for indicator data."""
         return self.stock_data_paths.indicators(source, timeframe, exchange, code)
+
+    def get_signals_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        exchange: str,
+        code: str,
+    ) -> str:
+        """Build a shared object path for market signal state data."""
+        return self.stock_data_paths.signals(strategy, timeframe, exchange, code)
 
     def _apply_topics_config(self) -> None:
         kafka_cfg = self._shared_topics.get("kafka", {})
@@ -173,6 +189,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_sync_indicators = topics_cfg.get(
             "topic-sync-indicators",
             self.topics.topic_sync_indicators,
+        )
+        self.topics.topic_sync_signals = topics_cfg.get(
+            "topic-sync-signals",
+            self.topics.topic_sync_signals,
         )
 
         minio_cfg = self._shared_topics.get("min-io", {})

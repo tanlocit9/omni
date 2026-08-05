@@ -50,12 +50,18 @@ public abstract class JobProducer {
                         JobDefinition job,
                         Instant now) {
 
-                JobExecutionHistory log = jobService.prepareForExecution(job, now);
+                log.debug("Preparing job [{}] type [{}] source [{}] at [{}]", job.getId(), job.getJobType(),
+                                job.getSource(), now);
+                JobExecutionHistory executionLog = jobService.prepareForExecution(job, now);
 
-                List<KafkaMessage> messages = buildMessages(job, log, now);
+                List<KafkaMessage> messages = buildMessages(job, executionLog, now);
+                log.info("Built {} Kafka message(s) for job [{}] execution [{}] topic [{}]", messages.size(),
+                                job.getId(), executionLog.getId(), getTopic());
 
                 if (messages.isEmpty()) {
-                        jobService.markParentWithNoChildren(log, now);
+                        log.warn("No Kafka messages built for job [{}] execution [{}]; marking parent with no children",
+                                        job.getId(), executionLog.getId());
+                        jobService.markParentWithNoChildren(executionLog, now);
                         postPublish(job, now);
                         return;
                 }
@@ -68,10 +74,14 @@ public abstract class JobProducer {
         private void publishMessages(
                         List<KafkaMessage> messages) {
 
-                messages.forEach(message -> kafkaPublisher.publish(
-                                getTopic(),
-                                message.key(),
-                                message.payload()));
+                messages.forEach(message -> {
+                        log.debug("Publishing Kafka message topic [{}] key [{}] payloadType [{}]", getTopic(), message.key(),
+                                        message.payload() == null ? null : message.payload().getClass().getSimpleName());
+                        kafkaPublisher.publish(
+                                        getTopic(),
+                                        message.key(),
+                                        message.payload());
+                });
         }
 
 }

@@ -17,13 +17,16 @@ public class KafkaPublisher {
 
     public void publish(String topic, String key, Object message) {
         String payload = jsonMapper.writeValueAsString(message);
+        log.info("Attempting to publish Kafka message topic [{}] key [{}] payloadBytes [{}]", topic, key,
+                payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
 
         kafkaTemplate.send(topic, key, payload)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
-                        log.error("Failed to publish job [{}]: {}", key, ex.getMessage());
+                        log.error("Failed to publish Kafka message topic [{}] key [{}]: {}", topic, key, ex.getMessage(), ex);
                     } else {
-                        log.info("Published job [{}] to topic [{}]", key, topic);
+                        log.info("Published Kafka message topic [{}] key [{}] partition [{}] offset [{}]", topic, key,
+                                result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
                     }
                 });
     }

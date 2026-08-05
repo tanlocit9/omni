@@ -69,6 +69,7 @@ public class JobDefinition extends AuditableEntity {
     public enum JobType {
         SYNC_STOCK_PRICE,
         SYNC_SYMBOLS,
-        SYNC_INDICATORS
+        SYNC_INDICATORS,
+        SYNC_SIGNALS
     }
 }

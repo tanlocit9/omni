@@ -15,6 +15,9 @@ from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
 from app.settings import settings
+from app.signals.handler import SignalJobHandler
+from app.signals.kafka import SignalKafkaService
+from app.signals.messages import SignalJobMessage
 from app.storage.factory import create_storage_registry
 
 _logger = logging.getLogger(__name__)
@@ -22,11 +25,13 @@ _logger = logging.getLogger(__name__)
 
 async def startup_event(app: FastAPI) -> None:
     _logger.info(
-        "Starting up Analyzer service (indicatorKafkaEnabled=%s bootstrap=%s "
-        "syncIndicatorsTopic=%s statusTopic=%s bucket=%s)",
+        "Starting up Analyzer service (indicatorKafkaEnabled=%s signalKafkaEnabled=%s "
+        "bootstrap=%s syncIndicatorsTopic=%s syncSignalsTopic=%s statusTopic=%s bucket=%s)",
         settings.indicator_kafka_enabled,
+        settings.signal_kafka_enabled,
         settings.kafka.bootstrap_servers,
         settings.topic_sync_indicators,
+        settings.topic_sync_signals,
         settings.sync_job_status_topic,
         settings.minio.bucket,
     )
@@ -44,6 +49,10 @@ async def startup_event(app: FastAPI) -> None:
         settings,
         app.state.parquet_storage,
     )
+    app.state.signal_handler = SignalJobHandler(
+        settings,
+        app.state.parquet_storage,
+    )
     _logger.info("Analyzer storage providers validated")
     if settings.indicator_kafka_enabled:
         app.state.indicator_kafka_service = IndicatorKafkaService(
@@ -53,13 +62,24 @@ async def startup_event(app: FastAPI) -> None:
         await app.state.indicator_kafka_service.start()
         _logger.info("Indicator Kafka service started")
     else:
-        _logger.info("Storage providers validated. Indicator Kafka service disabled.")
+        _logger.info("Indicator Kafka service disabled")
+    if settings.signal_kafka_enabled:
+        app.state.signal_kafka_service = SignalKafkaService(
+            settings,
+            app.state.signal_handler,
+        )
+        await app.state.signal_kafka_service.start()
+        _logger.info("Signal Kafka service started")
+    else:
+        _logger.info("Signal Kafka service disabled")
 
 
 async def shutdown_event(app: FastAPI) -> None:
     _logger.info("Shutting down Analyzer service...")
     if hasattr(app.state, "indicator_kafka_service"):
         await app.state.indicator_kafka_service.stop()
+    if hasattr(app.state, "signal_kafka_service"):
+        await app.state.signal_kafka_service.stop()
 
 
 def create_app() -> FastAPI:
@@ -123,6 +143,45 @@ async def sync_indicators(
         "indicatorSource": message.indicator_source,
         "timeframe": message.timeframe,
         "recordsProcessed": records_processed,
+    }
+
+
+@app.post("/v1/signals/sync")
+async def sync_signals(
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Synchronously calculate Market Signal V1 using the Kafka job payload contract."""
+    try:
+        message = SignalJobMessage.model_validate(payload)
+        transition = await request.app.state.signal_handler.handle(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(include_context=False),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except StorageError:
+        raise
+    except Exception as exc:
+        _logger.exception("Direct signal sync failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Signal sync failed: {exc}",
+        ) from exc
+
+    return {
+        "accepted": True,
+        "symbolKey": message.symbol_key,
+        "strategy": message.strategy,
+        "timeframe": message.timeframe,
+        "signalChanged": transition.signal_changed,
+        "previousSignal": transition.previous_signal.value if transition.previous_signal else None,
+        "newSignal": transition.new_signal.value,
     }
 
 

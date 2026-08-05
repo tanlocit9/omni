@@ -22,10 +22,17 @@ stock-data:
 
     # Technical indicators (ticker-level, by source and timeframe)
     # Pattern: indicators/{source}/{timeframe}/{exchange}/{code}.parquet
-    # Examples: indicators/close/1d/hose/hpg.parquet, indicators/close/1d/hnx/shs.parquet
+    # Examples: indicators/ad_close/1d/hose/hpg.parquet, indicators/ad_close/1d/hnx/shs.parquet
     indicators:
       base: 'indicators/'
       pattern: '{source}/{timeframe}/{exchange}/{code}.parquet'
+
+    # Market signal state (ticker-level, by strategy and timeframe)
+    # Pattern: signals/{strategy}/{timeframe}/{exchange}/{code}.parquet
+    # Examples: signals/trend_momentum_v1/1d/hose/hpg.parquet
+    signals:
+      base: 'signals/'
+      pattern: '{strategy}/{timeframe}/{exchange}/{code}.parquet'
 
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features

@@ -26,7 +26,10 @@ public class TelegramNotificationService implements NotificationService {
     @Override
     public void send(NotificationRequest request) {
         if (!properties.isConfigured()) {
-            log.debug("Telegram notification skipped because Telegram notifications are disabled or not configured");
+            log.warn(
+                    "Telegram notification skipped: enabled={} botTokenPresent={} chatIdPresent={} apiBaseUrl={} requestType={} severity={} title={}",
+                    properties.enabled(), hasText(properties.botToken()), hasText(properties.chatId()),
+                    properties.resolvedApiBaseUrl(), request.type(), request.severity(), request.title());
             return;
         }
 
@@ -36,13 +39,19 @@ public class TelegramNotificationService implements NotificationService {
             payload.put("text", truncate(formatMessage(request)));
             payload.put("parse_mode", resolveParseMode());
 
+            log.info("Sending Telegram notification type={} severity={} title={} chatIdPresent={} parseMode={} apiBaseUrl={}",
+                    request.type(), request.severity(), request.title(), hasText(properties.chatId()), resolveParseMode(),
+                    properties.resolvedApiBaseUrl());
             telegramRestClient.post()
                     .uri("/bot{token}/sendMessage", properties.botToken())
                     .body(payload)
                     .retrieve()
                     .toBodilessEntity();
+            log.info("Telegram notification sent type={} severity={} title={}", request.type(), request.severity(),
+                    request.title());
         } catch (Exception exc) {
-            log.warn("Telegram notification delivery failed: {}", exc.getMessage(), exc);
+            log.warn("Telegram notification delivery failed type={} severity={} title={}: {}", request.type(),
+                    request.severity(), request.title(), exc.getMessage(), exc);
         }
     }
 

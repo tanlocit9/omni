@@ -17,10 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
 import com.omni.platform.modules.scheduler.notifications.JobNotificationTemplate;
+import com.omni.platform.modules.scheduler.notifications.SignalDigestItem;
+import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationEvent;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.shared.utils.MetadataUtils;
@@ -234,12 +237,39 @@ public class JobService {
      */
     @Transactional
     public void applyStatus(JobStatusMessage response) {
-        UUID executionId = UUID.fromString(response.executionId());
+        UUID executionId = parseUuid(response.executionId(), "executionId");
+        if (executionId == null) {
+            return;
+        }
+
+        JobStatus incomingStatus = resolveStatus(response.status());
+        if (incomingStatus == null) {
+            log.warn("Ignoring job status message with invalid status for execution {}: status={}",
+                    executionId, response.status());
+            return;
+        }
+
+        if (hasInvalidOptionalIntMetaValue(response, "recordsProcessed")
+                || hasInvalidOptionalIntMetaValue(response, "recordsInserted")) {
+            log.warn("Ignoring job status message with invalid numeric metadata for execution {}", executionId);
+            return;
+        }
+        int recordsProcessed = resolveRecordsProcessed(response);
+
+        if (!isValidParentExecutionId(response)) {
+            log.warn("Ignoring job status message with invalid parentExecutionId for execution {}: parentExecutionId={}",
+                    executionId, response.parentExecutionId());
+            return;
+        }
+
         JobExecutionHistory history = jobExecutionHistoryRepository.findById(executionId)
-                .orElseThrow(() -> new IllegalStateException("JobExecutionHistory not found: " + executionId));
+                .orElse(null);
+        if (history == null) {
+            log.warn("Ignoring job status message for unknown execution: {}", executionId);
+            return;
+        }
 
         JobStatus previousStatus = history.getStatus();
-        JobStatus incomingStatus = resolveStatus(response.status());
         boolean wasTerminal = isTerminal(previousStatus);
         boolean incomingTerminal = isTerminal(incomingStatus);
 
@@ -258,7 +288,7 @@ public class JobService {
         history.setError(response.errorMessage());
         history.setStartedAt(response.startedAt());
         history.setFinishedAt(response.finishedAt());
-        history.setRecordsSynced(resolveRecordsProcessed(response));
+        history.setRecordsSynced(recordsProcessed);
         history.setNewOffset(response.newOffset());
         history.setMetaJson(buildMetaJson(history, response));
 
@@ -374,10 +404,93 @@ public class JobService {
         jobExecutionHistoryRepository.saveAndFlush(parent);
 
         if (allTerminal) {
-            publishOperationalNotification(parentStatus == JobStatus.SUCCESS
-                    ? jobNotificationTemplate.parentSucceeded(parent, children.size(), successCount, failedCount)
-                    : jobNotificationTemplate.parentFailed(parent, children.size(), successCount, failedCount));
+            SignalDigestNotificationEvent signalDigest = buildSignalDigestNotification(parent, children, parentStatus);
+            if (signalDigest == null) {
+                publishOperationalNotification(parentStatus == JobStatus.SUCCESS
+                        ? jobNotificationTemplate.parentSucceeded(parent, children.size(), successCount, failedCount)
+                        : jobNotificationTemplate.parentFailed(parent, children.size(), successCount, failedCount));
+            }
+            publishSignalDigestNotification(signalDigest);
         }
+    }
+
+    private SignalDigestNotificationEvent buildSignalDigestNotification(
+            JobExecutionHistory parent,
+            List<JobExecutionHistory> children,
+            JobStatus parentStatus) {
+        if (parentStatus != JobStatus.SUCCESS
+                || parent.getJob() == null
+                || parent.getJob().getJobType() != JobType.SYNC_SIGNALS) {
+            return null;
+        }
+
+        List<SignalDigestItem> changedItems = children.stream()
+                .filter(child -> child.getStatus() == JobStatus.SUCCESS)
+                .filter(child -> isSignalChanged(child.getMetaJson()))
+                .map(this::toSignalDigestItem)
+                .toList();
+        if (changedItems.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        putAllAsStrings(metadata, parent.getMetaJson());
+        MetadataUtils.putIfPresent(metadata, "jobDefinitionId", parent.getJob().getId());
+        MetadataUtils.putIfPresent(metadata, "jobType", parent.getJob().getJobType());
+
+        return new SignalDigestNotificationEvent(
+                parent.getId(),
+                jobTitle(parent),
+                firstNonBlank(changedItems.stream().map(SignalDigestItem::strategy).toList()),
+                firstNonBlank(changedItems.stream().map(SignalDigestItem::timeframe).toList()),
+                children.size(),
+                changedItems.size(),
+                changedItems,
+                metadata);
+    }
+
+    private SignalDigestItem toSignalDigestItem(JobExecutionHistory child) {
+        Map<String, Object> metadata = child.getMetaJson() == null ? Map.of() : child.getMetaJson();
+        return new SignalDigestItem(
+                stringValue(metadata.get("symbolKey")),
+                stringValue(metadata.get("previousSignal")),
+                stringValue(metadata.get("newSignal")),
+                stringValue(metadata.get("price")),
+                stringValue(metadata.get("signalDate")),
+                stringValue(metadata.get("strategy")),
+                stringValue(metadata.get("timeframe")),
+                stringValue(metadata.get("score")),
+                parseReasonCodes(metadata.get("reasonCodes")));
+    }
+
+    private boolean isSignalChanged(Map<String, Object> metadata) {
+        if (metadata == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(stringValue(metadata.get("signalChanged")));
+    }
+
+    private List<String> parseReasonCodes(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        if (value instanceof List<?> values) {
+            return values.stream()
+                    .map(String::valueOf)
+                    .toList();
+        }
+        return List.of(String.valueOf(value));
+    }
+
+    private String firstNonBlank(List<String> values) {
+        return values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse("UNKNOWN");
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     private JobExecutionHistory createPendingLog(JobDefinition job) {
@@ -416,8 +529,16 @@ public class JobService {
     }
 
     private JobStatus resolveStatus(String status) {
-        JobStatus resolved = JobStatus.valueOf(status.toUpperCase());
-        return resolved == JobStatus.ERROR ? JobStatus.FAILED : resolved;
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+
+        try {
+            JobStatus resolved = JobStatus.valueOf(status.toUpperCase());
+            return resolved == JobStatus.ERROR ? JobStatus.FAILED : resolved;
+        } catch (IllegalArgumentException exc) {
+            return null;
+        }
     }
 
     private int resolveRecordsProcessed(JobStatusMessage response) {
@@ -432,6 +553,33 @@ public class JobService {
         return recordsInserted == null ? 0 : recordsInserted;
     }
 
+    private boolean hasInvalidOptionalIntMetaValue(JobStatusMessage response, String key) {
+        if (response.metaJson() == null || !response.metaJson().containsKey(key)) {
+            return false;
+        }
+
+        Object value = response.metaJson().get(key);
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Number) {
+            return false;
+        }
+        if (value instanceof String stringValue) {
+            if (stringValue.isBlank()) {
+                return false;
+            }
+            try {
+                Integer.parseInt(stringValue);
+                return false;
+            } catch (NumberFormatException exc) {
+                return true;
+            }
+        }
+
+        return true;
+    }
+
     private Integer getOptionalIntMetaValue(JobStatusMessage response, String key) {
         if (response.metaJson() == null) {
             return null;
@@ -443,10 +591,36 @@ public class JobService {
         }
 
         if (value instanceof String stringValue && !stringValue.isBlank()) {
-            return Integer.parseInt(stringValue);
+            try {
+                return Integer.parseInt(stringValue);
+            } catch (NumberFormatException exc) {
+                return null;
+            }
         }
 
         return null;
+    }
+
+    private UUID parseUuid(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            log.warn("Ignoring job status message with missing {}", fieldName);
+            return null;
+        }
+
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exc) {
+            log.warn("Ignoring job status message with invalid {}: {}", fieldName, value);
+            return null;
+        }
+    }
+
+    private boolean isValidParentExecutionId(JobStatusMessage response) {
+        if (response.parentExecutionId() == null || response.parentExecutionId().isBlank()) {
+            return true;
+        }
+
+        return parseUuid(response.parentExecutionId(), "parentExecutionId") != null;
     }
 
     private boolean isTerminal(JobStatus status) {
@@ -459,11 +633,14 @@ public class JobService {
             JobStatusMessage response,
             UUID persistedParentLogId,
             UUID executionId) {
-        if (response.parentExecutionId() == null) {
+        if (response.parentExecutionId() == null || response.parentExecutionId().isBlank()) {
             return;
         }
 
-        UUID messageParentLogId = UUID.fromString(response.parentExecutionId());
+        UUID messageParentLogId = parseUuid(response.parentExecutionId(), "parentExecutionId");
+        if (messageParentLogId == null) {
+            return;
+        }
         if (persistedParentLogId != null && !persistedParentLogId.equals(messageParentLogId)) {
             log.warn("Ignoring mismatched message parentExecutionId for execution {}: persisted={} message={}",
                     executionId, persistedParentLogId, messageParentLogId);
@@ -476,6 +653,28 @@ public class JobService {
         } catch (Exception exc) {
             log.warn("Failed to publish job notification event: {}", exc.getMessage(), exc);
         }
+    }
+
+    private void publishSignalDigestNotification(SignalDigestNotificationEvent event) {
+        if (event == null) {
+            return;
+        }
+        try {
+            eventPublisher.publishEvent(event);
+        } catch (Exception exc) {
+            log.warn("Failed to publish signal digest notification event: {}", exc.getMessage(), exc);
+        }
+    }
+
+    private String jobTitle(JobExecutionHistory execution) {
+        JobDefinition job = execution.getJob();
+        if (job == null) {
+            return String.valueOf(execution.getId());
+        }
+        if (job.getTitle() != null && !job.getTitle().isBlank()) {
+            return job.getTitle();
+        }
+        return String.valueOf(job.getId());
     }
 
     private void putAllAsStrings(Map<String, Object> target, Map<String, Object> source) {

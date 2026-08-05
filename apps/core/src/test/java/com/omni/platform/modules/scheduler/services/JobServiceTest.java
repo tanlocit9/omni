@@ -22,6 +22,7 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationEvent;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
@@ -123,6 +124,61 @@ class JobServiceTest {
     }
 
     @Test
+    void applyStatusIgnoresMalformedExecutionId() {
+        service.applyStatus(message("not-a-uuid", null, "SUCCESS", 7, null, Map.of("recordsInserted", "9")));
+
+        verify(historyRepository, never()).findById(any());
+        verify(historyRepository, never()).saveAndFlush(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void applyStatusIgnoresUnknownExecutionId() {
+        UUID executionId = UUID.randomUUID();
+        when(historyRepository.findById(executionId)).thenReturn(Optional.empty());
+
+        service.applyStatus(message(executionId, null, "SUCCESS", 7, null));
+
+        verify(historyRepository, never()).saveAndFlush(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void applyStatusIgnoresInvalidStatus() {
+        JobExecutionHistory execution = execution(JobStatus.RUNNING, null);
+
+        service.applyStatus(message(execution.getId(), null, "NOT_A_STATUS", 7, null));
+
+        verify(historyRepository, never()).findById(any());
+        verify(historyRepository, never()).saveAndFlush(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void applyStatusIgnoresMalformedParentExecutionId() {
+        JobExecutionHistory execution = execution(JobStatus.RUNNING, null);
+
+        service.applyStatus(message(execution.getId().toString(), "not-a-uuid", "SUCCESS", 7, null,
+                Map.of("recordsInserted", "9")));
+
+        verify(historyRepository, never()).findById(any());
+        verify(historyRepository, never()).saveAndFlush(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void applyStatusIgnoresNonNumericMetadataCounters() {
+        JobExecutionHistory execution = execution(JobStatus.RUNNING, null);
+
+        service.applyStatus(message(execution.getId().toString(), null, "SUCCESS", null, null,
+                Map.of("recordsInserted", "not-a-number")));
+
+        verify(historyRepository, never()).findById(any());
+        verify(historyRepository, never()).saveAndFlush(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     void applyStatusAggregatesPersistedParentAndSuppressesChildNotification() {
         UUID parentId = UUID.randomUUID();
         JobExecutionHistory child = execution(JobStatus.RUNNING, parentId);
@@ -191,6 +247,93 @@ class JobServiceTest {
     }
 
     @Test
+    void aggregateSignalParentPublishesSignalDigestWhenSuccessfulChildrenChanged() {
+        UUID parentId = UUID.randomUUID();
+        JobExecutionHistory parent = execution(JobStatus.RUNNING, null);
+        parent.setId(parentId);
+        parent.getJob().setJobType(JobType.SYNC_SIGNALS);
+        parent.getJob().setTitle("Sync market signals - daily BANKS");
+        JobExecutionHistory changed = execution(JobStatus.SUCCESS, parentId);
+        changed.setRecordsSynced(1);
+        changed.setMetaJson(Map.of(
+                "symbolKey", "HOSE-HPG",
+                "signalChanged", "true",
+                "previousSignal", "NEUTRAL",
+                "newSignal", "BULLISH",
+                "price", "28000.0",
+                "signalDate", "2026-07-28",
+                "strategy", "TREND_MOMENTUM_V1",
+                "timeframe", "1d",
+                "score", "4",
+                "reasonCodes", List.of("PRICE_ABOVE_MA50", "SCORE_4")));
+        JobExecutionHistory unchanged = execution(JobStatus.SUCCESS, parentId);
+        unchanged.setMetaJson(Map.of("symbolKey", "HOSE-VCB", "signalChanged", "false"));
+        when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
+        when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(changed, unchanged));
+        when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
+
+        service.aggregateParentExecution(parentId);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue()).isInstanceOf(SignalDigestNotificationEvent.class);
+        assertThat(captor.getAllValues()).noneMatch(OperationalNotificationEvent.class::isInstance);
+        assertThat(captor.getAllValues()).anySatisfy(event -> {
+            assertThat(event).isInstanceOf(SignalDigestNotificationEvent.class);
+            SignalDigestNotificationEvent digest = (SignalDigestNotificationEvent) event;
+            assertThat(digest.parentExecutionId()).isEqualTo(parentId);
+            assertThat(digest.jobTitle()).isEqualTo("Sync market signals - daily BANKS");
+            assertThat(digest.strategy()).isEqualTo("TREND_MOMENTUM_V1");
+            assertThat(digest.timeframe()).isEqualTo("1d");
+            assertThat(digest.changedCount()).isEqualTo(1);
+            assertThat(digest.items()).singleElement().satisfies(item -> {
+                assertThat(item.symbolKey()).isEqualTo("HOSE-HPG");
+                assertThat(item.previousSignal()).isEqualTo("NEUTRAL");
+                assertThat(item.newSignal()).isEqualTo("BULLISH");
+            });
+        });
+    }
+
+    @Test
+    void aggregateSignalParentSuppressesSignalDigestWhenNoChildrenChanged() {
+        UUID parentId = UUID.randomUUID();
+        JobExecutionHistory parent = execution(JobStatus.RUNNING, null);
+        parent.setId(parentId);
+        parent.getJob().setJobType(JobType.SYNC_SIGNALS);
+        JobExecutionHistory unchanged = execution(JobStatus.SUCCESS, parentId);
+        unchanged.setMetaJson(Map.of("symbolKey", "HOSE-HPG", "signalChanged", "false"));
+        when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
+        when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(unchanged));
+        when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
+
+        service.aggregateParentExecution(parentId);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue()).isInstanceOf(OperationalNotificationEvent.class);
+    }
+
+    @Test
+    void aggregateSignalParentSuppressesSignalDigestWhenParentFailed() {
+        UUID parentId = UUID.randomUUID();
+        JobExecutionHistory parent = execution(JobStatus.RUNNING, null);
+        parent.setId(parentId);
+        parent.getJob().setJobType(JobType.SYNC_SIGNALS);
+        JobExecutionHistory changed = execution(JobStatus.SUCCESS, parentId);
+        changed.setMetaJson(Map.of("symbolKey", "HOSE-HPG", "signalChanged", "true"));
+        JobExecutionHistory failed = execution(JobStatus.FAILED, parentId);
+        when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
+        when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(changed, failed));
+        when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
+
+        service.aggregateParentExecution(parentId);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue()).isInstanceOf(OperationalNotificationEvent.class);
+    }
+
+    @Test
     void aggregateParentFailsWhenAnyChildFailedOrErrored() {
         UUID parentId = UUID.randomUUID();
         JobExecutionHistory parent = execution(JobStatus.RUNNING, null);
@@ -249,13 +392,29 @@ class JobServiceTest {
             String status,
             Integer recordsProcessed,
             String errorMessage) {
-        return new JobStatusMessage(
-                UUID.randomUUID().toString(),
+        return message(
                 executionId.toString(),
                 parentExecutionId == null ? null : parentExecutionId.toString(),
+                status,
+                recordsProcessed,
+                errorMessage,
+                Map.of("recordsInserted", "9"));
+    }
+
+    private JobStatusMessage message(
+            String executionId,
+            String parentExecutionId,
+            String status,
+            Integer recordsProcessed,
+            String errorMessage,
+            Map<String, Object> metaJson) {
+        return new JobStatusMessage(
+                UUID.randomUUID().toString(),
+                executionId,
+                parentExecutionId,
                 "HOSE-HPG",
                 status,
-                Map.of("recordsInserted", "9"),
+                metaJson,
                 "offset-1",
                 Instant.parse("2026-07-28T00:00:00Z"),
                 Instant.parse("2026-07-28T00:01:00Z"),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pandas as pd
@@ -8,8 +9,8 @@ import pytest
 from app.signals.handler import SignalJobHandler
 from app.signals.kafka import SignalKafkaService
 from app.signals.messages import SignalJobMessage
-from app.signals.storage import SignalStateStorage
-from app.signals.strategy import MarketSignal, calculate_trend_momentum_v1
+from app.signals.storage import SignalStateStorage, SignalTransition
+from app.signals.strategy import MarketSignal, SignalResult, calculate_trend_momentum_v1
 
 
 def _job_payload(**overrides):
@@ -85,6 +86,7 @@ class FakePaths:
 class FakeSettings:
     stock_data_paths = FakePaths()
     topic_sync_signals = "topic-sync-signals"
+    topic_signal_notifications = "topic-signal-notifications"
     sync_job_status_topic = "topic-sync-job-status"
 
     class kafka:
@@ -214,6 +216,154 @@ async def test_signal_handler_reads_eod_indicators_and_writes_signal_path():
 
 
 @pytest.mark.anyio
+async def test_signal_kafka_service_publishes_success_with_transition_metadata():
+    transition = SignalTransition(
+        signal_changed=True,
+        previous_signal=MarketSignal.NEUTRAL,
+        new_signal=MarketSignal.BULLISH,
+        state_frame=pd.DataFrame(),
+        metadata={
+            **SignalResult(
+                signal=MarketSignal.BULLISH,
+                score=4,
+                reason_codes=["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+                price=28000.0,
+                signal_date="2026-07-28",
+                strategy="TREND_MOMENTUM_V1",
+            ).to_metadata(),
+            "signalChanged": True,
+            "previousSignal": "NEUTRAL",
+            "timeframe": "1d",
+        },
+    )
+    service = SignalKafkaService(FakeSettings(), FakeHandler(transition=transition))
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(_job_payload())
+
+    assert status is not None
+    assert status.status.value == "SUCCESS"
+    assert status.execution_id == "execution-id"
+    assert status.parent_execution_id == "parent-execution-id"
+    assert status.symbol_key == "HOSE-HPG"
+    assert status.records_processed == 1
+    assert status.meta_json == {
+        "newSignal": "BULLISH",
+        "price": 28000.0,
+        "signalDate": "2026-07-28",
+        "reasonCodes": ["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+        "score": 4,
+        "strategy": "TREND_MOMENTUM_V1",
+        "signalChanged": True,
+        "previousSignal": "NEUTRAL",
+        "timeframe": "1d",
+        "recordsProcessed": 1,
+    }
+    assert producer.sent
+    status_topic, _, _ = producer.sent[-1]
+    assert status_topic == "topic-sync-job-status"
+
+
+@pytest.mark.anyio
+async def test_signal_kafka_service_publishes_notification_for_changed_signal():
+    transition = SignalTransition(
+        signal_changed=True,
+        previous_signal=MarketSignal.NEUTRAL,
+        new_signal=MarketSignal.BULLISH,
+        state_frame=pd.DataFrame(),
+        metadata={
+            **SignalResult(
+                signal=MarketSignal.BULLISH,
+                score=4,
+                reason_codes=["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+                price=28000.0,
+                signal_date="2026-07-28",
+                strategy="TREND_MOMENTUM_V1",
+            ).to_metadata(),
+            "signalChanged": True,
+            "previousSignal": "NEUTRAL",
+            "timeframe": "1d",
+        },
+    )
+    service = SignalKafkaService(FakeSettings(), FakeHandler(transition=transition))
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(_job_payload())
+
+    assert status is not None
+    assert [sent[0] for sent in producer.sent] == [
+        "topic-signal-notifications",
+        "topic-sync-job-status",
+    ]
+    notification_topic, notification_payload, notification_key = producer.sent[0]
+    notification = json.loads(notification_payload.decode("utf-8"))
+    assert notification_topic == "topic-signal-notifications"
+    assert notification_key == b"HOSE-HPG"
+    assert notification == {
+        "type": "SIGNAL_CHANGED",
+        "jobDefinitionId": "job-definition-id",
+        "executionId": "execution-id",
+        "parentExecutionId": "parent-execution-id",
+        "source": "ANALYZER",
+        "symbolKey": "HOSE-HPG",
+        "timeframe": "1d",
+        "strategy": "TREND_MOMENTUM_V1",
+        "previousSignal": "NEUTRAL",
+        "newSignal": "BULLISH",
+        "price": 28000.0,
+        "signalDate": "2026-07-28",
+        "reasonCodes": ["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+        "score": 4,
+        "signalChanged": True,
+        "createdAt": notification["createdAt"],
+        "metadata": {
+            "newSignal": "BULLISH",
+            "price": 28000.0,
+            "signalDate": "2026-07-28",
+            "reasonCodes": ["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+            "score": 4,
+            "strategy": "TREND_MOMENTUM_V1",
+            "signalChanged": True,
+            "previousSignal": "NEUTRAL",
+            "timeframe": "1d",
+        },
+    }
+
+
+@pytest.mark.anyio
+async def test_signal_kafka_service_skips_notification_when_signal_unchanged():
+    transition = SignalTransition(
+        signal_changed=False,
+        previous_signal=MarketSignal.BULLISH,
+        new_signal=MarketSignal.BULLISH,
+        state_frame=pd.DataFrame(),
+        metadata={
+            **SignalResult(
+                signal=MarketSignal.BULLISH,
+                score=4,
+                reason_codes=["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+                price=28000.0,
+                signal_date="2026-07-28",
+                strategy="TREND_MOMENTUM_V1",
+            ).to_metadata(),
+            "signalChanged": False,
+            "previousSignal": "BULLISH",
+            "timeframe": "1d",
+        },
+    )
+    service = SignalKafkaService(FakeSettings(), FakeHandler(transition=transition))
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(_job_payload())
+
+    assert status is not None
+    assert [sent[0] for sent in producer.sent] == ["topic-sync-job-status"]
+
+
+@pytest.mark.anyio
 async def test_signal_kafka_service_skips_malformed_payload_without_status():
     service = SignalKafkaService(FakeSettings(), FakeHandler())
     service._producer = FakeProducer()
@@ -222,6 +372,35 @@ async def test_signal_kafka_service_skips_malformed_payload_without_status():
 
     assert status is None
     assert service._producer.sent == []
+
+
+@pytest.mark.anyio
+async def test_signal_kafka_service_skips_payload_without_execution_id():
+    service = SignalKafkaService(FakeSettings(), FakeHandler())
+    service._producer = FakeProducer()
+
+    status = await service.process_payload(_job_payload(executionId=""))
+
+    assert status is None
+    assert service._producer.sent == []
+
+
+@pytest.mark.anyio
+async def test_signal_kafka_service_publishes_error_status_for_validation_error_with_execution_id():
+    service = SignalKafkaService(FakeSettings(), FakeHandler())
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(_job_payload(symbolKey="HPG"))
+
+    assert status is not None
+    assert status.status.value == "ERROR"
+    assert status.execution_id == "execution-id"
+    assert status.symbol_key == "HPG"
+    assert status.records_processed == 0
+    assert status.meta_json == {"recordsProcessed": 0}
+    assert status.error_message
+    assert producer.sent
 
 
 @pytest.mark.anyio

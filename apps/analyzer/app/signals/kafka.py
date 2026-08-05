@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Any
@@ -38,6 +39,7 @@ class SignalKafkaService(JobStatusKafkaService):
             service_name="signal",
             task_name="signal-kafka-consumer",
         )
+        self._notification_topic = settings.topic_signal_notifications
 
     async def process_payload(
         self,
@@ -61,9 +63,17 @@ class SignalKafkaService(JobStatusKafkaService):
             message = SignalJobMessage.model_validate(raw)
             transition = await self._handler.handle(raw)
             status = self._build_status(message, started_at, utc_now(), transition)
-        except ValidationError:
-            _logger.warning("Skipping invalid signal payload contract", exc_info=True)
-            return None
+            await self._publish_signal_notification(message, transition)
+        except ValidationError as exc:
+            _logger.warning(
+                "Publishing ERROR for invalid signal payload contract", exc_info=True
+            )
+            status = build_job_error_status(
+                raw=raw,
+                started_at=started_at,
+                finished_at=utc_now(),
+                error_message=str(exc),
+            )
         except Exception as exc:
             _logger.exception("Signal job failed")
             status = build_job_error_status(
@@ -75,6 +85,58 @@ class SignalKafkaService(JobStatusKafkaService):
 
         await self.publish_status(status)
         return status
+
+    async def _publish_signal_notification(
+        self,
+        message: SignalJobMessage,
+        transition: SignalTransition,
+    ) -> None:
+        if not transition.signal_changed:
+            return
+
+        assert self._producer is not None
+        payload = self._build_signal_notification(message, transition)
+        result = await self._producer.send_and_wait(
+            self._notification_topic,
+            json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            key=message.symbol_key.encode("utf-8"),
+        )
+        _logger.info(
+            "Published signal notification for %s to topic=%s partition=%s offset=%s",
+            message.symbol_key,
+            result.topic,
+            result.partition,
+            result.offset,
+        )
+
+    def _build_signal_notification(
+        self,
+        message: SignalJobMessage,
+        transition: SignalTransition,
+    ) -> dict[str, Any]:
+        metadata = dict(transition.metadata)
+        return {
+            "type": "SIGNAL_CHANGED",
+            "jobDefinitionId": message.job_definition_id,
+            "executionId": message.execution_id,
+            "parentExecutionId": message.parent_execution_id,
+            "source": message.source,
+            "symbolKey": message.symbol_key,
+            "timeframe": metadata.get("timeframe", message.timeframe),
+            "strategy": metadata.get("strategy", message.strategy),
+            "previousSignal": metadata.get(
+                "previousSignal",
+                transition.previous_signal.value if transition.previous_signal else None,
+            ),
+            "newSignal": metadata.get("newSignal", transition.new_signal.value),
+            "price": metadata.get("price"),
+            "signalDate": metadata.get("signalDate"),
+            "reasonCodes": metadata.get("reasonCodes", []),
+            "score": metadata.get("score"),
+            "signalChanged": transition.signal_changed,
+            "createdAt": utc_now().isoformat(),
+            "metadata": metadata,
+        }
 
     def _build_status(
         self,

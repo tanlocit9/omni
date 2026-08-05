@@ -8,6 +8,7 @@ kafka:
     topic-sync-job-status: topic-sync-job-status
     topic-sync-indicators: topic-sync-indicators
     topic-sync-signals: topic-sync-signals
+    topic-signal-notifications: topic-signal-notifications
 
 app:
   scheduler:

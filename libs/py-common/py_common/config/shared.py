@@ -52,6 +52,7 @@ class TopicSettings(BaseSettings):
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
     topic_sync_indicators: str = Field(default="topic-sync-indicators")
     topic_sync_signals: str = Field(default="topic-sync-signals")
+    topic_signal_notifications: str = Field(default="topic-signal-notifications")
 
 
 class BaseAppSettings(BaseSettings):
@@ -125,6 +126,11 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_sync_signals
 
     @property
+    def topic_signal_notifications(self) -> str:
+        """Backward-compatible access to the signal notification topic."""
+        return self.topics.topic_signal_notifications
+
+    @property
     def sync_job_status_topic(self) -> str:
         """Backward-compatible access to the sync job status topic."""
         return self.topics.sync_job_status_topic
@@ -193,6 +199,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_sync_signals = topics_cfg.get(
             "topic-sync-signals",
             self.topics.topic_sync_signals,
+        )
+        self.topics.topic_signal_notifications = topics_cfg.get(
+            "topic-signal-notifications",
+            self.topics.topic_signal_notifications,
         )
 
         minio_cfg = self._shared_topics.get("min-io", {})

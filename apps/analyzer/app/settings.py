@@ -7,6 +7,7 @@ class AppSettings(BaseAppSettings):
 
     indicator_kafka_enabled: bool = Field(default=True)
     signal_kafka_enabled: bool = Field(default=True)
+    signal_evaluation_kafka_enabled: bool = Field(default=True)
 
 
 settings = AppSettings()

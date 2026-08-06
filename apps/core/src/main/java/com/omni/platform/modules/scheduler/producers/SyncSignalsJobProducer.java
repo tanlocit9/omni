@@ -4,12 +4,11 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
+import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
+import com.omni.platform.modules.scheduler.constants.SyncSignalsConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
@@ -24,10 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class SyncSignalsJobProducer extends JobProducer {
-
-    private static final int DEFAULT_SECTOR_LEVEL = 2;
-    private static final int MIN_SECTOR_LEVEL = 1;
-    private static final int MAX_SECTOR_LEVEL = 4;
 
     private final SymbolRepository symbolRepository;
 
@@ -54,10 +49,11 @@ public class SyncSignalsJobProducer extends JobProducer {
             JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
         Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
-        List<String> sectorCodes = extractSectorCodes(jobConfig);
-        int sectorLevel = extractSectorLevel(jobConfig);
-        String timeframe = extractTimeframe(jobConfig);
-        String strategy = extractStrategy(jobConfig);
+        SyncSignalsConfig config = JobConfigMapper.toSignalsConfig(jobConfig);
+        List<String> sectorCodes = config.filters().sectorCodes();
+        int sectorLevel = config.filters().sectorLevel();
+        String timeframe = config.timeframe();
+        String strategy = config.strategy();
 
         List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
                 sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
@@ -101,55 +97,4 @@ public class SyncSignalsJobProducer extends JobProducer {
         log.info("Published signal sync job [{}] for source [{}]", job.getId(), job.getSource());
     }
 
-    private String extractTimeframe(Map<String, Object> config) {
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_TIMEFRAME);
-        if (raw == null || raw.toString().isBlank()) {
-            return JobDefinitionConfig.INDICATOR_TIMEFRAME_1D;
-        }
-        return raw.toString();
-    }
-
-    private String extractStrategy(Map<String, Object> config) {
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY);
-        if (raw == null || raw.toString().isBlank()) {
-            return JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1;
-        }
-        return raw.toString().toUpperCase();
-    }
-
-    private List<String> extractSectorCodes(Map<String, Object> config) {
-        if (!config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES)) {
-            return List.of();
-        }
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES);
-        if (!(raw instanceof List<?> list)) {
-            log.warn("Job configJson has 'sectorCodes' key but it's not a List: {}", raw);
-            return List.of();
-        }
-        return list.stream()
-                .filter(Objects::nonNull)
-                .map(v -> v.toString().toUpperCase())
-                .toList();
-    }
-
-    private int extractSectorLevel(Map<String, Object> config) {
-        if (!config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL)) {
-            return DEFAULT_SECTOR_LEVEL;
-        }
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL);
-        int level;
-        try {
-            level = Integer.parseInt(raw.toString());
-        } catch (NumberFormatException e) {
-            log.warn("Job configJson has 'sectorLevel' key but it's not an integer: {}. Falling back to level {}",
-                    raw, DEFAULT_SECTOR_LEVEL);
-            return DEFAULT_SECTOR_LEVEL;
-        }
-        if (level < MIN_SECTOR_LEVEL || level > MAX_SECTOR_LEVEL) {
-            log.warn("Job configJson 'sectorLevel' [{}] out of range [{}-{}]. Falling back to level {}",
-                    level, MIN_SECTOR_LEVEL, MAX_SECTOR_LEVEL, DEFAULT_SECTOR_LEVEL);
-            return DEFAULT_SECTOR_LEVEL;
-        }
-        return level;
-    }
 }

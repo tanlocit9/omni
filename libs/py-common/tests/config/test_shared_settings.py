@@ -17,6 +17,7 @@ def _write_shared_config(root: Path) -> None:
                 "    topic-upsert-symbols: upsert-topic",
                 "    topic-sync-indicators: indicators-topic",
                 "    topic-sync-signals: signals-topic",
+                "    topic-evaluate-signals: evaluate-signals-topic",
                 "    topic-signal-notifications: signal-notifications-topic",
                 "    topic-sync-job-status: status-topic",
                 "app:",
@@ -48,7 +49,10 @@ def _write_shared_config(root: Path) -> None:
                 "      pattern: '{source}/{timeframe}/{exchange}/{code}.parquet'",
                 "    signals:",
                 "      base: analytics/signals/",
-                "      pattern: '{strategy}/{timeframe}/{exchange}/{code}.parquet'",
+                "      pattern: '{strategy}/{timeframe}/{exchange}.parquet'",
+                "    signal-current:",
+                "      base: analytics/signals/",
+                "      pattern: '{strategy}/{timeframe}/{exchange}.parquet'",
             ]
         ),
         encoding="utf-8",
@@ -83,6 +87,7 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
     assert settings.topic_upsert_symbols == "upsert-topic"
     assert settings.topic_sync_indicators == "indicators-topic"
     assert settings.topic_sync_signals == "signals-topic"
+    assert settings.topic_evaluate_signals == "evaluate-signals-topic"
     assert settings.topic_signal_notifications == "signal-notifications-topic"
     assert settings.sync_job_status_topic == "status-topic"
     assert settings.scheduler.zone == "Asia/Bangkok"
@@ -100,11 +105,27 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
     )
     assert (
         settings.stock_data_paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
-        == "analytics/signals/trend_momentum_v1/1d/hose/hpg.parquet"
+        == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        settings.stock_data_paths.signal_history(
+            "TREND_MOMENTUM_V1", "1d", "HOSE", "HPG"
+        )
+        == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        settings.stock_data_paths.signal_current(
+            "TREND_MOMENTUM_V1", "1d", "HOSE", "HPG"
+        )
+        == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
     )
     assert (
         settings.get_signals_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
-        == "analytics/signals/trend_momentum_v1/1d/hose/hpg.parquet"
+        == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        settings.get_signal_current_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
+        == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
     )
 
 
@@ -120,6 +141,7 @@ def test_base_app_settings_uses_defaults_when_shared_files_are_absent(
     assert settings.topic_sync_stock_prices == "topic-sync-stock-prices"
     assert settings.topic_sync_indicators == "topic-sync-indicators"
     assert settings.topic_sync_signals == "topic-sync-signals"
+    assert settings.topic_evaluate_signals == "topic-evaluate-signals"
     assert settings.topic_signal_notifications == "topic-signal-notifications"
     assert settings.scheduler.zone == "Asia/Ho_Chi_Minh"
     assert settings.minio.bucket == ""

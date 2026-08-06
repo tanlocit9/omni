@@ -25,6 +25,7 @@ public class JobDefinitionConfig {
         private static final String CRON_18_10_WEEKDAYS = "0 10 18 * * MON-FRI";
         private static final String CRON_18_30_WEEKDAYS = "0 30 18 * * MON-FRI";
         private static final String CRON_18_35_WEEKDAYS = "0 35 18 * * MON-FRI";
+        private static final String CRON_18_40_WEEKDAYS = "0 40 18 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
 
         // ==========================================
@@ -52,7 +53,7 @@ public class JobDefinitionConfig {
         private static final String SECTOR_BANK = "BANKS";
         private static final String SECTOR_REAL_ESTATE = "REAL_ESTATE";
 
-        private static final List<String> VIETNAM_EXCHANGES = List.of("HOSE", "HNX", "UPCOM");
+        public static final List<String> VIETNAM_EXCHANGES = List.of("HOSE", "HNX", "UPCOM");
 
         // ==========================================
         // 4. SEED DEFINITIONS
@@ -119,11 +120,24 @@ public class JobDefinitionConfig {
                                                         CONFIG_KEY_SIGNAL_STRATEGY,
                                                         SIGNAL_STRATEGY_TREND_MOMENTUM_V1)));
 
+        private static final List<JobDefinitionSeed> EVALUATE_SIGNALS_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.EVALUATE_SIGNALS,
+                                        "Evaluate market signal outcomes - daily",
+                                        CRON_18_40_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_EXCHANGES, VIETNAM_EXCHANGES,
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SIGNAL_STRATEGY,
+                                                        SIGNAL_STRATEGY_TREND_MOMENTUM_V1)));
+
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
                         SYNC_STOCK_PRICE_SEEDS,
                         SYNC_INDICATORS_SEEDS,
-                        SYNC_SIGNALS_SEEDS)
+                        SYNC_SIGNALS_SEEDS,
+                        EVALUATE_SIGNALS_SEEDS)
                         .filter(Objects::nonNull)
                         .flatMap(e -> e.stream())
                         .toList();

@@ -8,12 +8,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
+import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
+import com.omni.platform.modules.scheduler.constants.SyncStockPriceConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
@@ -29,10 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 public class SyncStockPriceJobProducer extends JobProducer {
-
-    private static final int DEFAULT_SECTOR_LEVEL = 1;
-    private static final int MIN_SECTOR_LEVEL = 1;
-    private static final int MAX_SECTOR_LEVEL = 4;
 
     private final SymbolRepository symbolRepository;
     private final JobExecutionHistoryRepository jobExecutionHistoryRepository;
@@ -62,8 +58,9 @@ public class SyncStockPriceJobProducer extends JobProducer {
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
-        List<String> sectorCodes = extractSectorCodes(job.getConfigJson());
-        int sectorLevel = extractSectorLevel(job.getConfigJson());
+        SyncStockPriceConfig config = JobConfigMapper.toStockPriceConfig(job.getConfigJson());
+        List<String> sectorCodes = config.filters().sectorCodes();
+        int sectorLevel = config.filters().sectorLevel();
 
         List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
                 sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
@@ -130,40 +127,5 @@ public class SyncStockPriceJobProducer extends JobProducer {
         }
     }
 
-    private List<String> extractSectorCodes(Map<String, Object> config) {
-        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES)) {
-            return List.of();
-        }
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES);
-        if (!(raw instanceof List<?> list)) {
-            log.warn("Job configJson has 'sectorCodes' key but it's not a List: {}", raw);
-            return List.of();
-        }
-        return list.stream()
-                .filter(Objects::nonNull)
-                .map(v -> v.toString().toUpperCase())
-                .toList();
-    }
-
-    private int extractSectorLevel(Map<String, Object> config) {
-        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL)) {
-            return DEFAULT_SECTOR_LEVEL;
-        }
-        Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL);
-        int level;
-        try {
-            level = Integer.parseInt(raw.toString());
-        } catch (NumberFormatException e) {
-            log.warn("Job configJson has 'sectorLevel' key but it's not an integer: {}. Falling back to level {}",
-                    raw, DEFAULT_SECTOR_LEVEL);
-            return DEFAULT_SECTOR_LEVEL;
-        }
-        if (level < MIN_SECTOR_LEVEL || level > MAX_SECTOR_LEVEL) {
-            log.warn("Job configJson 'sectorLevel' [{}] out of range [{}-{}]. Falling back to level {}",
-                    level, MIN_SECTOR_LEVEL, MAX_SECTOR_LEVEL, DEFAULT_SECTOR_LEVEL);
-            return DEFAULT_SECTOR_LEVEL;
-        }
-        return level;
-    }
 
 }

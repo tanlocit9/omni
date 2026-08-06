@@ -4,17 +4,17 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
-import com.omni.platform.modules.scheduler.constants.SyncIndicatorsConfig;
+import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
+import com.omni.platform.modules.scheduler.constants.SyncSignalsConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
-import com.omni.platform.modules.scheduler.messaging.IndicatorJobMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
-import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
-import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
+import com.omni.platform.modules.scheduler.messaging.SignalEvaluationJobMessage;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
@@ -22,20 +22,16 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-public class SyncIndicatorsJobProducer extends JobProducer {
+public class EvaluateSignalsJobProducer extends JobProducer {
 
-    private final SymbolRepository symbolRepository;
-
-    @Value("${kafka.topics.topic-sync-indicators}")
+    @Value("${kafka.topics.topic-evaluate-signals}")
     private String topic;
 
-    public SyncIndicatorsJobProducer(
+    public EvaluateSignalsJobProducer(
             JobService jobService,
-            KafkaPublisher kafkaPublisher,
-            SymbolRepository symbolRepository) {
+            KafkaPublisher kafkaPublisher) {
 
         super(jobService, kafkaPublisher);
-        this.symbolRepository = symbolRepository;
     }
 
     @Override
@@ -49,42 +45,43 @@ public class SyncIndicatorsJobProducer extends JobProducer {
             JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
         Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
-        SyncIndicatorsConfig config = JobConfigMapper.toIndicatorsConfig(jobConfig);
-        List<String> sectorCodes = config.filters().sectorCodes();
-        int sectorLevel = config.filters().sectorLevel();
+        SyncSignalsConfig config = JobConfigMapper.toSignalsConfig(jobConfig);
         String timeframe = config.timeframe();
-        List<String> indicators = config.indicators();
-        String indicatorSource = config.indicatorSource();
+        String strategy = config.strategy();
 
-        List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
-                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
-                sectorLevel);
+        List<String> exchanges = JobConfigMapper.readStringList(
+                jobConfig,
+                JobDefinitionConfig.CONFIG_KEY_EXCHANGES);
+        if (exchanges.isEmpty()) {
+            exchanges = JobDefinitionConfig.VIETNAM_EXCHANGES;
+        }
 
-        log.info("Syncing indicators for {} symbols with sectorCodes: {} at level {}",
-                symbols.size(), sectorCodes, sectorLevel);
+        log.info("Evaluating signals for exchanges={} strategy={} timeframe={} jobId={} executionId={}",
+                exchanges, strategy, timeframe, job.getId(), jobExecutionHistory.getId());
 
-        return symbols.stream()
-                .map(symbol -> {
+        return exchanges.stream()
+                .map(exchange -> {
+                    String normalizedExchange = exchange == null ? "" : exchange.trim().toUpperCase();
                     Map<String, Object> metadata = new HashMap<>();
                     metadata.putAll(jobConfig);
+                    metadata.put(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of(normalizedExchange));
 
                     JobExecutionHistory childJobExecutionHistory = jobService.createSymbolChildExecution(
                             jobExecutionHistory.getId(),
-                            symbol.symbolKey(),
+                            normalizedExchange,
                             metadata,
                             timestamps);
 
                     return new KafkaMessage(
-                            symbol.symbolKey(),
-                            new IndicatorJobMessage(
+                            normalizedExchange,
+                            new SignalEvaluationJobMessage(
                                     job.getId(),
                                     childJobExecutionHistory.getId(),
                                     jobExecutionHistory.getId(),
                                     job.getSource().toString(),
-                                    symbol.symbolKey(),
+                                    normalizedExchange,
                                     timeframe,
-                                    indicatorSource,
-                                    indicators,
+                                    strategy,
                                     metadata));
                 })
                 .toList();
@@ -92,7 +89,6 @@ public class SyncIndicatorsJobProducer extends JobProducer {
 
     @Override
     protected void postPublish(JobDefinition job, Instant now) {
-        log.info("Published indicator sync job [{}] for source [{}]", job.getId(), job.getSource());
+        log.info("Published signal evaluation job [{}] for source [{}]", job.getId(), job.getSource());
     }
-
 }

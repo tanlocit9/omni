@@ -7,7 +7,7 @@ from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
 from app.signals.messages import SignalJobMessage
-from app.signals.storage import SignalStateStorage, SignalTransition
+from app.signals.storage import SignalHistoryRepository, SignalTransition
 from app.signals.strategy import TREND_MOMENTUM_V1, calculate_trend_momentum_v1
 
 _logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class SignalJobHandler:
     def __init__(self, settings: AppSettings, parquet_storage: ParquetStorage) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
-        self._state_storage = SignalStateStorage(parquet_storage)
+        self._signal_repository = SignalHistoryRepository(parquet_storage)
 
     async def handle(self, payload: dict[str, Any]) -> SignalTransition:
         message = SignalJobMessage.model_validate(payload)
@@ -32,7 +32,13 @@ class SignalJobHandler:
             exchange,
             code,
         )
-        signals_path = self._settings.stock_data_paths.signals(
+        history_path = self._settings.stock_data_paths.signal_history(
+            message.strategy,
+            message.timeframe,
+            exchange,
+            code,
+        )
+        current_path = self._settings.stock_data_paths.signal_current(
             message.strategy,
             message.timeframe,
             exchange,
@@ -40,12 +46,10 @@ class SignalJobHandler:
         )
 
         _logger.info(
-            "Calculating signal for symbolKey=%s eodPath=%s "
-            "indicatorsPath=%s signalsPath=%s",
+            "Calculating signal symbolKey=%s timeframe=%s strategy=%s",
             message.symbol_key,
-            eod_path,
-            indicators_path,
-            signals_path,
+            message.timeframe,
+            message.strategy,
         )
         eod_frame = await self._parquet_storage.read_dataframe(eod_path)
         indicators_frame = await self._parquet_storage.read_dataframe(indicators_path)
@@ -53,9 +57,11 @@ class SignalJobHandler:
             raise ValueError(f"Unsupported signal strategy: {message.strategy}")
 
         result = calculate_trend_momentum_v1(eod_frame, indicators_frame)
-        return await self._state_storage.persist_transition(
-            signals_path,
+        return await self._signal_repository.persist_transition(
+            history_path,
+            current_path,
             message.symbol_key,
             message.timeframe,
             result,
+            exchange=exchange,
         )

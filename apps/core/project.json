@@ -6,7 +6,14 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "gradlew clean build -x test",
+        "command": "gradlew clean build",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "build-fast": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "gradlew clean assemble",
         "cwd": "{projectRoot}"
       }
     },

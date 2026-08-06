@@ -27,12 +27,19 @@ stock-data:
       base: 'indicators/'
       pattern: '{source}/{timeframe}/{exchange}/{code}.parquet'
 
-    # Market signal state (ticker-level, by strategy and timeframe)
-    # Pattern: signals/{strategy}/{timeframe}/{exchange}/{code}.parquet
-    # Examples: signals/trend_momentum_v1/1d/hose/hpg.parquet
+    # Shared market signal history and actual outcomes
+    # One Parquet file per strategy + timeframe + exchange.
+    # Pattern: signals/{strategy}/{timeframe}/{exchange}.parquet
+    # Examples: signals/trend_momentum_v1/1d/hose.parquet
     signals:
       base: 'signals/'
-      pattern: '{strategy}/{timeframe}/{exchange}/{code}.parquet'
+      pattern: '{strategy}/{timeframe}/{exchange}.parquet'
+
+    # Backward-compatible alias for latest-state consumers.
+    # Current Signal V1 derives latest state from the shared history file.
+    signal-current:
+      base: 'signals/'
+      pattern: '{strategy}/{timeframe}/{exchange}.parquet'
 
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features

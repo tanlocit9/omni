@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.producers.EvaluateSignalsJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncIndicatorsJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncSignalsJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncStockPriceJobProducer;
@@ -26,6 +27,7 @@ public class SyncJobScheduler {
     private final SyncSymbolsJobProducer symbolsJobProducer;
     private final SyncIndicatorsJobProducer syncIndicatorsJobProducer;
     private final SyncSignalsJobProducer syncSignalsJobProducer;
+    private final EvaluateSignalsJobProducer evaluateSignalsJobProducer;
 
     @Scheduled(fixedDelayString = "${app.scheduler.global.fixedDelayString:30000}")
     public void scan() {
@@ -48,6 +50,7 @@ public class SyncJobScheduler {
                     case SYNC_SYMBOLS -> symbolsJobProducer.publish(job, now);
                     case SYNC_INDICATORS -> syncIndicatorsJobProducer.publish(job, now);
                     case SYNC_SIGNALS -> syncSignalsJobProducer.publish(job, now);
+                    case EVALUATE_SIGNALS -> evaluateSignalsJobProducer.publish(job, now);
                 }
             } catch (Exception e) {
                 log.error("Failed to dispatch job [{}]: {}", job.getId(), e.getMessage(), e);

@@ -70,6 +70,7 @@ public class JobDefinition extends AuditableEntity {
         SYNC_STOCK_PRICE,
         SYNC_SYMBOLS,
         SYNC_INDICATORS,
-        SYNC_SIGNALS
+        SYNC_SIGNALS,
+        EVALUATE_SIGNALS
     }
 }

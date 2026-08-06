@@ -46,7 +46,9 @@ class StockDataPaths:
     indicators_base: str
     indicators_pattern: str
     signals_base: str = "signals/"
-    signals_pattern: str = "{strategy}/{timeframe}/{exchange}/{code}.parquet"
+    signals_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
+    signal_current_base: str = "signals/"
+    signal_current_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
 
     @staticmethod
     def _normalize_path_part(value: str | None, name: str) -> str:
@@ -139,17 +141,68 @@ class StockDataPaths:
         )
 
     def signals(
-        self, strategy: str, timeframe: Timeframe | str, exchange: str, code: str
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        exchange: str,
+        code: str | None = None,
     ) -> str:
-        """Build S3 path for market signal state data file."""
-        timeframe = validate_indicator_timeframe(timeframe)
+        """Build S3 path for shared market signal history data file."""
+        return self.signal_history(strategy, timeframe, exchange, code)
 
-        return self.signals_base + self.signals_pattern.format(
-            strategy=self._normalize_path_part(strategy, "strategy"),
-            timeframe=timeframe.value,
-            exchange=self._normalize_path_part(exchange, "exchange"),
-            code=self._normalize_path_part(code, "code"),
+    def signal_history(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        exchange: str,
+        code: str | None = None,
+    ) -> str:
+        """Build S3 path for shared market signal history data file."""
+        return self._signal_path(
+            base=self.signals_base,
+            pattern=self.signals_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            exchange=exchange,
+            code=code,
         )
+
+    def signal_current(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        exchange: str,
+        code: str | None = None,
+    ) -> str:
+        """Build S3 path for shared latest market signal state data file."""
+        return self._signal_path(
+            base=self.signal_current_base,
+            pattern=self.signal_current_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            exchange=exchange,
+            code=code,
+        )
+
+    def _signal_path(
+        self,
+        *,
+        base: str,
+        pattern: str,
+        strategy: str,
+        timeframe: Timeframe | str,
+        exchange: str,
+        code: str | None,
+    ) -> str:
+        timeframe = validate_indicator_timeframe(timeframe)
+        values = {
+            "strategy": self._normalize_path_part(strategy, "strategy"),
+            "timeframe": timeframe.value,
+            "exchange": self._normalize_path_part(exchange, "exchange"),
+        }
+        if "{code}" in pattern:
+            values["code"] = self._normalize_path_part(code, "code")
+        return base + pattern.format(**values)
 
     @classmethod
     def from_config(cls, config: dict) -> StockDataPaths:
@@ -198,6 +251,7 @@ class StockDataPaths:
         eod_cfg = paths_config.get("eod", {})
         indicators_cfg = paths_config.get("indicators", {})
         signals_cfg = paths_config.get("signals", {})
+        signal_current_cfg = paths_config.get("signal-current", {})
 
         return cls(
             symbols_base=symbols_cfg.get("base", "symbols/"),
@@ -210,6 +264,10 @@ class StockDataPaths:
             ),
             signals_base=signals_cfg.get("base", "signals/"),
             signals_pattern=signals_cfg.get(
-                "pattern", "{strategy}/{timeframe}/{exchange}/{code}.parquet"
+                "pattern", "{strategy}/{timeframe}/{exchange}.parquet"
+            ),
+            signal_current_base=signal_current_cfg.get("base", "signals/"),
+            signal_current_pattern=signal_current_cfg.get(
+                "pattern", "{strategy}/{timeframe}/{exchange}.parquet"
             ),
         )

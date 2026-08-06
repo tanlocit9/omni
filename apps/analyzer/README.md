@@ -4,7 +4,7 @@ The **Stock Analyzer Service** is a FastAPI application and Kafka worker for ana
 
 Analyzer no longer owns stock-price persistence. It does **not** connect directly to PostgreSQL, does **not** read stock prices from PostgreSQL, and does **not** write synchronized stock prices back to PostgreSQL. Stock synchronization is owned by the Platform scheduler and downstream Ingestor flow.
 
-Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform. Analyzer also owns Market Signal V1 jobs from `topic-sync-signals`: it reads EOD and indicator Parquet data, writes signal-state Parquet files next to indicators, and publishes only transition metadata back to Platform. It also exposes direct synchronous APIs for callers that need to invoke the same calculation contracts without Kafka.
+Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it reads EOD Parquet data from MinIO/S3, computes the complete supported indicator set, writes indicator Parquet output, and publishes job status back to Platform. Analyzer also owns Market Signal V1 jobs from `topic-sync-signals`: it reads EOD and indicator Parquet data, upserts signal history Parquet files, writes optional latest-current signal state, and publishes only transition metadata back to Platform. It also exposes direct synchronous APIs for callers that need to invoke the same calculation contracts without Kafka.
 
 ---
 
@@ -14,7 +14,7 @@ Analyzer does own indicator calculation jobs from `topic-sync-indicators`: it re
 - **Compatibility stock endpoints**: Existing stock endpoints remain available, but they report that direct PostgreSQL access has been removed.
 - **No direct database access**: Analyzer has no SQLAlchemy engine, PostgreSQL session, repository, generated DB models, or database migration coupling.
 - **Indicator Kafka worker**: Consumes Platform-owned `topic-sync-indicators` jobs and publishes status to `topic-sync-job-status`.
-- **Signal Kafka worker**: Consumes Platform-owned `topic-sync-signals` jobs, writes signal-state Parquet files, and publishes transition metadata to `topic-sync-job-status`.
+- **Signal Kafka worker**: Consumes Platform-owned `topic-sync-signals` jobs, upserts signal history Parquet files, writes optional latest-current state, and publishes transition metadata to `topic-sync-job-status`.
 - **MinIO/S3 analytical storage**: Reads EOD files and writes indicator and signal files through shared `ParquetStorage`.
 - **Infrastructure foundations**:
   - `KafkaEventPublisher` can publish JSON events to Kafka.
@@ -50,10 +50,10 @@ apps/analyzer/
 │   │   ├── kafka.py                   # Kafka consumer/producer lifecycle
 │   │   └── messages.py                # Indicator job/status contracts
 │   ├── signals/
-│   │   ├── handler.py                 # Reads EOD/indicator Parquet and writes signal state
+│   │   ├── handler.py                 # Reads EOD/indicator Parquet and writes signal history/current state
 │   │   ├── kafka.py                   # Signal Kafka consumer/status publisher lifecycle
 │   │   ├── messages.py                # Signal job contract
-│   │   ├── storage.py                 # Baseline and transition persistence
+│   │   ├── storage.py                 # SignalRepository history upsert and current-state persistence
 │   │   └── strategy.py                # TREND_MOMENTUM_V1 scoring rules
 │   ├── services/
 │   │   └── stock_service.py           # Stock compatibility behavior
@@ -137,7 +137,7 @@ Example response:
 
 ### 4. Direct Market Signal Sync Endpoint
 
-Synchronously calculates Market Signal V1 for one symbol using the same JSON payload contract as `topic-sync-signals` Kafka jobs. The endpoint reads EOD and indicator Parquet data from MinIO/S3, writes a signal-state Parquet file, and returns transition details directly. It does not publish a job-status Kafka message.
+Synchronously calculates Market Signal V1 for one symbol using the same JSON payload contract as `topic-sync-signals` Kafka jobs. The endpoint reads EOD and indicator Parquet data from MinIO/S3, upserts the signal history file, writes the latest-current signal state when the result is not `NO_DECISION`, and returns transition details directly. It does not publish a job-status Kafka message.
 
 - **URL**: `POST /v1/signals/sync`
 - **Body**: `SignalJobMessage` JSON payload, including `jobDefinitionId`, `executionId`, optional `parentExecutionId`, `source`, `symbolKey`, `timeframe`, `strategy`, and `metadata`.
@@ -216,10 +216,68 @@ Analyzer uses the same path-builder convention as Ingestor:
 settings.get_symbols_path("HOSE")                              # symbols/hose.parquet
 settings.get_eod_path("HOSE", "HPG")                           # eod/hose/hpg.parquet
 settings.get_indicators_path("ad_close", "1d", "HOSE", "HPG") # indicators/ad_close/1d/hose/hpg.parquet
-settings.get_signals_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG") # signals/trend_momentum_v1/1d/hose/hpg.parquet
+settings.get_signals_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG") # signals/history/trend_momentum_v1/1d/hose/hpg.parquet
+settings.stock_data_paths.signal_current("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG") # signals/current/trend_momentum_v1/1d/hose/hpg.parquet
 ```
 
 Exchange names, ticker codes, and signal strategy names are lowercased in object names. Keep official uppercase symbols and strategy values in API responses and metadata. Indicator and signal path construction validates canonical timeframe values; v1 currently uses indicator source `ad_close`, timeframe `1d`, and signal strategy `TREND_MOMENTUM_V1`.
+
+### SignalRepository persistence contract
+
+`SignalRepository` is the Analyzer persistence boundary for Market Signal V1 outputs. It is intentionally responsible only for Parquet state persistence and transition metadata. Signal calculation remains in the strategy layer, and Kafka status/notification publishing remains in the Kafka service layer.
+
+Responsibilities:
+
+- Read the existing signal history Parquet file for the same symbol path.
+- Determine the previous valid signal from history, ignoring `NO_DECISION` rows.
+- Build a one-row state frame for the latest calculation result.
+- Skip all object-storage writes when the new result is `NO_DECISION`.
+- Upsert non-`NO_DECISION` results into history by the stable key: `strategy`, `timeframe`, and `signal_date`.
+- Replace the optional current-state file with the latest non-`NO_DECISION` row.
+- Return transition metadata for job status and notification decisions.
+
+Storage paths are deliberately separate:
+
+| Purpose | Builder | Example |
+| ------- | ------- | ------- |
+| Full signal history | `settings.get_signals_path(...)` | `signals/history/trend_momentum_v1/1d/hose/hpg.parquet` |
+| Latest current state | `settings.get_signal_current_path(...)` | `signals/current/trend_momentum_v1/1d/hose/hpg.parquet` |
+
+History is idempotent for reruns. If a job recalculates the same `strategy`, `timeframe`, and `signal_date`, the old row for that key is removed and replaced by the new row. If the job calculates a new `signal_date`, the new row is appended to history.
+
+```mermaid
+flowchart TD
+    A[SignalJobHandler receives validated SignalJobMessage] --> B[Read EOD Parquet]
+    B --> C[Read indicator Parquet]
+    C --> D[Calculate Market Signal V1]
+    D --> E[SignalRepository.persist_transition]
+
+    E --> F[Read existing history parquet]
+    F --> G[Find previous non-NO_DECISION signal]
+    G --> H[Build latest one-row state frame]
+    H --> I{New signal is NO_DECISION?}
+
+    I -- Yes --> J[Skip history write]
+    J --> K[Skip current-state write]
+    K --> L[Return metadata persisted=false]
+
+    I -- No --> M[Remove existing row with same strategy + timeframe + signal_date]
+    M --> N[Append latest row]
+    N --> O[Write merged history parquet]
+    O --> P{current_path configured?}
+    P -- Yes --> Q[Write latest current-state parquet]
+    P -- No --> R[Do not write current-state file]
+    Q --> S[Return transition metadata persisted=true]
+    R --> S
+
+    L --> T[Kafka service publishes job status]
+    S --> T
+    T --> U{signalChanged=true?}
+    U -- Yes --> V[Publish signal notification]
+    U -- No --> W[No notification]
+```
+
+The repository never publishes Kafka messages and never logs full signal payloads. It returns a `SignalTransition` object containing `signalChanged`, `previousSignal`, `newSignal`, `persisted`, and metadata fields needed by the status publisher.
 
 ### Indicator and signal Kafka runtime
 
@@ -239,7 +297,7 @@ Contract summary:
 | `topic-sync-signals`    | Consume   | Platform requests Market Signal V1 calculation for one `symbolKey`.                     |
 | `topic-sync-job-status` | Publish   | Analyzer reports `SUCCESS` or `ERROR` with `recordsProcessed` and optional signal meta. |
 
-Signal status metadata contains only transition metadata, not signal-state file contents or object paths. On success, `metaJson` may include `signalChanged`, `previousSignal`, `newSignal`, `price`, `signalDate`, `reasonCodes`, `score`, `strategy`, and `timeframe`. The first successful write creates a baseline with `previousSignal: null` and `signalChanged: false`, so Platform does not notify on initial state creation.
+Signal status metadata contains only transition metadata, not signal-state file contents or object paths. On success, `metaJson` may include `signalChanged`, `previousSignal`, `newSignal`, `price`, `signalDate`, `reasonCodes`, `score`, `strategy`, `timeframe`, and `persisted`. The first successful write creates a baseline with `previousSignal: null` and `signalChanged: false`, so Platform does not notify on initial state creation. `NO_DECISION` is reported in job status metadata with `persisted: false`; it does not overwrite signal history or latest-current state.
 
 Market Signal V1 uses strategy `TREND_MOMENTUM_V1` over EOD `ad_close` plus `MA20`, `MA50`, `RSI14`, `MACD`, and `MACD_SIGNAL` indicator columns. It emits `BULLISH`, `NEUTRAL`, `BEARISH`, or `NO_DECISION`. Scoring is deterministic: price above/below `MA50` is `+2/-2`, `MA20` above/below `MA50` is `+1/-1`, `RSI14` above `55` or below `45` is `+1/-1`, and `MACD` above/below signal is `+1/-1`. Scores `>= 3` are `BULLISH`; scores `<= -3` are `BEARISH`; otherwise `NEUTRAL`. Missing required inputs produce `NO_DECISION` with structured reason codes.
 

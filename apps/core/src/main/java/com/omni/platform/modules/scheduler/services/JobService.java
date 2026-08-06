@@ -300,8 +300,9 @@ public class JobService {
         history.setNewOffset(response.newOffset());
         history.setMetaJson(buildMetaJson(history, response));
 
-        log.info("Saving job status child executionId={} previousStatus={} incomingStatus={} parentLogId={} meta={}",
-                executionId, previousStatus, incomingStatus, history.getParentLogId(), history.getMetaJson());
+        log.info("Saving job status child executionId={} previousStatus={} incomingStatus={} parentLogId={} metaKeys={}",
+                executionId, previousStatus, incomingStatus, history.getParentLogId(),
+                history.getMetaJson() == null ? null : history.getMetaJson().keySet());
         jobExecutionHistoryRepository.saveAndFlush(history);
         log.info("Saved job status child executionId={} rollbackOnly={}",
                 executionId, TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());

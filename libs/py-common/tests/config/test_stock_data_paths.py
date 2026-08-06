@@ -16,7 +16,9 @@ def paths() -> StockDataPaths:
         indicators_base="indicators/",
         indicators_pattern="{source}/{timeframe}/{exchange}/{code}.parquet",
         signals_base="signals/",
-        signals_pattern="{strategy}/{timeframe}/{exchange}/{code}.parquet",
+        signals_pattern="{strategy}/{timeframe}/{exchange}.parquet",
+        signal_current_base="signals/",
+        signal_current_pattern="{strategy}/{timeframe}/{exchange}.parquet",
     )
 
 
@@ -30,7 +32,15 @@ def test_indicators_happy_path(paths: StockDataPaths):
 def test_signals_happy_path(paths: StockDataPaths):
     assert (
         paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
-        == "signals/trend_momentum_v1/1d/hose/hpg.parquet"
+        == "signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        paths.signal_history("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
+        == "signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        paths.signal_current("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
+        == "signals/trend_momentum_v1/1d/hose.parquet"
     )
 
 
@@ -57,7 +67,11 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
     }
     assert config["paths"]["signals"] == {
         "base": "signals/",
-        "pattern": "{strategy}/{timeframe}/{exchange}/{code}.parquet",
+        "pattern": "{strategy}/{timeframe}/{exchange}.parquet",
+    }
+    assert config["paths"]["signal-current"] == {
+        "base": "signals/",
+        "pattern": "{strategy}/{timeframe}/{exchange}.parquet",
     }
     assert paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"
     assert (
@@ -66,7 +80,11 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
     )
     assert (
         paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
-        == "signals/trend_momentum_v1/1d/hose/hpg.parquet"
+        == "signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        paths.signal_current("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
+        == "signals/trend_momentum_v1/1d/hose.parquet"
     )
 
 
@@ -114,7 +132,7 @@ def test_exchange_rejects_none_empty_and_whitespace_only(
             paths.signals("TREND_MOMENTUM_V1", "1d", bad_value, "HPG")  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("method", ["eod", "indicators", "signals"])
+@pytest.mark.parametrize("method", ["eod", "indicators"])
 @pytest.mark.parametrize("bad_value", [None, "", "   "])
 def test_code_rejects_none_empty_and_whitespace_only(
     paths: StockDataPaths,
@@ -124,10 +142,8 @@ def test_code_rejects_none_empty_and_whitespace_only(
     with pytest.raises(ValueError):
         if method == "eod":
             paths.eod("HOSE", bad_value)  # type: ignore[arg-type]
-        elif method == "indicators":
-            paths.indicators("close", "1d", "HOSE", bad_value)  # type: ignore[arg-type]
         else:
-            paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", bad_value)  # type: ignore[arg-type]
+            paths.indicators("close", "1d", "HOSE", bad_value)  # type: ignore[arg-type]
 
 
 def test_eod_indicators_and_signals_return_strings(paths: StockDataPaths):

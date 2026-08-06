@@ -3,9 +3,49 @@ from __future__ import annotations
 from typing import Any
 
 from py_common.config import validate_indicator_timeframe
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SUPPORTED_SIGNAL_STRATEGIES = ["TREND_MOMENTUM_V1"]
+
+
+class SignalEvaluationJobMessage(BaseModel):
+    job_definition_id: str = Field(alias="jobDefinitionId")
+    execution_id: str = Field(alias="executionId")
+    parent_execution_id: str | None = Field(default=None, alias="parentExecutionId")
+    source: str
+    exchange: str
+    timeframe: str
+    strategy: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("execution_id")
+    @classmethod
+    def validate_execution_id(cls, value: str) -> str:
+        if not value:
+            raise ValueError("executionId is required")
+        return value
+
+    @field_validator("exchange")
+    @classmethod
+    def validate_exchange(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("exchange is required")
+        return value.strip().upper()
+
+    @field_validator("timeframe")
+    @classmethod
+    def validate_timeframe(cls, value: str) -> str:
+        return validate_indicator_timeframe(value).value
+
+    @field_validator("strategy")
+    @classmethod
+    def validate_supported_strategy(cls, value: str) -> str:
+        strategy = value.upper()
+        if strategy not in SUPPORTED_SIGNAL_STRATEGIES:
+            raise ValueError(f"Unsupported signal strategy: {value}")
+        return strategy
 
 
 class SignalJobMessage(BaseModel):

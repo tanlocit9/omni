@@ -63,7 +63,18 @@ class SignalKafkaService(JobStatusKafkaService):
             message = SignalJobMessage.model_validate(raw)
             transition = await self._handler.handle(raw)
             status = self._build_status(message, started_at, utc_now(), transition)
-            await self._publish_signal_notification(message, transition)
+            await self.publish_status(status)
+            try:
+                await self._publish_signal_notification(message, transition)
+            except Exception:
+                _logger.exception(
+                    "Signal notification publish failed after status publish "
+                    "executionId=%s parentExecutionId=%s symbolKey=%s",
+                    message.execution_id,
+                    message.parent_execution_id,
+                    message.symbol_key,
+                )
+            return status
         except ValidationError as exc:
             _logger.warning(
                 "Publishing ERROR for invalid signal payload contract", exc_info=True
@@ -102,8 +113,11 @@ class SignalKafkaService(JobStatusKafkaService):
             key=message.symbol_key.encode("utf-8"),
         )
         _logger.info(
-            "Published signal notification for %s to topic=%s partition=%s offset=%s",
+            "Published signal notification symbolKey=%s executionId=%s "
+            "parentExecutionId=%s topic=%s partition=%s offset=%s",
             message.symbol_key,
+            message.execution_id,
+            message.parent_execution_id,
             result.topic,
             result.partition,
             result.offset,

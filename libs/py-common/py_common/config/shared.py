@@ -52,6 +52,7 @@ class TopicSettings(BaseSettings):
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
     topic_sync_indicators: str = Field(default="topic-sync-indicators")
     topic_sync_signals: str = Field(default="topic-sync-signals")
+    topic_evaluate_signals: str = Field(default="topic-evaluate-signals")
     topic_signal_notifications: str = Field(default="topic-signal-notifications")
 
 
@@ -126,6 +127,11 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_sync_signals
 
     @property
+    def topic_evaluate_signals(self) -> str:
+        """Backward-compatible access to the evaluate signals topic."""
+        return self.topics.topic_evaluate_signals
+
+    @property
     def topic_signal_notifications(self) -> str:
         """Backward-compatible access to the signal notification topic."""
         return self.topics.topic_signal_notifications
@@ -160,8 +166,18 @@ class BaseAppSettings(BaseSettings):
         exchange: str,
         code: str,
     ) -> str:
-        """Build a shared object path for market signal state data."""
+        """Build a shared object path for market signal history data."""
         return self.stock_data_paths.signals(strategy, timeframe, exchange, code)
+
+    def get_signal_current_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        exchange: str,
+        code: str,
+    ) -> str:
+        """Build a shared object path for latest market signal state data."""
+        return self.stock_data_paths.signal_current(strategy, timeframe, exchange, code)
 
     def _apply_topics_config(self) -> None:
         kafka_cfg = self._shared_topics.get("kafka", {})
@@ -199,6 +215,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_sync_signals = topics_cfg.get(
             "topic-sync-signals",
             self.topics.topic_sync_signals,
+        )
+        self.topics.topic_evaluate_signals = topics_cfg.get(
+            "topic-evaluate-signals",
+            self.topics.topic_evaluate_signals,
         )
         self.topics.topic_signal_notifications = topics_cfg.get(
             "topic-signal-notifications",

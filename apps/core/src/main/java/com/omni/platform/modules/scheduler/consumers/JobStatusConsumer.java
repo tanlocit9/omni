@@ -41,9 +41,8 @@ public class JobStatusConsumer extends AbstractConsumer {
     @KafkaListener(topics = "${kafka.topics.topic-sync-job-status}", groupId = "${spring.kafka.consumer.group-id}")
     public void handleSyncStatus(ConsumerRecord<String, String> record) {
         try {
-            log.info("JobStatusConsumer received topic={} partition={} offset={} key={} timestamp={} payload={}",
-                    record.topic(), record.partition(), record.offset(), record.key(), record.timestamp(),
-                    record.value());
+            log.info("JobStatusConsumer received topic={} partition={} offset={} key={} timestamp={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), record.timestamp());
             JobStatusMessage response = jsonMapper.readValue(record.value(), JobStatusMessage.class);
             log.info(
                     "JobStatusConsumer parsed status executionId={} parentExecutionId={} symbolKey={} status={} recordsProcessed={} durationMs={} metaKeys={}",
@@ -57,9 +56,9 @@ public class JobStatusConsumer extends AbstractConsumer {
             Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
             publishMessageProcessingFailed(record, e);
             log.error(
-                    "Failed to process stock-sync-status message topic={} partition={} offset={} key={} rootCauseClass={} rootCauseMessage={} payload={}: {}",
+                    "Failed to process stock-sync-status message topic={} partition={} offset={} key={} rootCauseClass={} rootCauseMessage={}: {}",
                     record.topic(), record.partition(), record.offset(), record.key(), rootCause.getClass().getName(),
-                    rootCause.getMessage(), record.value(), e.getMessage(), e);
+                    rootCause.getMessage(), e.getMessage(), e);
             throw new RuntimeException("Failed to process stock-sync-status message", e);
         }
     }

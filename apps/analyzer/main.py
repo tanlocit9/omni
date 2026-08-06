@@ -15,9 +15,11 @@ from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
 from app.settings import settings
+from app.signals.evaluation_kafka import SignalEvaluationKafkaService
+from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
 from app.signals.kafka import SignalKafkaService
-from app.signals.messages import SignalJobMessage
+from app.signals.messages import SignalEvaluationJobMessage, SignalJobMessage
 from app.storage.factory import create_storage_registry
 
 _logger = logging.getLogger(__name__)
@@ -26,12 +28,15 @@ _logger = logging.getLogger(__name__)
 async def startup_event(app: FastAPI) -> None:
     _logger.info(
         "Starting up Analyzer service (indicatorKafkaEnabled=%s signalKafkaEnabled=%s "
-        "bootstrap=%s syncIndicatorsTopic=%s syncSignalsTopic=%s statusTopic=%s bucket=%s)",
+        "signalEvaluationKafkaEnabled=%s bootstrap=%s syncIndicatorsTopic=%s "
+        "syncSignalsTopic=%s evaluateSignalsTopic=%s statusTopic=%s bucket=%s)",
         settings.indicator_kafka_enabled,
         settings.signal_kafka_enabled,
+        settings.signal_evaluation_kafka_enabled,
         settings.kafka.bootstrap_servers,
         settings.topic_sync_indicators,
         settings.topic_sync_signals,
+        settings.topic_evaluate_signals,
         settings.sync_job_status_topic,
         settings.minio.bucket,
     )
@@ -50,6 +55,10 @@ async def startup_event(app: FastAPI) -> None:
         app.state.parquet_storage,
     )
     app.state.signal_handler = SignalJobHandler(
+        settings,
+        app.state.parquet_storage,
+    )
+    app.state.signal_outcome_evaluator = SignalOutcomeEvaluator(
         settings,
         app.state.parquet_storage,
     )
@@ -72,6 +81,15 @@ async def startup_event(app: FastAPI) -> None:
         _logger.info("Signal Kafka service started")
     else:
         _logger.info("Signal Kafka service disabled")
+    if settings.signal_evaluation_kafka_enabled:
+        app.state.signal_evaluation_kafka_service = SignalEvaluationKafkaService(
+            settings,
+            app.state.signal_outcome_evaluator,
+        )
+        await app.state.signal_evaluation_kafka_service.start()
+        _logger.info("Signal evaluation Kafka service started")
+    else:
+        _logger.info("Signal evaluation Kafka service disabled")
 
 
 async def shutdown_event(app: FastAPI) -> None:
@@ -80,6 +98,8 @@ async def shutdown_event(app: FastAPI) -> None:
         await app.state.indicator_kafka_service.stop()
     if hasattr(app.state, "signal_kafka_service"):
         await app.state.signal_kafka_service.stop()
+    if hasattr(app.state, "signal_evaluation_kafka_service"):
+        await app.state.signal_evaluation_kafka_service.stop()
 
 
 def create_app() -> FastAPI:
@@ -182,6 +202,44 @@ async def sync_signals(
         "signalChanged": transition.signal_changed,
         "previousSignal": transition.previous_signal.value if transition.previous_signal else None,
         "newSignal": transition.new_signal.value,
+    }
+
+
+@app.post("/v1/signals/evaluate")
+async def evaluate_signals(
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Synchronously update actual outcomes using the Kafka job payload contract."""
+    try:
+        message = SignalEvaluationJobMessage.model_validate(payload)
+        evaluation = await request.app.state.signal_outcome_evaluator.evaluate(payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(include_context=False),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except StorageError:
+        raise
+    except Exception as exc:
+        _logger.exception("Direct signal evaluation failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Signal evaluation failed: {exc}",
+        ) from exc
+
+    return {
+        "accepted": True,
+        "exchange": message.exchange,
+        "strategy": message.strategy,
+        "timeframe": message.timeframe,
+        "recordsScanned": evaluation.records_scanned,
+        "recordsUpdated": evaluation.records_updated,
     }
 
 

@@ -1,4 +1,4 @@
-package com.omni.platform.modules.scheduler.notifications;
+package com.omni.platform.modules.notifications.events;
 
 import java.util.List;
 

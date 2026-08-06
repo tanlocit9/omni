@@ -22,14 +22,14 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
-import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationEvent;
+import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
-import com.omni.platform.modules.scheduler.notifications.JobNotificationTemplate;
+import com.omni.platform.modules.notifications.templates.JobNotificationTemplate;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 

@@ -3,6 +3,7 @@ package com.omni.platform.modules.scheduler.consumers;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -44,13 +45,21 @@ public class JobStatusConsumer extends AbstractConsumer {
                     record.topic(), record.partition(), record.offset(), record.key(), record.timestamp(),
                     record.value());
             JobStatusMessage response = jsonMapper.readValue(record.value(), JobStatusMessage.class);
+            log.info(
+                    "JobStatusConsumer parsed status executionId={} parentExecutionId={} symbolKey={} status={} recordsProcessed={} durationMs={} metaKeys={}",
+                    response.executionId(), response.parentExecutionId(), response.symbolKey(), response.status(),
+                    response.recordsProcessed(), response.durationMs(),
+                    response.metaJson() == null ? null : response.metaJson().keySet());
             jobService.applyStatus(response);
+            log.info("JobStatusConsumer processed topic={} partition={} offset={} key={} executionId={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), response.executionId());
         } catch (Exception e) {
+            Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
             publishMessageProcessingFailed(record, e);
             log.error(
-                    "Failed to process stock-sync-status message topic={} partition={} offset={} key={} payload={}: {}",
-                    record.topic(), record.partition(), record.offset(), record.key(), record.value(), e.getMessage(),
-                    e);
+                    "Failed to process stock-sync-status message topic={} partition={} offset={} key={} rootCauseClass={} rootCauseMessage={} payload={}: {}",
+                    record.topic(), record.partition(), record.offset(), record.key(), rootCause.getClass().getName(),
+                    rootCause.getMessage(), record.value(), e.getMessage(), e);
             throw new RuntimeException("Failed to process stock-sync-status message", e);
         }
     }

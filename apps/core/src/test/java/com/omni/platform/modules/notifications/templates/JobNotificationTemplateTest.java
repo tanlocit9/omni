@@ -1,4 +1,4 @@
-package com.omni.platform.modules.scheduler.notifications;
+package com.omni.platform.modules.notifications.templates;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

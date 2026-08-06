@@ -1,4 +1,4 @@
-package com.omni.platform.modules.scheduler.notifications;
+package com.omni.platform.modules.notifications.templates;
 
 import java.util.Map;
 
@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
-import com.omni.platform.modules.notifications.templates.AbstractNotificationTemplate;
+import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 
 @Component
 public class SignalNotificationTemplate extends AbstractNotificationTemplate<SignalDigestNotificationEvent> {

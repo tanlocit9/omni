@@ -24,6 +24,7 @@ public class JobDefinitionConfig {
         private static final String CRON_18_05_WEEKDAYS = "0 5 18 * * MON-FRI";
         private static final String CRON_18_10_WEEKDAYS = "0 10 18 * * MON-FRI";
         private static final String CRON_18_30_WEEKDAYS = "0 30 18 * * MON-FRI";
+        private static final String CRON_18_35_WEEKDAYS = "0 35 18 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
 
         // ==========================================
@@ -111,7 +112,7 @@ public class JobDefinitionConfig {
                                         List.of(),
                                         JobType.SYNC_SIGNALS,
                                         "Sync market signals - daily BANKS",
-                                        CRON_18_30_WEEKDAYS,
+                                        CRON_18_35_WEEKDAYS,
                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
                                                         List.of(SECTOR_BANK),
                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,

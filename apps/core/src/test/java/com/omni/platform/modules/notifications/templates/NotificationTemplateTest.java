@@ -11,9 +11,8 @@ import org.junit.jupiter.api.Test;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
-import com.omni.platform.modules.scheduler.notifications.SignalDigestItem;
-import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationEvent;
-import com.omni.platform.modules.scheduler.notifications.SignalNotificationTemplate;
+import com.omni.platform.modules.notifications.events.SignalDigestItem;
+import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 
 class NotificationTemplateTest {
 

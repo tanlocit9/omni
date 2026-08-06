@@ -14,16 +14,18 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.notifications.events.SignalDigestItem;
+import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
+import com.omni.platform.modules.notifications.templates.JobNotificationTemplate;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
-import com.omni.platform.modules.scheduler.notifications.JobNotificationTemplate;
-import com.omni.platform.modules.scheduler.notifications.SignalDigestItem;
-import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationEvent;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.shared.utils.MetadataUtils;
@@ -237,6 +239,12 @@ public class JobService {
      */
     @Transactional
     public void applyStatus(JobStatusMessage response) {
+        log.info(
+                "Applying job status executionId={} parentExecutionId={} symbolKey={} status={} txActive={} txName={} metaKeys={}",
+                response.executionId(), response.parentExecutionId(), response.symbolKey(), response.status(),
+                TransactionSynchronizationManager.isActualTransactionActive(),
+                TransactionSynchronizationManager.getCurrentTransactionName(),
+                response.metaJson() == null ? null : response.metaJson().keySet());
         UUID executionId = parseUuid(response.executionId(), "executionId");
         if (executionId == null) {
             return;
@@ -292,13 +300,22 @@ public class JobService {
         history.setNewOffset(response.newOffset());
         history.setMetaJson(buildMetaJson(history, response));
 
+        log.info("Saving job status child executionId={} previousStatus={} incomingStatus={} parentLogId={} meta={}",
+                executionId, previousStatus, incomingStatus, history.getParentLogId(), history.getMetaJson());
         jobExecutionHistoryRepository.saveAndFlush(history);
+        log.info("Saved job status child executionId={} rollbackOnly={}",
+                executionId, TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());
 
         UUID persistedParentLogId = history.getParentLogId();
         validateMessageParentExecutionId(response, persistedParentLogId, executionId);
 
         if (persistedParentLogId != null) {
+            log.info("Aggregating parent execution parentLogId={} after child executionId={}",
+                    persistedParentLogId, executionId);
             aggregateParentExecution(persistedParentLogId);
+            log.info("Aggregated parent execution parentLogId={} after child executionId={} rollbackOnly={}",
+                    persistedParentLogId, executionId,
+                    TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());
             return;
         }
 
@@ -323,6 +340,9 @@ public class JobService {
      */
     @Transactional
     public void aggregateParentExecution(UUID parentLogId) {
+        log.info("Starting parent aggregation parentLogId={} txActive={} txName={}",
+                parentLogId, TransactionSynchronizationManager.isActualTransactionActive(),
+                TransactionSynchronizationManager.getCurrentTransactionName());
         JobExecutionHistory parent = jobExecutionHistoryRepository.findByIdForUpdate(parentLogId)
                 .orElseThrow(() -> new IllegalArgumentException("Parent job execution not found: " + parentLogId));
         JobStatus previousParentStatus = parent.getStatus();
@@ -401,7 +421,13 @@ public class JobService {
         MetadataUtils.putIfPresent(meta, "runningCount", runningCount);
         parent.setMetaJson(meta);
 
+        log.info(
+                "Saving parent aggregation parentLogId={} previousStatus={} parentStatus={} allTerminal={} successCount={} failedCount={} pendingCount={} runningCount={} childCount={}",
+                parentLogId, previousParentStatus, parentStatus, allTerminal, successCount, failedCount, pendingCount,
+                runningCount, children.size());
         jobExecutionHistoryRepository.saveAndFlush(parent);
+        log.info("Saved parent aggregation parentLogId={} rollbackOnly={}",
+                parentLogId, TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());
 
         if (allTerminal) {
             SignalDigestNotificationEvent signalDigest = buildSignalDigestNotification(parent, children, parentStatus);

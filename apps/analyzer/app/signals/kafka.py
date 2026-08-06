@@ -126,7 +126,11 @@ class SignalKafkaService(JobStatusKafkaService):
             "strategy": metadata.get("strategy", message.strategy),
             "previousSignal": metadata.get(
                 "previousSignal",
-                transition.previous_signal.value if transition.previous_signal else None,
+                (
+                    transition.previous_signal.value
+                    if transition.previous_signal
+                    else None
+                ),
             ),
             "newSignal": metadata.get("newSignal", transition.new_signal.value),
             "price": metadata.get("price"),

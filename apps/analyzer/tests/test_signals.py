@@ -6,11 +6,21 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from app.signals.evaluation_kafka import SignalEvaluationKafkaService
+from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
 from app.signals.kafka import SignalKafkaService
-from app.signals.messages import SignalJobMessage
-from app.signals.storage import SignalHistoryRepository, SignalTransition
-from app.signals.strategy import MarketSignal, SignalResult, calculate_trend_momentum_v1
+from app.signals.messages import SignalEvaluationJobMessage, SignalJobMessage
+from app.signals.storage import (
+    SignalHistoryRepository,
+    SignalOutcomeEvaluation,
+    SignalTransition,
+)
+from app.signals.strategy import (
+    MarketSignal,
+    SignalResult,
+    calculate_trend_momentum_v1,
+)
 
 
 def _job_payload(**overrides):
@@ -56,6 +66,8 @@ class FakeParquetStorage:
     def __init__(self, frames: dict[str, pd.DataFrame] | None = None) -> None:
         self.frames = frames or {}
         self.writes: dict[str, pd.DataFrame] = {}
+        self.replacements: dict[str, pd.DataFrame] = {}
+        self.fail_replace_paths: set[str] = set()
 
     async def read_dataframe(self, path: str) -> pd.DataFrame:
         if path not in self.frames:
@@ -64,6 +76,15 @@ class FakeParquetStorage:
 
     async def write_dataframe(self, path: str, frame: pd.DataFrame) -> None:
         self.writes[path] = frame
+        self.frames[path] = frame
+
+    async def replace_dataframe(self, path: str, frame: pd.DataFrame, **kwargs) -> None:
+        if path in self.fail_replace_paths:
+            raise RuntimeError("replace failed")
+        validate = kwargs.get("validate")
+        if validate is not None:
+            validate(frame)
+        self.replacements[path] = frame
         self.frames[path] = frame
 
 
@@ -77,20 +98,26 @@ class FakePaths:
         )
 
     def signal_history(
-        self, strategy: str, timeframe: str, exchange: str, code: str
+        self, strategy: str, timeframe: str, exchange: str, code: str | None = None
     ) -> str:
         return f"signals/{strategy.lower()}/{timeframe}/{exchange.lower()}.parquet"
 
     def signal_current(
-        self, strategy: str, timeframe: str, exchange: str, code: str
+        self, strategy: str, timeframe: str, exchange: str, code: str | None = None
     ) -> str:
-        return f"signals/{strategy.lower()}/{timeframe}/{exchange.lower()}.parquet"
+        if code is None:
+            return f"signals/{strategy.lower()}/{timeframe}/{exchange.lower()}.parquet"
+        return (
+            f"signals/{strategy.lower()}/{timeframe}/"
+            f"{exchange.lower()}/{code.lower()}.parquet"
+        )
 
 
 class FakeSettings:
     stock_data_paths = FakePaths()
     topic_sync_signals = "topic-sync-signals"
     topic_signal_notifications = "topic-signal-notifications"
+    topic_evaluate_signals = "topic-evaluate-signals"
     sync_job_status_topic = "topic-sync-job-status"
 
     class kafka:
@@ -180,9 +207,9 @@ async def test_signal_state_storage_persists_baseline_without_change():
     assert transition.previous_signal is None
     assert transition.new_signal == MarketSignal.BULLISH
     assert transition.metadata["signalChanged"] is False
-    assert path in storage.writes
-    assert len(storage.writes) == 1
-    written = storage.writes[path]
+    assert path in storage.replacements
+    assert len(storage.replacements) == 1
+    written = storage.replacements[path]
     assert written.iloc[0]["exchange"] == "HOSE"
     assert written.iloc[0]["signal_price"] == 120.0
 
@@ -254,7 +281,7 @@ async def test_signal_repository_upserts_history_by_signal_date():
 
     await repository.persist_transition(path, None, "HOSE-HPG", "1d", result)
 
-    written = storage.writes[path]
+    written = storage.replacements[path]
     assert len(written) == 2
     latest = written[written["signal_date"].astype(str) == "2026-07-28"].iloc[0]
     assert latest["signal"] == "BULLISH"
@@ -304,7 +331,7 @@ async def test_signal_repository_updates_available_actual_outcomes_by_trading_da
 
     evaluation = await repository.update_outcomes(path, load_eod)
 
-    written = storage.writes[path]
+    written = storage.replacements[path]
     row = written.iloc[0]
     assert evaluation.records_scanned == 1
     assert evaluation.records_updated == 1
@@ -352,7 +379,7 @@ async def test_signal_repository_preserves_existing_outcomes_on_idempotent_rerun
     evaluation = await repository.update_outcomes(path, load_eod)
 
     assert evaluation.records_updated == 0
-    assert path not in storage.writes
+    assert path not in storage.replacements
 
 
 @pytest.mark.anyio
@@ -385,7 +412,95 @@ async def test_signal_repository_does_not_persist_no_decision():
     assert transition.persisted is False
     assert transition.signal_changed is False
     assert transition.previous_signal == MarketSignal.BULLISH
-    assert path not in storage.writes
+    assert path not in storage.replacements
+
+
+@pytest.mark.anyio
+async def test_signal_repository_same_day_rerun_preserves_outcomes_and_signal():
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    updated_at = pd.Timestamp("2026-01-09T00:00:00Z")
+    existing = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-HPG",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BEARISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-02",
+                "score": -4,
+                "reason_codes": ["OLD"],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+                "revision": 3,
+                "actual_price_t5": 110.0,
+                "actual_return_t5": 0.1,
+                "actual_updated_at": updated_at,
+            }
+        ]
+    )
+    storage = FakeParquetStorage({path: existing})
+    repository = SignalHistoryRepository(storage)
+    result = SignalResult(
+        signal=MarketSignal.BULLISH,
+        score=5,
+        reason_codes=["PRICE_ABOVE_MA50", "MACD_BULLISH"],
+        price=120.0,
+        signal_date="2026-01-02",
+        strategy="TREND_MOMENTUM_V1",
+    )
+
+    await repository.persist_transition(path, None, "HOSE-HPG", "1d", result)
+
+    written = storage.replacements[path]
+    assert len(written) == 1
+    row = written.iloc[0]
+    assert row["signal"] == "BULLISH"
+    assert row["score"] == 5
+    assert row["signal_price"] == 120.0
+    assert row["reason_codes"] == ["PRICE_ABOVE_MA50", "MACD_BULLISH"]
+    assert row["actual_price_t5"] == 110.0
+    assert row["actual_return_t5"] == 0.1
+    assert row["actual_updated_at"] == updated_at
+    assert row["revision"] == 4
+    assert pd.notna(row["last_recalculated_at"])
+
+
+@pytest.mark.anyio
+async def test_signal_repository_new_trading_day_appends_new_row():
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    existing = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-HPG",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-02",
+                "score": 4,
+                "reason_codes": ["OLD"],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+            }
+        ]
+    )
+    storage = FakeParquetStorage({path: existing})
+    repository = SignalHistoryRepository(storage)
+    result = SignalResult(
+        signal=MarketSignal.NEUTRAL,
+        score=0,
+        reason_codes=["FLAT"],
+        price=101.0,
+        signal_date="2026-01-05",
+        strategy="TREND_MOMENTUM_V1",
+    )
+
+    await repository.persist_transition(path, None, "HOSE-HPG", "1d", result)
+
+    written = storage.replacements[path]
+    assert len(written) == 2
+    assert set(written["signal_date"].astype(str)) == {"2026-01-02", "2026-01-05"}
 
 
 @pytest.mark.anyio
@@ -404,8 +519,294 @@ async def test_signal_handler_reads_eod_indicators_and_writes_signal_path():
     transition = await handler.handle(_job_payload())
 
     assert transition.new_signal == MarketSignal.BULLISH
-    assert signals_path in storage.writes
-    assert len(storage.writes) == 1
+    assert signals_path in storage.replacements
+    assert "signals/trend_momentum_v1/1d/hose/hpg.parquet" in storage.replacements
+    assert len(storage.replacements) == 2
+
+
+@pytest.mark.anyio
+async def test_signal_handler_multiple_symbols_share_one_exchange_history_file():
+    storage = FakeParquetStorage(
+        {
+            "eod/hose/acb.parquet": _eod_frame(),
+            "indicators/ad_close/1d/hose/acb.parquet": _indicator_frame(),
+            "eod/hose/mbb.parquet": _eod_frame(),
+            "indicators/ad_close/1d/hose/mbb.parquet": _indicator_frame(),
+        }
+    )
+    handler = SignalJobHandler(FakeSettings(), storage)
+
+    await handler.handle(_job_payload(symbolKey="HOSE-ACB"))
+    await handler.handle(_job_payload(symbolKey="HOSE-MBB"))
+
+    history_path = "signals/trend_momentum_v1/1d/hose.parquet"
+    assert history_path in storage.replacements
+    written = storage.replacements[history_path]
+    assert set(written["symbol_key"]) == {"HOSE-ACB", "HOSE-MBB"}
+    assert all(
+        not path.endswith("hose/acb.parquet")
+        for path in storage.replacements
+        if path == history_path
+    )
+    assert all(
+        not path.endswith("hose/mbb.parquet")
+        for path in storage.replacements
+        if path == history_path
+    )
+
+
+@pytest.mark.anyio
+async def test_signal_evaluator_reads_same_shared_path_used_by_persistence():
+    history_path = "signals/trend_momentum_v1/1d/hose.parquet"
+    storage = FakeParquetStorage(
+        {
+            history_path: pd.DataFrame(
+                [
+                    {
+                        "symbol_key": "HOSE-ACB",
+                        "exchange": "HOSE",
+                        "strategy": "TREND_MOMENTUM_V1",
+                        "timeframe": "1d",
+                        "signal": "BULLISH",
+                        "signal_price": 100.0,
+                        "signal_date": "2026-01-02",
+                        "score": 4,
+                        "reason_codes": ["PRICE_ABOVE_MA50"],
+                        "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+                    }
+                ]
+            ),
+            "eod/hose/acb.parquet": pd.DataFrame(
+                {
+                    "date": pd.date_range("2026-01-05", periods=5, freq="B"),
+                    "ad_close": [101.0, 102.0, 103.0, 104.0, 105.0],
+                }
+            ),
+        }
+    )
+    evaluator = SignalOutcomeEvaluator(FakeSettings(), storage)
+
+    await evaluator.evaluate(
+        {
+            "jobDefinitionId": "job-definition-id",
+            "executionId": "execution-id",
+            "source": "ANALYZER",
+            "exchange": "HOSE",
+            "timeframe": "1d",
+            "strategy": "TREND_MOMENTUM_V1",
+        }
+    )
+
+    assert history_path in storage.replacements
+    assert "signals/trend_momentum_v1/1d/hose/acb.parquet" not in storage.replacements
+
+
+@pytest.mark.anyio
+async def test_signal_repository_t_windows_use_strict_future_trading_sessions():
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    history = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-HPG",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-02",
+                "score": 4,
+                "reason_codes": ["PRICE_ABOVE_MA50"],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+            }
+        ]
+    )
+    dates = pd.date_range("2026-01-05", periods=20, freq="B")
+    eod = pd.DataFrame({"date": dates, "ad_close": [100 + i for i in range(1, 21)]})
+    storage = FakeParquetStorage({path: history})
+    repository = SignalHistoryRepository(storage)
+
+    async def load_eod(symbol_key: str) -> pd.DataFrame:
+        return eod
+
+    await repository.update_outcomes(path, load_eod)
+
+    row = storage.replacements[path].iloc[0]
+    assert row["actual_price_t5"] == 105.0
+    assert row["actual_price_t10"] == 110.0
+    assert row["actual_price_t15"] == 115.0
+    assert row["actual_price_t20"] == 120.0
+
+
+@pytest.mark.anyio
+async def test_signal_repository_normalizes_duplicate_eod_dates_keep_last():
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    history = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-HPG",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-03",
+                "score": 4,
+                "reason_codes": ["PRICE_ABOVE_MA50"],
+                "generated_at": pd.Timestamp("2026-01-03T00:00:00Z"),
+            }
+        ]
+    )
+    eod = pd.DataFrame(
+        {
+            "date": [
+                "bad-date",
+                "2026-01-05",
+                "2026-01-05",
+                "2026-01-06",
+                "2026-01-07",
+                "2026-01-08",
+                "2026-01-09",
+                "2026-01-12",
+            ],
+            "ad_close": [999.0, 101.0, 111.0, 102.0, 103.0, None, 105.0, 106.0],
+        }
+    )
+    storage = FakeParquetStorage({path: history})
+    repository = SignalHistoryRepository(storage)
+
+    async def load_eod(symbol_key: str) -> pd.DataFrame:
+        return eod
+
+    await repository.update_outcomes(path, load_eod)
+
+    assert storage.replacements[path].iloc[0]["actual_price_t5"] == 106.0
+
+
+@pytest.mark.anyio
+async def test_signal_repository_missing_eod_one_symbol_does_not_fail_batch():
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    history = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-ACB",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-02",
+                "score": 4,
+                "reason_codes": [],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+            },
+            {
+                "symbol_key": "HOSE-MBB",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 200.0,
+                "signal_date": "2026-01-02",
+                "score": 4,
+                "reason_codes": [],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+            },
+        ]
+    )
+    storage = FakeParquetStorage({path: history})
+    repository = SignalHistoryRepository(storage)
+
+    async def load_eod(symbol_key: str) -> pd.DataFrame:
+        if symbol_key == "HOSE-ACB":
+            raise FileNotFoundError(symbol_key)
+        return pd.DataFrame(
+            {
+                "date": pd.date_range("2026-01-05", periods=5, freq="B"),
+                "ad_close": [201.0, 202.0, 203.0, 204.0, 210.0],
+            }
+        )
+
+    evaluation = await repository.update_outcomes(path, load_eod)
+
+    assert evaluation.records_scanned == 2
+    assert evaluation.records_updated == 1
+    assert evaluation.metadata["missingEodCount"] == 1
+    assert evaluation.metadata["missingEodSymbols"] == ["HOSE-ACB"]
+    written = storage.replacements[path]
+    acb = written[written["symbol_key"] == "HOSE-ACB"].iloc[0]
+    mbb = written[written["symbol_key"] == "HOSE-MBB"].iloc[0]
+    assert pd.isna(acb["actual_price_t5"])
+    assert mbb["actual_price_t5"] == 210.0
+
+
+@pytest.mark.anyio
+async def test_signal_repository_safe_replacement_preserves_old_file_on_failure():
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    existing = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-HPG",
+                "exchange": "HOSE",
+                "strategy": "TREND_MOMENTUM_V1",
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-02",
+                "score": 4,
+                "reason_codes": [],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+            }
+        ]
+    )
+    storage = FakeParquetStorage({path: existing.copy()})
+    storage.fail_replace_paths.add(path)
+    repository = SignalHistoryRepository(storage)
+    result = SignalResult(
+        signal=MarketSignal.BEARISH,
+        score=-4,
+        reason_codes=["REVERSAL"],
+        price=90.0,
+        signal_date="2026-01-02",
+        strategy="TREND_MOMENTUM_V1",
+    )
+
+    with pytest.raises(RuntimeError):
+        await repository.persist_transition(path, None, "HOSE-HPG", "1d", result)
+
+    assert storage.frames[path].equals(existing)
+    assert path not in storage.replacements
+
+
+@pytest.mark.anyio
+async def test_signal_evaluation_kafka_status_uses_scanned_as_processed():
+    service = SignalEvaluationKafkaService(FakeSettings(), evaluator=None)
+    evaluation = SignalOutcomeEvaluation(
+        records_scanned=7,
+        records_updated=3,
+        metadata={"recordsScanned": 7, "recordsUpdated": 3},
+    )
+    message = SignalEvaluationJobMessage.model_validate(
+        {
+            "jobDefinitionId": "job-definition-id",
+            "executionId": "execution-id",
+            "source": "ANALYZER",
+            "exchange": "HOSE",
+            "timeframe": "1d",
+            "strategy": "TREND_MOMENTUM_V1",
+        }
+    )
+
+    status = service._build_status(
+        message,
+        pd.Timestamp.now(),
+        pd.Timestamp.now(),
+        evaluation,
+    )
+
+    assert status.records_processed == 7
+    assert status.meta_json["recordsProcessed"] == 7
+    assert status.meta_json["recordsScanned"] == 7
+    assert status.meta_json["recordsUpdated"] == 3
 
 
 @pytest.mark.anyio

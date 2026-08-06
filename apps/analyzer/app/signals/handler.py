@@ -36,7 +36,6 @@ class SignalJobHandler:
             message.strategy,
             message.timeframe,
             exchange,
-            code,
         )
         current_path = self._settings.stock_data_paths.signal_current(
             message.strategy,

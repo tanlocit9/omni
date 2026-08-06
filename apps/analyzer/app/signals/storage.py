@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
+from py_common.storage.exceptions import StorageObjectNotFoundError
 from py_common.storage.parquet import ParquetStorage
 
 from app.signals.strategy import MarketSignal, SignalResult
 
 OUTCOME_WINDOWS = (5, 10, 15, 20)
 SIGNAL_KEY_COLUMNS = ["symbol_key", "strategy", "timeframe", "signal_date"]
-IMMUTABLE_SIGNAL_COLUMNS = [
+SIGNAL_COLUMNS = [
     "symbol_key",
     "exchange",
     "strategy",
@@ -24,6 +25,7 @@ IMMUTABLE_SIGNAL_COLUMNS = [
     "reason_codes",
     "generated_at",
 ]
+AUDIT_COLUMNS = ["last_recalculated_at", "revision"]
 OUTCOME_COLUMNS = [
     "actual_price_t5",
     "actual_return_t5",
@@ -35,6 +37,9 @@ OUTCOME_COLUMNS = [
     "actual_return_t20",
     "actual_updated_at",
 ]
+HISTORY_COLUMNS = SIGNAL_COLUMNS + AUDIT_COLUMNS + OUTCOME_COLUMNS
+IMMUTABLE_SIGNAL_COLUMNS = SIGNAL_COLUMNS
+VALID_SIGNAL_VALUES = {signal.value for signal in MarketSignal}
 
 
 @dataclass(frozen=True)
@@ -77,6 +82,10 @@ class SignalHistoryRepository:
     Signal history is stored as one Parquet file per strategy + timeframe + exchange.
     The repository is the single Analyzer boundary allowed to mutate that shared file.
     It serializes read-modify-write operations by object path inside one process.
+
+    V1 concurrency constraint: this in-process lock is not a distributed lock. Deploy
+    exactly one Analyzer writer for a shared signal history path. Multiple Analyzer
+    processes must not mutate the same history path concurrently.
     """
 
     def __init__(self, parquet_storage: ParquetStorage) -> None:
@@ -112,16 +121,13 @@ class SignalHistoryRepository:
             persisted = result.signal != MarketSignal.NO_DECISION
             if persisted:
                 history_frame = self._upsert_signal_row(history, state_frame)
-                await self._parquet_storage.write_dataframe(history_path, history_frame)
+                await self._replace_history(history_path, history_frame)
                 if current_path and current_path != history_path:
                     current_frame = self._latest_current_frame(
                         history_frame,
                         symbol_key,
                     )
-                    await self._parquet_storage.write_dataframe(
-                        current_path,
-                        current_frame,
-                    )
+                    await self._replace_history(current_path, current_frame)
 
             metadata = result.to_metadata()
             metadata.update(
@@ -156,13 +162,19 @@ class SignalHistoryRepository:
                 return SignalOutcomeEvaluation(
                     records_scanned=0,
                     records_updated=0,
-                    metadata={"recordsScanned": 0, "recordsUpdated": 0},
+                    metadata={
+                        "recordsScanned": 0,
+                        "recordsUpdated": 0,
+                        "missingEodCount": 0,
+                        "missingEodSymbols": [],
+                    },
                 )
 
             history = self._ensure_schema(history)
             updated = history.copy()
             records_updated = 0
             eod_cache: dict[str, pd.DataFrame] = {}
+            missing_eod_symbols: set[str] = set()
 
             for index, row in history.iterrows():
                 if str(row.get("signal", "")).upper() == MarketSignal.NO_DECISION.value:
@@ -177,8 +189,16 @@ class SignalHistoryRepository:
                     continue
 
                 symbol_key = str(row["symbol_key"])
+                if symbol_key in missing_eod_symbols:
+                    continue
                 if symbol_key not in eod_cache:
-                    eod_cache[symbol_key] = await eod_loader(symbol_key)
+                    try:
+                        eod_cache[symbol_key] = await eod_loader(symbol_key)
+                    except Exception as exc:
+                        if self._is_object_not_found(exc):
+                            missing_eod_symbols.add(symbol_key)
+                            continue
+                        raise
                 outcomes = self._resolve_outcomes(
                     row,
                     eod_cache[symbol_key],
@@ -191,8 +211,9 @@ class SignalHistoryRepository:
                     records_updated += 1
 
             if records_updated:
-                await self._parquet_storage.write_dataframe(history_path, updated)
+                await self._replace_history(history_path, updated)
 
+            missing_symbols = sorted(missing_eod_symbols)
             return SignalOutcomeEvaluation(
                 records_scanned=len(history),
                 records_updated=records_updated,
@@ -200,6 +221,8 @@ class SignalHistoryRepository:
                     "recordsScanned": len(history),
                     "recordsUpdated": records_updated,
                     "outcomeWindows": list(OUTCOME_WINDOWS),
+                    "missingEodCount": len(missing_symbols),
+                    "missingEodSymbols": missing_symbols,
                 },
             )
 
@@ -211,24 +234,39 @@ class SignalHistoryRepository:
         except FileNotFoundError:
             return pd.DataFrame()
         except Exception as exc:
-            if exc.__class__.__name__ in {
-                "ObjectNotFoundError",
-                "StorageObjectNotFoundError",
-                "NoSuchKey",
-            }:
+            if self._is_object_not_found(exc):
                 return pd.DataFrame()
             raise
+
+    async def _replace_history(self, path: str, frame: pd.DataFrame) -> None:
+        await self._parquet_storage.replace_dataframe(
+            path,
+            self._sort_history(self._ensure_schema(frame)),
+            validate=self._validate_history_frame,
+        )
 
     def _upsert_signal_row(
         self, history: pd.DataFrame, state_frame: pd.DataFrame
     ) -> pd.DataFrame:
         history = self._ensure_schema(history)
-        incoming = state_frame.iloc[0]
+        incoming = self._ensure_schema(state_frame).iloc[0].copy()
+        now = pd.Timestamp.now(tz="UTC")
+        incoming["last_recalculated_at"] = now
+        incoming["revision"] = 1
+
         if not history.empty and set(SIGNAL_KEY_COLUMNS).issubset(history.columns):
+            history = history.dropna(subset=SIGNAL_KEY_COLUMNS)
             same_key = self._same_signal_key(history, incoming)
-            history = history.loc[~same_key]
+            if same_key.any():
+                existing = history.loc[same_key].iloc[-1]
+                for column in OUTCOME_COLUMNS:
+                    incoming[column] = existing.get(column, pd.NA)
+                existing_revision = existing.get("revision", 0)
+                incoming["revision"] = self._next_revision(existing_revision)
+                incoming["last_recalculated_at"] = now
+                history = history.loc[~same_key]
         merged = pd.concat(
-            [history, self._ensure_schema(state_frame)],
+            [history, pd.DataFrame([incoming])],
             ignore_index=True,
         )
         return self._sort_history(merged)
@@ -281,6 +319,8 @@ class SignalHistoryRepository:
             "score": result.score,
             "reason_codes": result.reason_codes,
             "generated_at": pd.Timestamp.now(tz="UTC"),
+            "last_recalculated_at": pd.NA,
+            "revision": 1,
         }
         for column in OUTCOME_COLUMNS:
             row[column] = pd.NA
@@ -288,14 +328,16 @@ class SignalHistoryRepository:
 
     def _ensure_schema(self, frame: pd.DataFrame) -> pd.DataFrame:
         if frame.empty:
-            return pd.DataFrame(columns=IMMUTABLE_SIGNAL_COLUMNS + OUTCOME_COLUMNS)
+            return pd.DataFrame(columns=HISTORY_COLUMNS)
         normalized = frame.copy()
         if "price" in normalized.columns and "signal_price" not in normalized.columns:
             normalized["signal_price"] = normalized["price"]
-        for column in IMMUTABLE_SIGNAL_COLUMNS + OUTCOME_COLUMNS:
+        for column in HISTORY_COLUMNS:
             if column not in normalized.columns:
                 normalized[column] = pd.NA
-        return normalized[IMMUTABLE_SIGNAL_COLUMNS + OUTCOME_COLUMNS]
+        normalized["signal"] = normalized["signal"].astype(str).str.upper()
+        normalized["revision"] = normalized["revision"].apply(self._coerce_revision)
+        return normalized[HISTORY_COLUMNS]
 
     def _sort_history(self, frame: pd.DataFrame) -> pd.DataFrame:
         sort_columns = [
@@ -337,23 +379,25 @@ class SignalHistoryRepository:
             return {}
 
         prices = eod_frame.copy()
-        prices["date"] = pd.to_datetime(prices["date"]).dt.date
-        prices = prices.dropna(subset=["date", "ad_close"]).sort_values("date")
+        prices["date"] = pd.to_datetime(prices["date"], errors="coerce").dt.date
+        prices = (
+            prices.dropna(subset=["date", "ad_close"])
+            .drop_duplicates(subset=["date"], keep="last")
+            .sort_values("date")
+            .reset_index(drop=True)
+        )
+        if prices.empty:
+            return {}
+
         signal_date = pd.to_datetime(signal_row["signal_date"]).date()
-        trading_dates = list(prices["date"])
-        if signal_date not in trading_dates:
-            trading_dates = [value for value in trading_dates if value > signal_date]
-            start_index = -1
-        else:
-            start_index = trading_dates.index(signal_date)
+        future_prices = prices[prices["date"] > signal_date].reset_index(drop=True)
 
         outcomes: dict[str, Any] = {}
         for window in windows:
-            target_index = start_index + window
-            if target_index < 0 or target_index >= len(trading_dates):
+            target_index = window - 1
+            if target_index >= len(future_prices):
                 continue
-            target_date = trading_dates[target_index]
-            price_row = prices[prices["date"] == target_date].iloc[-1]
+            price_row = future_prices.iloc[target_index]
             actual_price = float(price_row["ad_close"])
             outcomes[f"actual_price_t{window}"] = actual_price
             outcomes[f"actual_return_t{window}"] = (
@@ -361,9 +405,51 @@ class SignalHistoryRepository:
             ) / float(signal_price)
         return outcomes
 
+    def _validate_history_frame(self, frame: pd.DataFrame) -> None:
+        missing_columns = [
+            column for column in HISTORY_COLUMNS if column not in frame.columns
+        ]
+        if missing_columns:
+            raise ValueError(f"Signal history is missing columns: {missing_columns}")
+        if frame[SIGNAL_KEY_COLUMNS].isna().any().any():
+            raise ValueError("Signal history contains null signal key values")
+        duplicate_keys = frame.duplicated(subset=SIGNAL_KEY_COLUMNS, keep=False)
+        if duplicate_keys.any():
+            raise ValueError("Signal history contains duplicate signal key records")
+        invalid_signals = sorted(
+            set(frame["signal"].astype(str).str.upper()) - VALID_SIGNAL_VALUES
+        )
+        if invalid_signals:
+            raise ValueError(
+                f"Signal history contains invalid signals: {invalid_signals}"
+            )
+
     @staticmethod
     def _exchange_from_symbol_key(symbol_key: str) -> str:
         return symbol_key.split("-", maxsplit=1)[0]
+
+    @staticmethod
+    def _is_object_not_found(exc: Exception) -> bool:
+        object_not_found_names = {
+            "ObjectNotFoundError",
+            "StorageObjectNotFoundError",
+            "NoSuchKey",
+        }
+        return isinstance(
+            exc, (FileNotFoundError, StorageObjectNotFoundError)
+        ) or exc.__class__.__name__ in object_not_found_names
+
+    @staticmethod
+    def _coerce_revision(value: Any) -> int:
+        if pd.isna(value):
+            return 1
+        try:
+            return max(1, int(value))
+        except (TypeError, ValueError):
+            return 1
+
+    def _next_revision(self, value: Any) -> int:
+        return self._coerce_revision(value) + 1
 
 
 SignalRepository = SignalHistoryRepository

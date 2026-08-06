@@ -84,7 +84,7 @@ class SignalEvaluationKafkaService(JobStatusKafkaService):
             "exchange": message.exchange,
             "timeframe": message.timeframe,
             "strategy": message.strategy,
-            "recordsProcessed": evaluation.records_updated,
+            "recordsProcessed": evaluation.records_scanned,
         }
         return JobStatusMessage(
             job_definition_id=message.job_definition_id,
@@ -94,7 +94,7 @@ class SignalEvaluationKafkaService(JobStatusKafkaService):
             status=JobStatus.SUCCESS,
             started_at=started_at,
             finished_at=finished_at,
-            records_processed=evaluation.records_updated,
+            records_processed=evaluation.records_scanned,
             duration_ms=calculate_duration_ms(started_at, finished_at),
             meta_json=metadata,
         )

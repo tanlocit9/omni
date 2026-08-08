@@ -31,12 +31,12 @@ Detailed architecture starts in [docs/README.md](docs/README.md).
 
 ## Services
 
-| Project | Path | Responsibility |
-| --- | --- | --- |
-| `platform` | [`apps/core`](apps/core) | Platform API, scheduler, job orchestration, PostgreSQL operational state, Kafka producer/consumer boundary. |
-| `ingestor` | [`apps/ingestor`](apps/ingestor) | External market-data ingestion, symbol/EOD Parquet updates, status/upsert events. |
-| `analyzer` | [`apps/analyzer`](apps/analyzer) | Indicators, signals, signal evaluation, Sector Wave features/backtests. |
-| `py-common` | [`libs/py-common`](libs/py-common) | Shared Python config, Kafka, runtime, and storage abstractions. |
+| Project     | Path                               | Responsibility                                                                                              |
+| ----------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `platform`  | [`apps/core`](apps/core)           | Platform API, scheduler, job orchestration, PostgreSQL operational state, Kafka producer/consumer boundary. |
+| `ingestor`  | [`apps/ingestor`](apps/ingestor)   | External market-data ingestion, symbol/EOD Parquet updates, status/upsert events.                           |
+| `analyzer`  | [`apps/analyzer`](apps/analyzer)   | Indicators, signals, signal evaluation, Sector Wave features/backtests.                                     |
+| `py-common` | [`libs/py-common`](libs/py-common) | Shared Python config, Kafka, runtime, and storage abstractions.                                             |
 
 ## Quick Start
 
@@ -76,16 +76,16 @@ docker compose --env-file .env up -d
 
 ## Documentation
 
-| Document | Purpose |
-| --- | --- |
-| [docs/README.md](docs/README.md) | Documentation entry point and map. |
-| [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | System overview and service boundaries. |
-| [docs/development/where-to-change.md](docs/development/where-to-change.md) | Where to start for common changes. |
-| [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md) | Kafka topic and payload contract ownership. |
-| [docs/data/data-lake.md](docs/data/data-lake.md) | Parquet dataset/path ownership. |
-| [docs/flows/job-execution.md](docs/flows/job-execution.md) | Scheduler and worker job execution flow. |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Compatibility index for architecture links. |
-| [AGENTS.md](AGENTS.md) | Development and agent workflow rules. |
+| Document                                                                     | Purpose                                     |
+| ---------------------------------------------------------------------------- | ------------------------------------------- |
+| [docs/README.md](docs/README.md)                                             | Documentation entry point and map.          |
+| [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | System overview and service boundaries.     |
+| [docs/development/where-to-change.md](docs/development/where-to-change.md)   | Where to start for common changes.          |
+| [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md)                 | Kafka topic and payload contract ownership. |
+| [docs/data/data-lake.md](docs/data/data-lake.md)                             | Parquet dataset/path ownership.             |
+| [docs/flows/job-execution.md](docs/flows/job-execution.md)                   | Scheduler and worker job execution flow.    |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                                           | Compatibility index for architecture links. |
+| [AGENTS.md](AGENTS.md)                                                       | Development and agent workflow rules.       |
 
 ## Common Development Commands
 
@@ -129,11 +129,11 @@ nx run py-common:sync
 
 ## Local Infrastructure
 
-| Service | Local port | Purpose |
-| --- | --- | --- |
-| PostgreSQL | `5432` | Platform operational database. |
-| Kafka | `9092` | Async job/status/event bus. |
-| MinIO | `9000`, `9001` | S3-compatible Parquet storage. |
-| pgAdmin | `5050` | Local PostgreSQL administration. |
+| Service    | Local port     | Purpose                          |
+| ---------- | -------------- | -------------------------------- |
+| PostgreSQL | `5432`         | Platform operational database.   |
+| Kafka      | `9092`         | Async job/status/event bus.      |
+| MinIO      | `9000`, `9001` | S3-compatible Parquet storage.   |
+| pgAdmin    | `5050`         | Local PostgreSQL administration. |
 
 Local defaults are stored in [`.env.example`](.env.example). Deployment placeholders are stored in [`.env.deploy.example`](.env.deploy.example).

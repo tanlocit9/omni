@@ -39,61 +39,61 @@ Analyzer owns analytical jobs that read Parquet inputs, compute derived datasets
 
 ## Entry Points
 
-| Entry point | Purpose |
-| --- | --- |
-| [`main.py`](main.py) | Service-level FastAPI entry point. |
-| [`app/main.py`](app/main.py) | FastAPI app/router setup. |
-| [`app/indicators/kafka.py`](app/indicators/kafka.py) | Indicator Kafka worker lifecycle. |
-| [`app/signals/kafka.py`](app/signals/kafka.py) | Signal Kafka worker lifecycle. |
-| [`app/signals/evaluation_kafka.py`](app/signals/evaluation_kafka.py) | Signal evaluation Kafka lifecycle. |
-| [`app/sector_wave/kafka.py`](app/sector_wave/kafka.py) | Sector Wave Kafka worker lifecycle. |
+| Entry point                                                          | Purpose                             |
+| -------------------------------------------------------------------- | ----------------------------------- |
+| [`main.py`](main.py)                                                 | Service-level FastAPI entry point.  |
+| [`app/main.py`](app/main.py)                                         | FastAPI app/router setup.           |
+| [`app/indicators/kafka.py`](app/indicators/kafka.py)                 | Indicator Kafka worker lifecycle.   |
+| [`app/signals/kafka.py`](app/signals/kafka.py)                       | Signal Kafka worker lifecycle.      |
+| [`app/signals/evaluation_kafka.py`](app/signals/evaluation_kafka.py) | Signal evaluation Kafka lifecycle.  |
+| [`app/sector_wave/kafka.py`](app/sector_wave/kafka.py)               | Sector Wave Kafka worker lifecycle. |
 
 ## Main Modules
 
-| Module | Purpose |
-| --- | --- |
-| [`app/calculations`](app/calculations) | Core calculation utilities. |
-| [`app/indicators`](app/indicators) | Indicator messages, handlers, Kafka integration. |
-| [`app/signals`](app/signals) | Signal messages, strategy, storage, handlers, evaluation. |
-| [`app/sector_wave`](app/sector_wave) | Sector Wave messages, calculations, handlers, Kafka integration. |
-| [`app/storage`](app/storage) | Analyzer storage factory glue. |
-| [`app/adapters`](app/adapters) | Infrastructure adapters. |
-| [`app/settings.py`](app/settings.py) | Analyzer runtime settings and shared config access. |
+| Module                                 | Purpose                                                          |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| [`app/calculations`](app/calculations) | Core calculation utilities.                                      |
+| [`app/indicators`](app/indicators)     | Indicator messages, handlers, Kafka integration.                 |
+| [`app/signals`](app/signals)           | Signal messages, strategy, storage, handlers, evaluation.        |
+| [`app/sector_wave`](app/sector_wave)   | Sector Wave messages, calculations, handlers, Kafka integration. |
+| [`app/storage`](app/storage)           | Analyzer storage factory glue.                                   |
+| [`app/adapters`](app/adapters)         | Infrastructure adapters.                                         |
+| [`app/settings.py`](app/settings.py)   | Analyzer runtime settings and shared config access.              |
 
 ## Consumes
 
 See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
-| Topic | Purpose |
-| --- | --- |
-| `topic-sync-indicators` | Compute indicators. |
-| `topic-sync-signals` | Compute signals. |
-| `topic-evaluate-signals` | Evaluate signal outcomes. |
+| Topic                              | Purpose                              |
+| ---------------------------------- | ------------------------------------ |
+| `topic-sync-indicators`            | Compute indicators.                  |
+| `topic-sync-signals`               | Compute signals.                     |
+| `topic-evaluate-signals`           | Evaluate signal outcomes.            |
 | `topic-precompute-symbol-features` | Compute Sector Wave symbol features. |
 | `topic-precompute-sector-features` | Compute Sector Wave sector features. |
-| `topic-sector-rotation-backtest` | Run Sector Wave backtests. |
+| `topic-sector-rotation-backtest`   | Run Sector Wave backtests.           |
 
 ## Produces
 
 See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
-| Topic | Purpose |
-| --- | --- |
-| `topic-sync-job-status` | Report analytical job status. |
+| Topic                        | Purpose                                  |
+| ---------------------------- | ---------------------------------------- |
+| `topic-sync-job-status`      | Report analytical job status.            |
 | `topic-signal-notifications` | Publish signal transition notifications. |
 
 ## Storage
 
 Analyzer reads and writes analytical Parquet datasets. See [Data lake](../../docs/data/data-lake.md).
 
-| Dataset | Role |
-| --- | --- |
-| `eod` | Input from Ingestor. |
-| `indicators` | Output of indicator jobs; input to signal jobs. |
-| `signals` | Output of signal jobs; input to evaluation/notification paths. |
-| `symbol-features` | Output of symbol feature jobs; input to sector aggregation. |
-| `sector-features` | Output of sector aggregation; input to ranking/backtests. |
-| `sector-rotation-backtests` | Output of backtest jobs. |
+| Dataset                     | Role                                                           |
+| --------------------------- | -------------------------------------------------------------- |
+| `eod`                       | Input from Ingestor.                                           |
+| `indicators`                | Output of indicator jobs; input to signal jobs.                |
+| `signals`                   | Output of signal jobs; input to evaluation/notification paths. |
+| `symbol-features`           | Output of symbol feature jobs; input to sector aggregation.    |
+| `sector-features`           | Output of sector aggregation; input to ranking/backtests.      |
+| `sector-rotation-backtests` | Output of backtest jobs.                                       |
 
 ## Important Flows
 
@@ -131,8 +131,8 @@ nx run analyzer:format
 
 ## Shared Contracts
 
-| Contract | Source |
-| --- | --- |
-| Kafka topics | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) |
-| S3 paths | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
-| Shared Python runtime/config/storage | [`libs/py-common`](../../libs/py-common) |
+| Contract                             | Source                                                               |
+| ------------------------------------ | -------------------------------------------------------------------- |
+| Kafka topics                         | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     |
+| S3 paths                             | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
+| Shared Python runtime/config/storage | [`libs/py-common`](../../libs/py-common)                             |

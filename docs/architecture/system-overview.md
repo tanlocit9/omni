@@ -41,15 +41,15 @@ flowchart TD
 
 ## Runtime Responsibilities
 
-| Component | Path | Responsibility | Boundary |
-| --- | --- | --- | --- |
-| Platform / Core | [`apps/core`](../../apps/core) | Owns orchestration, scheduler, job definitions, execution history, API boundary, and Platform database state. | Does not fetch market data directly and should not encode S3 object paths into Kafka messages. |
-| Ingestor | [`apps/ingestor`](../../apps/ingestor) | Consumes stock/symbol sync jobs, talks to data providers, normalizes records, writes Parquet, publishes status/upsert events. | Does not own scheduler state or Platform database schema. |
-| Analyzer | [`apps/analyzer`](../../apps/analyzer) | Consumes analytical jobs, computes indicators/signals/sector wave datasets, writes analytical Parquet, publishes status/notification events. | Does not own stock-price ingestion or Platform transactional database state. |
-| py-common | [`libs/py-common`](../../libs/py-common) | Provides shared Python config loading, Kafka payloads, messaging helpers, runtime helpers, storage ports/adapters, and path builders. | Does not contain service-specific business logic. |
-| PostgreSQL | [`database/migrations`](../../database/migrations) | Stores Platform-owned operational state such as job definitions, job executions, symbols, and sectors. | Not the analytical data lake. |
-| Kafka | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) | Carries async job commands, worker status, symbol/sector upserts, signal notifications, and analytical job requests. | Topic and payload contract changes must update producers, consumers, tests, and docs together. |
-| MinIO / Parquet | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | Stores raw and analytical datasets as Parquet files in the `stock-data` bucket. | Object paths are derived from shared path builders, not from Kafka message fields. |
+| Component       | Path                                                                 | Responsibility                                                                                                                               | Boundary                                                                                       |
+| --------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Platform / Core | [`apps/core`](../../apps/core)                                       | Owns orchestration, scheduler, job definitions, execution history, API boundary, and Platform database state.                                | Does not fetch market data directly and should not encode S3 object paths into Kafka messages. |
+| Ingestor        | [`apps/ingestor`](../../apps/ingestor)                               | Consumes stock/symbol sync jobs, talks to data providers, normalizes records, writes Parquet, publishes status/upsert events.                | Does not own scheduler state or Platform database schema.                                      |
+| Analyzer        | [`apps/analyzer`](../../apps/analyzer)                               | Consumes analytical jobs, computes indicators/signals/sector wave datasets, writes analytical Parquet, publishes status/notification events. | Does not own stock-price ingestion or Platform transactional database state.                   |
+| py-common       | [`libs/py-common`](../../libs/py-common)                             | Provides shared Python config loading, Kafka payloads, messaging helpers, runtime helpers, storage ports/adapters, and path builders.        | Does not contain service-specific business logic.                                              |
+| PostgreSQL      | [`database/migrations`](../../database/migrations)                   | Stores Platform-owned operational state such as job definitions, job executions, symbols, and sectors.                                       | Not the analytical data lake.                                                                  |
+| Kafka           | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     | Carries async job commands, worker status, symbol/sector upserts, signal notifications, and analytical job requests.                         | Topic and payload contract changes must update producers, consumers, tests, and docs together. |
+| MinIO / Parquet | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | Stores raw and analytical datasets as Parquet files in the `stock-data` bucket.                                                              | Object paths are derived from shared path builders, not from Kafka message fields.             |
 
 ## Project Map
 
@@ -77,28 +77,28 @@ flowchart LR
 
 ## Control Plane vs Data Plane
 
-| Plane | Owns | Main components |
-| --- | --- | --- |
-| Control plane | Scheduling, job metadata, execution status, orchestration decisions, API boundary. | Platform, PostgreSQL, Kafka status topics. |
-| Data plane | Fetching external market data, transforming dataframes, reading/writing Parquet datasets. | Ingestor, Analyzer, MinIO/S3, py-common storage abstractions. |
-| Contract plane | Topic names, payload fields, storage paths, shared runtime settings. | `configs/shared`, py-common payload/settings models, Platform messaging records. |
+| Plane          | Owns                                                                                      | Main components                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Control plane  | Scheduling, job metadata, execution status, orchestration decisions, API boundary.        | Platform, PostgreSQL, Kafka status topics.                                       |
+| Data plane     | Fetching external market data, transforming dataframes, reading/writing Parquet datasets. | Ingestor, Analyzer, MinIO/S3, py-common storage abstractions.                    |
+| Contract plane | Topic names, payload fields, storage paths, shared runtime settings.                      | `configs/shared`, py-common payload/settings models, Platform messaging records. |
 
 ## Main Flows
 
-| Flow | Document | Summary |
-| --- | --- | --- |
-| Job execution | [../flows/job-execution.md](../flows/job-execution.md) | Scheduler creates parent/child execution records, publishes Kafka jobs, consumes worker status, and aggregates parent status. |
-| Stock sync | [../flows/stock-sync.md](../flows/stock-sync.md) | Platform requests stock/symbol sync, Ingestor fetches provider data, updates Parquet, then reports status/upserts. |
-| Indicator and signal | [../flows/indicator-signal.md](../flows/indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes events. |
-| Sector wave | [../flows/sector-wave.md](../flows/sector-wave.md) | Analyzer precomputes symbol features, sector aggregates, rankings, and backtest outputs. |
+| Flow                 | Document                                                     | Summary                                                                                                                       |
+| -------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Job execution        | [../flows/job-execution.md](../flows/job-execution.md)       | Scheduler creates parent/child execution records, publishes Kafka jobs, consumes worker status, and aggregates parent status. |
+| Stock sync           | [../flows/stock-sync.md](../flows/stock-sync.md)             | Platform requests stock/symbol sync, Ingestor fetches provider data, updates Parquet, then reports status/upserts.            |
+| Indicator and signal | [../flows/indicator-signal.md](../flows/indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes events.         |
+| Sector wave          | [../flows/sector-wave.md](../flows/sector-wave.md)           | Analyzer precomputes symbol features, sector aggregates, rankings, and backtest outputs.                                      |
 
 ## Source-of-truth Config
 
-| Contract | Source |
-| --- | --- |
-| Kafka topic names | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) |
+| Contract                 | Source                                                               |
+| ------------------------ | -------------------------------------------------------------------- |
+| Kafka topic names        | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     |
 | S3/Parquet path patterns | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
-| Platform Nx targets | [`apps/core/project.json`](../../apps/core/project.json) |
-| Analyzer Nx targets | [`apps/analyzer/project.json`](../../apps/analyzer/project.json) |
-| Ingestor Nx targets | [`apps/ingestor/project.json`](../../apps/ingestor/project.json) |
-| py-common Nx targets | [`libs/py-common/project.json`](../../libs/py-common/project.json) |
+| Platform Nx targets      | [`apps/core/project.json`](../../apps/core/project.json)             |
+| Analyzer Nx targets      | [`apps/analyzer/project.json`](../../apps/analyzer/project.json)     |
+| Ingestor Nx targets      | [`apps/ingestor/project.json`](../../apps/ingestor/project.json)     |
+| py-common Nx targets     | [`libs/py-common/project.json`](../../libs/py-common/project.json)   |

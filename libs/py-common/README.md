@@ -38,33 +38,33 @@ py-common owns reusable Python infrastructure that is shared by Analyzer and Ing
 
 ## Entry Points
 
-| Entry point | Purpose |
-| --- | --- |
-| [`py_common/config`](py_common/config) | Shared config loading, settings models, path builders, constants. |
-| [`py_common/kafka`](py_common/kafka) | Kafka helper factories and job-status service helpers. |
-| [`py_common/messaging`](py_common/messaging) | Shared messaging payload/publisher foundations. |
-| [`py_common/runtime`](py_common/runtime) | Worker/API runtime helpers. |
-| [`py_common/storage`](py_common/storage) | Storage ports, adapters, registry, and Parquet utilities. |
+| Entry point                                  | Purpose                                                           |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| [`py_common/config`](py_common/config)       | Shared config loading, settings models, path builders, constants. |
+| [`py_common/kafka`](py_common/kafka)         | Kafka helper factories and job-status service helpers.            |
+| [`py_common/messaging`](py_common/messaging) | Shared messaging payload/publisher foundations.                   |
+| [`py_common/runtime`](py_common/runtime)     | Worker/API runtime helpers.                                       |
+| [`py_common/storage`](py_common/storage)     | Storage ports, adapters, registry, and Parquet utilities.         |
 
 ## Main Modules
 
-| Module | Purpose |
-| --- | --- |
-| [`py_common/config/loader.py`](py_common/config/loader.py) | YAML config loading. |
-| [`py_common/config/models.py`](py_common/config/models.py) | Typed settings models. |
-| [`py_common/config/paths.py`](py_common/config/paths.py) | S3 path construction. |
-| [`py_common/kafka/factory.py`](py_common/kafka/factory.py) | Kafka client factory helpers. |
+| Module                                                                       | Purpose                         |
+| ---------------------------------------------------------------------------- | ------------------------------- |
+| [`py_common/config/loader.py`](py_common/config/loader.py)                   | YAML config loading.            |
+| [`py_common/config/models.py`](py_common/config/models.py)                   | Typed settings models.          |
+| [`py_common/config/paths.py`](py_common/config/paths.py)                     | S3 path construction.           |
+| [`py_common/kafka/factory.py`](py_common/kafka/factory.py)                   | Kafka client factory helpers.   |
 | [`py_common/messaging/job_messages.py`](py_common/messaging/job_messages.py) | Shared job message foundations. |
-| [`py_common/storage/parquet.py`](py_common/storage/parquet.py) | Parquet storage helper. |
-| [`py_common/storage/adapters/minio.py`](py_common/storage/adapters/minio.py) | MinIO/S3-compatible adapter. |
+| [`py_common/storage/parquet.py`](py_common/storage/parquet.py)               | Parquet storage helper.         |
+| [`py_common/storage/adapters/minio.py`](py_common/storage/adapters/minio.py) | MinIO/S3-compatible adapter.    |
 
 ## Consumes
 
-| Input | Purpose |
-| --- | --- |
-| [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) | Kafka topic defaults. |
-| [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | S3 path patterns. |
-| Flat environment variables | Runtime overrides shared by Java, Python, and Docker Compose. |
+| Input                                                                | Purpose                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     | Kafka topic defaults.                                         |
+| [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | S3 path patterns.                                             |
+| Flat environment variables                                           | Runtime overrides shared by Java, Python, and Docker Compose. |
 
 ## Produces
 

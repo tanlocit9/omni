@@ -1,39 +1,57 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "workspaceLayout": { "appsDir": "apps", "libsDir": "libs" },
+  "analytics": true,
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": ["default", "!{projectRoot}/src/test/**/*"],
     "sharedGlobals": []
   },
-  "sync": { "applyChanges": true },
-  "nxIgnorePatterns": ["out"],
+  "nxCloudId": "6a77315e5ba40e8bff0fb8b4",
+  "nxIgnorePatterns": [
+    "out",
+    "examples",
+    "docs",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.git/**"
+  ],
   "plugins": [
     {
-      "plugin": "@nx/js/typescript",
       "options": {
-        "typecheck": { "targetName": "typecheck" },
         "build": {
-          "targetName": "build",
-          "configName": "tsconfig.lib.json",
           "buildDepsName": "build-deps",
+          "configName": "tsconfig.lib.json",
+          "targetName": "build",
           "watchDepsName": "watch-deps"
+        },
+        "typecheck": {
+          "targetName": "typecheck"
         }
-      }
-    },
-    {
-      "plugin": "@nx/gradle",
-      "options": {
-        "testTargetName": "test",
-        "classesTargetName": "classes",
-        "buildTargetName": "build"
       },
-      "exclude": ["apps\\core\\gradlew.bat"]
+      "plugin": "@nx/js/typescript"
     },
     {
-      "plugin": "@nxlv/python",
-      "options": { "packageManager": "uv", "inferDependencies": true }
+      "exclude": ["apps\\core\\gradlew.bat"],
+      "options": {
+        "buildTargetName": "build",
+        "classesTargetName": "classes",
+        "testTargetName": "test"
+      },
+      "plugin": "@nx/gradle"
+    },
+    {
+      "options": {
+        "inferDependencies": true,
+        "packageManager": "uv"
+      },
+      "plugin": "@nxlv/python"
     }
   ],
-  "nxCloudId": "6a77315e5ba40e8bff0fb8b4"
+  "sync": {
+    "applyChanges": true
+  },
+  "workspaceLayout": {
+    "appsDir": "apps",
+    "libsDir": "libs"
+  }
 }

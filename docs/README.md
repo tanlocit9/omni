@@ -46,15 +46,15 @@ flowchart TD
 
 ## Canonical Documents
 
-| Topic | Canonical document | Source of truth |
-| --- | --- | --- |
-| System boundaries | [architecture/system-overview.md](architecture/system-overview.md) | [`apps`](../apps) and [`libs`](../libs) |
-| Developer navigation | [development/where-to-change.md](development/where-to-change.md) | Current project layout |
-| Kafka topics/contracts | [data/kafka-contracts.md](data/kafka-contracts.md) | [`configs/shared/topics.yaml`](../configs/shared/topics.yaml) |
-| Parquet datasets/paths | [data/data-lake.md](data/data-lake.md) | [`configs/shared/s3-paths.yaml`](../configs/shared/s3-paths.yaml) |
-| Database domains | [data/database.md](data/database.md) | [`database/migrations`](../database/migrations) |
-| Architecture decisions | [adr](adr) | Accepted ADR files |
-| Service details | Service READMEs | [`apps/core`](../apps/core), [`apps/analyzer`](../apps/analyzer), [`apps/ingestor`](../apps/ingestor), [`libs/py-common`](../libs/py-common) |
+| Topic                  | Canonical document                                                 | Source of truth                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| System boundaries      | [architecture/system-overview.md](architecture/system-overview.md) | [`apps`](../apps) and [`libs`](../libs)                                                                                                      |
+| Developer navigation   | [development/where-to-change.md](development/where-to-change.md)   | Current project layout                                                                                                                       |
+| Kafka topics/contracts | [data/kafka-contracts.md](data/kafka-contracts.md)                 | [`configs/shared/topics.yaml`](../configs/shared/topics.yaml)                                                                                |
+| Parquet datasets/paths | [data/data-lake.md](data/data-lake.md)                             | [`configs/shared/s3-paths.yaml`](../configs/shared/s3-paths.yaml)                                                                            |
+| Database domains       | [data/database.md](data/database.md)                               | [`database/migrations`](../database/migrations)                                                                                              |
+| Architecture decisions | [adr](adr)                                                         | Accepted ADR files                                                                                                                           |
+| Service details        | Service READMEs                                                    | [`apps/core`](../apps/core), [`apps/analyzer`](../apps/analyzer), [`apps/ingestor`](../apps/ingestor), [`libs/py-common`](../libs/py-common) |
 
 ## Documentation Rules
 

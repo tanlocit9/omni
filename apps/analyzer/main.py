@@ -15,6 +15,12 @@ from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
 from app.settings import settings
+from app.sector_wave.handler import SectorWaveJobHandler
+from app.sector_wave.kafka import (
+    SectorRotationBacktestKafkaService,
+    SectorWaveSectorFeatureKafkaService,
+    SectorWaveSymbolFeatureKafkaService,
+)
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
@@ -28,15 +34,24 @@ _logger = logging.getLogger(__name__)
 async def startup_event(app: FastAPI) -> None:
     _logger.info(
         "Starting up Analyzer service (indicatorKafkaEnabled=%s signalKafkaEnabled=%s "
-        "signalEvaluationKafkaEnabled=%s bootstrap=%s syncIndicatorsTopic=%s "
-        "syncSignalsTopic=%s evaluateSignalsTopic=%s statusTopic=%s bucket=%s)",
+        "signalEvaluationKafkaEnabled=%s sectorWaveSymbolFeaturesKafkaEnabled=%s "
+        "sectorWaveSectorFeaturesKafkaEnabled=%s sectorRotationBacktestKafkaEnabled=%s "
+        "bootstrap=%s syncIndicatorsTopic=%s syncSignalsTopic=%s evaluateSignalsTopic=%s "
+        "precomputeSymbolFeaturesTopic=%s precomputeSectorFeaturesTopic=%s "
+        "sectorRotationBacktestTopic=%s statusTopic=%s bucket=%s)",
         settings.indicator_kafka_enabled,
         settings.signal_kafka_enabled,
         settings.signal_evaluation_kafka_enabled,
+        settings.sector_wave_symbol_features_kafka_enabled,
+        settings.sector_wave_sector_features_kafka_enabled,
+        settings.sector_rotation_backtest_kafka_enabled,
         settings.kafka.bootstrap_servers,
         settings.topic_sync_indicators,
         settings.topic_sync_signals,
         settings.topic_evaluate_signals,
+        settings.topic_precompute_symbol_features,
+        settings.topic_precompute_sector_features,
+        settings.topic_sector_rotation_backtest,
         settings.sync_job_status_topic,
         settings.minio.bucket,
     )
@@ -59,6 +74,10 @@ async def startup_event(app: FastAPI) -> None:
         app.state.parquet_storage,
     )
     app.state.signal_outcome_evaluator = SignalOutcomeEvaluator(
+        settings,
+        app.state.parquet_storage,
+    )
+    app.state.sector_wave_handler = SectorWaveJobHandler(
         settings,
         app.state.parquet_storage,
     )
@@ -90,6 +109,39 @@ async def startup_event(app: FastAPI) -> None:
         _logger.info("Signal evaluation Kafka service started")
     else:
         _logger.info("Signal evaluation Kafka service disabled")
+    if settings.sector_wave_symbol_features_kafka_enabled:
+        app.state.sector_wave_symbol_features_kafka_service = (
+            SectorWaveSymbolFeatureKafkaService(
+                settings,
+                app.state.sector_wave_handler,
+            )
+        )
+        await app.state.sector_wave_symbol_features_kafka_service.start()
+        _logger.info("Sector Wave symbol features Kafka service started")
+    else:
+        _logger.info("Sector Wave symbol features Kafka service disabled")
+    if settings.sector_wave_sector_features_kafka_enabled:
+        app.state.sector_wave_sector_features_kafka_service = (
+            SectorWaveSectorFeatureKafkaService(
+                settings,
+                app.state.sector_wave_handler,
+            )
+        )
+        await app.state.sector_wave_sector_features_kafka_service.start()
+        _logger.info("Sector Wave sector features Kafka service started")
+    else:
+        _logger.info("Sector Wave sector features Kafka service disabled")
+    if settings.sector_rotation_backtest_kafka_enabled:
+        app.state.sector_rotation_backtest_kafka_service = (
+            SectorRotationBacktestKafkaService(
+                settings,
+                app.state.sector_wave_handler,
+            )
+        )
+        await app.state.sector_rotation_backtest_kafka_service.start()
+        _logger.info("Sector rotation backtest Kafka service started")
+    else:
+        _logger.info("Sector rotation backtest Kafka service disabled")
 
 
 async def shutdown_event(app: FastAPI) -> None:
@@ -100,6 +152,12 @@ async def shutdown_event(app: FastAPI) -> None:
         await app.state.signal_kafka_service.stop()
     if hasattr(app.state, "signal_evaluation_kafka_service"):
         await app.state.signal_evaluation_kafka_service.stop()
+    if hasattr(app.state, "sector_wave_symbol_features_kafka_service"):
+        await app.state.sector_wave_symbol_features_kafka_service.stop()
+    if hasattr(app.state, "sector_wave_sector_features_kafka_service"):
+        await app.state.sector_wave_sector_features_kafka_service.stop()
+    if hasattr(app.state, "sector_rotation_backtest_kafka_service"):
+        await app.state.sector_rotation_backtest_kafka_service.stop()
 
 
 def create_app() -> FastAPI:

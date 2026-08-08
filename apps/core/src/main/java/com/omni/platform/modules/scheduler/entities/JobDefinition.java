@@ -71,6 +71,9 @@ public class JobDefinition extends AuditableEntity {
         SYNC_SYMBOLS,
         SYNC_INDICATORS,
         SYNC_SIGNALS,
-        EVALUATE_SIGNALS
+        EVALUATE_SIGNALS,
+        PRECOMPUTE_SYMBOL_FEATURES,
+        PRECOMPUTE_SECTOR_FEATURES,
+        SECTOR_ROTATION_BACKTEST
     }
 }

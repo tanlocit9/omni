@@ -7,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from py_common.messaging import (
+    JobMessage,
     JobStatus,
     JobStatusMessage,
     build_job_error_status,
@@ -158,3 +159,30 @@ def test_utc_now_returns_timezone_aware_utc_datetime():
     now = utc_now()
 
     assert now.tzinfo == UTC
+
+
+def test_job_message_accepts_shared_scheduler_fields():
+    message = JobMessage.model_validate(
+        {
+            "jobDefinitionId": "job-definition-id",
+            "executionId": "execution-id",
+            "parentExecutionId": "parent-execution-id",
+            "source": "VNDIRECT",
+        }
+    )
+
+    assert message.job_definition_id == "job-definition-id"
+    assert message.execution_id == "execution-id"
+    assert message.parent_execution_id == "parent-execution-id"
+    assert message.source == "VNDIRECT"
+
+
+def test_job_message_rejects_blank_execution_id():
+    with pytest.raises(ValidationError, match="executionId is required"):
+        JobMessage.model_validate(
+            {
+                "jobDefinitionId": "job-definition-id",
+                "executionId": " ",
+                "source": "VNDIRECT",
+            }
+        )

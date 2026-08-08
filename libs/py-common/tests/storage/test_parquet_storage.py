@@ -16,6 +16,8 @@ from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from py_common.storage.exceptions import (
@@ -151,6 +153,58 @@ class TestParquetCodec:
         encoded = ParquetCodec.encode(df, index=True)
         decoded = ParquetCodec.decode(encoded)
         assert list(decoded.index) == [5, 6]
+
+    def test_encode_accepts_explicit_nested_schema(self):
+        df = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2026-01-01"]),
+                "contributors": [
+                    [
+                        {
+                            "symbol": "MBB",
+                            "weight": 0.5,
+                            "return": 0.01,
+                            "contribution": 0.005,
+                            "contribution_share": 1.0,
+                            "above_ma20": True,
+                        }
+                    ]
+                ],
+            }
+        )
+        schema = pa.schema(
+            [
+                pa.field("date", pa.timestamp("ns")),
+                pa.field(
+                    "contributors",
+                    pa.list_(
+                        pa.struct(
+                            [
+                                pa.field("symbol", pa.string()),
+                                pa.field("weight", pa.float64()),
+                                pa.field("return", pa.float64()),
+                                pa.field("contribution", pa.float64()),
+                                pa.field("contribution_share", pa.float64()),
+                                pa.field("above_ma20", pa.bool_()),
+                            ]
+                        )
+                    ),
+                ),
+            ]
+        )
+
+        encoded = ParquetCodec.encode(df, schema=schema)
+        parquet_schema = pq.read_schema(io.BytesIO(encoded))
+        contributor_type = parquet_schema.field("contributors").type.value_type
+
+        assert [field.name for field in contributor_type] == [
+            "symbol",
+            "weight",
+            "return",
+            "contribution",
+            "contribution_share",
+            "above_ma20",
+        ]
 
     def test_corrupt_bytes_raises_decode_error(self):
         with pytest.raises(ParquetDecodeError) as exc_info:

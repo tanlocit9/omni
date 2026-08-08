@@ -67,4 +67,20 @@ public interface SymbolRepository extends BaseRepository<Symbol> {
         List<SymbolKeyProjection> findBySectorCodesAndLevelKey(
                         @Param("sectorCodes") String[] sectorCodes,
                         @Param("jsonKey") String jsonKey);
+        default List<String> findDistinctSectorCodesByLevel(String[] sectorCodes, int sectorLevel) {
+                String jsonKey = "sectorLv" + sectorLevel + "Code";
+                return findDistinctSectorCodesByLevelKey(sectorCodes, jsonKey);
+        }
+
+        @Query(value = """
+                        SELECT DISTINCT meta_json ->> :jsonKey AS sector_code
+                        FROM symbols
+                        WHERE is_active = TRUE
+                          AND meta_json ->> :jsonKey IS NOT NULL
+                          AND (:sectorCodes IS NULL OR meta_json ->> :jsonKey = ANY(:sectorCodes))
+                        ORDER BY sector_code
+                        """, nativeQuery = true)
+        List<String> findDistinctSectorCodesByLevelKey(
+                        @Param("sectorCodes") String[] sectorCodes,
+                        @Param("jsonKey") String jsonKey);
 }

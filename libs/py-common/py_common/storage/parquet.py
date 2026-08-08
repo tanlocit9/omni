@@ -33,6 +33,8 @@ from pathlib import PurePosixPath
 from uuid import uuid4
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from py_common.storage.exceptions import (
     ParquetDecodeError,
@@ -60,18 +62,33 @@ class ParquetCodec:
     """
 
     @staticmethod
-    def encode(dataframe: pd.DataFrame, *, index: bool = False) -> bytes:
+    def encode(
+        dataframe: pd.DataFrame,
+        *,
+        index: bool = False,
+        schema: pa.Schema | None = None,
+    ) -> bytes:
         """Serialize a DataFrame to Parquet bytes.
 
         Args:
             dataframe: The DataFrame to encode.
             index: Whether to include the DataFrame index. Default ``False``.
+            schema: Optional explicit PyArrow schema. Use this for nested columns
+                that require stable field names across Parquet readers.
 
         Returns:
             Parquet-encoded bytes.
         """
         buffer = io.BytesIO()
-        dataframe.to_parquet(buffer, index=index)
+        if schema is None:
+            dataframe.to_parquet(buffer, index=index)
+        else:
+            table = pa.Table.from_pandas(
+                dataframe,
+                schema=schema,
+                preserve_index=index,
+            )
+            pq.write_table(table, buffer)
         return buffer.getvalue()
 
     @staticmethod
@@ -200,6 +217,7 @@ class ParquetStorage:
         dataframe: pd.DataFrame,
         *,
         index: bool = False,
+        schema: pa.Schema | None = None,
     ) -> None:
         """Serialize a DataFrame and upload it as a Parquet object.
 
@@ -209,12 +227,18 @@ class ParquetStorage:
             object_name: Object key within the configured bucket.
             dataframe: DataFrame to serialize and upload.
             index: Whether to include the DataFrame index. Default ``False``.
+            schema: Optional explicit PyArrow schema. Use this for nested columns
+                that require stable field names across Parquet readers.
 
         Raises:
             StorageWriteError: If the upload fails.
         """
-        data = await asyncio.to_thread(ParquetCodec.encode, dataframe, index=index)
-
+        data = await asyncio.to_thread(
+            ParquetCodec.encode,
+            dataframe,
+            index=index,
+            schema=schema,
+        )
         await self._writable.write_bytes(
             bucket=self._bucket,
             object_name=object_name,

@@ -41,6 +41,24 @@ stock-data:
       base: 'signals/'
       pattern: '{strategy}/{timeframe}/{exchange}.parquet'
 
+    # Symbol-level precomputed features for sector wave analysis.
+    # Pattern: features/symbol/{timeframe}/{exchange}/{code}.parquet
+    symbol-features:
+      base: 'features/symbol/'
+      pattern: '{timeframe}/{exchange}/{code}.parquet'
+
+    # Sector-level precomputed features aggregated from symbol features.
+    # Pattern: features/sector/{timeframe}/lv{sector_level}/{sector_code}.parquet
+    sector-features:
+      base: 'features/sector/'
+      pattern: '{timeframe}/lv{sector_level}/{sector_code}.parquet'
+
+    # Rule-based sector rotation backtest outputs.
+    # Pattern: backtests/sector-rotation/{strategy}/{timeframe}/lv{sector_level}.parquet
+    sector-rotation-backtests:
+      base: 'backtests/sector-rotation/'
+      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
+
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features
 

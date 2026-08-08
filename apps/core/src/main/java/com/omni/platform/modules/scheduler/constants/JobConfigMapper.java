@@ -27,6 +27,13 @@ public final class JobConfigMapper {
                 readString(config, JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY));
     }
 
+    public static SectorWaveConfig toSectorWaveConfig(Map<String, Object> config) {
+        return new SectorWaveConfig(
+                readFilters(config, SectorJobFilterConfig.DEFAULT_SECTOR_LEVEL),
+                readString(config, JobDefinitionConfig.CONFIG_KEY_TIMEFRAME),
+                readString(config, JobDefinitionConfig.CONFIG_KEY_SECTOR_WAVE_STRATEGY));
+    }
+
     private static SectorJobFilterConfig readFilters(Map<String, Object> config, int defaultSectorLevel) {
         return new SectorJobFilterConfig(
                 readStringList(config, JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES),

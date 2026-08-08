@@ -3,16 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from py_common.config import validate_indicator_timeframe
-from pydantic import BaseModel, Field, field_validator
+from py_common.messaging import JobMessage
+from pydantic import Field, field_validator
 
 SUPPORTED_INDICATORS = ["MA20", "MA50", "RSI14", "MACD", "ICHIMOKU"]
 
 
-class IndicatorJobMessage(BaseModel):
-    job_definition_id: str = Field(alias="jobDefinitionId")
-    execution_id: str = Field(alias="executionId")
-    parent_execution_id: str | None = Field(default=None, alias="parentExecutionId")
-    source: str
+class IndicatorJobMessage(JobMessage):
     indicator_source: str = Field(alias="indicatorSource")
     symbol_key: str = Field(alias="symbolKey")
     timeframe: str

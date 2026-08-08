@@ -10,6 +10,9 @@ kafka:
     topic-sync-signals: topic-sync-signals
     topic-evaluate-signals: topic-evaluate-signals
     topic-signal-notifications: topic-signal-notifications
+    topic-precompute-symbol-features: topic-precompute-symbol-features
+    topic-precompute-sector-features: topic-precompute-sector-features
+    topic-sector-rotation-backtest: topic-sector-rotation-backtest
 
 app:
   scheduler:

@@ -19,6 +19,12 @@ def paths() -> StockDataPaths:
         signals_pattern="{strategy}/{timeframe}/{exchange}.parquet",
         signal_current_base="signals/",
         signal_current_pattern="{strategy}/{timeframe}/{exchange}.parquet",
+        symbol_features_base="features/symbol/",
+        symbol_features_pattern="{timeframe}/{exchange}/{code}.parquet",
+        sector_features_base="features/sector/",
+        sector_features_pattern="{timeframe}/lv{sector_level}/{sector_code}.parquet",
+        sector_rotation_backtests_base="backtests/sector-rotation/",
+        sector_rotation_backtests_pattern="{strategy}/{timeframe}/lv{sector_level}.parquet",
     )
 
 
@@ -44,9 +50,22 @@ def test_signals_happy_path(paths: StockDataPaths):
     )
 
 
-def test_eod_and_indicators_normalize_exchange_and_code_consistently(
-    paths: StockDataPaths,
-):
+def test_sector_wave_paths_happy_path(paths: StockDataPaths):
+    assert (
+        paths.symbol_features("1d", "HOSE", "HPG")
+        == "features/symbol/1d/hose/hpg.parquet"
+    )
+    assert (
+        paths.sector_features("1d", 2, "BANKS")
+        == "features/sector/1d/lv2/banks.parquet"
+    )
+    assert (
+        paths.sector_rotation_backtest("SECTOR_WAVE_V1", "1d", 2)
+        == "backtests/sector-rotation/sector_wave_v1/1d/lv2.parquet"
+    )
+
+
+def test_paths_normalize_whitespace(paths: StockDataPaths):
     assert paths.eod(" HOSE ", " HPG ") == "eod/hose/hpg.parquet"
     assert (
         paths.indicators(" close ", Timeframe.ONE_DAY, " HOSE ", " HPG ")
@@ -73,6 +92,18 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
         "base": "signals/",
         "pattern": "{strategy}/{timeframe}/{exchange}.parquet",
     }
+    assert config["paths"]["symbol-features"] == {
+        "base": "features/symbol/",
+        "pattern": "{timeframe}/{exchange}/{code}.parquet",
+    }
+    assert config["paths"]["sector-features"] == {
+        "base": "features/sector/",
+        "pattern": "{timeframe}/lv{sector_level}/{sector_code}.parquet",
+    }
+    assert config["paths"]["sector-rotation-backtests"] == {
+        "base": "backtests/sector-rotation/",
+        "pattern": "{strategy}/{timeframe}/lv{sector_level}.parquet",
+    }
     assert paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"
     assert (
         paths.indicators("close", "1d", "HOSE", "HPG")
@@ -85,6 +116,18 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
     assert (
         paths.signal_current("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
         == "signals/trend_momentum_v1/1d/hose.parquet"
+    )
+    assert (
+        paths.symbol_features("1d", "HOSE", "HPG")
+        == "features/symbol/1d/hose/hpg.parquet"
+    )
+    assert (
+        paths.sector_features("1d", 2, "BANKS")
+        == "features/sector/1d/lv2/banks.parquet"
+    )
+    assert (
+        paths.sector_rotation_backtest("SECTOR_WAVE_V1", "1d", 2)
+        == "backtests/sector-rotation/sector_wave_v1/1d/lv2.parquet"
     )
 
 

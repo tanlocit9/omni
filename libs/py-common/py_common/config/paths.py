@@ -49,6 +49,14 @@ class StockDataPaths:
     signals_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
     signal_current_base: str = "signals/"
     signal_current_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
+    symbol_features_base: str = "features/symbol/"
+    symbol_features_pattern: str = "{timeframe}/{exchange}/{code}.parquet"
+    sector_features_base: str = "features/sector/"
+    sector_features_pattern: str = "{timeframe}/lv{sector_level}/{sector_code}.parquet"
+    sector_rotation_backtests_base: str = "backtests/sector-rotation/"
+    sector_rotation_backtests_pattern: str = (
+        "{strategy}/{timeframe}/lv{sector_level}.parquet"
+    )
 
     @staticmethod
     def _normalize_path_part(value: str | None, name: str) -> str:
@@ -204,6 +212,58 @@ class StockDataPaths:
             values["code"] = self._normalize_path_part(code, "code")
         return base + pattern.format(**values)
 
+    def symbol_features(
+        self, timeframe: Timeframe | str, exchange: str, code: str
+    ) -> str:
+        """Build S3 path for symbol-level precomputed feature data."""
+        timeframe = validate_indicator_timeframe(timeframe)
+        return self.symbol_features_base + self.symbol_features_pattern.format(
+            timeframe=timeframe.value,
+            exchange=self._normalize_path_part(exchange, "exchange"),
+            code=self._normalize_path_part(code, "code"),
+        )
+
+    def sector_features(
+        self,
+        timeframe: Timeframe | str,
+        sector_level: int,
+        sector_code: str,
+    ) -> str:
+        """Build S3 path for sector-level precomputed feature data."""
+        timeframe = validate_indicator_timeframe(timeframe)
+        return self.sector_features_base + self.sector_features_pattern.format(
+            timeframe=timeframe.value,
+            sector_level=self._normalize_sector_level(sector_level),
+            sector_code=self._normalize_path_part(sector_code, "sector_code"),
+        )
+
+    def sector_rotation_backtest(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        sector_level: int,
+    ) -> str:
+        """Build S3 path for sector rotation backtest output data."""
+        timeframe = validate_indicator_timeframe(timeframe)
+        return (
+            self.sector_rotation_backtests_base
+            + self.sector_rotation_backtests_pattern.format(
+                strategy=self._normalize_path_part(strategy, "strategy"),
+                timeframe=timeframe.value,
+                sector_level=self._normalize_sector_level(sector_level),
+            )
+        )
+
+    @staticmethod
+    def _normalize_sector_level(value: int | str) -> int:
+        try:
+            level = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("sector_level must be an integer") from exc
+        if level < 1:
+            raise ValueError("sector_level must be greater than or equal to 1")
+        return level
+
     @classmethod
     def from_config(cls, config: dict) -> StockDataPaths:
         """Create StockDataPaths from configuration dictionary.
@@ -252,6 +312,11 @@ class StockDataPaths:
         indicators_cfg = paths_config.get("indicators", {})
         signals_cfg = paths_config.get("signals", {})
         signal_current_cfg = paths_config.get("signal-current", {})
+        symbol_features_cfg = paths_config.get("symbol-features", {})
+        sector_features_cfg = paths_config.get("sector-features", {})
+        sector_rotation_backtests_cfg = paths_config.get(
+            "sector-rotation-backtests", {}
+        )
 
         return cls(
             symbols_base=symbols_cfg.get("base", "symbols/"),
@@ -269,5 +334,19 @@ class StockDataPaths:
             signal_current_base=signal_current_cfg.get("base", "signals/"),
             signal_current_pattern=signal_current_cfg.get(
                 "pattern", "{strategy}/{timeframe}/{exchange}.parquet"
+            ),
+            symbol_features_base=symbol_features_cfg.get("base", "features/symbol/"),
+            symbol_features_pattern=symbol_features_cfg.get(
+                "pattern", "{timeframe}/{exchange}/{code}.parquet"
+            ),
+            sector_features_base=sector_features_cfg.get("base", "features/sector/"),
+            sector_features_pattern=sector_features_cfg.get(
+                "pattern", "{timeframe}/lv{sector_level}/{sector_code}.parquet"
+            ),
+            sector_rotation_backtests_base=sector_rotation_backtests_cfg.get(
+                "base", "backtests/sector-rotation/"
+            ),
+            sector_rotation_backtests_pattern=sector_rotation_backtests_cfg.get(
+                "pattern", "{strategy}/{timeframe}/lv{sector_level}.parquet"
             ),
         )

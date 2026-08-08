@@ -26,6 +26,9 @@ public class JobDefinitionConfig {
         private static final String CRON_18_30_WEEKDAYS = "0 30 18 * * MON-FRI";
         private static final String CRON_18_35_WEEKDAYS = "0 35 18 * * MON-FRI";
         private static final String CRON_18_40_WEEKDAYS = "0 40 18 * * MON-FRI";
+        private static final String CRON_18_45_WEEKDAYS = "0 45 18 * * MON-FRI";
+        private static final String CRON_18_50_WEEKDAYS = "0 50 18 * * MON-FRI";
+        private static final String CRON_18_55_WEEKDAYS = "0 55 18 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
 
         // ==========================================
@@ -44,10 +47,12 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_INDICATOR_SOURCE_CLOSE = "ad_close";
         public static final String CONFIG_KEY_INDICATORS = "indicators";
         public static final String CONFIG_KEY_SIGNAL_STRATEGY = "strategy";
+        public static final String CONFIG_KEY_SECTOR_WAVE_STRATEGY = "strategy";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
         public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD", "ICHIMOKU");
         public static final String SIGNAL_STRATEGY_TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1";
+        public static final String SECTOR_WAVE_STRATEGY_V1 = "SECTOR_WAVE_V1";
 
         private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";
@@ -132,12 +137,51 @@ public class JobDefinitionConfig {
                                                         CONFIG_KEY_SIGNAL_STRATEGY,
                                                         SIGNAL_STRATEGY_TREND_MOMENTUM_V1)));
 
+        private static final List<JobDefinitionSeed> PRECOMPUTE_SYMBOL_FEATURES_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.PRECOMPUTE_SYMBOL_FEATURES,
+                                        "Precompute Sector Wave symbol features - daily BANKS",
+                                        CRON_18_45_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
+                                                        CONFIG_KEY_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SECTOR_WAVE_STRATEGY, SECTOR_WAVE_STRATEGY_V1)));
+
+        private static final List<JobDefinitionSeed> PRECOMPUTE_SECTOR_FEATURES_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.PRECOMPUTE_SECTOR_FEATURES,
+                                        "Precompute Sector Wave sector features - daily BANKS",
+                                        CRON_18_50_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
+                                                        CONFIG_KEY_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SECTOR_WAVE_STRATEGY, SECTOR_WAVE_STRATEGY_V1)));
+
+        private static final List<JobDefinitionSeed> SECTOR_ROTATION_BACKTEST_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.SECTOR_ROTATION_BACKTEST,
+                                        "Run Sector Wave rotation backtest - daily BANKS",
+                                        CRON_18_55_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
+                                                        CONFIG_KEY_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SECTOR_WAVE_STRATEGY, SECTOR_WAVE_STRATEGY_V1)));
+
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
                         SYNC_STOCK_PRICE_SEEDS,
                         SYNC_INDICATORS_SEEDS,
                         SYNC_SIGNALS_SEEDS,
-                        EVALUATE_SIGNALS_SEEDS)
+                        EVALUATE_SIGNALS_SEEDS,
+                        PRECOMPUTE_SYMBOL_FEATURES_SEEDS,
+                        PRECOMPUTE_SECTOR_FEATURES_SEEDS,
+                        SECTOR_ROTATION_BACKTEST_SEEDS)
                         .filter(Objects::nonNull)
                         .flatMap(e -> e.stream())
                         .toList();

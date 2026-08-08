@@ -1,0 +1,90 @@
+package com.omni.platform.modules.scheduler.producers;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
+import com.omni.platform.modules.scheduler.constants.SectorWaveConfig;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
+import com.omni.platform.modules.scheduler.messaging.SectorWaveSymbolFeatureJobMessage;
+import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
+import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
+import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Component
+public class PrecomputeSymbolFeaturesJobProducer extends JobProducer {
+
+    private final SymbolRepository symbolRepository;
+
+    @Value("${kafka.topics.topic-precompute-symbol-features}")
+    private String topic;
+
+    public PrecomputeSymbolFeaturesJobProducer(
+            JobService jobService,
+            KafkaPublisher kafkaPublisher,
+            SymbolRepository symbolRepository) {
+        super(jobService, kafkaPublisher);
+        this.symbolRepository = symbolRepository;
+    }
+
+    @Override
+    protected String getTopic() {
+        return topic;
+    }
+
+    @Override
+    protected List<KafkaMessage> buildMessages(
+            JobDefinition job,
+            JobExecutionHistory jobExecutionHistory,
+            Instant timestamps) {
+        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+        SectorWaveConfig config = JobConfigMapper.toSectorWaveConfig(jobConfig);
+        List<String> sectorCodes = config.filters().sectorCodes();
+        int sectorLevel = config.filters().sectorLevel();
+
+        List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
+                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                sectorLevel);
+
+        log.info("Precomputing symbol features for {} symbols sectorCodes={} sectorLevel={} timeframe={} jobId={} executionId={}",
+                symbols.size(), sectorCodes, sectorLevel, config.timeframe(), job.getId(), jobExecutionHistory.getId());
+
+        return symbols.stream()
+                .map(symbol -> {
+                    Map<String, Object> metadata = new HashMap<>();
+                    metadata.putAll(jobConfig);
+                    JobExecutionHistory child = jobService.createSymbolChildExecution(
+                            jobExecutionHistory.getId(),
+                            symbol.symbolKey(),
+                            metadata,
+                            timestamps);
+                    return new KafkaMessage(
+                            symbol.symbolKey(),
+                            new SectorWaveSymbolFeatureJobMessage(
+                                    job.getId(),
+                                    child.getId(),
+                                    jobExecutionHistory.getId(),
+                                    job.getSource().toString(),
+                                    symbol.symbolKey(),
+                                    config.timeframe(),
+                                    metadata));
+                })
+                .toList();
+    }
+
+    @Override
+    protected void postPublish(JobDefinition job, Instant now) {
+        log.info("Published symbol feature precompute job [{}] for source [{}]", job.getId(), job.getSource());
+    }
+}

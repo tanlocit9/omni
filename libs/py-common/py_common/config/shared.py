@@ -54,6 +54,15 @@ class TopicSettings(BaseSettings):
     topic_sync_signals: str = Field(default="topic-sync-signals")
     topic_evaluate_signals: str = Field(default="topic-evaluate-signals")
     topic_signal_notifications: str = Field(default="topic-signal-notifications")
+    topic_precompute_symbol_features: str = Field(
+        default="topic-precompute-symbol-features"
+    )
+    topic_precompute_sector_features: str = Field(
+        default="topic-precompute-sector-features"
+    )
+    topic_sector_rotation_backtest: str = Field(
+        default="topic-sector-rotation-backtest"
+    )
 
 
 class BaseAppSettings(BaseSettings):
@@ -137,6 +146,21 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_signal_notifications
 
     @property
+    def topic_precompute_symbol_features(self) -> str:
+        """Backward-compatible access to the symbol feature precompute topic."""
+        return self.topics.topic_precompute_symbol_features
+
+    @property
+    def topic_precompute_sector_features(self) -> str:
+        """Backward-compatible access to the sector feature precompute topic."""
+        return self.topics.topic_precompute_sector_features
+
+    @property
+    def topic_sector_rotation_backtest(self) -> str:
+        """Backward-compatible access to the sector rotation backtest topic."""
+        return self.topics.topic_sector_rotation_backtest
+
+    @property
     def sync_job_status_topic(self) -> str:
         """Backward-compatible access to the sync job status topic."""
         return self.topics.sync_job_status_topic
@@ -178,6 +202,34 @@ class BaseAppSettings(BaseSettings):
     ) -> str:
         """Build a shared object path for latest market signal state data."""
         return self.stock_data_paths.signal_current(strategy, timeframe, exchange, code)
+
+    def get_symbol_features_path(self, timeframe: str, exchange: str, code: str) -> str:
+        """Build a shared object path for symbol-level precomputed features."""
+        return self.stock_data_paths.symbol_features(timeframe, exchange, code)
+
+    def get_sector_features_path(
+        self,
+        timeframe: str,
+        sector_level: int,
+        sector_code: str,
+    ) -> str:
+        """Build a shared object path for sector-level precomputed features."""
+        return self.stock_data_paths.sector_features(
+            timeframe, sector_level, sector_code
+        )
+
+    def get_sector_rotation_backtest_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        sector_level: int,
+    ) -> str:
+        """Build a shared object path for sector rotation backtest outputs."""
+        return self.stock_data_paths.sector_rotation_backtest(
+            strategy,
+            timeframe,
+            sector_level,
+        )
 
     def _apply_topics_config(self) -> None:
         kafka_cfg = self._shared_topics.get("kafka", {})
@@ -223,6 +275,18 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_signal_notifications = topics_cfg.get(
             "topic-signal-notifications",
             self.topics.topic_signal_notifications,
+        )
+        self.topics.topic_precompute_symbol_features = topics_cfg.get(
+            "topic-precompute-symbol-features",
+            self.topics.topic_precompute_symbol_features,
+        )
+        self.topics.topic_precompute_sector_features = topics_cfg.get(
+            "topic-precompute-sector-features",
+            self.topics.topic_precompute_sector_features,
+        )
+        self.topics.topic_sector_rotation_backtest = topics_cfg.get(
+            "topic-sector-rotation-backtest",
+            self.topics.topic_sector_rotation_backtest,
         )
 
         minio_cfg = self._shared_topics.get("min-io", {})

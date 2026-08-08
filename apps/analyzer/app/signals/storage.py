@@ -435,9 +435,10 @@ class SignalHistoryRepository:
             "StorageObjectNotFoundError",
             "NoSuchKey",
         }
-        return isinstance(
-            exc, (FileNotFoundError, StorageObjectNotFoundError)
-        ) or exc.__class__.__name__ in object_not_found_names
+        return (
+            isinstance(exc, (FileNotFoundError, StorageObjectNotFoundError))
+            or exc.__class__.__name__ in object_not_found_names
+        )
 
     @staticmethod
     def _coerce_revision(value: Any) -> int:
@@ -445,7 +446,7 @@ class SignalHistoryRepository:
             return 1
         try:
             return max(1, int(value))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return 1
 
     def _next_revision(self, value: Any) -> int:

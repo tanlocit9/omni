@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.producers.EvaluateSignalsJobProducer;
+import com.omni.platform.modules.scheduler.producers.PrecomputeSectorFeaturesJobProducer;
+import com.omni.platform.modules.scheduler.producers.PrecomputeSymbolFeaturesJobProducer;
+import com.omni.platform.modules.scheduler.producers.SectorRotationBacktestJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncIndicatorsJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncSignalsJobProducer;
 import com.omni.platform.modules.scheduler.producers.SyncStockPriceJobProducer;
@@ -28,6 +31,9 @@ public class SyncJobScheduler {
     private final SyncIndicatorsJobProducer syncIndicatorsJobProducer;
     private final SyncSignalsJobProducer syncSignalsJobProducer;
     private final EvaluateSignalsJobProducer evaluateSignalsJobProducer;
+    private final PrecomputeSymbolFeaturesJobProducer precomputeSymbolFeaturesJobProducer;
+    private final PrecomputeSectorFeaturesJobProducer precomputeSectorFeaturesJobProducer;
+    private final SectorRotationBacktestJobProducer sectorRotationBacktestJobProducer;
 
     @Scheduled(fixedDelayString = "${app.scheduler.global.fixedDelayString:30000}")
     public void scan() {
@@ -51,6 +57,9 @@ public class SyncJobScheduler {
                     case SYNC_INDICATORS -> syncIndicatorsJobProducer.publish(job, now);
                     case SYNC_SIGNALS -> syncSignalsJobProducer.publish(job, now);
                     case EVALUATE_SIGNALS -> evaluateSignalsJobProducer.publish(job, now);
+                    case PRECOMPUTE_SYMBOL_FEATURES -> precomputeSymbolFeaturesJobProducer.publish(job, now);
+                    case PRECOMPUTE_SECTOR_FEATURES -> precomputeSectorFeaturesJobProducer.publish(job, now);
+                    case SECTOR_ROTATION_BACKTEST -> sectorRotationBacktestJobProducer.publish(job, now);
                 }
             } catch (Exception e) {
                 log.error("Failed to dispatch job [{}]: {}", job.getId(), e.getMessage(), e);

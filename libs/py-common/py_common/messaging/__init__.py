@@ -1,3 +1,4 @@
+from py_common.messaging.job_messages import JobMessage
 from py_common.messaging.messages import (
     JobStatus,
     JobStatusMessage,
@@ -8,6 +9,7 @@ from py_common.messaging.messages import (
 from py_common.messaging.publisher import JobStatusPublisher
 
 __all__ = [
+    "JobMessage",
     "JobStatus",
     "JobStatusMessage",
     "JobStatusPublisher",

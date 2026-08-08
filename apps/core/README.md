@@ -39,53 +39,53 @@ Platform owns API boundaries, scheduler orchestration, job definitions, executio
 
 ## Entry Points
 
-| Entry point | Purpose |
-| --- | --- |
-| [`src/main/java/com/omni/platform/PlatformApplication.java`](src/main/java/com/omni/platform/PlatformApplication.java) | Spring Boot application entry point. |
-| [`src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java) | Scheduled job trigger. |
-| [`src/main/java/com/omni/platform/modules/scheduler/services/JobService.java`](src/main/java/com/omni/platform/modules/scheduler/services/JobService.java) | Job orchestration service. |
+| Entry point                                                                                                                                                | Purpose                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| [`src/main/java/com/omni/platform/PlatformApplication.java`](src/main/java/com/omni/platform/PlatformApplication.java)                                     | Spring Boot application entry point. |
+| [`src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java)       | Scheduled job trigger.               |
+| [`src/main/java/com/omni/platform/modules/scheduler/services/JobService.java`](src/main/java/com/omni/platform/modules/scheduler/services/JobService.java) | Job orchestration service.           |
 
 ## Main Modules
 
-| Module | Purpose |
-| --- | --- |
-| [`src/main/java/com/omni/platform/modules/scheduler`](src/main/java/com/omni/platform/modules/scheduler) | Job definitions, execution history, Kafka producers/consumers, symbols, sectors. |
-| [`src/main/java/com/omni/platform/modules/notifications`](src/main/java/com/omni/platform/modules/notifications) | Notification handling. |
-| [`src/main/java/com/omni/platform/modules/storages`](src/main/java/com/omni/platform/modules/storages) | Platform storage integration. |
-| [`src/main/java/com/omni/platform/shared`](src/main/java/com/omni/platform/shared) | Shared Java entities, ports, repositories, utilities. |
+| Module                                                                                                           | Purpose                                                                          |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`src/main/java/com/omni/platform/modules/scheduler`](src/main/java/com/omni/platform/modules/scheduler)         | Job definitions, execution history, Kafka producers/consumers, symbols, sectors. |
+| [`src/main/java/com/omni/platform/modules/notifications`](src/main/java/com/omni/platform/modules/notifications) | Notification handling.                                                           |
+| [`src/main/java/com/omni/platform/modules/storages`](src/main/java/com/omni/platform/modules/storages)           | Platform storage integration.                                                    |
+| [`src/main/java/com/omni/platform/shared`](src/main/java/com/omni/platform/shared)                               | Shared Java entities, ports, repositories, utilities.                            |
 
 ## Consumes
 
 See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
-| Topic | Purpose |
-| --- | --- |
-| `topic-sync-job-status` | Worker status updates. |
-| `topic-upsert-symbols` | Symbol projection updates from Ingestor. |
-| `topic-upsert-sectors` | Sector projection updates from Ingestor. |
+| Topic                        | Purpose                                        |
+| ---------------------------- | ---------------------------------------------- |
+| `topic-sync-job-status`      | Worker status updates.                         |
+| `topic-upsert-symbols`       | Symbol projection updates from Ingestor.       |
+| `topic-upsert-sectors`       | Sector projection updates from Ingestor.       |
 | `topic-signal-notifications` | Signal transition notifications from Analyzer. |
 
 ## Produces
 
 See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
-| Topic | Purpose |
-| --- | --- |
-| `topic-sync-stock-prices` | Request EOD price sync. |
-| `topic-sync-symbols` | Request symbol sync. |
-| `topic-sync-indicators` | Request indicator calculation. |
-| `topic-sync-signals` | Request signal calculation. |
-| `topic-evaluate-signals` | Request signal evaluation. |
+| Topic                              | Purpose                              |
+| ---------------------------------- | ------------------------------------ |
+| `topic-sync-stock-prices`          | Request EOD price sync.              |
+| `topic-sync-symbols`               | Request symbol sync.                 |
+| `topic-sync-indicators`            | Request indicator calculation.       |
+| `topic-sync-signals`               | Request signal calculation.          |
+| `topic-evaluate-signals`           | Request signal evaluation.           |
 | `topic-precompute-symbol-features` | Request Sector Wave symbol features. |
 | `topic-precompute-sector-features` | Request Sector Wave sector features. |
-| `topic-sector-rotation-backtest` | Request sector rotation backtest. |
+| `topic-sector-rotation-backtest`   | Request sector rotation backtest.    |
 
 ## Storage
 
-| Storage | Purpose |
-| --- | --- |
-| PostgreSQL | Platform operational state. See [Database](../../docs/data/database.md). |
-| MinIO/S3 | Platform may integrate with object storage, but analytical dataset ownership belongs to Ingestor/Analyzer. See [Data lake](../../docs/data/data-lake.md). |
+| Storage    | Purpose                                                                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | Platform operational state. See [Database](../../docs/data/database.md).                                                                                  |
+| MinIO/S3   | Platform may integrate with object storage, but analytical dataset ownership belongs to Ingestor/Analyzer. See [Data lake](../../docs/data/data-lake.md). |
 
 ## Important Flows
 

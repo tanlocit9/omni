@@ -49,43 +49,43 @@ erDiagram
 
 ### Job definitions
 
-| Field | Value |
-| --- | --- |
-| Migration | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql) |
-| Owner | Platform scheduler module |
-| Purpose | Stores configured jobs, schedules, and job-specific config. |
+| Field          | Value                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migration      | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql)                                                               |
+| Owner          | Platform scheduler module                                                                                                                                                                  |
+| Purpose        | Stores configured jobs, schedules, and job-specific config.                                                                                                                                |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobDefinition.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobDefinition.java) |
-| Related flow | [Job execution](../flows/job-execution.md) |
+| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                 |
 
 ### Job execution history
 
-| Field | Value |
-| --- | --- |
-| Migration | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql) |
-| Owner | Platform scheduler module |
-| Purpose | Tracks parent and child executions, worker status, metrics, and errors. |
+| Field          | Value                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migration      | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                           |
+| Owner          | Platform scheduler module                                                                                                                                                                              |
+| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java) |
-| Related flow | [Job execution](../flows/job-execution.md) |
+| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                             |
 
 ### Symbols
 
-| Field | Value |
-| --- | --- |
-| Migration | [`database/migrations/V3__create_symbols_table.sql`](../../database/migrations/V3__create_symbols_table.sql) |
-| Owner | Platform scheduler/domain projection |
-| Purpose | Stores Platform query/projection state for tradable symbols. |
+| Field          | Value                                                                                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration      | [`database/migrations/V3__create_symbols_table.sql`](../../database/migrations/V3__create_symbols_table.sql)                                                                 |
+| Owner          | Platform scheduler/domain projection                                                                                                                                         |
+| Purpose        | Stores Platform query/projection state for tradable symbols.                                                                                                                 |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Symbol.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Symbol.java) |
-| Upsert topic | [`topic-upsert-symbols`](kafka-contracts.md#topic-upsert-symbols) |
+| Upsert topic   | [`topic-upsert-symbols`](kafka-contracts.md#topic-upsert-symbols)                                                                                                            |
 
 ### Sectors
 
-| Field | Value |
-| --- | --- |
-| Migration | [`database/migrations/V4__create_sectors_table.sql`](../../database/migrations/V4__create_sectors_table.sql) |
-| Owner | Platform scheduler/domain projection |
-| Purpose | Stores sector classification state used by symbol metadata and sector-wave jobs. |
+| Field          | Value                                                                                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration      | [`database/migrations/V4__create_sectors_table.sql`](../../database/migrations/V4__create_sectors_table.sql)                                                                 |
+| Owner          | Platform scheduler/domain projection                                                                                                                                         |
+| Purpose        | Stores sector classification state used by symbol metadata and sector-wave jobs.                                                                                             |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java) |
-| Upsert topic | [`topic-upsert-sectors`](kafka-contracts.md#topic-upsert-sectors) |
+| Upsert topic   | [`topic-upsert-sectors`](kafka-contracts.md#topic-upsert-sectors)                                                                                                            |
 
 ## Boundary Rules
 

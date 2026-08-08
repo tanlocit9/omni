@@ -1,5 +1,11 @@
 {
   "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "prettier --check . --ignore-path .prettierignore --ignore-unknown"
+      }
+    },
     "dev": {
       "executor": "nx:run-commands",
       "options": {

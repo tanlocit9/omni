@@ -1,518 +1,209 @@
-Pasted markdown.md
-File
-đây là file agents.md
+# Agent and Development Rules
 
-Worked for 14s
-Đã đọc file AGENTS.md. Tôi sẽ áp dụng cho các tác vụ Omni tiếp theo, đặc biệt:
+This file contains repository workflow rules for AI agents and developers. System architecture and business documentation live under [`docs`](docs); do not duplicate that content here.
 
-Luôn chạy build, test, lint, format qua Nx.
+## Nx Rules
 
-Tôn trọng kiến trúc riêng của platform, analyzer, ingestor.
+Nx is the canonical entry point for all project operations in this monorepo.
 
-Không sửa externals/vnstock-etl nếu chưa được yêu cầu.
-
-Không đưa thông tin S3 path vào Kafka message; ingestor tự dựng path.
-
-Không chạy watcher dài hạn.
-
-Không hard-code cloud SDK, credentials hoặc gọi Kafka trực tiếp từ handler.
-
-Lưu ý: một số nội dung có vẻ chưa theo kịp code hiện tại, như tên topic stock-sync, cấu trúc migration V1–V12 và mô tả analyzer ghi trực tiếp PostgreSQL. Khi làm việc với repository, tôi sẽ ưu tiên code thực tế, sau đó đề xuất cập nhật AGENTS.md nếu phát hiện sai lệch.
-
-cập nhật thêm nội dung rằng khi sửa code liên quan đến consumer và producer thì cập nhật ở cả 2 phía
-
-Worked for 40s
-Đã cập nhật vào AGENTS.md:
-
-Khi thay đổi topic, event schema, ý nghĩa field, serialization, validation hoặc contract xử lý lỗi, phải kiểm tra và cập nhật đồng bộ cả producer lẫn consumer, bao gồm test và tài liệu liên quan.
-
-Pasted%20markdown.md
-
-<!-- nx configuration start-->
-<!-- Leave the start & end comments to automatically receive updates. -->
-
-# General Guidelines for working with Nx
-
-- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- You have access to the Nx MCP server and its tools, use them to help the user
-- When answering questions about the repository, use the `nx_workspace` tool first to gain an understanding of the workspace architecture where applicable.
-- When working in individual projects, use the `nx_project_details` mcp tool to analyze and understand the specific project structure and dependencies
-- For questions around nx configuration, best practices or if you're unsure, use the `nx_docs` tool to get relevant, up-to-date docs. Always use this instead of assuming things about nx configuration
-- If the user needs help with an Nx configuration or project graph error, use the `nx_workspace` tool to get any errors
-- For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
-
-<!-- nx configuration end-->
-
----
-
-# Codebase Instructions for Claude
-
-## Workspace Overview
-
-This is an **Nx 22.5 monorepo** named `omni`. It contains three applications and no shared libraries yet.
-
-```
-omni/
-├── apps/
-│   ├── core/          # Java 21 / Spring Boot 4 — Platform API & Storage Orchestration
-│   ├── analyzer/      # Python 3.14 / FastAPI — Analytical REST API & Direct DB Sync
-│   └── ingestor/      # Python 3.14 / Async Event Worker — Parquet Data Lake Sync
-├── database/
-│   └── migrations/    # Flyway SQL migrations (V1–V12)
-├── externals/
-│   └── vnstock-etl/   # Git submodule — ETL pipeline for stock data
-├── docker-compose.yaml           # Includes infra and service Compose files
-├── docker-compose.infra.yaml     # PostgreSQL, Kafka, MinIO, pgAdmin
-├── docker-compose.services.yaml  # Platform, analyzer, ingestor
-├── nx.json
-├── package.json       # Root — Nx + tooling only, no app code
-└── project.json       # Root-level Nx targets (init, dev)
-```
-
----
-
-## Running the Workspace
-
-### First-time setup
+- Run commands from the workspace root.
+- Inspect available targets before execution:
 
 ```bash
-nx run omni:init
-# Runs: git submodule sync/update, then docker compose up -d
+nx show project <project_name>
 ```
 
-### Run all apps together (development)
+- Never invent a target that is not defined in the project's `project.json`.
+- Always invoke project operations through:
 
 ```bash
-nx run omni:dev
-# Starts platform (Java), analyzer (Python/FastAPI), and ingestor (Python/worker) concurrently
-# Logs prefixed with [JAVA], [ANALYZER], [INGESTOR]
+nx run <project_name>:<target>
 ```
 
-### Infrastructure only
+### Dependency management
+
+When adding, removing, installing, syncing, locking, or updating dependencies, use the matching Nx target if it exists.
+
+Examples:
 
 ```bash
-docker compose -f docker-compose.infra.yaml up -d
-# Starts: PostgreSQL 16 (5432), Kafka (9092), MinIO (9000/9001), pgAdmin (5050)
+nx run analyzer:add --name="pandas>=2.2.0"
+nx run ingestor:remove --name="requests"
+nx run py-common:sync
+nx run analyzer:lock
 ```
 
-### Full Docker stack
+Do not run underlying package managers directly when an equivalent Nx target exists:
 
-```bash
-docker compose up -d
-# Uses docker-compose.yaml to include both infra and app services
+- Do not run `uv add` directly when `<project>:add` exists.
+- Do not run `uv remove` directly when `<project>:remove` exists.
+- Do not run `uv sync` directly when `<project>:sync` exists.
+- Do not run `uv lock` directly when `<project>:lock` exists.
+- Do not run `pip install`, `npm install`, Gradle, Maven, pytest, ruff, or uvicorn directly when a matching Nx target exists.
+
+### Development and verification
+
+Use the corresponding Nx target instead of calling the underlying tool directly:
+
+- Build: `nx run <project_name>:build`
+- Test: `nx run <project_name>:test`
+- Lint: `nx run <project_name>:lint`
+- Format: `nx run <project_name>:format`
+- Serve: `nx run <project_name>:serve`
+- Serve with HMR: `nx run <project_name>:serve-hmr`
+- Debug: `nx run <project_name>:debug`
+- Package: `nx run <project_name>:package`
+- Deploy: `nx run <project_name>:deploy`
+
+If additional arguments are required, forward them after `--`.
+
+Only use the underlying tool directly when no suitable Nx target exists. In that case:
+
+1. State that the Nx target is unavailable.
+2. Use the narrowest required command.
+3. Consider adding a reusable Nx target if the operation will be repeated.
+
+## PowerShell Execution Rule
+
+When using terminal commands that require PowerShell syntax or PowerShell-only features, wrap the full command with `powershell -NoProfile -Command "..."`.
+
+This applies to PowerShell cmdlets and expressions such as `Get-ChildItem`, `Select-String`, `Test-Path`, `ForEach-Object`, `-ErrorAction`, PowerShell object pipelines, and `.ps1` scripts.
+
+Correct examples:
+
+```text
+powershell -NoProfile -Command "Get-ChildItem -Recurse -File -Path docs -Filter *.md"
+powershell -NoProfile -Command "Select-String -Path AGENTS.md -Pattern 'PowerShell'"
+powershell -NoProfile -Command "Test-Path docs/README.md"
 ```
 
----
+Incorrect examples:
 
-## App: `platform` (apps/core)
-
-### Stack
-
-- Java 21 (Adoptium JVM), Spring Boot 4.0.1
-- Spring Modulith (modular monolith)
-- Spring Data JPA + Hibernate + PostgreSQL
-- Spring Security
-- Flyway (database migrations)
-- MinIO client (S3-compatible object storage)
-- Lombok
-- Build: Gradle 8 via `@nx/gradle` plugin
-
-### Architecture
-
-Spring Modulith modular monolith. Package layout under `com.omni.platform`:
-
-```
-application/
-  controllers/
-    StorageController.java   # REST controller for file storage API
-    StockController.java     # REST controller — triggers stock sync via Kafka
-  dtos/
-    FileDeleteResult.java
-    FileUploadResult.java
-  usecases/
-    FileUseCase.java
-    FileUseCaseService.java
-core/
-  adapters/        # AbstractStorageAdapter + StorageProviderRegistry
-  configs/         # Spring configuration classes
-  constants/       # Shared constants
-  enums/           # Shared enums
-  events/          # Domain events (e.g. FileUploadedEvent)
-  exceptions/      # Custom exceptions
-  ports/           # Interfaces: WritablePort, ReadablePort, DeletablePort,
-                   #             ListablePort, ShareablePort
-modules/
-  minio/           # MinIO storage adapter implementation
-  kafka/           # Kafka producer (stock-sync) + consumer (@KafkaListener stock-sync-status)
-  thumbnails/      # Thumbnail generation module
+```text
+Get-ChildItem -Recurse -File -Path docs -Filter *.md
+Select-String -Path AGENTS.md -Pattern 'PowerShell'
+Test-Path docs/README.md
 ```
 
-Key patterns:
+Do not wrap native Nx commands solely because this rule exists. Use `nx run <project>:<target>` directly when no PowerShell syntax is required. If PowerShell syntax is needed around an Nx command, wrap the whole expression:
 
-- **Ports & Adapters**: Storage operations are defined as port interfaces; modules implement them.
-- **Registry pattern**: `StorageProviderRegistry` resolves the correct adapter at runtime.
-- **Event-driven async**: `@EnableAsync` + Spring events for post-upload processing.
-- **Kafka integration**: Platform publishes `stock-sync` commands and consumes `stock-sync-status` results to update `update_log` and `sync_config`.
-
-### Nx targets
-
-```bash
-nx serve platform                          # bootRun with dev profile (default)
-nx serve platform --configuration=prod     # bootRun with prod profile
-nx build platform                          # Gradle build
-nx test platform                           # JUnit 5 tests
+```text
+powershell -NoProfile -Command "nx run analyzer:test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
 ```
 
-### Configuration files
+Before every `execute_command` call, check whether the command contains PowerShell syntax. If it does, the submitted command string must start with `powershell -NoProfile -Command`.
 
-- `apps/core/src/main/resources/application.yaml` — base config
-- `apps/core/src/main/resources/application-dev.yaml` — dev profile (local DB, MinIO, Kafka)
-- `apps/core/src/main/resources/application-test.yaml` — test profile (H2 in-memory)
+## Code Review Graph Rules
 
-### Database
+This project provides `code-review-graph` MCP tools. Use them before manually scanning the codebase when locating implementations, tracing dependencies, reviewing changes, or assessing impact.
 
-- PostgreSQL 16 in production/dev; H2 in-memory for tests
-- Migrations live in `database/migrations/V*.sql` (V1–V12):
-  - `V1__create_users.sql`: User accounts and management.
-  - `V2__create_reference_data.sql`: Static lookup / reference data.
-  - `V3__create_stocks.sql`: Public companies and stock tickers.
-  - `V4__create_company_info.sql`: Company metadata and profiles.
-  - `V5__create_price_data.sql`: Historical stock price transactions.
-  - `V6__create_financial_statements.sql`: Balance sheets, income statements, cash flows.
-  - `V7__create_financial_ratios.sql`: Computed financial and fundamental ratios.
-  - `V8__create_technical_indicators.sql`: Technical analysis indicators (MA, RSI, etc.).
-  - `V9__create_events_news.sql`: News articles, corporate events, market announcements.
-  - `V10__create_portfolio.sql`: User investment portfolios and transactions.
-  - `V11__create_screener_alerts.sql`: Watchlists and screener alert rules.
-  - `V12__create_sync_ops.sql`: Background ETL sync operation audit log.
+Required workflow:
 
----
+- Use `semantic_search_nodes` or `query_graph` before Grep/Glob/manual reads when locating implementations, exploring unfamiliar code, or tracing classes, methods, interfaces, dependencies, producers, or consumers.
+- Use `get_impact_radius` before changing shared contracts, public methods, DTOs, events, Kafka messages, storage paths, or configuration.
+- Use `detect_changes` when reviewing commits, branches, pull requests, or uncommitted changes.
+- Use graph results to identify callers, downstream dependents, implementations, references, producers, consumers, tests, and documentation updates.
+- Fall back to file search only after graph tools identify relevant files or when graph data is unavailable.
 
-## App: `analyzer` (apps/analyzer)
+Correct sequence for unfamiliar code:
 
-### Stack
-
-- Python 3.14+, FastAPI 0.128.8
-- Uvicorn with hot-reload (`uvicorn-hmr`)
-- Package manager: `uv`
-- SQLAlchemy 2.0 (Async Engine) + PostgreSQL
-- httpx + requests (HTTP clients)
-- VNDirect API HTTP client
-- Ruff (linter + formatter)
-- pytest + pytest-cov + pytest-html
-
-### Architecture
-
-Layered architecture under `app/`:
-
-```
-app/
-  clients/
-    vndirect_client.py        # External VNDirect API client
-  controllers/v1/
-    stock.py                  # FastAPI router — stock endpoints
-  core/
-    database.py               # Database engine, session maker, Base model setup
-  dtos/stock/
-    sync_stock_dto.py         # Pydantic DTOs for stock syncing
-  models/
-    models.py                 # SQLAlchemy declarative models
-  providers/
-    stock_provider.py         # FastAPI Depends() providers
-  repositories/
-    stock_prices_repository.py
-  services/
-    stock_service.py          # Business logic for stock analytics & data fetching
-main.py                       # FastAPI app entry point, router registration
-debug.py                      # Debug entry point
+```text
+semantic_search_nodes or query_graph
+→ targeted read_file/search_files
+→ impact radius when changing contracts
+→ detect_changes after edits
 ```
 
-Key patterns:
+Incorrect sequence:
 
-- **Dependency injection**: FastAPI `Depends()` wires providers into controllers.
-- **Async endpoints**: Use `async def` for all route handlers and service methods.
-- **Versioned routing**: All routes are prefixed `/v1`.
-
-### Endpoints
-
-- `GET /v1/stocks/` — Query stock pricing history from PostgreSQL.
-- `POST /v1/stocks/sync` — On-demand historical price retrieval from VNDirect API, committed to `stock_prices` with conflict avoidance.
-
-### Nx targets
-
-```bash
-nx serve analyzer           # uvicorn-hmr with hot-reload
-nx test analyzer            # pytest with coverage
-nx lint analyzer            # ruff check
-nx format analyzer          # ruff format
-nx build analyzer           # build dist package
-nx debug analyzer           # run debug.py
-nx run analyzer:add         # add a Python dependency
-nx run analyzer:remove      # remove a Python dependency
-nx run analyzer:lock        # update uv.lock
-nx run analyzer:sync        # sync virtualenv from lock file
+```text
+search_files first for unfamiliar implementation
+→ edit shared contract
+→ skip impact radius
+→ skip detect_changes
 ```
 
-### Code style
-
-- Line length: 88 characters
-- Ruff rules: E, F, UP, B, SIM, I (pycodestyle, Pyflakes, pyupgrade, bugbear, simplify, isort)
-- All rules are auto-fixable via `nx format analyzer`
+## Kafka Contract Rule
 
----
+When modifying Kafka producer or consumer code, inspect and update both sides of the contract.
 
-## App: `ingestor` (apps/ingestor)
-
-### Stack
+This includes changes to:
 
-- Python 3.14+, `aiokafka` (async Kafka consumer & producer)
-- `boto3` (S3-compatible client — MinIO, AWS S3, Cloudflare R2)
-- `pandas`, `pyarrow` (in-memory Parquet processing)
-- FastAPI (HTTP entry point for manual trigger and health check)
-- Package manager: `uv`
-- Ruff (linter + formatter)
-- pytest
+- topic names;
+- message schemas and required fields;
+- serialization and deserialization;
+- validation rules;
+- metadata semantics;
+- error handling and status responses;
+- tests, configuration, and documentation.
 
-### Architecture
+Required workflow:
 
-Ports & Adapters under `app/`:
+1. Identify the producer.
+2. Identify the consumer.
+3. Check shared payload/config abstractions.
+4. Run impact analysis for the changed contract.
+5. Update both sides in the same change.
+6. Update tests for both sides.
+7. Update [Kafka contracts](docs/data/kafka-contracts.md).
+8. Run `detect_changes` after edits.
 
-```
-app/
-  ports/
-    event_consumer.py         # Abstract interface: poll() / publish()
-  adapters/
-    kafka_consumer.py         # aiokafka — default (self-hosted Kafka / MSK)
-    upstash_consumer.py       # HTTP REST — Upstash free tier alternative
-  handlers/
-    stock_sync.py             # Business logic: download parquet → merge → upload
-  api.py                      # FastAPI HTTP entry point (manual trigger + health)
-main.py                       # Event router + asyncio concurrency control
-```
+Never assume a producer-only or consumer-only change is safe without checking its impact through code-review-graph.
 
-Key patterns:
+## Storage Contract Rule
 
-- **Transport abstraction**: All Kafka interaction goes through the `EventConsumer` port. Swap adapters via env var without touching handlers.
-- **Event router**: `main.py` dispatches messages to the correct handler by topic name.
-- **Bounded concurrency**: `asyncio.Semaphore(MAX_CONCURRENT_TASKS)` limits parallel processing; safe for I/O-bound Parquet workloads.
-- **HTTP entry point**: `api.py` exposes `/trigger/{symbol}` and `/health` — doubles as the FaaS invocation target when migrating to Lambda or Cloud Run.
+Do not put S3 bucket names or object paths into Kafka messages for routing. Workers derive object paths from shared path builders backed by [`configs/shared/s3-paths.yaml`](configs/shared/s3-paths.yaml).
 
-### Kafka topics
+When changing storage paths or dataset ownership:
 
-| Topic               | Direction | Description                                                                                                      |
-| :------------------ | :-------- | :--------------------------------------------------------------------------------------------------------------- |
-| `stock-sync`        | Consume   | Sync command from platform: `{"symbol": "STB", "limit": 50}`                                                     |
-| `stock-sync-status` | Publish   | Result back to platform: `{"symbol", "status", "recordsInserted", "totalRecords", "durationMs", "errorMessage"}` |
+1. Update shared config/path builders.
+2. Update all dataset producers and consumers.
+3. Update tests.
+4. Update [Data lake](docs/data/data-lake.md).
+5. Run impact analysis for affected storage contracts.
 
-### Nx targets
+## Shared Module Rule
 
-```bash
-nx serve ingestor           # Run event consumer loop
-nx test ingestor            # pytest
-nx lint ingestor            # ruff check
-nx format ingestor          # ruff format
-nx run ingestor:add         # add a Python dependency
-nx run ingestor:remove      # remove a Python dependency
-nx run ingestor:lock        # update uv.lock
-nx run ingestor:sync        # sync virtualenv from lock file
-```
+When introducing or modifying reusable object-oriented abstractions or design patterns, prefer the appropriate shared module instead of duplicating them inside individual applications.
 
----
+Placement rules:
 
-## Infrastructure (docker-compose.infra.yaml)
+- Java/JVM reusable abstractions: prefer an appropriate shared Java package/module.
+- Python reusable abstractions: prefer [`libs/py-common`](libs/py-common).
+- Keep application-specific business logic inside the owning application.
+- Do not move code into shared modules only because it might be reusable; there must be a clear cross-module responsibility.
+- Before creating a new abstraction, use code-review-graph to check whether an equivalent abstraction already exists.
+- When changing shared abstractions, check impact radius and verify all affected implementations, callers, tests, and docs.
 
-| Service  | Image                | Port(s)    | Credentials                                     |
-| -------- | -------------------- | ---------- | ----------------------------------------------- |
-| postgres | postgres:16          | 5432       | user: postgres / pass: postgres / db: omni      |
-| minio    | quay.io/minio/minio  | 9000, 9001 | user: minioadmin / pass: minioadmin             |
-| pgadmin  | dpage/pgadmin4       | 5050       | email: admin@admin.com / pass: admin            |
-| kafka    | apache/kafka (KRaft) | 9092       | PLAINTEXT://kafka:29092 (no auth for local dev) |
+## Documentation Rules
 
-All services have health checks and use named Docker volumes for persistence.
+- Documentation entry point: [docs/README.md](docs/README.md).
+- Architecture overview: [docs/architecture/system-overview.md](docs/architecture/system-overview.md).
+- Developer navigation: [docs/development/where-to-change.md](docs/development/where-to-change.md).
+- Flow changes: update the relevant document under [docs/flows](docs/flows).
+- Kafka contract changes: update [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md).
+- Storage contract changes: update [docs/data/data-lake.md](docs/data/data-lake.md).
+- Service responsibility changes: update the related service README.
+- Prefer Mermaid diagrams and tables over long prose.
 
----
+## Repository Boundaries
 
-## Deployment: Oracle Always Free (Default Target)
+- Do not modify files inside [`externals`](externals) unless explicitly working on the external submodule.
+- Do not commit secrets. Local credentials in compose/env examples are development defaults only.
+- Do not hard-code cloud SDK credentials, provider secrets, or regions in business handlers.
+- Do not call Kafka brokers directly from business handlers when a port/helper abstraction exists.
+- Do not run long-running watcher commands as an agent unless explicitly requested.
 
-The root `docker-compose.yaml` includes `docker-compose.infra.yaml` and `docker-compose.services.yaml`, and runs as-is on an Oracle Always Free ARM VM (4 Ampere A1 cores, 24 GB RAM). No architecture changes are needed for deployment.
+## Verification Rules
 
-```bash
-# On Oracle VM (Ubuntu 22.04 ARM)
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-git clone --recursive <repository-url>
-cd omni
-docker compose up -d
-```
+After making code or contract changes:
 
-### Cloud portability
+1. Run `detect_changes` through code-review-graph.
+2. Check impact radius for modified shared contracts.
+3. Verify affected callers, consumers, producers, and tests.
+4. Inspect relevant Nx targets.
+5. Run targeted build, test, lint, and formatting checks through Nx.
+6. Run affected checks when changes impact multiple projects.
+7. Report any verification command that could not be run or failed.
 
-All external service endpoints are configured via environment variables. To migrate to AWS/GCP, only env vars change — no code changes required:
-
-| Component      | Oracle VM         | AWS          | GCP       |
-| :------------- | :---------------- | :----------- | :-------- |
-| Kafka          | Self-hosted KRaft | MSK          | Pub/Sub   |
-| Object Storage | MinIO             | S3           | GCS       |
-| PostgreSQL     | Self-hosted       | RDS          | Cloud SQL |
-| Compute        | Docker Compose    | ECS / Lambda | Cloud Run |
-
-S3 endpoint switching (no code change):
-
-```bash
-S3_ENDPOINT_URL=http://minio:9000                          # Oracle VM
-S3_ENDPOINT_URL=https://<id>.r2.cloudflarestorage.com     # Cloudflare R2
-# Unset entirely for AWS S3
-```
-
----
-
-## S3 Data Lake Path Configuration
-
-The stock-data bucket follows a centralized, configuration-driven path structure defined in `configs/shared/s3-paths.yaml`.
-
-### Path Structure
-
-```
-stock-data/
-├── symbols/
-│   ├── hose.parquet
-│   ├── hnx.parquet
-│   └── upcom.parquet
-└── eod/
-    ├── hose/
-    │   ├── hpg.parquet
-    │   ├── fpt.parquet
-    │   └── ...
-    ├── hnx/
-    └── upcom/
-```
-
-### Path Builder Functions (Python)
-
-The ingestor's `Settings` class provides path builder methods:
-
-```python
-from app.settings import settings
-
-# Symbol metadata path
-settings.get_symbols_path("HOSE")  # → symbols/hose.parquet
-
-# EOD price data path
-settings.get_eod_path("HOSE", "HPG")  # → eod/hose/hpg.parquet
-```
-
-### Key Rules
-
-1. **Lowercase normalization**: Exchange names and ticker codes are automatically converted to lowercase in paths
-
-   - Exchange: `HOSE` → `hose`, `HNX` → `hnx`, `UPCOM` → `upcom`
-   - Ticker: `HPG` → `hpg`, `FPT` → `fpt`
-
-2. **No bucket/objectName in Kafka messages**: The Java producer (`SyncStockPriceJobProducer`) does not send bucket or objectName metadata. The ingestor derives paths from the symbolKey using path builders.
-
-3. **Pattern-based configuration**: Paths are defined using `{variable}` placeholders in YAML:
-
-   ```yaml
-   eod:
-     base: 'eod/'
-     pattern: '{exchange}/{code}.parquet'
-   ```
-
-4. **No temporal partitioning**: Files are merged/overwritten in place. No `dt=` or `run_id=` folders.
-
-5. **Future expansion ready**: Configuration includes placeholder paths for financials, corporate-actions, ownership, news, etc.
-
-**See:** `docs/S3_PATH_CONFIGURATION.md` for complete documentation.
-
----
-
-## External Submodule
-
-`externals/vnstock-etl` is a Git submodule. After cloning, run `nx run omni:init` to initialize it. Do not edit files inside `externals/` directly unless working specifically on the ETL pipeline.
-
----
-
-## Common Workflows
-
-### Add a Python dependency
-
-```bash
-nx run analyzer:add --name="sqlalchemy[asyncio]>=2.0"
-nx run ingestor:add --name="aiokafka>=0.11"
-# uv updates uv.lock automatically — no separate lock step needed
-```
-
-### Run all tests
-
-```bash
-nx run-many -t test
-```
-
-### Run affected tests only (after changes)
-
-```bash
-nx affected -t test
-```
-
-### Lint and format Python apps
-
-```bash
-nx lint analyzer && nx format analyzer
-nx lint ingestor && nx format ingestor
-```
-
-### Apply a new database migration
-
-Add `database/migrations/V<N>__<description>.sql` following the existing naming convention. Flyway picks it up automatically on next platform startup.
-
----
-
-## What NOT to do
-
-- Do not update a Kafka producer or consumer in isolation. When changing a topic, event schema, field semantics, serialization, validation, or error-handling contract, review and update both the producer and consumer sides in the same change, including their tests and documentation where applicable.
-- Do not run `gradle`, `uvicorn`, `pytest`, `uv`, or `kafka-*` CLI tools directly — always go through `nx`.
-- Do not use `npx` — use locally installed binaries via `nx` targets only.
-- Do not run `npm run dev` or any long-running watcher commands in the agent — tell the user to run them manually.
-- Do not commit secrets. All credentials in `docker-compose.yaml` are for local dev only.
-- Do not modify files inside `externals/vnstock-etl/` unless explicitly working on the ETL submodule.
-- Do not add shared libraries to `packages/` without first discussing the dependency graph impact with the user.
-- Do not import cloud-vendor SDKs (boto3 session with hardcoded regions, AWS-specific clients, etc.) directly in handler business logic — always go through the port interface.
-- Do not call Kafka broker directly from `handlers/` — always use the `EventConsumer` port.
-
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
-
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
-
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
-
-### Key Tools
-
-| Tool | Use when |
-| ------ | ---------- |
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
+For docs-only changes, run a lightweight documentation verification such as link/path checks when available and report that code tests were not required.

@@ -1,54 +1,42 @@
-# Omni Monorepo Workspace
+# Omni
 
-Omni is an **Nx 22.5** monorepo for stock analytics and data integration. It coordinates a Java Platform API, Python analytical API, Python event ingestor, PostgreSQL, Kafka, and MinIO/S3-compatible object storage.
+Omni is an Nx monorepo for stock-market data ingestion, analytical precomputation, and job orchestration. It coordinates a Java/Spring Platform service, Python worker/API services, Kafka, PostgreSQL, and MinIO/S3-compatible Parquet storage.
 
-For detailed system design, service boundaries, Kafka workflow, deployment architecture, S3 path rules, and guardrails, see [ARCHITECTURE.md](ARCHITECTURE.md).
+## Architecture at a Glance
 
----
+```mermaid
+flowchart TD
+  Platform["Platform / Core<br/>apps/core"]
+  Kafka["Kafka"]
+  Ingestor["Ingestor<br/>apps/ingestor"]
+  Analyzer["Analyzer<br/>apps/analyzer"]
+  PyCommon["py-common<br/>libs/py-common"]
+  Postgres["PostgreSQL"]
+  Lake["MinIO / Parquet"]
 
-## Workspace Layout
-
-```text
-omni/
-├── apps/
-│   ├── core/          # Java 21 / Spring Boot 4 — Platform API, scheduler, orchestration
-│   ├── analyzer/      # Python 3.14 / FastAPI — Analytical API boundary
-│   └── ingestor/      # Python 3.14 / Async Event Worker — Parquet Data Lake Sync
-├── configs/shared/    # Shared Kafka topic and S3 path configuration
-├── database/
-│   └── migrations/    # Flyway SQL migrations
-├── externals/         # Git submodules and external references
-├── libs/              # Shared libraries
-├── docker-compose.yaml
-├── docker-compose.infra.yaml
-├── docker-compose.services.yaml
-├── nx.json
-├── package.json
-└── project.json
+  Platform -->|job commands| Kafka
+  Kafka -->|stock/symbol jobs| Ingestor
+  Kafka -->|analytical jobs| Analyzer
+  Ingestor -->|Parquet datasets| Lake
+  Analyzer -->|analytical datasets| Lake
+  Ingestor -->|status/upserts| Kafka
+  Analyzer -->|status/notifications| Kafka
+  Kafka -->|status/upserts/notifications| Platform
+  Platform --> Postgres
+  Ingestor -. uses .-> PyCommon
+  Analyzer -. uses .-> PyCommon
 ```
 
----
+Detailed architecture starts in [docs/README.md](docs/README.md).
 
 ## Services
 
-| Project | Path | Purpose |
-| :--- | :--- | :--- |
-| `platform` | `apps/core` | Java/Spring Platform API. Owns orchestration, scheduler jobs, database migrations, Kafka command production, and Kafka status consumption. |
-| `analyzer` | `apps/analyzer` | Python/FastAPI analytical API boundary. Does not own stock-sync execution or direct stock-price persistence. |
-| `ingestor` | `apps/ingestor` | Python async worker. Consumes stock-sync messages, fetches market data, writes Parquet snapshots, and publishes job status. |
-| `py-common` | `libs/py-common` | Shared Python runtime, storage, messaging, and configuration utilities. |
-
----
-
-## Prerequisites
-
-- Node.js 18+ or 20+ and npm.
-- Java JDK 21.
-- Python 3.14+.
-- `uv` for Python dependency and environment management.
-- Docker and Docker Compose.
-
----
+| Project | Path | Responsibility |
+| --- | --- | --- |
+| `platform` | [`apps/core`](apps/core) | Platform API, scheduler, job orchestration, PostgreSQL operational state, Kafka producer/consumer boundary. |
+| `ingestor` | [`apps/ingestor`](apps/ingestor) | External market-data ingestion, symbol/EOD Parquet updates, status/upsert events. |
+| `analyzer` | [`apps/analyzer`](apps/analyzer) | Indicators, signals, signal evaluation, Sector Wave features/backtests. |
+| `py-common` | [`libs/py-common`](libs/py-common) | Shared Python config, Kafka, runtime, and storage abstractions. |
 
 ## Quick Start
 
@@ -68,13 +56,13 @@ nx run ingestor:sync
 nx run py-common:sync
 ```
 
-Run all applications together:
+Run all applications together for local development:
 
 ```bash
 nx run omni:dev
 ```
 
-Start only local infrastructure:
+Start only infrastructure:
 
 ```bash
 docker compose -f docker-compose.infra.yaml up -d
@@ -86,14 +74,28 @@ Start the complete Docker stack:
 docker compose --env-file .env up -d
 ```
 
----
+## Documentation
 
-## Nx Commands
+| Document | Purpose |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Documentation entry point and map. |
+| [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | System overview and service boundaries. |
+| [docs/development/where-to-change.md](docs/development/where-to-change.md) | Where to start for common changes. |
+| [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md) | Kafka topic and payload contract ownership. |
+| [docs/data/data-lake.md](docs/data/data-lake.md) | Parquet dataset/path ownership. |
+| [docs/flows/job-execution.md](docs/flows/job-execution.md) | Scheduler and worker job execution flow. |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Compatibility index for architecture links. |
+| [AGENTS.md](AGENTS.md) | Development and agent workflow rules. |
 
-Nx is the canonical entry point for workspace tasks. Inspect targets before running unfamiliar project operations:
+## Common Development Commands
+
+Nx is the canonical entry point for project operations. Inspect targets before running unfamiliar commands:
 
 ```bash
-nx show project <project-name>
+nx show project platform
+nx show project analyzer
+nx show project ingestor
+nx show project py-common
 ```
 
 Common targets:
@@ -101,13 +103,11 @@ Common targets:
 ```bash
 nx run platform:serve
 nx run platform:build
-nx run platform:test
 
 nx run analyzer:serve
 nx run analyzer:test
 nx run analyzer:lint
 nx run analyzer:format
-nx run analyzer:debug
 
 nx run ingestor:serve
 nx run ingestor:test
@@ -122,73 +122,18 @@ nx run py-common:format
 Python dependency operations also go through Nx:
 
 ```bash
-nx run analyzer:add --name="numpy>=1.26.0"
+nx run analyzer:add --name="pandas>=2.2.0"
 nx run ingestor:remove --name="requests"
-nx run <project-name>:sync
-nx run <project-name>:lock
+nx run py-common:sync
 ```
-
----
 
 ## Local Infrastructure
 
-| Service | Local Port | Endpoint | Credentials |
-| :--- | :--- | :--- | :--- |
-| PostgreSQL 16 | `5432` | `jdbc:postgresql://localhost:5432/omni` | `postgres` / `postgres` |
-| MinIO | `9000`, `9001` | [http://localhost:9001](http://localhost:9001) | `minioadmin` / `minioadmin` |
-| pgAdmin 4 | `5050` | [http://localhost:5050](http://localhost:5050) | `admin@admin.com` / `admin` |
-| Kafka | `9092` | `PLAINTEXT://localhost:9092` | No authentication for local development |
+| Service | Local port | Purpose |
+| --- | --- | --- |
+| PostgreSQL | `5432` | Platform operational database. |
+| Kafka | `9092` | Async job/status/event bus. |
+| MinIO | `9000`, `9001` | S3-compatible Parquet storage. |
+| pgAdmin | `5050` | Local PostgreSQL administration. |
 
-Local defaults are stored in `.env.example`. Deployment placeholders are stored in `.env.deploy.example`.
-
----
-
-## Kafka Topic Overview
-
-Canonical topic configuration lives in [configs/shared/topics.yaml](configs/shared/topics.yaml).
-
-| Topic | Direction from Ingestor | Description |
-| :--- | :--- | :--- |
-| `topic-sync-stock-prices` | Inbound | Stock-price sync command from Platform. |
-| `topic-sync-symbols` | Inbound | Symbol-master sync command from Platform. |
-| `topic-sync-job-status` | Outbound | Job status result from Ingestor to Platform. |
-| `topic-upsert-symbols` | Outbound | Full symbol snapshot from Ingestor to Platform. |
-
-When changing a Kafka topic, schema, serialization rule, validation rule, field meaning, or error-handling contract, update both producer and consumer sides together, including tests and documentation. See [ARCHITECTURE.md](ARCHITECTURE.md#kafka-topics-and-contracts).
-
----
-
-## S3 Data Lake Paths
-
-Canonical path configuration lives in [configs/shared/s3-paths.yaml](configs/shared/s3-paths.yaml). The stock-data bucket uses lowercase, centralized paths such as:
-
-```text
-symbols/hose.parquet
-eod/hose/hpg.parquet
-```
-
-Kafka messages must not include bucket or object path metadata. Consumers derive storage paths from shared path builders. See [ARCHITECTURE.md](ARCHITECTURE.md#s3-data-lake-structure).
-
----
-
-## Database Migrations
-
-Flyway migrations are stored in `database/migrations/V*__*.sql` and are applied by Platform on startup.
-
-Before adding a migration:
-
-1. Check the current highest migration version in `database/migrations/`.
-2. Add the next version using `V<N>__<description>.sql`.
-3. Use explicit column types, constraints, indexes, timestamps, and foreign-key behavior.
-4. Test against a development database before deployment.
-
----
-
-## Important References
-
-- [ARCHITECTURE.md](ARCHITECTURE.md) — detailed architecture, service boundaries, Kafka workflow, deployment model, S3 rules, and guardrails.
-- [AGENTS.md](AGENTS.md) — repository workflow and agent rules.
-- [apps/analyzer/README.md](apps/analyzer/README.md) — Analyzer-specific notes.
-- [apps/ingestor/README.md](apps/ingestor/README.md) — Ingestor-specific notes.
-- [configs/shared/topics.yaml](configs/shared/topics.yaml) — Kafka topic configuration.
-- [configs/shared/s3-paths.yaml](configs/shared/s3-paths.yaml) — S3 path configuration.
+Local defaults are stored in [`.env.example`](.env.example). Deployment placeholders are stored in [`.env.deploy.example`](.env.deploy.example).

@@ -1,163 +1,112 @@
-# Omni Python Common Library
+# py-common Library
 
-Shared Python library for Omni platform services (ingestor, analyzer).
+py-common is the shared Python library for Omni worker services. Its Nx project name is `py-common` and its source path is [`libs/py-common`](.).
 
-## Features
+## Responsibility
 
-- **Configuration Management**: YAML-based configuration loading with typed settings
-- **Storage Abstractions**: Provider-agnostic storage ports (MinIO, AWS S3)
-- **Parquet Processing**: High-level API for reading/writing DataFrames to object storage
-- **Kafka Factories**: Reusable consumer/producer creation with retry configuration
-- **Path Management**: Centralized S3 path construction with validation
+py-common owns reusable Python infrastructure that is shared by Analyzer and Ingestor: configuration loading, typed runtime settings, Kafka helpers, messaging payload foundations, runtime helpers, storage ports/adapters, and Parquet utilities.
 
-## Installation
+## Owns
 
-This is an internal library managed via local path dependencies:
+- Shared Python configuration loading from [`configs/shared`](../../configs/shared).
+- Shared Kafka helper factories and messaging abstractions.
+- Shared storage ports, provider registry, MinIO adapter, and Parquet storage helper.
+- Runtime helpers for worker/API startup patterns.
+- Cross-service Python constants and path builders.
 
-```toml
-# In service pyproject.toml
-dependencies = [
-    "omni-py-common @ file://../../libs/py-common",
-]
-```
+## Does Not Own
 
-## Usage
+- Analyzer-specific business calculations.
+- Ingestor-specific provider clients or normalization logic.
+- Platform Java records/entities.
+- Service-specific Kafka handling decisions that are not reusable.
 
-### Configuration
+## What this library DOES
 
-`BaseAppSettings` is the shared Python entry point for repository-level config. It loads stable defaults from `configs/shared/topics.yaml` and `configs/shared/s3-paths.yaml`, reads root `.env` / `.env.local`, and applies flat runtime env overrides into typed settings models.
+- Loads shared topic and S3 path config.
+- Maps flat environment variables into typed settings.
+- Provides reusable object-storage abstractions.
+- Provides Parquet read/write helpers.
+- Provides Kafka producer/consumer construction helpers.
 
-```python
-from py_common.config import BaseAppSettings
+## What this library DOES NOT do
 
-settings = BaseAppSettings()
+- It does not run a service by itself.
+- It does not define service-specific job orchestration.
+- It does not make business decisions for indicators, signals, sector wave, or ingestion.
+- It does not hard-code cloud credentials or provider-specific business rules.
 
-settings.kafka.bootstrap_servers  # KAFKA_BOOTSTRAP_SERVERS override
-settings.minio.endpoint           # MINIO_ENDPOINT override
-settings.topic_sync_stock_prices  # topic-sync-stock-prices by default
-settings.get_symbols_path("HOSE")  # symbols/hose.parquet
-settings.get_eod_path("HOSE", "HPG")  # eod/hose/hpg.parquet
-```
+## Entry Points
 
-Use flat env variables as the canonical cross-language contract:
+| Entry point | Purpose |
+| --- | --- |
+| [`py_common/config`](py_common/config) | Shared config loading, settings models, path builders, constants. |
+| [`py_common/kafka`](py_common/kafka) | Kafka helper factories and job-status service helpers. |
+| [`py_common/messaging`](py_common/messaging) | Shared messaging payload/publisher foundations. |
+| [`py_common/runtime`](py_common/runtime) | Worker/API runtime helpers. |
+| [`py_common/storage`](py_common/storage) | Storage ports, adapters, registry, and Parquet utilities. |
 
-```dotenv
-KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-MINIO_ENDPOINT=http://localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=stock-data
-```
+## Main Modules
 
-Do not use duplicate nested names such as `KAFKA__BOOTSTRAP_SERVERS` or `MINIO__ENDPOINT`. Java, Python, and Docker Compose all share the flat names above.
+| Module | Purpose |
+| --- | --- |
+| [`py_common/config/loader.py`](py_common/config/loader.py) | YAML config loading. |
+| [`py_common/config/models.py`](py_common/config/models.py) | Typed settings models. |
+| [`py_common/config/paths.py`](py_common/config/paths.py) | S3 path construction. |
+| [`py_common/kafka/factory.py`](py_common/kafka/factory.py) | Kafka client factory helpers. |
+| [`py_common/messaging/job_messages.py`](py_common/messaging/job_messages.py) | Shared job message foundations. |
+| [`py_common/storage/parquet.py`](py_common/storage/parquet.py) | Parquet storage helper. |
+| [`py_common/storage/adapters/minio.py`](py_common/storage/adapters/minio.py) | MinIO/S3-compatible adapter. |
 
-For lower-level utilities, load a shared YAML file directly:
+## Consumes
 
-```python
-from pathlib import Path
-from py_common.config import load_yaml, StockDataPaths, Timeframe
+| Input | Purpose |
+| --- | --- |
+| [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) | Kafka topic defaults. |
+| [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | S3 path patterns. |
+| Flat environment variables | Runtime overrides shared by Java, Python, and Docker Compose. |
 
-config = load_yaml(Path("configs/shared/s3-paths.yaml"))
-paths = StockDataPaths.from_config(config["stock-data"])
+## Produces
 
-paths.symbols("HOSE")  # → symbols/hose.parquet
-paths.eod("HOSE", "HPG")  # → eod/hose/hpg.parquet
-paths.indicators(Timeframe.ONE_DAY, "HOSE", "HPG")  # → indicators/1d/hose/hpg.parquet
-```
+py-common does not publish Kafka events directly as a standalone service. It provides reusable helpers that Analyzer and Ingestor use to produce or consume events.
 
-### Storage
+## Storage
 
-```python
-from py_common.storage import (
-    StorageProvider,
-    StorageProviderRegistry,
-    ParquetStorage,
-    create_storage_registry,
-)
+py-common does not own datasets. It provides storage abstractions used by dataset owners. See [Data lake](../../docs/data/data-lake.md).
 
-# Create registry
-registry = create_storage_registry(settings)
-await registry.validate_all()
+## Important Flows
 
-# Create Parquet storage
-parquet = ParquetStorage(
-    registry=registry,
-    provider=StorageProvider.MINIO,
-    bucket="stock-data",
-)
+py-common supports these flows but does not own their business logic:
 
-# Read/write DataFrames
-df = await parquet.read_dataframe("eod/hose/hpg.parquet")
-await parquet.write_dataframe("eod/hose/hpg.parquet", df)
-```
+- [Stock sync](../../docs/flows/stock-sync.md)
+- [Indicator and signal](../../docs/flows/indicator-signal.md)
+- [Sector wave](../../docs/flows/sector-wave.md)
 
-### Kafka
+## Run locally
 
-```python
-from py_common.kafka import create_consumer, create_producer
-from py_common.config import ConsumerGroup
-
-# Create consumer
-consumer = await create_consumer(
-    bootstrap_servers="localhost:9092",
-    topics=["symbols-sync"],
-    group_id=ConsumerGroup.INGESTOR.for_topic("symbols-sync"),
-)
-
-# Create producer
-producer = await create_producer(
-    bootstrap_servers="localhost:9092",
-)
-```
-
-## Development
+Inspect targets first:
 
 ```bash
-# Install dependencies
+nx show project py-common
+```
+
+Synchronize dependencies:
+
+```bash
 nx run py-common:sync
+```
 
-# Run tests
+## Test
+
+```bash
 nx run py-common:test
-
-# Lint
 nx run py-common:lint
-
-# Format
 nx run py-common:format
-```
-
-## Architecture
-
-```
-py_common/
-├── config/           # Configuration management
-│   ├── constants.py  # Timeframe, ConsumerGroup enums
-│   ├── loader.py     # YAML configuration loader
-│   ├── models.py     # Pydantic settings models
-│   └── paths.py      # S3 path construction
-│
-├── storage/          # Storage abstractions
-│   ├── capabilities.py
-│   ├── exceptions.py
-│   ├── ports.py
-│   ├── registry.py
-│   ├── parquet.py
-│   └── adapters/
-│       └── minio.py
-│
-└── kafka/            # Kafka client factories
-    └── factory.py
 ```
 
 ## Design Principles
 
-1. **Port-based architecture**: Storage operations defined as protocol interfaces
-2. **Provider registry**: Runtime adapter selection without hardcoded dependencies
-3. **Async-first**: All I/O operations use asyncio
-4. **Type safety**: Full type hints with Pydantic validation
-5. **Path centralization**: Single source of truth for S3 paths
-6. **Fail-fast validation**: Explicit validation with clear error messages
-
-## License
-
-Internal use only.
+- Shared abstractions belong here only when they are genuinely reusable across Python services.
+- Keep service-specific business logic in the owning service.
+- Keep topic names and path patterns centralized in shared config files.
+- Prefer typed validation and fail-fast errors at contract boundaries.

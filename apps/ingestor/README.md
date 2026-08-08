@@ -1,130 +1,125 @@
-# Stock Ingestor Service (`apps/ingestor`)
+# Ingestor Service
 
-The **Stock Ingestor Service** is an asynchronous, event-driven Python microservice responsible for maintaining the historical stock price Parquet files inside S3-compatible Object Storage (Data Lake).
+Ingestor is the Python worker service for external market-data ingestion and raw/normalized Parquet dataset maintenance. Its Nx project name is `ingestor` and its source path is [`apps/ingestor`](.).
 
-It acts as a worker in a bidirectional sync loop, processing synchronization commands offloaded by the Java Platform API.
+## Responsibility
 
----
+Ingestor consumes Platform sync jobs, fetches external provider data, normalizes records, updates data-lake Parquet files, and publishes job status plus symbol/sector upsert events.
 
-## 🚀 Key Features
+## Owns
 
-- **Asynchronous Kafka Worker**: Uses `aiokafka` to consume sync requests concurrently and publish completion metrics without blocking the main event loop.
-- **Direct Object Storage Updates**: Connects to S3-compatible object storage (MinIO locally) using the `minio` SDK to stream files.
-- **In-Memory Pandas Processing**: Merges old parquet histories with newly fetched incremental rows using `pandas.concat()` and performs highly efficient, in-memory deduplication via `drop_duplicates(subset=["date"])`.
-- **Zero Local Disk Usage**: Reads existing Parquet files into memory, performs deduplication, and streams updated Parquet buffers back to MinIO completely stateless.
+- External stock data provider clients.
+- Symbol and EOD ingestion handlers.
+- Provider data normalization.
+- Raw/normalized Parquet updates for `symbols` and `eod` datasets.
+- Ingestor-side Kafka consumer/producer behavior.
 
----
+## Does Not Own
 
-## 🔄 Ingestion & Sync Pipeline
+- Platform scheduler state or PostgreSQL migrations.
+- Indicator, signal, or Sector Wave analytical calculations.
+- Platform notification delivery.
+- Shared Python abstractions that belong in [`libs/py-common`](../../libs/py-common).
 
-```
-        [ Kafka Topic: topic-sync-stock-prices ]
-                           │
-                           ▼ (Payload: {"symbolKey": "HOSE:HPG", "jobDefinitionId": 1, "executionId": 10})
- ┌────────────────────────────────────────────────────────┐
- │                   ingestor (Python)                    │
- │                                                        │
- │  1. Derive object paths from shared S3 path builders   │
- │  2. Download eod/{exchange}/{code}.parquet from S3     │
- │  3. Fetch recent incremental records                   │
- │  4. Merge and deduplicate by date                      │
- │  5. Stream updated `.parquet` back to S3               │
- └─────────────────────────┬──────────────────────────────┘
-                           │
-                           ▼ (Payload: {"executionId": 10, "status": "SUCCESS", ...})
-          [ Kafka Topic: topic-sync-job-status ]
-```
+## What this service DOES
 
-### Kafka Interface Payloads
+- Consumes stock-price and symbol sync Kafka jobs.
+- Fetches market data from configured provider clients.
+- Derives S3 paths from shared path builders.
+- Reads, merges, deduplicates, and writes Parquet files.
+- Publishes job status and metadata upsert events.
 
-Topic names and consumer groups are centralized in `configs/shared/topics.yaml`. The ingestor consumes stock-price and symbol sync commands and publishes job-status and symbol-upsert results. When changing a Kafka contract, update both producer and consumer documentation, code, and tests in the same change.
+## What this service DOES NOT do
 
-#### 1. Inbound Topic: `topic-sync-stock-prices`
+- It does not compute analytical outputs.
+- It does not mutate Platform database tables directly.
+- It does not accept bucket/object path routing fields in Kafka job messages.
+- It does not own Kafka topic names outside shared config.
 
-Expected message payload:
+## Entry Points
 
-```json
-{
-  "symbolKey": "HOSE:HPG",
-  "jobDefinitionId": 1,
-  "executionId": 10,
-  "parentExecutionId": null
-}
-```
+| Entry point | Purpose |
+| --- | --- |
+| [`main.py`](main.py) | Service entry point. |
+| [`app/kafka_consumer.py`](app/kafka_consumer.py) | Kafka consumer orchestration. |
+| [`app/handlers/stock_prices.py`](app/handlers/stock_prices.py) | Stock-price sync handler. |
+| [`app/handlers/symbols.py`](app/handlers/symbols.py) | Symbol/sector sync handler. |
 
-#### 2. Outbound Topic: `topic-sync-job-status`
+## Main Modules
 
-Published payload on processing complete:
+| Module | Purpose |
+| --- | --- |
+| [`app/handlers`](app/handlers) | Business handlers for sync jobs. |
+| [`app/stocks`](app/stocks) | Provider clients, registry, normalization, sector cache. |
+| [`app/messaging`](app/messaging) | Ingestor messaging contracts/status helpers. |
+| [`app/storage`](app/storage) | Storage integration glue. |
+| [`app/settings.py`](app/settings.py) | Ingestor runtime settings and shared config access. |
 
-```json
-{
-  "jobDefinitionId": 1,
-  "executionId": 10,
-  "parentExecutionId": null,
-  "status": "SUCCESS",
-  "recordsProcessed": 50,
-  "durationMs": 350,
-  "message": null,
-  "errorMessage": null
-}
-```
+## Consumes
 
----
+See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
-## ⚙️ Configuration (Environment Variables)
+| Topic | Purpose |
+| --- | --- |
+| `topic-sync-stock-prices` | Request EOD stock-price sync. |
+| `topic-sync-symbols` | Request symbol metadata sync. |
 
-Ingestor loads stable defaults from `configs/shared/topics.yaml` and `configs/shared/s3-paths.yaml`, then applies runtime overrides from env files. Copy `.env.example` to `.env` for shared local settings, and copy `apps/ingestor/.env.example` to `apps/ingestor/.env` only when the ingestor needs service-specific overrides.
+## Produces
 
-Use the flat shared env contract only:
+See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
-| Variable | Default Value | Description |
-| :------- | :------------ | :---------- |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker list for consumers and producers. |
-| `MINIO_ENDPOINT` | `http://localhost:9000` | S3-compatible object storage endpoint. |
-| `MINIO_ACCESS_KEY` | `minioadmin` | Object storage access key. |
-| `MINIO_SECRET_KEY` | `minioadmin` | Object storage secret key. |
-| `MINIO_BUCKET` | `stock-data` | Bucket containing shared Parquet files. |
-| `KAFKA_RETRY_INTERVAL_SECONDS` | `3` | Retry interval for Kafka worker reconnection. |
-| `DEFAULT_STOCK_SOURCE` | `VND` | Default upstream stock-data source. |
+| Topic | Purpose |
+| --- | --- |
+| `topic-sync-job-status` | Report sync job outcome. |
+| `topic-upsert-symbols` | Project symbol snapshot to Platform. |
+| `topic-upsert-sectors` | Project sector snapshot to Platform. |
 
-Topic names such as `topic-sync-stock-prices` and object paths such as `eod/hose/hpg.parquet` come from shared config files, not Kafka message fields. Do not add bucket or object-name routing fields to sync messages.
+## Storage
 
----
+Ingestor owns these Parquet datasets. See [Data lake](../../docs/data/data-lake.md).
 
-## 💻 Development Commands
+| Dataset | Role |
+| --- | --- |
+| `symbols` | Symbol metadata by exchange. |
+| `eod` | EOD price history by exchange and symbol. |
 
-Manage microservice tasks through **Nx** in the workspace root:
+## Important Flows
+
+- [Stock sync](../../docs/flows/stock-sync.md)
+- [Job execution](../../docs/flows/job-execution.md)
+
+## Run locally
+
+Inspect targets first:
 
 ```bash
-# Serve the event-driven consumer daemon
-nx serve ingestor
-
-# Run unit tests
-nx test ingestor
-
-# Run Ruff linter to verify code quality
-nx lint ingestor
-
-# Run Ruff formatter to clean code style
-nx format ingestor
+nx show project ingestor
 ```
 
----
-
-## 📦 Managing Python Dependencies
-
-Dependencies are managed in a standardized workspace pattern using **`uv`**:
+Run the service:
 
 ```bash
-# Add a Python dependency
-nx run ingestor:add --name="pandas>=2.2.0"
-
-# Remove a Python dependency
-nx run ingestor:remove --name="requests"
-
-# Update lockfile (uv.lock)
-nx run ingestor:lock
-
-# Synchronize python virtualenv with locked dependencies
-nx run ingestor:sync
+nx run ingestor:serve
 ```
+
+Run with hot reload when developing manually:
+
+```bash
+nx run ingestor:serve-hmr
+```
+
+## Test
+
+```bash
+nx run ingestor:test
+nx run ingestor:lint
+nx run ingestor:format
+```
+
+## Shared Contracts
+
+| Contract | Source |
+| --- | --- |
+| Kafka topics | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) |
+| S3 paths | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
+| Shared Python runtime/config/storage | [`libs/py-common`](../../libs/py-common) |

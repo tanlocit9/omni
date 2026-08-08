@@ -1,25 +1,18 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "workspaceLayout": {
-    "appsDir": "apps",
-    "libsDir": "libs"
-  },
+  "workspaceLayout": { "appsDir": "apps", "libsDir": "libs" },
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": ["default", "!{projectRoot}/src/test/**/*"],
     "sharedGlobals": []
   },
-  "sync": {
-    "applyChanges": true
-  },
+  "sync": { "applyChanges": true },
   "nxIgnorePatterns": ["out"],
   "plugins": [
     {
       "plugin": "@nx/js/typescript",
       "options": {
-        "typecheck": {
-          "targetName": "typecheck"
-        },
+        "typecheck": { "targetName": "typecheck" },
         "build": {
           "targetName": "build",
           "configName": "tsconfig.lib.json",
@@ -39,10 +32,8 @@
     },
     {
       "plugin": "@nxlv/python",
-      "options": {
-        "packageManager": "uv",
-        "inferDependencies": true
-      }
+      "options": { "packageManager": "uv", "inferDependencies": true }
     }
-  ]
+  ],
+  "nxCloudId": "6a77315e5ba40e8bff0fb8b4"
 }

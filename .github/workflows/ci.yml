@@ -1,32 +1,41 @@
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  NX_DAEMON: false
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
-  ci:
-    name: Nx CI
+  main:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
 
       - name: Install dependencies
         run: npm ci
@@ -34,18 +43,26 @@ jobs:
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5
 
-      - name: Reset Nx
-        run: npx nx reset
-
-      - name: Ensure Gradle wrapper is executable
+      - name: Fix Gradle wrapper permission
         run: chmod +x apps/core/gradlew
 
+      - name: Verify Java
+        run: java -version
+
+      - name: Verify Gradle wrapper
+        run: |
+          cd apps/core
+          ./gradlew --version
+
+      - name: Reset Nx cache
+        run: npx nx reset
+
       - name: Validate Nx project graph
-        env:
-          NX_DAEMON: false
         run: npx nx show projects --verbose
 
       - name: Check formatting
-        env:
-          NX_DAEMON: false
-        run: npx nx record -- npx nx format:check --verbose
+        run: |
+          npx nx format:check \
+            --base="$NX_BASE" \
+            --head="$NX_HEAD" \
+            --verbose

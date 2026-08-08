@@ -5,14 +5,14 @@
   "scripts": {},
   "private": true,
   "devDependencies": {
-    "@nx/gradle": "^22.5.1",
+    "@nx/gradle": "22.7.8",
     "@nx/js": "^22.7.8",
     "@nxlv/python": "^22.1.0",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.8",
     "@swc/helpers": "0.5.18",
     "concurrently": "^9.2.1",
-    "nx": "22.5.1",
+    "nx": "22.7.8",
     "prettier": "^2.6.2",
     "tslib": "^2.3.0",
     "typescript": "~5.9.2"

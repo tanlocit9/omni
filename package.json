@@ -6,7 +6,7 @@
   "private": true,
   "devDependencies": {
     "@nx/gradle": "^22.5.1",
-    "@nx/js": "22.5.0",
+    "@nx/js": "^22.7.8",
     "@nxlv/python": "^22.1.0",
     "@swc-node/register": "1.11.1",
     "@swc/core": "1.15.8",

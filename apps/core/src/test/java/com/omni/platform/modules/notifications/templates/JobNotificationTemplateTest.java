@@ -64,7 +64,7 @@ class JobNotificationTemplateTest {
 
         assertThat(event.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(event.title()).isEqualTo("Job completed: Banking sector");
-        assertThat(event.message()).isEqualTo("25/25 symbol tasks completed successfully");
+        assertThat(event.message()).isEqualTo("25/25 tasks completed successfully");
         assertThat(event.metadata()).containsEntry("total", 25L)
                 .containsEntry("success", 25L)
                 .containsEntry("failed", 0L);
@@ -72,13 +72,13 @@ class JobNotificationTemplateTest {
 
     @Test
     void parentFailedBuildsDigestEvent() {
-        JobExecutionHistory parent = execution("Banking sector", "2/25 symbol tasks failed");
+        JobExecutionHistory parent = execution("Banking sector", "2/25 tasks failed");
 
         OperationalNotificationEvent event = template.parentFailed(parent, 25, 23, 2);
 
         assertThat(event.severity()).isEqualTo(NotificationSeverity.ERROR);
         assertThat(event.title()).isEqualTo("Job failed: Banking sector");
-        assertThat(event.message()).isEqualTo("2/25 symbol tasks failed");
+        assertThat(event.message()).isEqualTo("2/25 tasks failed");
         assertThat(event.metadata()).containsEntry("total", 25L)
                 .containsEntry("success", 23L)
                 .containsEntry("failed", 2L);

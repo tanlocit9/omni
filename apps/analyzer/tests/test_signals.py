@@ -1024,7 +1024,10 @@ async def test_signal_kafka_service_publishes_error_status_for_invalid_payload()
     assert status.execution_id == "execution-id"
     assert status.symbol_key == "HPG"
     assert status.records_processed == 0
-    assert status.meta_json == {"recordsProcessed": 0}
+    assert status.meta_json["recordsProcessed"] == 0
+    assert status.meta_json["errorMessage"] == status.error_message
+    assert status.meta_json["timeframe"] == "1d"
+    assert status.meta_json["strategy"] == "TREND_MOMENTUM_V1"
     assert status.error_message
     assert producer.sent
 

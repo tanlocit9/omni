@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.SyncIndicatorsConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.IndicatorJobMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
@@ -36,6 +37,11 @@ public class SyncIndicatorsJobProducer extends JobProducer {
 
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
+    }
+
+    @Override
+    public JobType getJobType() {
+        return JobType.SYNC_INDICATORS;
     }
 
     @Override
@@ -68,7 +74,7 @@ public class SyncIndicatorsJobProducer extends JobProducer {
                     Map<String, Object> metadata = new HashMap<>();
                     metadata.putAll(jobConfig);
 
-                    JobExecutionHistory childJobExecutionHistory = jobService.createSymbolChildExecution(
+                    JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
                             symbol.symbolKey(),
                             metadata,

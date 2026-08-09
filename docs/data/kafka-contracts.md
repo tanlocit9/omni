@@ -106,7 +106,11 @@ Expected payload shape includes job identity, source, `symbolKey`, optional time
 | Related flow     | [Job execution](../flows/job-execution.md)                 |
 | Related database | [Job execution history](database.md#job-execution-history) |
 
-Status payloads should carry enough identity to update the correct child execution and aggregate parent execution state. Typical fields include `jobDefinitionId`, `executionId`, optional `parentExecutionId`, `status`, metrics, duration, and optional error details.
+Status payloads should carry enough identity to update the correct child execution and aggregate parent execution state. Typical fields include `jobDefinitionId`, `executionId`, optional `parentExecutionId`, `symbolKey`, `status`, metrics, duration, `metaJson`, and optional error details.
+
+`symbolKey` remains part of the worker status contract for backward compatibility. Platform now creates child executions through a generic `createChildExecution(...)` path and stores both `symbolKey` and `workKey` in execution metadata when a work key is available. Do not remove or rename `symbolKey` in Kafka payloads until producer, consumer, shared Python messaging, Java status handling, tests, and these docs are migrated together.
+
+Worker error statuses must preserve useful request context in `metaJson`. Do not replace failure metadata with only `recordsProcessed = 0`; include safe domain fields such as timeframe, strategy, evaluation date, sector universe/focus, prediction horizons, and the actual error message when available.
 
 ### topic-sync-indicators
 
@@ -196,6 +200,8 @@ Status payloads should carry enough identity to update the correct child executi
 
 Expected payload fields are job identity, `source`, `evaluationDate`, resolved-universe `sectorCodes`, resolved `focusSectorCodes`, `sectorLevel`, `timeframe`, `strategy`, `predictionHorizons`, and `metadata`. `sectorCodes = []` means all eligible sectors at `sectorLevel` only in Platform Sector Transition job config; Platform resolves the concrete universe before publishing. `focusSectorCodes = []` resolves to the full universe, while a non-empty focus must be a subset of the resolved universe. The payload must not carry bucket names or object paths. Decisions produced by this job are `PRIVATE_INTERNAL` research outputs.
 
+Sector Transition failure statuses must preserve enough metadata for actionable Platform notifications: `evaluationDate`, `sectorCodes`, `focusSectorCodes`, `sectorLevel`, `timeframe`, `strategy`, `predictionHorizons`, `recordsProcessed = 0`, and the actual analyzer error message. Platform renders failed analysis notifications through a job-specific notification policy rather than through scheduler producer logic.
+
 ### topic-sector-transition-evaluate-outcomes
 
 | Field           | Value                                                                                                           |
@@ -207,7 +213,7 @@ Expected payload fields are job identity, `source`, `evaluationDate`, resolved-u
 | Related flow    | [Sector wave deferred research](../flows/sector-wave.md#deferred-research-sector-transition-and-recommendation) |
 | Related storage | [`sector-transition-outcomes`](data-lake.md#sector-transition-outcomes)                                         |
 
-Expected payload fields match `topic-sector-transition-analyze`, including resolved-universe `sectorCodes` and resolved `focusSectorCodes`. Outcome evaluation reads stored focused predictions and appends realized outcome rows to the outcomes dataset without recalculating a focus-only model or rewriting historical prediction probabilities.
+Expected payload fields match `topic-sector-transition-analyze`, including resolved-universe `sectorCodes` and resolved `focusSectorCodes`. Outcome evaluation reads stored focused predictions and appends realized outcome rows to the outcomes dataset without recalculating a focus-only model or rewriting historical prediction probabilities. Failure statuses follow the same metadata-preservation rule as analysis jobs.
 
 ## Shared Configuration
 

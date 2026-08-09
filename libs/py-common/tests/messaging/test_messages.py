@@ -138,6 +138,8 @@ def test_build_job_error_status_maps_wire_fields_and_zero_records():
             "executionId": "execution-id",
             "parentExecutionId": "parent-execution-id",
             "symbolKey": "HOSE-HPG",
+            "timeframe": "1d",
+            "metaJson": {"strategy": "TREND_MOMENTUM_V1"},
         },
         started_at=started_at,
         finished_at=finished_at,
@@ -152,7 +154,12 @@ def test_build_job_error_status_maps_wire_fields_and_zero_records():
     assert status.error_message == "boom"
     assert status.records_processed == 0
     assert status.duration_ms == 1000
-    assert status.meta_json == {"recordsProcessed": 0}
+    assert status.meta_json == {
+        "strategy": "TREND_MOMENTUM_V1",
+        "timeframe": "1d",
+        "recordsProcessed": 0,
+        "errorMessage": "boom",
+    }
 
 
 def test_utc_now_returns_timezone_aware_utc_datetime():

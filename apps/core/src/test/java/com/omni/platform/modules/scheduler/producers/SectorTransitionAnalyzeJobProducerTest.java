@@ -55,7 +55,7 @@ class SectorTransitionAnalyzeJobProducerTest {
         JobExecutionHistory child = execution(UUID.randomUUID());
         when(symbolRepository.findDistinctSectorCodesByLevel(null, 2))
                 .thenReturn(List.of("BANKS", "REAL_ESTATE", "TECH"));
-        when(jobService.createSymbolChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
+        when(jobService.createChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
                 any(), any()))
                 .thenReturn(child);
 
@@ -86,7 +86,7 @@ class SectorTransitionAnalyzeJobProducerTest {
         JobExecutionHistory child = execution(UUID.randomUUID());
         when(symbolRepository.findDistinctSectorCodesByLevel(new String[] { "BANKS", "TECH" }, 2))
                 .thenReturn(List.of("BANKS", "TECH"));
-        when(jobService.createSymbolChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
+        when(jobService.createChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
                 any(), any()))
                 .thenReturn(child);
 
@@ -95,7 +95,7 @@ class SectorTransitionAnalyzeJobProducerTest {
         SectorTransitionAnalyzeJobMessage payload = (SectorTransitionAnalyzeJobMessage) messages.get(0).payload();
         assertThat(payload.focusSectorCodes()).containsExactly("BANKS", "TECH");
         ArgumentCaptor<Map<String, Object>> metadataCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(jobService).createSymbolChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
+        verify(jobService).createChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
                 metadataCaptor.capture(), any());
         assertThat(metadataCaptor.getValue()).containsEntry("resolvedFocus", List.of("BANKS", "TECH"));
     }

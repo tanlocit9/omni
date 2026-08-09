@@ -74,6 +74,22 @@ EOD
 | Analyzer  | Reads EOD/indicator Parquet, computes indicators/signals/evaluations, writes Parquet outputs, publishes status/notification events. | Does not own stock ingestion or Platform database state.   |
 | Ingestor  | Produces EOD input dataset.                                                                                                         | Does not compute analytical outputs.                       |
 
+## Seeded Dependency Tree
+
+Platform seeds Indicator and Signal dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). This metadata is for visibility only; the scheduler does not enforce it yet.
+
+```mermaid
+flowchart TD
+  EOD[(eod)] --> SyncIndicators["SYNC_INDICATORS"]
+  SyncIndicators --> Indicators[(indicators)]
+  EOD --> SyncSignals["SYNC_SIGNALS"]
+  Indicators --> SyncSignals
+  SyncSignals --> Signals[(signals)]
+  EOD --> EvaluateSignals["EVALUATE_SIGNALS"]
+  Signals --> EvaluateSignals
+  EvaluateSignals --> SignalEvaluations[(signal-evaluations)]
+```
+
 ## Signal Lifecycle
 
 ```mermaid

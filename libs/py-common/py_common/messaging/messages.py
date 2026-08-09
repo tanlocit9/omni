@@ -41,6 +41,24 @@ def build_job_error_status(
     finished_at: datetime,
     error_message: str,
 ) -> JobStatusMessage:
+    metadata = dict(raw.get("metaJson") or {})
+    metadata.update(
+        {
+            key: value
+            for key, value in raw.items()
+            if key
+            not in {
+                "jobDefinitionId",
+                "executionId",
+                "parentExecutionId",
+                "symbolKey",
+                "metaJson",
+            }
+        }
+    )
+    metadata["recordsProcessed"] = 0
+    metadata["errorMessage"] = error_message
+
     return JobStatusMessage(
         job_definition_id=str(raw.get("jobDefinitionId", "")),
         execution_id=str(raw.get("executionId", "")),
@@ -52,7 +70,7 @@ def build_job_error_status(
         error_message=error_message,
         records_processed=0,
         duration_ms=calculate_duration_ms(started_at, finished_at),
-        meta_json={"recordsProcessed": 0},
+        meta_json=metadata,
     )
 
 

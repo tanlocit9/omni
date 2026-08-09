@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.SectorWaveConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorWaveSectorFeatureJobMessage;
@@ -35,6 +36,11 @@ public class PrecomputeSectorFeaturesJobProducer extends JobProducer {
             SymbolRepository symbolRepository) {
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
+    }
+
+    @Override
+    public JobType getJobType() {
+        return JobType.PRECOMPUTE_SECTOR_FEATURES;
     }
 
     @Override
@@ -63,7 +69,7 @@ public class PrecomputeSectorFeaturesJobProducer extends JobProducer {
                 .map(sectorCode -> {
                     Map<String, Object> metadata = new HashMap<>();
                     metadata.putAll(jobConfig);
-                    JobExecutionHistory child = jobService.createSymbolChildExecution(
+                    JobExecutionHistory child = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
                             sectorCode,
                             metadata,

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SyncSymbolsJobMessage;
@@ -41,6 +42,11 @@ public class SyncSymbolsJobProducer extends JobProducer {
     }
 
     @Override
+    public JobType getJobType() {
+        return JobType.SYNC_SYMBOLS;
+    }
+
+    @Override
     protected String getTopic() {
         return topic;
     }
@@ -64,7 +70,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
                     messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SYMBOL_COUNT, symbolCount);
                     enrichSectorConfig(messageConfig);
 
-                    JobExecutionHistory childJobExecutionHistory = jobService.createSymbolChildExecution(
+                    JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
                             exchange,
                             messageConfig,

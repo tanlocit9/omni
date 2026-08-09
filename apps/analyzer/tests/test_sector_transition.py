@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from datetime import date
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
+
+from app.settings import AppSettings
 
 from app.sector_transition.calculations import (
     calculate_sector_transition_analysis,
     evaluate_sector_transition_outcomes,
 )
+from app.sector_transition.kafka import SectorTransitionAnalyzeKafkaService
 from app.sector_transition.messages import (
     SectorTransitionAnalyzeJobMessage,
     SectorTransitionOutcomeEvaluationJobMessage,
@@ -53,6 +58,15 @@ def _analyze_payload() -> dict:
     }
 
 
+class _FakeProducer:
+    def __init__(self) -> None:
+        self.sent = []
+
+    async def send_and_wait(self, topic, payload, key=None):
+        self.sent.append((topic, payload, key))
+        return SimpleNamespace(topic=topic, partition=0, offset=len(self.sent) - 1)
+
+
 def test_sector_transition_analyze_message_normalizes_contract():
     message = SectorTransitionAnalyzeJobMessage.model_validate(_analyze_payload())
 
@@ -82,6 +96,58 @@ def test_sector_transition_outcome_message_rejects_invalid_horizons():
 
     with pytest.raises(ValueError):
         SectorTransitionOutcomeEvaluationJobMessage.model_validate(payload)
+
+
+@pytest.mark.anyio
+async def test_sector_transition_kafka_success_status_preserves_domain_metadata():
+    settings = AppSettings(sector_transition_analyze_kafka_enabled=False)
+    handler = AsyncMock()
+    handler.handle_analyze.return_value = 3
+    service = SectorTransitionAnalyzeKafkaService(settings, handler)
+    producer = _FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(_analyze_payload())
+
+    assert status.status.value == "SUCCESS"
+    assert status.records_processed == 3
+    assert status.meta_json == {
+        "recordsProcessed": 3,
+        "evaluationDate": "2026-01-08",
+        "sectorCodes": ["BANKS", "TECH"],
+        "focusSectorCodes": ["BANKS"],
+        "sectorLevel": 2,
+        "timeframe": "1d",
+        "strategy": "SECTOR_TRANSITION_V1",
+        "predictionHorizons": [1, 5],
+    }
+    assert producer.sent
+
+
+@pytest.mark.anyio
+async def test_sector_transition_kafka_error_status_preserves_domain_metadata():
+    settings = AppSettings(sector_transition_analyze_kafka_enabled=False)
+    handler = AsyncMock()
+    handler.handle_analyze.side_effect = RuntimeError("sector frame missing")
+    service = SectorTransitionAnalyzeKafkaService(settings, handler)
+    producer = _FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(_analyze_payload())
+
+    assert status.status.value == "ERROR"
+    assert status.records_processed == 0
+    assert status.error_message == "sector frame missing"
+    assert status.meta_json["recordsProcessed"] == 0
+    assert status.meta_json["errorMessage"] == "sector frame missing"
+    assert status.meta_json["evaluationDate"] == "2026-01-08"
+    assert status.meta_json["sectorCodes"] == ["tech", "BANKS"]
+    assert status.meta_json["focusSectorCodes"] == [" banks "]
+    assert status.meta_json["sectorLevel"] == 2
+    assert status.meta_json["timeframe"] == "1d"
+    assert status.meta_json["strategy"] == "SECTOR_TRANSITION_V1"
+    assert status.meta_json["predictionHorizons"] == [5, 1, 1]
+    assert producer.sent
 
 
 def test_calculate_sector_transition_analysis_is_t_anchored_and_private_decision():

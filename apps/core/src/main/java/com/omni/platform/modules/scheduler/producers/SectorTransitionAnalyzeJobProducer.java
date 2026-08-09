@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.SectorTransitionConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorTransitionAnalyzeJobMessage;
@@ -35,6 +36,11 @@ public class SectorTransitionAnalyzeJobProducer extends JobProducer {
             SymbolRepository symbolRepository) {
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
+    }
+
+    @Override
+    public JobType getJobType() {
+        return JobType.SECTOR_TRANSITION_ANALYZE;
     }
 
     @Override
@@ -66,7 +72,7 @@ public class SectorTransitionAnalyzeJobProducer extends JobProducer {
         metadata.put("resolvedUniverse", resolvedUniverse);
         metadata.put("resolvedFocus", resolvedFocus);
         metadata.put("resolvedSectorCodes", resolvedUniverse);
-        JobExecutionHistory child = jobService.createSymbolChildExecution(
+        JobExecutionHistory child = jobService.createChildExecution(
                 jobExecutionHistory.getId(),
                 config.strategy(),
                 metadata,

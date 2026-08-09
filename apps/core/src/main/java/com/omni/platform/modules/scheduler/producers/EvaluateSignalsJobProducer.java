@@ -12,6 +12,7 @@ import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
 import com.omni.platform.modules.scheduler.constants.SyncSignalsConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SignalEvaluationJobMessage;
@@ -32,6 +33,11 @@ public class EvaluateSignalsJobProducer extends JobProducer {
             KafkaPublisher kafkaPublisher) {
 
         super(jobService, kafkaPublisher);
+    }
+
+    @Override
+    public JobType getJobType() {
+        return JobType.EVALUATE_SIGNALS;
     }
 
     @Override
@@ -66,7 +72,7 @@ public class EvaluateSignalsJobProducer extends JobProducer {
                     metadata.putAll(jobConfig);
                     metadata.put(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of(normalizedExchange));
 
-                    JobExecutionHistory childJobExecutionHistory = jobService.createSymbolChildExecution(
+                    JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
                             normalizedExchange,
                             metadata,

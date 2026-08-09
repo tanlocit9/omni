@@ -14,18 +14,15 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
-import com.omni.platform.modules.notifications.events.SignalDigestItem;
-import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
-import com.omni.platform.modules.notifications.templates.JobNotificationTemplate;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
-import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
+import com.omni.platform.modules.scheduler.notifications.JobNotificationContext;
+import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRegistry;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.shared.utils.MetadataUtils;
@@ -51,7 +48,7 @@ public class JobService {
     private final JobDefinitionRepository jobDefinitionRepository;
     private final JobExecutionHistoryRepository jobExecutionHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final JobNotificationTemplate jobNotificationTemplate;
+    private final JobNotificationPolicyRegistry jobNotificationPolicyRegistry;
 
     @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
     private String schedulerZone;
@@ -79,20 +76,20 @@ public class JobService {
     }
 
     /**
-     * Creates a running child execution for symbol-level fan-out work.
+     * Creates a running child execution for fan-out work.
      * <p>
      * Child executions inherit the parent's job definition and retain the parent id
      * as the durable source of truth used later by aggregation.
      *
      * @param parentLogId parent execution id
-     * @param symbolKey symbol identifier represented by the child task
+     * @param workKey work item identifier represented by the child task
      * @param metadata additional metadata to store on the child execution
      * @param now child start timestamp
      * @return persisted running child execution
      */
-    public JobExecutionHistory createSymbolChildExecution(
+    public JobExecutionHistory createChildExecution(
             UUID parentLogId,
-            String symbolKey,
+            String workKey,
             Map<String, Object> metadata,
             Instant now) {
 
@@ -105,7 +102,8 @@ public class JobService {
         child.setStatus(JobStatus.RUNNING);
 
         Map<String, Object> meta = new LinkedHashMap<>();
-        MetadataUtils.putIfPresent(meta, "symbolKey", symbolKey);
+        MetadataUtils.putIfPresent(meta, "symbolKey", workKey);
+        MetadataUtils.putIfPresent(meta, "workKey", workKey);
         putAllAsStrings(meta, metadata);
         child.setMetaJson(meta);
 
@@ -304,8 +302,8 @@ public class JobService {
                 executionId, previousStatus, incomingStatus, history.getParentLogId(),
                 history.getMetaJson() == null ? null : history.getMetaJson().keySet());
         jobExecutionHistoryRepository.saveAndFlush(history);
-        log.info("Saved job status child executionId={} rollbackOnly={}",
-                executionId, TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());
+        log.info("Saved job status child executionId={} txActive={}",
+                executionId, TransactionSynchronizationManager.isActualTransactionActive());
 
         UUID persistedParentLogId = history.getParentLogId();
         validateMessageParentExecutionId(response, persistedParentLogId, executionId);
@@ -314,16 +312,14 @@ public class JobService {
             log.info("Aggregating parent execution parentLogId={} after child executionId={}",
                     persistedParentLogId, executionId);
             aggregateParentExecution(persistedParentLogId);
-            log.info("Aggregated parent execution parentLogId={} after child executionId={} rollbackOnly={}",
+            log.info("Aggregated parent execution parentLogId={} after child executionId={} txActive={}",
                     persistedParentLogId, executionId,
-                    TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());
+                    TransactionSynchronizationManager.isActualTransactionActive());
             return;
         }
 
         if (incomingTerminal) {
-            publishOperationalNotification(incomingStatus == JobStatus.SUCCESS
-                    ? jobNotificationTemplate.standaloneSucceeded(history)
-                    : jobNotificationTemplate.standaloneFailed(history));
+            publishNotification(new JobNotificationContext(history, List.of(), 0, 0, 0));
         }
     }
 
@@ -410,7 +406,7 @@ public class JobService {
                 .sum());
         parent.setNewOffset(null);
         parent.setError(parentStatus == JobStatus.FAILED
-                ? failedCount + "/" + children.size() + " symbol tasks failed"
+                ? failedCount + "/" + children.size() + " tasks failed"
                 : null);
 
         Map<String, Object> meta = new LinkedHashMap<>();
@@ -427,97 +423,12 @@ public class JobService {
                 parentLogId, previousParentStatus, parentStatus, allTerminal, successCount, failedCount, pendingCount,
                 runningCount, children.size());
         jobExecutionHistoryRepository.saveAndFlush(parent);
-        log.info("Saved parent aggregation parentLogId={} rollbackOnly={}",
-                parentLogId, TransactionAspectSupport.currentTransactionStatus().isRollbackOnly());
+        log.info("Saved parent aggregation parentLogId={} txActive={}",
+                parentLogId, TransactionSynchronizationManager.isActualTransactionActive());
 
         if (allTerminal) {
-            SignalDigestNotificationEvent signalDigest = buildSignalDigestNotification(parent, children, parentStatus);
-            if (signalDigest == null) {
-                publishOperationalNotification(parentStatus == JobStatus.SUCCESS
-                        ? jobNotificationTemplate.parentSucceeded(parent, children.size(), successCount, failedCount)
-                        : jobNotificationTemplate.parentFailed(parent, children.size(), successCount, failedCount));
-            }
-            publishSignalDigestNotification(signalDigest);
+            publishNotification(new JobNotificationContext(parent, children, children.size(), successCount, failedCount));
         }
-    }
-
-    private SignalDigestNotificationEvent buildSignalDigestNotification(
-            JobExecutionHistory parent,
-            List<JobExecutionHistory> children,
-            JobStatus parentStatus) {
-        if (parentStatus != JobStatus.SUCCESS
-                || parent.getJob() == null
-                || parent.getJob().getJobType() != JobType.SYNC_SIGNALS) {
-            return null;
-        }
-
-        List<SignalDigestItem> changedItems = children.stream()
-                .filter(child -> child.getStatus() == JobStatus.SUCCESS)
-                .filter(child -> isSignalChanged(child.getMetaJson()))
-                .map(this::toSignalDigestItem)
-                .toList();
-        if (changedItems.isEmpty()) {
-            return null;
-        }
-
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        putAllAsStrings(metadata, parent.getMetaJson());
-        MetadataUtils.putIfPresent(metadata, "jobDefinitionId", parent.getJob().getId());
-        MetadataUtils.putIfPresent(metadata, "jobType", parent.getJob().getJobType());
-
-        return new SignalDigestNotificationEvent(
-                parent.getId(),
-                jobTitle(parent),
-                firstNonBlank(changedItems.stream().map(SignalDigestItem::strategy).toList()),
-                firstNonBlank(changedItems.stream().map(SignalDigestItem::timeframe).toList()),
-                children.size(),
-                changedItems.size(),
-                changedItems,
-                metadata);
-    }
-
-    private SignalDigestItem toSignalDigestItem(JobExecutionHistory child) {
-        Map<String, Object> metadata = child.getMetaJson() == null ? Map.of() : child.getMetaJson();
-        return new SignalDigestItem(
-                stringValue(metadata.get("symbolKey")),
-                stringValue(metadata.get("previousSignal")),
-                stringValue(metadata.get("newSignal")),
-                stringValue(metadata.get("price")),
-                stringValue(metadata.get("signalDate")),
-                stringValue(metadata.get("strategy")),
-                stringValue(metadata.get("timeframe")),
-                stringValue(metadata.get("score")),
-                parseReasonCodes(metadata.get("reasonCodes")));
-    }
-
-    private boolean isSignalChanged(Map<String, Object> metadata) {
-        if (metadata == null) {
-            return false;
-        }
-        return Boolean.parseBoolean(stringValue(metadata.get("signalChanged")));
-    }
-
-    private List<String> parseReasonCodes(Object value) {
-        if (value == null) {
-            return List.of();
-        }
-        if (value instanceof List<?> values) {
-            return values.stream()
-                    .map(String::valueOf)
-                    .toList();
-        }
-        return List.of(String.valueOf(value));
-    }
-
-    private String firstNonBlank(List<String> values) {
-        return values.stream()
-                .filter(value -> value != null && !value.isBlank())
-                .findFirst()
-                .orElse("UNKNOWN");
-    }
-
-    private String stringValue(Object value) {
-        return value == null ? null : String.valueOf(value);
     }
 
     private JobExecutionHistory createPendingLog(JobDefinition job) {
@@ -674,34 +585,14 @@ public class JobService {
         }
     }
 
-    private void publishOperationalNotification(OperationalNotificationEvent event) {
-        try {
-            eventPublisher.publishEvent(event);
-        } catch (Exception exc) {
-            log.warn("Failed to publish job notification event: {}", exc.getMessage(), exc);
-        }
-    }
-
-    private void publishSignalDigestNotification(SignalDigestNotificationEvent event) {
-        if (event == null) {
-            return;
-        }
-        try {
-            eventPublisher.publishEvent(event);
-        } catch (Exception exc) {
-            log.warn("Failed to publish signal digest notification event: {}", exc.getMessage(), exc);
-        }
-    }
-
-    private String jobTitle(JobExecutionHistory execution) {
-        JobDefinition job = execution.getJob();
-        if (job == null) {
-            return String.valueOf(execution.getId());
-        }
-        if (job.getTitle() != null && !job.getTitle().isBlank()) {
-            return job.getTitle();
-        }
-        return String.valueOf(job.getId());
+    private void publishNotification(JobNotificationContext context) {
+        jobNotificationPolicyRegistry.buildNotification(context).ifPresent(event -> {
+            try {
+                eventPublisher.publishEvent(event);
+            } catch (Exception exc) {
+                log.warn("Failed to publish job notification event: {}", exc.getMessage(), exc);
+            }
+        });
     }
 
     private void putAllAsStrings(Map<String, Object> target, Map<String, Object> source) {

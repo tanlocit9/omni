@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.SectorWaveConfig;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorRotationBacktestJobMessage;
@@ -38,6 +39,11 @@ public class SectorRotationBacktestJobProducer extends JobProducer {
     }
 
     @Override
+    public JobType getJobType() {
+        return JobType.SECTOR_ROTATION_BACKTEST;
+    }
+
+    @Override
     protected String getTopic() {
         return topic;
     }
@@ -59,7 +65,7 @@ public class SectorRotationBacktestJobProducer extends JobProducer {
         Map<String, Object> metadata = new HashMap<>();
         metadata.putAll(jobConfig);
         metadata.put("resolvedSectorCodes", resolvedSectorCodes);
-        JobExecutionHistory child = jobService.createSymbolChildExecution(
+        JobExecutionHistory child = jobService.createChildExecution(
                 jobExecutionHistory.getId(),
                 config.strategy(),
                 metadata,

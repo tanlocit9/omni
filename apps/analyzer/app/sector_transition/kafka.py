@@ -75,7 +75,7 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
         except Exception as exc:
             _logger.exception("Sector Transition job failed")
             status = build_job_error_status(
-                raw=raw,
+                raw=self._error_status_payload(raw, str(exc)),
                 started_at=started_at,
                 finished_at=utc_now(),
                 error_message=str(exc),
@@ -108,13 +108,61 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
             error_message=error_message,
             records_processed=records_processed,
             duration_ms=calculate_duration_ms(started_at, finished_at),
-            meta_json={
-                "recordsProcessed": records_processed,
-                "evaluationDate": message.evaluation_date.isoformat(),
-                "sectorCodes": message.sector_codes,
-                "predictionHorizons": message.prediction_horizons,
-            },
+            meta_json=self._sector_transition_metadata(
+                message=message,
+                records_processed=records_processed,
+                error_message=error_message,
+            ),
         )
+
+    def _error_status_payload(
+        self,
+        raw: dict[str, Any],
+        error_message: str,
+    ) -> dict[str, Any]:
+        payload = dict(raw)
+        metadata = dict(raw.get("metaJson") or {})
+        metadata.update(self._raw_sector_transition_metadata(raw))
+        metadata["recordsProcessed"] = 0
+        metadata["errorMessage"] = error_message
+        payload["metaJson"] = metadata
+        return payload
+
+    def _sector_transition_metadata(
+        self,
+        *,
+        message: SectorTransitionJobMessage,
+        records_processed: int,
+        error_message: str | None = None,
+    ) -> dict[str, Any]:
+        metadata = {
+            "recordsProcessed": records_processed,
+            "evaluationDate": message.evaluation_date.isoformat(),
+            "sectorCodes": message.sector_codes,
+            "focusSectorCodes": message.focus_sector_codes,
+            "sectorLevel": message.sector_level,
+            "timeframe": message.timeframe,
+            "strategy": message.strategy,
+            "predictionHorizons": message.prediction_horizons,
+        }
+        if error_message:
+            metadata["errorMessage"] = error_message
+        return metadata
+
+    def _raw_sector_transition_metadata(self, raw: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: raw[key]
+            for key in (
+                "evaluationDate",
+                "sectorCodes",
+                "focusSectorCodes",
+                "sectorLevel",
+                "timeframe",
+                "strategy",
+                "predictionHorizons",
+            )
+            if key in raw
+        }
 
 
 class SectorTransitionAnalyzeKafkaService(SectorTransitionKafkaService):

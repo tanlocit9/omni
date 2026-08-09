@@ -13,8 +13,9 @@ Use this guide after reading [System overview](../architecture/system-overview.m
 | Signal rule                     | [`apps/analyzer/app/signals`](../../apps/analyzer/app/signals)                                                                                                             | [Indicator/signal flow](../flows/indicator-signal.md), [`signals`](../data/data-lake.md#signals)                                                                                                                                                                                                        |
 | Sector Wave model               | [`apps/analyzer/app/sector_wave`](../../apps/analyzer/app/sector_wave)                                                                                                     | [Sector wave flow](../flows/sector-wave.md), [`features/symbol`](../data/data-lake.md#symbol-features), [`features/sector`](../data/data-lake.md#sector-features)                                                                                                                                       |
 | Sector Transition research      | [`apps/analyzer/app/sector_transition`](../../apps/analyzer/app/sector_transition)                                                                                         | [Sector wave deferred research](../flows/sector-wave.md#deferred-research-sector-transition-and-recommendation), [`topic-sector-transition-analyze`](../data/kafka-contracts.md#topic-sector-transition-analyze), [`sector-transition-predictions`](../data/data-lake.md#sector-transition-predictions) |
-| Scheduler or job orchestration  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler)                                         | [Job execution flow](../flows/job-execution.md), [Database](../data/database.md)                                                                                                                                                                                                                        |
-| Kafka topic or payload contract | Producer + consumer + [`libs/py-common/py_common/messaging`](../../libs/py-common/py_common/messaging) + [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)  | [Kafka contracts](../data/kafka-contracts.md), tests on both sides                                                                                                                                                                                                                                      |
+| Scheduler or job orchestration  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler)                                         | [Job execution flow](../flows/job-execution.md), [`JobProducerRegistry`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java), [Database](../data/database.md)                                                                                         |
+| Kafka topic or payload contract | Producer + consumer + [`libs/py-common/py_common/messaging`](../../libs/py-common/py_common/messaging) + [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)  | [Kafka contracts](../data/kafka-contracts.md), status metadata preservation, tests on both sides                                                                                                                                                                                                        |
+| Notification policy             | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications)             | [Job execution flow](../flows/job-execution.md), notification templates, job service tests, policy registry tests                                                                                                                                                                                       |
 | S3 path or dataset layout       | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) + path builders in [`libs/py-common/py_common/config`](../../libs/py-common/py_common/config)         | [Data lake](../data/data-lake.md), all producers and consumers of the dataset                                                                                                                                                                                                                           |
 | Shared Python abstraction       | [`libs/py-common`](../../libs/py-common)                                                                                                                                   | Analyzer and Ingestor imports/tests                                                                                                                                                                                                                                                                     |
 | Database schema                 | [`database/migrations`](../../database/migrations) + owning Platform module                                                                                                | [Database](../data/database.md), Platform tests                                                                                                                                                                                                                                                         |
@@ -28,6 +29,7 @@ flowchart TD
   Provider["External data provider or raw data ingestion"]
   Analytics["Analytical calculation"]
   Orchestration["Scheduler, job state, Platform API"]
+  Notification["Job notification behavior"]
   Contract["Kafka payload/topic or S3 path"]
   Shared["Reusable Python infrastructure"]
   DB["Platform database schema"]
@@ -35,6 +37,7 @@ flowchart TD
   Change --> Provider
   Change --> Analytics
   Change --> Orchestration
+  Change --> Notification
   Change --> Contract
   Change --> Shared
   Change --> DB
@@ -42,10 +45,23 @@ flowchart TD
   Provider --> Ingestor["Start in apps/ingestor"]
   Analytics --> Analyzer["Start in apps/analyzer"]
   Orchestration --> Platform["Start in apps/core scheduler module"]
+  Notification --> Policy["Start in scheduler notifications policies"]
   Contract --> Both["Update producer + consumer + tests + docs"]
   Shared --> Common["Start in libs/py-common"]
   DB --> Migration["Add database/migrations/V<N>__*.sql"]
 ```
+
+## Adding a Job Type
+
+1. Add or reuse a `JobDefinition.JobType` value in Platform.
+2. Add a `JobProducer` that returns the value from `getJobType()`.
+3. Do not edit `JobScheduler` dispatch for the new type; `JobProducerRegistry` resolves the registered producer.
+4. Add producer and registry tests, plus worker consumer tests for the Kafka payload.
+5. Update [Job execution flow](../flows/job-execution.md) and [Kafka contracts](../data/kafka-contracts.md) when payload semantics change.
+
+## Adding a Notification Policy
+
+Use the default policy for generic job success/failure notifications. Add a custom `JobNotificationPolicy` only when a job type needs domain-specific wording, metadata rendering, or event type selection. Keep notification decisions in the policy layer, not in `JobService`, `JobScheduler`, or producers.
 
 ## Kafka Contract Rule
 

@@ -113,6 +113,30 @@ flowchart LR
 | Analyzer  | Computes symbol features, sector features, rankings, and backtest outputs. | Does not ingest raw provider data or own Platform database projection state. |
 | Ingestor  | Produces EOD and metadata inputs.                                          | Does not aggregate sector analytics.                                         |
 
+## Seeded Dependency Tree
+
+Platform seeds Sector Wave dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). This is a documentation/visibility tree only and is not scheduler enforcement.
+
+```mermaid
+flowchart TD
+  Symbols[(symbols)] --> PrecomputeSymbolFeatures["PRECOMPUTE_SYMBOL_FEATURES"]
+  Sectors[(sectors)] --> PrecomputeSymbolFeatures
+  EOD[(eod)] --> PrecomputeSymbolFeatures
+  PrecomputeSymbolFeatures --> SymbolFeatures[(symbol-features)]
+  SymbolFeatures --> PrecomputeSectorFeatures["PRECOMPUTE_SECTOR_FEATURES"]
+  PrecomputeSectorFeatures --> SectorFeatures[(sector-features)]
+  SectorFeatures --> SectorRotationBacktest["SECTOR_ROTATION_BACKTEST"]
+  EOD --> SectorRotationBacktest
+  SectorRotationBacktest --> SectorRotationBacktests[(sector-rotation-backtests)]
+  SectorFeatures --> SectorTransitionAnalyze["SECTOR_TRANSITION_ANALYZE"]
+  SectorTransitionAnalyze --> SectorTransitionPredictions[(sector-transition-predictions)]
+  SectorTransitionAnalyze --> SectorTransitionDecisions[(sector-transition-decisions)]
+  SectorTransitionPredictions --> SectorTransitionEvaluateOutcomes["SECTOR_TRANSITION_EVALUATE_OUTCOMES"]
+  SectorTransitionDecisions --> SectorTransitionEvaluateOutcomes
+  EOD --> SectorTransitionEvaluateOutcomes
+  SectorTransitionEvaluateOutcomes --> SectorTransitionOutcomes[(sector-transition-outcomes)]
+```
+
 ## Deferred Research: Sector Transition and Recommendation
 
 Status: **parked research prototype**. This track is not part of the locked Signal V1 delivery sequence and must not silently expand Signal V1 scope. Existing Sector Wave components can be reused after Signal V1 stabilization, but transition decisions remain private/internal research outputs unless product/legal approval explicitly makes them user-facing.

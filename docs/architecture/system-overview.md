@@ -22,6 +22,7 @@ flowchart TD
   Postgres["PostgreSQL<br/>Platform operational DB"]
   Configs["configs/shared<br/>topics and S3 paths"]
 
+  Platform -->|resolves JobType via producer registry| Platform
   Platform -->|publishes job commands| Kafka
   Kafka -->|stock/symbol sync jobs| Ingestor
   Kafka -->|indicator/signal/sector jobs| Analyzer
@@ -30,6 +31,7 @@ flowchart TD
   Ingestor -->|status and upsert events| Kafka
   Analyzer -->|status and notification events| Kafka
   Kafka -->|status and upsert events| Platform
+  Platform -->|aggregates status and resolves notification policies| Platform
   Platform -->|job metadata and state| Postgres
   Ingestor -. uses .-> PyCommon
   Analyzer -. uses .-> PyCommon
@@ -41,15 +43,15 @@ flowchart TD
 
 ## Runtime Responsibilities
 
-| Component       | Path                                                                 | Responsibility                                                                                                                               | Boundary                                                                                       |
-| --------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Platform / Core | [`apps/core`](../../apps/core)                                       | Owns orchestration, scheduler, job definitions, execution history, API boundary, and Platform database state.                                | Does not fetch market data directly and should not encode S3 object paths into Kafka messages. |
-| Ingestor        | [`apps/ingestor`](../../apps/ingestor)                               | Consumes stock/symbol sync jobs, talks to data providers, normalizes records, writes Parquet, publishes status/upsert events.                | Does not own scheduler state or Platform database schema.                                      |
-| Analyzer        | [`apps/analyzer`](../../apps/analyzer)                               | Consumes analytical jobs, computes indicators/signals/sector wave datasets, writes analytical Parquet, publishes status/notification events. | Does not own stock-price ingestion or Platform transactional database state.                   |
-| py-common       | [`libs/py-common`](../../libs/py-common)                             | Provides shared Python config loading, Kafka payloads, messaging helpers, runtime helpers, storage ports/adapters, and path builders.        | Does not contain service-specific business logic.                                              |
-| PostgreSQL      | [`database/migrations`](../../database/migrations)                   | Stores Platform-owned operational state such as job definitions, job executions, symbols, and sectors.                                       | Not the analytical data lake.                                                                  |
-| Kafka           | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     | Carries async job commands, worker status, symbol/sector upserts, signal notifications, and analytical job requests.                         | Topic and payload contract changes must update producers, consumers, tests, and docs together. |
-| MinIO / Parquet | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | Stores raw and analytical datasets as Parquet files in the `stock-data` bucket.                                                              | Object paths are derived from shared path builders, not from Kafka message fields.             |
+| Component       | Path                                                                 | Responsibility                                                                                                                                                           | Boundary                                                                                                                   |
+| --------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Platform / Core | [`apps/core`](../../apps/core)                                       | Owns orchestration, scheduler, producer registry, job definitions, execution history, notification policy selection, API boundary, and Platform database state.          | Does not fetch market data directly, render job notifications in producers, or encode S3 object paths into Kafka messages. |
+| Ingestor        | [`apps/ingestor`](../../apps/ingestor)                               | Consumes stock/symbol sync jobs, talks to data providers, normalizes records, writes Parquet, publishes status/upsert events.                                            | Does not own scheduler state or Platform database schema.                                                                  |
+| Analyzer        | [`apps/analyzer`](../../apps/analyzer)                               | Consumes analytical jobs, computes indicators/signals/sector wave datasets, writes analytical Parquet, publishes status/notification events, and preserves failure meta. | Does not own stock-price ingestion or Platform transactional database state.                                               |
+| py-common       | [`libs/py-common`](../../libs/py-common)                             | Provides shared Python config loading, Kafka payloads, messaging helpers, runtime helpers, storage ports/adapters, and path builders.                                    | Does not contain service-specific business logic.                                                                          |
+| PostgreSQL      | [`database/migrations`](../../database/migrations)                   | Stores Platform-owned operational state such as job definitions, job executions, symbols, and sectors.                                                                   | Not the analytical data lake.                                                                                              |
+| Kafka           | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     | Carries async job commands, worker status, symbol/sector upserts, signal notifications, and analytical job requests.                                                     | Topic and payload contract changes must update producers, consumers, tests, and docs together.                             |
+| MinIO / Parquet | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) | Stores raw and analytical datasets as Parquet files in the `stock-data` bucket.                                                                                          | Object paths are derived from shared path builders, not from Kafka message fields.                                         |
 
 ## Project Map
 
@@ -85,12 +87,12 @@ flowchart LR
 
 ## Main Flows
 
-| Flow                 | Document                                                     | Summary                                                                                                                       |
-| -------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Job execution        | [../flows/job-execution.md](../flows/job-execution.md)       | Scheduler creates parent/child execution records, publishes Kafka jobs, consumes worker status, and aggregates parent status. |
-| Stock sync           | [../flows/stock-sync.md](../flows/stock-sync.md)             | Platform requests stock/symbol sync, Ingestor fetches provider data, updates Parquet, then reports status/upserts.            |
-| Indicator and signal | [../flows/indicator-signal.md](../flows/indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes events.         |
-| Sector wave          | [../flows/sector-wave.md](../flows/sector-wave.md)           | Analyzer precomputes symbol features, sector aggregates, rankings, and backtest outputs.                                      |
+| Flow                 | Document                                                     | Summary                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job execution        | [../flows/job-execution.md](../flows/job-execution.md)       | `JobScheduler` resolves producers by `JobType`, producers publish Kafka jobs, workers report status, and Platform policy registries notify.         |
+| Stock sync           | [../flows/stock-sync.md](../flows/stock-sync.md)             | Platform requests stock/symbol sync, Ingestor fetches provider data, updates Parquet, then reports status/upserts.                                  |
+| Indicator and signal | [../flows/indicator-signal.md](../flows/indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes status or signal notification events. |
+| Sector wave          | [../flows/sector-wave.md](../flows/sector-wave.md)           | Analyzer precomputes symbol features, sector aggregates, rankings, backtest outputs, and Sector Transition research datasets.                       |
 
 ## Source-of-truth Config
 

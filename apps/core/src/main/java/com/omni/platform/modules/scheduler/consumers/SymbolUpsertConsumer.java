@@ -138,7 +138,7 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
             return null;
         }
 
-        return jobService.createSymbolChildExecution(
+        return jobService.createChildExecution(
                 parentExecutionId,
                 symbolKey(event, record),
                 toExecutionMeta(event, record),

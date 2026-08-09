@@ -30,6 +30,9 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
 import com.omni.platform.modules.notifications.templates.JobNotificationTemplate;
+import com.omni.platform.modules.scheduler.notifications.DefaultJobNotificationPolicy;
+import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRegistry;
+import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationPolicy;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 
@@ -49,11 +52,16 @@ class JobServiceTest {
 
     @BeforeEach
     void setUp() {
+        JobNotificationTemplate template = new JobNotificationTemplate();
+        DefaultJobNotificationPolicy defaultPolicy = new DefaultJobNotificationPolicy(template);
+        JobNotificationPolicyRegistry policyRegistry = new JobNotificationPolicyRegistry(
+                List.of(new SignalDigestNotificationPolicy(defaultPolicy)),
+                defaultPolicy);
         service = new JobService(
                 jobDefinitionRepository,
                 historyRepository,
                 eventPublisher,
-                new JobNotificationTemplate());
+                policyRegistry);
     }
 
     @Test
@@ -196,7 +204,7 @@ class JobServiceTest {
         assertThat(parent.getStatus()).isEqualTo(JobStatus.SUCCESS);
         ArgumentCaptor<OperationalNotificationEvent> captor = ArgumentCaptor.forClass(OperationalNotificationEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
-        assertThat(captor.getValue().message()).isEqualTo("2/2 symbol tasks completed successfully");
+        assertThat(captor.getValue().message()).isEqualTo("2/2 tasks completed successfully");
     }
 
     @Test
@@ -348,12 +356,12 @@ class JobServiceTest {
         service.aggregateParentExecution(parentId);
 
         assertThat(parent.getStatus()).isEqualTo(JobStatus.FAILED);
-        assertThat(parent.getError()).isEqualTo("2/3 symbol tasks failed");
+        assertThat(parent.getError()).isEqualTo("2/3 tasks failed");
         assertThat(parent.getMetaJson()).containsEntry("failedCount", "2");
         ArgumentCaptor<OperationalNotificationEvent> captor = ArgumentCaptor.forClass(OperationalNotificationEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().severity()).isEqualTo(NotificationSeverity.ERROR);
-        assertThat(captor.getValue().message()).isEqualTo("2/3 symbol tasks failed");
+        assertThat(captor.getValue().message()).isEqualTo("2/3 tasks failed");
     }
 
     @Test

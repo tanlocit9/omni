@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.services.JobService;
@@ -21,6 +22,11 @@ public abstract class JobProducer {
 
         protected final JobService jobService;
         protected final KafkaPublisher kafkaPublisher;
+
+        /**
+         * Job type handled by this producer.
+         */
+        public abstract JobType getJobType();
 
         /**
          * Kafka topic used by this producer.

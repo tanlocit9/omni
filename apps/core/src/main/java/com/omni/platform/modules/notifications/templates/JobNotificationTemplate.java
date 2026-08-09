@@ -70,7 +70,7 @@ public class JobNotificationTemplate {
         return new OperationalNotificationEvent(
                 NotificationSeverity.INFO,
                 "Job completed: " + jobTitle(parent),
-                success + "/" + total + " symbol tasks completed successfully",
+                success + "/" + total + " tasks completed successfully",
                 parentMetadata(parent, total, success, failed));
     }
 
@@ -92,7 +92,7 @@ public class JobNotificationTemplate {
         return new OperationalNotificationEvent(
                 NotificationSeverity.ERROR,
                 "Job failed: " + jobTitle(parent),
-                failed + "/" + total + " symbol tasks failed",
+                failed + "/" + total + " tasks failed",
                 parentMetadata(parent, total, success, failed));
     }
 

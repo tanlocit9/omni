@@ -65,6 +65,19 @@ Platform
 | Data provider | Supplies external market data.                                                                                        | Does not define Omni contracts.                                                             |
 | MinIO/S3      | Stores Parquet datasets.                                                                                              | Does not own schema evolution decisions.                                                    |
 
+## Seeded Dependency Tree
+
+Platform seeds stock-sync dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). This metadata is for visibility only and does not yet block or sequence scheduler dispatch.
+
+```mermaid
+flowchart TD
+  SyncSymbols["SYNC_SYMBOLS"] --> Symbols[(symbols)]
+  SyncSymbols --> Sectors[(sectors)]
+  Symbols --> SyncStockPrice["SYNC_STOCK_PRICE"]
+  Sectors --> SyncStockPrice
+  SyncStockPrice --> EOD[(eod)]
+```
+
 ## Object Path Rule
 
 Kafka job messages should carry business identity such as `symbolKey`, `source`, job identifiers, and metadata. They should not carry bucket or object path routing fields. Ingestor derives storage paths from shared path builders backed by [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml).

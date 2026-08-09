@@ -41,6 +41,8 @@ flowchart LR
   Platform -->|topic-precompute-symbol-features| Kafka
   Platform -->|topic-precompute-sector-features| Kafka
   Platform -->|topic-sector-rotation-backtest| Kafka
+  Platform -->|topic-sector-transition-analyze| Kafka
+  Platform -->|topic-sector-transition-evaluate-outcomes| Kafka
   Kafka -->|analytical jobs| Analyzer
   Analyzer -->|topic-sync-job-status| Kafka
   Analyzer -->|topic-signal-notifications| Kafka
@@ -180,6 +182,32 @@ Status payloads should carry enough identity to update the correct child executi
 | Purpose         | Run sector rotation backtests from precomputed sector features.       |
 | Related flow    | [Sector wave](../flows/sector-wave.md)                                |
 | Related storage | [`sector-rotation-backtests`](data-lake.md#sector-rotation-backtests) |
+
+### topic-sector-transition-analyze
+
+| Field           | Value                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic key       | `topic-sector-transition-analyze`                                                                                                                                                                                                           |
+| Producer        | Platform scheduler Sector Transition analysis producer                                                                                                                                                                                      |
+| Consumer        | Analyzer Sector Transition analysis worker                                                                                                                                                                                                  |
+| Purpose         | Generate T-anchored Sector Transition predictions, probabilities, and private decisions.                                                                                                                                                    |
+| Related flow    | [Sector wave deferred research](../flows/sector-wave.md#deferred-research-sector-transition-and-recommendation)                                                                                                                             |
+| Related storage | [`sector-transition-predictions`](data-lake.md#sector-transition-predictions), [`sector-transition-decisions`](data-lake.md#sector-transition-decisions), [`sector-transition-probabilities`](data-lake.md#sector-transition-probabilities) |
+
+Expected payload fields are job identity, `source`, `evaluationDate`, resolved-universe `sectorCodes`, resolved `focusSectorCodes`, `sectorLevel`, `timeframe`, `strategy`, `predictionHorizons`, and `metadata`. `sectorCodes = []` means all eligible sectors at `sectorLevel` only in Platform Sector Transition job config; Platform resolves the concrete universe before publishing. `focusSectorCodes = []` resolves to the full universe, while a non-empty focus must be a subset of the resolved universe. The payload must not carry bucket names or object paths. Decisions produced by this job are `PRIVATE_INTERNAL` research outputs.
+
+### topic-sector-transition-evaluate-outcomes
+
+| Field           | Value                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| Topic key       | `topic-sector-transition-evaluate-outcomes`                                                                     |
+| Producer        | Platform scheduler Sector Transition outcome-evaluation producer                                                |
+| Consumer        | Analyzer Sector Transition outcome-evaluation worker                                                            |
+| Purpose         | Evaluate realized outcomes for prior Sector Transition predictions without rewriting them.                      |
+| Related flow    | [Sector wave deferred research](../flows/sector-wave.md#deferred-research-sector-transition-and-recommendation) |
+| Related storage | [`sector-transition-outcomes`](data-lake.md#sector-transition-outcomes)                                         |
+
+Expected payload fields match `topic-sector-transition-analyze`, including resolved-universe `sectorCodes` and resolved `focusSectorCodes`. Outcome evaluation reads stored focused predictions and appends realized outcome rows to the outcomes dataset without recalculating a focus-only model or rewriting historical prediction probabilities.
 
 ## Shared Configuration
 

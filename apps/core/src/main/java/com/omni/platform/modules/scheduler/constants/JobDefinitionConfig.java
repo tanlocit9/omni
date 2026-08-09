@@ -29,6 +29,8 @@ public class JobDefinitionConfig {
         private static final String CRON_18_45_WEEKDAYS = "0 45 18 * * MON-FRI";
         private static final String CRON_18_50_WEEKDAYS = "0 50 18 * * MON-FRI";
         private static final String CRON_18_55_WEEKDAYS = "0 55 18 * * MON-FRI";
+        private static final String CRON_19_00_WEEKDAYS = "0 0 19 * * MON-FRI";
+        private static final String CRON_19_05_WEEKDAYS = "0 5 19 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
 
         // ==========================================
@@ -36,6 +38,7 @@ public class JobDefinitionConfig {
         // ==========================================
         public static final String CONFIG_KEY_SECTOR = "sector";
         public static final String CONFIG_KEY_SECTOR_CODES = "sectorCodes";
+        public static final String CONFIG_KEY_FOCUS_SECTOR_CODES = "focusSectorCodes";
         public static final String CONFIG_KEY_SECTOR_TAXONOMY = "sectorTaxonomy";
         public static final String CONFIG_KEY_SECTOR_LEVEL = "sectorLevel";
         public static final String CONFIG_KEY_SECTOR_MAPPINGS = "sectorMappings";
@@ -48,11 +51,15 @@ public class JobDefinitionConfig {
         public static final String CONFIG_KEY_INDICATORS = "indicators";
         public static final String CONFIG_KEY_SIGNAL_STRATEGY = "strategy";
         public static final String CONFIG_KEY_SECTOR_WAVE_STRATEGY = "strategy";
+        public static final String CONFIG_KEY_SECTOR_TRANSITION_STRATEGY = "strategy";
+        public static final String CONFIG_KEY_EVALUATION_DATE = "evaluationDate";
+        public static final String CONFIG_KEY_PREDICTION_HORIZONS = "predictionHorizons";
 
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
         public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD", "ICHIMOKU");
         public static final String SIGNAL_STRATEGY_TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1";
         public static final String SECTOR_WAVE_STRATEGY_V1 = "SECTOR_WAVE_V1";
+        public static final String SECTOR_TRANSITION_STRATEGY_V1 = "SECTOR_TRANSITION_V1";
 
         private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
         private static final String SECTOR_BANK = "BANKS";
@@ -173,6 +180,36 @@ public class JobDefinitionConfig {
                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                         CONFIG_KEY_SECTOR_WAVE_STRATEGY, SECTOR_WAVE_STRATEGY_V1)));
 
+        private static final List<JobDefinitionSeed> SECTOR_TRANSITION_ANALYZE_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.SECTOR_TRANSITION_ANALYZE,
+                                        "Run Sector Transition analysis - daily BANKS",
+                                        CRON_19_00_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
+                                                        CONFIG_KEY_SECTOR_CODES, List.of(),
+                                                        CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SECTOR_TRANSITION_STRATEGY,
+                                                        SECTOR_TRANSITION_STRATEGY_V1,
+                                                        CONFIG_KEY_PREDICTION_HORIZONS, List.of(1, 5, 10))));
+
+        private static final List<JobDefinitionSeed> SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES,
+                                        "Evaluate Sector Transition outcomes - daily BANKS",
+                                        CRON_19_05_WEEKDAYS,
+                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
+                                                        CONFIG_KEY_SECTOR_CODES, List.of(),
+                                                        CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                        CONFIG_KEY_SECTOR_TRANSITION_STRATEGY,
+                                                        SECTOR_TRANSITION_STRATEGY_V1,
+                                                        CONFIG_KEY_PREDICTION_HORIZONS, List.of(1, 5, 10))));
+
         public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
                         SYNC_STOCK_PRICE_SEEDS,
@@ -181,7 +218,9 @@ public class JobDefinitionConfig {
                         EVALUATE_SIGNALS_SEEDS,
                         PRECOMPUTE_SYMBOL_FEATURES_SEEDS,
                         PRECOMPUTE_SECTOR_FEATURES_SEEDS,
-                        SECTOR_ROTATION_BACKTEST_SEEDS)
+                        SECTOR_ROTATION_BACKTEST_SEEDS,
+                        SECTOR_TRANSITION_ANALYZE_SEEDS,
+                        SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS)
                         .filter(Objects::nonNull)
                         .flatMap(e -> e.stream())
                         .toList();

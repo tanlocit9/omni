@@ -1,0 +1,21 @@
+package com.omni.platform.modules.scheduler.messaging;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public record SectorTransitionOutcomeEvaluationJobMessage(
+        UUID jobDefinitionId,
+        UUID executionId,
+        UUID parentExecutionId,
+        String source,
+        LocalDate evaluationDate,
+        List<String> sectorCodes,
+        List<String> focusSectorCodes,
+        int sectorLevel,
+        String timeframe,
+        String strategy,
+        List<Integer> predictionHorizons,
+        Map<String, Object> metadata) implements JobMessage {
+}

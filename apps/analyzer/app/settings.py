@@ -11,6 +11,8 @@ class AppSettings(BaseAppSettings):
     sector_wave_symbol_features_kafka_enabled: bool = Field(default=True)
     sector_wave_sector_features_kafka_enabled: bool = Field(default=True)
     sector_rotation_backtest_kafka_enabled: bool = Field(default=True)
+    sector_transition_analyze_kafka_enabled: bool = Field(default=True)
+    sector_transition_outcome_kafka_enabled: bool = Field(default=True)
     sector_wave_symbol_exchanges: list[str] = Field(
         default_factory=lambda: ["HOSE", "HNX", "UPCOM"]
     )

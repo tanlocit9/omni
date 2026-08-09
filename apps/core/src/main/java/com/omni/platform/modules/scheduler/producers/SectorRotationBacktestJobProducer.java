@@ -51,8 +51,9 @@ public class SectorRotationBacktestJobProducer extends JobProducer {
         SectorWaveConfig config = JobConfigMapper.toSectorWaveConfig(jobConfig);
         List<String> sectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
+        String[] sectorCodeFilter = sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]);
         List<String> resolvedSectorCodes = symbolRepository.findDistinctSectorCodesByLevel(
-                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                sectorCodeFilter,
                 sectorLevel);
 
         Map<String, Object> metadata = new HashMap<>();

@@ -5,7 +5,8 @@ import java.util.UUID;
 
 public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessage, IndicatorJobMessage, SignalJobMessage,
         SignalEvaluationJobMessage, SectorWaveSymbolFeatureJobMessage, SectorWaveSectorFeatureJobMessage,
-        SectorRotationBacktestJobMessage {
+        SectorRotationBacktestJobMessage, SectorTransitionAnalyzeJobMessage,
+        SectorTransitionOutcomeEvaluationJobMessage {
     UUID jobDefinitionId();
 
     UUID executionId();

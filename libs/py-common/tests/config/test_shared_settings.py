@@ -19,6 +19,8 @@ def _write_shared_config(root: Path) -> None:
                 "    topic-sync-signals: signals-topic",
                 "    topic-evaluate-signals: evaluate-signals-topic",
                 "    topic-signal-notifications: signal-notifications-topic",
+                "    topic-sector-transition-analyze: transition-analyze-topic",
+                "    topic-sector-transition-evaluate-outcomes: transition-outcomes-topic",
                 "    topic-sync-job-status: status-topic",
                 "app:",
                 "  scheduler:",
@@ -53,6 +55,18 @@ def _write_shared_config(root: Path) -> None:
                 "    signal-current:",
                 "      base: analytics/signals/",
                 "      pattern: '{strategy}/{timeframe}/{exchange}.parquet'",
+                "    sector-transition-predictions:",
+                "      base: research/sector-transition/predictions/",
+                "      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'",
+                "    sector-transition-decisions:",
+                "      base: research/sector-transition/decisions/",
+                "      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'",
+                "    sector-transition-probabilities:",
+                "      base: research/sector-transition/probabilities/",
+                "      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'",
+                "    sector-transition-outcomes:",
+                "      base: research/sector-transition/outcomes/",
+                "      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'",
             ]
         ),
         encoding="utf-8",
@@ -89,6 +103,10 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
     assert settings.topic_sync_signals == "signals-topic"
     assert settings.topic_evaluate_signals == "evaluate-signals-topic"
     assert settings.topic_signal_notifications == "signal-notifications-topic"
+    assert settings.topic_sector_transition_analyze == "transition-analyze-topic"
+    assert (
+        settings.topic_sector_transition_evaluate_outcomes == "transition-outcomes-topic"
+    )
     assert settings.sync_job_status_topic == "status-topic"
     assert settings.scheduler.zone == "Asia/Bangkok"
     assert settings.stock_data_paths.symbols("HOSE") == "metadata/symbols/hose.parquet"
@@ -127,6 +145,26 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
         settings.get_signal_current_path("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
         == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
     )
+    assert (
+        settings.get_sector_transition_predictions_path(
+            "SECTOR_TRANSITION_V1", "1d", 3
+        )
+        == "research/sector-transition/predictions/sector_transition_v1/1d/lv3.parquet"
+    )
+    assert (
+        settings.get_sector_transition_decisions_path("SECTOR_TRANSITION_V1", "1d", 3)
+        == "research/sector-transition/decisions/sector_transition_v1/1d/lv3.parquet"
+    )
+    assert (
+        settings.get_sector_transition_probabilities_path(
+            "SECTOR_TRANSITION_V1", "1d", 3
+        )
+        == "research/sector-transition/probabilities/sector_transition_v1/1d/lv3.parquet"
+    )
+    assert (
+        settings.get_sector_transition_outcomes_path("SECTOR_TRANSITION_V1", "1d", 3)
+        == "research/sector-transition/outcomes/sector_transition_v1/1d/lv3.parquet"
+    )
 
 
 def test_base_app_settings_uses_defaults_when_shared_files_are_absent(
@@ -143,6 +181,11 @@ def test_base_app_settings_uses_defaults_when_shared_files_are_absent(
     assert settings.topic_sync_signals == "topic-sync-signals"
     assert settings.topic_evaluate_signals == "topic-evaluate-signals"
     assert settings.topic_signal_notifications == "topic-signal-notifications"
+    assert settings.topic_sector_transition_analyze == "topic-sector-transition-analyze"
+    assert (
+        settings.topic_sector_transition_evaluate_outcomes
+        == "topic-sector-transition-evaluate-outcomes"
+    )
     assert settings.scheduler.zone == "Asia/Ho_Chi_Minh"
     assert settings.minio.bucket == ""
     assert settings.stock_data_paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"

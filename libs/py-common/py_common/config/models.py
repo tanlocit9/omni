@@ -129,6 +129,12 @@ class TopicSettings(BaseModel):
     topic_sync_signals: str = Field(default="topic-sync-signals")
     topic_evaluate_signals: str = Field(default="topic-evaluate-signals")
     topic_signal_notifications: str = Field(default="topic-signal-notifications")
+    topic_sector_transition_analyze: str = Field(
+        default="topic-sector-transition-analyze"
+    )
+    topic_sector_transition_evaluate_outcomes: str = Field(
+        default="topic-sector-transition-evaluate-outcomes"
+    )
 
 
 StockDataPathsSettings = StockDataPaths

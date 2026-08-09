@@ -25,6 +25,14 @@ def paths() -> StockDataPaths:
         sector_features_pattern="{timeframe}/lv{sector_level}/{sector_code}.parquet",
         sector_rotation_backtests_base="backtests/sector-rotation/",
         sector_rotation_backtests_pattern="{strategy}/{timeframe}/lv{sector_level}.parquet",
+        sector_transition_predictions_base="research/sector-transition/predictions/",
+        sector_transition_predictions_pattern="{strategy}/{timeframe}/lv{sector_level}.parquet",
+        sector_transition_decisions_base="research/sector-transition/decisions/",
+        sector_transition_decisions_pattern="{strategy}/{timeframe}/lv{sector_level}.parquet",
+        sector_transition_probabilities_base="research/sector-transition/probabilities/",
+        sector_transition_probabilities_pattern="{strategy}/{timeframe}/lv{sector_level}.parquet",
+        sector_transition_outcomes_base="research/sector-transition/outcomes/",
+        sector_transition_outcomes_pattern="{strategy}/{timeframe}/lv{sector_level}.parquet",
     )
 
 
@@ -62,6 +70,25 @@ def test_sector_wave_paths_happy_path(paths: StockDataPaths):
     assert (
         paths.sector_rotation_backtest("SECTOR_WAVE_V1", "1d", 2)
         == "backtests/sector-rotation/sector_wave_v1/1d/lv2.parquet"
+    )
+
+
+def test_sector_transition_paths_happy_path(paths: StockDataPaths):
+    assert (
+        paths.sector_transition_predictions("SECTOR_TRANSITION_V1", "1d", 3)
+        == "research/sector-transition/predictions/sector_transition_v1/1d/lv3.parquet"
+    )
+    assert (
+        paths.sector_transition_decisions("SECTOR_TRANSITION_V1", "1d", 3)
+        == "research/sector-transition/decisions/sector_transition_v1/1d/lv3.parquet"
+    )
+    assert (
+        paths.sector_transition_probabilities("SECTOR_TRANSITION_V1", "1d", 3)
+        == "research/sector-transition/probabilities/sector_transition_v1/1d/lv3.parquet"
+    )
+    assert (
+        paths.sector_transition_outcomes("SECTOR_TRANSITION_V1", "1d", 3)
+        == "research/sector-transition/outcomes/sector_transition_v1/1d/lv3.parquet"
     )
 
 
@@ -104,6 +131,22 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
         "base": "backtests/sector-rotation/",
         "pattern": "{strategy}/{timeframe}/lv{sector_level}.parquet",
     }
+    assert config["paths"]["sector-transition-predictions"] == {
+        "base": "research/sector-transition/predictions/",
+        "pattern": "{strategy}/{timeframe}/lv{sector_level}.parquet",
+    }
+    assert config["paths"]["sector-transition-decisions"] == {
+        "base": "research/sector-transition/decisions/",
+        "pattern": "{strategy}/{timeframe}/lv{sector_level}.parquet",
+    }
+    assert config["paths"]["sector-transition-probabilities"] == {
+        "base": "research/sector-transition/probabilities/",
+        "pattern": "{strategy}/{timeframe}/lv{sector_level}.parquet",
+    }
+    assert config["paths"]["sector-transition-outcomes"] == {
+        "base": "research/sector-transition/outcomes/",
+        "pattern": "{strategy}/{timeframe}/lv{sector_level}.parquet",
+    }
     assert paths.eod("HOSE", "HPG") == "eod/hose/hpg.parquet"
     assert (
         paths.indicators("close", "1d", "HOSE", "HPG")
@@ -128,6 +171,22 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
     assert (
         paths.sector_rotation_backtest("SECTOR_WAVE_V1", "1d", 2)
         == "backtests/sector-rotation/sector_wave_v1/1d/lv2.parquet"
+    )
+    assert (
+        paths.sector_transition_predictions("SECTOR_TRANSITION_V1", "1d", 2)
+        == "research/sector-transition/predictions/sector_transition_v1/1d/lv2.parquet"
+    )
+    assert (
+        paths.sector_transition_decisions("SECTOR_TRANSITION_V1", "1d", 2)
+        == "research/sector-transition/decisions/sector_transition_v1/1d/lv2.parquet"
+    )
+    assert (
+        paths.sector_transition_probabilities("SECTOR_TRANSITION_V1", "1d", 2)
+        == "research/sector-transition/probabilities/sector_transition_v1/1d/lv2.parquet"
+    )
+    assert (
+        paths.sector_transition_outcomes("SECTOR_TRANSITION_V1", "1d", 2)
+        == "research/sector-transition/outcomes/sector_transition_v1/1d/lv2.parquet"
     )
 
 

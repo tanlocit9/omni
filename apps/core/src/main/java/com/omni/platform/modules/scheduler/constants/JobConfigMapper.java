@@ -1,5 +1,7 @@
 package com.omni.platform.modules.scheduler.constants;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +34,16 @@ public final class JobConfigMapper {
                 readFilters(config, SectorJobFilterConfig.DEFAULT_SECTOR_LEVEL),
                 readString(config, JobDefinitionConfig.CONFIG_KEY_TIMEFRAME),
                 readString(config, JobDefinitionConfig.CONFIG_KEY_SECTOR_WAVE_STRATEGY));
+    }
+
+    public static SectorTransitionConfig toSectorTransitionConfig(Map<String, Object> config) {
+        return new SectorTransitionConfig(
+                readFilters(config, SectorJobFilterConfig.DEFAULT_SECTOR_LEVEL),
+                readString(config, JobDefinitionConfig.CONFIG_KEY_TIMEFRAME),
+                readString(config, JobDefinitionConfig.CONFIG_KEY_SECTOR_TRANSITION_STRATEGY),
+                readLocalDate(config, JobDefinitionConfig.CONFIG_KEY_EVALUATION_DATE),
+                readIntegerList(config, JobDefinitionConfig.CONFIG_KEY_PREDICTION_HORIZONS),
+                readStringList(config, JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES));
     }
 
     private static SectorJobFilterConfig readFilters(Map<String, Object> config, int defaultSectorLevel) {
@@ -74,5 +86,41 @@ public final class JobConfigMapper {
         return list.stream()
                 .map(item -> item == null ? null : item.toString())
                 .toList();
+    }
+
+    public static List<Integer> readIntegerList(Map<String, Object> config, String key) {
+        if (config == null || !config.containsKey(key)) {
+            return List.of();
+        }
+        Object value = config.get(key);
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+        return list.stream()
+                .map(JobConfigMapper::toInteger)
+                .toList();
+    }
+
+    private static Integer toInteger(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException exc) {
+            return null;
+        }
+    }
+
+    private static LocalDate readLocalDate(Map<String, Object> config, String key) {
+        String value = readString(config, key);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value.trim());
+        } catch (DateTimeParseException exc) {
+            return null;
+        }
     }
 }

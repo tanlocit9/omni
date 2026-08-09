@@ -69,15 +69,27 @@ public interface SymbolRepository extends BaseRepository<Symbol> {
                         @Param("jsonKey") String jsonKey);
         default List<String> findDistinctSectorCodesByLevel(String[] sectorCodes, int sectorLevel) {
                 String jsonKey = "sectorLv" + sectorLevel + "Code";
+                if (sectorCodes == null || sectorCodes.length == 0) {
+                        return findAllDistinctSectorCodesByLevelKey(jsonKey);
+                }
                 return findDistinctSectorCodesByLevelKey(sectorCodes, jsonKey);
         }
 
         @Query(value = """
-                        SELECT DISTINCT meta_json ->> :jsonKey AS sector_code
+                        SELECT DISTINCT meta_json ->> CAST(:jsonKey AS text) AS sector_code
                         FROM symbols
                         WHERE is_active = TRUE
-                          AND meta_json ->> :jsonKey IS NOT NULL
-                          AND (:sectorCodes IS NULL OR meta_json ->> :jsonKey = ANY(:sectorCodes))
+                          AND meta_json ->> CAST(:jsonKey AS text) IS NOT NULL
+                        ORDER BY sector_code
+                        """, nativeQuery = true)
+        List<String> findAllDistinctSectorCodesByLevelKey(@Param("jsonKey") String jsonKey);
+
+        @Query(value = """
+                        SELECT DISTINCT meta_json ->> CAST(:jsonKey AS text) AS sector_code
+                        FROM symbols
+                        WHERE is_active = TRUE
+                          AND meta_json ->> CAST(:jsonKey AS text) IS NOT NULL
+                          AND meta_json ->> CAST(:jsonKey AS text) = ANY(CAST(:sectorCodes AS text[]))
                         ORDER BY sector_code
                         """, nativeQuery = true)
         List<String> findDistinctSectorCodesByLevelKey(

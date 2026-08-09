@@ -13,6 +13,8 @@ kafka:
     topic-precompute-symbol-features: topic-precompute-symbol-features
     topic-precompute-sector-features: topic-precompute-sector-features
     topic-sector-rotation-backtest: topic-sector-rotation-backtest
+    topic-sector-transition-analyze: topic-sector-transition-analyze
+    topic-sector-transition-evaluate-outcomes: topic-sector-transition-evaluate-outcomes
 
 app:
   scheduler:

@@ -59,6 +59,30 @@ stock-data:
       base: 'backtests/sector-rotation/'
       pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
 
+    # Sector Transition research predictions, one row per evaluation date and horizon.
+    # Pattern: research/sector-transition/predictions/{strategy}/{timeframe}/lv{sector_level}.parquet
+    sector-transition-predictions:
+      base: 'research/sector-transition/predictions/'
+      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
+
+    # Sector Transition private/internal decision outputs.
+    # Pattern: research/sector-transition/decisions/{strategy}/{timeframe}/lv{sector_level}.parquet
+    sector-transition-decisions:
+      base: 'research/sector-transition/decisions/'
+      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
+
+    # Sector Transition historical probability matrices.
+    # Pattern: research/sector-transition/probabilities/{strategy}/{timeframe}/lv{sector_level}.parquet
+    sector-transition-probabilities:
+      base: 'research/sector-transition/probabilities/'
+      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
+
+    # Sector Transition evaluated actual outcomes.
+    # Pattern: research/sector-transition/outcomes/{strategy}/{timeframe}/lv{sector_level}.parquet
+    sector-transition-outcomes:
+      base: 'research/sector-transition/outcomes/'
+      pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
+
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features
 

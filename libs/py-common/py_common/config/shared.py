@@ -63,6 +63,12 @@ class TopicSettings(BaseSettings):
     topic_sector_rotation_backtest: str = Field(
         default="topic-sector-rotation-backtest"
     )
+    topic_sector_transition_analyze: str = Field(
+        default="topic-sector-transition-analyze"
+    )
+    topic_sector_transition_evaluate_outcomes: str = Field(
+        default="topic-sector-transition-evaluate-outcomes"
+    )
 
 
 class BaseAppSettings(BaseSettings):
@@ -161,6 +167,16 @@ class BaseAppSettings(BaseSettings):
         return self.topics.topic_sector_rotation_backtest
 
     @property
+    def topic_sector_transition_analyze(self) -> str:
+        """Backward-compatible access to the Sector Transition analyze topic."""
+        return self.topics.topic_sector_transition_analyze
+
+    @property
+    def topic_sector_transition_evaluate_outcomes(self) -> str:
+        """Backward-compatible access to the Sector Transition outcome topic."""
+        return self.topics.topic_sector_transition_evaluate_outcomes
+
+    @property
     def sync_job_status_topic(self) -> str:
         """Backward-compatible access to the sync job status topic."""
         return self.topics.sync_job_status_topic
@@ -231,6 +247,58 @@ class BaseAppSettings(BaseSettings):
             sector_level,
         )
 
+    def get_sector_transition_predictions_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        sector_level: int,
+    ) -> str:
+        """Build a shared object path for Sector Transition predictions."""
+        return self.stock_data_paths.sector_transition_predictions(
+            strategy,
+            timeframe,
+            sector_level,
+        )
+
+    def get_sector_transition_decisions_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        sector_level: int,
+    ) -> str:
+        """Build a shared object path for private Sector Transition decisions."""
+        return self.stock_data_paths.sector_transition_decisions(
+            strategy,
+            timeframe,
+            sector_level,
+        )
+
+    def get_sector_transition_probabilities_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        sector_level: int,
+    ) -> str:
+        """Build a shared object path for Sector Transition probabilities."""
+        return self.stock_data_paths.sector_transition_probabilities(
+            strategy,
+            timeframe,
+            sector_level,
+        )
+
+    def get_sector_transition_outcomes_path(
+        self,
+        strategy: str,
+        timeframe: str,
+        sector_level: int,
+    ) -> str:
+        """Build a shared object path for evaluated Sector Transition outcomes."""
+        return self.stock_data_paths.sector_transition_outcomes(
+            strategy,
+            timeframe,
+            sector_level,
+        )
+
     def _apply_topics_config(self) -> None:
         kafka_cfg = self._shared_topics.get("kafka", {})
         topics_cfg = kafka_cfg.get("topics", {})
@@ -287,6 +355,14 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_sector_rotation_backtest = topics_cfg.get(
             "topic-sector-rotation-backtest",
             self.topics.topic_sector_rotation_backtest,
+        )
+        self.topics.topic_sector_transition_analyze = topics_cfg.get(
+            "topic-sector-transition-analyze",
+            self.topics.topic_sector_transition_analyze,
+        )
+        self.topics.topic_sector_transition_evaluate_outcomes = topics_cfg.get(
+            "topic-sector-transition-evaluate-outcomes",
+            self.topics.topic_sector_transition_evaluate_outcomes,
         )
 
         minio_cfg = self._shared_topics.get("min-io", {})

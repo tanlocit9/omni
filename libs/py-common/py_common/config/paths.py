@@ -57,6 +57,22 @@ class StockDataPaths:
     sector_rotation_backtests_pattern: str = (
         "{strategy}/{timeframe}/lv{sector_level}.parquet"
     )
+    sector_transition_predictions_base: str = "research/sector-transition/predictions/"
+    sector_transition_predictions_pattern: str = (
+        "{strategy}/{timeframe}/lv{sector_level}.parquet"
+    )
+    sector_transition_decisions_base: str = "research/sector-transition/decisions/"
+    sector_transition_decisions_pattern: str = (
+        "{strategy}/{timeframe}/lv{sector_level}.parquet"
+    )
+    sector_transition_probabilities_base: str = "research/sector-transition/probabilities/"
+    sector_transition_probabilities_pattern: str = (
+        "{strategy}/{timeframe}/lv{sector_level}.parquet"
+    )
+    sector_transition_outcomes_base: str = "research/sector-transition/outcomes/"
+    sector_transition_outcomes_pattern: str = (
+        "{strategy}/{timeframe}/lv{sector_level}.parquet"
+    )
 
     @staticmethod
     def _normalize_path_part(value: str | None, name: str) -> str:
@@ -244,14 +260,88 @@ class StockDataPaths:
         sector_level: int,
     ) -> str:
         """Build S3 path for sector rotation backtest output data."""
+        return self._strategy_sector_level_path(
+            base=self.sector_rotation_backtests_base,
+            pattern=self.sector_rotation_backtests_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            sector_level=sector_level,
+        )
+
+    def sector_transition_predictions(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        sector_level: int,
+    ) -> str:
+        """Build S3 path for Sector Transition prediction rows."""
+        return self._strategy_sector_level_path(
+            base=self.sector_transition_predictions_base,
+            pattern=self.sector_transition_predictions_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            sector_level=sector_level,
+        )
+
+    def sector_transition_decisions(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        sector_level: int,
+    ) -> str:
+        """Build S3 path for private Sector Transition decisions."""
+        return self._strategy_sector_level_path(
+            base=self.sector_transition_decisions_base,
+            pattern=self.sector_transition_decisions_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            sector_level=sector_level,
+        )
+
+    def sector_transition_probabilities(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        sector_level: int,
+    ) -> str:
+        """Build S3 path for Sector Transition probability matrices."""
+        return self._strategy_sector_level_path(
+            base=self.sector_transition_probabilities_base,
+            pattern=self.sector_transition_probabilities_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            sector_level=sector_level,
+        )
+
+    def sector_transition_outcomes(
+        self,
+        strategy: str,
+        timeframe: Timeframe | str,
+        sector_level: int,
+    ) -> str:
+        """Build S3 path for evaluated Sector Transition outcomes."""
+        return self._strategy_sector_level_path(
+            base=self.sector_transition_outcomes_base,
+            pattern=self.sector_transition_outcomes_pattern,
+            strategy=strategy,
+            timeframe=timeframe,
+            sector_level=sector_level,
+        )
+
+    def _strategy_sector_level_path(
+        self,
+        *,
+        base: str,
+        pattern: str,
+        strategy: str,
+        timeframe: Timeframe | str,
+        sector_level: int,
+    ) -> str:
         timeframe = validate_indicator_timeframe(timeframe)
-        return (
-            self.sector_rotation_backtests_base
-            + self.sector_rotation_backtests_pattern.format(
-                strategy=self._normalize_path_part(strategy, "strategy"),
-                timeframe=timeframe.value,
-                sector_level=self._normalize_sector_level(sector_level),
-            )
+        return base + pattern.format(
+            strategy=self._normalize_path_part(strategy, "strategy"),
+            timeframe=timeframe.value,
+            sector_level=self._normalize_sector_level(sector_level),
         )
 
     @staticmethod
@@ -317,6 +407,18 @@ class StockDataPaths:
         sector_rotation_backtests_cfg = paths_config.get(
             "sector-rotation-backtests", {}
         )
+        sector_transition_predictions_cfg = paths_config.get(
+            "sector-transition-predictions", {}
+        )
+        sector_transition_decisions_cfg = paths_config.get(
+            "sector-transition-decisions", {}
+        )
+        sector_transition_probabilities_cfg = paths_config.get(
+            "sector-transition-probabilities", {}
+        )
+        sector_transition_outcomes_cfg = paths_config.get(
+            "sector-transition-outcomes", {}
+        )
 
         return cls(
             symbols_base=symbols_cfg.get("base", "symbols/"),
@@ -347,6 +449,30 @@ class StockDataPaths:
                 "base", "backtests/sector-rotation/"
             ),
             sector_rotation_backtests_pattern=sector_rotation_backtests_cfg.get(
+                "pattern", "{strategy}/{timeframe}/lv{sector_level}.parquet"
+            ),
+            sector_transition_predictions_base=sector_transition_predictions_cfg.get(
+                "base", "research/sector-transition/predictions/"
+            ),
+            sector_transition_predictions_pattern=sector_transition_predictions_cfg.get(
+                "pattern", "{strategy}/{timeframe}/lv{sector_level}.parquet"
+            ),
+            sector_transition_decisions_base=sector_transition_decisions_cfg.get(
+                "base", "research/sector-transition/decisions/"
+            ),
+            sector_transition_decisions_pattern=sector_transition_decisions_cfg.get(
+                "pattern", "{strategy}/{timeframe}/lv{sector_level}.parquet"
+            ),
+            sector_transition_probabilities_base=sector_transition_probabilities_cfg.get(
+                "base", "research/sector-transition/probabilities/"
+            ),
+            sector_transition_probabilities_pattern=sector_transition_probabilities_cfg.get(
+                "pattern", "{strategy}/{timeframe}/lv{sector_level}.parquet"
+            ),
+            sector_transition_outcomes_base=sector_transition_outcomes_cfg.get(
+                "base", "research/sector-transition/outcomes/"
+            ),
+            sector_transition_outcomes_pattern=sector_transition_outcomes_cfg.get(
                 "pattern", "{strategy}/{timeframe}/lv{sector_level}.parquet"
             ),
         )

@@ -18,6 +18,10 @@ flowchart TD
   SymbolFeatures["features/symbol/{timeframe}/{exchange}/{code}.parquet"]
   SectorFeatures["features/sector/{timeframe}/lv{sector_level}/{sector_code}.parquet"]
   Backtests["backtests/sector-rotation/{strategy}/{timeframe}/lv{sector_level}.parquet"]
+  TransitionPredictions["research/sector-transition/predictions/{strategy}/{timeframe}/lv{sector_level}.parquet"]
+  TransitionDecisions["research/sector-transition/decisions/{strategy}/{timeframe}/lv{sector_level}.parquet"]
+  TransitionProbabilities["research/sector-transition/probabilities/{strategy}/{timeframe}/lv{sector_level}.parquet"]
+  TransitionOutcomes["research/sector-transition/outcomes/{strategy}/{timeframe}/lv{sector_level}.parquet"]
 
   Provider --> Ingestor
   Ingestor --> Symbols
@@ -32,6 +36,11 @@ flowchart TD
   Symbols --> SymbolFeatures
   SymbolFeatures --> SectorFeatures
   SectorFeatures --> Backtests
+  SectorFeatures --> TransitionPredictions
+  SectorFeatures --> TransitionDecisions
+  SectorFeatures --> TransitionProbabilities
+  TransitionPredictions --> TransitionOutcomes
+  SectorFeatures --> TransitionOutcomes
 ```
 
 ## Path Rules
@@ -129,17 +138,66 @@ flowchart TD
 | Update strategy | Recompute strategy outputs from sector-feature datasets and forward returns.                   |
 | Ownership       | Analyzer owns backtest outputs.                                                                |
 
+### sector-transition-predictions
+
+| Field           | Value                                                                                                                                                                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `sector-transition-predictions`                                                                                                                                                                                                                 |
+| Path            | `research/sector-transition/predictions/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                                                        |
+| Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                                        |
+| Consumer        | Analyzer outcome-evaluation jobs and internal research consumers                                                                                                                                                                                |
+| Schema/key      | Focused T-anchored prediction rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; rows also carry trading-session `target_date`, `sample_count`, and `model_version`. |
+| Update strategy | Merge/upsert by prediction identity without rewriting later outcome facts into original prediction rows.                                                                                                                                        |
+| Ownership       | Analyzer owns research prediction outputs.                                                                                                                                                                                                      |
+
+### sector-transition-decisions
+
+| Field           | Value                                                                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `sector-transition-decisions`                                                                                                                                                                                                |
+| Path            | `research/sector-transition/decisions/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                                       |
+| Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                     |
+| Consumer        | Internal/private research review only unless product/legal approves exposure.                                                                                                                                                |
+| Schema/key      | Private focused decision rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; decisions include score, confidence, sample count, and model version. |
+| Update strategy | Merge/upsert current research decisions; keep visibility as `PRIVATE_INTERNAL`.                                                                                                                                              |
+| Ownership       | Analyzer owns private research decision outputs.                                                                                                                                                                             |
+
+### sector-transition-probabilities
+
+| Field           | Value                                                                                                                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `sector-transition-probabilities`                                                                                                                                                                                                                  |
+| Path            | `research/sector-transition/probabilities/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                                                         |
+| Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                                           |
+| Consumer        | Internal research diagnostics and model evaluation.                                                                                                                                                                                                |
+| Schema/key      | Full-universe transition probability rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; rows include `target_date`, `probability`, `sample_count`, and `model_version`. |
+| Update strategy | Merge/upsert probability estimates derived only from data knowable at or before `evaluationDate`; self-transitions remain normal candidates and per-`from_sector`/horizon probabilities should sum to approximately `1.0` when samples exist.      |
+| Ownership       | Analyzer owns research probability outputs.                                                                                                                                                                                                        |
+
+### sector-transition-outcomes
+
+| Field           | Value                                                                                                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `sector-transition-outcomes`                                                                                                                                                                                |
+| Path            | `research/sector-transition/outcomes/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                       |
+| Producer        | Analyzer Sector Transition outcome-evaluation jobs                                                                                                                                                          |
+| Consumer        | Internal model evaluation, backtesting, and diagnostics.                                                                                                                                                    |
+| Schema/key      | Realized focused outcome rows keyed by original prediction identity (`evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, `horizon_sessions`) and realized horizon date. |
+| Update strategy | Append/merge realized outcomes separately from predictions once future sessions are available; do not rewrite historical prediction probabilities.                                                          |
+| Ownership       | Analyzer owns outcome-evaluation outputs.                                                                                                                                                                   |
+
 ## Future Expansion Paths
 
 [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) also reserves path keys for future datasets, including intraday, financials, fundamentals, corporate actions, ownership, news, macro, derivatives, warrants, and ETF data. Do not document these as implemented flows until producers and consumers exist.
 
 ## Ownership Summary
 
-| Dataset family        | Producer | Primary consumers                                           |
-| --------------------- | -------- | ----------------------------------------------------------- |
-| Reference market data | Ingestor | Platform, Analyzer                                          |
-| EOD prices            | Ingestor | Analyzer                                                    |
-| Indicators            | Analyzer | Analyzer signal/evaluation jobs                             |
-| Signals               | Analyzer | Analyzer evaluation jobs, Platform notification/status path |
-| Sector wave features  | Analyzer | Analyzer sector ranking/backtesting                         |
-| Backtests             | Analyzer | Analytical/reporting consumers                              |
+| Dataset family             | Producer | Primary consumers                                           |
+| -------------------------- | -------- | ----------------------------------------------------------- |
+| Reference market data      | Ingestor | Platform, Analyzer                                          |
+| EOD prices                 | Ingestor | Analyzer                                                    |
+| Indicators                 | Analyzer | Analyzer signal/evaluation jobs                             |
+| Signals                    | Analyzer | Analyzer evaluation jobs, Platform notification/status path |
+| Sector wave features       | Analyzer | Analyzer sector ranking/backtesting                         |
+| Backtests                  | Analyzer | Analytical/reporting consumers                              |
+| Sector Transition research | Analyzer | Internal research, diagnostics, and outcome evaluation      |

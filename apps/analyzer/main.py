@@ -15,6 +15,15 @@ from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
 from app.settings import settings
+from app.sector_transition.handler import SectorTransitionJobHandler
+from app.sector_transition.kafka import (
+    SectorTransitionAnalyzeKafkaService,
+    SectorTransitionOutcomeEvaluationKafkaService,
+)
+from app.sector_transition.messages import (
+    SectorTransitionAnalyzeJobMessage,
+    SectorTransitionOutcomeEvaluationJobMessage,
+)
 from app.sector_wave.handler import SectorWaveJobHandler
 from app.sector_wave.kafka import (
     SectorRotationBacktestKafkaService,
@@ -36,15 +45,19 @@ async def startup_event(app: FastAPI) -> None:
         "Starting up Analyzer service (indicatorKafkaEnabled=%s signalKafkaEnabled=%s "
         "signalEvaluationKafkaEnabled=%s sectorWaveSymbolFeaturesKafkaEnabled=%s "
         "sectorWaveSectorFeaturesKafkaEnabled=%s sectorRotationBacktestKafkaEnabled=%s "
+        "sectorTransitionAnalyzeKafkaEnabled=%s sectorTransitionOutcomeKafkaEnabled=%s "
         "bootstrap=%s syncIndicatorsTopic=%s syncSignalsTopic=%s evaluateSignalsTopic=%s "
         "precomputeSymbolFeaturesTopic=%s precomputeSectorFeaturesTopic=%s "
-        "sectorRotationBacktestTopic=%s statusTopic=%s bucket=%s)",
+        "sectorRotationBacktestTopic=%s sectorTransitionAnalyzeTopic=%s "
+        "sectorTransitionOutcomeTopic=%s statusTopic=%s bucket=%s)",
         settings.indicator_kafka_enabled,
         settings.signal_kafka_enabled,
         settings.signal_evaluation_kafka_enabled,
         settings.sector_wave_symbol_features_kafka_enabled,
         settings.sector_wave_sector_features_kafka_enabled,
         settings.sector_rotation_backtest_kafka_enabled,
+        settings.sector_transition_analyze_kafka_enabled,
+        settings.sector_transition_outcome_kafka_enabled,
         settings.kafka.bootstrap_servers,
         settings.topic_sync_indicators,
         settings.topic_sync_signals,
@@ -52,6 +65,8 @@ async def startup_event(app: FastAPI) -> None:
         settings.topic_precompute_symbol_features,
         settings.topic_precompute_sector_features,
         settings.topic_sector_rotation_backtest,
+        settings.topic_sector_transition_analyze,
+        settings.topic_sector_transition_evaluate_outcomes,
         settings.sync_job_status_topic,
         settings.minio.bucket,
     )
@@ -78,6 +93,10 @@ async def startup_event(app: FastAPI) -> None:
         app.state.parquet_storage,
     )
     app.state.sector_wave_handler = SectorWaveJobHandler(
+        settings,
+        app.state.parquet_storage,
+    )
+    app.state.sector_transition_handler = SectorTransitionJobHandler(
         settings,
         app.state.parquet_storage,
     )
@@ -142,6 +161,28 @@ async def startup_event(app: FastAPI) -> None:
         _logger.info("Sector rotation backtest Kafka service started")
     else:
         _logger.info("Sector rotation backtest Kafka service disabled")
+    if settings.sector_transition_analyze_kafka_enabled:
+        app.state.sector_transition_analyze_kafka_service = (
+            SectorTransitionAnalyzeKafkaService(
+                settings,
+                app.state.sector_transition_handler,
+            )
+        )
+        await app.state.sector_transition_analyze_kafka_service.start()
+        _logger.info("Sector Transition analyze Kafka service started")
+    else:
+        _logger.info("Sector Transition analyze Kafka service disabled")
+    if settings.sector_transition_outcome_kafka_enabled:
+        app.state.sector_transition_outcome_kafka_service = (
+            SectorTransitionOutcomeEvaluationKafkaService(
+                settings,
+                app.state.sector_transition_handler,
+            )
+        )
+        await app.state.sector_transition_outcome_kafka_service.start()
+        _logger.info("Sector Transition outcome Kafka service started")
+    else:
+        _logger.info("Sector Transition outcome Kafka service disabled")
 
 
 async def shutdown_event(app: FastAPI) -> None:
@@ -158,6 +199,10 @@ async def shutdown_event(app: FastAPI) -> None:
         await app.state.sector_wave_sector_features_kafka_service.stop()
     if hasattr(app.state, "sector_rotation_backtest_kafka_service"):
         await app.state.sector_rotation_backtest_kafka_service.stop()
+    if hasattr(app.state, "sector_transition_analyze_kafka_service"):
+        await app.state.sector_transition_analyze_kafka_service.stop()
+    if hasattr(app.state, "sector_transition_outcome_kafka_service"):
+        await app.state.sector_transition_outcome_kafka_service.stop()
 
 
 def create_app() -> FastAPI:
@@ -298,6 +343,90 @@ async def evaluate_signals(
         "timeframe": message.timeframe,
         "recordsScanned": evaluation.records_scanned,
         "recordsUpdated": evaluation.records_updated,
+    }
+
+
+@app.post("/v1/sector-transition/analyze")
+async def analyze_sector_transition(
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Synchronously run Sector Transition analysis using the Kafka payload contract."""
+    try:
+        message = SectorTransitionAnalyzeJobMessage.model_validate(payload)
+        records_processed = await request.app.state.sector_transition_handler.handle_analyze(
+            payload
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(include_context=False),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except StorageError:
+        raise
+    except Exception as exc:
+        _logger.exception("Direct Sector Transition analysis failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Sector Transition analysis failed: {exc}",
+        ) from exc
+
+    return {
+        "accepted": True,
+        "evaluationDate": message.evaluation_date.isoformat(),
+        "strategy": message.strategy,
+        "timeframe": message.timeframe,
+        "sectorCodes": message.sector_codes,
+        "predictionHorizons": message.prediction_horizons,
+        "recordsProcessed": records_processed,
+    }
+
+
+@app.post("/v1/sector-transition/evaluate-outcomes")
+async def evaluate_sector_transition_outcomes_endpoint(
+    payload: dict[str, Any],
+    request: Request,
+) -> dict[str, Any]:
+    """Synchronously evaluate Sector Transition outcomes using the Kafka payload."""
+    try:
+        message = SectorTransitionOutcomeEvaluationJobMessage.model_validate(payload)
+        records_processed = (
+            await request.app.state.sector_transition_handler.handle_evaluate_outcomes(
+                payload
+            )
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(include_context=False),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except StorageError:
+        raise
+    except Exception as exc:
+        _logger.exception("Direct Sector Transition outcome evaluation failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Sector Transition outcome evaluation failed: {exc}",
+        ) from exc
+
+    return {
+        "accepted": True,
+        "evaluationDate": message.evaluation_date.isoformat(),
+        "strategy": message.strategy,
+        "timeframe": message.timeframe,
+        "sectorCodes": message.sector_codes,
+        "predictionHorizons": message.prediction_horizons,
+        "recordsProcessed": records_processed,
     }
 
 

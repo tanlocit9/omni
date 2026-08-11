@@ -2,57 +2,56 @@
 
 ## Goal
 
-Add historical intraday market data without introducing realtime-streaming complexity yet.
+Add historical intraday market data after market close, then build deterministic 1m/5m/15m bars and reusable features.
 
-After the trading session closes, Omni fetches the complete intraday session, stores canonical raw intraday data, builds reusable minute bars, and optionally precomputes reusable intraday features.
+Every completed data partition must publish its dataset metadata to MinIO. No PostgreSQL/Redis metadata cache is required in V1.
 
 ## Outcome
 
 After this phase Omni can:
 
-- inspect complete intraday sessions after market close;
-- backtest strategies using 1m/5m/15m data instead of only daily candles;
-- calculate intraday momentum, VWAP, volume and volatility features;
-- compare sector/symbol behavior inside the trading session;
-- validate the same datasets through Internal Tools/Parquet Viewer.
-
-This is the recommended step before realtime per-tick ingestion.
+- sync complete intraday sessions;
+- backtest with 1m/5m/15m data;
+- calculate VWAP, momentum, volume and volatility features;
+- inspect partition size, object count, row count, schema, range and freshness through MinIO manifests;
+- use those manifests as downstream dataset readiness markers.
 
 ## Proposed Jobs
 
 ```text
 SYNC_INTRADAY_EOD
-        |
-        v
-canonical intraday trades
-        |
-        v
+  -> intraday trades
+  -> READY manifest
+
 BUILD_INTRADAY_BARS
-        |
-        +-- 1m
-        +-- 5m
-        +-- 15m
-        |
-        v
+  -> 1m / 5m / 15m bars
+  -> READY manifest
+
 BUILD_INTRADAY_FEATURES
+  -> reusable features
+  -> READY manifest
 ```
 
-Keep raw synchronization and derived feature computation separate so algorithms can be changed without re-fetching the source data.
+Writer order is mandatory:
+
+```text
+write Parquet -> validate -> write metadata manifest last
+```
 
 ## Dataset Outputs
 
-### Raw intraday/trades
-
-Preferred partitioning:
-
 ```text
 stock-data/intraday/trades/
-  date=YYYY-MM-DD/
-    exchange=HOSE/
-      part-*.parquet
+  date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
+
+stock-data/intraday/bars/
+  timeframe=1m/date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
+
+stock-data/intraday/features/
+  timeframe=1m/date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
 ```
 
-Canonical fields where available:
+Raw trade fields where available:
 
 ```text
 trading_date
@@ -62,22 +61,12 @@ symbol
 price
 volume
 trade_value
-trade_id?          # provider dependent
-sequence?          # provider dependent
-side?              # provider dependent
+trade_id?
+sequence?
+side?
 ```
 
-### Intraday bars
-
-```text
-stock-data/intraday/bars/
-  timeframe=1m/
-    date=YYYY-MM-DD/
-      exchange=HOSE/
-        part-*.parquet
-```
-
-Canonical fields:
+Bar fields:
 
 ```text
 trading_date
@@ -94,75 +83,104 @@ trade_count
 vwap
 ```
 
-5m and 15m should be derived from the canonical 1m/trade source, not fetched independently unless the provider contract requires it.
+5m/15m should be derived from canonical trade/1m data.
 
-### Intraday features
+## MinIO Metadata Outputs
+
+Each completed partition writes one manifest under:
 
 ```text
-stock-data/intraday/features/
-  timeframe=1m/
-    date=YYYY-MM-DD/
-      exchange=HOSE/
-        part-*.parquet
+stock-data/_metadata/datasets/intraday-trades/...
+stock-data/_metadata/datasets/intraday-bars/...
+stock-data/_metadata/datasets/intraday-features/...
 ```
 
-Feature files may initially share the bar dataset if schema size remains manageable. Split only when lifecycle or query patterns justify it.
+Example:
+
+```text
+_metadata/datasets/intraday-bars/
+  timeframe=1m/date=2026-08-11/exchange=HOSE.json
+```
+
+Manifest should contain:
+
+```text
+status = READY
+path
+objectCount
+totalBytes
+rowCount
+columnCount
+schemaHash
+minTimestamp
+maxTimestamp
+sourceExecutionId
+generatedAt
+```
+
+See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
 
 ## Algorithm Feature Outputs
 
-### Price / momentum
+Price/momentum:
 
-- `return_1m` — `DIRECT/DERIVED`
-- `return_5m` — `DERIVED`
-- `return_15m` — `DERIVED`
-- `return_from_open` — `DERIVED`
-- `distance_from_session_high` — `DERIVED`
-- `distance_from_session_low` — `DERIVED`
-- `close_location_value` — `DERIVED`
-- `intraday_momentum_5m` — `DERIVED`
-- `intraday_momentum_15m` — `DERIVED`
+```text
+return_1m
+return_5m
+return_15m
+return_from_open
+distance_from_session_high
+distance_from_session_low
+close_location_value
+intraday_momentum_5m
+intraday_momentum_15m
+```
 
-### VWAP / execution context
+VWAP:
 
-- `vwap` — `DIRECT`
-- `vwap_distance_pct` — `DERIVED`
-- `above_vwap` — `DERIVED`
-- `minutes_above_vwap` — `DERIVED`
+```text
+vwap
+vwap_distance_pct
+above_vwap
+minutes_above_vwap
+```
 
-### Volume / liquidity
+Volume/liquidity:
 
-- `trade_count` — `DIRECT`
-- `cumulative_volume` — `DERIVED`
-- `cumulative_value` — `DERIVED`
-- `volume_share_of_session` — `DERIVED`
-- `relative_intraday_volume` — `DERIVED`, requires historical same-time baselines
-- `average_trade_size` — `DERIVED`
-- `volume_acceleration` — `DERIVED`
+```text
+trade_count
+cumulative_volume
+cumulative_value
+volume_share_of_session
+relative_intraday_volume
+average_trade_size
+volume_acceleration
+```
 
-### Volatility / range
+Volatility/range:
 
-- `bar_range_pct` — `DERIVED`
-- `realized_volatility_15m` — `DERIVED`
-- `realized_volatility_30m` — `DERIVED`
-- `opening_range_pct` — `DERIVED`
-- `opening_range_position` — `DERIVED`
-- `opening_range_breakout` — `DERIVED`
+```text
+bar_range_pct
+realized_volatility_15m
+realized_volatility_30m
+opening_range_pct
+opening_range_position
+opening_range_breakout
+```
 
-### Order-flow features
+Provider-dependent (`CONDITIONAL`):
 
-Only if provider supplies reliable aggressor side/order-flow fields:
+```text
+buy_volume
+sell_volume
+volume_delta
+cumulative_volume_delta
+buy_trade_ratio
+```
 
-- `buy_volume` — `CONDITIONAL`
-- `sell_volume` — `CONDITIONAL`
-- `volume_delta` — `CONDITIONAL`
-- `cumulative_volume_delta` — `CONDITIONAL`
-- `buy_trade_ratio` — `CONDITIONAL`
-
-Do not fabricate buy/sell classification from price movement in the canonical ingestion layer.
+Do not fabricate canonical buy/sell side when the provider does not supply a reliable field.
 
 ## Sector-Level Features Unlocked
-
-Once multiple sectors are synced consistently, aggregate symbol intraday features into:
 
 ```text
 sector_return_5m
@@ -176,118 +194,54 @@ leader_contribution
 laggard_contribution
 ```
 
-These should later become an intraday extension of the existing Sector Wave/Sector Transition feature model.
-
 ## Algorithms Unlocked
 
-This phase enables:
-
-- intraday momentum/reversal research;
-- VWAP-based entry/exit filters;
+- intraday momentum/reversal;
+- VWAP confirmation;
 - opening-range strategies;
-- sector rotation by hour/session phase;
+- sector rotation by session phase;
 - volume breakout confirmation;
-- intraday volatility regime classification;
-- daily signal confidence using intraday confirmation;
-- next-session prediction features.
+- intraday volatility regimes;
+- next-session/daily signal confirmation.
 
-## Scheduling
+## Readiness / Dependency Rule
 
-Run after the market session has settled, not immediately at the exact close.
-
-Example dependency flow:
+Downstream jobs must read the expected partition manifest and verify:
 
 ```text
-SYNC_INTRADAY_EOD
-  produces intraday-trades
-
-BUILD_INTRADAY_BARS
-  depends on intraday-trades
-  produces intraday-bars
-
-BUILD_INTRADAY_FEATURES
-  depends on intraday-bars
-  produces intraday-features
+manifest exists
+status == READY
+partition date/timeframe matches
+schema version supported
+freshness acceptable
 ```
 
-Use dataset readiness/freshness validation rather than relying only on fixed minute gaps between jobs.
+Do not repeatedly scan the full data prefix just to decide whether a dataset is ready.
 
-## Idempotency
+## Idempotency and Validation
 
-Natural raw identity should prefer a provider trade identifier/sequence when available.
-
-Fallback dedupe key may use a stable compound key such as:
-
-```text
-exchange + symbol + timestamp + price + volume + occurrence_index
-```
-
-Do not assume timestamp alone is unique.
-
-Re-running the same trading date must produce the same canonical dataset.
-
-## Validation
-
-Before marking sync successful verify:
-
-- requested trading date is correct;
-- timestamps fall within valid trading sessions;
-- no negative price/volume;
-- symbol/exchange are known;
-- data is ordered or sortable deterministically;
-- duplicate rate is within expected threshold;
-- session coverage is reasonable;
-- total volume/value can be reconciled against an independent daily total where feasible.
-
-Persist validation metrics in job metadata.
+- Prefer provider trade id/sequence for identity when available.
+- Timestamp alone is not assumed unique.
+- Re-running the same partition must be deterministic.
+- Failed rewrites should not replace the last valid READY manifest.
+- Validate session range, duplicates, symbol/exchange, price/volume, schema and daily volume reconciliation where feasible.
 
 ## Implementation Steps
 
-### Step 1 — Source contract
-
-- [ ] Confirm provider endpoint/schema and historical availability.
-- [ ] Define canonical trade schema in `py_common`.
-- [ ] Identify guaranteed vs optional fields.
-
-### Step 2 — Storage paths
-
-- [ ] Add intraday trade/bar/feature paths to shared stock-data path configuration.
-- [ ] Use date + exchange partitioning.
-- [ ] Keep paths compatible with DuckDB glob scans.
-
-### Step 3 — Scheduler + Kafka
-
-- [ ] Add `SYNC_INTRADAY_EOD`.
-- [ ] Add `BUILD_INTRADAY_BARS`.
-- [ ] Add `BUILD_INTRADAY_FEATURES` when initial formulas are stable.
-- [ ] Register dataset dependencies/outputs.
-
-### Step 4 — Ingestor
-
-- [ ] Fetch the complete target session.
-- [ ] Normalize and validate.
-- [ ] Write canonical Parquet idempotently.
-- [ ] Publish execution status with coverage metrics.
-
-### Step 5 — Analyzer
-
-- [ ] Build 1m bars.
-- [ ] Derive 5m/15m bars from canonical data.
-- [ ] Add reusable feature calculations in shared/domain-appropriate modules.
-- [ ] Avoid embedding strategy decisions into the feature dataset.
-
-### Step 6 — Internal Tools
-
-- [ ] Add intraday trades and bars to dataset catalog.
-- [ ] Add time-range/symbol filters.
-- [ ] Add basic candlestick/volume view later; table inspection is sufficient for V0.
+1. Confirm provider intraday schema/history availability.
+2. Add canonical trade/bar contracts and manifest contract in `py_common`.
+3. Add intraday + `_metadata` path builders.
+4. Implement `SYNC_INTRADAY_EOD` and publish manifest after validation.
+5. Build 1m then deterministic 5m/15m bars and manifests.
+6. Build reusable feature dataset and manifest.
+7. Use manifests for scheduler dependency checks.
+8. Add manifests to Internal Tools Dataset Browser.
 
 ## Acceptance Criteria
 
-- A complete historical intraday session can be synced idempotently.
-- 1m bars can be reproduced from canonical raw intraday data.
-- 5m/15m bars are deterministic derived datasets.
-- Feature outputs are reusable by multiple strategies.
-- Provider-dependent fields are explicitly marked and optional.
-- Data is queryable directly from Parquet via Internal Tools.
-- The phase does not require a realtime Kafka tick stream.
+- Intraday sessions sync idempotently.
+- 1m/5m/15m outputs are deterministic.
+- Feature outputs are reusable by multiple algorithms.
+- Every successful partition has a READY MinIO manifest.
+- Internal Tools can display stats without scanning all Parquet objects.
+- Downstream jobs can validate freshness/readiness from the manifest.

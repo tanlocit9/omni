@@ -2,19 +2,20 @@
 
 ## Goal
 
-Add realtime market-data ingestion only after the historical intraday pipeline is stable.
+Add realtime market-data ingestion only after the historical Intraday EOD pipeline is stable.
 
-The realtime system must treat Kafka as the durable streaming boundary and Parquet as analytical/archive storage. Do not append one tick at a time directly into a canonical Parquet file.
+Kafka is the durable streaming boundary; Parquet is analytical/archive storage. Dataset metadata remains in MinIO/S3-compatible storage.
 
 ## Outcome
 
 After this phase Omni can:
 
-- receive and normalize market ticks continuously;
-- replay/recover ticks from Kafka after consumer failure;
-- build live 1m bars and intraday features;
-- archive raw ticks into compactable Parquet chunks;
-- feed realtime signal/sector algorithms without waiting for end-of-day synchronization.
+- ingest and replay normalized market ticks;
+- build live bars/features;
+- archive raw ticks in micro-batches;
+- compact and reconcile a completed trading session;
+- publish a final READY MinIO manifest for the canonical session archive;
+- feed realtime signal/sector algorithms without waiting for EOD processing.
 
 ## Target Architecture
 
@@ -27,27 +28,25 @@ Market Data WebSocket/API
           v
  Kafka market-ticks.raw
       |             |
-      |             +--------------------+
-      v                                  v
-Realtime Bar/Feature               Tick Archiver
-Aggregator                              |
-      |                           buffered chunks
-      v                                  |
-1m bars/features                         v
-      |                          part-*.parquet
-      v                                  |
-Realtime algorithms                     v
-                                  EOD compaction
-                                        |
-                                        v
-                               canonical tick archive
+      v             v
+Realtime Bar     Tick Archiver
+Aggregator       micro-batch Parquet
+      |             |
+      v             v
+live features    EOD compaction
+                    |
+                    v
+             canonical archive
+                    |
+                    v
+             READY manifest
 ```
+
+Do not append one tick at a time to a canonical Parquet object.
 
 ## Dataset Outputs
 
-### Kafka raw tick event
-
-Canonical event should contain a versioned envelope plus market payload:
+Kafka raw event:
 
 ```text
 schema_version
@@ -61,71 +60,97 @@ symbol
 price
 volume
 trade_value
-sequence?      # provider dependent
-trade_id?      # provider dependent
-side?          # provider dependent
+sequence?
+trade_id?
+side?
 ```
 
-Kafka key should normally preserve symbol ordering, for example:
-
-```text
-HOSE:ACB
-```
-
-### Realtime raw tick archive
+Raw tick archive:
 
 ```text
 stock-data/intraday/ticks/
-  date=YYYY-MM-DD/
-    exchange=HOSE/
-      part-*.parquet
+  date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
 ```
 
-Archive by micro-batch, then compact after the session.
+Realtime bars/features reuse the same naming and semantics as Intraday EOD.
 
-Do not create one Parquet object per tick.
+## MinIO Metadata Outputs
 
-### Realtime bars/features
+Do **not** rewrite the canonical manifest for every micro-batch flush.
 
-Reuse the same canonical schema/naming as the historical Intraday EOD pipeline.
+Preferred lifecycle:
 
-Realtime and batch outputs must converge to equivalent values for the same completed bar.
+```text
+micro-batch parts
+   -> optional temporary/session stats
+   -> EOD compaction
+   -> reconciliation/validation
+   -> final READY manifest
+```
+
+Final manifest path:
+
+```text
+stock-data/_metadata/datasets/realtime-ticks/
+  date=YYYY-MM-DD/exchange=HOSE.json
+```
+
+It should contain:
+
+```text
+status
+path
+objectCount
+totalBytes
+rowCount
+columnCount
+minTimestamp
+maxTimestamp
+schemaHash
+sourceExecutionId
+generatedAt
+reconciliation metrics
+```
+
+The manifest is the canonical completed-session readiness marker.
+
+See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
 
 ## Algorithm Feature Outputs
 
-### Tick intensity
+Tick intensity:
 
-- `ticks_1s` — `DERIVED`
-- `ticks_5s` — `DERIVED`
-- `volume_1s` — `DERIVED`
-- `volume_5s` — `DERIVED`
-- `trade_intensity_zscore` — `DERIVED`
-- `average_trade_size_5s` — `DERIVED`
+```text
+ticks_1s
+ticks_5s
+volume_1s
+volume_5s
+trade_intensity_zscore
+average_trade_size_5s
+```
 
-### Short-horizon price dynamics
+Short-horizon dynamics:
 
-- `return_5s` — `DERIVED`
-- `return_30s` — `DERIVED`
-- `return_1m` — `DERIVED`
-- `micro_momentum_30s` — `DERIVED`
-- `price_acceleration` — `DERIVED`
-- `distance_from_vwap` — `DERIVED`
+```text
+return_5s
+return_30s
+return_1m
+micro_momentum_30s
+price_acceleration
+distance_from_vwap
+```
 
-### Liquidity / flow
+Provider-dependent (`CONDITIONAL`):
 
-When fields are available:
+```text
+buy_volume_5s
+sell_volume_5s
+volume_delta_5s
+cumulative_volume_delta
+buy_sell_imbalance
+```
 
-- `buy_volume_5s` — `CONDITIONAL`
-- `sell_volume_5s` — `CONDITIONAL`
-- `volume_delta_5s` — `CONDITIONAL`
-- `cumulative_volume_delta` — `CONDITIONAL`
-- `buy_sell_imbalance` — `CONDITIONAL`
-
-If future source includes order book levels, define those in a separate order-book contract rather than mixing snapshot depth fields into the trade tick schema.
-
-### Realtime sector features
-
-Aggregate symbol streams into:
+Realtime sector features:
 
 ```text
 sector_return_1m
@@ -138,11 +163,7 @@ sector_new_low_ratio
 leader_contribution_live
 ```
 
-These are high-value inputs for realtime sector rotation and market-state detection.
-
 ## Algorithms Unlocked
-
-This phase enables:
 
 - realtime signal confirmation;
 - realtime sector leadership/rotation;
@@ -150,23 +171,18 @@ This phase enables:
 - unusual volume/trade-intensity alerts;
 - realtime breakout detection;
 - streaming anomaly detection;
-- alert throttling based on live confidence;
-- later online/near-online feature scoring.
-
-It does not by itself require ML. Rule-based algorithms should consume the same reusable features first.
+- later near-online feature scoring.
 
 ## Kafka Topics
 
-Suggested V1:
+V1:
 
 ```text
 market-ticks.raw
 market-bars.1m
 ```
 
-Avoid creating topics per sector or symbol.
-
-Introduce additional feature topics only when an actual consumer needs them.
+Avoid topics per symbol/sector.
 
 ## Delivery Semantics
 
@@ -174,58 +190,29 @@ Aim for at-least-once ingestion with idempotent downstream processing.
 
 Requirements:
 
-- stable event identity when provider supplies trade id/sequence;
-- consumer offsets committed only after state/update succeeds;
+- stable identity when provider supplies trade id/sequence;
+- commit offsets after downstream state/write succeeds;
 - duplicate-safe bar aggregation;
-- explicit handling for out-of-order/late ticks;
-- bounded lateness window before a bar is considered final.
+- explicit late/out-of-order handling;
+- bounded lateness before bars become final.
 
-Exactly-once end-to-end semantics are not a V1 requirement.
+Exactly-once end-to-end is not a V1 requirement.
 
-## Buffering and Parquet Archival
+## Realtime vs Batch Reconciliation
 
-`TickArchiver` should buffer by size/time, for example:
+Intraday EOD is the historical reconciliation source.
 
-```text
-flush when rows >= configured threshold
-OR elapsed time >= configured threshold
-```
-
-Do not hard-code a tiny 1-5 second Parquet flush if it creates excessive small files. Tune using observed tick volume and object-storage behavior.
-
-At end of session:
+Compare per completed session:
 
 ```text
-micro-batch parquet parts
-       |
-       v
-COMPACT_INTRADAY_TICKS
-       |
-       v
-larger canonical parts
+realtime tick count vs EOD count
+realtime total volume vs EOD volume
+realtime 1m OHLCV vs batch-rebuilt 1m OHLCV
 ```
 
-Delete/archive temporary pieces only after compaction is verified.
-
-## Realtime vs Batch Consistency
-
-The historical Intraday EOD pipeline is the reconciliation source.
-
-For each completed session compare:
-
-```text
-realtime tick count vs EOD sync count
-realtime total volume vs EOD total volume
-realtime 1m OHLCV vs rebuilt batch 1m OHLCV
-```
-
-Persist mismatch metrics and surface them in Operations/Internal Tools.
-
-This prevents silent realtime data loss from contaminating later algorithms.
+Only publish the final READY session manifest after reconciliation is within tolerance or explicitly marked with quality warnings.
 
 ## Backpressure
-
-Ingestor must not let downstream slowness block the market socket indefinitely.
 
 Design for:
 
@@ -233,57 +220,27 @@ Design for:
 - Kafka producer batching;
 - retry/backoff;
 - reconnect/resubscribe;
-- metrics for lag, dropped/rejected messages, reconnects and publish latency.
-
-No tick should be intentionally dropped without an observable counter/reason.
+- lag/reconnect/publish-latency metrics;
+- observable rejected/dropped-message counters.
 
 ## Implementation Steps
 
-### Step 1 — Provider capability spike
-
-- [ ] Confirm streaming protocol, limits and reconnect semantics.
-- [ ] Confirm whether trade id/sequence/aggressor side are available.
-- [ ] Record provider timestamp precision and ordering guarantees.
-
-### Step 2 — Shared contract
-
-- [ ] Add versioned tick event model in `py_common` or equivalent shared contract location.
-- [ ] Add normalization tests and fixtures.
-- [ ] Define symbol/exchange normalization once.
-
-### Step 3 — Ingestor
-
-- [ ] Implement websocket connection lifecycle.
-- [ ] Normalize and publish keyed events to Kafka.
-- [ ] Add reconnect/backpressure/metrics.
-
-### Step 4 — Tick archiver
-
-- [ ] Consume raw tick topic.
-- [ ] Micro-batch writes to partitioned Parquet.
-- [ ] Add safe compaction job.
-- [ ] Make restart/reprocessing idempotent.
-
-### Step 5 — Realtime bars/features
-
-- [ ] Build duplicate-safe 1m aggregator.
-- [ ] Support late/out-of-order events.
-- [ ] Reuse feature formulas/names from Intraday EOD.
-- [ ] Publish or persist finalized bars/features as required.
-
-### Step 6 — Reconciliation
-
-- [ ] Compare realtime results with EOD historical sync.
-- [ ] Store completeness/quality metrics.
-- [ ] Send operational alert when mismatch exceeds threshold.
+1. Confirm provider streaming limits, ordering and optional fields.
+2. Add versioned tick contract in `py_common`.
+3. Implement websocket lifecycle and Kafka publishing.
+4. Implement duplicate-safe realtime 1m aggregation.
+5. Implement micro-batch Tick Archiver.
+6. Add EOD compaction and batch reconciliation.
+7. Write final MinIO READY manifest after validation.
+8. Expose final session metadata in Internal Tools.
 
 ## Acceptance Criteria
 
-- Realtime ticks survive analyzer/archiver restarts through Kafka replay.
+- Kafka replay survives consumer restarts.
 - No per-tick Parquet append design is used.
-- Raw tick archive is partitioned and compactable.
-- Realtime 1m bars converge with batch-rebuilt 1m bars within defined tolerance.
-- Feature names/semantics match historical intraday features.
-- Duplicate and late ticks are handled explicitly.
-- Data-quality mismatch is observable.
-- Realtime algorithms can consume stable reusable features without depending directly on provider-specific payloads.
+- Raw tick archive is compactable.
+- Realtime bars converge with batch-rebuilt bars within tolerance.
+- Feature semantics match Intraday EOD.
+- Duplicate/late ticks are explicit.
+- Canonical session metadata lives in MinIO, not PostgreSQL/Redis.
+- Final READY manifest is written only after compaction/reconciliation.

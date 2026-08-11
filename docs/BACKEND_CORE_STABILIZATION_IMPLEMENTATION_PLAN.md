@@ -2,91 +2,119 @@
 
 ## Goal
 
-Stabilize the current scheduler and sector-analysis pipeline before expanding additional backend features.
+Stabilize scheduler, job execution and sector-analysis correctness before expanding data frequency.
+
+## Outcome
+
+After this phase Omni has:
+
+- correct due-job selection;
+- one aligned multi-sector universe;
+- one logical writer per shared Sector Transition dataset;
+- multi-instance-safe scheduled-job claiming;
+- dataset dependency/freshness validation based on MinIO READY manifests;
+- domain-correct child execution metadata;
+- type-safe notification routing contracts.
+
+## Dataset Outputs
+
+No new analytical dataset is required by this stabilization phase.
+
+Existing analytical datasets become safer and should progressively publish MinIO metadata manifests under:
+
+```text
+stock-data/_metadata/datasets/...
+```
+
+See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
+
+## Algorithm Feature Outputs
+
+No new formula is required.
+
+This phase protects correctness/freshness of existing outputs such as:
+
+```text
+symbol-features
+sector-features
+breadth_above_ma20
+leader_contribution
+laggard_contribution
+sector transition predictions/probabilities/outcomes
+```
+
+## Algorithms Unlocked
+
+No new algorithm directly. It makes existing sector-wave, sector-transition, signal and future intraday algorithms safer to run automatically.
 
 ## Priority 0 — Correctness
 
 ### 1. Fix scheduler due-job query
-
-Current JPQL must require `isActive = true` for both overdue and first-run jobs.
 
 ```sql
 WHERE j.isActive = true
   AND (j.nextRun <= :now OR j.nextRun IS NULL)
 ```
 
-Add repository tests for:
+Tests:
 
 - active + overdue => selected;
-- active + `nextRun = null` => selected;
+- active + null `nextRun` => selected;
 - inactive + overdue => not selected;
-- inactive + `nextRun = null` => not selected.
+- inactive + null `nextRun` => not selected.
 
-### 2. Complete the multi-sector feature universe
+### 2. Align the multi-sector feature universe
 
-Sector Transition currently targets:
+Sector Transition targets:
 
-- `FINANCIAL_SERVICES`
-- `REAL_ESTATE`
-- `BASIC_RESOURCES`
-- `BANKS`
-- `OIL_AND_GAS`
+```text
+FINANCIAL_SERVICES
+REAL_ESTATE
+BASIC_RESOURCES
+BANKS
+OIL_AND_GAS
+```
 
-Precompute the required symbol and sector features for the same universe before Sector Transition runs.
+Use one shared configured universe across stock sync, symbol features, sector features and transition jobs.
 
-Preferred direction:
+Every requested transition sector must have a READY `sector-features` manifest for the evaluation date.
 
-- one shared configured sector universe;
-- avoid independent hard-coded lists between stock sync, feature precompute, and transition jobs;
-- validate that every requested transition sector has a non-empty `sector-features` dataset for the evaluation date.
-
-### 3. Remove concurrent read-modify-write risk for Sector Transition Parquet
-
-Do not run one writer per focus sector against the same prediction/decision/probability Parquet files.
+### 3. Remove shared-Parquet multi-writer risk
 
 Preferred V1:
 
 ```text
 1 SECTOR_TRANSITION_ANALYZE job
-  -> universe = configured primary sectors
-  -> focusSectorCodes = configured primary sectors
+  -> all configured focus sectors
   -> calculate once
-  -> merge/write each output dataset once
+  -> validate
+  -> write each shared output once
+  -> publish READY manifest
 ```
 
 Use the same pattern for outcome evaluation.
-
-This keeps the existing shared-Parquet decision while avoiding lost updates and repeated full-file rewrites.
 
 ## Priority 1 — Scheduler Hardening
 
 ### 4. Add atomic job claiming
 
-Current flow is effectively:
+Move from:
 
 ```text
 find due jobs -> publish -> advance nextRun
 ```
 
-Move toward:
+to:
 
 ```text
 find due jobs -> claim atomically -> dispatch
 ```
 
-Implementation options:
+Use pessimistic/`SKIP LOCKED` or optimistic guarded update as appropriate.
 
-- pessimistic lock with `SKIP LOCKED` where practical; or
-- optimistic version field with guarded update.
+### 5. Promote dataset dependencies to runtime validation
 
-Acceptance criteria:
-
-- two core instances cannot dispatch the same scheduled execution;
-- retry after failed dispatch is explicit and observable.
-
-### 5. Promote data dependencies from documentation to validation
-
-Reuse the current metadata:
+Reuse:
 
 ```json
 {
@@ -96,13 +124,23 @@ Reuse the current metadata:
 }
 ```
 
-Add a lightweight dataset readiness/freshness guard before dispatching dependent analytical jobs.
+For `dependsOnDatasets`, resolve the required MinIO manifest and validate:
 
-V1 does not need a full DAG orchestrator. It only needs to prevent a job from running when required Parquet datasets are missing or stale for the requested evaluation date/timeframe.
+```text
+manifest exists
+status == READY
+expected evaluation date/partition exists
+schema version supported
+freshness acceptable
+```
+
+Do not scan the full Parquet prefix on every dependency check when a manifest exists.
+
+V1 does not need a full DAG orchestrator.
 
 ### 6. Clean child execution semantics
 
-`createChildExecution` should use generic metadata:
+Use:
 
 ```json
 {
@@ -111,9 +149,7 @@ V1 does not need a full DAG orchestrator. It only needs to prevent a job from ru
 }
 ```
 
-Only symbol-level producers should populate `symbolKey`.
-
-Do not map every `workKey` into `symbolKey`.
+Only symbol-level producers populate `symbolKey`.
 
 ### 7. Tighten notification types
 
@@ -125,23 +161,23 @@ Keep:
 - signal digest policy;
 - sector transition diagnostic policy.
 
-Also support outcome-evaluation failures with the same actionable sector-transition diagnostics where applicable.
+Outcome-evaluation failures should receive actionable diagnostics where applicable.
 
 ## Verification
 
-After implementation:
-
-1. Run affected Java repository/service/scheduler tests.
-2. Run analyzer sector-wave and sector-transition tests.
-3. Run Nx targeted lint/test/build targets.
-4. Run `nx affected` when shared contracts or configuration are changed.
+1. Run Java repository/service/scheduler tests.
+2. Run analyzer sector-wave/sector-transition tests.
+3. Run targeted Nx lint/test/build.
+4. Run `nx affected` when shared contracts/configuration change.
 5. Verify one end-to-end daily pipeline for all configured primary sectors.
+6. Verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
 
-## Definition of Done
+## Acceptance Criteria
 
 - Disabled jobs are never dispatched.
-- All transition sectors have required upstream feature data.
-- Shared Sector Transition Parquet outputs have a single logical writer per execution.
-- Scheduler dispatch is safe for multiple core instances.
-- Dataset dependencies prevent stale/missing analytical runs.
-- Child execution metadata is domain-correct and no longer assumes every task is a symbol.
+- All transition sectors have required upstream data.
+- Shared Sector Transition outputs have one logical writer.
+- Scheduled dispatch is safe across multiple core instances.
+- Dataset dependency checks use MinIO manifests as readiness/freshness source.
+- No PostgreSQL/Redis dataset-statistics cache is introduced for V1.
+- Child execution metadata is domain-correct.

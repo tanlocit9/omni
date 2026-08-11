@@ -2,13 +2,16 @@
 
 ## Direction
 
-The next roadmap should build trustworthy analytical data first, then increase data frequency.
+The next roadmap should build trustworthy analytical data, make the runtime portable, then increase data frequency.
 
 ```text
 Backend/data correctness
         |
         v
 MinIO dataset metadata manifests
+        |
+        v
+Portable Docker deployment
         |
         v
 Internal Tools / Parquet visibility
@@ -28,10 +31,11 @@ Realtime signal/sector algorithms
 
 ## Outcome
 
-After these phases Omni evolves from an EOD analytics pipeline into a multi-frequency research platform with:
+After these phases Omni evolves from an EOD analytics pipeline into a portable multi-frequency research platform with:
 
 - reliable scheduled data dependencies;
 - object-storage-native dataset readiness/freshness metadata;
+- pull-and-run Docker deployment on another VM/cloud;
 - direct Parquet observability;
 - daily + intraday historical backtesting inputs;
 - replayable realtime tick streams;
@@ -87,7 +91,34 @@ No direct market feature output.
 
 Metadata enables safer completeness/freshness validation for algorithms and backtests.
 
-## Phase 3 — Internal Tools / Parquet Viewer
+## Phase 3 — Portable Docker Deployment
+
+See `PORTABLE_DOCKER_DEPLOYMENT_IMPLEMENTATION_PLAN.md`.
+
+### Outcome
+
+Omni application images are published to GHCR and a clean Linux host can pull/start the production Compose stack without installing Nx, Node, Gradle, Java, Python, or project build dependencies.
+
+Reference capacity targets:
+
+```text
+EOD minimum       2 vCPU / 4 GB RAM / 50 GB disk
+EOD recommended   4 vCPU / 8 GB RAM / 50-100 GB disk
+Intraday          4 vCPU / 8 GB RAM / 100 GB or external object storage
+Realtime tick     4+ vCPU / 8-16 GB RAM / external object storage
+```
+
+### Dataset Outputs
+
+No analytical dataset output.
+
+### Algorithm Feature Outputs
+
+No direct algorithm feature output.
+
+This phase makes feature production reproducible and movable across machines/cloud providers.
+
+## Phase 4 — Internal Tools / Parquet Viewer
 
 See `INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md`.
 
@@ -99,7 +130,7 @@ Developers can browse dataset manifests and drill directly into Parquet through 
 
 No direct algorithm feature output.
 
-## Phase 4 — Telegram Channel Separation
+## Phase 5 — Telegram Channel Separation
 
 See `TELEGRAM_MULTI_CHANNEL_IMPLEMENTATION_PLAN.md`.
 
@@ -111,7 +142,7 @@ Operational notifications and market signal notifications are separated into `OP
 
 No direct algorithm feature output.
 
-## Phase 5 — Intraday EOD
+## Phase 6 — Intraday EOD
 
 See `INTRADAY_EOD_IMPLEMENTATION_PLAN.md`.
 
@@ -134,7 +165,7 @@ opening_range_position
 opening_range_breakout
 ```
 
-## Phase 6 — Realtime Per-Tick
+## Phase 7 — Realtime Per-Tick
 
 See `REALTIME_PER_TICK_IMPLEMENTATION_PLAN.md`.
 
@@ -165,6 +196,7 @@ See:
 - `IMPLEMENTATION_PLAN_STANDARD.md`
 - `ALGORITHM_FEATURE_CATALOG.md`
 - `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`
+- `PORTABLE_DOCKER_DEPLOYMENT_IMPLEMENTATION_PLAN.md`
 
 All new data plans must state:
 
@@ -179,18 +211,23 @@ All new data plans must state:
 ```text
 1. Backend correctness blockers
 2. Shared DatasetManifest + _metadata path contract
-3. Internal Tools Dataset Browser + Parquet Viewer
-4. Telegram routing split (independent/small)
-5. SYNC_INTRADAY_EOD
-6. BUILD_INTRADAY_BARS 1m/5m/15m
-7. BUILD_INTRADAY_FEATURES
-8. Intraday sector aggregation
-9. Provider realtime capability spike
-10. market-ticks.raw Kafka pipeline
-11. realtime archive + compaction + reconciliation
-12. realtime signal/sector consumers
+3. Production Dockerfiles + docker-compose.prod.yaml
+4. GHCR multi-architecture publishing
+5. Validate EOD profile on 4 GB / 50 GB host
+6. Internal Tools Dataset Browser + Parquet Viewer
+7. Telegram routing split (independent/small)
+8. SYNC_INTRADAY_EOD
+9. BUILD_INTRADAY_BARS 1m/5m/15m
+10. BUILD_INTRADAY_FEATURES
+11. Intraday sector aggregation
+12. Provider realtime capability spike
+13. market-ticks.raw Kafka pipeline
+14. realtime archive + compaction + reconciliation
+15. realtime signal/sector consumers
 ```
 
 Do not add Redis/PostgreSQL only to cache dataset statistics in V1. MinIO manifests are the metadata source of truth.
+
+Do not introduce Kubernetes/ECS as a requirement at the current stage. Docker Compose remains the portability/deployment baseline until the workload requires multi-node orchestration.
 
 Do not add AI/ML as a dependency for these phases. First establish deterministic, backtestable features and labels; ML can consume them later.

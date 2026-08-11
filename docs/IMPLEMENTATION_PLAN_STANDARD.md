@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Every implementation plan must describe not only what to build, but also what usable outcome the phase produces and what analytical features become available for later algorithms.
+Every implementation plan must describe what to build, what concrete outcome is produced, what datasets/metadata are persisted, and which analytical features become available for later algorithms.
 
 ## Mandatory Sections
 
@@ -12,34 +12,68 @@ Every implementation plan must include:
 
 Describe the concrete capability available after implementation.
 
-Examples:
-
-- a stable scheduler contract;
-- a queryable Parquet dataset;
-- an internal observability tool;
-- an operational notification route.
-
 ### Dataset Outputs
 
-List new or modified persistent datasets and their logical paths.
+List new or modified persistent datasets and logical paths.
 
-If the work is operational only, explicitly write:
+If operational only:
 
 ```text
 No analytical dataset output.
 ```
 
+### Metadata Outputs
+
+For every data-producing plan, define the corresponding MinIO metadata manifest path and readiness semantics.
+
+Preferred storage:
+
+```text
+stock-data/_metadata/datasets/...
+```
+
+Manifest should normally expose:
+
+```text
+status
+path
+objectCount
+totalBytes
+rowCount
+columnCount
+schemaHash
+min/max date or timestamp
+sourceExecutionId
+generatedAt
+```
+
+Write order:
+
+```text
+write data -> validate -> write READY manifest last
+```
+
+Do not introduce PostgreSQL/Redis only to cache these dataset statistics in V1.
+
+If the plan produces no analytical dataset:
+
+```text
+No dataset metadata output.
+```
+
+See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
+
 ### Algorithm Feature Outputs
 
 List fields/features that can become direct inputs to future rule-based strategies, backtests, statistical models, or ML models.
 
-For each feature, identify whether it is:
+Classify each as:
 
 - `DIRECT` — persisted explicitly;
-- `DERIVED` — reproducibly computed from the output dataset;
-- `CONDITIONAL` — only available when the upstream provider supplies required data.
+- `DERIVED` — reproducibly computed from an output dataset;
+- `CONDITIONAL` — requires optional provider data.
 
-If the implementation does not create analytical features, explicitly write:
+If none:
 
 ```text
 No direct algorithm feature output.
@@ -47,40 +81,36 @@ No direct algorithm feature output.
 
 ### Algorithms Unlocked
 
-State which later analytical capabilities the output enables, for example:
+State which later analytical capabilities the output enables.
 
-- trend/momentum scoring;
-- sector rotation;
-- intraday timing;
-- anomaly detection;
-- signal confidence scoring;
-- supervised prediction labels/features.
+## Data Plan Rules
 
-## Data Plan Rule
+1. Prefer reusable canonical features over strategy-specific scores.
+2. Keep raw/reusable data separate from final strategy decisions.
+3. Make time/evaluation semantics explicit.
+4. Use MinIO manifests as the default dataset readiness/freshness contract.
+5. Do not scan a full object prefix merely to decide whether a known dataset partition is READY when a manifest exists.
+6. Failed writes must not publish a new READY manifest.
 
-Data implementation plans must prefer reusable canonical features over strategy-specific scores.
-
-Preferred:
+Preferred features:
 
 ```text
 return_5m
-vwap_distance
+vwap_distance_pct
 relative_volume
 realized_volatility
-breadth_positive_return
+breadth_positive_return_5m
 ```
 
-Avoid making the storage layer own a strategy conclusion such as:
+Avoid storage-owned strategy conclusions such as:
 
 ```text
 BUY_SCORE_V3
 ```
 
-Strategy-specific decisions should be computed downstream from stable reusable features.
-
 ## Feature Naming
 
-Use stable snake_case field names. Include timeframe/window in the name when the meaning depends on it.
+Use stable `snake_case` names and include timeframe/window when meaning depends on it.
 
 Examples:
 
@@ -92,13 +122,13 @@ volume_ratio_20d
 breadth_positive_return_5m
 ```
 
-The same semantic feature must not receive different names in EOD, intraday, backtest, and realtime pipelines.
+The same semantic feature must use the same name in EOD, intraday, backtest and realtime pipelines.
 
 ## Provider-Dependent Features
 
-Never assume market-data fields that are not guaranteed by the provider.
+Never assume fields not guaranteed by the provider.
 
-Features such as the following must be marked `CONDITIONAL` unless the source contract guarantees them:
+Mark dependent features `CONDITIONAL`, especially for:
 
 - aggressor side;
 - bid/ask depth;
@@ -106,9 +136,18 @@ Features such as the following must be marked `CONDITIONAL` unless the source co
 - trade condition;
 - sequence number.
 
+## Shared Placement Rule
+
+Reusable contracts/patterns should live in shared locations when appropriate:
+
+- Java shared/common module for reusable Java abstractions;
+- `py_common` for reusable Python data/storage contracts such as `DatasetManifest` and path builders.
+
+Do not duplicate manifest construction across individual handlers.
+
 ## Feature Registry Direction
 
-As Omni grows, the sections in implementation plans should feed a central feature registry containing:
+As Omni grows, implementation-plan feature sections should feed a central registry:
 
 ```text
 feature_name
@@ -121,4 +160,4 @@ availability
 version
 ```
 
-This registry can later be exposed in Internal Tools and used by analyzer jobs to validate required inputs.
+The registry can later support Internal Tools, analyzer input validation and backtest dataset selection.

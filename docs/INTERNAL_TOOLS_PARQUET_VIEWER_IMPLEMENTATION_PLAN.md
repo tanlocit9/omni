@@ -4,42 +4,82 @@
 
 Create `apps/internal-tools` as the first Omni web application.
 
-The first feature is a Simple Parquet Viewer. The browser reads Parquet directly; backend/core does **not** convert Parquet rows to JSON.
+The first feature is a Simple Parquet Viewer plus Dataset Browser. The browser reads Parquet directly; backend/core does **not** convert Parquet rows to JSON.
 
-Frontend only needs:
+Frontend needs only:
 
-- dataset/path identifier;
-- readable URL for that path;
+- logical dataset/path;
+- readable Parquet URL or short-lived presigned URL;
 - known/allowed fields when available;
-- optional dataset metadata.
+- dataset metadata manifest stored in MinIO.
+
+## Outcome
+
+After this phase developers can:
+
+- browse Omni datasets and partitions;
+- see object count, total size, row count, schema, date/timestamp range and freshness without scanning every Parquet object;
+- open a dataset directly in DuckDB-Wasm;
+- filter/project/sort Parquet in the browser;
+- inspect additive/unknown columns without a backend row API.
+
+## Dataset Outputs
+
+No analytical dataset output.
+
+Internal Tools consumes metadata stored in MinIO under:
+
+```text
+stock-data/_metadata/
+  catalog.json
+  datasets/...
+```
+
+See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
+
+## Algorithm Feature Outputs
+
+No direct algorithm feature output.
+
+The tool validates feature datasets before they are consumed by signal/backtest/model logic.
+
+## Algorithms Unlocked
+
+No trading algorithm directly.
+
+It materially improves:
+
+- feature QA;
+- backtest input inspection;
+- intraday/realtime reconciliation debugging;
+- schema/freshness verification.
 
 ## Architecture Decision
 
-Use DuckDB-Wasm in the browser and query remote Parquet directly.
+Use DuckDB-Wasm in the browser for Parquet data and MinIO manifests for dataset statistics.
 
 ```text
 Internal Tools React
        |
-       | dataset path
-       v
-Dataset Resolver
+       +---- metadata request ----> MinIO _metadata manifests
+       |                                |
+       |                                v
+       |                        Dataset Browser cards
        |
-       | public URL or short-lived presigned GET URL
-       v
-DuckDB-Wasm
-       |
-       | Parquet metadata + HTTP Range requests
-       | projection/filter pushdown
-       v
-Arrow record batches
-       |
-       v
-TanStack Table
+       +---- logical data path --> URL resolver
+                                        |
+                                        v
+                                   DuckDB-Wasm
+                                        |
+                              HTTP Range / Parquet
+                                        |
+                                        v
+                                  TanStack Table
 ```
 
-Do not fetch the complete Parquet file with `fetch(...).arrayBuffer()` for normal remote datasets.
+Do not use PostgreSQL/Redis as dataset metadata storage in V1.
 
-DuckDB should query the URL directly so Parquet scans can use metadata and HTTP range reads for only the required columns/row groups.
+Do not calculate `objectCount/totalBytes/rowCount` by scanning the whole data prefix on every UI request.
 
 ## Tech Stack
 
@@ -47,63 +87,64 @@ DuckDB should query the URL directly so Parquet scans can use metadata and HTTP 
 - TypeScript
 - Vite
 - Nx React/Vite plugin matching workspace Nx version
-- shadcn/ui + Tailwind CSS
+- shadcn/ui + Tailwind
 - TanStack Table
 - DuckDB-Wasm
-- TanStack Query only for metadata/path resolution APIs
+- TanStack Query for metadata/path-resolution calls
 - Vitest
-- Playwright later for critical internal-tool flows
+- Playwright later
 
 Use `apps/internal-tools`, not `apps/parquet-viewer`, because Parquet Viewer is only the first internal feature.
 
-## Data Access Contract
+## Dataset Metadata Contract
 
-### Preferred contract
-
-Frontend uses a logical path:
-
-```text
-sector-features/1d/2/BANKS.parquet
-```
-
-A resolver returns access metadata, not rows:
+Example manifest consumed by the UI:
 
 ```json
 {
-  "path": "sector-features/1d/2/BANKS.parquet",
-  "url": "https://...short-lived-readable-url...",
-  "fields": [
-    "date",
-    "sector_code",
-    "breadth_above_ma20",
-    "contributors"
-  ],
-  "expiresAt": "2026-08-11T10:00:00Z"
+  "version": 1,
+  "dataset": "intraday-bars",
+  "path": "intraday/bars/timeframe=1m/date=2026-08-11/exchange=HOSE/*.parquet",
+  "status": "READY",
+  "objectCount": 2,
+  "totalBytes": 18342112,
+  "rowCount": 184210,
+  "columnCount": 12,
+  "minTimestamp": "2026-08-11T09:00:00+07:00",
+  "maxTimestamp": "2026-08-11T14:45:00+07:00",
+  "generatedAt": "2026-08-11T15:30:00+07:00"
 }
 ```
 
-For local/dev public MinIO paths, `url` may be deterministic and no resolver API is required.
+UI should treat the manifest as the fast summary/readiness source.
 
-For private MinIO, core or a small data-access endpoint should issue a short-lived read-only presigned URL.
+When the user opens the dataset, DuckDB may still inspect the physical Parquet schema to verify it matches the manifest/known UI schema.
 
-Backend responsibilities stop there. It must not parse Parquet or paginate rows for V1.
+## Data Access Contract
 
-## CORS / Object Storage Requirements
+For private MinIO:
 
-The Parquet origin must allow browser reads from the Internal Tools origin.
+```text
+logical path
+   -> allow-listed resolver
+   -> short-lived GET URL
+   -> DuckDB-Wasm read_parquet(url)
+```
 
-Minimum expected methods/headers:
+Backend responsibilities:
 
-- `GET`
-- `HEAD`
-- HTTP Range requests
-- CORS for the Internal Tools origin
+- authorize/allow-list logical paths;
+- return presigned read-only URLs where required;
+- optionally proxy/read small metadata JSON manifests.
 
-Do not expose MinIO access key/secret key to the browser.
+Backend must not:
+
+- return MinIO credentials;
+- parse full Parquet rows for V1;
+- paginate analytical rows as JSON;
+- maintain a duplicate metadata database.
 
 ## Query Model
-
-The UI builds controlled query state rather than arbitrary raw SQL in V1:
 
 ```ts
 export interface ParquetQuery {
@@ -112,13 +153,10 @@ export interface ParquetQuery {
   filters: Filter[];
   sort?: Sort;
   limit: number;
-  offset?: number;
 }
 ```
 
-Translate the state into DuckDB SQL internally.
-
-Example:
+Example SQL:
 
 ```sql
 SELECT date, sector_code, breadth_above_ma20
@@ -130,30 +168,15 @@ LIMIT 200
 
 Rules:
 
-- select only visible/required columns;
-- default limit: 200;
-- hard UI limit for V1: 5,000 rows per result window;
-- filter/sort inside DuckDB, not with large JavaScript arrays;
-- prefer prepared statements/escaped identifiers for user-controlled values.
+- project only requested columns;
+- default limit around 200;
+- hard UI limit around 5,000 rows per result window;
+- filter/sort in DuckDB, not large JS arrays;
+- stream Arrow batches with `connection.send()` when useful.
 
-## Streaming Result to UI
+## Known Fields vs Physical Schema
 
-Use DuckDB-Wasm `connection.send()` for larger result sets so Arrow batches are consumed lazily.
-
-```text
-DuckDB query
-   -> Arrow batch
-   -> normalize visible rows
-   -> append/update table window
-```
-
-Do not wait for a fully materialized result when streaming is useful.
-
-For the first simple table, materialized `query()` is acceptable behind the same repository interface, but infrastructure must be designed so `send()` can replace it without changing components.
-
-## Schema / Known Fields
-
-Frontend can maintain expected fields per Omni dataset type:
+Frontend may keep UI metadata for known Omni fields:
 
 ```ts
 export const datasetSchemas = {
@@ -162,66 +185,49 @@ export const datasetSchemas = {
   signals: [...],
   symbolFeatures: [...],
   sectorFeatures: [...],
-  sectorTransitionPredictions: [...],
+  intradayBars: [...],
+  intradayFeatures: [...],
 };
 ```
 
-Treat this as UI metadata, not the source of truth for physical Parquet schema.
+Rules:
 
-At runtime also support:
-
-```sql
-DESCRIBE SELECT * FROM read_parquet($url)
-```
-
-or Parquet schema metadata inspection.
-
-Behavior:
-
-- known field => apply friendly label/formatter/filter type;
-- unknown field => still render generically;
-- missing expected field => show schema warning, do not crash.
-
-This lets Parquet evolve without requiring a frontend release for every additive column.
+- known field => friendly formatter/filter;
+- unknown field => generic renderer;
+- missing expected field => warning, not crash;
+- manifest schema is a fast summary;
+- physical Parquet schema remains verifiable at runtime.
 
 ## Folder Structure
 
 ```text
 apps/internal-tools/src/
 ├── app/
-│   ├── App.tsx
-│   ├── router.tsx
-│   └── providers.tsx
 ├── features/
+│   ├── dataset-browser/
+│   │   ├── domain/
+│   │   ├── application/
+│   │   ├── infrastructure/
+│   │   │   └── metadata-manifest-client.ts
+│   │   └── components/
 │   └── parquet-viewer/
 │       ├── domain/
-│       │   ├── dataset.ts
-│       │   ├── parquet-query.ts
-│       │   └── parquet-data-source.ts
 │       ├── application/
-│       │   ├── use-dataset.ts
-│       │   └── use-parquet-query.ts
 │       ├── infrastructure/
 │       │   ├── duckdb/
-│       │   │   ├── duckdb-client.ts
-│       │   │   ├── duckdb-parquet-data-source.ts
-│       │   │   └── sql-builder.ts
 │       │   └── dataset-resolver/
-│       │       └── dataset-resolver-client.ts
 │       └── components/
-│           ├── ParquetViewer.tsx
-│           ├── ParquetToolbar.tsx
-│           ├── ParquetTable.tsx
-│           └── SchemaPanel.tsx
 └── shared/
-    ├── components/
-    ├── lib/
-    └── types/
 ```
 
-## Core Interface
+## Core Interfaces
 
 ```ts
+export interface DatasetMetadataSource {
+  listDatasets(): Promise<DatasetSummary[]>;
+  listPartitions(dataset: string): Promise<DatasetManifest[]>;
+}
+
 export interface ParquetDataSource {
   describe(dataset: DatasetRef): Promise<DatasetSchema>;
   query(query: ParquetQuery): Promise<ParquetResult>;
@@ -229,78 +235,45 @@ export interface ParquetDataSource {
 }
 ```
 
-UI components depend only on this interface.
+## Implementation Steps
 
-## V0 Implementation Steps
+### Step 1 — Nx app/UI shell
 
-### Step 1 — Nx app
+- [ ] Generate `apps/internal-tools` with React + Vite + TypeScript.
+- [ ] Add shadcn/Tailwind and routing.
+- [ ] Add `/data` Dataset Browser and `/data/parquet` viewer.
 
-- [ ] Add `@nx/react` and `@nx/vite` using the same version as workspace Nx.
-- [ ] Generate `apps/internal-tools` with Vite + TypeScript.
-- [ ] Normalize npm workspace paths to portable forward-slash/glob form if required.
-- [ ] Add app-level lint/test/build targets.
+### Step 2 — Metadata browser
 
-### Step 2 — UI shell
+- [ ] Read `_metadata/catalog.json`.
+- [ ] List dataset/partition manifests.
+- [ ] Display objects, bytes, rows, columns, range, freshness and status.
+- [ ] Do not scan data prefixes to build summaries.
 
-- [ ] Add shadcn/ui + Tailwind.
-- [ ] Add simple left navigation.
-- [ ] Add `/data/parquet` route.
-- [ ] Add dataset path input/select.
+### Step 3 — DuckDB-Wasm
 
-### Step 3 — DuckDB-Wasm infrastructure
+- [ ] Bundle worker/WASM assets.
+- [ ] Query remote `.parquet` directly.
+- [ ] Implement projection/filter/sort/limit.
+- [ ] Add streamed Arrow batches.
 
-- [ ] Bundle DuckDB worker/WASM assets with Vite.
-- [ ] Create singleton async DuckDB client.
-- [ ] Query remote `.parquet` URL directly.
-- [ ] Implement `describe()`.
-- [ ] Implement projection, filters, sort, limit.
-- [ ] Ensure connection/statement cleanup.
+### Step 4 — Path resolution
 
-### Step 4 — Dataset resolution
+- [ ] Use direct readable URL in local/dev when safe.
+- [ ] Otherwise resolve allow-listed logical paths to short-lived presigned URLs.
+- [ ] Keep `_metadata` reads read-only and credential-free for the browser.
 
-- [ ] Start with configured development base URL if MinIO objects are directly readable.
-- [ ] Otherwise add a core endpoint that accepts an allow-listed logical dataset path and returns a short-lived read-only URL.
-- [ ] Never return object-storage credentials.
-- [ ] Reject path traversal and paths outside `stock-data` allow-list.
+### Step 5 — Dataset drill-down
 
-### Step 5 — Table viewer
-
-- [ ] Dynamic columns from physical schema.
-- [ ] Friendly metadata from known Omni field definitions.
-- [ ] Generic fallback for unknown/additive fields.
-- [ ] Limit selector: 100/200/500/1000.
-- [ ] Sorting and basic typed filters.
-- [ ] JSON cell renderer for contributor maps and nested values.
-- [ ] Loading, empty, schema mismatch, expired URL and CORS errors.
-
-### Step 6 — Stream result batches
-
-- [ ] Add `connection.send()` implementation.
-- [ ] Consume Arrow batches without materializing the entire query result.
-- [ ] Cancel active query when dataset/filter changes.
-- [ ] Keep only the required table window in React state.
-
-## V1 Internal Data Tool Expansion
-
-After Parquet Viewer is stable:
-
-- dataset catalog/browser;
-- EOD viewer;
-- indicators viewer;
-- signal viewer;
-- symbol/sector feature viewer;
-- Sector Transition prediction/outcome viewer;
-- job execution status/history;
-- saved queries/views;
-- export selected result to CSV.
+- [ ] Click manifest -> open Parquet Viewer using manifest `path`.
+- [ ] Compare physical schema with manifest/known fields.
+- [ ] Show schema/freshness mismatch warnings.
 
 ## Acceptance Criteria
 
-- Browser can open a logical Omni Parquet path without backend row conversion.
-- Remote Parquet is queried directly by DuckDB-Wasm.
-- Query projects only requested columns and uses limits/filters before rendering.
-- Large query results can be consumed as Arrow batches.
-- FE works with both known and additional unknown Parquet columns.
-- Private MinIO credentials never reach the browser.
-- Dataset URL/path access is read-only and allow-listed.
-- Table remains responsive for the intended internal-tool result window.
+- UI can load dataset statistics from MinIO metadata manifests without scanning all data objects.
+- No PostgreSQL/Redis metadata cache is required.
+- Browser can query remote Parquet directly with DuckDB-Wasm.
+- Private object-storage credentials never reach the browser.
+- Unknown additive Parquet fields remain inspectable.
+- A READY manifest can be drilled directly into its physical Parquet data.

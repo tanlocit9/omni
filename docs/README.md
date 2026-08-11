@@ -1,68 +1,53 @@
 # Omni Documentation
 
-This directory is the documentation entry point for Omni. It is designed to help a new developer understand the system in about 30 minutes without reading implementation-level code first.
+This directory is the documentation entry point for Omni. It is designed to help a new developer understand the system without reading implementation-level code first.
 
 ## Start Here
 
 1. [System overview](architecture/system-overview.md) — service boundaries, infrastructure, and ownership.
 2. [Where to change](development/where-to-change.md) — which project/file area to start from for common changes.
-3. [Kafka contracts](data/kafka-contracts.md) — canonical topic and message-contract map.
-4. [Data lake](data/data-lake.md) — canonical Parquet dataset and path ownership map.
-5. [Job execution](flows/job-execution.md) — how Platform schedules work and aggregates worker status.
+3. [Kafka contracts](data/kafka-contracts.md) — canonical topic/message map.
+4. [Data lake](data/data-lake.md) — canonical Parquet dataset/path ownership.
+5. [Job execution](flows/job-execution.md) — scheduler/worker execution flow.
+6. [Implementation plan standard](IMPLEMENTATION_PLAN_STANDARD.md) — mandatory plan/outcome/feature/contract/agent-guidance format.
+7. [Next phase roadmap](NEXT_PHASE_IMPLEMENTATION_PLAN.md) — current execution order.
 
-## Documentation Map
+## Contract / Coordination Plans
 
-```mermaid
-flowchart TD
-  Docs["docs/README.md"]
-  Overview["architecture/system-overview.md"]
-  Navigation["development/where-to-change.md"]
-  Kafka["data/kafka-contracts.md"]
-  Lake["data/data-lake.md"]
-  Database["data/database.md"]
-  JobFlow["flows/job-execution.md"]
-  StockFlow["flows/stock-sync.md"]
-  IndicatorFlow["flows/indicator-signal.md"]
-  SectorFlow["flows/sector-wave.md"]
-  ADR["adr/*.md"]
-  Services["service README files"]
+- [Cross-Service Proto3 Contracts](CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md)
+- [Dataset Metadata Manifest](DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md)
+- [Job Dependency Guard](JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md)
+- [Portable Docker Deployment](PORTABLE_DOCKER_DEPLOYMENT_IMPLEMENTATION_PLAN.md)
 
-  Docs --> Overview
-  Docs --> Navigation
-  Docs --> Kafka
-  Docs --> Lake
-  Docs --> Database
-  Overview --> JobFlow
-  JobFlow --> StockFlow
-  JobFlow --> IndicatorFlow
-  JobFlow --> SectorFlow
-  Kafka --> JobFlow
-  Lake --> StockFlow
-  Lake --> IndicatorFlow
-  Lake --> SectorFlow
-  Overview --> Services
-  Overview --> ADR
-```
+## Data / Product Plans
+
+- [Internal Tools / Parquet Viewer](INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md)
+- [Intraday EOD](INTRADAY_EOD_IMPLEMENTATION_PLAN.md)
+- [Realtime Per-Tick](REALTIME_PER_TICK_IMPLEMENTATION_PLAN.md)
+- [Telegram Multi-Channel](TELEGRAM_MULTI_CHANNEL_IMPLEMENTATION_PLAN.md)
+- [Backend/Core Stabilization](BACKEND_CORE_STABILIZATION_IMPLEMENTATION_PLAN.md)
+- [Algorithm Feature Catalog](ALGORITHM_FEATURE_CATALOG.md)
 
 ## Canonical Documents
 
-| Topic                  | Canonical document                                                 | Source of truth                                                                                                                              |
-| ---------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| System boundaries      | [architecture/system-overview.md](architecture/system-overview.md) | [`apps`](../apps) and [`libs`](../libs)                                                                                                      |
-| Developer navigation   | [development/where-to-change.md](development/where-to-change.md)   | Current project layout                                                                                                                       |
-| Kafka topics/contracts | [data/kafka-contracts.md](data/kafka-contracts.md)                 | [`configs/shared/topics.yaml`](../configs/shared/topics.yaml)                                                                                |
-| Parquet datasets/paths | [data/data-lake.md](data/data-lake.md)                             | [`configs/shared/s3-paths.yaml`](../configs/shared/s3-paths.yaml)                                                                            |
-| Database domains       | [data/database.md](data/database.md)                               | [`database/migrations`](../database/migrations)                                                                                              |
-| Architecture decisions | [adr](adr)                                                         | Accepted ADR files                                                                                                                           |
-| Service details        | Service READMEs                                                    | [`apps/core`](../apps/core), [`apps/analyzer`](../apps/analyzer), [`apps/ingestor`](../apps/ingestor), [`libs/py-common`](../libs/py-common) |
+| Topic | Canonical document | Source of truth |
+| --- | --- | --- |
+| System boundaries | [architecture/system-overview.md](architecture/system-overview.md) | `apps/`, `libs/`, `contracts/` |
+| Developer navigation | [development/where-to-change.md](development/where-to-change.md) | Current project layout |
+| Kafka topics/contracts | [data/kafka-contracts.md](data/kafka-contracts.md) | topic config + `contracts/proto` after migration |
+| Parquet datasets/paths | [data/data-lake.md](data/data-lake.md) | `configs/shared/s3-paths.yaml` + manifests |
+| Database domains | [data/database.md](data/database.md) | `database/migrations` |
+| Architecture decisions | [adr](adr) | Accepted ADR files |
+| Implementation-plan rules | [IMPLEMENTATION_PLAN_STANDARD.md](IMPLEMENTATION_PLAN_STANDARD.md) | Repository planning policy |
 
 ## Documentation Rules
 
-- Prefer Mermaid diagrams and tables over long prose.
+- Prefer Mermaid diagrams/tables over long prose.
 - Keep one canonical document per concept.
-- Do not duplicate Kafka topic or S3 path details outside the data docs; link to the canonical contract instead.
-- Document flow-level behavior, not every class or method.
-- When a large flow changes, update the matching file under [flows](flows).
-- When Kafka or storage contracts change, update [data/kafka-contracts.md](data/kafka-contracts.md) or [data/data-lake.md](data/data-lake.md).
-- When service responsibility changes, update the related service README.
-- Review docs together with code when architecture, storage, or contract behavior changes.
+- Do not duplicate Kafka topic or S3 path details outside canonical data docs.
+- Flow changes update the matching document under `flows/`.
+- Kafka/contract changes update `data/kafka-contracts.md` and the canonical proto definitions.
+- Storage/manifest changes update `data/data-lake.md`.
+- Service responsibility changes update the related service README.
+- Every implementation plan follows `IMPLEMENTATION_PLAN_STANDARD.md`.
+- Architecture/contract/workflow changes must review `AGENTS.md`, `CLAUDE.md` and `.roo/rules/` so coding-agent guidance does not drift from the codebase.

@@ -2,91 +2,53 @@
 
 ## Goal
 
-Store dataset metadata in the same MinIO/S3-compatible object storage as Omni analytical data.
+Store dataset statistics, readiness and version lineage in the same S3-compatible object storage as Omni analytical data.
 
-Do not introduce PostgreSQL or Redis as the source of truth for dataset statistics in V1.
-
-The metadata layer must let Internal Tools and downstream jobs answer common questions without scanning every Parquet object:
-
-- how many objects exist;
-- total byte size;
-- total row count;
-- schema/column count;
-- min/max trading date or timestamp;
-- last successful update;
-- dataset readiness/freshness;
-- physical data paths/globs.
+Do not introduce PostgreSQL/Redis as the source of truth for dataset statistics in V1.
 
 ## Outcome
 
-After this phase Omni has an object-storage-native dataset catalog where metadata travels with the data lifecycle.
+After this phase Internal Tools and downstream jobs can answer, using small JSON object reads:
 
-The same manifests can be used by:
+- object count / total bytes / total rows;
+- schema/column information;
+- min/max date or timestamp;
+- READY state and last successful generation;
+- deterministic dataset `dataVersion`;
+- which upstream dataset versions produced the current output;
+- physical data path/glob for authorized data access.
 
-- Internal Tools dataset browser;
-- scheduler/data dependency readiness checks;
-- data-quality validation;
-- intraday/realtime reconciliation;
-- future feature registry/catalog tooling.
-
-No cache database is required for V1.
+The manifest becomes both a fast UI metadata source and the primary dataset dependency/readiness contract.
 
 ## Dataset Outputs
 
-Metadata is stored inside the `stock-data` bucket under a reserved prefix:
+No new market dataset is required by the metadata layer itself.
+
+Metadata objects:
 
 ```text
-stock-data/
-  _metadata/
-    catalog.json
-    datasets/
-      eod/...
-      indicators/...
-      sector-features/...
-      intraday-trades/...
-      intraday-bars/...
-      intraday-features/...
-      realtime-ticks/...
+_metadata/catalog.json
+_metadata/datasets/<dataset>/<partition>.json
 ```
 
-Example partition manifest:
-
-```text
-stock-data/_metadata/datasets/
-  intraday-bars/
-    timeframe=1m/
-      date=2026-08-11/
-        exchange=HOSE.json
-```
-
-Corresponding data:
-
-```text
-stock-data/intraday/bars/
-  timeframe=1m/
-    date=2026-08-11/
-      exchange=HOSE/
-        part-000.parquet
-        part-001.parquet
-```
-
-Keep metadata outside the data prefix so DuckDB Parquet globs remain clean.
+Keep `_metadata/` outside Parquet data prefixes so DuckDB globs remain clean.
 
 ## Manifest Schema
 
-Recommended V1 JSON:
+Recommended V1 shape:
 
 ```json
 {
   "version": 1,
   "dataset": "intraday-bars",
-  "path": "intraday/bars/timeframe=1m/date=2026-08-11/exchange=HOSE/*.parquet",
   "partition": {
     "timeframe": "1m",
     "date": "2026-08-11",
     "exchange": "HOSE"
   },
   "status": "READY",
+  "path": "intraday/bars/timeframe=1m/date=2026-08-11/exchange=HOSE/*.parquet",
+  "dataVersion": "sha256:...",
   "objectCount": 2,
   "totalBytes": 18342112,
   "rowCount": 184210,
@@ -96,51 +58,72 @@ Recommended V1 JSON:
     {"name": "symbol", "type": "VARCHAR"},
     {"name": "close", "type": "DOUBLE"}
   ],
+  "schemaVersion": 1,
+  "schemaHash": "sha256:...",
   "minTimestamp": "2026-08-11T09:00:00+07:00",
   "maxTimestamp": "2026-08-11T14:45:00+07:00",
-  "schemaHash": "...",
+  "inputs": [
+    {
+      "dataset": "intraday-trades",
+      "partition": {
+        "date": "2026-08-11",
+        "exchange": "HOSE"
+      },
+      "dataVersion": "sha256:..."
+    }
+  ],
   "sourceExecutionId": "...",
   "generatedAt": "2026-08-11T15:30:00+07:00"
 }
 ```
 
-Fields can remain nullable when they do not apply to a dataset.
+Nullable fields are allowed where not applicable.
+
+## `dataVersion` Semantics
+
+`generatedAt` is not a sufficient data version because an idempotent retry with unchanged contents should not necessarily invalidate every downstream dataset.
+
+Prefer a deterministic fingerprint based on canonical output identity/content metadata, for example:
+
+```text
+sha256(
+  dataset
+  + normalized partition
+  + schemaHash
+  + ordered object keys/checksums-or-ETags
+)
+```
+
+The exact canonicalization must be defined and tested once in shared storage code.
+
+Downstream manifests copy each upstream `dataVersion` into `inputs[]`.
+
+This enables `CURRENT_INPUTS` checks without reading Parquet.
 
 ## Write / Commit Semantics
 
-The manifest is written **last** and acts as the dataset READY marker.
+Manifest is written **last**:
 
 ```text
 write data objects
-      |
-      v
-validate output
-      |
-      v
-calculate metadata
-      |
-      v
-PUT metadata manifest
-      |
-      v
-consumer sees READY dataset
+   -> validate
+   -> calculate stats/schema/dataVersion
+   -> PUT READY manifest
+   -> consumers may use partition
 ```
 
 Rules:
 
-1. Never publish a new READY manifest before the corresponding data is valid.
-2. Failed writers must leave the previous successful manifest untouched when possible.
-3. Reprocessing the same partition replaces its manifest idempotently.
-4. `generatedAt` describes manifest generation time; trading/evaluation time remains separate.
-5. Downstream freshness checks should read the manifest rather than list the full data prefix.
-
-This gives Omni a lightweight commit marker without introducing a transaction database.
+1. Never publish READY before data validation succeeds.
+2. Failed rewrites leave the last successful manifest untouched when possible.
+3. Reprocessing a partition replaces its manifest idempotently.
+4. `generatedAt` is operational time; trading/evaluation time belongs in the partition/data.
+5. Readiness checks use manifest reads, not full prefix scans.
+6. `inputs[]` must contain the exact upstream data versions actually consumed.
 
 ## Catalog
 
-`stock-data/_metadata/catalog.json` contains stable dataset definitions, not frequently changing aggregate counters.
-
-Example:
+`_metadata/catalog.json` stores stable dataset definitions:
 
 ```json
 {
@@ -150,177 +133,118 @@ Example:
       "name": "intraday-bars",
       "metadataPrefix": "_metadata/datasets/intraday-bars/",
       "dataPrefix": "intraday/bars/"
-    },
-    {
-      "name": "sector-features",
-      "metadataPrefix": "_metadata/datasets/sector-features/",
-      "dataPrefix": "sector-features/"
     }
   ]
 }
 ```
 
-Internal Tools can list the much smaller metadata prefix and aggregate manifests instead of scanning all Parquet objects.
+Avoid one globally-mutated counter/statistics object updated by every data writer.
 
-Avoid one global mutable statistics file updated by every writer; that would create a read-modify-write race as data volume and parallelism increase.
+## Shared Contract Placement
 
-## Metadata Writer Abstraction
+Persisted manifest contract remains JSON.
 
-Put reusable object-storage metadata logic in `py_common` when Python writers own the output.
+Shared Python writer/read/path logic belongs in `py_common`.
 
-Suggested abstraction:
+Platform may have a small read-only Java manifest client/adapter for scheduler/Internal Tools APIs.
 
-```python
-class DatasetManifestWriter:
-    async def write_manifest(self, manifest: DatasetManifest) -> None: ...
-```
+Cross-service Kafka references to datasets use protobuf `DatasetRef`/`DatasetOutput`; protobuf does not replace the persisted JSON manifest.
 
-Shared responsibilities:
-
-- stable manifest path generation;
-- schema serialization;
-- byte/object/row aggregation;
-- validation of required metadata fields;
-- JSON serialization;
-- idempotent object PUT.
-
-Do not duplicate manifest JSON construction across analyzer/ingestor handlers.
-
-Java/core may have a small read-only manifest client for readiness/UI access when needed.
-
-## Internal Tools Access
-
-Preferred V1:
-
-```text
-UI
-  -> metadata resolver/read endpoint
-  -> MinIO _metadata manifests
-```
-
-For trusted/local development, manifests may also be read directly through short-lived presigned URLs.
-
-Backend must not calculate stats by scanning all data objects on every UI request.
-
-UI dataset summary can display:
-
-```text
-Dataset          intraday-bars / 1m
-Objects          2
-Size             17.5 MB
-Rows             184,210
-Columns          12
-Range            09:00 - 14:45
-Updated          15:30
-Status           READY
-```
+See `CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md`.
 
 ## Scheduler / Dependency Integration
 
-A job declaring:
-
-```json
-{
-  "dependsOnDatasets": ["intraday-bars:1m"]
-}
-```
-
-can validate:
-
-- manifest exists;
-- `status == READY`;
-- required partition/date exists;
-- schema version is supported;
-- `generatedAt`/evaluation date satisfies freshness rules.
-
-This should replace repeated object-prefix scans for dependency checks.
-
-## Intraday / Realtime Integration
-
-### Intraday EOD
-
-Each completed `date + exchange + timeframe` partition writes one manifest.
-
-### Realtime tick archive
-
-Micro-batch part files do not need a global manifest update for every tiny flush.
-
-Preferred flow:
+Dependency guard can validate:
 
 ```text
-micro-batch parts
-  -> temporary/session metadata if needed
-  -> EOD compaction
-  -> validated canonical parts
-  -> final READY manifest
+EXISTS
+READY
+PARTITION_MATCH
+MIN_ROW_COUNT
+SUPPORTED_SCHEMA_VERSION
+MAX_FRESHNESS_LAG
+CURRENT_INPUTS
 ```
 
-This avoids turning the manifest itself into a high-frequency hot object.
+`CURRENT_INPUTS` compares downstream `inputs[].dataVersion` with current upstream manifests.
+
+See `JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md`.
+
+## Internal Tools
+
+Dataset Browser reads manifests for fast cards/tables:
+
+```text
+Dataset
+Status
+Objects
+Size
+Rows
+Columns
+Range
+Generated At
+Data Version
+Input Versions / lineage
+```
+
+Only when the user drills into data should DuckDB-Wasm query the Parquet objects.
+
+## Intraday / Realtime
+
+Intraday EOD publishes one READY manifest per completed partition.
+
+Realtime micro-batches do not rewrite the canonical manifest for every flush. Publish final session READY metadata after compaction/reconciliation.
 
 ## Algorithm Feature Outputs
 
 No direct market algorithm feature output.
 
-Metadata fields may become data-quality inputs, not trading features:
-
-- `rowCount`;
-- `objectCount`;
-- `totalBytes`;
-- `minTimestamp` / `maxTimestamp`;
-- freshness lag;
-- schema/version identifiers.
-
-Do not mix these operational/data-quality values into price/market feature datasets unless a later algorithm explicitly models data quality.
+Operational/data-quality values such as row count, freshness and versions are not market features unless a later research model explicitly chooses to use them.
 
 ## Algorithms Unlocked
 
-No trading algorithm is directly unlocked.
-
-The metadata layer indirectly enables safer:
-
-- backtests with dataset completeness checks;
-- sector/intraday pipelines with freshness validation;
-- realtime-vs-batch reconciliation;
-- automated feature input validation.
+No trading algorithm directly. The layer enables safer backtests, dependency-aware pipelines, realtime/batch reconciliation and feature input validation.
 
 ## Implementation Steps
 
-### Step 1 — Shared contract
+1. Define JSON DatasetManifest schema including `dataVersion` and `inputs[]`.
+2. Add shared deterministic manifest/data-version builder in `py_common`.
+3. Reserve `_metadata/` paths in shared storage config.
+4. Integrate writer-last manifest publishing into important existing/new datasets.
+5. Add Platform read client for dependency checks.
+6. Add Internal Tools manifest/lineage display.
+7. Add dependency guard conditions, especially `CURRENT_INPUTS`.
+8. Keep realtime micro-batch writes off the canonical manifest hot path.
 
-- [ ] Add `DatasetManifest` model in `py_common`.
-- [ ] Add stable manifest path builder.
-- [ ] Reserve `_metadata/` prefix.
-- [ ] Add `catalog.json` schema.
+## Repository Guidance Updates
 
-### Step 2 — Writer integration
+Implementation must review/update:
 
-- [ ] Write manifest after successful Parquet validation.
-- [ ] Start with new intraday datasets and important existing analytical datasets.
-- [ ] Preserve previous READY manifest on failed rewrite.
+```text
+AGENTS.md
+CLAUDE.md when storage/tool workflow guidance changes
+.roo/rules/
+docs/data/data-lake.md
+docs/flows/job-execution.md
+```
 
-### Step 3 — Internal Tools
+Guidance must describe READY-last semantics, centralized S3/R2 metadata, `dataVersion` lineage and the rule against scanning Parquet merely to test readiness.
 
-- [ ] Read catalog/manifest objects.
-- [ ] Show count, size, rows, schema, date range and freshness.
-- [ ] Drill from manifest into direct Parquet query.
+## Verification
 
-### Step 4 — Dependency guard
-
-- [ ] Resolve required dataset manifest by evaluation date/timeframe.
-- [ ] Fail/skip clearly when manifest is missing or stale.
-- [ ] Include readiness reason in job metadata/operations notification.
-
-### Step 5 — Realtime compatibility
-
-- [ ] Do not update canonical manifest per tick/micro-batch.
-- [ ] Publish final session manifest after compaction/reconciliation.
+- deterministic `dataVersion` tests;
+- manifest serialization/schema tests;
+- failed-write preserves old READY manifest test;
+- CURRENT_INPUTS lineage tests;
+- S3/R2/MinIO compatibility tests where supported;
+- targeted/affected Nx checks.
 
 ## Acceptance Criteria
 
-- Dataset metadata is persisted in MinIO, not PostgreSQL/Redis.
-- UI can obtain common dataset stats without scanning every Parquet object.
-- Manifest is written only after corresponding data validates successfully.
-- Manifest paths are deterministic and idempotent.
-- Downstream jobs can use manifests for readiness/freshness checks.
-- Realtime micro-batching does not create a metadata hot-write bottleneck.
-- Metadata storage remains compatible with both MinIO and AWS S3.
+- common dataset stats/readiness are available from JSON manifests;
+- `dataVersion` is deterministic for equivalent canonical output;
+- downstream manifests record exact upstream versions consumed;
+- dependency checks require no normal Parquet prefix scan;
+- metadata works with MinIO/S3/R2-compatible storage;
+- no PostgreSQL/Redis metadata cache is required;
+- repository guidance and Zoo Code rules are synchronized.

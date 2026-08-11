@@ -2,140 +2,126 @@
 
 ## Direction
 
-The roadmap should make compute disposable, centralize persistent data in object storage, then increase data frequency.
+Make contracts and data readiness deterministic first, then make compute portable, then increase market-data frequency.
 
 ```text
-Backend/data correctness
-        |
-        v
-MinIO/S3-compatible dataset manifests
-        |
-        v
+Backend correctness
+      |
+      v
+Proto3 cross-service contracts
+      |
+      v
+Dataset manifests + dataVersion lineage
+      |
+      v
+Job dependency guard
+      |
+      v
 Portable containers + centralized S3/R2
-        |
-        v
+      |
+      v
 Internal Tools / shared data visibility
-        |
-        v
-Intraday EOD historical data
-        |
-        v
-1m/5m/15m reusable features
-        |
-        v
-Realtime per-tick pipeline
-        |
-        v
-Realtime signal/sector algorithms
+      |
+      v
+Intraday EOD
+      |
+      v
+Realtime per-tick
 ```
 
 ## Outcome
 
-After these phases Omni becomes a portable multi-frequency research platform where:
+After these phases Omni has:
 
-- compute hosts can be replaced without copying the data lake;
-- canonical Parquet datasets and manifests live in S3/R2;
-- PostgreSQL is recoverable from object-storage backups;
-- developers can consume the same canonical datasets from local or cloud containers;
-- daily + intraday + future realtime algorithms share one feature vocabulary.
+- one typed contract source shared by Java/Python services;
+- object-storage-native readiness/version/lineage metadata;
+- dependency-safe scheduling without relying on fixed cron gaps;
+- disposable compute with canonical data centralized in S3/R2;
+- shared visibility/backtesting inputs across developers;
+- a consistent feature vocabulary from daily to realtime.
 
 ## Phase 1 — Backend/Core Stabilization
 
 See `BACKEND_CORE_STABILIZATION_IMPLEMENTATION_PLAN.md`.
 
+Focus on correctness blockers that must be fixed regardless of later architecture:
+
+- due-job query correctness;
+- multi-sector universe alignment;
+- single logical writer for shared Sector Transition outputs;
+- atomic scheduler claiming.
+
+## Phase 2 — Cross-Service Proto3 Contracts
+
+See `CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md`.
+
 ### Outcome
 
-- scheduler correctness;
-- aligned multi-sector feature universe;
-- single logical Sector Transition writer;
-- safer job execution/dependency semantics.
+- canonical `.proto` source under `contracts/proto`;
+- generated Java/Python types;
+- Buf lint/breaking/generate through Nx;
+- typed JobCommand/JobStatus/DatasetRef foundation;
+- future MarketTick contract direction.
 
 ### Algorithm Feature Outputs
 
-No new formula is required; this phase protects existing symbol/sector feature correctness.
+No direct algorithm feature output.
 
-## Phase 2 — Dataset Metadata Manifests
+## Phase 3 — Dataset Metadata / Version Lineage
 
 See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
 
 ### Outcome
 
-Dataset statistics/readiness live under `_metadata/` in S3-compatible object storage and can be read without scanning every Parquet object.
-
-### Dataset Outputs
-
-```text
-_metadata/catalog.json
-_metadata/datasets/...
-```
+Canonical datasets publish JSON READY manifests under `_metadata/` with fast stats plus `dataVersion` and upstream input lineage.
 
 ### Algorithm Feature Outputs
 
 No direct market feature output.
 
-## Phase 3 — Portable Containers + Central Object Storage
+## Phase 4 — Job Dependency Guard
+
+See `JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md`.
+
+### Outcome
+
+Due jobs run only when required manifests satisfy readiness/current-input conditions. BLOCKED dependencies are deferred rather than reported as failed executions.
+
+### Algorithm Feature Outputs
+
+No direct market feature output.
+
+## Phase 5 — Portable Containers + Central Object Storage
 
 See `PORTABLE_DOCKER_DEPLOYMENT_IMPLEMENTATION_PLAN.md`.
 
 ### Outcome
 
-- application images are pulled from GHCR;
-- production compute runs without local MinIO;
-- Parquet + manifests are centralized in AWS S3/Cloudflare R2;
-- PostgreSQL is backed up to object storage and restored explicitly on a fresh host;
-- planned machine migration requires no data-lake copy;
-- developers can run the same containers against the same canonical read-only datasets.
+- immutable application images from GHCR;
+- cloud profile without local MinIO;
+- Parquet/manifests centralized in S3/R2;
+- PostgreSQL backup/restore from object storage;
+- new compute hosts require no data-lake migration.
 
-### Dataset Outputs
-
-No new market dataset.
-
-Operational objects:
-
-```text
-backups/postgres/<environment>/...
-backups/postgres/<environment>/latest.json
-```
-
-### Algorithm Feature Outputs
-
-No direct algorithm feature output.
-
-This phase makes later feature/backtest results reproducible across machines.
-
-## Phase 4 — Internal Tools / Parquet Viewer
+## Phase 6 — Internal Tools / Parquet Viewer
 
 See `INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md`.
 
 ### Outcome
 
-Developers can browse centralized dataset manifests and query Parquet directly using DuckDB-Wasm without backend row conversion.
+Developers browse manifests/dependency status and query canonical Parquet directly using DuckDB-Wasm.
 
-### Algorithm Feature Outputs
-
-No direct algorithm feature output.
-
-## Phase 5 — Telegram Channel Separation
+## Phase 7 — Telegram Channel Separation
 
 See `TELEGRAM_MULTI_CHANNEL_IMPLEMENTATION_PLAN.md`.
 
-### Outcome
+Operational and market-signal destinations remain separate.
 
-Operational notifications and market signal notifications are separated into `OPERATIONS` and `SIGNALS` destinations.
-
-### Algorithm Feature Outputs
-
-No direct algorithm feature output.
-
-## Phase 6 — Intraday EOD
+## Phase 8 — Intraday EOD
 
 See `INTRADAY_EOD_IMPLEMENTATION_PLAN.md`.
 
-### Outcome
-
-Complete intraday sessions become deterministic 1m/5m/15m datasets with READY object-storage manifests.
-
-### Key Algorithm Feature Outputs
+Key feature outputs include:
 
 ```text
 return_1m
@@ -150,17 +136,13 @@ opening_range_position
 opening_range_breakout
 ```
 
-## Phase 7 — Realtime Per-Tick
+## Phase 9 — Realtime Per-Tick
 
 See `REALTIME_PER_TICK_IMPLEMENTATION_PLAN.md`.
 
-Start only after Intraday EOD schemas/features are stable.
+Start only after intraday schemas/features and protobuf event contracts are stable.
 
-### Outcome
-
-Ticks become replayable through Kafka, archived to S3/R2 in micro-batches, compacted/reconciled at EOD, then published with a final READY manifest.
-
-### Key Algorithm Feature Outputs
+Key feature outputs include:
 
 ```text
 ticks_1s
@@ -174,45 +156,51 @@ micro_momentum_30s
 sector_tick_intensity
 ```
 
-## Cross-Phase Contracts
+## Cross-Phase Contract
 
-See:
+All implementation plans follow `IMPLEMENTATION_PLAN_STANDARD.md`.
 
-- `IMPLEMENTATION_PLAN_STANDARD.md`
-- `ALGORITHM_FEATURE_CATALOG.md`
-- `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`
-
-Data plans must state:
+Every implementation/review must explicitly cover:
 
 1. Outcome;
 2. Dataset Outputs;
-3. Metadata Outputs/readiness semantics;
+3. Metadata Outputs;
 4. Algorithm Feature Outputs;
-5. Algorithms Unlocked.
+5. Contract Impact;
+6. Repository Guidance Updates;
+7. Verification;
+8. Acceptance Criteria.
+
+`Repository Guidance Updates` requires reviewing `AGENTS.md`, `CLAUDE.md` and Zoo Code workspace rules under `.roo/rules/` whenever the phase changes architecture/contracts/workflows.
 
 ## Recommended Execution Order
 
 ```text
 1. Backend correctness blockers
-2. Shared DatasetManifest + _metadata path contract
-3. External S3/R2 production storage configuration
-4. Production Docker images + cloud Compose profile
-5. PostgreSQL backup/restore to object storage
-6. Rehearse clean-host restore/migration
-7. Internal Tools Dataset Browser + Parquet Viewer
-8. Telegram routing split
-9. SYNC_INTRADAY_EOD
-10. BUILD_INTRADAY_BARS 1m/5m/15m
-11. BUILD_INTRADAY_FEATURES
-12. Intraday sector aggregation
-13. Provider realtime capability spike
-14. market-ticks.raw Kafka pipeline
-15. realtime archive + compaction + reconciliation
-16. realtime signal/sector consumers
+2. Create contracts Nx project + Buf config
+3. Introduce JobCommand / JobStatus / DatasetRef proto3 contracts
+4. Migrate producer/consumer boundaries incrementally
+5. Add DatasetManifest dataVersion + input lineage
+6. Implement manifest-based JobDependencyGuard
+7. Enforce dependencies for selected analytical jobs
+8. Configure centralized S3/R2
+9. Production Docker images + cloud Compose
+10. PostgreSQL backup/restore rehearsal
+11. Internal Tools Dataset/Dependency Browser
+12. Telegram routing split
+13. SYNC_INTRADAY_EOD
+14. BUILD_INTRADAY_BARS / FEATURES
+15. Intraday sector aggregation
+16. MarketTick proto + realtime provider spike
+17. market-ticks.raw Kafka pipeline
+18. realtime archive/reconciliation
+19. realtime signal/sector consumers
 ```
 
-Do not add Redis/PostgreSQL only to cache dataset statistics in V1. Object-storage manifests are the metadata source of truth.
+Do not add a full DAG orchestrator, Redis metadata cache, Kubernetes/ECS, or AI/ML as a prerequisite for these phases.
 
-Do not make local MinIO a production migration dependency. MinIO remains a local/offline development profile; production data is centralized in S3/R2.
+## Repository Guidance Policy
 
-Do not add AI/ML as a dependency for these phases. Establish deterministic, backtestable features and labels first.
+All phase plans inherit the guidance-sync requirement even if an older document does not yet contain an explicit section.
+
+When an older plan is implemented or materially edited, add its `Repository Guidance Updates` section and synchronize relevant files in the same change.

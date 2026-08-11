@@ -24,74 +24,23 @@ nx run <project_name>:<target>
 
 When adding, removing, installing, syncing, locking, or updating dependencies, use the matching Nx target if it exists.
 
-Examples:
-
-```bash
-nx run analyzer:add --name="pandas>=2.2.0"
-nx run ingestor:remove --name="requests"
-nx run py-common:sync
-nx run analyzer:lock
-```
-
-Do not run underlying package managers directly when an equivalent Nx target exists:
-
-- Do not run `uv add` directly when `<project>:add` exists.
-- Do not run `uv remove` directly when `<project>:remove` exists.
-- Do not run `uv sync` directly when `<project>:sync` exists.
-- Do not run `uv lock` directly when `<project>:lock` exists.
-- Do not run `pip install`, `npm install`, Gradle, Maven, pytest, ruff, or uvicorn directly when a matching Nx target exists.
+Do not run underlying package managers directly when an equivalent Nx target exists.
 
 ### Development and verification
 
-Use the corresponding Nx target instead of calling the underlying tool directly:
+Use corresponding Nx targets for build/test/lint/format/serve/package/deploy. If additional arguments are required, forward them after `--`.
 
-- Build: `nx run <project_name>:build`
-- Test: `nx run <project_name>:test`
-- Lint: `nx run <project_name>:lint`
-- Format: `nx run <project_name>:format`
-- Serve: `nx run <project_name>:serve`
-- Serve with HMR: `nx run <project_name>:serve-hmr`
-- Debug: `nx run <project_name>:debug`
-- Package: `nx run <project_name>:package`
-- Deploy: `nx run <project_name>:deploy`
-
-If additional arguments are required, forward them after `--`.
-
-Only use the underlying tool directly when no suitable Nx target exists. In that case:
-
-1. State that the Nx target is unavailable.
-2. Use the narrowest required command.
-3. Consider adding a reusable Nx target if the operation will be repeated.
+Only use the underlying tool directly when no suitable Nx target exists. State that the target is unavailable and consider adding a reusable target when the operation will be repeated.
 
 ## PowerShell Execution Rule
 
-When using terminal commands that require PowerShell syntax or PowerShell-only features, wrap the full command with `powershell -NoProfile -Command "..."`.
-
-This applies to PowerShell cmdlets and expressions such as `Get-ChildItem`, `Select-String`, `Test-Path`, `ForEach-Object`, `-ErrorAction`, PowerShell object pipelines, and `.ps1` scripts.
-
-Correct examples:
+When terminal work requires PowerShell syntax or PowerShell-only features, wrap the full command with:
 
 ```text
-powershell -NoProfile -Command "Get-ChildItem -Recurse -File -Path docs -Filter *.md"
-powershell -NoProfile -Command "Select-String -Path AGENTS.md -Pattern 'PowerShell'"
-powershell -NoProfile -Command "Test-Path docs/README.md"
+powershell -NoProfile -Command "..."
 ```
 
-Incorrect examples:
-
-```text
-Get-ChildItem -Recurse -File -Path docs -Filter *.md
-Select-String -Path AGENTS.md -Pattern 'PowerShell'
-Test-Path docs/README.md
-```
-
-Do not wrap native Nx commands solely because this rule exists. Use `nx run <project>:<target>` directly when no PowerShell syntax is required. If PowerShell syntax is needed around an Nx command, wrap the whole expression:
-
-```text
-powershell -NoProfile -Command "nx run analyzer:test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }"
-```
-
-Before every `execute_command` call, check whether the command contains PowerShell syntax. If it does, the submitted command string must start with `powershell -NoProfile -Command`.
+Do not wrap native Nx commands solely because this rule exists.
 
 ## Code Review Graph Rules
 
@@ -99,111 +48,138 @@ This project provides `code-review-graph` MCP tools. Use them before manually sc
 
 Required workflow:
 
-- Use `semantic_search_nodes` or `query_graph` before Grep/Glob/manual reads when locating implementations, exploring unfamiliar code, or tracing classes, methods, interfaces, dependencies, producers, or consumers.
-- Use `get_impact_radius` before changing shared contracts, public methods, DTOs, events, Kafka messages, storage paths, or configuration.
-- Use `detect_changes` when reviewing commits, branches, pull requests, or uncommitted changes.
-- Use graph results to identify callers, downstream dependents, implementations, references, producers, consumers, tests, and documentation updates.
-- Fall back to file search only after graph tools identify relevant files or when graph data is unavailable.
+- `semantic_search_nodes` or `query_graph` first for unfamiliar implementations/dependencies;
+- `get_impact_radius` before changing shared contracts, public methods, DTOs, events, Kafka messages, storage paths or configuration;
+- `detect_changes` for commits/branches/PRs/uncommitted changes;
+- use graph results to identify callers, downstream dependents, producer/consumer pairs, tests and docs;
+- fall back to file search only when graph data is unavailable or after the graph narrows the files.
 
-Correct sequence for unfamiliar code:
+## Kafka / Cross-Service Contract Rule
 
-```text
-semantic_search_nodes or query_graph
-→ targeted read_file/search_files
-→ impact radius when changing contracts
-→ detect_changes after edits
-```
+When modifying Kafka producer/consumer code, inspect and update both sides of the contract.
 
-Incorrect sequence:
+Canonical direction after the protobuf migration:
 
 ```text
-search_files first for unfamiliar implementation
-→ edit shared contract
-→ skip impact radius
-→ skip detect_changes
+contracts/proto/**/*.proto
+  -> generated Java/Python types
+  -> service boundary adapters
 ```
 
-## Kafka Contract Rule
+Rules:
 
-When modifying Kafka producer or consumer code, inspect and update both sides of the contract.
+1. Cross-service Kafka payload schemas use canonical proto3 definitions under `contracts/proto` once the topic/message family is migrated.
+2. Do not maintain handwritten Java and Python DTO copies of a canonical protobuf message.
+3. Generated protobuf files must never be edited manually.
+4. Use the `contracts` Nx targets for format/lint/generate/breaking checks when available.
+5. Never change/reuse an existing protobuf field number.
+6. Deleted protobuf fields must reserve their old number and name.
+7. Every enum has an `*_UNSPECIFIED = 0` value.
+8. Prefer additive optional fields and versioned packages such as `omni.contracts.job.v1`.
+9. Producer and consumer migration must be rollout-safe; deploy compatible consumers before switching producers when needed.
+10. Update `docs/data/kafka-contracts.md` for transport-contract changes.
 
-This includes changes to:
+Do not force DatasetManifest into protobuf: persisted S3/R2 `_metadata/*.json` remains a separate JSON contract.
 
-- topic names;
-- message schemas and required fields;
-- serialization and deserialization;
-- validation rules;
-- metadata semantics;
-- error handling and status responses;
-- tests, configuration, and documentation.
-
-Required workflow:
-
-1. Identify the producer.
-2. Identify the consumer.
-3. Check shared payload/config abstractions.
-4. Run impact analysis for the changed contract.
-5. Update both sides in the same change.
-6. Update tests for both sides.
-7. Update [Kafka contracts](docs/data/kafka-contracts.md).
-8. Run `detect_changes` after edits.
-
-Never assume a producer-only or consumer-only change is safe without checking its impact through code-review-graph.
+See `docs/CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md`.
 
 ## Storage Contract Rule
 
-Do not put S3 bucket names or object paths into Kafka messages for routing. Workers derive object paths from shared path builders backed by [`configs/shared/s3-paths.yaml`](configs/shared/s3-paths.yaml).
+Do not put bucket names or physical object paths into Kafka messages for business routing. Services exchange logical dataset identifiers/partitions; shared path resolvers map them to S3/R2/MinIO paths.
 
-When changing storage paths or dataset ownership:
+When changing storage paths, dataset ownership, manifest schema, or READY semantics:
 
-1. Update shared config/path builders.
-2. Update all dataset producers and consumers.
-3. Update tests.
-4. Update [Data lake](docs/data/data-lake.md).
-5. Run impact analysis for affected storage contracts.
+1. update shared config/path/manifest builders;
+2. update all producers/consumers;
+3. update tests;
+4. update `docs/data/data-lake.md`;
+5. check impact radius;
+6. update agent/Zoo rules when the workflow rule itself changes.
+
+Normal readiness checks read dataset manifests rather than scanning full Parquet prefixes.
+
+## Job Dependency Rule
+
+Cron timing gaps are not dependency guarantees.
+
+A due job with hard data dependencies must pass the manifest-based dependency guard before execution is created/dispatched.
+
+Preferred semantics:
+
+```text
+dependsOnDatasets -> hard data readiness/currentness
+dependsOnJobs     -> operational/traceability dependency
+```
+
+A missing/stale upstream dataset is `BLOCKED`, not a failed job execution.
+
+Use current upstream `dataVersion` versus downstream `inputs[].dataVersion` for `CURRENT_INPUTS` checks.
+
+See `docs/JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md`.
 
 ## Shared Module Rule
 
-When introducing or modifying reusable object-oriented abstractions or design patterns, prefer the appropriate shared module instead of duplicating them inside individual applications.
+When introducing reusable hand-written object-oriented abstractions or design patterns:
 
-Placement rules:
+- Java/JVM reusable abstractions: prefer an appropriate shared/common package/module;
+- Python reusable abstractions: prefer `libs/py-common`;
+- language-neutral service contracts: `contracts/`;
+- keep app-specific business logic inside the owning application;
+- do not move code into shared merely because it might be reusable;
+- check impact radius for shared abstractions.
 
-- Java/JVM reusable abstractions: prefer an appropriate shared Java package/module.
-- Python reusable abstractions: prefer [`libs/py-common`](libs/py-common).
-- Keep application-specific business logic inside the owning application.
-- Do not move code into shared modules only because it might be reusable; there must be a clear cross-module responsibility.
-- Before creating a new abstraction, use code-review-graph to check whether an equivalent abstraction already exists.
-- When changing shared abstractions, check impact radius and verify all affected implementations, callers, tests, and docs.
+Generated protobuf code is derived output, not a location for hand-written patterns/business logic.
+
+## Implementation Plan / Agent Guidance Sync Rule
+
+Every implementation plan follows `docs/IMPLEMENTATION_PLAN_STANDARD.md`.
+
+A plan/implementation is not Done if repository guidance still describes the old architecture or workflow.
+
+For every material architecture/contract/workflow/tooling change, review:
+
+```text
+AGENTS.md
+CLAUDE.md
+.roo/rules/          # Zoo Code workspace rules
+relevant docs/flows, docs/data and service README files
+```
+
+When touching an older implementation plan that lacks `Contract Impact` or `Repository Guidance Updates`, add those sections.
+
+Keep agent rules concise and link to canonical docs rather than duplicating full plan prose.
 
 ## Documentation Rules
 
-- Documentation entry point: [docs/README.md](docs/README.md).
-- Architecture overview: [docs/architecture/system-overview.md](docs/architecture/system-overview.md).
-- Developer navigation: [docs/development/where-to-change.md](docs/development/where-to-change.md).
-- Flow changes: update the relevant document under [docs/flows](docs/flows).
-- Kafka contract changes: update [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md).
-- Storage contract changes: update [docs/data/data-lake.md](docs/data/data-lake.md).
-- Service responsibility changes: update the related service README.
-- Prefer Mermaid diagrams and tables over long prose.
+- Documentation entry point: `docs/README.md`.
+- Architecture overview: `docs/architecture/system-overview.md`.
+- Developer navigation: `docs/development/where-to-change.md`.
+- Flow changes update the relevant `docs/flows/*` file.
+- Kafka/Proto changes update `docs/data/kafka-contracts.md`.
+- Storage/manifest changes update `docs/data/data-lake.md`.
+- Service responsibility changes update the related service README.
+- Planning changes follow `docs/IMPLEMENTATION_PLAN_STANDARD.md`.
 
 ## Repository Boundaries
 
-- Do not modify files inside [`externals`](externals) unless explicitly working on the external submodule.
-- Do not commit secrets. Local credentials in compose/env examples are development defaults only.
-- Do not hard-code cloud SDK credentials, provider secrets, or regions in business handlers.
+- Do not modify `externals` unless explicitly working on the external submodule.
+- Do not commit secrets.
+- Do not hard-code cloud credentials/provider secrets/regions in business handlers.
 - Do not call Kafka brokers directly from business handlers when a port/helper abstraction exists.
-- Do not run long-running watcher commands as an agent unless explicitly requested.
+- Do not run long-running watchers as an agent unless explicitly requested.
 
 ## Verification Rules
 
-After making code or contract changes:
+After code/contract changes:
 
-1. Run `detect_changes` through code-review-graph.
-2. Check impact radius for modified shared contracts.
-3. Verify affected callers, consumers, producers, and tests.
-4. Inspect relevant Nx targets.
-5. Run targeted build, test, lint, and formatting checks through Nx.
-6. Run affected checks when changes impact multiple projects.
-7. Report any verification command that could not be run or failed.
+1. run `detect_changes` through code-review-graph;
+2. check impact radius for shared contracts;
+3. verify affected callers/consumers/producers/tests;
+4. inspect relevant Nx targets;
+5. run targeted build/test/lint/format through Nx;
+6. run `nx affected` when multiple projects are impacted;
+7. for protobuf changes run contracts lint/breaking/generation checks;
+8. verify relevant docs and agent/Zoo guidance are synchronized;
+9. report checks that could not run or failed.
 
-For docs-only changes, run a lightweight documentation verification such as link/path checks when available and report that code tests were not required.
+For docs-only changes, run lightweight link/path validation when available and report that code tests were not required.

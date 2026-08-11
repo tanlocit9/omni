@@ -2,11 +2,15 @@
 
 ## Purpose
 
-Every implementation plan must describe what to build, what concrete outcome is produced, what datasets/metadata are persisted, and which analytical features become available for later algorithms.
+Every implementation plan must describe what to build, what concrete outcome is produced, what data/metadata/contracts change, which analytical features become available, how the change is verified, and which repository guidance files must be synchronized for coding agents.
 
 ## Mandatory Sections
 
-Every implementation plan must include:
+Every implementation plan must include the following sections. Older plans inherit this standard; when an older plan is touched, add the missing sections instead of preserving an outdated format.
+
+### Goal
+
+State the problem and intended boundary.
 
 ### Outcome
 
@@ -14,9 +18,9 @@ Describe the concrete capability available after implementation.
 
 ### Dataset Outputs
 
-List new or modified persistent datasets and logical paths.
+List new/modified persistent analytical datasets and logical paths.
 
-If operational only:
+If none:
 
 ```text
 No analytical dataset output.
@@ -24,54 +28,31 @@ No analytical dataset output.
 
 ### Metadata Outputs
 
-For every data-producing plan, define the corresponding MinIO metadata manifest path and readiness semantics.
+For data-producing work, define object-storage manifest paths and readiness/version semantics.
 
-Preferred storage:
-
-```text
-stock-data/_metadata/datasets/...
-```
-
-Manifest should normally expose:
+Normal write order:
 
 ```text
-status
-path
-objectCount
-totalBytes
-rowCount
-columnCount
-schemaHash
-min/max date or timestamp
-sourceExecutionId
-generatedAt
+write data -> validate -> publish READY manifest last
 ```
 
-Write order:
+Do not add PostgreSQL/Redis only to cache dataset statistics in V1.
 
-```text
-write data -> validate -> write READY manifest last
-```
-
-Do not introduce PostgreSQL/Redis only to cache these dataset statistics in V1.
-
-If the plan produces no analytical dataset:
+If none:
 
 ```text
 No dataset metadata output.
 ```
 
-See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
-
 ### Algorithm Feature Outputs
 
-List fields/features that can become direct inputs to future rule-based strategies, backtests, statistical models, or ML models.
+List reusable fields/features available to rule-based strategies, backtests, statistical models or ML.
 
-Classify each as:
+Classify when relevant:
 
 - `DIRECT` — persisted explicitly;
-- `DERIVED` — reproducibly computed from an output dataset;
-- `CONDITIONAL` — requires optional provider data.
+- `DERIVED` — reproducibly computed;
+- `CONDITIONAL` — depends on optional provider data.
 
 If none:
 
@@ -81,83 +62,113 @@ No direct algorithm feature output.
 
 ### Algorithms Unlocked
 
-State which later analytical capabilities the output enables.
+State which later analytical/research capability becomes possible or safer.
+
+### Contract Impact
+
+Every plan must explicitly state whether it changes:
+
+```text
+Kafka/service-to-service protobuf
+object-storage JSON manifest
+storage path/dataset ownership
+public Java/Python API
+configuration/environment contract
+```
+
+Cross-service transport contracts use canonical proto3 definitions under `contracts/proto` after migration.
+
+Persisted dataset manifests remain JSON in object storage unless a future ADR changes that decision.
+
+Physical S3/R2 paths must not become business-routing fields in Kafka contracts.
+
+### Repository Guidance Updates
+
+Every plan must list the repository guidance files that need updates when implementation changes architecture, contracts, workflows, development rules, or tool usage.
+
+Review at minimum:
+
+```text
+AGENTS.md
+CLAUDE.md
+.roo/rules/          # Zoo Code workspace rules
+docs/README.md       # when canonical docs/plans change
+the relevant flow/data/service docs
+```
+
+Rules:
+
+1. If guidance changes, update it in the same implementation change.
+2. Do not mark the plan Done while agent/rule guidance describes the old architecture.
+3. Keep `AGENTS.md` as the main repository-wide rule source; avoid duplicating long architecture prose in agent files.
+4. Zoo Code rules should be small, actionable and link back to canonical docs/`AGENTS.md` where possible.
+5. `CLAUDE.md` should contain Claude/Nx/tool-specific guidance and defer repository architecture rules to `AGENTS.md`.
+6. If no guidance update is required, say so explicitly with a short reason.
+
+### Verification
+
+Define the Nx targets/tests/contract checks needed for the change.
+
+Shared contract changes should include producer/consumer tests and `nx affected` checks.
+
+### Acceptance Criteria
+
+Include functional completion plus documentation/guidance synchronization.
 
 ## Data Plan Rules
 
 1. Prefer reusable canonical features over strategy-specific scores.
 2. Keep raw/reusable data separate from final strategy decisions.
 3. Make time/evaluation semantics explicit.
-4. Use MinIO manifests as the default dataset readiness/freshness contract.
-5. Do not scan a full object prefix merely to decide whether a known dataset partition is READY when a manifest exists.
+4. Use object-storage manifests as the default dataset readiness/freshness contract.
+5. Do not scan a full object prefix merely to decide whether a known partition is READY when a manifest exists.
 6. Failed writes must not publish a new READY manifest.
+7. Record upstream `dataVersion` lineage when downstream freshness depends on the exact upstream dataset version.
 
-Preferred features:
+## Contract Rules
 
-```text
-return_5m
-vwap_distance_pct
-relative_volume
-realized_volatility
-breadth_positive_return_5m
-```
+1. Cross-service/Kafka message source of truth: proto3 under `contracts/proto`.
+2. Generated Java/Python protobuf code must never be hand-edited.
+3. Run protobuf lint + breaking checks before merging contract changes.
+4. Producer and consumer sides must be updated/reviewed together.
+5. Do not reuse protobuf field numbers; reserve deleted field numbers/names.
+6. Use versioned packages such as `omni.contracts.job.v1`.
+7. Object-storage DatasetManifest remains JSON and is a separate persisted contract.
 
-Avoid storage-owned strategy conclusions such as:
+See:
 
-```text
-BUY_SCORE_V3
-```
+- `CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md`
+- `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`
+- `JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md`
 
 ## Feature Naming
 
 Use stable `snake_case` names and include timeframe/window when meaning depends on it.
 
-Examples:
-
-```text
-return_1m
-return_5m
-realized_volatility_30m
-volume_ratio_20d
-breadth_positive_return_5m
-```
-
 The same semantic feature must use the same name in EOD, intraday, backtest and realtime pipelines.
 
 ## Provider-Dependent Features
 
-Never assume fields not guaranteed by the provider.
-
-Mark dependent features `CONDITIONAL`, especially for:
-
-- aggressor side;
-- bid/ask depth;
-- order identifiers;
-- trade condition;
-- sequence number.
+Never assume provider fields that are not guaranteed. Mark dependent outputs `CONDITIONAL`, especially aggressor side, bid/ask depth, order IDs, trade conditions and sequence IDs.
 
 ## Shared Placement Rule
 
-Reusable contracts/patterns should live in shared locations when appropriate:
+Reusable hand-written abstractions/patterns belong in shared locations when responsibility is genuinely cross-module:
 
-- Java shared/common module for reusable Java abstractions;
-- `py_common` for reusable Python data/storage contracts such as `DatasetManifest` and path builders.
+- Java: appropriate shared/common package/module;
+- Python: `libs/py-common`;
+- canonical language-neutral contracts: `contracts/`.
 
-Do not duplicate manifest construction across individual handlers.
+Generated protobuf code is derived output; do not treat it as a place for hand-written business abstractions.
 
-## Feature Registry Direction
+## Definition of Done Rule
 
-As Omni grows, implementation-plan feature sections should feed a central registry:
+A plan is not Done until:
 
 ```text
-feature_name
-source_dataset
-entity_type
-frequency
-dtype
-description
-availability
-version
+implementation complete
++ tests/checks complete
++ contract docs complete
++ feature/metadata docs complete where applicable
++ AGENTS/CLAUDE/Zoo Code guidance synchronized where applicable
 ```
-
-The registry can later support Internal Tools, analyzer input validation and backtest dataset selection.

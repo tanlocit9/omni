@@ -31,7 +31,7 @@
       "plugin": "@nx/js/typescript"
     },
     {
-      "exclude": ["apps\\core\\gradlew.bat"],
+      "exclude": ["apps/core/gradlew.bat"],
       "options": {
         "buildTargetName": "build",
         "classesTargetName": "classes",

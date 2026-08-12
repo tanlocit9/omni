@@ -32,7 +32,7 @@ Extend dataset manifests with deterministic data-version lineage:
   "inputs": [
     {
       "dataset": "eod",
-      "partition": {"date": "2026-08-11"},
+      "partition": { "date": "2026-08-11" },
       "dataVersion": "sha256:..."
     }
   ]

@@ -12,12 +12,15 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.shared.repositories.BaseRepository;
 
 @Repository
-public interface JobDefinitionRepository extends BaseRepository<JobDefinition> {
+public interface JobDefinitionRepository extends BaseRepository<JobDefinition>, JobDefinitionClaimRepository {
 
     @Query("""
             SELECT j FROM JobDefinition j
             WHERE j.isActive = true
-            AND j.nextRun <= :now OR j.nextRun IS NULL
+            AND (j.nextRun <= :now OR j.nextRun IS NULL)
+            ORDER BY CASE WHEN j.nextRun IS NULL THEN 0 ELSE 1 END ASC,
+            j.nextRun ASC,
+            j.id ASC
             """)
     List<JobDefinition> findJobsDue(@Param("now") Instant now);
 

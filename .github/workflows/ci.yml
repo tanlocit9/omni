@@ -1,9 +1,11 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+      - multi-phase
   pull_request:
     branches:
       - main
@@ -66,3 +68,9 @@ jobs:
             --base="$NX_BASE" \
             --head="$NX_HEAD" \
             --verbose
+
+      - name: Test platform
+        run: npx nx run platform:test
+
+      - name: Build platform
+        run: npx nx run platform:build

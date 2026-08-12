@@ -54,9 +54,9 @@ Recommended V1 shape:
   "rowCount": 184210,
   "columnCount": 12,
   "columns": [
-    {"name": "bar_time", "type": "TIMESTAMP"},
-    {"name": "symbol", "type": "VARCHAR"},
-    {"name": "close", "type": "DOUBLE"}
+    { "name": "bar_time", "type": "TIMESTAMP" },
+    { "name": "symbol", "type": "VARCHAR" },
+    { "name": "close", "type": "DOUBLE" }
   ],
   "schemaVersion": 1,
   "schemaHash": "sha256:...",

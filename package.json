@@ -22,8 +22,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps\\core",
-    "apps\\analyzer",
-    "apps\\ingestor"
+    "apps/core",
+    "apps/analyzer",
+    "apps/ingestor"
   ]
 }

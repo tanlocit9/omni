@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -54,6 +55,18 @@ public class JobDefinition extends AuditableEntity {
 
     @Column(name = "next_run")
     private Instant nextRun;
+
+    @Column(name = "claim_token")
+    private UUID claimToken;
+
+    @Column(name = "claimed_by")
+    private String claimedBy;
+
+    @Column(name = "claimed_at")
+    private Instant claimedAt;
+
+    @Column(name = "claim_until")
+    private Instant claimUntil;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "config_json", columnDefinition = "jsonb")

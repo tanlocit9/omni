@@ -67,6 +67,28 @@ JobScheduler
 | Notification policy   | Platform             | Resolve custom policy by job type, or use the default generic policy.       |
 | Notification delivery | Platform             | Publish a notification event for template rendering and Telegram delivery.  |
 
+## Phase 1A Scheduler Claim Foundation
+
+Phase 1A adds a PostgreSQL lease/fencing foundation for future multi-instance-safe scheduling, but it does not change the current production dispatch flow. `JobScheduler.scan()` still loads due `JobDefinition` rows and calls `JobProducer.publish(job, now)` until Phase 1B.
+
+```mermaid
+sequenceDiagram
+  participant Scheduler as Future Claim Integration
+  participant ClaimService as SchedulerClaimService
+  participant DB as PostgreSQL job_definitions
+  participant Outbox as Transactional Outbox (Phase 1B)
+  participant Kafka as Kafka (Phase 1B)
+
+  Scheduler->>ClaimService: claimDueJobs(now)
+  ClaimService->>DB: SELECT due rows FOR UPDATE SKIP LOCKED LIMIT batchSize
+  ClaimService->>DB: Set claimToken, claimedBy, claimedAt, claimUntil
+  ClaimService-->>Scheduler: Immutable SchedulerClaim list
+  Note over ClaimService,Kafka: Phase 1A claim transaction is short and never publishes Kafka
+  Note over Outbox,Kafka: Phase 1B creates executions/outbox, advances nextRun, clears matching claim, then publishes asynchronously
+```
+
+Claim candidates use the existing Phase 0 due semantics: active jobs where `nextRun <= now` or `nextRun IS NULL`. A live `claim_until` prevents reclaim; an expired claim can be reclaimed with a new UUID fencing token. Release clears claim metadata only when both `claimedBy` and `claimToken` match, so stale owners cannot release newer claims. For a job whose `nextRun` is `NULL`, Phase 1A returns `scheduledFor = claimedAt`; Phase 1B must preserve or explicitly migrate this idempotency input when stable execution/message identities are introduced.
+
 ## Dependency Tree Metadata
 
 Seeded job definitions carry non-enforcing dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). The metadata is stored under `dataDependencies` inside `config_json` for visibility and future orchestration work only. The scheduler does not block, reorder, or retry jobs from this metadata yet.
@@ -110,16 +132,16 @@ flowchart TD
 
 ## Core Contracts
 
-| Contract               | Canonical doc/source                                                                                                                                                                                     |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status topic           | [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)                                                                                                                              |
-| Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql)                                                                             |
-| Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                             |
-| Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                   |
-| Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                   |
-| Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java) |
-| Notification policies  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications)                                           |
-| Java status consumer   | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java)     |
+| Contract               | Canonical doc/source                                                                                                                                                                                                                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status topic           | [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)                                                                                                                                                                          |
+| Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql) |
+| Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                         |
+| Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                                                               |
+| Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                                                               |
+| Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java)                                             |
+| Notification policies  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications)                                                                                       |
+| Java status consumer   | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java)                                                 |
 
 ## Parent/Child Execution Model
 

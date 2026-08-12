@@ -112,7 +112,7 @@ find due jobs -> claim atomically -> dispatch
 
 Use pessimistic/`SKIP LOCKED` or optimistic guarded update as appropriate.
 
-### 5. Promote dataset dependencies to runtime validation
+### 5. Preserve dataset dependencies for Phase 4 runtime validation
 
 Reuse:
 
@@ -124,7 +124,7 @@ Reuse:
 }
 ```
 
-For `dependsOnDatasets`, resolve the required MinIO manifest and validate:
+For `dependsOnDatasets`, Phase 4 will resolve the required MinIO manifest and validate:
 
 ```text
 manifest exists
@@ -136,7 +136,7 @@ freshness acceptable
 
 Do not scan the full Parquet prefix on every dependency check when a manifest exists.
 
-V1 does not need a full DAG orchestrator.
+Phase 1 keeps dependency metadata documentation-only and must not block, reorder, or fail dispatch based on dependency manifests. Runtime dependency enforcement belongs to Phase 4 and does not need a full DAG orchestrator.
 
 ### 6. Clean child execution semantics
 
@@ -170,7 +170,7 @@ Outcome-evaluation failures should receive actionable diagnostics where applicab
 3. Run targeted Nx lint/test/build.
 4. Run `nx affected` when shared contracts/configuration change.
 5. Verify one end-to-end daily pipeline for all configured primary sectors.
-6. Verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
+6. In Phase 4, verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
 
 ## Acceptance Criteria
 
@@ -178,6 +178,6 @@ Outcome-evaluation failures should receive actionable diagnostics where applicab
 - All transition sectors have required upstream data.
 - Shared Sector Transition outputs have one logical writer.
 - Scheduled dispatch is safe across multiple core instances.
-- Dataset dependency checks use MinIO manifests as readiness/freshness source.
+- Dataset dependency checks remain metadata-only until Phase 4 promotes MinIO manifests to readiness/freshness enforcement.
 - No PostgreSQL/Redis dataset-statistics cache is introduced for V1.
 - Child execution metadata is domain-correct.

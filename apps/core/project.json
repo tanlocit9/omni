@@ -6,14 +6,21 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "gradlew clean build",
+        "command": "node ../../tools/run-gradle.cjs clean build",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../../tools/run-gradle.cjs test",
         "cwd": "{projectRoot}"
       }
     },
     "build-fast": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "gradlew clean assemble",
+        "command": "node ../../tools/run-gradle.cjs clean assemble",
         "cwd": "{projectRoot}"
       }
     },
@@ -21,8 +28,8 @@
       "configurations": {
         "dev": {
           "commands": [
-            "gradlew.bat classes --continuous",
-            "gradlew.bat bootRun"
+            "node ../../tools/run-gradle.cjs classes --continuous",
+            "node ../../tools/run-gradle.cjs bootRun"
           ],
           "env": {
             "SPRING_PROFILES_ACTIVE": "dev",
@@ -31,7 +38,7 @@
           "parallel": true
         },
         "prod": {
-          "command": "gradlew.bat bootRun --args='--spring.profiles.active=prod'"
+          "command": "node ../../tools/run-gradle.cjs bootRun --args=--spring.profiles.active=prod"
         }
       },
       "defaultConfiguration": "dev",

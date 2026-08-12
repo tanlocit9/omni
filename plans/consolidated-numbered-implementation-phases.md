@@ -26,4 +26,4 @@ This file is a compatibility index. The canonical autonomous-delivery roadmap st
 
 ## Immediate Next Action
 
-The first eligible autonomous increment is [P1-I1 in the increment registry](roadmap/implementation-increments.md) because Phase 0 and the scheduler claim ADR are recorded as completed on the current planning branch, and P1-I1 is the highest-priority ready increment.
+The first eligible autonomous increment is [P1-I2 in the increment registry](roadmap/implementation-increments.md) because Phase 0, ADR-007, and the P1-I1 claim foundation are merged and CI-verified on `main`.

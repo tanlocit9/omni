@@ -6,7 +6,7 @@ Remove known correctness and portability defects without mixing in architecture 
 
 ## Phase status
 
-Completed on the current planning branch with source evidence pending final CI confirmation before merge.
+Completed on `main` with merged source in [PR #7](https://github.com/tanlocit9/omni/pull/7) and successful [CI evidence](https://github.com/tanlocit9/omni/actions/runs/31606526578).
 
 ## Increment P0-I1 — Due-query predicate and repository matrix tests
 
@@ -23,8 +23,8 @@ Completed on the current planning branch with source evidence pending final CI c
 | owned_modules           | [apps/core]                                     |
 | execution_mode          | autonomous                                      |
 | requires_owner_decision | false                                           |
-| pr                      | existing staged planning/source evidence        |
-| last_verified_commit    | 017eb848038a255af86828f65fa6367fa451461e        |
+| pr                      | https://github.com/tanlocit9/omni/pull/7        |
+| last_verified_commit    | 8efc965b2084a16af9c733a9631e4e4729c23be4        |
 
 ### Goal
 
@@ -32,7 +32,7 @@ Ensure inactive jobs are never returned by [`JobDefinitionRepository.findJobsDue
 
 ### Current verified baseline
 
-Current branch includes source changes and repository tests staged with this roadmap update. Final merge still requires CI evidence recorded in [`execution-log.md`](execution-log.md).
+Due-query source and repository matrix tests are merged on `main`; project graph, formatting, platform tests, and platform build passed in the recorded CI run.
 
 ### Dependencies and eligibility conditions
 
@@ -110,8 +110,8 @@ Rollback restores the prior unsafe due predicate and must be avoided unless repl
 | owned_modules           | [workspace]                                            |
 | execution_mode          | autonomous                                             |
 | requires_owner_decision | false                                                  |
-| pr                      | existing staged planning/source evidence               |
-| last_verified_commit    | 017eb848038a255af86828f65fa6367fa451461e               |
+| pr                      | https://github.com/tanlocit9/omni/pull/7               |
+| last_verified_commit    | 8efc965b2084a16af9c733a9631e4e4729c23be4               |
 
 ### Goal
 
@@ -119,7 +119,7 @@ Normalize workspace paths so project discovery is portable across Windows and Li
 
 ### Current verified baseline
 
-Current branch includes staged workspace portability changes. Final CI evidence must confirm Linux project discovery.
+Workspace portability changes are merged on `main`; Linux CI confirmed Nx project discovery, formatting, platform tests, and platform build.
 
 ### Dependencies and eligibility conditions
 

@@ -12,6 +12,13 @@ These rules make the roadmap executable by a scheduled Codex agent without grant
 
 Current source and verified behavior take precedence when recording factual baseline. Do not silently override an agreed architecture decision; mark the contradiction as an owner decision.
 
+## Base branch and reconciliation
+
+- Use `main` as the canonical planning baseline and integration branch.
+- Create increment branches from the latest successful `main` commit after reconciling open branches and pull requests.
+- Never depend on a temporary planning branch after its pull request has merged or the branch has been deleted.
+- Re-read the registry after every merge before selecting new work.
+
 ## Increment lifecycle metadata
 
 Every increment uses the metadata table format from [`implementation-increments.md`](implementation-increments.md). Do not mix YAML front matter and tables between phase files.
@@ -45,6 +52,20 @@ Allowed execution modes:
 5. If priority is equal, select the lowest phase/increment number unless the roadmap records a different reason.
 6. Never select `blocked`, `approval_required`, `manual`, `superseded`, or dependency-incomplete work.
 7. Treat increments touching the same owned module as conflicting unless the roadmap explicitly proves isolation.
+
+## Readiness propagation
+
+After completing or reconciling an increment, evaluate every direct dependent currently marked `pending`.
+
+Promote a dependent to `ready` only when:
+
+- every increment in `depends_on` is `completed`;
+- `execution_mode` is `autonomous`;
+- `requires_owner_decision` is `false`;
+- objective acceptance criteria and verification commands exist;
+- no `in_progress` or `verification_pending` increment conflicts with its owned modules.
+
+Do not promote approval-required or manual work. Record every status promotion in the registry and execution log during the same roadmap update.
 
 ## Branch and pull request ownership
 

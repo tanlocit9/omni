@@ -6,7 +6,7 @@ Make execution ownership, job scope, metadata, and internal events consistent be
 
 ## Phase eligibility
 
-Depends on completed Phase 0. Current first eligible increment is P1-I1.
+Depends on completed Phase 0. P1-I1 is completed; the current first eligible increment is P1-I2.
 
 ## Increment P1-I1 — Claim data model and repository primitives
 
@@ -14,19 +14,19 @@ Depends on completed Phase 0. Current first eligible increment is P1-I1.
 | ----------------------- | ------------------------------------------ |
 | id                      | P1-I1                                      |
 | title                   | Claim data model and repository primitives |
-| status                  | ready                                      |
+| status                  | completed                                  |
 | priority                | critical                                   |
 | depends_on              | [P1-I0]                                    |
 | blocks                  | [P1-I2, P4-I1]                             |
 | owned_modules           | [apps/core, database]                      |
 | execution_mode          | autonomous                                 |
 | requires_owner_decision | false                                      |
-| pr                      | null                                       |
-| last_verified_commit    | null                                       |
+| pr                      | https://github.com/tanlocit9/omni/pull/7 |
+| last_verified_commit    | 8efc965b2084a16af9c733a9631e4e4729c23be4 |
 
 Goal: implement the scheduler claim foundation from [`ADR-007`](../../docs/adr/ADR-007-scheduler-claim-and-outbox-boundary.md) without changing production dispatch flow.
 
-Current verified baseline: claim ADR exists, [`JobDefinitionClaimRepository`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/JobDefinitionClaimRepository.java) is present in the current branch, and final evidence must be reconciled before work continues.
+Current verified baseline: ADR-007, claim migration and fields, PostgreSQL `SKIP LOCKED` repository primitives, fencing-token release, lease recovery, and Testcontainers coverage are merged in [PR #7](https://github.com/tanlocit9/omni/pull/7) and verified by [CI](https://github.com/tanlocit9/omni/actions/runs/31606526578).
 
 Dependencies and eligibility: P1-I0 completed; no owner decision is required unless source contradicts ADR-007.
 
@@ -67,7 +67,7 @@ Completion and rollback: rollback by reverting additive claim fields only before
 | ----------------------- | -------------------------------------------------------- |
 | id                      | P1-I2                                                    |
 | title                   | Scheduler claim/outbox integration and concurrency tests |
-| status                  | pending                                                  |
+| status                  | ready                                                    |
 | priority                | critical                                                 |
 | depends_on              | [P1-I1]                                                  |
 | blocks                  | [P2-I1, P3-I1, P4-I1, P5-I1]                             |

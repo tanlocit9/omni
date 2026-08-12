@@ -6,11 +6,11 @@ Application name: Omni Console
 
 Primary repository: tanlocit9/omni
 
-Planning branch: multi-phase
+Planning baseline: main
 
 Default integration branch: main
 
-Last source cross-check: current multi-phase working tree at 017eb848038a255af86828f65fa6367fa451461e; local branch is ahead of and behind origin/multi-phase, so automation must reconcile before selecting work.
+Last source cross-check: main at 8efc965b2084a16af9c733a9631e4e4729c23be4; CI succeeded at https://github.com/tanlocit9/omni/actions/runs/31606526578.
 
 ## Objective
 
@@ -43,8 +43,8 @@ A phase is a coherent architectural capability. An increment is the smallest ind
 
 | Area                | Current verified source state                                                                                                                                                                                                                                                                               | Roadmap implication                                                                                  |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Scheduler due query | Current branch includes scheduler repository changes and tests staged with the plan update; prior baseline said [`JobDefinitionRepository.findJobsDue()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/JobDefinitionRepository.java) missed parentheses around `nextRun`. | Treat P0-I1 as completed only with current branch/source evidence and CI confirmation before merge.  |
-| Scheduler claiming  | [`JobDefinitionClaimRepository`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/JobDefinitionClaimRepository.java) exists on the current branch and ADR-007 exists, but scheduler dispatch integration remains separate.                                                    | P1-I1 is the first ready autonomous increment; P1-I2 remains pending.                                |
+| Scheduler due query | [`JobDefinitionRepository.findJobsDue()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/JobDefinitionRepository.java) applies the active predicate to both due conditions with deterministic ordering, and repository coverage is present. | P0-I1 is completed with merged source and successful CI evidence. |
+| Scheduler claiming  | Claim fields, migration, PostgreSQL `SKIP LOCKED` repository primitives, fencing tokens, lease recovery, ADR-007, and Testcontainers coverage are merged; production dispatch integration remains separate. | P1-I1 is completed; P1-I2 is the first ready autonomous increment. |
 | Dependency metadata | [`JobDefinitionConfig`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java) seeds dependency metadata, but it remains documentation-only.                                                                                                                 | Preserve metadata until Phase 4 guard enforcement.                                                   |
 | Sector execution    | Sector Transition still requires one logical writer for shared outputs.                                                                                                                                                                                                                                     | P1-I3 remains pending before manifest-dependent sector publication work.                             |
 | Contracts           | No canonical [`contracts`](../../contracts) project exists in the current tree listing.                                                                                                                                                                                                                     | Proto3 migration starts at P2-I1 after scheduler integration.                                        |
@@ -107,7 +107,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Selection summary
 
-The first increment daily automation should select is P1-I1 from [`implementation-increments.md`](implementation-increments.md) because completed Phase 0 and ADR evidence are present on the current planning branch, and P1-I1 is the highest-priority ready autonomous increment.
+The first increment daily automation should select is P1-I2 from [`implementation-increments.md`](implementation-increments.md) because Phase 0, ADR-007, and P1-I1 have merged implementation and successful CI evidence on `main`.
 
 Automation must not select approval-required or manual work until the owner resolves the recorded decision or access need.
 

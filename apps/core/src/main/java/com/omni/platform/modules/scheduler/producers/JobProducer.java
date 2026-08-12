@@ -2,6 +2,7 @@ package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +11,7 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
+import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
@@ -52,13 +54,14 @@ public abstract class JobProducer {
          * Template method.
          */
         @Transactional(propagation = Propagation.REQUIRES_NEW)
-        public void publish(
+        public UUID prepareDispatch(
                         JobDefinition job,
+                        SchedulerClaim claim,
                         Instant now) {
 
                 log.debug("Preparing job [{}] type [{}] source [{}] at [{}]", job.getId(), job.getJobType(),
                                 job.getSource(), now);
-                JobExecutionHistory executionLog = jobService.prepareForExecution(job, now);
+                JobExecutionHistory executionLog = jobService.prepareClaimedExecution(job, claim, now);
 
                 List<KafkaMessage> messages = buildMessages(job, executionLog, now);
                 log.info("Built {} Kafka message(s) for job [{}] execution [{}] topic [{}]", messages.size(),
@@ -68,26 +71,16 @@ public abstract class JobProducer {
                         log.warn("No Kafka messages built for job [{}] execution [{}]; marking parent with no children",
                                         job.getId(), executionLog.getId());
                         jobService.markParentWithNoChildren(executionLog, now);
+                        jobService.releaseClaim(claim);
                         postPublish(job, now);
-                        return;
+                        return executionLog.getId();
                 }
 
-                publishMessages(messages);
+                jobService.enqueueDispatch(executionLog, getTopic(), messages, now);
+                jobService.releaseClaim(claim);
 
                 postPublish(job, now);
-        }
-
-        private void publishMessages(
-                        List<KafkaMessage> messages) {
-
-                messages.forEach(message -> {
-                        log.debug("Publishing Kafka message topic [{}] key [{}] payloadType [{}]", getTopic(), message.key(),
-                                        message.payload() == null ? null : message.payload().getClass().getSimpleName());
-                        kafkaPublisher.publish(
-                                        getTopic(),
-                                        message.key(),
-                                        message.payload());
-                });
+                return executionLog.getId();
         }
 
 }

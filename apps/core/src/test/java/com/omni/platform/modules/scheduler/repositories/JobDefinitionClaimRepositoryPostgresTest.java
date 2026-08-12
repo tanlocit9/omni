@@ -281,11 +281,12 @@ class JobDefinitionClaimRepositoryPostgresTest {
         assertThat(firstClaim.executionId()).isEqualTo(execution.getId());
 
         Instant retryAt = NOW.plusSeconds(30);
-        assertThat(tx.execute(status -> outboxRepository.markFailed(
-                firstClaim.messageId(), firstClaim.claimToken(), firstClaim.claimedBy(), retryAt, "broker down")))
-                .isTrue();
-        assertThat(tx.execute(status -> outboxRepository.claimPending(
-                retryAt.minusMillis(1), "core-c", LEASE_DURATION, 1))).isEmpty();
+        Boolean markedFailed = tx.execute(status -> outboxRepository.markFailed(
+                firstClaim.messageId(), firstClaim.claimToken(), firstClaim.claimedBy(), retryAt, "broker down"));
+        assertThat(markedFailed).isTrue();
+        List<SchedulerOutboxClaim> earlyRetry = tx.execute(status -> outboxRepository.claimPending(
+                retryAt.minusMillis(1), "core-c", LEASE_DURATION, 1));
+        assertThat(earlyRetry).isEmpty();
 
         SchedulerOutboxClaim retryClaim = tx.execute(status -> outboxRepository.claimPending(
                 retryAt, "core-c", LEASE_DURATION, 1)).getFirst();

@@ -45,6 +45,8 @@ app:
       chat-id: ${TELEGRAM_CHAT_ID:}
       parse-mode: ${TELEGRAM_PARSE_MODE:html}
       api-base-url: ${TELEGRAM_API_BASE_URL:https://api.telegram.org}
+      deduplication-cooldown: ${TELEGRAM_DEDUPLICATION_COOLDOWN:PT5M}
+      deduplication-max-cache-size: ${TELEGRAM_DEDUPLICATION_MAX_CACHE_SIZE:10000}
 
 logging:
   level:

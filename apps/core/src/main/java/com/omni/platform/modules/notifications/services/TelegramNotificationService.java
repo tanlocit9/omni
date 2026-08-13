@@ -1,5 +1,6 @@
 package com.omni.platform.modules.notifications.services;
 
+import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -9,12 +10,10 @@ import org.springframework.web.client.RestClient;
 import com.omni.platform.modules.notifications.configs.TelegramNotificationProperties;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TelegramNotificationService implements NotificationService {
 
     private static final int MAX_MESSAGE_LENGTH = 4_096;
@@ -22,6 +21,19 @@ public class TelegramNotificationService implements NotificationService {
 
     private final TelegramNotificationProperties properties;
     private final RestClient telegramRestClient;
+    private final NotificationDeduplicator deduplicator;
+
+    public TelegramNotificationService(
+            TelegramNotificationProperties properties,
+            RestClient telegramRestClient,
+            Clock notificationClock) {
+        this.properties = properties;
+        this.telegramRestClient = telegramRestClient;
+        this.deduplicator = new NotificationDeduplicator(
+                properties.resolvedDeduplicationCooldown(),
+                properties.resolvedDeduplicationMaxCacheSize(),
+                notificationClock);
+    }
 
     @Override
     public void send(NotificationRequest request) {
@@ -33,11 +45,19 @@ public class TelegramNotificationService implements NotificationService {
             return;
         }
 
+        NotificationDeduplicator.Admission admission = deduplicator.admit(request);
+        if (!admission.retained()) {
+            log.info("Telegram notification suppressed by cooldown type={} severity={} title={} suppressedCount={}",
+                    request.type(), request.severity(), request.title(), admission.suppressedCount());
+            return;
+        }
+
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("chat_id", properties.chatId());
-            payload.put("text", truncate(formatMessage(request)));
+            payload.put("text", truncate(formatMessage(request, admission.suppressedCount())));
             payload.put("parse_mode", resolveParseMode());
+            payload.put("disable_notification", true);
 
             log.info("Sending Telegram notification type={} severity={} title={} chatIdPresent={} parseMode={} apiBaseUrl={}",
                     request.type(), request.severity(), request.title(), hasText(properties.chatId()), resolveParseMode(),
@@ -55,7 +75,7 @@ public class TelegramNotificationService implements NotificationService {
         }
     }
 
-    private String formatMessage(NotificationRequest request) {
+    private String formatMessage(NotificationRequest request, long suppressedCount) {
         StringBuilder message = new StringBuilder();
         message.append("<b>")
                 .append(escapeHtml(String.valueOf(request.severity())))
@@ -73,6 +93,14 @@ public class TelegramNotificationService implements NotificationService {
 
         if (request.metadata() != null && !request.metadata().isEmpty()) {
             appendMetadata(message, request.metadata());
+        }
+
+        if (suppressedCount > 0) {
+            message.append(System.lineSeparator())
+                    .append(System.lineSeparator())
+                    .append("<i>Repeated notifications suppressed: ")
+                    .append(suppressedCount)
+                    .append("</i>");
         }
 
         return message.toString();

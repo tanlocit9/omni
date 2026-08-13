@@ -1,12 +1,19 @@
 package com.omni.platform.modules.notifications.services;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.springframework.test.web.client.ExpectedCount.never;
 import static org.springframework.test.web.client.ExpectedCount.once;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -25,27 +32,64 @@ class TelegramNotificationServiceTest {
     void sendSkipsDeliveryWhenTelegramIsDisabled() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        TelegramNotificationService service = new TelegramNotificationService(
-                new TelegramNotificationProperties(false, "token", "chat", null, "https://api.telegram.org"),
-                builder.build());
+        TelegramNotificationService service = service(false, builder, Clock.systemUTC());
 
-        service.send(request());
+        service.send(request(NotificationType.OPERATIONAL, "Consumer failed", "Failed to process message"));
 
         server.expect(never(), requestTo("https://api.telegram.org/bottoken/sendMessage"));
         server.verify();
     }
 
     @Test
-    void sendDeliversTelegramMessageWhenConfigured() {
+    void sendDeliversSilentTelegramMessageWhenConfigured() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
+                .andExpect(content().string(containsString("\"disable_notification\":true")))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        TelegramNotificationService service = service(true, builder, Clock.systemUTC());
+
+        service.send(request(NotificationType.OPERATIONAL, "Consumer failed", "Failed to process message"));
+
+        server.verify();
+    }
+
+    @Test
+    void sendSuppressesDuplicatesForOperationalAndSignalNotifications() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
-        TelegramNotificationService service = new TelegramNotificationService(
-                new TelegramNotificationProperties(true, "token", "chat", null, "https://api.telegram.org"),
-                builder.build());
+        server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        TelegramNotificationService service = service(true, builder, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
 
-        service.send(request());
+        service.send(request(NotificationType.OPERATIONAL, "Job 123 failed", "first"));
+        service.send(request(NotificationType.OPERATIONAL, " job 456   FAILED ", "duplicate"));
+        service.send(request(NotificationType.SIGNAL, "Job 789 failed", "first signal"));
+        service.send(request(NotificationType.SIGNAL, "job 999 failed", "duplicate signal"));
+
+        server.verify();
+    }
+
+    @Test
+    void sendAddsSuppressionSummaryAfterCooldownAndTruncatesFinalMessage() {
+        MutableClock clock = new MutableClock(Instant.EPOCH);
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
+                .andExpect(content().string(containsString("Repeated notifications suppressed: 2")))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        TelegramNotificationService service = service(true, builder, clock);
+        String longMessage = "x".repeat(5_000);
+
+        service.send(request(NotificationType.OPERATIONAL, "failure 1", longMessage));
+        service.send(request(NotificationType.OPERATIONAL, "failure 2", "duplicate"));
+        service.send(request(NotificationType.OPERATIONAL, "failure 3", "duplicate"));
+        clock.advance(Duration.ofMinutes(5));
+        service.send(request(NotificationType.OPERATIONAL, "failure 4", "retained"));
 
         server.verify();
     }
@@ -56,20 +100,54 @@ class TelegramNotificationServiceTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
                 .andRespond(withServerError());
-        TelegramNotificationService service = new TelegramNotificationService(
-                new TelegramNotificationProperties(true, "token", "chat", null, "https://api.telegram.org"),
-                builder.build());
+        TelegramNotificationService service = service(true, builder, Clock.systemUTC());
 
-        assertDoesNotThrow(() -> service.send(request()));
+        assertDoesNotThrow(() -> service.send(request(
+                NotificationType.OPERATIONAL, "Consumer failed", "Failed to process message")));
         server.verify();
     }
 
-    private NotificationRequest request() {
+    private TelegramNotificationService service(boolean enabled, RestClient.Builder builder, Clock clock) {
+        return new TelegramNotificationService(
+                new TelegramNotificationProperties(
+                        enabled, "token", "chat", null, "https://api.telegram.org", Duration.ofMinutes(5), 100),
+                builder.build(),
+                clock);
+    }
+
+    private NotificationRequest request(NotificationType type, String title, String message) {
         return new NotificationRequest(
-                NotificationType.OPERATIONAL,
+                type,
                 NotificationSeverity.ERROR,
-                "Consumer failed",
-                "Failed to process message",
+                title,
+                message,
                 Map.of("topic", "topic-sync-job-status"));
+    }
+
+    private static final class MutableClock extends Clock {
+        private Instant instant;
+
+        private MutableClock(Instant instant) {
+            this.instant = instant;
+        }
+
+        private void advance(Duration duration) {
+            instant = instant.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return instant;
+        }
     }
 }

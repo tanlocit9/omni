@@ -2,6 +2,8 @@
 
 Platform owns job orchestration. Workers execute data-plane tasks and report status back through Kafka.
 
+The repository now contains versioned `JobCommand` and `JobStatusEvent` Proto3 schemas in [`contracts/proto`](../../contracts/proto). They are a generated contract foundation only: the production flow described below remains on the existing JSON wire format until compatible consumers and adapters are delivered in later Phase 2 increments.
+
 ## Flow
 
 ```mermaid

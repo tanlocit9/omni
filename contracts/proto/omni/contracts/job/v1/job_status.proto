@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package omni.contracts.job.v1;
+
+import "omni/contracts/common/v1/dataset.proto";
+import "omni/contracts/common/v1/execution.proto";
+
+option java_multiple_files = true;
+option java_package = "com.omni.contracts.job.v1";
+
+// JobStatusEvent reports one execution state transition and its logical outputs.
+message JobStatusEvent {
+  string execution_id = 1;
+  optional string parent_execution_id = 2;
+  omni.contracts.common.v1.ExecutionStatus status = 3;
+  repeated omni.contracts.common.v1.DatasetOutput outputs = 4;
+  optional string error_code = 5;
+  optional string error_message = 6;
+  optional int64 duration_millis = 7;
+  map<string, double> metrics = 8;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package omni.contracts.common.v1;
+
+option java_multiple_files = true;
+option java_package = "com.omni.contracts.common.v1";
+
+// ExecutionStatus is the lifecycle state reported across service boundaries.
+enum ExecutionStatus {
+  EXECUTION_STATUS_UNSPECIFIED = 0;
+  EXECUTION_STATUS_PENDING = 1;
+  EXECUTION_STATUS_RUNNING = 2;
+  EXECUTION_STATUS_SUCCESS = 3;
+  EXECUTION_STATUS_FAILED = 4;
+  EXECUTION_STATUS_BLOCKED = 5;
+  EXECUTION_STATUS_CANCELLED = 6;
+}

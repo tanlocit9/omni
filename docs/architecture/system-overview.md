@@ -1,5 +1,11 @@
 # System Overview
 
+## Cross-service contract ownership
+
+Versioned Kafka and service-to-service Proto3 schemas are owned by the [`contracts`](../../contracts) Nx project. The schemas generate deterministic Java and Python boundary types from one source, while application domain models remain independent. Persisted dataset manifests continue to use JSON and physical object-store paths remain outside business Kafka routing contracts.
+
+The initial contracts project is infrastructure only; production producers and consumers remain on their existing JSON format until rollout-safe compatibility adapters are implemented.
+
 Omni is an Nx monorepo for Vietnamese stock-market data ingestion, analytical precomputation, job orchestration, and operational state tracking.
 
 The system separates orchestration from data processing:

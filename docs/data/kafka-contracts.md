@@ -2,6 +2,14 @@
 
 Kafka is the asynchronous contract boundary between Platform, Ingestor, and Analyzer.
 
+## Proto3 contract foundation
+
+Canonical versioned schemas live under [`contracts/proto`](../../contracts/proto), with committed deterministic Java and Python outputs under [`contracts/gen`](../../contracts/gen). The `contracts` Nx project owns formatting, linting, compilation, breaking-change comparison, generation, and stale-output checks.
+
+The initial `omni.contracts.common.v1` and `omni.contracts.job.v1` schemas define `DatasetRef`, `DatasetOutput`, `ExecutionStatus`, `JobCommand`, and `JobStatusEvent`. Dataset references are logical and do not expose bucket names or physical object paths. Persisted dataset manifests remain JSON.
+
+This foundation does not change the active wire format. Existing producer/consumer pairs continue using their documented JSON payloads until adapter and dual-read increments add compatibility tests and a rollout-safe migration.
+
 Canonical topic names live in [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml). This document explains ownership and purpose; the YAML file remains the source of truth for literal topic values.
 
 ## Contract Rule

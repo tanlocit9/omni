@@ -17,13 +17,15 @@ sequenceDiagram
   participant PolicyRegistry as JobNotificationPolicyRegistry
   participant Notification as Notification Event
 
-  Scheduler->>DB: Load due JobDefinition
+  Scheduler->>DB: Claim due JobDefinition with SKIP LOCKED
   Scheduler->>ProducerRegistry: Resolve producer by JobType
   ProducerRegistry-->>Scheduler: JobProducer
-  Scheduler->>Producer: publish(job, now)
-  Producer->>DB: Create parent execution
-  Producer->>DB: Create child execution(s)
-  Producer->>Kafka: Publish job message(s)
+  Scheduler->>Producer: prepareDispatch(job, claim, now)
+  Producer->>DB: Atomically create execution(s), outbox, advance nextRun, release claim
+  DB-->>Scheduler: Commit stable execution/message identities
+  Scheduler->>DB: Claim pending outbox messages
+  Scheduler->>Kafka: Publish serialized outbox payload(s)
+  Scheduler->>DB: Mark exact outbox claim published or retryable
   Kafka->>Worker: Deliver job by topic
   Worker->>Storage: Read/write datasets if needed
   Worker->>Kafka: Publish topic-sync-job-status
@@ -41,6 +43,8 @@ sequenceDiagram
 JobScheduler
  → JobProducerRegistry
  → JobProducer
+ → SchedulerOutboxMessage
+ → SchedulerOutboxDispatcher
  → Kafka
  → Worker / Analyzer
  → JobStatusMessage
@@ -55,39 +59,46 @@ JobScheduler
 
 | Step                  | Owner                | Responsibility                                                              |
 | --------------------- | -------------------- | --------------------------------------------------------------------------- |
-| Schedule selection    | Platform             | Find enabled jobs due for execution.                                        |
+| Schedule selection    | Platform             | Atomically claim enabled jobs due for execution.                            |
 | Producer resolution   | Platform             | Resolve `JobType` to a registered `JobProducer`; fail fast if none exists.  |
 | Job definition        | Platform/PostgreSQL  | Store job type, schedule, and job-specific config.                          |
 | Parent execution      | Platform/PostgreSQL  | Track an execution batch across child tasks.                                |
 | Child execution       | Platform/PostgreSQL  | Track one executable work unit sent to a worker.                            |
-| Kafka command         | Platform             | Publish a worker-specific job payload.                                      |
+| Kafka command         | Platform             | Persist then asynchronously publish a worker-specific job payload.          |
 | Worker processing     | Ingestor or Analyzer | Execute data-plane work.                                                    |
 | Status event          | Worker               | Publish `topic-sync-job-status` with execution identity, metrics, and meta. |
 | Aggregation           | Platform             | Update child status and roll up parent status when applicable.              |
 | Notification policy   | Platform             | Resolve custom policy by job type, or use the default generic policy.       |
 | Notification delivery | Platform             | Publish a notification event for template rendering and Telegram delivery.  |
 
-## Phase 1A Scheduler Claim Foundation
+## Scheduler Claim and Transactional Outbox
 
-Phase 1A adds a PostgreSQL lease/fencing foundation for future multi-instance-safe scheduling, but it does not change the current production dispatch flow. `JobScheduler.scan()` still loads due `JobDefinition` rows and calls `JobProducer.publish(job, now)` until Phase 1B.
+The production scheduler uses PostgreSQL leases and a transactional outbox. Claim acquisition and outbox acquisition are separate short transactions; Kafka I/O never holds a database transaction open.
 
 ```mermaid
 sequenceDiagram
-  participant Scheduler as Future Claim Integration
+  participant Scheduler as JobScheduler
   participant ClaimService as SchedulerClaimService
   participant DB as PostgreSQL job_definitions
-  participant Outbox as Transactional Outbox (Phase 1B)
-  participant Kafka as Kafka (Phase 1B)
+  participant Outbox as scheduler_outbox_messages
+  participant Kafka as Kafka
 
   Scheduler->>ClaimService: claimDueJobs(now)
   ClaimService->>DB: SELECT due rows FOR UPDATE SKIP LOCKED LIMIT batchSize
   ClaimService->>DB: Set claimToken, claimedBy, claimedAt, claimUntil
   ClaimService-->>Scheduler: Immutable SchedulerClaim list
-  Note over ClaimService,Kafka: Phase 1A claim transaction is short and never publishes Kafka
-  Note over Outbox,Kafka: Phase 1B creates executions/outbox, advances nextRun, clears matching claim, then publishes asynchronously
+  Scheduler->>DB: Load claimed definition
+  Scheduler->>DB: In one transaction create execution(s), advance nextRun, insert outbox rows, clear exact claim
+  Scheduler->>Outbox: Claim pending rows with lease + fencing token
+  Scheduler->>Kafka: Publish stable serialized payload outside transaction
+  alt publish succeeds
+    Scheduler->>Outbox: Mark PUBLISHED using exact token and owner
+  else publish fails
+    Scheduler->>Outbox: Preserve same message id/payload and schedule retry
+  end
 ```
 
-Claim candidates use the existing Phase 0 due semantics: active jobs where `nextRun <= now` or `nextRun IS NULL`. A live `claim_until` prevents reclaim; an expired claim can be reclaimed with a new UUID fencing token. Release clears claim metadata only when both `claimedBy` and `claimToken` match, so stale owners cannot release newer claims. For a job whose `nextRun` is `NULL`, Phase 1A returns `scheduledFor = claimedAt`; Phase 1B must preserve or explicitly migrate this idempotency input when stable execution/message identities are introduced.
+Claim candidates use the Phase 0 due semantics: active jobs where `nextRun <= now` or `nextRun IS NULL`. A live lease prevents reclaim; an expired claim receives a new UUID fencing token. Execution and outbox rows commit once, so a Kafka retry reuses the same execution id, outbox message id, key, and serialized payload instead of creating a second logical execution. Delivery remains at-least-once because a process may stop after Kafka accepts a message but before the database acknowledgement commits; consumers must therefore remain idempotent by execution identity.
 
 ## Dependency Tree Metadata
 
@@ -137,6 +148,7 @@ flowchart TD
 | Status topic           | [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)                                                                                                                                                                          |
 | Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql) |
 | Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                         |
+| Scheduler outbox       | [`database/migrations/V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql)                                                                                                                                   |
 | Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                                                               |
 | Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                                                               |
 | Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java)                                             |
@@ -174,7 +186,7 @@ flowchart TD
 
 1. Add or reuse a `JobDefinition.JobType` value.
 2. Implement a `JobProducer` and return that value from `getJobType()`.
-3. Keep producer logic execution-focused: prepare execution, build Kafka messages, publish, and run `postPublish()` if needed.
+3. Keep producer logic execution-focused: prepare execution, build Kafka messages, enqueue them transactionally, and run `postPublish()` if needed.
 4. Do not add scheduler dispatch branches. Spring registers the producer in `JobProducerRegistry` automatically; duplicate producers for the same job type fail application startup.
 5. Add or update producer and scheduler tests for the new registration.
 

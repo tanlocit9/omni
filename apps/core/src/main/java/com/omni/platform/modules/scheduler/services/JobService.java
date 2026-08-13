@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -21,10 +22,12 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
+import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.notifications.JobNotificationContext;
 import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRegistry;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
+import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
 import com.omni.platform.shared.utils.MetadataUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -49,6 +52,7 @@ public class JobService {
     private final JobExecutionHistoryRepository jobExecutionHistoryRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final JobNotificationPolicyRegistry jobNotificationPolicyRegistry;
+    private final SchedulerOutboxService schedulerOutboxService;
 
     @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
     private String schedulerZone;
@@ -73,6 +77,33 @@ public class JobService {
         jobDefinitionRepository.save(job);
 
         return log;
+    }
+
+    public JobExecutionHistory prepareClaimedExecution(
+            JobDefinition job,
+            SchedulerClaim claim,
+            Instant now) {
+        if (!job.getId().equals(claim.jobDefinitionId())
+                || !Objects.equals(job.getClaimToken(), claim.claimToken())
+                || !Objects.equals(job.getClaimedBy(), claim.claimedBy())) {
+            throw new IllegalStateException("Scheduler claim no longer owns job definition " + job.getId());
+        }
+        return prepareForExecution(job, now);
+    }
+
+    public void enqueueDispatch(
+            JobExecutionHistory execution,
+            String topic,
+            List<KafkaMessage> messages,
+            Instant now) {
+        schedulerOutboxService.enqueue(execution, topic, messages, now);
+    }
+
+    public void releaseClaim(SchedulerClaim claim) {
+        boolean released = jobDefinitionRepository.releaseClaim(claim);
+        if (!released) {
+            throw new IllegalStateException("Scheduler claim was superseded for job " + claim.jobDefinitionId());
+        }
     }
 
     /**

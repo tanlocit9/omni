@@ -30,6 +30,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
+import com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage;
+import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
+import com.omni.platform.modules.scheduler.services.JobService;
 
 import jakarta.persistence.EntityManager;
 
@@ -71,8 +76,19 @@ class JobDefinitionClaimRepositoryPostgresTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private JobExecutionHistoryRepository executionRepository;
+
+    @Autowired
+    private SchedulerOutboxRepository outboxRepository;
+
+    @Autowired
+    private JobService jobService;
+
     @AfterEach
     void cleanUp() {
+        outboxRepository.deleteAll();
+        executionRepository.deleteAll();
         repository.deleteAll();
     }
 
@@ -225,6 +241,101 @@ class JobDefinitionClaimRepositoryPostgresTest {
         })).hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class);
     }
 
+    @Test
+    @DisplayName("two dispatchers claim one outbox message once and a failed attempt reuses its stable identity")
+    void outboxClaimingIsFencedAndRecoverable() throws Exception {
+        JobDefinition job = saveJob("outbox owner", true, NOW.plusSeconds(3600));
+        JobExecutionHistory execution = new JobExecutionHistory();
+        execution.setJob(job);
+        execution.setUsedSource(job.getSource());
+        execution.setStatus(JobStatus.PENDING);
+        execution = executionRepository.saveAndFlush(execution);
+
+        SchedulerOutboxMessage message = new SchedulerOutboxMessage();
+        message.setExecution(execution);
+        message.setMessageIndex(0);
+        message.setTopic("jobs");
+        message.setMessageKey("stable-key");
+        message.setPayload("{\"executionId\":\"" + execution.getId() + "\"}");
+        message.setAvailableAt(NOW);
+        message = outboxRepository.saveAndFlush(message);
+
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        Future<List<SchedulerOutboxClaim>> first = executor.submit(() -> claimOutboxAfterSignal(
+                tx, ready, start, "core-a"));
+        Future<List<SchedulerOutboxClaim>> second = executor.submit(() -> claimOutboxAfterSignal(
+                tx, ready, start, "core-b"));
+
+        assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+        start.countDown();
+        List<SchedulerOutboxClaim> firstClaims = first.get(10, TimeUnit.SECONDS);
+        List<SchedulerOutboxClaim> secondClaims = second.get(10, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        assertThat(firstClaims.size() + secondClaims.size()).isEqualTo(1);
+        SchedulerOutboxClaim firstClaim = firstClaims.isEmpty() ? secondClaims.getFirst() : firstClaims.getFirst();
+        assertThat(firstClaim.messageId()).isEqualTo(message.getId());
+        assertThat(firstClaim.executionId()).isEqualTo(execution.getId());
+
+        Instant retryAt = NOW.plusSeconds(30);
+        Boolean markedFailed = tx.execute(status -> outboxRepository.markFailed(
+                firstClaim.messageId(), firstClaim.claimToken(), firstClaim.claimedBy(), retryAt, "broker down"));
+        assertThat(markedFailed).isTrue();
+        List<SchedulerOutboxClaim> earlyRetry = tx.execute(status -> outboxRepository.claimPending(
+                retryAt.minusMillis(1), "core-c", LEASE_DURATION, 1));
+        assertThat(earlyRetry).isEmpty();
+
+        SchedulerOutboxClaim retryClaim = tx.execute(status -> outboxRepository.claimPending(
+                retryAt, "core-c", LEASE_DURATION, 1)).getFirst();
+        assertThat(retryClaim.messageId()).isEqualTo(firstClaim.messageId());
+        assertThat(retryClaim.executionId()).isEqualTo(firstClaim.executionId());
+        assertThat(retryClaim.claimToken()).isNotEqualTo(firstClaim.claimToken());
+        assertThat(retryClaim.attempts()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("claimed preparation commits one logical execution, outbox payload, nextRun, and exact release")
+    void claimedPreparationIsAtomicAndIdempotentAtTheSchedulingBoundary() {
+        JobDefinition job = new JobDefinition();
+        job.setSource(DataSource.VND);
+        job.setJobType(JobType.SYNC_STOCK_PRICE);
+        job.setCronExpr("0 0 * * * *");
+        job.setTitle("atomic preparation");
+        job.setIsActive(true);
+        job.setNextRun(NOW.minusSeconds(60));
+        job = repository.saveAndFlush(job);
+        SchedulerClaim claim = claim("core-a", 1).getFirst();
+
+        UUID executionId = new TransactionTemplate(transactionManager).execute(status -> {
+            JobDefinition claimedJob = repository.findById(claim.jobDefinitionId()).orElseThrow();
+            JobExecutionHistory execution = jobService.prepareClaimedExecution(claimedJob, claim, NOW);
+            jobService.enqueueDispatch(
+                    execution,
+                    "jobs",
+                    List.of(new KafkaMessage("stable-key", java.util.Map.of("executionId", execution.getId()))),
+                    NOW);
+            jobService.releaseClaim(claim);
+            return execution.getId();
+        });
+
+        JobDefinition preparedJob = repository.findById(job.getId()).orElseThrow();
+        assertThat(preparedJob.getNextRun()).isAfter(NOW);
+        assertThat(preparedJob.getClaimToken()).isNull();
+        assertThat(executionRepository.findById(executionId)).isPresent();
+        assertThat(outboxRepository.findAllByExecution_IdOrderByMessageIndex(executionId))
+                .singleElement()
+                .satisfies(outbox -> {
+                    assertThat(outbox.getMessageIndex()).isZero();
+                    assertThat(outbox.getMessageKey()).isEqualTo("stable-key");
+                    assertThat(outbox.getPayload()).contains(executionId.toString());
+                });
+        assertThat(claim("core-b", 1)).isEmpty();
+        assertThat(executionRepository.count()).isEqualTo(1);
+    }
+
     private List<SchedulerClaim> claim(String claimedBy, int batchSize) {
         return new TransactionTemplate(transactionManager).execute(status ->
                 repository.claimDueJobs(NOW, claimedBy, LEASE_DURATION, batchSize));
@@ -244,6 +355,16 @@ class JobDefinitionClaimRepositoryPostgresTest {
         ready.countDown();
         await(start);
         return tx.execute(status -> repository.claimDueJobs(NOW, claimedBy, LEASE_DURATION, batchSize));
+    }
+
+    private List<SchedulerOutboxClaim> claimOutboxAfterSignal(
+            TransactionTemplate tx,
+            CountDownLatch ready,
+            CountDownLatch start,
+            String claimedBy) {
+        ready.countDown();
+        await(start);
+        return tx.execute(status -> outboxRepository.claimPending(NOW, claimedBy, LEASE_DURATION, 1));
     }
 
     private void expireClaim(UUID jobDefinitionId, Instant claimUntil) {

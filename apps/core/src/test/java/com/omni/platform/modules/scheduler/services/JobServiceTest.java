@@ -35,6 +35,7 @@ import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRe
 import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationPolicy;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
+import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
 
 @ExtendWith(MockitoExtension.class)
 class JobServiceTest {
@@ -47,6 +48,9 @@ class JobServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private SchedulerOutboxService schedulerOutboxService;
 
     private JobService service;
 
@@ -61,7 +65,8 @@ class JobServiceTest {
                 jobDefinitionRepository,
                 historyRepository,
                 eventPublisher,
-                policyRegistry);
+                policyRegistry,
+                schedulerOutboxService);
     }
 
     @Test

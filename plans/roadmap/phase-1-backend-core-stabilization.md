@@ -6,7 +6,7 @@ Make execution ownership, job scope, metadata, and internal events consistent be
 
 ## Phase eligibility
 
-Depends on completed Phase 0. P1-I1 is completed; the current first eligible increment is P1-I2.
+Depends on completed Phase 0. P1-I1 and P1-I2 are completed; P1-I3 and P1-I4 are ready.
 
 ## Increment P1-I1 — Claim data model and repository primitives
 
@@ -21,8 +21,8 @@ Depends on completed Phase 0. P1-I1 is completed; the current first eligible inc
 | owned_modules           | [apps/core, database]                      |
 | execution_mode          | autonomous                                 |
 | requires_owner_decision | false                                      |
-| pr                      | https://github.com/tanlocit9/omni/pull/7 |
-| last_verified_commit    | 8efc965b2084a16af9c733a9631e4e4729c23be4 |
+| pr                      | https://github.com/tanlocit9/omni/pull/7   |
+| last_verified_commit    | 8efc965b2084a16af9c733a9631e4e4729c23be4   |
 
 Goal: implement the scheduler claim foundation from [`ADR-007`](../../docs/adr/ADR-007-scheduler-claim-and-outbox-boundary.md) without changing production dispatch flow.
 
@@ -67,19 +67,19 @@ Completion and rollback: rollback by reverting additive claim fields only before
 | ----------------------- | -------------------------------------------------------- |
 | id                      | P1-I2                                                    |
 | title                   | Scheduler claim/outbox integration and concurrency tests |
-| status                  | ready                                                    |
+| status                  | completed                                                |
 | priority                | critical                                                 |
 | depends_on              | [P1-I1]                                                  |
 | blocks                  | [P2-I1, P3-I1, P4-I1, P5-I1]                             |
 | owned_modules           | [apps/core, database]                                    |
 | execution_mode          | autonomous                                               |
 | requires_owner_decision | false                                                    |
-| pr                      | null                                                     |
-| last_verified_commit    | null                                                     |
+| pr                      | https://github.com/tanlocit9/omni/pull/8                 |
+| last_verified_commit    | 6956a6eeef1897b343870e44480181cdf7812ae0                 |
 
 Goal: atomically prepare job execution and dispatch ownership so two Core instances cannot dispatch the same logical execution.
 
-Current baseline: scheduler still needs claim/outbox integration.
+Current verified baseline: claim acquisition, atomic execution/outbox preparation, fenced release, publish outside the transaction, stable retry identity, and PostgreSQL concurrency coverage are implemented in [PR #8](https://github.com/tanlocit9/omni/pull/8) and verified by [CI](https://github.com/tanlocit9/omni/actions/runs/31627082876).
 
 In scope: claim-ready scheduler flow, parent/child execution creation, transactional outbox rows, `nextRun` advancement, exact matching claim release, publish outside transaction with stable execution/message identity.
 
@@ -97,7 +97,7 @@ Stop conditions: stop if outbox boundary or idempotency key differs materially f
 | ----------------------- | ---------------------------------------------------------- |
 | id                      | P1-I3                                                      |
 | title                   | Canonical sector universe and one shared transition writer |
-| status                  | pending                                                    |
+| status                  | ready                                                      |
 | priority                | high                                                       |
 | depends_on              | [P1-I2]                                                    |
 | blocks                  | [P3-I3, P8-I3]                                             |
@@ -125,7 +125,7 @@ Stop conditions: stop if sector catalog ownership is unclear.
 | ----------------------- | -------------------------------------------------------------------- |
 | id                      | P1-I4                                                                |
 | title                   | workType/workKey metadata migration and notification event ownership |
-| status                  | pending                                                              |
+| status                  | ready                                                                |
 | priority                | high                                                                 |
 | depends_on              | [P1-I2]                                                              |
 | blocks                  | [P2-I2, P4-I1, P7-I1]                                                |

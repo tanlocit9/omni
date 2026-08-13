@@ -10,7 +10,7 @@ Create a canonical, queryable definition of dataset identity, readiness, schema,
 | ----------------------- | ----------------------------------------------------------- |
 | id                      | P3-I1                                                       |
 | title                   | Manifest models, identity rules, and py_common abstractions |
-| status                  | pending                                                     |
+| status                  | ready                                                       |
 | priority                | critical                                                    |
 | depends_on              | [P1-I2]                                                     |
 | blocks                  | [P3-I2, P4-I1, P6-I1, P8-I1]                                |

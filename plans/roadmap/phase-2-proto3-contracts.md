@@ -10,7 +10,7 @@ Replace untyped cross-service message maps with versioned generated Java/Python 
 | ----------------------- | ------------------------------------------------------ |
 | id                      | P2-I1                                                  |
 | title                   | Contracts project, Buf targets, and initial v1 schemas |
-| status                  | pending                                                |
+| status                  | ready                                                  |
 | priority                | critical                                               |
 | depends_on              | [P1-I2]                                                |
 | blocks                  | [P2-I2, P8-I1, P9-I1]                                  |

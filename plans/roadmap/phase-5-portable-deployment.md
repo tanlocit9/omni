@@ -10,7 +10,7 @@ Turn existing container and Compose assets into reproducible local/shared deploy
 | ----------------------- | --------------------------------------------------------- |
 | id                      | P5-I1                                                     |
 | title                   | Image hardening and configuration contracts               |
-| status                  | pending                                                   |
+| status                  | ready                                                     |
 | priority                | high                                                      |
 | depends_on              | [P1-I2]                                                   |
 | blocks                  | [P5-I2, P6-I3]                                            |

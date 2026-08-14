@@ -52,11 +52,11 @@ Stop conditions: stop if package ownership, field numbering, or compatibility ba
 
 Goal: add Java/Python boundary adapters and cross-language fixtures without generated types leaking into domain models.
 
-Acceptance criteria: Java can read Python fixtures, Python can read Java fixtures, unsupported enum values fail validation with actionable errors, and domain handlers remain mapped through adapters.
+Acceptance criteria: Java can read Python fixtures, Python can read Java fixtures, unsupported enum values fail validation with actionable errors, domain handlers remain mapped through adapters, and replaying the same stable message identity is covered by an idempotent consumer-boundary test.
 
-Required tests/checks: golden binary fixture tests, adapter validation tests, producer/consumer impact review, and relevant Nx targets.
+Required tests/checks: golden binary fixture tests, adapter validation tests, duplicate-delivery/idempotency tests, producer/consumer impact review, and relevant Nx targets.
 
-Stop conditions: stop if a boundary lacks a clear producer and consumer owner.
+Stop conditions: stop if a boundary lacks a clear producer and consumer owner or if its stable message identity/idempotency key is undefined.
 
 ## Increment P2-I3 — Pilot dual-read migration, producer switch, and observation window
 
@@ -76,7 +76,7 @@ Stop conditions: stop if a boundary lacks a clear producer and consumer owner.
 
 Goal: migrate one high-value boundary using dual-read consumers before producer switch.
 
-Acceptance criteria: consumers accept legacy JSON and Proto3, one producer switches after compatibility tests, metrics show decode/validation failures, and legacy removal is tracked but not premature.
+Acceptance criteria: consumers accept legacy JSON and Proto3, one producer switches after compatibility tests, metrics show decode/validation failures and duplicate deliveries, rollback thresholds are defined, and legacy removal is tracked but not premature.
 
 Required tests/checks: pilot producer/consumer integration test, fixture compatibility tests, and Nx affected checks.
 

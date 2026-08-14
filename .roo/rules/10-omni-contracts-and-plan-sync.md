@@ -4,7 +4,7 @@ Use `AGENTS.md` as the repository-wide coding-agent rule source and `docs/IMPLEM
 
 ## Cross-Service Contracts
 
-- Canonical Kafka/service-to-service schemas live under `contracts/proto` after a message family is migrated to proto3.
+- Canonical Kafka/service-to-service schemas live under `libs/contracts/proto` after a message family is migrated to proto3.
 - Never hand-edit generated protobuf Java/Python code.
 - Use Nx `contracts` targets for Buf format/lint/generate/breaking checks when available.
 - Review producer and consumer together for every contract change.

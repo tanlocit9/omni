@@ -155,7 +155,7 @@ Never assume a producer-only or consumer-only change is safe without checking it
 For cross-service Kafka/service-to-service payloads migrated to protobuf, the canonical source is:
 
 ```text
-contracts/proto/**/*.proto
+libs/contracts/proto/**/*.proto
 ```
 
 Rules:
@@ -212,7 +212,7 @@ Placement rules:
 
 - Java/JVM reusable abstractions: prefer an appropriate shared Java package/module.
 - Python reusable abstractions: prefer [`libs/py-common`](libs/py-common).
-- Language-neutral cross-service schemas: prefer [`contracts`](contracts).
+- Language-neutral cross-service schemas: prefer [`libs/contracts`](libs/contracts).
 - Keep application-specific business logic inside the owning application.
 - Do not move code into shared modules only because it might be reusable; there must be a clear cross-module responsibility.
 - Before creating a new abstraction, use code-review-graph to check whether an equivalent abstraction already exists.

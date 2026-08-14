@@ -1,59 +1,62 @@
 {
   "name": "contracts",
-  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
-  "root": "contracts",
-  "sourceRoot": "contracts/proto",
+  "root": "libs/contracts",
+  "sourceRoot": "libs/contracts/proto",
   "targets": {
     "format": {
       "executor": "nx:run-commands",
       "options": {
         "command": "buf format --diff --exit-code",
-        "cwd": "contracts"
+        "cwd": "libs/contracts"
       }
     },
     "format-write": {
       "executor": "nx:run-commands",
       "options": {
         "command": "buf format --write",
-        "cwd": "contracts"
+        "cwd": "libs/contracts"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
         "command": "buf lint",
-        "cwd": "contracts"
+        "cwd": "libs/contracts"
       }
     },
     "generate": {
       "executor": "nx:run-commands",
       "options": {
         "command": "buf generate",
-        "cwd": "contracts"
+        "cwd": "libs/contracts"
       },
       "outputs": ["{projectRoot}/gen"]
     },
     "generate-check": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node ../tools/contracts-generate-check.cjs",
-        "cwd": "contracts"
+        "command": "node ../../tools/contracts-generate-check.cjs",
+        "cwd": "libs/contracts"
       }
     },
     "breaking": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node ../tools/contracts-breaking.cjs",
-        "cwd": "contracts"
+        "command": "node ../../tools/contracts-breaking.cjs",
+        "cwd": "libs/contracts"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": ["buf build", "node ../tools/contracts-artifacts-test.cjs"],
+        "commands": [
+          "buf build",
+          "node ../../tools/contracts-artifacts-test.cjs"
+        ],
         "parallel": false,
-        "cwd": "contracts"
+        "cwd": "libs/contracts"
       }
     }
   },

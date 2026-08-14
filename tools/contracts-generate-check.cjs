@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repositoryRoot = path.resolve(__dirname, '..');
-const contractsRoot = path.join(repositoryRoot, 'contracts');
+const contractsRoot = path.join(repositoryRoot, 'libs', 'contracts');
 const generatedRoot = path.join(contractsRoot, 'gen');
 const buf = path.join(
   repositoryRoot,
@@ -41,6 +41,7 @@ const generation = spawnSync(buf, ['generate'], {
   cwd: contractsRoot,
   encoding: 'utf8',
   stdio: 'inherit',
+  shell: process.platform === 'win32',
 });
 if (generation.status !== 0) {
   process.exit(generation.status ?? 1);

@@ -22,7 +22,7 @@ Replace untyped cross-service message maps with versioned generated Java/Python 
 
 Goal: create the canonical `contracts` Nx project with Buf format/lint/generate/breaking targets and initial `DatasetRef`, `DatasetOutput`, `ExecutionStatus`, `JobCommand`, and `JobStatusEvent` schemas.
 
-Current verified baseline: the canonical [`contracts`](../../contracts) Nx project, versioned common/job v1 schemas, pinned local Buf/protoc tooling, deterministic committed Java/Python output, bootstrap breaking validation, stale-generation detection, and CI integration are implemented in [PR #9](https://github.com/tanlocit9/omni/pull/9) and verified by [CI](https://github.com/tanlocit9/omni/actions/runs/31729904534). Production producers and consumers remain on their existing JSON wire format.
+Current verified baseline: the canonical [`contracts`](../../libs/contracts) Nx project, versioned common/job v1 schemas, pinned local Buf/protoc tooling, deterministic committed Java/Python output, bootstrap breaking validation, stale-generation detection, and CI integration are implemented in [PR #9](https://github.com/tanlocit9/omni/pull/9) and verified by [CI](https://github.com/tanlocit9/omni/actions/runs/31729904534). Production producers and consumers remain on their existing JSON wire format.
 
 In scope: versioned proto package, zero-valued unspecified enums, pinned generation tooling, generated-code consistency check, and CI integration.
 

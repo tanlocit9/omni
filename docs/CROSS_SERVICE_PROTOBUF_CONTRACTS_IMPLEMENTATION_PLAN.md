@@ -63,7 +63,7 @@ contracts/
 Canonical source:
 
 ```text
-contracts/proto/**/*.proto
+libs/contracts/proto/**/*.proto
 ```
 
 Generated code is derived output and must never be edited manually.

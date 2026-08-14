@@ -25,6 +25,6 @@ nx run contracts:generate
 nx run contracts:generate-check
 ```
 
-`breaking` compares against `origin/main` once that branch contains a contracts module. During the initial bootstrap, it compiles the current module because no previous protobuf baseline exists.
+`breaking` prefers the `origin/main:libs/contracts` baseline. During this relocation, it falls back to `origin/main:contracts` until the new path is merged; if neither baseline exists, it compiles the current module as a bootstrap validation.
 
 This increment defines contracts only. Existing JSON Kafka producers and consumers are migrated through adapters and compatibility tests in later increments.

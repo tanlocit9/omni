@@ -4,24 +4,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repositoryRoot = path.resolve(__dirname, '..');
-const contractsRoot = path.join(repositoryRoot, 'libs', 'contracts');
-const generatedRoot = path.join(contractsRoot, 'gen');
-const buf = path.join(
-  repositoryRoot,
-  'node_modules',
-  '.bin',
-  process.platform === 'win32' ? 'buf.cmd' : 'buf'
-);
+const generatedRoot = path.join(repositoryRoot, 'libs', 'contracts', 'gen');
+const generator = path.join(repositoryRoot, 'tools', 'contracts-generate.cjs');
 
 function digestDirectory(root) {
   if (!fs.existsSync(root)) {
     return '<missing>';
   }
+
   const hash = crypto.createHash('sha256');
   const visit = (directory) => {
     const entries = fs
       .readdirSync(directory, { withFileTypes: true })
       .sort((left, right) => left.name.localeCompare(right.name));
+
     for (const entry of entries) {
       const absolutePath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
@@ -32,27 +28,37 @@ function digestDirectory(root) {
       }
     }
   };
+
   visit(root);
   return hash.digest('hex');
 }
 
-const before = digestDirectory(generatedRoot);
-const generation = spawnSync(buf, ['generate'], {
-  cwd: contractsRoot,
-  encoding: 'utf8',
-  stdio: 'inherit',
-  shell: process.platform === 'win32',
-});
-if (generation.status !== 0) {
-  process.exit(generation.status ?? 1);
+function generate() {
+  const generation = spawnSync(process.execPath, [generator], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    stdio: 'inherit',
+  });
+
+  if (generation.error) {
+    process.stderr.write(`${generation.error.message}\n`);
+    process.exit(1);
+  }
+  if (generation.status !== 0) {
+    process.exit(generation.status ?? 1);
+  }
 }
 
-const after = digestDirectory(generatedRoot);
-if (before !== after) {
+generate();
+const first = digestDirectory(generatedRoot);
+generate();
+const second = digestDirectory(generatedRoot);
+
+if (first === '<missing>' || first !== second) {
   process.stderr.write(
-    'Generated contract outputs are stale. Run nx run contracts:generate and commit the result.\n'
+    'Contract generation is not deterministic across clean generations.\n'
   );
   process.exit(1);
 }
 
-console.log('Generated Java and Python contract outputs are current.');
+console.log('Generated Java and Python contract outputs are deterministic.');

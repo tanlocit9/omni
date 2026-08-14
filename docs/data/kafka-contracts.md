@@ -4,7 +4,7 @@ Kafka is the asynchronous contract boundary between Platform, Ingestor, and Anal
 
 ## Proto3 contract foundation
 
-Canonical versioned schemas live under [`libs/contracts/proto`](../../libs/contracts/proto), with committed deterministic Java and Python outputs under [`libs/contracts/gen`](../../libs/contracts/gen). The `contracts` Nx project owns formatting, linting, compilation, breaking-change comparison, generation, and stale-output checks.
+Canonical versioned schemas live under [`libs/contracts/proto`](../../libs/contracts/proto). Java and Python outputs under `libs/contracts/gen` are ignored, disposable build artifacts generated through the `contracts` Nx project. Contract tests generate them automatically, deterministic checks compare independent clean generations, and future consumer build/package targets must depend on `contracts:generate` before compiling these types.
 
 The initial `omni.contracts.common.v1` and `omni.contracts.job.v1` schemas define `DatasetRef`, `DatasetOutput`, `ExecutionStatus`, `JobCommand`, and `JobStatusEvent`. Dataset references are logical and do not expose bucket names or physical object paths. Persisted dataset manifests remain JSON.
 

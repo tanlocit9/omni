@@ -38,10 +38,10 @@ No trading algorithm directly. This phase makes downstream signal, intraday and 
 
 ## Source-of-Truth Layout
 
-Recommended structure:
+Implemented structure:
 
 ```text
-contracts/
+libs/contracts/
 ├── project.json
 ├── buf.yaml
 ├── buf.gen.yaml
@@ -55,7 +55,7 @@ contracts/
 │       │   └── job_status.proto
 │       └── market/v1/
 │           └── market_tick.proto      # later/realtime phase
-└── gen/
+└── gen/                               # ignored build output
     ├── java/
     └── python/
 ```
@@ -66,7 +66,7 @@ Canonical source:
 libs/contracts/proto/**/*.proto
 ```
 
-Generated code is derived output and must never be edited manually.
+Generated code is local, disposable, reproducible build output. It is ignored by Git and must never be committed or edited manually.
 
 ## Nx Contract Project
 
@@ -87,13 +87,14 @@ Do not invoke Buf/protoc directly when an equivalent Nx target exists.
 CI should run at least:
 
 ```text
+contracts:format
 contracts:lint
 contracts:breaking
-contracts:generate
-contract integration tests
+contracts:generate-check
+contracts:test
 ```
 
-Generation must be deterministic. CI should fail when generated outputs are stale when generated files are committed, or when service packaging did not regenerate them when generated files are build artifacts.
+Generation must be deterministic. `contracts:generate-check` compares two independent clean local generations, and consumer build/package targets must depend on `contracts:generate` before compiling generated types.
 
 ## Tooling
 
@@ -104,9 +105,7 @@ Use Buf as the protobuf workflow layer:
 - `buf generate` for Java/Python code generation;
 - `buf format` for deterministic formatting.
 
-Pin Buf and code-generation plugin versions so developer, CI and Docker builds produce the same result.
-
-No Buf Schema Registry is required in V1.
+Pin Buf and the local `grpc-tools` compiler so developer, CI and Docker builds produce the same result. Buf invokes its `protoc_builtin` Java/Python generators through that repository-local compiler; no Buf remote generation plugin is used.
 
 ## Core Contracts
 

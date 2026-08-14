@@ -161,8 +161,8 @@ libs/contracts/proto/**/*.proto
 Rules:
 
 1. Java and Python use generated types from the same proto source; do not maintain handwritten mirror DTOs for canonical protobuf messages.
-2. Generated protobuf files must never be edited manually.
-3. Use the `contracts` Nx targets for format/lint/generate/breaking checks when available.
+2. Generated protobuf files under `libs/contracts/gen` are ignored build output; never commit or edit them manually.
+3. Use the `contracts` Nx targets for format/lint/generate/breaking checks when available; consumer build/package targets must depend on `contracts:generate` before compiling generated types.
 4. Never change or reuse an existing protobuf field number.
 5. Deleted fields must reserve their old number and name.
 6. Every enum must have an `*_UNSPECIFIED = 0` value.

@@ -32,15 +32,15 @@ This directory is the documentation entry point for Omni. It is designed to help
 
 ## Canonical Documents
 
-| Topic                     | Canonical document                                                 | Source of truth                                       |
-| ------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------- |
-| System boundaries         | [architecture/system-overview.md](architecture/system-overview.md) | `apps/`, `libs/`, `contracts/`                        |
-| Developer navigation      | [development/where-to-change.md](development/where-to-change.md)   | Current project layout                                |
-| Kafka topics/contracts    | [data/kafka-contracts.md](data/kafka-contracts.md)                 | topic config + `libs/contracts/proto` after migration |
-| Parquet datasets/paths    | [data/data-lake.md](data/data-lake.md)                             | `configs/shared/s3-paths.yaml` + manifests            |
-| Database domains          | [data/database.md](data/database.md)                               | `database/migrations`                                 |
-| Architecture decisions    | [adr](adr)                                                         | Accepted ADR files                                    |
-| Implementation-plan rules | [IMPLEMENTATION_PLAN_STANDARD.md](IMPLEMENTATION_PLAN_STANDARD.md) | Repository planning policy                            |
+| Topic                     | Canonical document                                                 | Source of truth                            |
+| ------------------------- | ------------------------------------------------------------------ | ------------------------------------------ |
+| System boundaries         | [architecture/system-overview.md](architecture/system-overview.md) | `apps/` and `libs/`                        |
+| Developer navigation      | [development/where-to-change.md](development/where-to-change.md)   | Current project layout                     |
+| Kafka topics/contracts    | [data/kafka-contracts.md](data/kafka-contracts.md)                 | topic config + `libs/contracts/proto`      |
+| Parquet datasets/paths    | [data/data-lake.md](data/data-lake.md)                             | `configs/shared/s3-paths.yaml` + manifests |
+| Database domains          | [data/database.md](data/database.md)                               | `database/migrations`                      |
+| Architecture decisions    | [adr](adr)                                                         | Accepted ADR files                         |
+| Implementation-plan rules | [IMPLEMENTATION_PLAN_STANDARD.md](IMPLEMENTATION_PLAN_STANDARD.md) | Repository planning policy                 |
 
 ## Documentation Rules
 

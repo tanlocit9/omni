@@ -29,7 +29,7 @@
     "generate": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "buf generate",
+        "command": "node ../../tools/contracts-generate.cjs",
         "cwd": "libs/contracts"
       },
       "outputs": ["{projectRoot}/gen"]
@@ -50,6 +50,7 @@
     },
     "test": {
       "executor": "nx:run-commands",
+      "dependsOn": ["generate"],
       "options": {
         "commands": [
           "buf build",

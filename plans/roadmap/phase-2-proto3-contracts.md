@@ -14,41 +14,41 @@ Replace untyped cross-service message maps with versioned generated Java/Python 
 | priority                | critical                                               |
 | depends_on              | [P1-I2]                                                |
 | blocks                  | [P2-I2, P8-I1, P9-I1]                                  |
-| owned_modules           | [contracts, apps/core, libs/py-common]                 |
+| owned_modules           | [libs/contracts, apps/core, libs/py-common]            |
 | execution_mode          | autonomous                                             |
 | requires_owner_decision | false                                                  |
 | pr                      | https://github.com/tanlocit9/omni/pull/9               |
-| last_verified_commit    | 959c81ed77a8393bf9d1d10a6552a037a31dcfef               |
+| last_verified_commit    | 8fc3e830944ca721d5d429dad9e4cdffb81a70e2               |
 
 Goal: create the canonical `contracts` Nx project with Buf format/lint/generate/breaking targets and initial `DatasetRef`, `DatasetOutput`, `ExecutionStatus`, `JobCommand`, and `JobStatusEvent` schemas.
 
-Current verified baseline: the canonical [`contracts`](../../libs/contracts) Nx project, versioned common/job v1 schemas, pinned local Buf/protoc tooling, deterministic committed Java/Python output, bootstrap breaking validation, stale-generation detection, and CI integration are implemented in [PR #9](https://github.com/tanlocit9/omni/pull/9) and verified by [CI](https://github.com/tanlocit9/omni/actions/runs/31729904534). Production producers and consumers remain on their existing JSON wire format.
+Current verified baseline: the canonical [`contracts`](../../libs/contracts) Nx project under `libs/contracts`, versioned common/job v1 schemas, pinned local Buf/`grpc-tools` generation, ignored disposable Java/Python output, bootstrap breaking validation, independent clean-generation comparison, and CI integration are implemented in [PR #9](https://github.com/tanlocit9/omni/pull/9) at `8fc3e830944ca721d5d429dad9e4cdffb81a70e2`, verified by [CI](https://github.com/tanlocit9/omni/actions/runs/31822911646). Production producers and consumers remain on their existing JSON wire format.
 
 In scope: versioned proto package, zero-valued unspecified enums, pinned generation tooling, generated-code consistency check, and CI integration.
 
 Out of scope: migrating production producers/consumers.
 
-Acceptance criteria: contracts project appears in Nx graph, Buf checks are runnable through Nx, generated Java/Python code is reproducible, and committed generated output fails CI when stale.
+Acceptance criteria: contracts project appears in Nx graph, Buf checks are runnable through Nx, generated Java/Python code is reproducible from a clean checkout, generated output remains untracked, and CI fails when independent clean generations differ.
 
-Required tests/checks: Buf format/lint/breaking/generate, generated-code clean check, and Nx affected checks.
+Required tests/checks: Buf format/lint/breaking, local deterministic generation, generated-artifact checks, and Nx affected checks.
 
 Stop conditions: stop if package ownership, field numbering, or compatibility baseline is unclear.
 
 ## Increment P2-I2 — Generated Java/Python adapters and golden fixtures
 
-| Field                   | Value                                                                |
-| ----------------------- | -------------------------------------------------------------------- |
-| id                      | P2-I2                                                                |
-| title                   | Generated Java/Python adapters and golden fixtures                   |
-| status                  | pending                                                              |
-| priority                | critical                                                             |
-| depends_on              | [P2-I1, P1-I4]                                                       |
-| blocks                  | [P2-I3, P3-I2]                                                       |
-| owned_modules           | [contracts, apps/core, libs/py-common, apps/analyzer, apps/ingestor] |
-| execution_mode          | autonomous                                                           |
-| requires_owner_decision | false                                                                |
-| pr                      | null                                                                 |
-| last_verified_commit    | null                                                                 |
+| Field                   | Value                                                                     |
+| ----------------------- | ------------------------------------------------------------------------- |
+| id                      | P2-I2                                                                     |
+| title                   | Generated Java/Python adapters and golden fixtures                        |
+| status                  | pending                                                                   |
+| priority                | critical                                                                  |
+| depends_on              | [P2-I1, P1-I4]                                                            |
+| blocks                  | [P2-I3, P3-I2]                                                            |
+| owned_modules           | [libs/contracts, apps/core, libs/py-common, apps/analyzer, apps/ingestor] |
+| execution_mode          | autonomous                                                                |
+| requires_owner_decision | false                                                                     |
+| pr                      | null                                                                      |
+| last_verified_commit    | null                                                                      |
 
 Goal: add Java/Python boundary adapters and cross-language fixtures without generated types leaking into domain models.
 

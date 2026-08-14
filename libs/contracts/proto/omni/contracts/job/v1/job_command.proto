@@ -36,7 +36,11 @@ message WorkItem {
 
 message SyncStockPriceCommand {
   string source = 1;
+  // Inclusive first trading date in YYYY-MM-DD format, interpreted in the
+  // exchange's configured timezone and trading calendar.
   optional string start_date = 2;
+  // Inclusive last trading date in YYYY-MM-DD format, interpreted in the
+  // exchange's configured timezone and trading calendar.
   optional string end_date = 3;
 }
 
@@ -47,6 +51,9 @@ message SyncIndicatorsCommand {
 message SyncSignalsCommand {
   string timeframe = 1;
   string strategy = 2;
+  // Trading date to evaluate in YYYY-MM-DD format, interpreted in the
+  // exchange's configured timezone and trading calendar. The date is included
+  // in the evaluation window.
   optional string evaluation_date = 3;
 }
 

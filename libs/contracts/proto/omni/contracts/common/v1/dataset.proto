@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package omni.contracts.common.v1;
+
+option java_multiple_files = true;
+option java_package = "com.omni.contracts.common.v1";
+
+// DatasetRef identifies a logical dataset partition without exposing storage paths.
+message DatasetRef {
+  string name = 1;
+  map<string, string> partition = 2;
+}
+
+// DatasetOutput records the manifest and immutable version produced by a job.
+message DatasetOutput {
+  DatasetRef dataset = 1;
+  string manifest_key = 2;
+  optional string data_version = 3;
+}

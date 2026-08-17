@@ -38,10 +38,10 @@ No trading algorithm directly. This phase makes downstream signal, intraday and 
 
 ## Source-of-Truth Layout
 
-Recommended structure:
+Implemented structure:
 
 ```text
-contracts/
+libs/contracts/
 ├── project.json
 ├── buf.yaml
 ├── buf.gen.yaml
@@ -55,7 +55,7 @@ contracts/
 │       │   └── job_status.proto
 │       └── market/v1/
 │           └── market_tick.proto      # later/realtime phase
-└── gen/
+└── gen/                               # ignored build output
     ├── java/
     └── python/
 ```
@@ -63,10 +63,10 @@ contracts/
 Canonical source:
 
 ```text
-contracts/proto/**/*.proto
+libs/contracts/proto/**/*.proto
 ```
 
-Generated code is derived output and must never be edited manually.
+Generated code is local, disposable, reproducible build output. It is ignored by Git and must never be committed or edited manually.
 
 ## Nx Contract Project
 
@@ -87,13 +87,14 @@ Do not invoke Buf/protoc directly when an equivalent Nx target exists.
 CI should run at least:
 
 ```text
+contracts:format
 contracts:lint
 contracts:breaking
-contracts:generate
-contract integration tests
+contracts:generate-check
+contracts:test
 ```
 
-Generation must be deterministic. CI should fail when generated outputs are stale when generated files are committed, or when service packaging did not regenerate them when generated files are build artifacts.
+Generation must be deterministic. `contracts:generate-check` compares two independent clean local generations, and consumer build/package targets must depend on `contracts:generate` before compiling generated types.
 
 ## Tooling
 
@@ -104,9 +105,7 @@ Use Buf as the protobuf workflow layer:
 - `buf generate` for Java/Python code generation;
 - `buf format` for deterministic formatting.
 
-Pin Buf and code-generation plugin versions so developer, CI and Docker builds produce the same result.
-
-No Buf Schema Registry is required in V1.
+Pin Buf and the local `grpc-tools` compiler so developer, CI and Docker builds produce the same result. Buf invokes its `protoc_builtin` Java/Python generators through that repository-local compiler; no Buf remote generation plugin is used.
 
 ## Core Contracts
 
@@ -290,6 +289,29 @@ Required guidance topics:
 - Buf/Nx verification targets;
 - JSON manifest vs protobuf boundary;
 - contract compatibility/evolution rules.
+
+## Active Blockers, Residual Risks, and Mitigation Plan
+
+These items do not reopen the completed P2-I1 implementation scope. They define the delivery gate or the increment that owns each mitigation.
+
+| Item                                                                | Classification        | Impact                                                                                                           | Required mitigation and owner                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #9 is still draft and unmerged                                   | Delivery blocker      | The canonical contracts and updated roadmap are not yet available on `main`.                                     | Owner reviews and merges PR #9 after green CI. Do not start P2-I2 from a branch that does not contain the merged contract baseline. Because P3-I1 and this PR both touch `libs/py-common`, start P3-I1 after merge unless module isolation is explicitly verified.                                     |
+| Production boundaries still use JSON                                | Compatibility risk    | Schema drift remains possible until producers and consumers use generated adapters.                              | P2-I2 adds explicit Java/Python adapters and golden cross-language fixtures. P2-I3 uses consumer-first dual-read, decode metrics, rollback thresholds, and an owner-approved producer switch.                                                                                                          |
+| Scheduler outbox delivery is at-least-once                          | Correctness risk      | A broker acknowledgement followed by a process crash can replay the same logical event.                          | P2-I2 preserves stable message identity through adapters and adds duplicate-delivery/idempotent consumer-boundary tests. P2-I3 observes duplicate counts during the compatibility window before cutover.                                                                                               |
+| READY manifest and exact lineage are not yet canonical              | Data integrity risk   | A valid message can still reference stale, incomplete, or schema-incompatible data.                              | P3-I1 defines immutable `dataVersion`, deterministic schema/data hashes, exact upstream versions, and READY-pointer semantics. P3-I2 publishes READY last and proves failed writes cannot replace the current READY dataset. A `DatasetOutput` is not consumable until its manifest resolves as READY. |
+| Sector transition has multiple potential writers for shared outputs | Data consistency risk | Concurrent executions can overwrite or publish conflicting sector datasets.                                      | P1-I3 establishes one canonical sector universe and one logical shared-output writer before P3-I3 or P8-I3 migrates sector publication.                                                                                                                                                                |
+| Telegram deduplication is process-local                             | Operational risk      | Restarts clear the cache and multiple Platform replicas can still deliver duplicates.                            | Treat the current cache as rate limiting only. P7-I2 owns durable delivery identity, retry state, provider message tracking, and cross-instance idempotency.                                                                                                                                           |
+| AI/analysis consumers can use data without provenance               | AI/data risk          | Downstream explanations or recommendations can be generated from stale or incompatible inputs without detection. | Do not promote AI-facing analytical features until P3 manifests expose readiness, freshness, schema identity, and exact data versions. AI result metadata must retain the input manifest/data versions used for generation.                                                                            |
+
+### Ordered remediation
+
+1. Review and merge P2-I1 with green CI.
+2. Complete P3-I1 manifest identity/readiness foundations.
+3. Complete P1-I4 event ownership, then P2-I2 adapters, fixtures, and idempotency coverage.
+4. Complete P1-I3 before sector manifest publication.
+5. Use P2-I3 only after owner approval of the pilot boundary, observation window, rollback thresholds, and legacy JSON removal timing.
+6. Keep distributed notification deduplication in P7-I2 so it does not delay the contract/data critical path.
 
 ## Verification
 

@@ -1,0 +1,65 @@
+{
+  "name": "contracts",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "root": "libs/contracts",
+  "sourceRoot": "libs/contracts/proto",
+  "targets": {
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "buf format --diff --exit-code",
+        "cwd": "libs/contracts"
+      }
+    },
+    "format-write": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "buf format --write",
+        "cwd": "libs/contracts"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "buf lint",
+        "cwd": "libs/contracts"
+      }
+    },
+    "generate": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../../tools/contracts-generate.cjs",
+        "cwd": "libs/contracts"
+      },
+      "outputs": ["{projectRoot}/gen"]
+    },
+    "generate-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../../tools/contracts-generate-check.cjs",
+        "cwd": "libs/contracts"
+      }
+    },
+    "breaking": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../../tools/contracts-breaking.cjs",
+        "cwd": "libs/contracts"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["generate"],
+      "options": {
+        "commands": [
+          "buf build",
+          "node ../../tools/contracts-artifacts-test.cjs"
+        ],
+        "parallel": false,
+        "cwd": "libs/contracts"
+      }
+    }
+  },
+  "tags": ["type:library", "scope:shared", "lang:contract"]
+}

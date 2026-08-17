@@ -69,6 +69,17 @@ jobs:
             --head="$NX_HEAD" \
             --verbose
 
+      - name: Verify contracts
+        run: |
+          npx nx run contracts:format
+          npx nx run contracts:lint
+          npx nx run contracts:breaking
+          npx nx run contracts:generate-check
+          npx nx affected -t lint,test \
+            --base="$NX_BASE" \
+            --head="$NX_HEAD" \
+            --exclude=.,py-common,analyzer,ingestor,platform
+
       - name: Test platform
         run: npx nx run platform:test
 

@@ -155,14 +155,14 @@ Never assume a producer-only or consumer-only change is safe without checking it
 For cross-service Kafka/service-to-service payloads migrated to protobuf, the canonical source is:
 
 ```text
-contracts/proto/**/*.proto
+libs/contracts/proto/**/*.proto
 ```
 
 Rules:
 
 1. Java and Python use generated types from the same proto source; do not maintain handwritten mirror DTOs for canonical protobuf messages.
-2. Generated protobuf files must never be edited manually.
-3. Use the `contracts` Nx targets for format/lint/generate/breaking checks when available.
+2. Generated protobuf files under `libs/contracts/gen` are ignored build output; never commit or edit them manually.
+3. Use the `contracts` Nx targets for format/lint/generate/breaking checks when available; consumer build/package targets must depend on `contracts:generate` before compiling generated types.
 4. Never change or reuse an existing protobuf field number.
 5. Deleted fields must reserve their old number and name.
 6. Every enum must have an `*_UNSPECIFIED = 0` value.
@@ -212,7 +212,7 @@ Placement rules:
 
 - Java/JVM reusable abstractions: prefer an appropriate shared Java package/module.
 - Python reusable abstractions: prefer [`libs/py-common`](libs/py-common).
-- Language-neutral cross-service schemas: prefer [`contracts`](contracts).
+- Language-neutral cross-service schemas: prefer [`libs/contracts`](libs/contracts).
 - Keep application-specific business logic inside the owning application.
 - Do not move code into shared modules only because it might be reusable; there must be a clear cross-module responsibility.
 - Before creating a new abstraction, use code-review-graph to check whether an equivalent abstraction already exists.

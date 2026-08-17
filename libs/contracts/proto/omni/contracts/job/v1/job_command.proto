@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package omni.contracts.job.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.omni.contracts.job.v1";
+
+// JobType identifies an orchestrated job family without encoding a topic name.
+enum JobType {
+  JOB_TYPE_UNSPECIFIED = 0;
+  JOB_TYPE_SYNC_SYMBOLS = 1;
+  JOB_TYPE_SYNC_STOCK_PRICES = 2;
+  JOB_TYPE_SYNC_INDICATORS = 3;
+  JOB_TYPE_SYNC_SIGNALS = 4;
+  JOB_TYPE_EVALUATE_SIGNALS = 5;
+  JOB_TYPE_PRECOMPUTE_SYMBOL_FEATURES = 6;
+  JOB_TYPE_PRECOMPUTE_SECTOR_FEATURES = 7;
+  JOB_TYPE_SECTOR_ROTATION_BACKTEST = 8;
+  JOB_TYPE_SECTOR_TRANSITION_ANALYZE = 9;
+  JOB_TYPE_SECTOR_TRANSITION_EVALUATE_OUTCOMES = 10;
+}
+
+// JobContext carries transport-safe context shared by every job family.
+message JobContext {
+  google.protobuf.Timestamp requested_at = 1;
+  map<string, string> attributes = 2;
+}
+
+// WorkItem identifies one child execution's normalized unit of work.
+message WorkItem {
+  string work_type = 1;
+  string work_key = 2;
+}
+
+message SyncStockPriceCommand {
+  string source = 1;
+  // Inclusive first trading date in YYYY-MM-DD format, interpreted in the
+  // exchange's configured timezone and trading calendar.
+  optional string start_date = 2;
+  // Inclusive last trading date in YYYY-MM-DD format, interpreted in the
+  // exchange's configured timezone and trading calendar.
+  optional string end_date = 3;
+}
+
+message SyncIndicatorsCommand {
+  string timeframe = 1;
+}
+
+message SyncSignalsCommand {
+  string timeframe = 1;
+  string strategy = 2;
+  // Trading date to evaluate in YYYY-MM-DD format, interpreted in the
+  // exchange's configured timezone and trading calendar. The date is included
+  // in the evaluation window.
+  optional string evaluation_date = 3;
+}
+
+// JobCommand is the typed command envelope for future producer/consumer migration.
+message JobCommand {
+  string execution_id = 1;
+  optional string parent_execution_id = 2;
+  JobType job_type = 3;
+  JobContext context = 4;
+  WorkItem work = 5;
+
+  oneof payload {
+    SyncStockPriceCommand sync_stock_price = 10;
+    SyncIndicatorsCommand sync_indicators = 11;
+    SyncSignalsCommand sync_signals = 12;
+  }
+}

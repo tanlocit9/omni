@@ -57,7 +57,7 @@ See `CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md`.
 
 ### Outcome
 
-- canonical `.proto` source under `contracts/proto`;
+- canonical `.proto` source under `libs/contracts/proto`;
 - generated Java/Python types;
 - Buf lint/breaking/generate through Nx;
 - typed JobCommand/JobStatus/DatasetRef foundation;

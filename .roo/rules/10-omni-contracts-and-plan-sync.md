@@ -4,9 +4,9 @@ Use `AGENTS.md` as the repository-wide coding-agent rule source and `docs/IMPLEM
 
 ## Cross-Service Contracts
 
-- Canonical Kafka/service-to-service schemas live under `contracts/proto` after a message family is migrated to proto3.
-- Never hand-edit generated protobuf Java/Python code.
-- Use Nx `contracts` targets for Buf format/lint/generate/breaking checks when available.
+- Canonical Kafka/service-to-service schemas live under `libs/contracts/proto` after a message family is migrated to proto3.
+- Generated Java/Python files under `libs/contracts/gen` are ignored build output; never commit or hand-edit them.
+- Use Nx `contracts` targets for format/lint/generate/breaking checks; consumer builds must depend on `contracts:generate` before compiling generated types.
 - Review producer and consumer together for every contract change.
 - Never change/reuse an existing protobuf field number; reserve deleted field numbers/names.
 - Dataset manifests under S3/R2 `_metadata/` remain JSON and are separate from protobuf transport contracts.

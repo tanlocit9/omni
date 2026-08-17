@@ -76,7 +76,7 @@ public Java/Python API
 configuration/environment contract
 ```
 
-Cross-service transport contracts use canonical proto3 definitions under `contracts/proto` after migration.
+Cross-service transport contracts use canonical proto3 definitions under `libs/contracts/proto` after migration.
 
 Persisted dataset manifests remain JSON in object storage unless a future ADR changes that decision.
 
@@ -127,7 +127,7 @@ Include functional completion plus documentation/guidance synchronization.
 
 ## Contract Rules
 
-1. Cross-service/Kafka message source of truth: proto3 under `contracts/proto`.
+1. Cross-service/Kafka message source of truth: proto3 under `libs/contracts/proto`.
 2. Generated Java/Python protobuf code must never be hand-edited.
 3. Run protobuf lint + breaking checks before merging contract changes.
 4. Producer and consumer sides must be updated/reviewed together.
@@ -157,7 +157,7 @@ Reusable hand-written abstractions/patterns belong in shared locations when resp
 
 - Java: appropriate shared/common package/module;
 - Python: `libs/py-common`;
-- canonical language-neutral contracts: `contracts/`.
+- canonical language-neutral contracts: `libs/contracts/`.
 
 Generated protobuf code is derived output; do not treat it as a place for hand-written business abstractions.
 

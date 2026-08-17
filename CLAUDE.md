@@ -80,7 +80,8 @@ docs/CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md
 When the `contracts` Nx project exists:
 
 - use `nx run contracts:<target>` rather than direct Buf/protoc commands when a matching target exists;
-- never edit generated protobuf code manually;
+- treat `libs/contracts/gen` as ignored build output and never commit or edit generated protobuf code manually;
+- make consumer build/package targets depend on `contracts:generate` before compiling generated types;
 - review producer and consumer together;
 - run breaking-change checks for proto changes;
 - keep object-storage DatasetManifest JSON separate from Kafka protobuf contracts.

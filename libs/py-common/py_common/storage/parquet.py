@@ -26,9 +26,11 @@ Empty DataFrame and None have different meanings:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 from uuid import uuid4
 
@@ -52,6 +54,16 @@ from py_common.storage.registry import StorageProviderRegistry
 logger = logging.getLogger(__name__)
 
 _PARQUET_CONTENT_TYPE = "application/vnd.apache.parquet"
+
+
+@dataclass(frozen=True)
+class ParquetWriteResult:
+    """Physical identity of the exact Parquet bytes persisted to storage."""
+
+    object_name: str
+    checksum: str
+    total_bytes: int
+    temporary_object_name: str | None = None
 
 
 class ParquetCodec:
@@ -218,7 +230,7 @@ class ParquetStorage:
         *,
         index: bool = False,
         schema: pa.Schema | None = None,
-    ) -> None:
+    ) -> ParquetWriteResult:
         """Serialize a DataFrame and upload it as a Parquet object.
 
         Overwrites any existing object at ``object_name``.
@@ -229,6 +241,9 @@ class ParquetStorage:
             index: Whether to include the DataFrame index. Default ``False``.
             schema: Optional explicit PyArrow schema. Use this for nested columns
                 that require stable field names across Parquet readers.
+
+        Returns:
+            Physical identity derived from the exact bytes uploaded.
 
         Raises:
             StorageWriteError: If the upload fails.
@@ -246,13 +261,20 @@ class ParquetStorage:
             content_type=_PARQUET_CONTENT_TYPE,
         )
 
+        result = ParquetWriteResult(
+            object_name=object_name,
+            checksum=f"sha256:{hashlib.sha256(data).hexdigest()}",
+            total_bytes=len(data),
+        )
         logger.debug(
-            "Wrote DataFrame (%d rows, %d cols) to '%s/%s'",
+            "Wrote DataFrame (%d rows, %d cols, %d bytes) to '%s/%s'",
             len(dataframe),
             len(dataframe.columns),
+            result.total_bytes,
             self._bucket,
             object_name,
         )
+        return result
 
     async def replace_dataframe(
         self,
@@ -262,7 +284,7 @@ class ParquetStorage:
         index: bool = False,
         temp_object_name: str | None = None,
         validate: Callable[[pd.DataFrame], None] | None = None,
-    ) -> str:
+    ) -> ParquetWriteResult:
         """Best-effort atomic replacement for a Parquet object.
 
         The candidate DataFrame is written to a temporary object, read back,
@@ -281,7 +303,7 @@ class ParquetStorage:
                 and raises on schema/content validation failure.
 
         Returns:
-            The temporary object key used for staging.
+            Physical identity of the final object and the staging object key.
 
         Raises:
             ParquetDecodeError: Temporary bytes are not valid Parquet.
@@ -290,7 +312,7 @@ class ParquetStorage:
         """
         temp_name = temp_object_name or self._build_temp_object_name(object_name)
 
-        await self.write_dataframe(temp_name, dataframe, index=index)
+        staged_result = await self.write_dataframe(temp_name, dataframe, index=index)
         try:
             staged = await self.read_dataframe(temp_name)
             if validate is not None:
@@ -316,7 +338,12 @@ class ParquetStorage:
             object_name,
             temp_name,
         )
-        return temp_name
+        return ParquetWriteResult(
+            object_name=object_name,
+            checksum=staged_result.checksum,
+            total_bytes=staged_result.total_bytes,
+            temporary_object_name=temp_name,
+        )
 
     def _build_temp_object_name(self, object_name: str) -> str:
         path = PurePosixPath(object_name)

@@ -84,7 +84,8 @@ def test_sector_transition_paths_happy_path(paths: StockDataPaths):
     )
     assert (
         paths.sector_transition_probabilities("SECTOR_TRANSITION_V1", "1d", 3)
-        == "research/sector-transition/probabilities/sector_transition_v1/1d/lv3.parquet"
+        == "research/sector-transition/probabilities/"
+        "sector_transition_v1/1d/lv3.parquet"
     )
     assert (
         paths.sector_transition_outcomes("SECTOR_TRANSITION_V1", "1d", 3)
@@ -182,7 +183,8 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
     )
     assert (
         paths.sector_transition_probabilities("SECTOR_TRANSITION_V1", "1d", 2)
-        == "research/sector-transition/probabilities/sector_transition_v1/1d/lv2.parquet"
+        == "research/sector-transition/probabilities/"
+        "sector_transition_v1/1d/lv2.parquet"
     )
     assert (
         paths.sector_transition_outcomes("SECTOR_TRANSITION_V1", "1d", 2)

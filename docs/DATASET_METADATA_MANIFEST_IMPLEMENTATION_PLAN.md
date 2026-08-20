@@ -28,8 +28,12 @@ Metadata objects:
 
 ```text
 _metadata/catalog.json
-_metadata/datasets/<dataset>/<partition>.json
+_metadata/datasets/<dataset>/<partition_path>/READY.json
+_metadata/datasets/<dataset>/<partition_path>/versions/<dataVersion>.json
 ```
+
+Partition keys are normalized and sorted as `key=value` path segments. An empty
+partition uses the reserved `_default` segment.
 
 Keep `_metadata/` outside Parquet data prefixes so DuckDB globs remain clean.
 
@@ -83,18 +87,23 @@ Nullable fields are allowed where not applicable.
 
 `generatedAt` is not a sufficient data version because an idempotent retry with unchanged contents should not necessarily invalidate every downstream dataset.
 
-Prefer a deterministic fingerprint based on canonical output identity/content metadata, for example:
+The deterministic fingerprint is based on canonical output identity/content and
+exact upstream lineage:
 
 ```text
 sha256(
   dataset
   + normalized partition
   + schemaHash
-  + ordered object keys/checksums-or-ETags
+  + ordered object keys and SHA-256 checksums
+  + canonically ordered inputs[].dataset/partition/dataVersion
 )
 ```
 
-The exact canonicalization must be defined and tested once in shared storage code.
+`generatedAt` is excluded. Canonicalization is defined and tested once in shared
+storage code. Writers use the SHA-256 and byte length of the exact persisted
+Parquet bytes rather than rescanning a prefix or relying on provider-specific
+ETag semantics.
 
 Downstream manifests copy each upstream `dataVersion` into `inputs[]`.
 
@@ -102,24 +111,26 @@ This enables `CURRENT_INPUTS` checks without reading Parquet.
 
 ## Write / Commit Semantics
 
-Manifest is written **last**:
+The mutable READY pointer is written **last**:
 
 ```text
-write data objects
-   -> validate
+write exact Parquet bytes
+   -> validate persisted data
    -> calculate stats/schema/dataVersion
-   -> PUT READY manifest
+   -> PUT immutable versions/<dataVersion>.json
+   -> replace READY.json
    -> consumers may use partition
 ```
 
 Rules:
 
-1. Never publish READY before data validation succeeds.
-2. Failed rewrites leave the last successful manifest untouched when possible.
-3. Reprocessing a partition replaces its manifest idempotently.
-4. `generatedAt` is operational time; trading/evaluation time belongs in the partition/data.
-5. Readiness checks use manifest reads, not full prefix scans.
-6. `inputs[]` must contain the exact upstream data versions actually consumed.
+1. Never publish READY before data validation and immutable-manifest publication succeed.
+2. A failed immutable write does not attempt READY publication.
+3. A failed READY replacement performs no compensating pointer write, preserving the object store's prior READY value.
+4. Reprocessing equivalent content replaces READY idempotently with the same `dataVersion`.
+5. `generatedAt` is operational time; trading/evaluation time belongs in the partition/data.
+6. Readiness checks use manifest reads, not full prefix scans.
+7. `inputs[]` must contain the exact upstream data versions actually consumed.
 
 ## Catalog
 

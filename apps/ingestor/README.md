@@ -116,6 +116,16 @@ nx run ingestor:lint
 nx run ingestor:format
 ```
 
+The real object-storage publication gate requires the healthy MinIO service from
+[`docker-compose.infra.yaml`](../../docker-compose.infra.yaml). It creates and
+removes an isolated bucket and verifies exact Parquet identity, immutable manifest
+publication, READY-last replacement, and preservation of the prior READY pointer
+after an injected replacement failure:
+
+```bash
+nx run ingestor:test-integration
+```
+
 ## Shared Contracts
 
 | Contract                             | Source                                                               |

@@ -11,6 +11,7 @@ Covers:
 
 from __future__ import annotations
 
+import hashlib
 import io
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock
@@ -330,13 +331,18 @@ class TestParquetStorageWrite:
         self, storage: ParquetStorage, writable: AsyncMock
     ):
         df = pd.DataFrame({"a": [1, 2], "b": [3.0, 4.0]})
-        await storage.write_dataframe("eod/hose/hpg.parquet", df)
+        result = await storage.write_dataframe("eod/hose/hpg.parquet", df)
 
         writable.write_bytes.assert_called_once()
         call_kwargs = writable.write_bytes.call_args
+        written_bytes = call_kwargs.kwargs["data"]
         assert call_kwargs.kwargs["bucket"] == "stock-data"
         assert call_kwargs.kwargs["object_name"] == "eod/hose/hpg.parquet"
         assert call_kwargs.kwargs["content_type"] == "application/vnd.apache.parquet"
+        assert result.object_name == "eod/hose/hpg.parquet"
+        assert result.checksum == f"sha256:{hashlib.sha256(written_bytes).hexdigest()}"
+        assert result.total_bytes == len(written_bytes)
+        assert result.temporary_object_name is None
 
     @pytest.mark.asyncio
     async def test_write_dataframe_bytes_are_valid_parquet(
@@ -444,14 +450,18 @@ class TestParquetStorageReplace:
     ):
         validator = MagicMock()
 
-        temp_name = await storage.replace_dataframe(
+        result = await storage.replace_dataframe(
             "indicators/1d/hose/hpg.parquet",
             df,
             temp_object_name="indicators/1d/hose/.tmp/hpg.tmp",
             validate=validator,
         )
 
-        assert temp_name == "indicators/1d/hose/.tmp/hpg.tmp"
+        written_bytes = writable.write_bytes.call_args.kwargs["data"]
+        assert result.object_name == "indicators/1d/hose/hpg.parquet"
+        assert result.checksum == f"sha256:{hashlib.sha256(written_bytes).hexdigest()}"
+        assert result.total_bytes == len(written_bytes)
+        assert result.temporary_object_name == "indicators/1d/hose/.tmp/hpg.tmp"
         writable.write_bytes.assert_called_once()
         copyable.copy_object.assert_awaited_once_with(
             bucket="stock-data",
@@ -498,13 +508,13 @@ class TestParquetStorageReplace:
     ):
         deletable.delete.side_effect = RuntimeError("denied")
 
-        temp_name = await storage.replace_dataframe(
+        result = await storage.replace_dataframe(
             "indicators/1d/hose/hpg.parquet",
             df,
             temp_object_name="indicators/1d/hose/.tmp/hpg.tmp",
         )
 
-        assert temp_name == "indicators/1d/hose/.tmp/hpg.tmp"
+        assert result.temporary_object_name == "indicators/1d/hose/.tmp/hpg.tmp"
         copyable.copy_object.assert_awaited_once()
         deletable.delete.assert_awaited_once_with(
             "stock-data", "indicators/1d/hose/.tmp/hpg.tmp"

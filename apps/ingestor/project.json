@@ -99,13 +99,22 @@
       "cache": true,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run pytest tests/",
+        "command": "uv run pytest tests/ --ignore=tests/integration",
         "cwd": "{projectRoot}"
       },
       "outputs": [
         "{workspaceRoot}/reports/{projectRoot}/unittests",
         "{workspaceRoot}/coverage/{projectRoot}"
       ]
+    },
+    "test-integration": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run pytest tests/integration/",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": []
     },
     "update": {
       "executor": "@nxlv/python:update",

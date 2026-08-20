@@ -187,6 +187,84 @@ When changing storage paths or dataset ownership:
 
 Normal dataset readiness checks must read the corresponding metadata manifest instead of scanning the full Parquet prefix when a manifest exists.
 
+## Dataset Manifest Rule
+
+Every canonical dataset partition publishes an immutable JSON version manifest at `_metadata/datasets/<dataset>/<partition_path>/versions/<dataVersion>.json`, then replaces `_metadata/datasets/<dataset>/<partition_path>/READY.json` after successful Parquet write and validation. Empty partitions use the reserved `_default` path segment.
+
+Manifests provide:
+
+- `status`: READY, PROCESSING, or FAILED
+- `dataVersion`: Deterministic content-based fingerprint for lineage tracking
+- `rowCount`, `columnCount`: Dataset statistics
+- `columns`: Schema metadata with types and nullability
+- `minTimestamp`, `maxTimestamp`: Time range when applicable
+- `inputs[]`: Upstream dataset versions consumed (for dependency tracking)
+- `schemaHash`: Deterministic schema fingerprint
+- `generatedAt`: ISO 8601 UTC timestamp
+
+### READY-Last Semantics
+
+The immutable version manifest and mutable READY pointer must be published after Parquet data is written and validated. The immutable version is written first and READY is replaced last, so `status: "READY"` guarantees data validity.
+
+Never publish READY before completing the Parquet write, validation, and immutable-version publication. If any step fails, do not perform a compensating READY write; preserve the prior READY object.
+
+### Deterministic Data Versioning
+
+`dataVersion` is calculated from canonical, sorted identity inputs:
+
+```text
+SHA256(dataset + normalized_partition + schemaHash + object_checksums + inputs)
+```
+
+Object checksums and byte lengths come from the exact persisted Parquet bytes. `generatedAt` is excluded from the fingerprint.
+
+This enables:
+
+- Exact dependency tracking via `inputs[].dataVersion`
+- Change detection without scanning Parquet files
+- Lineage verification across pipeline stages
+
+### Readiness Checks
+
+When checking if a dataset partition is ready:
+
+1. Read `_metadata/datasets/<dataset>/<partition_path>/READY.json`.
+2. Check `status === "READY"`.
+3. Verify `dataVersion` matches the expected upstream version when needed.
+
+Do not scan the Parquet prefix for existence checks when a manifest exists. Use the manifest as the source of truth.
+
+### Integration Points
+
+Dataset producers must call `publish_dataset_manifest()` from `py_common.storage.manifest` after successful Parquet writes:
+
+```python
+from py_common.storage.manifest import publish_dataset_manifest, ManifestWriter
+
+# After writing Parquet data
+await publish_dataset_manifest(
+    writer=manifest_writer,
+    dataset='eod',
+    partition={'exchange': 'hose'},
+    data_path='eod/hose/*.parquet',
+    dataframe=eod_df,
+    object_checksums=[('eod/hose/data.parquet', 'sha256:<exact-byte-hash>')],
+    object_count=1,
+    total_bytes=parquet_write_result.byte_length,
+    inputs=[],  # Upstream dependencies if applicable
+)
+```
+
+When modifying dataset producers or consumers, check if manifests need updates:
+
+1. Run impact analysis for the dataset contract
+2. Update manifest schema if column types/names change
+3. Update `inputs[]` if upstream dependencies change
+4. Update tests to verify manifest publication
+5. Update [Data lake](docs/data/data-lake.md)
+
+See [Dataset Metadata Manifest plan](docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md).
+
 ## Job Dependency Rule
 
 Cron timing gaps are scheduling hints, not dependency guarantees.

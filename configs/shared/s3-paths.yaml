@@ -146,6 +146,26 @@ stock-data:
     etf:
       base: 'etf/'
       pattern: '{exchange}/{code}.parquet'
+
+    # Mutable dataset READY pointers, published only after validated data and
+    # the immutable version manifest have been written successfully.
+    # Pattern: _metadata/datasets/{dataset}/{partition_path}/READY.json
+    # Empty partitions use the reserved _default partition path.
+    dataset-manifests:
+      base: '_metadata/datasets/'
+      pattern: '{dataset}/{partition_path}/READY.json'
+
+    # Immutable manifests preserve exact content and lineage identity.
+    # Pattern: _metadata/datasets/{dataset}/{partition_path}/versions/{data_version}.json
+    dataset-manifest-versions:
+      base: '_metadata/datasets/'
+      pattern: '{dataset}/{partition_path}/versions/{data_version}.json'
+
+    # Global dataset catalog
+    # Pattern: _metadata/catalog.json
+    dataset-catalog:
+      base: '_metadata/'
+      pattern: 'catalog.json'
 # Path Construction Rules:
 # 1. All exchange names and codes are lowercase in paths (hose, hnx, upcom, hpg, fpt)
 # 2. Folder names use kebab-case (corporate-actions, income-statement)

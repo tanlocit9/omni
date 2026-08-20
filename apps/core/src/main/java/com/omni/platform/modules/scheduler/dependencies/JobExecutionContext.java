@@ -1,0 +1,67 @@
+package com.omni.platform.modules.scheduler.dependencies;
+
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
+
+import java.util.Map;
+
+/**
+ * Execution context for a job about to be dispatched.
+ *
+ * <p>Provides the guard with information needed to evaluate dataset dependencies:
+ * <ul>
+ *   <li>Job definition (type, source, config with dataset dependencies)</li>
+ *   <li>Execution ID for traceability</li>
+ *   <li>Upstream dataset versions (for CURRENT_INPUTS checks)</li>
+ * </ul>
+ *
+ * <p>Immutable and thread-safe.
+ */
+public record JobExecutionContext(
+    JobDefinition jobDefinition,
+    String executionId,
+    Map<DatasetRef, String> upstreamVersions
+) {
+
+    /**
+     * Human-readable job identifier: jobType_source.
+     * Used for logging and blocked job tracking.
+     */
+    public String getJobName() {
+        return jobDefinition.getJobType().name() + "_" + jobDefinition.getSource().name();
+    }
+
+    /**
+     * Job type name for logging.
+     */
+    public String getJobType() {
+        return jobDefinition.getJobType().name();
+    }
+
+    /**
+     * Get dataset dependencies from job config.
+     *
+     * <p>Reads the "dependsOnDatasets" key from job config JSON.
+     * Expected format:
+     * <pre>
+     * {
+     *   "dependsOnDatasets": [
+     *     {"dataset": "eod", "partition": {"exchange": "hose"}, "conditions": ["READY"]},
+     *     {"dataset": "symbols", "partition": {}, "conditions": ["EXISTS", "MIN_ROW_COUNT"], "minRowCount": 10}
+     *   ]
+     * }
+     * </pre>
+     *
+     * @return dataset dependencies or empty list if not configured
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.List<Map<String, Object>> getDependsOnDatasets() {
+        if (jobDefinition.getConfigJson() == null) {
+            return java.util.List.of();
+        }
+        Object deps = jobDefinition.getConfigJson().get("dependsOnDatasets");
+        if (deps instanceof java.util.List<?>) {
+            return (java.util.List<Map<String, Object>>) deps;
+        }
+        return java.util.List.of();
+    }
+}

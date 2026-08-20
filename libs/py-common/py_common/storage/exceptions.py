@@ -210,6 +210,63 @@ class StorageDeleteError(StorageError):
 
 
 # ---------------------------------------------------------------------------
+# Manifest-specific exceptions (persisted-contract and readiness concerns)
+# ---------------------------------------------------------------------------
+
+
+class ManifestError(Exception):
+    """Base class for dataset manifest contract and readiness errors."""
+
+
+class ManifestNotFoundError(ManifestError):
+    """Raised when a requested dataset manifest pointer does not exist."""
+
+    def __init__(self, dataset: str, partition: dict[str, str]) -> None:
+        self.dataset = dataset
+        self.partition = partition
+        super().__init__(
+            f"Manifest not found for dataset={dataset} partition={partition}"
+        )
+
+
+class ManifestInvalidError(ManifestError):
+    """Raised when manifest JSON violates the persisted contract."""
+
+    def __init__(self, message: str, cause: Exception | None = None) -> None:
+        self.cause = cause
+        super().__init__(message)
+
+
+class ManifestUnsupportedVersionError(ManifestInvalidError):
+    """Raised when the manifest envelope version is unsupported."""
+
+    def __init__(self, version: object) -> None:
+        self.version = version
+        super().__init__(f"Unsupported manifest version: {version!r}")
+
+
+class ManifestUnsupportedSchemaVersionError(ManifestInvalidError):
+    """Raised when the dataset schema contract version is unsupported."""
+
+    def __init__(self, schema_version: object) -> None:
+        self.schema_version = schema_version
+        super().__init__(f"Unsupported schema version: {schema_version!r}")
+
+
+class ManifestNotReadyError(ManifestError):
+    """Raised when a manifest exists but is not in READY state."""
+
+    def __init__(self, dataset: str, partition: dict[str, str], status: str) -> None:
+        self.dataset = dataset
+        self.partition = partition
+        self.status = status
+        super().__init__(
+            f"Manifest is not READY for dataset={dataset} "
+            f"partition={partition}: status={status}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Parquet-specific exceptions (data-format concern, not storage transport)
 # ---------------------------------------------------------------------------
 

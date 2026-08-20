@@ -65,7 +65,9 @@ class StockDataPaths:
     sector_transition_decisions_pattern: str = (
         "{strategy}/{timeframe}/lv{sector_level}.parquet"
     )
-    sector_transition_probabilities_base: str = "research/sector-transition/probabilities/"
+    sector_transition_probabilities_base: str = (
+        "research/sector-transition/probabilities/"
+    )
     sector_transition_probabilities_pattern: str = (
         "{strategy}/{timeframe}/lv{sector_level}.parquet"
     )

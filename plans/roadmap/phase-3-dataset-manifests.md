@@ -10,7 +10,7 @@ Create a canonical, queryable definition of dataset identity, readiness, schema,
 | ----------------------- | ----------------------------------------------------------- |
 | id                      | P3-I1                                                       |
 | title                   | Manifest models, identity rules, and py_common abstractions |
-| status                  | ready                                                       |
+| status                  | verification_pending                                        |
 | priority                | critical                                                    |
 | depends_on              | [P1-I2]                                                     |
 | blocks                  | [P3-I2, P4-I1, P6-I1, P8-I1]                                |
@@ -22,7 +22,7 @@ Create a canonical, queryable definition of dataset identity, readiness, schema,
 
 Goal: define JSON `DatasetManifest`, `DatasetRef`, catalog pointer, identity/hash rules, and shared writer/reader abstractions in [`py_common`](../../libs/py-common/py_common).
 
-Current baseline: Parquet storage exists, but READY manifest and `dataVersion` semantics are not canonical.
+Current verification state: the canonical JSON contract, deterministic lineage-inclusive identity, exact-byte physical identity, immutable version plus READY paths, shared fixtures, Python writer/reader, and Java read compatibility are implemented in the local worktree. Local Nx lint, test, and build gates pass; commit, PR, and CI evidence remain unavailable because this execution is not authorized to commit or publish changes.
 
 Acceptance criteria: manifests are immutable per `dataVersion`, READY pointer is published last, schema/data hashes are deterministic, inputs record exact upstream versions, and no Kafka message uses physical S3 paths for routing.
 
@@ -47,6 +47,8 @@ Stop conditions: stop if object path ownership or JSON-vs-Proto persistence boun
 | last_verified_commit    | null                                             |
 
 Goal: migrate one Ingestor EOD dataset to safe staged write, validation, immutable manifest, and READY publication.
+
+Local verification state: the Ingestor EOD handler publishes exact persisted Parquet identity through the shared immutable-manifest/READY-last writer. `nx run ingestor:test-integration` passes against the repository MinIO service and verifies data read-back, deterministic `dataVersion` recomputation, immutable/READY byte equality, and byte-for-byte preservation of the previous READY pointer after an injected replacement failure. Canonical status remains `pending` because P3-I1 and P2-I2 are not completed and no commit, PR, or CI evidence is authorized.
 
 Acceptance criteria: failed rewrites do not replace current READY, row/schema/partition validation runs before READY publication, and manifest fixtures are committed.
 

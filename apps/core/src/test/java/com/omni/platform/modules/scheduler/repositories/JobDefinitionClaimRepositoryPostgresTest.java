@@ -14,8 +14,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -50,6 +53,7 @@ import jakarta.persistence.EntityManager;
 })
 class JobDefinitionClaimRepositoryPostgresTest {
 
+    private static final Logger LOG = LoggerFactory.getLogger(JobDefinitionClaimRepositoryPostgresTest.class);
     private static final Instant NOW = Instant.parse("2026-08-11T15:00:00Z");
     private static final Duration LEASE_DURATION = Duration.ofMinutes(2);
 
@@ -84,6 +88,21 @@ class JobDefinitionClaimRepositoryPostgresTest {
 
     @Autowired
     private JobService jobService;
+
+    @BeforeEach
+    void logBlockedJobsSchema() {
+        @SuppressWarnings("unchecked")
+        List<String> columns = entityManager.createNativeQuery("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'blocked_jobs'
+                ORDER BY ordinal_position
+                """, String.class).getResultList();
+        LOG.info("Diagnostic blocked_jobs columns in schema {}: {}",
+                entityManager.createNativeQuery("SELECT current_schema()", String.class).getSingleResult(),
+                columns);
+    }
 
     @AfterEach
     void cleanUp() {

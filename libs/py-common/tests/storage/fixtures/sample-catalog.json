@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "datasets": [
+    {
+      "name": "symbols",
+      "metadataPrefix": "_metadata/datasets/symbols/",
+      "dataPrefix": "symbols/",
+      "description": "Exchange symbol metadata with sector classifications"
+    },
+    {
+      "name": "eod",
+      "metadataPrefix": "_metadata/datasets/eod/",
+      "dataPrefix": "eod/",
+      "description": "End-of-day price data by exchange and ticker"
+    },
+    {
+      "name": "indicators",
+      "metadataPrefix": "_metadata/datasets/indicators/",
+      "dataPrefix": "indicators/",
+      "description": "Technical indicators derived from EOD data"
+    },
+    {
+      "name": "signals",
+      "metadataPrefix": "_metadata/datasets/signals/",
+      "dataPrefix": "signals/",
+      "description": "Trading signals and strategy evaluations"
+    },
+    {
+      "name": "symbol-features",
+      "metadataPrefix": "_metadata/datasets/symbol-features/",
+      "dataPrefix": "symbol-features/",
+      "description": "Symbol-level features for sector wave analysis"
+    },
+    {
+      "name": "sector-features",
+      "metadataPrefix": "_metadata/datasets/sector-features/",
+      "dataPrefix": "sector-features/",
+      "description": "Sector-level aggregated features"
+    },
+    {
+      "name": "sector-rotation-backtests",
+      "metadataPrefix": "_metadata/datasets/sector-rotation-backtests/",
+      "dataPrefix": "sector-rotation-backtests/",
+      "description": "Sector rotation strategy backtest results"
+    },
+    {
+      "name": "sector-transition-predictions",
+      "metadataPrefix": "_metadata/datasets/sector-transition-predictions/",
+      "dataPrefix": "sector-transition-predictions/",
+      "description": "Sector transition probability predictions"
+    },
+    {
+      "name": "sector-transition-decisions",
+      "metadataPrefix": "_metadata/datasets/sector-transition-decisions/",
+      "dataPrefix": "sector-transition-decisions/",
+      "description": "Private sector transition decision outputs"
+    },
+    {
+      "name": "sector-transition-probabilities",
+      "metadataPrefix": "_metadata/datasets/sector-transition-probabilities/",
+      "dataPrefix": "sector-transition-probabilities/",
+      "description": "Full transition probability matrices"
+    },
+    {
+      "name": "sector-transition-outcomes",
+      "metadataPrefix": "_metadata/datasets/sector-transition-outcomes/",
+      "dataPrefix": "sector-transition-outcomes/",
+      "description": "Realized sector transition outcomes"
+    }
+  ],
+  "lastUpdated": "2026-08-18T12:00:00Z"
+}

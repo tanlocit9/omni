@@ -20,7 +20,10 @@ def _write_shared_config(root: Path) -> None:
                 "    topic-evaluate-signals: evaluate-signals-topic",
                 "    topic-signal-notifications: signal-notifications-topic",
                 "    topic-sector-transition-analyze: transition-analyze-topic",
-                "    topic-sector-transition-evaluate-outcomes: transition-outcomes-topic",
+                (
+                    "    topic-sector-transition-evaluate-outcomes: "
+                    "transition-outcomes-topic"
+                ),
                 "    topic-sync-job-status: status-topic",
                 "app:",
                 "  scheduler:",
@@ -104,8 +107,8 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
     assert settings.topic_evaluate_signals == "evaluate-signals-topic"
     assert settings.topic_signal_notifications == "signal-notifications-topic"
     assert settings.topic_sector_transition_analyze == "transition-analyze-topic"
-    assert (
-        settings.topic_sector_transition_evaluate_outcomes == "transition-outcomes-topic"
+    assert settings.topic_sector_transition_evaluate_outcomes == (
+        "transition-outcomes-topic"
     )
     assert settings.sync_job_status_topic == "status-topic"
     assert settings.scheduler.zone == "Asia/Bangkok"
@@ -159,7 +162,8 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
         settings.get_sector_transition_probabilities_path(
             "SECTOR_TRANSITION_V1", "1d", 3
         )
-        == "research/sector-transition/probabilities/sector_transition_v1/1d/lv3.parquet"
+        == "research/sector-transition/probabilities/"
+        "sector_transition_v1/1d/lv3.parquet"
     )
     assert (
         settings.get_sector_transition_outcomes_path("SECTOR_TRANSITION_V1", "1d", 3)

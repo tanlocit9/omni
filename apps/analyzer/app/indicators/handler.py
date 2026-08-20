@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from py_common.storage.manifest import DatasetInput, ManifestWriter, publish_dataset_manifest
 from py_common.storage.parquet import ParquetStorage
 
 from app.calculations.indicators import calculate_supported_indicators
@@ -15,9 +16,15 @@ _logger = logging.getLogger(__name__)
 class IndicatorJobHandler:
     """Process indicator calculation jobs using shared storage abstractions."""
 
-    def __init__(self, settings: AppSettings, parquet_storage: ParquetStorage) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        parquet_storage: ParquetStorage,
+        manifest_writer: ManifestWriter | None = None,
+    ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
+        self._manifest_writer = manifest_writer
 
     async def handle(self, payload: dict[str, Any]) -> int:
         message = IndicatorJobMessage.model_validate(payload)
@@ -45,6 +52,38 @@ class IndicatorJobHandler:
             self._settings.scheduler,
         )
         await self._parquet_storage.write_dataframe(indicators_path, result)
+        
+        # Publish dataset manifest after successful write
+        if self._manifest_writer:
+            try:
+                # TODO: Get upstream EOD manifest dataVersion for lineage tracking
+                await publish_dataset_manifest(
+                    writer=self._manifest_writer,
+                    dataset='indicators',
+                    partition={
+                        'source': message.indicator_source,
+                        'timeframe': message.timeframe,
+                        'exchange': exchange,
+                        'code': code,
+                    },
+                    data_path=indicators_path,
+                    dataframe=result,
+                    inputs=[],  # Will add EOD lineage in future iteration
+                )
+                _logger.info(
+                    "Published manifest for indicators partition source=%s timeframe=%s exchange=%s code=%s",
+                    message.indicator_source,
+                    message.timeframe,
+                    exchange,
+                    code,
+                )
+            except Exception as exc:
+                _logger.warning(
+                    "Failed to publish manifest for indicators partition: %s",
+                    exc,
+                    exc_info=True,
+                )
+        
         return len(result)
 
     def _build_indicators_path(

@@ -52,6 +52,143 @@ flowchart TD
 - Kafka messages must not include bucket names or object names for routing.
 - Path construction should use shared path builders backed by [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml).
 
+## Dataset Manifests
+
+Every canonical dataset partition publishes metadata under:
+
+```text
+_metadata/datasets/<dataset>/<partition_path>/READY.json
+_metadata/datasets/<dataset>/<partition_path>/versions/<dataVersion>.json
+```
+
+Partition keys are normalized and sorted as `key=value` segments; an empty
+partition uses `_default`. The immutable version manifest is written after the
+Parquet data is validated, and the mutable `READY.json` pointer is replaced last.
+
+### Manifest Schema
+
+Manifests follow a standardized JSON schema:
+
+```json
+{
+  "version": 1,
+  "dataset": "eod",
+  "partition": { "exchange": "hose" },
+  "status": "READY",
+  "dataVersion": "sha256:abc123...",
+  "path": "eod/hose/*.parquet",
+  "objectCount": 3,
+  "totalBytes": 1048576,
+  "rowCount": 1234,
+  "columnCount": 15,
+  "columns": [
+    { "name": "date", "type": "TIMESTAMP", "nullable": false },
+    { "name": "close", "type": "DOUBLE", "nullable": false }
+  ],
+  "schemaVersion": 1,
+  "schemaHash": "sha256:def456...",
+  "minTimestamp": "2024-01-01T00:00:00Z",
+  "maxTimestamp": "2026-08-18T00:00:00Z",
+  "inputs": [
+    {
+      "dataset": "upstream_dataset",
+      "partition": { "key": "value" },
+      "dataVersion": "sha256:xyz789..."
+    }
+  ],
+  "generatedAt": "2026-08-18T12:00:00Z"
+}
+```
+
+### READY-Last Semantics
+
+- Exact Parquet bytes are written and validated first.
+- Their SHA-256 checksums and byte lengths provide physical object identity.
+- The immutable `versions/<dataVersion>.json` manifest is published next.
+- `READY.json` is replaced **last**; `status: "READY"` guarantees the referenced data is valid and complete.
+- Immutable-write failure does not attempt READY publication.
+- READY replacement failure performs no compensating write, so the prior READY object remains authoritative.
+
+### Data Versioning
+
+`dataVersion` is a deterministic SHA-256 fingerprint calculated from:
+
+```text
+SHA256(dataset + normalized_partition + schemaHash + object_checksums + inputs)
+```
+
+Physical objects and lineage inputs are canonically sorted. `generatedAt` is
+excluded so an idempotent retry of identical content retains the same identity.
+
+This enables:
+
+- Exact dependency tracking via `inputs[].dataVersion`
+- Change detection without scanning Parquet files
+- Lineage verification across pipeline stages
+- Idempotent reprocessing with content-based versioning
+
+### Readiness Checks
+
+Dataset consumers should check readiness via manifests instead of scanning Parquet prefixes:
+
+```python
+from py_common.storage.manifest import ManifestReader
+
+# Read manifest
+manifest = await reader.read_manifest('eod', {'exchange': 'hose'})
+
+# Check readiness
+if manifest and manifest.status == 'READY':
+    # Dataset is ready
+    data_version = manifest.dataVersion
+    row_count = manifest.rowCount
+```
+
+Do not scan the Parquet prefix for existence checks when a manifest exists. Use the manifest as the source of truth.
+
+### Global Catalog
+
+A global catalog at `_metadata/catalog.json` lists all known datasets:
+
+```json
+{
+  "version": 1,
+  "datasets": [
+    {
+      "name": "eod",
+      "description": "End-of-day price data"
+    },
+    {
+      "name": "indicators",
+      "description": "Technical indicators"
+    }
+  ],
+  "lastUpdated": "2026-08-18T12:00:00Z"
+}
+```
+
+The catalog is bootstrapped from the `OMNI_DATASETS` registry in [`py_common.storage.manifest`](../../libs/py-common/py_common/storage/manifest.py).
+
+### Integration
+
+Dataset producers must call `publish_dataset_manifest()` after successful Parquet writes:
+
+```python
+from py_common.storage.manifest import publish_dataset_manifest, ManifestWriter
+
+# After writing Parquet data
+await publish_dataset_manifest(
+    writer=manifest_writer,
+    dataset='eod',
+    partition={'exchange': 'hose'},
+    data_path='eod/hose/*.parquet',
+    dataframe=eod_df,
+    inputs=[],  # Upstream dependencies if applicable
+)
+```
+
+See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) for full details.
+
 ## Datasets
 
 ### symbols

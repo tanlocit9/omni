@@ -49,6 +49,7 @@ dependencies {
     // Third party
     implementation("io.minio:minio:8.6.0")
     implementation("net.coobird:thumbnailator:0.4.1")
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     implementation("org.springframework.boot:spring-boot-starter-kafka:4.0.0")
     implementation("io.hypersistence:hypersistence-utils-hibernate-71:3.15.3")

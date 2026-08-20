@@ -521,7 +521,7 @@ wheels = [
 [[package]]
 name = "ingestor"
 version = "1.0.0"
-source = { virtual = "apps/ingestor" }
+source = { editable = "apps/ingestor" }
 dependencies = [
     { name = "omni-py-common" },
 ]

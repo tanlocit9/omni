@@ -6,3 +6,10 @@ spring:
     password:
   flyway:
     enabled: false
+
+app:
+  minio:
+    endpoint: http://localhost:9000
+    access-key: test-access-key
+    secret-key: test-secret-key
+    bucket: omni-test

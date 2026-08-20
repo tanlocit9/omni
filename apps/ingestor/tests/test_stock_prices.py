@@ -99,6 +99,7 @@ async def test_process_stock_price_publishes_exact_write_identity_after_data_wri
     assert kwargs["object_checksums"] == [
         ("eod/hose/hpg.parquet", f"sha256:{'a' * 64}")
     ]
+    assert kwargs["execution_id"] == "execution-1"
     assert kwargs["object_count"] == 1
     assert kwargs["total_bytes"] == 321
 

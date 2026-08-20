@@ -40,15 +40,15 @@ The assessment also found these gaps:
 
 ## Recommended Controls
 
-| Priority | Control | Type | Decision | Primary value |
-| --- | --- | --- | --- | --- |
-| 1 | code-review-graph | MCP plus local index | Install now | Semantic search, dependency tracing, impact radius, and post-change detection across Java and Python |
-| 1 | Nx AI integration | Skills plus Nx MCP | Configure now | Workspace graph awareness, valid target discovery, affected-project analysis, Nx Cloud CI context, and task monitoring |
-| 2 | omni-roadmap-operator | Repository skill | Create now | Execute the existing roadmap protocol consistently |
-| 2 | omni-vault-sync | Repository skill | Create now | Detect and reconcile drift between canonical GitHub evidence and the product vault |
-| 3 | security-threat-model | Curated skill | Install before portable deployment or Console exposure | Repository-grounded trust boundaries, assets, abuse paths, and mitigations |
-| Later | Playwright | Curated skill | Add with the Omni Console phase | Browser-driven user-flow verification and screenshots |
-| Later | Sentry | Curated skill | Add only after Sentry adoption | Read-only production error and health inspection |
+| Priority | Control               | Type                 | Decision                                               | Primary value                                                                                                          |
+| -------- | --------------------- | -------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| 1        | code-review-graph     | MCP plus local index | Install now                                            | Semantic search, dependency tracing, impact radius, and post-change detection across Java and Python                   |
+| 1        | Nx AI integration     | Skills plus Nx MCP   | Configure now                                          | Workspace graph awareness, valid target discovery, affected-project analysis, Nx Cloud CI context, and task monitoring |
+| 2        | omni-roadmap-operator | Repository skill     | Create now                                             | Execute the existing roadmap protocol consistently                                                                     |
+| 2        | omni-vault-sync       | Repository skill     | Create now                                             | Detect and reconcile drift between canonical GitHub evidence and the product vault                                     |
+| 3        | security-threat-model | Curated skill        | Install before portable deployment or Console exposure | Repository-grounded trust boundaries, assets, abuse paths, and mitigations                                             |
+| Later    | Playwright            | Curated skill        | Add with the Omni Console phase                        | Browser-driven user-flow verification and screenshots                                                                  |
+| Later    | Sentry                | Curated skill        | Add only after Sentry adoption                         | Read-only production error and health inspection                                                                       |
 
 ## Immediate Control 1: code-review-graph
 
@@ -241,15 +241,15 @@ The tooling rollout is complete when:
 
 ## Risks and Mitigations
 
-| Risk | Mitigation |
-| --- | --- |
+| Risk                                                       | Mitigation                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Generated Nx guidance overwrites repository-specific rules | Configure on a branch, review the full diff, and preserve canonical Omni policy |
-| Graph data becomes stale | Enable documented incremental refresh and verify status at session start |
-| MCP tools expand mutation authority | Use project scope, tool allow lists, read-only credentials, and write approvals |
-| Skills duplicate canonical roadmap prose | Link to canonical documents and keep skills procedural |
-| Vault summaries become a second source of truth | Repository evidence always wins; sync after verified changes |
-| Tool upgrades change automation behavior | Pin validated versions and upgrade through reviewable pull requests |
-| Too many skills dilute triggering accuracy | Install only phase-relevant skills with narrow descriptions |
+| Graph data becomes stale                                   | Enable documented incremental refresh and verify status at session start        |
+| MCP tools expand mutation authority                        | Use project scope, tool allow lists, read-only credentials, and write approvals |
+| Skills duplicate canonical roadmap prose                   | Link to canonical documents and keep skills procedural                          |
+| Vault summaries become a second source of truth            | Repository evidence always wins; sync after verified changes                    |
+| Tool upgrades change automation behavior                   | Pin validated versions and upgrade through reviewable pull requests             |
+| Too many skills dilute triggering accuracy                 | Install only phase-relevant skills with narrow descriptions                     |
 
 ## References
 

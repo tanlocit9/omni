@@ -101,6 +101,7 @@ async def process_stock_price_message(
                 dataframe=combined,
                 object_checksums=[(write_result.object_name, write_result.checksum)],
                 inputs=[],  # EOD is a root dataset with no upstream dependencies
+                execution_id=message.execution_id,
                 object_count=1,
                 total_bytes=write_result.total_bytes,
             )

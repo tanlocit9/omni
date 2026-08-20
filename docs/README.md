@@ -11,7 +11,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 5. [Job execution](flows/job-execution.md) — scheduler/worker execution flow.
 6. [Implementation plan standard](IMPLEMENTATION_PLAN_STANDARD.md) — mandatory plan/outcome/feature/contract/agent-guidance format.
 7. [Scheduler claim and outbox boundary ADR](adr/ADR-007-scheduler-claim-and-outbox-boundary.md) — Phase 1A claim foundation and Phase 1B outbox boundary.
-8. [Next phase roadmap](NEXT_PHASE_IMPLEMENTATION_PLAN.md) — current execution order.
+8. [Metadata → Omni Console → Dashboard execution plan](../plans/omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.
 9. [Codex control and tooling plan](development/codex-control-and-tooling.md) — proposed skills, MCP integrations, guardrails, and rollout order.
 10. [Cloudflare-first low-cost deployment decision](deployment/cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 
@@ -25,7 +25,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 
 ## Data / Product Plans
 
-- [Internal Tools / Parquet Viewer](INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md)
+- [Omni Console / Parquet Viewer compatibility pointer](INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md)
 - [Intraday EOD](INTRADAY_EOD_IMPLEMENTATION_PLAN.md)
 - [Realtime Per-Tick](REALTIME_PER_TICK_IMPLEMENTATION_PLAN.md)
 - [Telegram Multi-Channel](TELEGRAM_MULTI_CHANNEL_IMPLEMENTATION_PLAN.md)

@@ -21,13 +21,13 @@ Oracle Cloud is intentionally not selected. A genuinely zero-cost deployment is 
 
 ## Deployment Profiles
 
-| Profile | Expected cloud cost | Runtime fidelity | Intended use | Decision |
-| --- | ---: | --- | --- | --- |
-| `home-lab` | Approximately zero, excluding existing hardware and electricity | Full stack | Owner-operated development and private use | Recommended zero-cost path |
-| `demo-batch` | Zero within provider quotas | Reduced; no continuously running Platform or Kafka | Public demonstration and bounded EOD output | Recommended demo path |
-| `cloudflare-vps` | Small VPS charge; R2 may remain in its free allowance | Full stack | Persistent owner-operated environment | Preferred reliable path |
-| Cloudflare-only serverless | Paid and architecturally incompatible with the current stack | Low | None | Rejected |
-| Sleeping free application host | Zero but resource- and persistence-constrained | Low | Disposable experiments only | Rejected |
+| Profile                        |                                             Expected cloud cost | Runtime fidelity                                   | Intended use                                | Decision                   |
+| ------------------------------ | --------------------------------------------------------------: | -------------------------------------------------- | ------------------------------------------- | -------------------------- |
+| `home-lab`                     | Approximately zero, excluding existing hardware and electricity | Full stack                                         | Owner-operated development and private use  | Recommended zero-cost path |
+| `demo-batch`                   |                                     Zero within provider quotas | Reduced; no continuously running Platform or Kafka | Public demonstration and bounded EOD output | Recommended demo path      |
+| `cloudflare-vps`               |           Small VPS charge; R2 may remain in its free allowance | Full stack                                         | Persistent owner-operated environment       | Preferred reliable path    |
+| Cloudflare-only serverless     |    Paid and architecturally incompatible with the current stack | Low                                                | None                                        | Rejected                   |
+| Sleeping free application host |                  Zero but resource- and persistence-constrained | Low                                                | Disposable experiments only                 | Rejected                   |
 
 These profiles are separate operational contracts. The reduced `demo-batch` profile must not be described as production parity.
 

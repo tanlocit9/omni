@@ -657,18 +657,20 @@ class ManifestReader:
         self,
         dataset: str,
         partition: dict[str, str],
-    ) -> DatasetManifest | None:
-        """Read specific dataset partition manifest.
-        
+    ) -> DatasetManifest:
+        """Read and validate a specific dataset partition READY pointer.
+
         Args:
             dataset: Dataset name
             partition: Partition keys
-            
+
         Returns:
-            Manifest if exists, None otherwise
-            
+            Validated manifest stored at the canonical READY pointer
+
         Raises:
-            StorageReadError: If read fails for reasons other than not found
+            ManifestNotFoundError: If the READY pointer does not exist
+            ManifestInvalidError: If the manifest JSON violates the contract
+            StorageReadError: If the storage read fails for another reason
         """
         path = self._build_manifest_path(dataset, partition)
 

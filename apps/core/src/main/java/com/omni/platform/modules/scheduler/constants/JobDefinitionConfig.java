@@ -1,5 +1,6 @@
 package com.omni.platform.modules.scheduler.constants;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,28 +22,24 @@ public class JobDefinitionConfig {
         // ==========================================
         // 2. CRON EXPRESSIONS
         // ==========================================
-        private static final String CRON_18_00_WEEKDAYS = "0 0 18 * * MON-FRI";
-        private static final String CRON_18_05_WEEKDAYS = "0 5 18 * * MON-FRI";
-        private static final String CRON_18_10_WEEKDAYS = "0 10 18 * * MON-FRI";
-        private static final String CRON_18_15_WEEKDAYS = "0 15 18 * * MON-FRI";
-        private static final String CRON_18_20_WEEKDAYS = "0 20 18 * * MON-FRI";
-        private static final String CRON_18_30_WEEKDAYS = "0 30 18 * * MON-FRI";
-        private static final String CRON_18_35_WEEKDAYS = "0 35 18 * * MON-FRI";
-        private static final String CRON_18_40_WEEKDAYS = "0 40 18 * * MON-FRI";
         private static final String CRON_18_45_WEEKDAYS = "0 45 18 * * MON-FRI";
-        private static final String CRON_18_50_WEEKDAYS = "0 50 18 * * MON-FRI";
-        private static final String CRON_18_55_WEEKDAYS = "0 55 18 * * MON-FRI";
         private static final String CRON_19_00_WEEKDAYS = "0 0 19 * * MON-FRI";
-        private static final String CRON_19_05_WEEKDAYS = "0 5 19 * * MON-FRI";
-        private static final String CRON_19_10_WEEKDAYS = "0 10 19 * * MON-FRI";
         private static final String CRON_19_15_WEEKDAYS = "0 15 19 * * MON-FRI";
-        private static final String CRON_19_20_WEEKDAYS = "0 20 19 * * MON-FRI";
-        private static final String CRON_19_25_WEEKDAYS = "0 25 19 * * MON-FRI";
         private static final String CRON_19_30_WEEKDAYS = "0 30 19 * * MON-FRI";
-        private static final String CRON_19_35_WEEKDAYS = "0 35 19 * * MON-FRI";
-        private static final String CRON_19_40_WEEKDAYS = "0 40 19 * * MON-FRI";
         private static final String CRON_19_45_WEEKDAYS = "0 45 19 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
+        private static final int SYNC_STOCK_PRICE_START_HOUR = 18;
+        private static final int SYNC_STOCK_PRICE_START_MINUTE = 0;
+        private static final int PER_SECTOR_STEP_MINUTES = 2;
+
+        // Start times for the two dynamically-generated Sector Transition seed
+        // groups (see section 4b). Kept separate from the CRON_* constants above
+        // because their per-sector offsets are computed, not listed by hand.
+        private static final int SECTOR_TRANSITION_ANALYZE_START_HOUR = 20;
+        private static final int SECTOR_TRANSITION_ANALYZE_START_MINUTE = 0;
+        private static final int SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_HOUR = 21;
+        private static final int SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_MINUTE = 0;
+        private static final int SECTOR_TRANSITION_STEP_MINUTES = PER_SECTOR_STEP_MINUTES;
 
         // ==========================================
         // 3. CONFIG KEYS & VALUES
@@ -92,17 +89,9 @@ public class JobDefinitionConfig {
         private static final String DATASET_SECTOR_TRANSITION_DECISIONS = "sector-transition-decisions";
         private static final String DATASET_SECTOR_TRANSITION_OUTCOMES = "sector-transition-outcomes";
 
-        private static final String SECTOR_FINANCE = "FINANCIAL_SERVICES";
-        private static final String SECTOR_BANK = "BANKS";
-        private static final String SECTOR_REAL_ESTATE = "REAL_ESTATE";
-        private static final String SECTOR_BASIC_RESOURCES = "BASIC_RESOURCES";
-        private static final String SECTOR_OIL_AND_GAS = "OIL_AND_GAS";
-        private static final List<String> PRIMARY_SECTOR_TRANSITION_SECTOR_CODES = List.of(
-                        SECTOR_FINANCE,
-                        SECTOR_REAL_ESTATE,
-                        SECTOR_BASIC_RESOURCES,
-                        SECTOR_BANK,
-                        SECTOR_OIL_AND_GAS);
+        public static final List<String> ENABLED_SECTOR_CODES = SectorSeedConfig.SECTOR_SEEDS.stream()
+                        .map(SectorSeedConfig.SectorSeed::code)
+                        .toList();
 
         public static final List<String> VIETNAM_EXCHANGES = List.of("HOSE", "HNX", "UPCOM");
 
@@ -123,23 +112,21 @@ public class JobDefinitionConfig {
                                         List.of(),
                                         List.of(DATASET_SYMBOLS, DATASET_SECTORS))));
 
-        private static final List<JobDefinitionSeed> SYNC_STOCK_PRICE_SEEDS = List.of(
-                        syncStockPriceSeed(SECTOR_FINANCE, "Finance", CRON_18_00_WEEKDAYS),
-                        syncStockPriceSeed(SECTOR_REAL_ESTATE, "Real estate", CRON_18_05_WEEKDAYS),
-                        syncStockPriceSeed(SECTOR_BASIC_RESOURCES, "Basic resources", CRON_18_10_WEEKDAYS),
-                        syncStockPriceSeed(SECTOR_BANK, "Banking", CRON_18_15_WEEKDAYS),
-                        syncStockPriceSeed(SECTOR_OIL_AND_GAS, "Oil and gas", CRON_18_20_WEEKDAYS));
+        private static final List<JobDefinitionSeed> SYNC_STOCK_PRICE_SEEDS = generateSyncStockPriceSeeds(
+                        SYNC_STOCK_PRICE_START_HOUR,
+                        SYNC_STOCK_PRICE_START_MINUTE,
+                        PER_SECTOR_STEP_MINUTES);
 
         private static final List<JobDefinitionSeed> SYNC_INDICATORS_SEEDS = List.of(
                         new JobDefinitionSeed(
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.SYNC_INDICATORS,
-                                        "Sync technical indicators - daily",
-                                        CRON_18_30_WEEKDAYS,
+                                        "Sync technical indicators",
+                                        CRON_18_45_WEEKDAYS,
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
-                                                                        List.of(SECTOR_BANK),
+                                                                        ENABLED_SECTOR_CODES,
                                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                         CONFIG_KEY_INDICATOR_SOURCE,
                                                                         CONFIG_KEY_INDICATOR_SOURCE_CLOSE,
@@ -153,11 +140,11 @@ public class JobDefinitionConfig {
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.SYNC_SIGNALS,
-                                        "Sync market signals - daily BANKS",
-                                        CRON_18_35_WEEKDAYS,
+                                        "Sync market signals",
+                                        CRON_19_00_WEEKDAYS,
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
-                                                                        List.of(SECTOR_BANK),
+                                                                        ENABLED_SECTOR_CODES,
                                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                         CONFIG_KEY_SIGNAL_STRATEGY,
                                                                         SIGNAL_STRATEGY_TREND_MOMENTUM_V1),
@@ -172,13 +159,14 @@ public class JobDefinitionConfig {
                                         List.of(),
                                         JobType.EVALUATE_SIGNALS,
                                         "Evaluate market signal outcomes - daily",
-                                        CRON_18_40_WEEKDAYS,
+                                        CRON_19_15_WEEKDAYS,
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_EXCHANGES, VIETNAM_EXCHANGES,
                                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                         CONFIG_KEY_SIGNAL_STRATEGY,
                                                                         SIGNAL_STRATEGY_TREND_MOMENTUM_V1),
-                                                        List.of(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_SIGNALS.name()),
+                                                        List.of(JobType.SYNC_STOCK_PRICE.name(),
+                                                                        JobType.SYNC_SIGNALS.name()),
                                                         List.of(DATASET_EOD, DATASET_SIGNALS),
                                                         List.of(DATASET_SIGNAL_EVALUATIONS))));
 
@@ -187,15 +175,17 @@ public class JobDefinitionConfig {
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.PRECOMPUTE_SYMBOL_FEATURES,
-                                        "Precompute Sector Wave symbol features - daily BANKS",
-                                        CRON_18_45_WEEKDAYS,
+                                        "Precompute Sector Wave symbol features",
+                                        CRON_19_30_WEEKDAYS,
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
-                                                                        CONFIG_KEY_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                                        CONFIG_KEY_SECTOR_CODES,
+                                                                        ENABLED_SECTOR_CODES,
                                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                         CONFIG_KEY_SECTOR_WAVE_STRATEGY,
                                                                         SECTOR_WAVE_STRATEGY_V1),
-                                                        List.of(JobType.SYNC_SYMBOLS.name(), JobType.SYNC_STOCK_PRICE.name()),
+                                                        List.of(JobType.SYNC_SYMBOLS.name(),
+                                                                        JobType.SYNC_STOCK_PRICE.name()),
                                                         List.of(DATASET_SYMBOLS, DATASET_SECTORS, DATASET_EOD),
                                                         List.of(DATASET_SYMBOL_FEATURES))));
 
@@ -204,11 +194,12 @@ public class JobDefinitionConfig {
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.PRECOMPUTE_SECTOR_FEATURES,
-                                        "Precompute Sector Wave sector features - daily BANKS",
-                                        CRON_18_50_WEEKDAYS,
+                                        "Precompute Sector Wave sector features - daily",
+                                        CRON_19_45_WEEKDAYS,
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
-                                                                        CONFIG_KEY_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                                        CONFIG_KEY_SECTOR_CODES,
+                                                                        ENABLED_SECTOR_CODES,
                                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                         CONFIG_KEY_SECTOR_WAVE_STRATEGY,
                                                                         SECTOR_WAVE_STRATEGY_V1),
@@ -221,11 +212,12 @@ public class JobDefinitionConfig {
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.SECTOR_ROTATION_BACKTEST,
-                                        "Run Sector Wave rotation backtest - daily BANKS",
-                                        CRON_18_55_WEEKDAYS,
+                                        "Run Sector Wave rotation backtest - daily",
+                                        "0 50 19 * * MON-FRI",
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
-                                                                        CONFIG_KEY_SECTOR_CODES, List.of(SECTOR_BANK),
+                                                                        CONFIG_KEY_SECTOR_CODES,
+                                                                        ENABLED_SECTOR_CODES,
                                                                         CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                         CONFIG_KEY_SECTOR_WAVE_STRATEGY,
                                                                         SECTOR_WAVE_STRATEGY_V1),
@@ -234,25 +226,36 @@ public class JobDefinitionConfig {
                                                         List.of(DATASET_SECTOR_FEATURES, DATASET_EOD),
                                                         List.of(DATASET_SECTOR_ROTATION_BACKTESTS))));
 
-        private static final List<JobDefinitionSeed> SECTOR_TRANSITION_ANALYZE_SEEDS = List.of(
-                        sectorTransitionAnalyzeSeed(SECTOR_FINANCE, CRON_19_00_WEEKDAYS),
-                        sectorTransitionAnalyzeSeed(SECTOR_REAL_ESTATE, CRON_19_05_WEEKDAYS),
-                        sectorTransitionAnalyzeSeed(SECTOR_BASIC_RESOURCES, CRON_19_10_WEEKDAYS),
-                        sectorTransitionAnalyzeSeed(SECTOR_BANK, CRON_19_15_WEEKDAYS),
-                        sectorTransitionAnalyzeSeed(SECTOR_OIL_AND_GAS, CRON_19_20_WEEKDAYS));
+        // ==========================================
+        // 4b. SECTOR TRANSITION SEEDS (dynamically generated)
+        // ==========================================
+        // One seed per sector in ENABLED_SECTOR_CODES, each
+        // offset by SECTOR_TRANSITION_STEP_MINUTES from the previous one so they
+        // don't all fire at once. Adding/removing a sector in that list is
+        // enough - no need to hand-write a new CRON_* constant or a new
+        // seed(...) call here.
+        private static final List<JobDefinitionSeed> SECTOR_TRANSITION_ANALYZE_SEEDS = generateSectorTransitionSeeds(
+                        JobType.SECTOR_TRANSITION_ANALYZE,
+                        SECTOR_TRANSITION_ANALYZE_START_HOUR,
+                        SECTOR_TRANSITION_ANALYZE_START_MINUTE,
+                        SECTOR_TRANSITION_STEP_MINUTES);
 
-        private static final List<JobDefinitionSeed> SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS = List.of(
-                        sectorTransitionOutcomeSeed(SECTOR_FINANCE, CRON_19_25_WEEKDAYS),
-                        sectorTransitionOutcomeSeed(SECTOR_REAL_ESTATE, CRON_19_30_WEEKDAYS),
-                        sectorTransitionOutcomeSeed(SECTOR_BASIC_RESOURCES, CRON_19_35_WEEKDAYS),
-                        sectorTransitionOutcomeSeed(SECTOR_BANK, CRON_19_40_WEEKDAYS),
-                        sectorTransitionOutcomeSeed(SECTOR_OIL_AND_GAS, CRON_19_45_WEEKDAYS));
+        private static final List<JobDefinitionSeed> SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS = generateSectorTransitionSeeds(
+                        JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES,
+                        SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_HOUR,
+                        SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_MINUTE,
+                        SECTOR_TRANSITION_STEP_MINUTES);
 
-        public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.of(
+        public static final List<JobDefinitionSeed> BOOTSTRAP_JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
                         SYNC_STOCK_PRICE_SEEDS,
+                        SYNC_SIGNALS_SEEDS)
+                        .filter(Objects::nonNull)
+                        .flatMap(List::stream)
+                        .toList();
+
+        public static final List<JobDefinitionSeed> DEFERRED_JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_INDICATORS_SEEDS,
-                        SYNC_SIGNALS_SEEDS,
                         EVALUATE_SIGNALS_SEEDS,
                         PRECOMPUTE_SYMBOL_FEATURES_SEEDS,
                         PRECOMPUTE_SECTOR_FEATURES_SEEDS,
@@ -260,15 +263,31 @@ public class JobDefinitionConfig {
                         SECTOR_TRANSITION_ANALYZE_SEEDS,
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS)
                         .filter(Objects::nonNull)
-                        .flatMap(e -> e.stream())
+                        .flatMap(List::stream)
                         .toList();
 
-        private static JobDefinitionSeed syncStockPriceSeed(String sectorCode, String sectorTitle, String cronExpr) {
+        public static final List<JobDefinitionSeed> JOB_DEFINITION_SEEDS = Stream.concat(
+                        BOOTSTRAP_JOB_DEFINITION_SEEDS.stream(),
+                        DEFERRED_JOB_DEFINITION_SEEDS.stream())
+                        .toList();
+
+        private static List<JobDefinitionSeed> generateSyncStockPriceSeeds(int startHour, int startMinute,
+                        int stepMinutes) {
+                validateScheduleInputs(startHour, startMinute, stepMinutes, ENABLED_SECTOR_CODES.size());
+                List<JobDefinitionSeed> seeds = new ArrayList<>();
+                for (int i = 0; i < ENABLED_SECTOR_CODES.size(); i++) {
+                        String sectorCode = ENABLED_SECTOR_CODES.get(i);
+                        seeds.add(syncStockPriceSeed(sectorCode, weekdayCron(startHour, startMinute + i * stepMinutes)));
+                }
+                return List.copyOf(seeds);
+        }
+
+        private static JobDefinitionSeed syncStockPriceSeed(String sectorCode, String cronExpr) {
                 return new JobDefinitionSeed(
                                 PRIMARY_DATA_SOURCE,
                                 FALL_BACK_DATA_SOURCES,
                                 JobType.SYNC_STOCK_PRICE,
-                                "Sync stock prices - " + sectorTitle + " sector",
+                                "Sync stock prices - " + sectorCode + " sector",
                                 cronExpr,
                                 configWithDependencies(
                                                 Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
@@ -276,6 +295,54 @@ public class JobDefinitionConfig {
                                                 List.of(JobType.SYNC_SYMBOLS.name()),
                                                 List.of(DATASET_SYMBOLS, DATASET_SECTORS),
                                                 List.of(DATASET_EOD)));
+        }
+
+        // Builds a same-day "0 M H * * MON-FRI" cron expression. Minute overflow
+        // within the day is normalized; crossing 23:59 is rejected rather than wrapped.
+        static String weekdayCron(int hour, int minute) {
+                if (hour < 0 || hour > 23 || minute < 0) {
+                        throw new IllegalArgumentException("Invalid weekday cron time: " + hour + ":" + minute);
+                }
+                int normalizedHour = hour + minute / 60;
+                if (normalizedHour > 23) {
+                        throw new IllegalArgumentException("Weekday cron schedule exceeds 23:59");
+                }
+                int normalizedMinute = minute % 60;
+                return String.format("0 %d %d * * MON-FRI", normalizedMinute, normalizedHour);
+        }
+
+        // Generates one seed per sector code, staggering each by stepMinutes
+        // starting at startHour:startMinute. jobType picks which seed factory
+        // (analyze vs evaluate-outcomes) to call per sector.
+        static List<JobDefinitionSeed> generateSectorTransitionSeeds(
+                        JobType jobType,
+                        int startHour,
+                        int startMinute,
+                        int stepMinutes) {
+                validateScheduleInputs(startHour, startMinute, stepMinutes, ENABLED_SECTOR_CODES.size());
+                List<JobDefinitionSeed> seeds = new ArrayList<>();
+                List<String> sectorCodes = ENABLED_SECTOR_CODES;
+                for (int i = 0; i < sectorCodes.size(); i++) {
+                        String sectorCode = sectorCodes.get(i);
+                        String cronExpr = weekdayCron(startHour, startMinute + i * stepMinutes);
+                        JobDefinitionSeed seed = switch (jobType) {
+                                case SECTOR_TRANSITION_ANALYZE -> sectorTransitionAnalyzeSeed(sectorCode, cronExpr);
+                                case SECTOR_TRANSITION_EVALUATE_OUTCOMES -> sectorTransitionOutcomeSeed(sectorCode,
+                                                cronExpr);
+                                default -> throw new IllegalArgumentException(
+                                                "Unsupported Sector Transition job type: " + jobType);
+                        };
+                        seeds.add(seed);
+                }
+                return List.copyOf(seeds);
+        }
+
+        private static void validateScheduleInputs(int startHour, int startMinute, int stepMinutes, int seedCount) {
+                if (stepMinutes <= 0) {
+                        throw new IllegalArgumentException("stepMinutes must be positive");
+                }
+                weekdayCron(startHour, startMinute);
+                weekdayCron(startHour, startMinute + (seedCount - 1) * stepMinutes);
         }
 
         private static JobDefinitionSeed sectorTransitionAnalyzeSeed(String focusSectorCode, String cronExpr) {
@@ -308,7 +375,7 @@ public class JobDefinitionConfig {
                                 configWithDependencies(
                                                 Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
                                                                 CONFIG_KEY_SECTOR_CODES,
-                                                                PRIMARY_SECTOR_TRANSITION_SECTOR_CODES,
+                                                                ENABLED_SECTOR_CODES,
                                                                 CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(focusSectorCode),
                                                                 CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                 CONFIG_KEY_SECTOR_TRANSITION_STRATEGY,
@@ -320,20 +387,19 @@ public class JobDefinitionConfig {
         }
 
         private static List<String> sectorTransitionDependsOnJobs(JobType jobType) {
-                if (jobType == JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES) {
-                        return List.of(JobType.SECTOR_TRANSITION_ANALYZE.name(), JobType.SYNC_STOCK_PRICE.name());
-                }
                 return List.of(JobType.PRECOMPUTE_SECTOR_FEATURES.name());
         }
 
         private static List<String> sectorTransitionDependsOnDatasets(JobType jobType) {
                 if (jobType == JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES) {
-                        return List.of(DATASET_SECTOR_TRANSITION_PREDICTIONS, DATASET_SECTOR_TRANSITION_DECISIONS,
-                                        DATASET_EOD);
+                        return List.of(DATASET_SECTOR_TRANSITION_PREDICTIONS, DATASET_SECTOR_FEATURES);
                 }
                 return List.of(DATASET_SECTOR_FEATURES);
         }
 
+        // Transition rows share logical datasets. Analyzer merge keys include
+        // from_sector, which is the focus-sector dimension, so per-sector jobs upsert
+        // without requiring separate physical dataset names.
         private static List<String> sectorTransitionProducesDatasets(JobType jobType) {
                 if (jobType == JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES) {
                         return List.of(DATASET_SECTOR_TRANSITION_OUTCOMES);

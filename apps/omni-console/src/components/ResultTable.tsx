@@ -11,16 +11,22 @@ function displayValue(value: unknown): string {
 }
 
 export function ResultTable({ result }: Props) {
-  if (!result) return <div className="empty-state">Run a query to inspect rows.</div>;
+  if (!result)
+    return <div className="empty-state">Run a query to inspect rows.</div>;
   return (
     <div className="result-wrap">
       <div className="result-meta">
-        {result.rowCount.toLocaleString()} rows{result.truncated ? ' · limited' : ''}
+        {result.rowCount.toLocaleString()} rows
+        {result.truncated ? ' · limited' : ''}
       </div>
       <div className="table-scroll">
         <table>
           <thead>
-            <tr>{result.columns.map((column) => <th key={column}>{column}</th>)}</tr>
+            <tr>
+              {result.columns.map((column) => (
+                <th key={column}>{column}</th>
+              ))}
+            </tr>
           </thead>
           <tbody>
             {result.rows.map((row, index) => (

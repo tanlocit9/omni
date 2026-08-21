@@ -1,0 +1,69 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "query-service",
+  "projectType": "application",
+  "sourceRoot": "apps/query-service/app",
+  "tags": ["type:application", "scope:query", "lang:python"],
+  "targets": {
+    "add": {
+      "executor": "@nxlv/python:add",
+      "options": {}
+    },
+    "remove": {
+      "executor": "@nxlv/python:remove",
+      "options": {}
+    },
+    "sync": {
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv sync",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "lock": {
+      "executor": "@nxlv/python:lock",
+      "options": {"update": false}
+    },
+    "serve": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run uvicorn main:app --host 0.0.0.0 --port 8002",
+        "cwd": "{projectRoot}"
+      }
+    },
+    "test": {
+      "cache": true,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run pytest tests/",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": [
+        "{workspaceRoot}/reports/{projectRoot}/unittests",
+        "{workspaceRoot}/coverage/{projectRoot}"
+      ]
+    },
+    "lint": {
+      "cache": true,
+      "executor": "@nxlv/python:ruff-check",
+      "options": {"lintFilePatterns": ["app", "tests", "main.py"]}
+    },
+    "format": {
+      "cache": true,
+      "executor": "@nxlv/python:ruff-format",
+      "options": {"filePatterns": ["app", "tests", "main.py"]}
+    },
+    "build": {
+      "cache": true,
+      "executor": "@nxlv/python:build",
+      "options": {
+        "bundleLocalDependencies": true,
+        "lockedVersions": true,
+        "outputPath": "{projectRoot}/dist",
+        "publish": false
+      },
+      "outputs": ["{projectRoot}/dist"]
+    }
+  }
+}

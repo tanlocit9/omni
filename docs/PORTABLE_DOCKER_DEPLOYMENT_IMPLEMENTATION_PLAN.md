@@ -198,7 +198,8 @@ backups/postgres/...         restricted operational backup
 
 Do not give every developer write access to canonical datasets just for convenience.
 
-Internal Tools can use presigned URLs or a restricted resolver so browser users never receive long-lived object-storage secrets.
+Omni Console uses the private Query Service so browser users receive neither
+long-lived object-storage secrets nor physical object paths.
 
 ## PostgreSQL Backup Strategy
 

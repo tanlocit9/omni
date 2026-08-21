@@ -1,0 +1,37 @@
+[project]
+name = "omni-query-service"
+version = "0.1.0"
+description = "Read-only server-side DuckDB query API for Omni datasets."
+readme = "README.md"
+dependencies = [
+    "duckdb>=1.4.0",
+    "httpx>=0.28.0",
+    "omni-py-common",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "sqlglot>=27.0.0",
+]
+
+[tool.uv.sources]
+omni-py-common = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "SIM", "I"]
+ignore = ["B008"]

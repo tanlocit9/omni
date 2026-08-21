@@ -103,13 +103,14 @@ See `PORTABLE_DOCKER_DEPLOYMENT_IMPLEMENTATION_PLAN.md`.
 - PostgreSQL backup/restore from object storage;
 - new compute hosts require no data-lake migration.
 
-## Phase 6 — Internal Tools / Parquet Viewer
+## Phase 6 — Omni Console
 
 See `INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md`.
 
 ### Outcome
 
-Developers browse manifests/dependency status and query canonical Parquet directly using DuckDB-Wasm.
+Developers browse manifests/dependency status and query canonical Parquet through
+the private server-side Query Service using native DuckDB.
 
 ## Phase 7 — Telegram Channel Separation
 

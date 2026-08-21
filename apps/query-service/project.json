@@ -22,7 +22,7 @@
     },
     "lock": {
       "executor": "@nxlv/python:lock",
-      "options": {"update": false}
+      "options": { "update": false }
     },
     "serve": {
       "cache": false,
@@ -47,12 +47,12 @@
     "lint": {
       "cache": true,
       "executor": "@nxlv/python:ruff-check",
-      "options": {"lintFilePatterns": ["app", "tests", "main.py"]}
+      "options": { "lintFilePatterns": ["app", "tests", "main.py"] }
     },
     "format": {
       "cache": true,
       "executor": "@nxlv/python:ruff-format",
-      "options": {"filePatterns": ["app", "tests", "main.py"]}
+      "options": { "filePatterns": ["app", "tests", "main.py"] }
     },
     "build": {
       "cache": true,

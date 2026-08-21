@@ -35,7 +35,13 @@ export interface DatasetRef {
 
 export interface QueryStatus {
   queryId: string;
-  state: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'TIMED_OUT';
+  state:
+    | 'QUEUED'
+    | 'RUNNING'
+    | 'SUCCEEDED'
+    | 'FAILED'
+    | 'CANCELLED'
+    | 'TIMED_OUT';
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -54,12 +60,15 @@ export interface QueryResult {
   dataVersions: Record<string, string>;
 }
 
-const API_BASE = import.meta.env.VITE_QUERY_SERVICE_URL ?? 'http://localhost:8002';
+const API_BASE =
+  import.meta.env.VITE_QUERY_SERVICE_URL ?? 'http://localhost:8002';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      detail?: string;
+    } | null;
     throw new Error(payload?.detail ?? `Request failed (${response.status})`);
   }
   return response.json() as Promise<T>;
@@ -76,7 +85,7 @@ export function listPartitions(dataset: string): Promise<DatasetManifest[]> {
 export async function submitQuery(
   sql: string,
   datasets: DatasetRef[],
-  rowLimit = 200,
+  rowLimit = 200
 ): Promise<string> {
   const accepted = await request<{ queryId: string }>('/v1/queries', {
     method: 'POST',
@@ -91,12 +100,14 @@ export function getQuery(queryId: string): Promise<QueryStatus> {
 }
 
 export function cancelQuery(queryId: string): Promise<QueryStatus> {
-  return request(`/v1/queries/${encodeURIComponent(queryId)}`, { method: 'DELETE' });
+  return request(`/v1/queries/${encodeURIComponent(queryId)}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function waitForQuery(
   queryId: string,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<QueryStatus> {
   while (true) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -107,15 +118,17 @@ export async function waitForQuery(
 }
 
 export async function getJsonResult(queryId: string): Promise<QueryResult> {
-  return request(`/v1/queries/${encodeURIComponent(queryId)}/result?format=json`);
+  return request(
+    `/v1/queries/${encodeURIComponent(queryId)}/result?format=json`
+  );
 }
 
 export async function getArrowResult(
   queryId: string,
-  status: QueryStatus,
+  status: QueryStatus
 ): Promise<QueryResult> {
   const response = await fetch(
-    `${API_BASE}/v1/queries/${encodeURIComponent(queryId)}/result?format=arrow`,
+    `${API_BASE}/v1/queries/${encodeURIComponent(queryId)}/result?format=arrow`
   );
   if (!response.ok) throw new Error(`Arrow result failed (${response.status})`);
   const table = tableFromIPC(await response.arrayBuffer());

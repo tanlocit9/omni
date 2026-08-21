@@ -59,7 +59,7 @@ export function DatasetExplorer({ onSelect }: Props) {
 
   const filteredDatasets = useMemo(
     () => datasets.filter((item) => item.name.includes(search.toLowerCase())),
-    [datasets, search],
+    [datasets, search]
   );
 
   async function preview(nextPage = page) {
@@ -71,19 +71,24 @@ export function DatasetExplorer({ onSelect }: Props) {
     const order = sortColumn
       ? ` ORDER BY ${quoteIdentifier(sortColumn)} ${sortDirection}`
       : '';
-    const sql = `SELECT * FROM ${quoteIdentifier(alias)}${where}${order} LIMIT ${pageSize} OFFSET ${nextPage * pageSize}`;
+    const sql = `SELECT * FROM ${quoteIdentifier(
+      alias
+    )}${where}${order} LIMIT ${pageSize} OFFSET ${nextPage * pageSize}`;
     try {
       const queryId = await submitQuery(
         sql,
-        [{
-          dataset: manifest.dataset,
-          partition: manifest.partition,
-          dataVersion: manifest.dataVersion,
-        }],
-        pageSize,
+        [
+          {
+            dataset: manifest.dataset,
+            partition: manifest.partition,
+            dataVersion: manifest.dataVersion,
+          },
+        ],
+        pageSize
       );
       const status = await waitForQuery(queryId);
-      if (status.state !== 'SUCCEEDED') throw new Error(status.error ?? status.state);
+      if (status.state !== 'SUCCEEDED')
+        throw new Error(status.error ?? status.state);
       setResult(await getJsonResult(queryId));
       setPage(nextPage);
     } catch (reason) {
@@ -96,7 +101,10 @@ export function DatasetExplorer({ onSelect }: Props) {
   return (
     <section className="workspace-grid explorer-grid">
       <aside className="panel dataset-list">
-        <div className="panel-heading"><h2>Datasets</h2><span>{datasets.length}</span></div>
+        <div className="panel-heading">
+          <h2>Datasets</h2>
+          <span>{datasets.length}</span>
+        </div>
         <input
           aria-label="Search datasets"
           placeholder="Search dataset"
@@ -106,7 +114,9 @@ export function DatasetExplorer({ onSelect }: Props) {
         <div className="stack-list">
           {filteredDatasets.map((item) => (
             <button
-              className={item.name === dataset ? 'list-item active' : 'list-item'}
+              className={
+                item.name === dataset ? 'list-item active' : 'list-item'
+              }
               key={item.name}
               onClick={() => setDataset(item.name)}
             >
@@ -120,38 +130,73 @@ export function DatasetExplorer({ onSelect }: Props) {
       <main className="panel detail-panel">
         {error && <div className="error-banner">{error}</div>}
         {loading && <div className="loading-line">Loading…</div>}
-        {!manifest && !loading ? <div className="empty-state">No READY partition found.</div> : null}
+        {!manifest && !loading ? (
+          <div className="empty-state">No READY partition found.</div>
+        ) : null}
         {manifest ? (
           <>
             <div className="panel-heading">
-              <div><p className="eyebrow">READY dataset</p><h2>{manifest.dataset}</h2></div>
+              <div>
+                <p className="eyebrow">READY dataset</p>
+                <h2>{manifest.dataset}</h2>
+              </div>
               <select
                 aria-label="Partition"
                 value={manifest.dataVersion}
                 onChange={(event) => {
-                  const selected = partitions.find((item) => item.dataVersion === event.target.value);
-                  if (selected) { setManifest(selected); onSelect(selected); }
+                  const selected = partitions.find(
+                    (item) => item.dataVersion === event.target.value
+                  );
+                  if (selected) {
+                    setManifest(selected);
+                    onSelect(selected);
+                  }
                 }}
               >
                 {partitions.map((item) => (
                   <option key={item.dataVersion} value={item.dataVersion}>
-                    {Object.entries(item.partition).map(([key, value]) => `${key}=${value}`).join(' / ') || '_default'}
+                    {Object.entries(item.partition)
+                      .map(([key, value]) => `${key}=${value}`)
+                      .join(' / ') || '_default'}
                   </option>
                 ))}
               </select>
             </div>
             <div className="stat-grid">
-              <div><span>Rows</span><strong>{manifest.rowCount.toLocaleString()}</strong></div>
-              <div><span>Columns</span><strong>{manifest.columnCount}</strong></div>
-              <div><span>Size</span><strong>{(manifest.totalBytes / 1024 / 1024).toFixed(2)} MB</strong></div>
-              <div><span>Published</span><strong>{new Date(manifest.generatedAt).toLocaleString()}</strong></div>
+              <div>
+                <span>Rows</span>
+                <strong>{manifest.rowCount.toLocaleString()}</strong>
+              </div>
+              <div>
+                <span>Columns</span>
+                <strong>{manifest.columnCount}</strong>
+              </div>
+              <div>
+                <span>Size</span>
+                <strong>
+                  {(manifest.totalBytes / 1024 / 1024).toFixed(2)} MB
+                </strong>
+              </div>
+              <div>
+                <span>Published</span>
+                <strong>
+                  {new Date(manifest.generatedAt).toLocaleString()}
+                </strong>
+              </div>
             </div>
             <details className="schema-card" open>
               <summary>Schema</summary>
               <div className="schema-list">
                 {manifest.columns.map((column) => (
-                  <button key={column.name} onClick={() => setSortColumn(column.name)}>
-                    <code>{column.name}</code><span>{column.type}{column.nullable ? '?' : ''}</span>
+                  <button
+                    key={column.name}
+                    onClick={() => setSortColumn(column.name)}
+                  >
+                    <code>{column.name}</code>
+                    <span>
+                      {column.type}
+                      {column.nullable ? '?' : ''}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -163,20 +208,46 @@ export function DatasetExplorer({ onSelect }: Props) {
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
               />
-              <select value={sortColumn} onChange={(event) => setSortColumn(event.target.value)}>
+              <select
+                value={sortColumn}
+                onChange={(event) => setSortColumn(event.target.value)}
+              >
                 <option value="">No sort</option>
-                {manifest.columns.map((column) => <option key={column.name}>{column.name}</option>)}
+                {manifest.columns.map((column) => (
+                  <option key={column.name}>{column.name}</option>
+                ))}
               </select>
-              <button className="secondary" onClick={() => setSortDirection(sortDirection === 'ASC' ? 'DESC' : 'ASC')}>
+              <button
+                className="secondary"
+                onClick={() =>
+                  setSortDirection(sortDirection === 'ASC' ? 'DESC' : 'ASC')
+                }
+              >
                 {sortDirection}
               </button>
-              <button className="primary" onClick={() => preview(0)} disabled={loading}>Preview</button>
+              <button
+                className="primary"
+                onClick={() => preview(0)}
+                disabled={loading}
+              >
+                Preview
+              </button>
             </div>
             <ResultTable result={result} />
             <div className="pager">
-              <button disabled={page === 0 || loading} onClick={() => preview(page - 1)}>Previous</button>
+              <button
+                disabled={page === 0 || loading}
+                onClick={() => preview(page - 1)}
+              >
+                Previous
+              </button>
               <span>Page {page + 1}</span>
-              <button disabled={!result || result.rowCount < pageSize || loading} onClick={() => preview(page + 1)}>Next</button>
+              <button
+                disabled={!result || result.rowCount < pageSize || loading}
+                onClick={() => preview(page + 1)}
+              >
+                Next
+              </button>
             </div>
           </>
         ) : null}

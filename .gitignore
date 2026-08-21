@@ -4,6 +4,9 @@
 dist
 tmp
 out-tsc
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 /libs/contracts/gen/
 
 # dependencies

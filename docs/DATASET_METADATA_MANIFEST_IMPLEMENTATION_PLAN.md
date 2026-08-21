@@ -198,7 +198,9 @@ Data Version
 Input Versions / lineage
 ```
 
-Only when the user drills into data should DuckDB-Wasm query the Parquet objects.
+Only when the user drills into data should the private Query Service resolve the
+READY manifest and run a bounded native DuckDB query. The browser receives
+neither object-storage credentials nor physical object paths.
 
 ## Intraday / Realtime
 

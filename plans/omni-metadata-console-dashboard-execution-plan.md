@@ -3,11 +3,14 @@
 Status: Canonical execution plan  
 Source baseline: `main@19055b3731b45934fd85cb28dda5a8636a2ed4a0`  
 Target application: `apps/omni-console`  
-Execution order: Metadata → Dataset Explorer → Parquet Viewer → Dashboard → Force Precompute date fix
+Execution order: Query Service → Dataset Explorer/Viewer → SQL Console → Dashboard → Force Precompute date fix
 
 ## Goal
 
-Complete and verify the in-progress dataset metadata foundation, add a private Omni Console for metadata-driven exploration and bounded browser-side Parquet queries, add a data-health dashboard, and finally correct Force Precompute effective-date semantics.
+Keep the completed metadata foundation, add a private server-side Query Service,
+build Omni Console Dataset Explorer/Viewer and SQL Console on that boundary, add
+Saved Query-backed dashboards, and finally correct Force Precompute effective-date
+semantics.
 
 Partially implemented source is evidence, not proof of completion. Every milestone uses the control loop below and blocks later milestones until its gate passes.
 
@@ -16,9 +19,9 @@ Partially implemented source is evidence, not proof of completion. Every milesto
 After completion:
 
 - EOD and indicator datasets publish canonical JSON manifests with deterministic identity, exact persisted-byte metadata, READY-last safety, and exact upstream lineage.
-- Platform exposes read-only metadata and access-resolution APIs. Private Parquet access uses allow-listed, short-lived, read-only URLs resolved from logical dataset, partition, and version identity.
+- Query Service resolves logical dataset, partition, and version identity through READY manifests and keeps physical Parquet paths server-side.
 - `apps/omni-console` provides Dataset Explorer, Parquet Viewer, and Data Health Dashboard features.
-- DuckDB-Wasm performs bounded projection, filtering, sorting, and row limiting directly against Parquet without exposing object-store credentials.
+- Native DuckDB performs bounded server-side projection, filtering, sorting, SQL, and row limiting without exposing object-store credentials or physical paths.
 - Force Precompute distinguishes requested date from the latest common complete effective data date and preserves truthful execution states.
 - Roadmaps, canonical documentation, and repository guidance agree with verified source and test evidence.
 
@@ -31,9 +34,9 @@ After completion:
 5. Readiness checks use manifests rather than full Parquet-prefix scans when a manifest exists.
 6. Reusable Python manifest/storage abstractions belong in `libs/py-common`.
 7. The product is Omni Console at `apps/omni-console`; Parquet Viewer is a feature.
-8. Platform is the private-access boundary: read-only APIs return allow-listed, short-lived URLs for an authorized logical dataset/partition/version reference.
-9. The browser never receives object-store credentials and never accepts arbitrary remote URLs.
-10. DuckDB-Wasm queries Parquet directly; Platform does not paginate full analytical datasets as JSON.
+8. `apps/query-service` is the private analytical read boundary and accepts only logical dataset/partition/version references.
+9. The browser never receives object-store credentials or physical object URLs.
+10. Native DuckDB runs server-side; JSON is limited to small results and Arrow IPC is used for larger result sets.
 11. Unknown additive Parquet columns remain inspectable.
 12. Dataset or sector states from different trading dates are never silently mixed.
 13. Unrelated local changes are preserved. Dirty worktrees are never destructively reset or rebased.
@@ -257,7 +260,7 @@ Run py-common tests, Analyzer lint/test/build, and Platform tests through existi
 
 Indicator manifests contain exact EOD lineage and persisted-byte identity; publication failure is truthful; Explorer can show EOD → Indicators lineage.
 
-## M3 — Platform Access Boundary and Omni Console Foundation
+## M3 — Query Service and Omni Console Foundation
 
 ### Goal
 
@@ -265,18 +268,23 @@ Establish the approved private read boundary and a stable application shell.
 
 ### Tasks
 
-- Define/test read-only Platform APIs for catalog, current/historical manifests, execution status, and data-access resolution.
-- Resolver accepts only an authorized logical dataset/partition/version reference and returns an allow-listed, short-lived, read-only URL.
-- Reject arbitrary URLs, dataset/version substitution, write operations, and unsupported identities.
+- Define/test Query Service APIs for catalog, READY partitions, query status,
+  cancellation, JSON results, and Arrow IPC results.
+- Resolve only authorized logical dataset/partition/version references; keep
+  credentials and physical object paths inside Query Service.
+- Reject arbitrary URLs, dataset/version substitution, write operations,
+  dangerous functions, and unsupported identities.
 - Confirm `apps/omni-console`; safely migrate classified legacy WIP.
 - Pin React/TypeScript/Vite/Nx-compatible versions from the workspace rather than `latest`.
 - Add `/dashboard`, `/datasets`, `/datasets/:dataset`, `/datasets/:dataset/partitions/:partition`, and `/query` routes.
 - Add layout, navigation, error boundary, loading/empty states, bounded TanStack Query retries, environment validation, and EOD/indicator fixtures.
-- Define transport-independent `DatasetMetadataSource`, `DatasetAccessResolver`, `ParquetDataSource`, and query result/error types.
+- Define thin Console API adapters and query result/error types.
 
 ### Required tests
 
-API authorization/allow-list/version tests; route/navigation states; fixture parsing; unsupported-version presentation; environment validation; frontend bundle inspection for credentials.
+API read-only/version/limit/cancel tests; route/navigation states; fixture parsing;
+unsupported-version presentation; environment validation; frontend bundle
+inspection for credentials and physical paths.
 
 ### Verification
 
@@ -284,7 +292,9 @@ Inspect and run Platform checks plus `omni-console` lint/test/build through actu
 
 ### Gate
 
-Platform private read boundary is tested; Console is in the Nx graph; production build and routes pass; no object-store credential is bundled; later features do not require shell/access redesign.
+Query Service private read boundary is tested; Console is in the Nx graph;
+production build and routes pass; no object-store credential or physical path is
+bundled; later features do not require shell/access redesign.
 
 ## M4 — Dataset Explorer
 
@@ -307,28 +317,31 @@ Catalog navigation/filtering; partition selection; lineage; value/date formattin
 
 Explorer loads the real EOD/indicator metadata through Platform; summaries require no Parquet scan; errors are actionable; Viewer receives canonical identity.
 
-## M5 — Parquet Viewer
+## M5 — Parquet Viewer and SQL Console
 
 ### Goal
 
-Run bounded DuckDB-Wasm queries directly against authorized Parquet objects.
+Run bounded server-side native DuckDB queries through logical READY dataset views.
 
 ### Tasks
 
-- Verify worker/WASM assets in development and production.
-- Resolve fresh short-lived URLs at query start; never store/log them.
+- Register logical views from READY manifests immediately before execution.
 - Enforce projection, typed filters, sorting, default ~200 rows, and a hard 5,000-row result limit in DuckDB.
 - Compare physical and manifest schemas; distinguish missing, additive, type, version, and freshness mismatches.
-- Reject arbitrary URLs/SQL, cancel stale queries, release connections/results on unmount, and discard partial results on URL expiry.
-- Verify actual object-store CORS and HTTP Range behavior.
+- Allow only read-only SQL, reject arbitrary URLs/functions, cancel stale queries,
+  release connections/results, and audit consumed data versions.
+- Use JSON for small Viewer results and Arrow IPC for SQL Console results.
 
 ### Required tests
 
-WASM initialization; logical resolution; arbitrary URL/SQL rejection; safe SQL generation; hard limits; schema warnings; unknown columns; cancellation/cleanup; URL refresh/expiry; Range smoke test where available.
+DuckDB initialization; logical resolution; arbitrary URL/write SQL rejection; safe
+SQL generation; hard limits; schema warnings; unknown columns;
+cancellation/cleanup; JSON and Arrow contracts.
 
 ### Gate
 
-A real READY dataset opens; query and URL controls hold; no credentials leak; schema drift is visible; production assets load.
+A real READY dataset opens; query controls hold; no credentials or physical paths
+leak; schema drift is visible; production assets load.
 
 ## M6 — Data Health Dashboard V1
 
@@ -488,7 +501,7 @@ Each milestone defines targeted Nx and contract checks. M8 adds affected and end
 - [ ] Local WIP is reconciled safely against the baseline.
 - [ ] Canonical metadata and EOD READY publication are freshly verified.
 - [ ] Indicator metadata has exact EOD lineage and truthful publication status.
-- [ ] Platform private read APIs and allow-listed short-lived URL resolution are verified.
+- [ ] Query Service logical READY resolution and server-side read-only SQL boundary are verified.
 - [ ] Dataset Explorer, Parquet Viewer, and Dashboard gates pass.
 - [ ] Force Precompute effective-date behavior is deterministic and truthful.
 - [ ] Cross-project checks and end-to-end scenarios pass or exact blockers are accepted.

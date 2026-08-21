@@ -1,0 +1,1 @@
+"""Omni Query Service."""

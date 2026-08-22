@@ -7,7 +7,11 @@
   "targets": {
     "serve": {
       "executor": "nx:run-commands",
-      "options": { "command": "npm run dev", "cwd": "apps/omni-console" }
+      "options": {
+        "command": "npm run dev --",
+        "cwd": "apps/omni-console",
+        "forwardAllArgs": true
+      }
     },
     "build": {
       "cache": true,

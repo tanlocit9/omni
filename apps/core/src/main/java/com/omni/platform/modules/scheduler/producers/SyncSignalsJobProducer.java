@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.SyncSignalsConfig;
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
+import com.omni.platform.modules.scheduler.dependencies.ManifestReadException;
+import com.omni.platform.modules.scheduler.dependencies.ManifestReader;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
@@ -26,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SyncSignalsJobProducer extends JobProducer {
 
     private final SymbolRepository symbolRepository;
+    private final ManifestReader manifestReader;
 
     @Value("${kafka.topics.topic-sync-signals}")
     private String topic;
@@ -33,10 +37,12 @@ public class SyncSignalsJobProducer extends JobProducer {
     public SyncSignalsJobProducer(
             JobService jobService,
             KafkaPublisher kafkaPublisher,
-            SymbolRepository symbolRepository) {
+            SymbolRepository symbolRepository,
+            ManifestReader manifestReader) {
 
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
+        this.manifestReader = manifestReader;
     }
 
     @Override
@@ -72,7 +78,17 @@ public class SyncSignalsJobProducer extends JobProducer {
                     job.getId(), sectorCodes, sectorLevel);
         }
 
-        return symbols.stream()
+        List<SymbolKeyProjection> readySymbols = symbols.stream()
+                .filter(symbol -> hasReadyIndicatorPartition(symbol, timeframe))
+                .toList();
+        int deferredCount = symbols.size() - readySymbols.size();
+        if (deferredCount > 0) {
+            log.warn("Deferred {} signal symbol(s) without an exact READY indicator partition "
+                    + "source=ad_close timeframe={} jobId={} executionId={}",
+                    deferredCount, timeframe, job.getId(), jobExecutionHistory.getId());
+        }
+
+        return readySymbols.stream()
                 .map(symbol -> {
                     Map<String, Object> metadata = new HashMap<>();
                     metadata.putAll(jobConfig);
@@ -96,6 +112,34 @@ public class SyncSignalsJobProducer extends JobProducer {
                                     metadata));
                 })
                 .toList();
+    }
+
+    private boolean hasReadyIndicatorPartition(SymbolKeyProjection symbol, String timeframe) {
+        Map<String, String> partition = Map.of(
+                "source", "ad_close",
+                "timeframe", timeframe.toLowerCase(),
+                "exchange", symbol.getExchange().toLowerCase(),
+                "code", symbol.getCode().toLowerCase());
+        DatasetRef indicatorRef = DatasetRef.of("indicators", partition);
+        try {
+            return manifestReader.readManifest(indicatorRef)
+                    .map(manifest -> {
+                        if (!manifest.isReady()) {
+                            log.warn("Deferring signal symbolKey={} because indicator manifest status={} partition={}",
+                                    symbol.symbolKey(), manifest.status(), partition);
+                        }
+                        return manifest.isReady();
+                    })
+                    .orElseGet(() -> {
+                        log.warn("Deferring signal symbolKey={} because indicator READY manifest is missing partition={}",
+                                symbol.symbolKey(), partition);
+                        return false;
+                    });
+        } catch (ManifestReadException exception) {
+            log.error("Deferring signal symbolKey={} because indicator READY manifest could not be read partition={}",
+                    symbol.symbolKey(), partition, exception);
+            return false;
+        }
     }
 
     @Override

@@ -149,9 +149,7 @@ def test_base_app_settings_loads_shared_config(tmp_path: Path, monkeypatch):
         == "analytics/signals/trend_momentum_v1/1d/hose.parquet"
     )
     assert (
-        settings.get_sector_transition_predictions_path(
-            "SECTOR_TRANSITION_V1", "1d", 3
-        )
+        settings.get_sector_transition_predictions_path("SECTOR_TRANSITION_V1", "1d", 3)
         == "research/sector-transition/predictions/sector_transition_v1/1d/lv3.parquet"
     )
     assert (

@@ -28,8 +28,18 @@
       "cache": false,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run uvicorn main:app --host 0.0.0.0 --port 8002",
-        "cwd": "{projectRoot}"
+        "command": "uv run uvicorn main:app --host 0.0.0.0",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": true
+      }
+    },
+    "serve-hmr": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run uvicorn-hmr main:app --host 0.0.0.0",
+        "cwd": "{projectRoot}",
+        "forwardAllArgs": true
       }
     },
     "test": {

@@ -3,12 +3,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from py_common.storage.exceptions import StorageObjectNotFoundError
 from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
 from app.signals.messages import SignalJobMessage
 from app.signals.storage import SignalHistoryRepository, SignalTransition
-from app.signals.strategy import TREND_MOMENTUM_V1, calculate_trend_momentum_v1
+from app.signals.strategy import (
+    TREND_MOMENTUM_V1,
+    MarketSignal,
+    SignalResult,
+    calculate_trend_momentum_v1,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -45,17 +51,43 @@ class SignalJobHandler:
         )
 
         _logger.info(
-            "Calculating signal symbolKey=%s timeframe=%s strategy=%s",
+            "Calculating signal symbolKey=%s timeframe=%s strategy=%s "
+            "eodPath=%s indicatorsPath=%s",
             message.symbol_key,
             message.timeframe,
             message.strategy,
+            eod_path,
+            indicators_path,
         )
         eod_frame = await self._parquet_storage.read_dataframe(eod_path)
-        indicators_frame = await self._parquet_storage.read_dataframe(indicators_path)
+        try:
+            indicators_frame = await self._parquet_storage.read_dataframe(
+                indicators_path
+            )
+        except StorageObjectNotFoundError as exc:
+            _logger.warning(
+                "Skipping signal calculation because prerequisite indicator object "
+                "is missing symbolKey=%s timeframe=%s strategy=%s bucket=%s "
+                "objectName=%s; verify the indicator job completed for this symbol "
+                "before signal dispatch",
+                message.symbol_key,
+                message.timeframe,
+                message.strategy,
+                exc.bucket,
+                exc.object_name,
+            )
+            result = SignalResult(
+                signal=MarketSignal.NO_DECISION,
+                price=None,
+                signal_date=None,
+                reason_codes=["MISSING_INDICATOR_OBJECT"],
+                score=0,
+                strategy=message.strategy,
+            )
+        else:
+            result = calculate_trend_momentum_v1(eod_frame, indicators_frame)
         if message.strategy != TREND_MOMENTUM_V1:
             raise ValueError(f"Unsupported signal strategy: {message.strategy}")
-
-        result = calculate_trend_momentum_v1(eod_frame, indicators_frame)
         return await self._signal_repository.persist_transition(
             history_path,
             current_path,

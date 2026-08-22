@@ -22,7 +22,7 @@ Example:
     ...     data_path='eod/hose/*.parquet',
     ...     dataframe=eod_df,
     ... )
-    
+
     >>> # Read manifests for statistics
     >>> manifest_reader = ManifestReader(registry, provider, bucket)
     >>> catalog = await manifest_reader.read_catalog()
@@ -149,7 +149,7 @@ class DatasetInput:
 @dataclass(frozen=True)
 class DatasetManifest:
     """Complete dataset partition manifest.
-    
+
     This is the primary contract for dataset metadata. All fields except
     optional ones must be present in serialized JSON.
     """
@@ -181,9 +181,7 @@ class DatasetManifest:
         _require_segment(self.dataset, "dataset")
         object.__setattr__(self, "partition", normalize_partition(self.partition))
         if self.status not in {"READY", "PROCESSING", "FAILED"}:
-            raise ManifestInvalidError(
-                f"Unsupported manifest status: {self.status!r}"
-            )
+            raise ManifestInvalidError(f"Unsupported manifest status: {self.status!r}")
         invalid_path = (
             not isinstance(self.path, str)
             or not self.path
@@ -197,9 +195,7 @@ class DatasetManifest:
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ManifestInvalidError(f"{name} must be a non-negative integer")
         if self.columnCount != len(self.columns):
-            raise ManifestInvalidError(
-                "columnCount must equal the number of columns"
-            )
+            raise ManifestInvalidError("columnCount must equal the number of columns")
         if self.status == _READY_STATUS:
             valid_data_version = self.dataVersion and re.fullmatch(
                 r"sha256:[0-9a-f]{64}", self.dataVersion
@@ -212,9 +208,7 @@ class DatasetManifest:
                 r"sha256:[0-9a-f]{64}", self.schemaHash
             )
             if not valid_schema_hash:
-                raise ManifestInvalidError(
-                    "READY manifest requires a valid schemaHash"
-                )
+                raise ManifestInvalidError("READY manifest requires a valid schemaHash")
             if self.objectCount < 1:
                 raise ManifestInvalidError("READY manifest requires objectCount >= 1")
         for item in self.inputs:
@@ -235,9 +229,7 @@ class DatasetDefinition:
         _require_segment(self.name, "dataset definition name")
         expected_prefix = f"_metadata/datasets/{self.name}/"
         if self.metadataPrefix != expected_prefix:
-            raise ManifestInvalidError(
-                f"metadataPrefix must equal {expected_prefix!r}"
-            )
+            raise ManifestInvalidError(f"metadataPrefix must equal {expected_prefix!r}")
         if not isinstance(self.dataPrefix, str) or not self.dataPrefix:
             raise ManifestInvalidError("dataPrefix must be a non-empty string")
         if self.dataPrefix.startswith("/") or ".." in self.dataPrefix.split("/"):
@@ -274,16 +266,16 @@ class DatasetCatalog:
 
 def calculate_schema_hash(columns: list[ColumnMetadata]) -> str:
     """Calculate deterministic hash of schema columns.
-    
+
     The schema hash is based on column names, types, and nullability,
     sorted by column name for consistency.
-    
+
     Args:
         columns: List of column metadata
-        
+
     Returns:
         sha256:... schema hash string
-        
+
     Example:
         >>> cols = [
         ...     ColumnMetadata('date', 'TIMESTAMP', False),
@@ -319,26 +311,26 @@ def calculate_data_version(
     inputs: list[DatasetInput] | None = None,
 ) -> str:
     """Calculate deterministic data version fingerprint.
-    
+
     The data version is based on:
     - Dataset name
     - Normalized partition keys (sorted)
     - Schema hash
     - Sorted list of (object_path, checksum) tuples
-    
+
     This ensures that identical content produces identical versions,
     enabling proper lineage tracking and avoiding spurious downstream
     invalidations on idempotent retries.
-    
+
     Args:
         dataset: Dataset name
         partition: Partition keys dictionary
         schema_hash: Hash of Parquet schema
         object_checksums: Sorted list of (object_path, checksum) tuples
-    
+
     Returns:
         sha256:... data version string
-        
+
     Example:
         >>> calculate_data_version(
         ...     'eod',
@@ -387,15 +379,15 @@ def calculate_data_version(
 
 def extract_schema_from_dataframe(df: pd.DataFrame) -> list[ColumnMetadata]:
     """Extract schema metadata from pandas DataFrame.
-    
+
     Maps pandas dtypes to SQL-like type names for manifest storage.
-    
+
     Args:
         df: DataFrame to inspect
-        
+
     Returns:
         List of column metadata
-        
+
     Example:
         >>> df = pd.DataFrame({
         ...     'date': pd.to_datetime(['2026-08-18']),
@@ -440,12 +432,12 @@ def extract_schema_from_dataframe(df: pd.DataFrame) -> list[ColumnMetadata]:
 
 def extract_timestamp_range(df: pd.DataFrame) -> tuple[str | None, str | None]:
     """Extract min/max timestamp from DataFrame.
-    
+
     Searches for common timestamp columns: date, bar_time, timestamp.
-    
+
     Args:
         df: DataFrame to inspect
-        
+
     Returns:
         (min_timestamp, max_timestamp) tuple, or (None, None) if no timestamp column
     """
@@ -471,14 +463,14 @@ def extract_timestamp_range(df: pd.DataFrame) -> tuple[str | None, str | None]:
 
 class ManifestWriter:
     """Write dataset manifests to object storage.
-    
+
     Manifests are written as JSON objects under _metadata/datasets/.
-    
+
     Args:
         registry: Storage provider registry
         provider: Storage provider to use
         bucket: Bucket name for manifest storage
-        
+
     Example:
         >>> writer = ManifestWriter(registry, StorageProvider.MINIO, 'stock-data')
         >>> await writer.write_manifest(manifest)
@@ -523,10 +515,10 @@ class ManifestWriter:
 
     async def write_catalog(self, catalog: DatasetCatalog) -> None:
         """Write dataset catalog to object storage.
-        
+
         Args:
             catalog: Catalog to write
-            
+
         Raises:
             StorageWriteError: If write fails
         """
@@ -609,12 +601,12 @@ class ManifestWriter:
 
 class ManifestReader:
     """Read dataset manifests from object storage.
-    
+
     Args:
         registry: Storage provider registry
         provider: Storage provider to use
         bucket: Bucket name for manifest storage
-        
+
     Example:
         >>> reader = ManifestReader(registry, StorageProvider.MINIO, 'stock-data')
         >>> catalog = await reader.read_catalog()
@@ -632,10 +624,10 @@ class ManifestReader:
 
     async def read_catalog(self) -> DatasetCatalog:
         """Read dataset catalog.
-        
+
         Returns:
             Dataset catalog, or empty catalog if not found
-            
+
         Raises:
             StorageReadError: If read fails for reasons other than not found
         """
@@ -737,7 +729,7 @@ class ManifestReader:
                 datasets=datasets,
                 lastUpdated=data["lastUpdated"],
             )
-        except (ManifestInvalidError, ManifestUnsupportedVersionError):
+        except ManifestInvalidError, ManifestUnsupportedVersionError:
             raise
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ManifestInvalidError("Invalid dataset catalog JSON", exc) from exc
@@ -761,10 +753,10 @@ async def publish_dataset_manifest(
     total_bytes: int = 0,
 ) -> DatasetManifest:
     """Publish READY manifest after successful data write.
-    
+
     This is the recommended high-level API for manifest publishing.
     Call this LAST after Parquet data is written and validated.
-    
+
     Args:
         writer: Manifest writer instance
         dataset: Dataset name
@@ -776,10 +768,10 @@ async def publish_dataset_manifest(
         execution_id: Source job execution ID
         object_count: Number of objects written
         total_bytes: Total bytes written
-        
+
     Returns:
         Published manifest
-        
+
     Example:
         >>> manifest = await publish_dataset_manifest(
         ...     writer=manifest_writer,
@@ -884,13 +876,13 @@ OMNI_DATASETS = [
 
 async def bootstrap_catalog(writer: ManifestWriter) -> DatasetCatalog:
     """Bootstrap catalog with known Omni datasets.
-    
+
     Args:
         writer: Manifest writer instance
-        
+
     Returns:
         Bootstrapped catalog
-        
+
     Example:
         >>> catalog = await bootstrap_catalog(manifest_writer)
     """

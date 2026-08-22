@@ -101,7 +101,9 @@ def evaluate_sector_transition_outcomes(
     for row in candidate_predictions.to_dict("records"):
         to_sector = str(row["to_sector"])
         horizon = int(row["horizon_sessions"])
-        sector_history = history[history["sector_code"] == to_sector].sort_values("date")
+        sector_history = history[history["sector_code"] == to_sector].sort_values(
+            "date"
+        )
         future = sector_history[sector_history["date"] > evaluation_ts].head(horizon)
         if len(future) < horizon:
             continue
@@ -340,7 +342,9 @@ def _transition_counts(
     return eligible["future_leader"].astype(str).value_counts().to_dict()
 
 
-def _target_trading_date(history: pd.DataFrame, evaluation_date: date, horizon: int) -> date | None:
+def _target_trading_date(
+    history: pd.DataFrame, evaluation_date: date, horizon: int
+) -> date | None:
     evaluation_ts = pd.Timestamp(evaluation_date)
     dates = sorted(history[history["date"] > evaluation_ts]["date"].drop_duplicates())
     if len(dates) < horizon:

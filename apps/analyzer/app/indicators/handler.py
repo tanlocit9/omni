@@ -3,7 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from py_common.storage.manifest import DatasetInput, ManifestWriter, publish_dataset_manifest
+from py_common.storage.exceptions import ManifestInvalidError
+from py_common.storage.manifest import (
+    DatasetInput,
+    ManifestReader,
+    ManifestWriter,
+    publish_dataset_manifest,
+)
 from py_common.storage.parquet import ParquetStorage
 
 from app.calculations.indicators import calculate_supported_indicators
@@ -20,17 +26,27 @@ class IndicatorJobHandler:
         self,
         settings: AppSettings,
         parquet_storage: ParquetStorage,
-        manifest_writer: ManifestWriter | None = None,
+        manifest_reader: ManifestReader,
+        manifest_writer: ManifestWriter,
     ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
+        self._manifest_reader = manifest_reader
         self._manifest_writer = manifest_writer
 
     async def handle(self, payload: dict[str, Any]) -> int:
         message = IndicatorJobMessage.model_validate(payload)
-        exchange, code = message.parse_symbol_key()
+        raw_exchange, raw_code = message.parse_symbol_key()
+        exchange = raw_exchange.lower()
+        code = raw_code.lower()
+        eod_partition = {"exchange": exchange, "code": code}
+        eod_manifest = await self._manifest_reader.read_manifest("eod", eod_partition)
+        if eod_manifest.status != "READY":
+            raise ManifestInvalidError(
+                "EOD manifest must be READY for "
+                f"exchange={exchange} code={code}; status={eod_manifest.status}"
+            )
 
-        eod_path = self._settings.stock_data_paths.eod(exchange, code)
         indicators_path = self._build_indicators_path(
             message.indicator_source,
             message.timeframe,
@@ -39,51 +55,58 @@ class IndicatorJobHandler:
         )
 
         _logger.info(
-            "Calculating indicators for symbolKey=%s eodPath=%s indicatorsPath=%s",
+            "Calculating indicators for symbolKey=%s eodPath=%s eodDataVersion=%s "
+            "indicatorsPath=%s",
             message.symbol_key,
-            eod_path,
+            eod_manifest.path,
+            eod_manifest.dataVersion,
             indicators_path,
         )
-        eod_frame = await self._parquet_storage.read_dataframe(eod_path)
+        eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
         result = calculate_supported_indicators(
             eod_frame,
             message.indicator_source,
             message.indicators,
             self._settings.scheduler,
         )
-        await self._parquet_storage.write_dataframe(indicators_path, result)
-        
-        # Publish dataset manifest after successful write
-        if self._manifest_writer:
-            try:
-                # TODO: Get upstream EOD manifest dataVersion for lineage tracking
-                await publish_dataset_manifest(
-                    writer=self._manifest_writer,
-                    dataset='indicators',
-                    partition={
-                        'source': message.indicator_source,
-                        'timeframe': message.timeframe,
-                        'exchange': exchange,
-                        'code': code,
-                    },
-                    data_path=indicators_path,
-                    dataframe=result,
-                    inputs=[],  # Will add EOD lineage in future iteration
+        write_result = await self._parquet_storage.write_dataframe(
+            indicators_path, result
+        )
+
+        await publish_dataset_manifest(
+            writer=self._manifest_writer,
+            dataset="indicators",
+            partition={
+                "source": message.indicator_source,
+                "timeframe": message.timeframe,
+                "exchange": exchange,
+                "code": code,
+            },
+            data_path=indicators_path,
+            dataframe=result,
+            object_checksums=[
+                (write_result.object_name, write_result.checksum),
+            ],
+            inputs=[
+                DatasetInput(
+                    dataset="eod",
+                    partition=eod_partition,
+                    dataVersion=eod_manifest.dataVersion,
                 )
-                _logger.info(
-                    "Published manifest for indicators partition source=%s timeframe=%s exchange=%s code=%s",
-                    message.indicator_source,
-                    message.timeframe,
-                    exchange,
-                    code,
-                )
-            except Exception as exc:
-                _logger.warning(
-                    "Failed to publish manifest for indicators partition: %s",
-                    exc,
-                    exc_info=True,
-                )
-        
+            ],
+            object_count=1,
+            total_bytes=write_result.total_bytes,
+        )
+        _logger.info(
+            "Published manifest for indicators partition source=%s timeframe=%s "
+            "exchange=%s code=%s eodDataVersion=%s",
+            message.indicator_source,
+            message.timeframe,
+            exchange,
+            code,
+            eod_manifest.dataVersion,
+        )
+
         return len(result)
 
     def _build_indicators_path(

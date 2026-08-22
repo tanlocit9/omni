@@ -9,7 +9,7 @@
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "concurrently --names \"JAVA,ANALYZER,INGESTOR\" --prefix \"[{name}]\" --prefix-colors \"blue,green,magenta\" \"nx serve platform --configuration=dev\" \"nx serve-hmr analyzer\" \"nx serve-hmr ingestor\""
+        "command": "concurrently --names \"PLATFORM,ANALYZER,INGESTOR,QUERY,CONSOLE\" --prefix \"[{name}]\" --prefix-colors \"blue,green,magenta,cyan,yellow\" \"nx run platform:serve --configuration=dev\" \"nx run analyzer:serve-hmr -- --port 8000\" \"nx run ingestor:serve-hmr -- --port 8001\" \"nx run query-service:serve-hmr -- --port 8002\" \"nx run omni-console:serve -- --port 5173\""
       }
     },
     "docker-dev": {

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
 from py_common.storage.exceptions import StorageError
-from py_common.storage.manifest import ManifestWriter
+from py_common.storage.manifest import ManifestReader, ManifestWriter
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.ports import StorageProviderInfo
 from py_common.storage.providers import StorageProvider
@@ -81,7 +81,12 @@ async def startup_event(app: FastAPI) -> None:
         provider=StorageProvider.MINIO,
         bucket=settings.minio.bucket,
     )
-    # Initialize manifest writer for dataset metadata
+    # Initialize manifest reader and writer for dataset metadata and lineage.
+    app.state.manifest_reader = ManifestReader(
+        registry=app.state.storage_registry,
+        provider=StorageProvider.MINIO,
+        bucket=settings.minio.bucket,
+    )
     app.state.manifest_writer = ManifestWriter(
         registry=app.state.storage_registry,
         provider=StorageProvider.MINIO,
@@ -90,6 +95,7 @@ async def startup_event(app: FastAPI) -> None:
     app.state.indicator_handler = IndicatorJobHandler(
         settings,
         app.state.parquet_storage,
+        app.state.manifest_reader,
         app.state.manifest_writer,
     )
     app.state.signal_handler = SignalJobHandler(

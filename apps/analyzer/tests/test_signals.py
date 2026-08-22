@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
+from py_common.storage.exceptions import StorageObjectNotFoundError
+
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
@@ -522,6 +524,32 @@ async def test_signal_handler_reads_eod_indicators_and_writes_signal_path():
     assert signals_path in storage.replacements
     assert "signals/trend_momentum_v1/1d/hose/hpg.parquet" in storage.replacements
     assert len(storage.replacements) == 2
+
+
+@pytest.mark.anyio
+async def test_signal_handler_skips_missing_indicator_prerequisite(caplog):
+    indicators_path = "indicators/ad_close/1d/hnx/one.parquet"
+
+    class MissingIndicatorStorage(FakeParquetStorage):
+        async def read_dataframe(self, path: str) -> pd.DataFrame:
+            if path == indicators_path:
+                raise StorageObjectNotFoundError("stock-data", path)
+            return await super().read_dataframe(path)
+
+    storage = MissingIndicatorStorage({"eod/hnx/one.parquet": _eod_frame()})
+    handler = SignalJobHandler(FakeSettings(), storage)
+
+    with caplog.at_level("WARNING", logger="app.signals.handler"):
+        transition = await handler.handle(_job_payload(symbolKey="HNX-ONE"))
+
+    assert transition.new_signal == MarketSignal.NO_DECISION
+    assert transition.persisted is False
+    assert transition.metadata["reasonCodes"] == ["MISSING_INDICATOR_OBJECT"]
+    assert "Skipping signal calculation" in caplog.text
+    assert "symbolKey=HNX-ONE" in caplog.text
+    assert "bucket=stock-data" in caplog.text
+    assert f"objectName={indicators_path}" in caplog.text
+    assert not storage.replacements
 
 
 @pytest.mark.anyio

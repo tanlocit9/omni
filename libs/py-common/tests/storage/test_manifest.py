@@ -479,9 +479,7 @@ async def test_manifest_writer_publishes_immutable_then_ready(
 
     assert mock_writable.write_bytes.await_count == 2
     first, second = mock_writable.write_bytes.await_args_list
-    assert first.kwargs["object_name"].endswith(
-        f"/versions/{'a' * 64}.json"
-    )
+    assert first.kwargs["object_name"].endswith(f"/versions/{'a' * 64}.json")
     assert second.kwargs["object_name"].endswith("/READY.json")
     assert first.kwargs["data"] == second.kwargs["data"]
 
@@ -718,9 +716,7 @@ async def test_manifest_reader_rejects_invalid_contract_fields(
 
 
 @pytest.mark.asyncio
-async def test_manifest_reader_raises_typed_not_found(
-    manifest_reader, mock_readable
-):
+async def test_manifest_reader_raises_typed_not_found(manifest_reader, mock_readable):
     """Missing READY pointers should be distinct from storage failures."""
     mock_readable.read_bytes.side_effect = StorageObjectNotFoundError(
         bucket="stock-data",
@@ -777,8 +773,9 @@ async def test_manifest_reader_reads_shared_catalog_fixture(
     "payload",
     [
         b"{not-json",
-        json.dumps({"version": 1, "datasets": "invalid", "lastUpdated": "now"})
-        .encode(),
+        json.dumps(
+            {"version": 1, "datasets": "invalid", "lastUpdated": "now"}
+        ).encode(),
         json.dumps(
             {
                 "version": 1,

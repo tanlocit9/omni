@@ -1,6 +1,8 @@
-# Agent and Development Rules
+# AGENTS.md
 
-This file contains repository workflow rules for AI agents and developers. System architecture and business documentation live under [`docs`](docs); do not duplicate that content here.
+This file provides guidance to agents when working with code in this repository.
+
+System architecture and business documentation live under [`docs`](docs); do not duplicate that content here.
 
 ## Nx Rules
 
@@ -56,6 +58,16 @@ Use the corresponding Nx target instead of calling the underlying tool directly:
 - Deploy: `nx run <project_name>:deploy`
 
 If additional arguments are required, forward them after `--`.
+
+### Project-specific commands and style
+
+- The Java project at [`apps/core`](apps/core) is named `platform`; inspect it with `nx show project platform`, not `core`.
+- Run one Python test with `nx run <project>:test -- tests/<file>.py::<test_name>`; each target sets its project as the working directory, so service code intentionally imports its local `app` package. The analyzer and ingestor Ruff targets omit root entry points; query-service explicitly includes `main.py`.
+- [`apps/ingestor/tests/integration`](apps/ingestor/tests/integration) is excluded from `ingestor:test`; run it only through `nx run ingestor:test-integration`.
+- Run one console test with `nx run omni-console:test -- src/<file>.test.tsx -t "<name>"`; run one Java test with `nx run platform:test -- --tests "<fully.qualified.Test.method>"`.
+- Python linting is Ruff `E`, `F`, `UP`, `B`, `SIM`, and `I` at 88 columns. Only FastAPI projects analyzer and query-service ignore `B008` for `Depends()` defaults. TypeScript is ESM, ESLint permits zero warnings, and Prettier uses single quotes.
+- Cross-service Python behavior belongs in [`libs/py-common`](libs/py-common); canonical transport schemas belong in [`libs/contracts/proto`](libs/contracts/proto). Never hand-edit generated output in [`libs/contracts/gen`](libs/contracts/gen).
+- Protobuf changes require the defined `contracts` targets: `format`, `lint`, `breaking`, `generate-check`, and `test` (which generates before validating artifacts).
 
 Only use the underlying tool directly when no suitable Nx target exists. In that case:
 

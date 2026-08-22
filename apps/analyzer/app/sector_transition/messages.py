@@ -13,7 +13,9 @@ SUPPORTED_SECTOR_TRANSITION_STRATEGIES = ["SECTOR_TRANSITION_V1"]
 class SectorTransitionAnalyzeJobMessage(JobMessage):
     evaluation_date: date = Field(alias="evaluationDate")
     sector_codes: list[str] = Field(alias="sectorCodes")
-    focus_sector_codes: list[str] = Field(default_factory=list, alias="focusSectorCodes")
+    focus_sector_codes: list[str] = Field(
+        default_factory=list, alias="focusSectorCodes"
+    )
     sector_level: int = Field(alias="sectorLevel")
     timeframe: str
     strategy: str = "SECTOR_TRANSITION_V1"
@@ -55,7 +57,9 @@ class SectorTransitionAnalyzeJobMessage(JobMessage):
 class SectorTransitionOutcomeEvaluationJobMessage(JobMessage):
     evaluation_date: date = Field(alias="evaluationDate")
     sector_codes: list[str] = Field(alias="sectorCodes")
-    focus_sector_codes: list[str] = Field(default_factory=list, alias="focusSectorCodes")
+    focus_sector_codes: list[str] = Field(
+        default_factory=list, alias="focusSectorCodes"
+    )
     sector_level: int = Field(alias="sectorLevel")
     timeframe: str
     strategy: str = "SECTOR_TRANSITION_V1"

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from py_common.config import SchedulerSettings, StockDataPaths
+from py_common.storage.exceptions import ManifestInvalidError, ManifestNotFoundError
+from py_common.storage.manifest import ColumnMetadata, DatasetManifest
+from py_common.storage.parquet import ParquetWriteResult
 
 from app.calculations import indicators as indicator_calculations
 from app.calculations.indicators import calculate_supported_indicators
@@ -44,6 +48,65 @@ def _eod_frame(rows: int = 60) -> pd.DataFrame:
             "nm_volume": range(100, 100 + rows),
         }
     )
+
+
+def _eod_manifest(
+    *,
+    data_version: str = f"sha256:{'a' * 64}",
+    status: str = "READY",
+) -> DatasetManifest:
+    return DatasetManifest(
+        version=1,
+        dataset="eod",
+        partition={"exchange": "hose", "code": "hpg"},
+        status=status,
+        path="canonical/eod/hose/hpg-version.parquet",
+        dataVersion=data_version,
+        objectCount=1,
+        totalBytes=1_024,
+        rowCount=60,
+        columnCount=1,
+        columns=[ColumnMetadata(name="date", type="TIMESTAMP", nullable=False)],
+        schemaVersion=1,
+        schemaHash=f"sha256:{'b' * 64}",
+        generatedAt="2026-08-22T00:00:00+00:00",
+    )
+
+
+def _indicator_settings() -> AppSettings:
+    return AppSettings(
+        indicator_kafka_enabled=False,
+        stock_data_paths=StockDataPaths(
+            symbols_base="symbols/",
+            symbols_pattern="{exchange}.parquet",
+            eod_base="eod/",
+            eod_pattern="{exchange}/{code}.parquet",
+            indicators_base="indicators/",
+            indicators_pattern="{source}/{timeframe}/{exchange}/{code}.parquet",
+        ),
+    )
+
+
+def _indicator_handler(
+    manifest: DatasetManifest | None = None,
+) -> tuple[IndicatorJobHandler, AsyncMock, AsyncMock, AsyncMock]:
+    parquet_storage = AsyncMock()
+    parquet_storage.read_dataframe.return_value = _eod_frame()
+    parquet_storage.write_dataframe.return_value = ParquetWriteResult(
+        object_name="indicators/ad_close/1d/hose/hpg.parquet",
+        checksum=f"sha256:{'c' * 64}",
+        total_bytes=2_048,
+    )
+    manifest_reader = AsyncMock()
+    manifest_reader.read_manifest.return_value = manifest or _eod_manifest()
+    manifest_writer = AsyncMock()
+    handler = IndicatorJobHandler(
+        _indicator_settings(),
+        parquet_storage,
+        manifest_reader,
+        manifest_writer,
+    )
+    return handler, parquet_storage, manifest_reader, manifest_writer
 
 
 def test_indicator_job_message_validates_supported_indicator_subset():
@@ -147,48 +210,98 @@ def test_calculate_supported_indicators_returns_full_series_columns():
 
 
 @pytest.mark.anyio
-async def test_indicator_handler_reads_eod_and_writes_indicator_path():
-    settings = AppSettings(
-        indicator_kafka_enabled=False,
-        stock_data_paths=StockDataPaths(
-            symbols_base="symbols/",
-            symbols_pattern="{exchange}.parquet",
-            eod_base="eod/",
-            eod_pattern="{exchange}/{code}.parquet",
-            indicators_base="indicators/",
-            indicators_pattern="{source}/{timeframe}/{exchange}/{code}.parquet",
-        ),
+async def test_indicator_handler_resolves_eod_manifest_path_and_publishes_lineage():
+    eod_version = f"sha256:{'d' * 64}"
+    handler, parquet_storage, manifest_reader, manifest_writer = _indicator_handler(
+        _eod_manifest(data_version=eod_version)
     )
-    parquet_storage = AsyncMock()
-    parquet_storage.read_dataframe.return_value = _eod_frame()
-    handler = IndicatorJobHandler(settings, parquet_storage)
 
     records = await handler.handle(_job_payload())
 
     assert records == 60
-    parquet_storage.read_dataframe.assert_awaited_once_with("eod/hose/hpg.parquet")
+    manifest_reader.read_manifest.assert_awaited_once_with(
+        "eod", {"exchange": "hose", "code": "hpg"}
+    )
+    parquet_storage.read_dataframe.assert_awaited_once_with(
+        "canonical/eod/hose/hpg-version.parquet"
+    )
     written_path, written_frame = parquet_storage.write_dataframe.await_args.args
     assert written_path == "indicators/ad_close/1d/hose/hpg.parquet"
-    assert list(written_frame.columns) == [
-        "date",
-        "ma20",
-        "ma20_calculated_at",
-        "ma50",
-        "ma50_calculated_at",
-        "rsi14",
-        "rsi14_calculated_at",
-        "macd",
-        "macd_signal",
-        "macd_hist",
-        "macd_calculated_at",
-        "ichimoku_tenkan",
-        "ichimoku_kijun",
-        "ichimoku_span_a",
-        "ichimoku_span_b",
-        "ichimoku_chikou",
-        "ichimoku_calculated_at",
-    ]
     assert len(written_frame) == 60
+
+    manifest_writer.write_manifest.assert_awaited_once()
+    indicators_manifest = manifest_writer.write_manifest.await_args.args[0]
+    assert indicators_manifest.dataset == "indicators"
+    assert indicators_manifest.path == written_path
+    assert indicators_manifest.objectCount == 1
+    assert indicators_manifest.totalBytes == 2_048
+    assert len(indicators_manifest.inputs) == 1
+    assert indicators_manifest.inputs[0].dataset == "eod"
+    assert indicators_manifest.inputs[0].partition == {
+        "exchange": "hose",
+        "code": "hpg",
+    }
+    assert indicators_manifest.inputs[0].dataVersion == eod_version
+
+
+@pytest.mark.anyio
+async def test_indicator_handler_missing_eod_manifest_prevents_publication():
+    handler, parquet_storage, manifest_reader, manifest_writer = _indicator_handler()
+    manifest_reader.read_manifest.side_effect = ManifestNotFoundError(
+        "eod", {"exchange": "hose", "code": "hpg"}
+    )
+
+    with pytest.raises(ManifestNotFoundError):
+        await handler.handle(_job_payload())
+
+    parquet_storage.read_dataframe.assert_not_awaited()
+    parquet_storage.write_dataframe.assert_not_awaited()
+    manifest_writer.write_manifest.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_indicator_handler_invalid_eod_manifest_prevents_publication():
+    handler, parquet_storage, manifest_reader, manifest_writer = _indicator_handler()
+    manifest_reader.read_manifest.side_effect = ManifestInvalidError(
+        "Invalid dataset manifest JSON"
+    )
+
+    with pytest.raises(ManifestInvalidError, match="Invalid dataset manifest JSON"):
+        await handler.handle(_job_payload())
+
+    parquet_storage.read_dataframe.assert_not_awaited()
+    parquet_storage.write_dataframe.assert_not_awaited()
+    manifest_writer.write_manifest.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_indicator_handler_not_ready_eod_manifest_prevents_publication():
+    processing_manifest = replace(_eod_manifest(), status="PROCESSING")
+    handler, parquet_storage, _, manifest_writer = _indicator_handler(
+        processing_manifest
+    )
+
+    with pytest.raises(ManifestInvalidError, match="must be READY"):
+        await handler.handle(_job_payload())
+
+    parquet_storage.read_dataframe.assert_not_awaited()
+    parquet_storage.write_dataframe.assert_not_awaited()
+    manifest_writer.write_manifest.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_indicator_handler_changed_eod_version_changes_indicators_version():
+    published_versions = []
+    for eod_version_character in ("d", "e"):
+        handler, _, _, manifest_writer = _indicator_handler(
+            _eod_manifest(data_version=f"sha256:{eod_version_character * 64}")
+        )
+        await handler.handle(_job_payload())
+        published_versions.append(
+            manifest_writer.write_manifest.await_args.args[0].dataVersion
+        )
+
+    assert published_versions[0] != published_versions[1]
 
 
 def test_calculate_ichimoku_keeps_shape_and_omni_schema_for_short_series():

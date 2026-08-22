@@ -689,50 +689,50 @@ class ManifestReader:
 ```python
 # apps/analyzer/app/indicators/handler.py
 
-from py_common.storage.manifest import (
-    ManifestWriter,
-    publish_dataset_manifest,
-    DatasetInput,
-)
+from py_common.storage.manifest import DatasetInput, ManifestReader
 
 async def handle_indicator_job(job: IndicatorJob) -> None:
-    """Handle indicator calculation job with manifest publishing."""
+    """Handle an indicator job with mandatory EOD lineage."""
+    eod_partition = {
+        'exchange': job.exchange,
+        'code': job.code,
+    }
+    eod_manifest = await manifest_reader.read_manifest('eod', eod_partition)
+    if eod_manifest.status != 'READY':
+        raise ManifestInvalidError('EOD manifest must be READY')
 
-    # ... existing indicator calculation ...
-
-    # Write Parquet data
-    await parquet_storage.write_dataframe(
+    eod_df = await parquet_storage.read_dataframe(eod_manifest.path)
+    indicator_df = calculate_indicators(eod_df)
+    write_result = await parquet_storage.write_dataframe(
         object_name=indicator_path,
         dataframe=indicator_df,
     )
 
-    # Get upstream manifest for lineage
-    manifest_reader = ManifestReader(registry, provider, bucket)
-    eod_manifest = await manifest_reader.read_manifest(
-        dataset='eod',
-        partition={'exchange': job.exchange},
-    )
-
-    # Publish READY manifest LAST
-    manifest_writer = ManifestWriter(registry, provider, bucket)
+    # Publish the immutable version and READY pointer last. There is no
+    # empty-lineage fallback: EOD manifest errors fail the indicator job.
     await publish_dataset_manifest(
         writer=manifest_writer,
         dataset='indicators',
         partition={
-            'source': 'ad_close',
-            'timeframe': '1d',
+            'source': job.indicator_source,
+            'timeframe': job.timeframe,
             'exchange': job.exchange,
+            'code': job.code,
         },
-        data_path=f'indicators/ad_close/1d/{job.exchange}/*.parquet',
+        data_path=indicator_path,
         dataframe=indicator_df,
+        object_checksums=[
+            (write_result.object_name, write_result.checksum),
+        ],
         inputs=[
             DatasetInput(
                 dataset='eod',
-                partition={'exchange': job.exchange},
+                partition=eod_partition,
                 dataVersion=eod_manifest.dataVersion,
             )
-        ] if eod_manifest else [],
+        ],
         execution_id=job.execution_id,
+        total_bytes=write_result.total_bytes,
     )
 
     logger.info("Published READY manifest for indicators")

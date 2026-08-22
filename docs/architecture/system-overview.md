@@ -13,6 +13,8 @@ The system separates orchestration from data processing:
 - Platform owns API, scheduler, database-backed job state, and Kafka orchestration.
 - Ingestor owns external market-data fetching and raw/normalized Parquet updates.
 - Analyzer owns analytical calculations such as indicators, signals, and sector wave datasets.
+- Query Service owns bounded read-only native DuckDB execution over READY datasets.
+- Omni Console is a thin private UI for metadata, Viewer, SQL, and Dashboard workflows.
 - py-common owns shared Python infrastructure for configuration, Kafka, runtime, and storage abstractions.
 
 ## High-level Architecture
@@ -23,6 +25,8 @@ flowchart TD
   Kafka["Kafka<br/>job, upsert, and status topics"]
   Ingestor["Ingestor<br/>apps/ingestor<br/>market data ingestion"]
   Analyzer["Analyzer<br/>apps/analyzer<br/>analytical jobs"]
+  QueryService["Query Service<br/>apps/query-service<br/>native DuckDB"]
+  Console["Omni Console<br/>apps/omni-console"]
   PyCommon["py-common<br/>libs/py-common<br/>shared Python contracts"]
   MinIO["MinIO / S3<br/>Parquet data lake"]
   Postgres["PostgreSQL<br/>Platform operational DB"]
@@ -34,6 +38,8 @@ flowchart TD
   Kafka -->|indicator/signal/sector jobs| Analyzer
   Ingestor -->|read/write Parquet| MinIO
   Analyzer -->|read/write Parquet| MinIO
+  Console -->|logical refs and read-only SQL| QueryService
+  QueryService -->|READY manifests and Parquet| MinIO
   Ingestor -->|status and upsert events| Kafka
   Analyzer -->|status and notification events| Kafka
   Kafka -->|status and upsert events| Platform
@@ -41,6 +47,7 @@ flowchart TD
   Platform -->|job metadata and state| Postgres
   Ingestor -. uses .-> PyCommon
   Analyzer -. uses .-> PyCommon
+  QueryService -. uses .-> PyCommon
   Platform -. reads .-> Configs
   Ingestor -. reads .-> Configs
   Analyzer -. reads .-> Configs
@@ -54,6 +61,8 @@ flowchart TD
 | Platform / Core | [`apps/core`](../../apps/core)                                       | Owns orchestration, scheduler, producer registry, job definitions, execution history, notification policy selection, API boundary, and Platform database state.          | Does not fetch market data directly, render job notifications in producers, or encode S3 object paths into Kafka messages. |
 | Ingestor        | [`apps/ingestor`](../../apps/ingestor)                               | Consumes stock/symbol sync jobs, talks to data providers, normalizes records, writes Parquet, publishes status/upsert events.                                            | Does not own scheduler state or Platform database schema.                                                                  |
 | Analyzer        | [`apps/analyzer`](../../apps/analyzer)                               | Consumes analytical jobs, computes indicators/signals/sector wave datasets, writes analytical Parquet, publishes status/notification events, and preserves failure meta. | Does not own stock-price ingestion or Platform transactional database state.                                               |
+| Query Service   | [`apps/query-service`](../../apps/query-service)                     | Resolves READY manifests and executes bounded read-only native DuckDB queries for Viewer, SQL Console, and Dashboard consumers.                                          | Does not expose credentials/physical paths or own Platform PostgreSQL state.                                               |
+| Omni Console    | [`apps/omni-console`](../../apps/omni-console)                       | Private operator UI for Dataset Explorer, Parquet Viewer, SQL Console, Saved Queries, and dashboards.                                                                    | Does not read object storage directly or execute DuckDB in the browser.                                                    |
 | py-common       | [`libs/py-common`](../../libs/py-common)                             | Provides shared Python config loading, Kafka payloads, messaging helpers, runtime helpers, storage ports/adapters, and path builders.                                    | Does not contain service-specific business logic.                                                                          |
 | PostgreSQL      | [`database/migrations`](../../database/migrations)                   | Stores Platform-owned operational state such as job definitions, job executions, symbols, and sectors.                                                                   | Not the analytical data lake.                                                                                              |
 | Kafka           | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     | Carries async job commands, worker status, symbol/sector upserts, signal notifications, and analytical job requests.                                                     | Topic and payload contract changes must update producers, consumers, tests, and docs together.                             |
@@ -67,6 +76,8 @@ flowchart LR
   Core["apps/core<br/>project: platform"]
   Ingestor["apps/ingestor<br/>project: ingestor"]
   Analyzer["apps/analyzer<br/>project: analyzer"]
+  QueryService["apps/query-service<br/>project: query-service"]
+  Console["apps/omni-console<br/>project: omni-console"]
   Common["libs/py-common<br/>project: py-common"]
   Configs["configs/shared"]
   DB["database/migrations"]
@@ -75,21 +86,24 @@ flowchart LR
   Root --> Core
   Root --> Ingestor
   Root --> Analyzer
+  Root --> QueryService
+  Root --> Console
   Root --> Common
   Root --> Configs
   Root --> DB
   Root --> Compose
   Analyzer --> Common
+  QueryService --> Common
   Ingestor --> Common
 ```
 
 ## Control Plane vs Data Plane
 
-| Plane          | Owns                                                                                      | Main components                                                                  |
-| -------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Control plane  | Scheduling, job metadata, execution status, orchestration decisions, API boundary.        | Platform, PostgreSQL, Kafka status topics.                                       |
-| Data plane     | Fetching external market data, transforming dataframes, reading/writing Parquet datasets. | Ingestor, Analyzer, MinIO/S3, py-common storage abstractions.                    |
-| Contract plane | Topic names, payload fields, storage paths, shared runtime settings.                      | `configs/shared`, py-common payload/settings models, Platform messaging records. |
+| Plane          | Owns                                                                                                              | Main components                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Control plane  | Scheduling, job metadata, execution status, orchestration decisions, API boundary.                                | Platform, PostgreSQL, Kafka status topics.                                       |
+| Data plane     | Fetching external market data, transforming dataframes, reading/writing and bounded querying of Parquet datasets. | Ingestor, Analyzer, Query Service, MinIO/S3, py-common storage abstractions.     |
+| Contract plane | Topic names, payload fields, storage paths, shared runtime settings.                                              | `configs/shared`, py-common payload/settings models, Platform messaging records. |
 
 ## Main Flows
 
@@ -102,11 +116,13 @@ flowchart LR
 
 ## Source-of-truth Config
 
-| Contract                 | Source                                                               |
-| ------------------------ | -------------------------------------------------------------------- |
-| Kafka topic names        | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     |
-| S3/Parquet path patterns | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
-| Platform Nx targets      | [`apps/core/project.json`](../../apps/core/project.json)             |
-| Analyzer Nx targets      | [`apps/analyzer/project.json`](../../apps/analyzer/project.json)     |
-| Ingestor Nx targets      | [`apps/ingestor/project.json`](../../apps/ingestor/project.json)     |
-| py-common Nx targets     | [`libs/py-common/project.json`](../../libs/py-common/project.json)   |
+| Contract                 | Source                                                                     |
+| ------------------------ | -------------------------------------------------------------------------- |
+| Kafka topic names        | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)           |
+| S3/Parquet path patterns | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml)       |
+| Platform Nx targets      | [`apps/core/project.json`](../../apps/core/project.json)                   |
+| Analyzer Nx targets      | [`apps/analyzer/project.json`](../../apps/analyzer/project.json)           |
+| Ingestor Nx targets      | [`apps/ingestor/project.json`](../../apps/ingestor/project.json)           |
+| Query Service Nx targets | [`apps/query-service/project.json`](../../apps/query-service/project.json) |
+| Omni Console Nx targets  | [`apps/omni-console/project.json`](../../apps/omni-console/project.json)   |
+| py-common Nx targets     | [`libs/py-common/project.json`](../../libs/py-common/project.json)         |

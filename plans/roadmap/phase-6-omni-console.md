@@ -1,105 +1,73 @@
-# Phase 6 — Omni Console: Dataset Explorer First
+# Phase 6 — Omni Console and Server-side Query
 
 ## Goal
 
-Create the extensible internal application only after the metadata and access boundaries it consumes are stable.
+Provide a private Dataset Explorer, Parquet Viewer, SQL Console, and Dashboard
+without exposing object-storage credentials or physical paths to the browser.
 
-## Locked name and scope
+## Locked direction
 
-Use [`apps/omni-console`](../../apps/omni-console) as the application path. Dataset Explorer is the first capability; Parquet inspection is a feature, not the product name.
+- UI: `apps/omni-console`.
+- Analytical read boundary: `apps/query-service`.
+- Query engine: native DuckDB and PyArrow on the server.
+- Identity: logical dataset, partition, and optional `dataVersion` resolved from
+  canonical `READY` manifests.
+- Results: bounded JSON for small previews and Arrow IPC for larger SQL results.
+- DuckDB-Wasm is not part of V1.
+- Internet-facing deployment remains behind identity-aware access.
 
-## Increment P6-I1 — Console backend API and private-access boundary
+## P6-I1 — Query Service
 
-| Field                   | Value                                           |
-| ----------------------- | ----------------------------------------------- |
-| id                      | P6-I1                                           |
-| title                   | Console backend API and private-access boundary |
-| status                  | pending                                         |
-| priority                | high                                            |
-| depends_on              | [P3-I3]                                         |
-| blocks                  | [P6-I2, P6-I3]                                  |
-| owned_modules           | [apps/core, docs]                               |
-| execution_mode          | approval_required                               |
-| requires_owner_decision | false                                           |
-| pr                      | null                                            |
-| last_verified_commit    | null                                            |
+Build read-only APIs for catalog, READY partitions, query submission/status,
+cancellation, JSON results, and Arrow IPC results.
 
-Goal: define read-only Platform APIs and private-access controls before UI scaffolding. The owner-approved V1 boundary is Platform read-only metadata APIs plus allow-listed, short-lived, read-only URLs resolved from authorized logical dataset/partition/version references.
+Acceptance criteria:
 
-Acceptance criteria: catalog/manifest/access resolver APIs are documented and tested, browser receives no object-store credentials, resolver rejects arbitrary URLs and unauthorized identity substitutions, and Internet-facing deployment requires identity-aware protection.
+- SQL is limited to read-only statements and declared logical views.
+- DML, DDL, `COPY`, `ATTACH`, `INSTALL`, `LOAD`, dangerous `PRAGMA`, arbitrary
+  URLs, and direct `read_parquet` calls are rejected.
+- timeout, memory, row, scan, and concurrency limits apply.
+- audit records include actor, SQL hash, consumed `dataVersion`s, duration, rows,
+  and terminal state.
+- credentials and physical paths never cross the HTTP boundary.
 
-Required tests/checks: API contract tests, unauthorized object/version tests, private-access deployment check, and Core Nx checks.
+## P6-I2 — Dataset Explorer and Viewer
 
-Stop conditions: stop if implementation requires changing the approved access boundary, private network assumption, or identity-aware exposure requirement.
+Scaffold `apps/omni-console`, browse dataset/partition/schema/status/version/size
+metadata, and generate bounded server-side preview queries with filter, sort,
+projection, and pagination.
 
-## Increment P6-I2 — Rename console implementation plan and scaffold application
+Acceptance criteria:
 
-| Field                   | Value                                                       |
-| ----------------------- | ----------------------------------------------------------- |
-| id                      | P6-I2                                                       |
-| title                   | Rename console implementation plan and scaffold application |
-| status                  | pending                                                     |
-| priority                | medium                                                      |
-| depends_on              | [P6-I1]                                                     |
-| blocks                  | [P6-I3]                                                     |
-| owned_modules           | [apps/omni-console, docs]                                   |
-| execution_mode          | autonomous                                                  |
-| requires_owner_decision | false                                                       |
-| pr                      | null                                                        |
-| last_verified_commit    | null                                                        |
+- Explorer uses manifests for summaries and does not scan Parquet.
+- Viewer only opens the selected READY version.
+- unknown/additive columns remain inspectable.
+- large datasets are never loaded fully into the browser.
 
-Goal: follow the compatibility pointer in [`docs/INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md`](../../docs/INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md) and scaffold the Nx React/Vite Omni Console application according to the canonical focused execution plan.
+## P6-I3 — SQL Console
 
-Acceptance criteria: project is named `omni-console`, Nx graph includes it on Linux, initial routes/components/tests exist without product write operations, and documentation references use the locked product name.
+Add Monaco editing, schema completion, run/cancel/rerun, Arrow result display,
+bounded local history, and limited CSV export.
 
-Required tests/checks: `nx show project omni-console`, lint/test/build for console target, and docs link checks.
+Acceptance criteria:
 
-Stop conditions: stop if scaffolding requires changing workspace conventions or public access assumptions.
+- operator can query latest committed READY data without DBeaver.
+- status shows duration, rows, error, and consumed versions.
+- UI stores SQL/history only, never credentials or physical paths.
 
-## Increment P6-I3 — Dataset Explorer catalog, manifest, and query MVP
+## P6-I4 — Saved Queries and Dashboard
 
-| Field                   | Value                                             |
-| ----------------------- | ------------------------------------------------- |
-| id                      | P6-I3                                             |
-| title                   | Dataset Explorer catalog, manifest, and query MVP |
-| status                  | pending                                           |
-| priority                | medium                                            |
-| depends_on              | [P6-I2]                                           |
-| blocks                  | [P6-I4]                                           |
-| owned_modules           | [apps/omni-console, apps/core]                    |
-| execution_mode          | autonomous                                        |
-| requires_owner_decision | false                                             |
-| pr                      | null                                              |
-| last_verified_commit    | null                                              |
+Store Saved Query and Dashboard configuration in Platform-owned PostgreSQL.
+Widgets reference Saved Queries and support table, KPI, and basic chart views.
 
-Goal: implement private Dataset Explorer MVP against canonical metadata.
+Acceptance criteria:
 
-Acceptance criteria: private operator can search datasets, inspect current/historical manifests, view schema/statistics/lineage, preview bounded rows, run bounded read-only SQL, and see actionable errors.
+- Saved Query contains SQL template, parameters, owner/visibility, result limit,
+  and refresh policy.
+- cache identity includes normalized SQL, parameters, and consumed
+  `dataVersion`s.
+- widget failures remain isolated.
+- the deployment identity model supplies a trustworthy operator principal.
 
-Required tests/checks: component/route tests, API adapter tests, Playwright catalog-to-query flow, read-only SQL enforcement, and affected Nx checks.
-
-Stop conditions: stop if metadata APIs are not stable or query limits require owner decision.
-
-## Increment P6-I4 — Presigned URL refresh, browser safety, and private deployment verification
-
-| Field                   | Value                                                                      |
-| ----------------------- | -------------------------------------------------------------------------- |
-| id                      | P6-I4                                                                      |
-| title                   | Presigned URL refresh, browser safety, and private deployment verification |
-| status                  | pending                                                                    |
-| priority                | medium                                                                     |
-| depends_on              | [P6-I3, P5-I3]                                                             |
-| blocks                  | []                                                                         |
-| owned_modules           | [apps/omni-console, apps/core, docker-compose]                             |
-| execution_mode          | approval_required                                                          |
-| requires_owner_decision | true                                                                       |
-| pr                      | null                                                                       |
-| last_verified_commit    | null                                                                       |
-
-Goal: harden URL expiry handling, browser query limits, and private deployment posture.
-
-Acceptance criteria: query execution resolves fresh URLs, idle tabs survive previous URL expiry, mid-query expiry discards partial results and requires explicit rerun, no presigned URLs persist in browser storage/logs/telemetry, and console/resolver are not anonymously Internet-accessible.
-
-Required tests/checks: Playwright expiry tests, security tests for arbitrary URLs, browser memory/performance test, deployment privacy check, and affected Nx checks.
-
-Stop conditions: owner must approve deployment exposure model and object-store CORS/range-request assumptions.
+Stop if authentication/principal ownership is not defined; do not make Console
+APIs anonymous merely to complete the dashboard.

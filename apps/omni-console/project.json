@@ -1,0 +1,38 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "omni-console",
+  "projectType": "application",
+  "sourceRoot": "apps/omni-console/src",
+  "tags": ["type:application", "scope:console", "lang:typescript"],
+  "targets": {
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev --",
+        "cwd": "apps/omni-console",
+        "forwardAllArgs": true
+      }
+    },
+    "build": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run build", "cwd": "apps/omni-console" },
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "test": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run test", "cwd": "apps/omni-console" }
+    },
+    "lint": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run lint", "cwd": "apps/omni-console" }
+    },
+    "typecheck": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": { "command": "npm run typecheck", "cwd": "apps/omni-console" }
+    }
+  }
+}

@@ -9,7 +9,7 @@ Canonical direction:
 - Application: `apps/omni-console`
 - Product: Omni Console
 - Features: Dataset Explorer, Parquet Viewer, and Data Health Dashboard
-- Private access: Platform read-only APIs resolving authorized logical dataset/partition/version references to allow-listed, short-lived, read-only URLs
-- Query engine: DuckDB-Wasm with bounded structured queries; no arbitrary URLs or unrestricted SQL
+- Private access: Query Service resolves logical dataset/partition/version references from READY manifests; physical paths and credentials remain server-side
+- Query engine: native DuckDB in `apps/query-service`; the browser is a thin client and cannot submit arbitrary URLs or write SQL
 
 Execute [`plans/omni-metadata-console-dashboard-execution-plan.md`](omni-metadata-console-dashboard-execution-plan.md) from M0. Roadmap ownership remains in [`plans/roadmap/phase-6-omni-console.md`](roadmap/phase-6-omni-console.md).

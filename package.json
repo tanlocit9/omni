@@ -26,6 +26,8 @@
     "packages/*",
     "apps/core",
     "apps/analyzer",
-    "apps/ingestor"
+    "apps/ingestor",
+    "apps/query-service",
+    "apps/omni-console"
   ]
 }

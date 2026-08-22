@@ -205,27 +205,27 @@ See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST
 
 ### eod
 
-| Field           | Value                                                                          |
-| --------------- | ------------------------------------------------------------------------------ |
-| Config key      | `eod`                                                                          |
-| Path            | `eod/{exchange}/{code}.parquet`                                                |
-| Producer        | Ingestor                                                                       |
-| Consumer        | Analyzer indicator, signal, and sector-wave jobs                               |
-| Schema/key      | One symbol per file, keyed by trading date/timeframe data columns.             |
-| Update strategy | Merge incremental provider rows with existing Parquet and deduplicate by date. |
-| Ownership       | Ingestor owns EOD Parquet files.                                               |
+| Field           | Value                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `eod`                                                                                                                                       |
+| Path            | `eod/{exchange}/{code}.parquet`                                                                                                             |
+| Producer        | Ingestor                                                                                                                                    |
+| Consumer        | Analyzer indicator, signal, and sector-wave jobs; Indicator jobs resolve the exact `exchange`/`code` READY manifest and consume its `path`. |
+| Schema/key      | One symbol per file, keyed by trading date/timeframe data columns.                                                                          |
+| Update strategy | Merge incremental provider rows with existing Parquet and deduplicate by date.                                                              |
+| Ownership       | Ingestor owns EOD Parquet files.                                                                                                            |
 
 ### indicators
 
-| Field           | Value                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| Config key      | `indicators`                                                                                |
-| Path            | `indicators/{source}/{timeframe}/{exchange}/{code}.parquet`                                 |
-| Producer        | Analyzer indicator jobs                                                                     |
-| Consumer        | Analyzer signal jobs and analytical consumers                                               |
-| Schema/key      | One symbol, source, and timeframe per file. Keys should include date and indicator columns. |
-| Update strategy | Recompute/write supported indicator set from EOD input for the requested window.            |
-| Ownership       | Analyzer owns indicator outputs.                                                            |
+| Field           | Value                                                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `indicators`                                                                                                                                                                           |
+| Path            | `indicators/{source}/{timeframe}/{exchange}/{code}.parquet`                                                                                                                            |
+| Producer        | Analyzer indicator jobs                                                                                                                                                                |
+| Consumer        | Analyzer signal jobs and analytical consumers                                                                                                                                          |
+| Schema/key      | One symbol, source, and timeframe per file. Keys should include date and indicator columns.                                                                                            |
+| Update strategy | Recompute/write from the exact EOD READY version, then publish READY last with one matching EOD entry in `inputs[]`; missing, invalid, or non-READY EOD metadata prevents publication. |
+| Ownership       | Analyzer owns indicator outputs.                                                                                                                                                       |
 
 ### signals
 

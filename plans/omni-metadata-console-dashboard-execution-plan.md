@@ -20,7 +20,7 @@ After completion:
 
 - EOD and indicator datasets publish canonical JSON manifests with deterministic identity, exact persisted-byte metadata, READY-last safety, and exact upstream lineage.
 - Query Service resolves logical dataset, partition, and version identity through READY manifests and keeps physical Parquet paths server-side.
-- `apps/omni-console` provides Dataset Explorer, Parquet Viewer, and Data Health Dashboard features.
+- `apps/omni-console` provides Dataset Explorer, Parquet Viewer, and Data Health Dashboard features; canonical Phase 7 later adds a Jobs tab on a Platform-owned operational API.
 - Native DuckDB performs bounded server-side projection, filtering, sorting, SQL, and row limiting without exposing object-store credentials or physical paths.
 - Force Precompute distinguishes requested date from the latest common complete effective data date and preserves truthful execution states.
 - Roadmaps, canonical documentation, and repository guidance agree with verified source and test evidence.
@@ -41,6 +41,7 @@ After completion:
 12. Dataset or sector states from different trading dates are never silently mixed.
 13. Unrelated local changes are preserved. Dirty worktrees are never destructively reset or rebased.
 14. Proto3 migration, dependency-guard expansion, portable deployment, realtime ingestion, and AI/ML are not prerequisites for this sequence.
+15. Phase 7 job operations is a follow-on capability: Platform owns definition catalog, trigger validation, scheduler dispatch, idempotency, audit, and execution status; Query Service remains read-only and the Console does not publish directly to Kafka.
 
 ## Dataset Outputs
 

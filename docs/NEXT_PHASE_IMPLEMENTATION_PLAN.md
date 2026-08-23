@@ -112,13 +112,13 @@ See `INTERNAL_TOOLS_PARQUET_VIEWER_IMPLEMENTATION_PLAN.md`.
 Developers browse manifests/dependency status and query canonical Parquet through
 the private server-side Query Service using native DuckDB.
 
-## Phase 7 — Telegram Channel Separation
+## Phase 8 — Telegram Channel Separation
 
 See `TELEGRAM_MULTI_CHANNEL_IMPLEMENTATION_PLAN.md`.
 
 Operational and market-signal destinations remain separate.
 
-## Phase 8 — Intraday EOD
+## Phase 9 — Intraday EOD
 
 See `INTRADAY_EOD_IMPLEMENTATION_PLAN.md`.
 
@@ -137,7 +137,7 @@ opening_range_position
 opening_range_breakout
 ```
 
-## Phase 9 — Realtime Per-Tick
+## Phase 10 — Realtime Per-Tick
 
 See `REALTIME_PER_TICK_IMPLEMENTATION_PLAN.md`.
 

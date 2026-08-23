@@ -13,7 +13,9 @@ This directory is the documentation entry point for Omni. It is designed to help
 7. [Scheduler claim and outbox boundary ADR](adr/ADR-007-scheduler-claim-and-outbox-boundary.md) — Phase 1A claim foundation and Phase 1B outbox boundary.
 8. [Metadata → Omni Console → Dashboard execution plan](../plans/omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.
 9. [Codex control and tooling plan](development/codex-control-and-tooling.md) — proposed skills, MCP integrations, guardrails, and rollout order.
-10. [Cloudflare-first low-cost deployment decision](deployment/cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
+10. [Canonical roadmap](../plans/roadmap/README.md) — phase ordering, increment status, dependencies, and execution evidence.
+11. [Phase 7 Console job operations](../plans/roadmap/phase-7-console-job-operations.md) — Platform-owned job catalog/trigger/status contracts and the Omni Console Jobs tab.
+12. [Cloudflare-first low-cost deployment decision](deployment/cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 
 ## Contract / Coordination Plans
 

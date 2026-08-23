@@ -1,19 +1,19 @@
-# Phase 9 — Realtime Per Tick
+# Phase 10 — Realtime Per Tick
 
 ## Goal
 
 Add live processing only after the intraday batch vocabulary and EOD reconciliation path are stable.
 
-## Increment P9-I1 — Tick contract and ingestion
+## Increment P10-I1 — Tick contract and ingestion
 
 | Field                   | Value                       |
 | ----------------------- | --------------------------- |
-| id                      | P9-I1                       |
+| id                      | P10-I1                      |
 | title                   | Tick contract and ingestion |
 | status                  | pending                     |
 | priority                | low                         |
-| depends_on              | [P8-I3, P2-I3]              |
-| blocks                  | [P9-I2]                     |
+| depends_on              | [P9-I3, P2-I3]              |
+| blocks                  | [P10-I2]                    |
 | owned_modules           | [contracts, apps/ingestor]  |
 | execution_mode          | autonomous                  |
 | requires_owner_decision | false                       |
@@ -28,15 +28,15 @@ Required tests/checks: Proto3 contract checks, boundary validation tests, duplic
 
 Stop conditions: stop if provider tick guarantees are unknown or conditional fields are undocumented.
 
-## Increment P9-I2 — Live bars, features, archive, and EOD reconciliation
+## Increment P10-I2 — Live bars, features, archive, and EOD reconciliation
 
 | Field                   | Value                                                |
 | ----------------------- | ---------------------------------------------------- |
-| id                      | P9-I2                                                |
+| id                      | P10-I2                                               |
 | title                   | Live bars, features, archive, and EOD reconciliation |
 | status                  | pending                                              |
 | priority                | low                                                  |
-| depends_on              | [P9-I1, P8-I2]                                       |
+| depends_on              | [P10-I1, P9-I2]                                      |
 | blocks                  | []                                                   |
 | owned_modules           | [apps/analyzer, apps/ingestor, libs/py-common]       |
 | execution_mode          | autonomous                                           |
@@ -50,4 +50,4 @@ Acceptance criteria: replaying the same tick stream produces the same canonical 
 
 Required tests/checks: stream replay determinism, reconnect/duplicate/out-of-order integration tests, archive rebuild tests, reconciliation tests, and affected Nx checks.
 
-Stop conditions: stop if live feature contracts diverge from Phase 8 batch vocabulary.
+Stop conditions: stop if live feature contracts diverge from Phase 9 batch vocabulary.

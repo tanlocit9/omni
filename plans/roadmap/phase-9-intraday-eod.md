@@ -1,19 +1,19 @@
-# Phase 8 — Intraday EOD
+# Phase 9 — Intraday EOD
 
 ## Goal
 
 Introduce post-close intraday processing with the same contract, manifest, lineage, and single-writer guarantees established in earlier phases.
 
-## Increment P8-I1 — Post-close intraday ingestion contracts and normalization
+## Increment P9-I1 — Post-close intraday ingestion contracts and normalization
 
 | Field                   | Value                                                     |
 | ----------------------- | --------------------------------------------------------- |
-| id                      | P8-I1                                                     |
+| id                      | P9-I1                                                     |
 | title                   | Post-close intraday ingestion contracts and normalization |
 | status                  | pending                                                   |
 | priority                | medium                                                    |
 | depends_on              | [P2-I3, P3-I3, P5-I2]                                     |
-| blocks                  | [P8-I2]                                                   |
+| blocks                  | [P9-I2]                                                   |
 | owned_modules           | [contracts, apps/ingestor, libs/py-common]                |
 | execution_mode          | autonomous                                                |
 | requires_owner_decision | false                                                     |
@@ -28,16 +28,16 @@ Required tests/checks: timestamp normalization, duplicate/gap/correction validat
 
 Stop conditions: stop if provider data semantics or session calendar ownership is unclear.
 
-## Increment P8-I2 — Intraday bars, reusable features, and manifests
+## Increment P9-I2 — Intraday bars, reusable features, and manifests
 
 | Field                   | Value                                           |
 | ----------------------- | ----------------------------------------------- |
-| id                      | P8-I2                                           |
+| id                      | P9-I2                                           |
 | title                   | Intraday bars, reusable features, and manifests |
 | status                  | pending                                         |
 | priority                | medium                                          |
-| depends_on              | [P8-I1]                                         |
-| blocks                  | [P8-I3, P9-I2]                                  |
+| depends_on              | [P9-I1]                                         |
+| blocks                  | [P9-I3, P10-I2]                                 |
 | owned_modules           | [apps/analyzer, libs/py-common]                 |
 | execution_mode          | autonomous                                      |
 | requires_owner_decision | false                                           |
@@ -52,16 +52,16 @@ Required tests/checks: bar aggregation boundary tests, deterministic rebuild tes
 
 Stop conditions: stop if feature naming conflicts with [`docs/ALGORITHM_FEATURE_CATALOG.md`](../../docs/ALGORITHM_FEATURE_CATALOG.md).
 
-## Increment P8-I3 — Sector aggregation and lineage publication
+## Increment P9-I3 — Sector aggregation and lineage publication
 
 | Field                   | Value                                      |
 | ----------------------- | ------------------------------------------ |
-| id                      | P8-I3                                      |
+| id                      | P9-I3                                      |
 | title                   | Sector aggregation and lineage publication |
 | status                  | pending                                    |
 | priority                | medium                                     |
-| depends_on              | [P8-I2, P1-I3]                             |
-| blocks                  | [P9-I1]                                    |
+| depends_on              | [P9-I2, P1-I3]                             |
+| blocks                  | [P10-I1]                                   |
 | owned_modules           | [apps/analyzer, libs/py-common]            |
 | execution_mode          | autonomous                                 |
 | requires_owner_decision | false                                      |

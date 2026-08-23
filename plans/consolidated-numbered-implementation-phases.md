@@ -11,9 +11,10 @@ This file is a compatibility index. The canonical autonomous-delivery roadmap st
 5. [Phase 4 — Job dependency guard](roadmap/phase-4-job-dependency-guard.md)
 6. [Phase 5 — Portable containers and centralized object storage](roadmap/phase-5-portable-deployment.md)
 7. [Phase 6 — Omni Console: Dataset Explorer first](roadmap/phase-6-omni-console.md)
-8. [Phase 7 — Multi-channel notification routing](roadmap/phase-7-notification-routing.md)
-9. [Phase 8 — Intraday EOD](roadmap/phase-8-intraday-eod.md)
-10. [Phase 9 — Realtime per tick](roadmap/phase-9-realtime-per-tick.md)
+8. [Phase 7 — Omni Console job operations](roadmap/phase-7-console-job-operations.md)
+9. [Phase 8 — Multi-channel notification routing](roadmap/phase-8-notification-routing.md)
+10. [Phase 9 — Intraday EOD](roadmap/phase-9-intraday-eod.md)
+11. [Phase 10 — Realtime per tick](roadmap/phase-10-realtime-per-tick.md)
 
 ## Supporting Files
 
@@ -26,4 +27,4 @@ This file is a compatibility index. The canonical autonomous-delivery roadmap st
 
 ## Immediate Next Action
 
-The first eligible autonomous increment is [P1-I2 in the increment registry](roadmap/implementation-increments.md) because Phase 0, ADR-007, and the P1-I1 claim foundation are merged and CI-verified on `main`.
+The next canonical increment is [P3-I1 in the increment registry](roadmap/implementation-increments.md); implementation is present, but fresh acceptance, Nx, and CI evidence remains required.

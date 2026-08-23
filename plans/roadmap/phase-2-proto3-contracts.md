@@ -13,7 +13,7 @@ Replace untyped cross-service message maps with versioned generated Java/Python 
 | status                  | completed                                              |
 | priority                | critical                                               |
 | depends_on              | [P1-I2]                                                |
-| blocks                  | [P2-I2, P8-I1, P9-I1]                                  |
+| blocks                  | [P2-I2, P9-I1, P10-I1]                                 |
 | owned_modules           | [libs/contracts, apps/core, libs/py-common]            |
 | execution_mode          | autonomous                                             |
 | requires_owner_decision | false                                                  |
@@ -67,7 +67,7 @@ Stop conditions: stop if a boundary lacks a clear producer and consumer owner or
 | status                  | pending                                                            |
 | priority                | high                                                               |
 | depends_on              | [P2-I2]                                                            |
-| blocks                  | [P6-I1, P7-I1]                                                     |
+| blocks                  | [P6-I1, P8-I1]                                                     |
 | owned_modules           | [apps/core, apps/analyzer, apps/ingestor, configs]                 |
 | execution_mode          | approval_required                                                  |
 | requires_owner_decision | true                                                               |

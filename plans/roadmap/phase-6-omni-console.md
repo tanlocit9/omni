@@ -18,8 +18,20 @@ without exposing object-storage credentials or physical paths to the browser.
 
 ## P6-I1 — Query Service
 
+| Field                   | Value                |
+| ----------------------- | -------------------- |
+| id                      | P6-I1                |
+| status                  | verification_pending |
+| depends_on              | [P3-I3, P5-I2]       |
+| execution_mode          | autonomous           |
+| requires_owner_decision | false                |
+| pr                      | null                 |
+| last_verified_commit    | 5ecb6c2              |
+
 Build read-only APIs for catalog, READY partitions, query submission/status,
 cancellation, JSON results, and Arrow IPC results.
+
+Verification state: implementation is merged on `main`, but the declared dependencies remain incomplete and no increment-specific PR, CI run, or complete acceptance evidence is recorded. Source presence does not satisfy the completion gate.
 
 Acceptance criteria:
 
@@ -33,9 +45,21 @@ Acceptance criteria:
 
 ## P6-I2 — Dataset Explorer and Viewer
 
+| Field                   | Value                |
+| ----------------------- | -------------------- |
+| id                      | P6-I2                |
+| status                  | verification_pending |
+| depends_on              | [P6-I1]              |
+| execution_mode          | autonomous           |
+| requires_owner_decision | false                |
+| pr                      | null                 |
+| last_verified_commit    | 5ecb6c2              |
+
 Scaffold `apps/omni-console`, browse dataset/partition/schema/status/version/size
 metadata, and generate bounded server-side preview queries with filter, sort,
 projection, and pagination.
+
+Verification state: implementation is merged on `main`, but P6-I1 is not completed and no increment-specific PR, CI run, or complete acceptance evidence is recorded.
 
 Acceptance criteria:
 
@@ -46,8 +70,20 @@ Acceptance criteria:
 
 ## P6-I3 — SQL Console
 
+| Field                   | Value                |
+| ----------------------- | -------------------- |
+| id                      | P6-I3                |
+| status                  | verification_pending |
+| depends_on              | [P6-I2]              |
+| execution_mode          | autonomous           |
+| requires_owner_decision | false                |
+| pr                      | null                 |
+| last_verified_commit    | 5ecb6c2              |
+
 Add Monaco editing, schema completion, run/cancel/rerun, Arrow result display,
 bounded local history, and limited CSV export.
+
+Verification state: partial source is merged on `main`, but P6-I2 is not completed. Monaco editing, schema completion, Arrow result display, history/export behavior, and required Nx/CI evidence must be verified before completion.
 
 Acceptance criteria:
 
@@ -56,6 +92,16 @@ Acceptance criteria:
 - UI stores SQL/history only, never credentials or physical paths.
 
 ## P6-I4 — Saved Queries and Dashboard
+
+| Field                   | Value             |
+| ----------------------- | ----------------- |
+| id                      | P6-I4             |
+| status                  | blocked           |
+| depends_on              | [P6-I3, P5-I3]    |
+| execution_mode          | approval_required |
+| requires_owner_decision | true              |
+| pr                      | null              |
+| last_verified_commit    | null              |
 
 Store Saved Query and Dashboard configuration in Platform-owned PostgreSQL.
 Widgets reference Saved Queries and support table, KPI, and basic chart views.

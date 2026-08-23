@@ -100,7 +100,7 @@ Stop conditions: stop if outbox boundary or idempotency key differs materially f
 | status                  | ready                                                      |
 | priority                | high                                                       |
 | depends_on              | [P1-I2]                                                    |
-| blocks                  | [P3-I3, P8-I3]                                             |
+| blocks                  | [P3-I3, P9-I3]                                             |
 | owned_modules           | [apps/core, apps/analyzer, configs]                        |
 | execution_mode          | autonomous                                                 |
 | requires_owner_decision | false                                                      |
@@ -128,7 +128,7 @@ Stop conditions: stop if sector catalog ownership is unclear.
 | status                  | ready                                                                |
 | priority                | high                                                                 |
 | depends_on              | [P1-I2]                                                              |
-| blocks                  | [P2-I2, P4-I1, P7-I1]                                                |
+| blocks                  | [P2-I2, P4-I1, P8-I1]                                                |
 | owned_modules           | [apps/core, libs/py-common, configs]                                 |
 | execution_mode          | autonomous                                                           |
 | requires_owner_decision | false                                                                |

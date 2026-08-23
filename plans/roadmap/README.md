@@ -55,19 +55,19 @@ A phase is a coherent architectural capability. An increment is the smallest ind
 
 ## Phase dependency map
 
-| Phase                          | Depends on                                                    | Main outcome                                                                                |
-| ------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 0 — Immediate correctness      | None                                                          | Correct due-job selection and portable workspace paths.                                     |
-| 1 — Backend/Core stabilization | Phase 0                                                       | Safe scheduling model and normalized execution semantics.                                   |
-| 2 — Proto3 contracts           | Phase 1                                                       | Typed, versioned Java/Python message boundaries.                                            |
-| 3 — Dataset manifests          | Phase 1; may overlap late Phase 2 only at approved boundaries | READY state, versioning, schema identity, and lineage.                                      |
-| 4 — Dependency guard           | Phases 1 and 3                                                | Runtime dependency enforcement before dispatch.                                             |
-| 5 — Portable deployment        | Phases 1-4 for production readiness                           | Reproducible images, shared storage, backup/restore.                                        |
-| 6 — Omni Console               | Phases 2-5                                                    | Server-side query, Dataset Explorer/Viewer, SQL Console, and Saved Query-backed dashboards. |
-| 7 — Console job operations     | Phase 1 scheduler safety and Phase 6 Console foundation       | Job-definition catalog, safe API trigger, and execution visibility.                         |
-| 8 — Notification routing       | Phase 1 event cleanup; preferably Phase 2                     | Multi-channel, recipient-aware notifications.                                               |
-| 9 — Intraday EOD               | Phases 2, 3, and 5                                            | Post-close intraday bars, features, lineage, and sector aggregates.                         |
-| 10 — Realtime per tick         | Phase 9                                                       | Tick ingestion, live features, archive, and EOD reconciliation.                             |
+| Phase                          | Depends on                                                                                             | Main outcome                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| 0 — Immediate correctness      | None                                                                                                   | Correct due-job selection and portable workspace paths.                                     |
+| 1 — Backend/Core stabilization | Phase 0                                                                                                | Safe scheduling model and normalized execution semantics.                                   |
+| 2 — Proto3 contracts           | Phase 1                                                                                                | Typed, versioned Java/Python message boundaries.                                            |
+| 3 — Dataset manifests          | Phase 1; may overlap late Phase 2 only at approved boundaries                                          | READY state, versioning, schema identity, and lineage.                                      |
+| 4 — Dependency guard           | Phases 1 and 3                                                                                         | Runtime dependency enforcement before dispatch.                                             |
+| 5 — Portable deployment        | Phases 1-4 for production readiness                                                                    | Reproducible images, shared storage, backup/restore.                                        |
+| 6 — Omni Console               | Phases 2-5                                                                                             | Server-side query, Dataset Explorer/Viewer, SQL Console, and Saved Query-backed dashboards. |
+| 7 — Console job operations     | Phase 1 scheduler safety; Phase 4 enforcement; completed Phase 6 Console and private identity boundary | Job-definition catalog, allow-list-only safe API trigger, and execution visibility.         |
+| 8 — Notification routing       | Phase 1 event cleanup; preferably Phase 2                                                              | Multi-channel, recipient-aware notifications.                                               |
+| 9 — Intraday EOD               | Phases 2, 3, and 5                                                                                     | Post-close intraday bars, features, lineage, and sector aggregates.                         |
+| 10 — Realtime per tick         | Phase 9                                                                                                | Tick ingestion, live features, archive, and EOD reconciliation.                             |
 
 Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cross-service messages; JSON owns persisted dataset manifests.
 
@@ -113,7 +113,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Selection summary
 
-The next canonical roadmap increment remains P3-I1. Its manifest implementation is present on `main`, but fresh acceptance, Nx, and CI evidence is required before completion. For the focused Metadata → Console → Dashboard plan, M0 remains the next gate: it must reconcile merged Query Service/Console source and Phase 6 dependency exceptions before any Phase 6 increment can complete. P6-I1 through P6-I3 are `verification_pending`, not eligible new work.
+The next canonical roadmap increment remains P3-I1. Its manifest implementation is present on `main`, and fresh local acceptance checks passed on 2026-08-23, but it remains `verification_pending` because no increment-specific PR, verified commit, CI run, or current graph review is recorded. For the focused Metadata → Console → Dashboard plan, M0 remains the next gate: it must reconcile merged Query Service/Console source and Phase 6 dependency exceptions before any Phase 6 increment can complete. P6-I1 through P6-I3 are `verification_pending`, not eligible new work. Phase 7 remains pending until P4-I2, P6-I3, and P6-I4 are completed. Its approved operator policy permits manual triggers only for explicitly allow-listed active definitions, preserves dependency and concurrency enforcement, and excludes force, bypass, and cancellation.
 
 Automation must not select approval-required or manual work until the owner resolves the recorded decision or access need.
 

@@ -23,24 +23,33 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.8.13'
+          enable-cache: true
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Sync query service dependencies
+        run: npx nx run query-service:sync
 
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5

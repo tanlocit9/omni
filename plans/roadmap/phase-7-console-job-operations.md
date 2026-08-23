@@ -6,7 +6,7 @@ Add an operator-facing Jobs tab to Omni Console that lists Platform-owned job de
 
 ## Outcome
 
-An authenticated operator can browse triggerable job definitions, inspect scheduling and dependency metadata, submit a deliberate trigger request, receive a stable execution identity, and follow the resulting execution state. Platform remains the source of truth for job definitions and execution semantics.
+An authenticated operator can browse triggerable job definitions, inspect scheduling and dependency metadata, submit a deliberate trigger request, receive a stable execution identity, and follow the resulting execution state. Platform remains the source of truth for job definitions and execution semantics. Manual triggering is limited to explicitly allow-listed active definitions, preserves dependency and concurrency enforcement, and does not provide force, bypass, or cancellation operations.
 
 ## Dataset Outputs
 
@@ -26,14 +26,14 @@ No analytical algorithm is introduced. The capability improves operational recov
 
 ## Contract Impact
 
-| Contract area                      | Decision                                                                                                                                                                                                                                                               |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kafka/service-to-service protobuf  | No planned schema change. The Platform trigger path must invoke the existing scheduler/dispatch boundary; the browser must not publish Kafka messages directly. If implementation requires a transport change, stop and create a producer/consumer compatibility plan. |
-| Object-storage JSON manifest       | Unchanged. Triggered jobs publish manifests through their existing producer paths and retain READY-last, immutable-version, and lineage semantics.                                                                                                                     |
-| Storage path/dataset ownership     | Unchanged. Trigger requests use logical job-definition identity and parameters, never bucket names or physical object paths. Existing producers retain dataset ownership.                                                                                              |
-| Public Java/Python API             | Platform adds or formalizes read/trigger/status HTTP DTOs and service methods. Run impact analysis before changing shared/public methods and verify all callers and implementations. Query Service remains an analytical read boundary and does not own job control.   |
-| Configuration/environment contract | Console receives a private Platform API base URL and authorization configuration through deployment-owned settings. No scheduler rule, provider credential, or cloud credential is exposed to the browser.                                                             |
-| Platform HTTP API                  | Add versioned contracts for job-definition catalog/detail, trigger submission, and execution status. Responses use stable logical identifiers, explicit triggerability/block reasons, typed validation errors, and no secret configuration values.                     |
+| Contract area                      | Decision                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kafka/service-to-service protobuf  | No planned schema change. The Platform trigger path must invoke the existing scheduler/dispatch boundary; the browser must not publish Kafka messages directly. If implementation requires a transport change, stop and create a producer/consumer compatibility plan.                                                                                                                                                 |
+| Object-storage JSON manifest       | Unchanged. Triggered jobs publish manifests through their existing producer paths and retain READY-last, immutable-version, and lineage semantics.                                                                                                                                                                                                                                                                     |
+| Storage path/dataset ownership     | Unchanged. Trigger requests use logical job-definition identity and parameters, never bucket names or physical object paths. Existing producers retain dataset ownership.                                                                                                                                                                                                                                              |
+| Public Java/Python API             | Platform adds or formalizes read/trigger/status HTTP DTOs and service methods. Run impact analysis before changing shared/public methods and verify all callers and implementations. Query Service remains an analytical read boundary and does not own job control.                                                                                                                                                   |
+| Configuration/environment contract | Console receives a private Platform API base URL and authorization configuration through deployment-owned settings. The completed P6-I4 private operator identity/session boundary supplies the authenticated actor. The manual-trigger allow-list is Platform-owned configuration with secure defaults; no scheduler rule, provider credential, cloud credential, or trust-boundary secret is exposed to the browser. |
+| Platform HTTP API                  | Add versioned contracts for job-definition catalog/detail, trigger submission, and execution status. Responses use stable logical identifiers, explicit triggerability/block reasons, typed validation errors, and no secret configuration values.                                                                                                                                                                     |
 
 ## Repository Guidance Updates
 
@@ -47,7 +47,7 @@ Implementation must review and synchronize [`AGENTS.md`](../../AGENTS.md), [`CLA
 | title                   | Job-definition catalog and triggerability API |
 | status                  | pending                                       |
 | priority                | high                                          |
-| depends_on              | [P1-I2, P6-I3]                                |
+| depends_on              | [P1-I2, P6-I3, P6-I4]                         |
 | blocks                  | [P7-I2, P7-I3]                                |
 | owned_modules           | [apps/core, apps/omni-console, docs/flows]    |
 | execution_mode          | autonomous                                    |
@@ -63,11 +63,12 @@ Acceptance criteria:
 - secret values, provider credentials, physical object paths, and mutable internal scheduler fields are never returned;
 - filtering and pagination are bounded and deterministic;
 - inactive, unknown, dependency-blocked, and non-manual definitions are distinguishable;
-- API authorization and audit actor resolution use the approved private operator identity boundary.
+- API authorization and audit actor resolution use the completed P6-I4 private operator identity/session boundary;
+- only explicitly allow-listed active definitions are reported as manually triggerable, while dependency and concurrency checks remain authoritative Platform decisions.
 
 Required tests/checks: Platform DTO/service/controller tests, authorization tests, pagination/filter tests, secret-redaction tests, Console API-contract tests, and defined Platform/Console Nx targets.
 
-Stop conditions: stop if no trustworthy operator principal is available, definition visibility policy is undefined, or exposing a field would leak secrets or physical storage details.
+Stop conditions: stop if P6-I4 is not completed, no trustworthy operator principal is available, definition visibility or manual-trigger allow-list policy is undefined, or exposing a field would leak secrets or physical storage details.
 
 ## Increment P7-I2 — Safe trigger and execution-status contract
 
@@ -80,8 +81,8 @@ Stop conditions: stop if no trustworthy operator principal is available, definit
 | depends_on              | [P7-I1, P4-I2]                               |
 | blocks                  | [P7-I3]                                      |
 | owned_modules           | [apps/core, database/migrations, docs/flows] |
-| execution_mode          | approval_required                            |
-| requires_owner_decision | true                                         |
+| execution_mode          | autonomous                                   |
+| requires_owner_decision | false                                        |
 | pr                      | null                                         |
 | last_verified_commit    | null                                         |
 
@@ -90,17 +91,17 @@ Goal: submit an intentional operator trigger through the existing Platform sched
 Acceptance criteria:
 
 - trigger requests identify an existing definition and use an explicit idempotency key, actor, reason, and only allow-listed typed parameters;
-- Platform validates active/manual-trigger policy, dependencies, concurrency/claim rules, and parameter semantics before dispatch;
+- Platform accepts manual triggers only for explicitly allow-listed active definitions and validates dependencies, concurrency/claim rules, and parameter semantics before dispatch;
 - accepted triggers reuse existing execution/outbox behavior and return a stable execution ID; the HTTP handler does not publish directly to Kafka;
 - duplicate requests with the same idempotency identity cannot create duplicate executions;
 - dependency failures return BLOCKED/deferred semantics rather than false execution failure;
 - execution status distinguishes accepted, blocked, running, succeeded, failed, and cancelled states and exposes actionable sanitized errors;
 - audit history records actor, definition, request identity, reason, parameters after redaction, timestamps, and outcome;
-- cancellation or force/bypass behavior is out of scope unless separately owner-approved.
+- cancellation, force, dependency bypass, and concurrency bypass are explicitly out of scope for Phase 7.
 
 Required tests/checks: authorization, validation, idempotency, dependency-blocked, scheduler claim/outbox, duplicate submission, audit, sanitized error, and execution-status tests through defined Platform Nx targets.
 
-Stop conditions: stop if implementation bypasses scheduler claims/dependency guards, requires direct browser-to-Kafka access, lacks durable idempotency/audit storage, or requires owner approval for manual-trigger policy and that approval is not recorded.
+Stop conditions: stop if implementation bypasses scheduler claims, dependency guards, or concurrency enforcement; requires direct browser-to-Kafka access; lacks durable idempotency/audit storage; or cannot enforce the approved allow-list-only manual-trigger policy. The owner-approved policy is: only explicitly allow-listed active definitions may be triggered manually; force, dependency bypass, concurrency bypass, and cancellation are excluded. Any material expansion beyond this policy requires a new owner decision.
 
 ## Increment P7-I3 — Omni Console Jobs tab and execution visibility
 
@@ -136,8 +137,8 @@ Stop conditions: stop if the UI must infer triggerability instead of receiving i
 
 ## Verification
 
-Before implementation, inspect [`platform`](../../apps/core/project.json) and [`omni-console`](../../apps/omni-console/project.json) targets with `nx show project platform` and `nx show project omni-console`. Run only defined targets, including targeted Platform tests and Console lint/test/build. Run code-review-graph impact analysis before changing public HTTP DTOs or scheduler methods, then run change detection after edits. Verify authorization, idempotency, dependency semantics, audit records, browser bundle contents, and synchronized job-execution/service documentation.
+Before implementation, complete and verify P4-I2, P6-I3, and P6-I4. Inspect [`platform`](../../apps/core/project.json) and [`omni-console`](../../apps/omni-console/project.json) targets with `nx show project platform` and `nx show project omni-console`. The currently defined relevant targets are `platform:test`, `platform:build`, `omni-console:lint`, `omni-console:typecheck`, `omni-console:test`, and `omni-console:build`; re-inspect targets at execution time and do not invent absent targets. Run targeted checks before broader affected checks. Run code-review-graph semantic discovery before implementation, impact analysis before changing public HTTP DTOs, scheduler methods, persistence, or configuration contracts, and change detection after edits. Verify authorization through the P6-I4 identity/session boundary, allow-list enforcement, idempotency, dependency and concurrency semantics, audit records, browser bundle contents, and synchronized job-execution/service documentation.
 
 ## Acceptance Criteria
 
-Phase 7 is complete only when P7-I1 through P7-I3 satisfy their acceptance criteria, required Nx and CI checks pass, increment-specific PR/commit evidence is recorded, Platform remains the sole scheduler/job-definition authority, no trigger path bypasses claims or dependency guards, operator actions are authenticated and auditable, and canonical roadmap, flow, service, and repository guidance documentation is synchronized.
+Phase 7 is complete only when P4-I2, P6-I3, and P6-I4 are completed; P7-I1 through P7-I3 satisfy their acceptance criteria; required Nx and CI checks pass; increment-specific PR/commit evidence is recorded; Platform remains the sole scheduler/job-definition authority; only explicitly allow-listed active definitions are manually triggerable; no trigger path bypasses claims, dependencies, or concurrency enforcement; force, bypass, and cancellation operations remain absent; operator actions are authenticated and auditable through the P6-I4 boundary; and canonical roadmap, flow, service, and repository guidance documentation is synchronized.

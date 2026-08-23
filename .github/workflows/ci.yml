@@ -10,22 +10,176 @@ on:
     branches:
       - main
 
-env:
-  NX_DAEMON: false
-
 permissions:
   actions: read
   contents: read
 
-jobs:
-  main:
-    runs-on: ubuntu-latest
+env:
+  NX_DAEMON: false
 
+jobs:
+  affected:
+    name: Detect affected projects
+    runs-on: ubuntu-latest
+    outputs:
+      analyzer: ${{ steps.projects.outputs.analyzer }}
+      contracts: ${{ steps.projects.outputs.contracts }}
+      ingestor: ${{ steps.projects.outputs.ingestor }}
+      java: ${{ steps.projects.outputs.java }}
+      py-common: ${{ steps.projects.outputs.py-common }}
+      query-service: ${{ steps.projects.outputs.query-service }}
+      typescript: ${{ steps.projects.outputs.typescript }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set Nx SHAs
+        uses: nrwl/nx-set-shas@v5
+
+      - name: Validate Nx project graph
+        run: npx nx show projects --verbose
+
+      - name: Check affected formatting
+        run: npx nx format:check --base="$NX_BASE" --head="$NX_HEAD" --verbose
+
+      - name: Compute affected stack jobs
+        id: projects
+        shell: bash
+        run: |
+          affected_json="$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --json)"
+          echo "Affected projects: $affected_json"
+
+          is_affected() {
+            jq -r --arg project "$1" \
+              'if index("omni") != null or index($project) != null then "true" else "false" end' \
+              <<< "$affected_json"
+          }
+
+          echo "analyzer=$(is_affected analyzer)" >> "$GITHUB_OUTPUT"
+          echo "contracts=$(is_affected contracts)" >> "$GITHUB_OUTPUT"
+          echo "ingestor=$(is_affected ingestor)" >> "$GITHUB_OUTPUT"
+          echo "java=$(is_affected platform)" >> "$GITHUB_OUTPUT"
+          echo "py-common=$(is_affected py-common)" >> "$GITHUB_OUTPUT"
+          echo "query-service=$(is_affected query-service)" >> "$GITHUB_OUTPUT"
+          echo "typescript=$(is_affected omni-console)" >> "$GITHUB_OUTPUT"
+
+  contracts:
+    name: Contracts / protobuf
+    needs: affected
+    if: needs.affected.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.5'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify contracts
+        run: |
+          npx nx run contracts:format
+          npx nx run contracts:lint
+          npx nx run contracts:breaking
+          npx nx run contracts:generate-check
+          npx nx run contracts:test
+
+  analyzer:
+    name: Python / analyzer
+    needs: affected
+    if: needs.affected.outputs.analyzer == 'true'
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      project: analyzer
+
+  ingestor:
+    name: Python / ingestor
+    needs: affected
+    if: needs.affected.outputs.ingestor == 'true'
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      project: ingestor
+
+  query-service:
+    name: Python / query-service
+    needs: affected
+    if: needs.affected.outputs.query-service == 'true'
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      project: query-service
+
+  py-common:
+    name: Python / py-common
+    needs: affected
+    if: needs.affected.outputs.py-common == 'true'
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      project: py-common
+
+  typescript:
+    name: TypeScript / omni-console
+    needs: affected
+    if: needs.affected.outputs.typescript == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Inspect Nx project targets
+        run: npx nx show project omni-console
+
+      - name: Lint
+        run: npx nx run omni-console:lint
+
+      - name: Typecheck
+        run: npx nx run omni-console:typecheck
+
+      - name: Test
+        run: npx nx run omni-console:test
+
+      - name: Build
+        run: npx nx run omni-console:build
+
+  java:
+    name: Java / platform
+    needs: affected
+    if: needs.affected.outputs.java == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x apps/core/gradlew
@@ -41,56 +195,16 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
 
-      - name: Setup UV
-        uses: astral-sh/setup-uv@v6
-        with:
-          version: '0.8.13'
-          enable-cache: true
-
-      - name: Install dependencies
+      - name: Install workspace dependencies
         run: npm ci
 
-      - name: Sync query service dependencies
-        run: npx nx run query-service:sync
+      - name: Inspect Nx project targets
+        run: npx nx show project platform
 
-      - name: Set Nx SHAs
-        uses: nrwl/nx-set-shas@v5
-
-      - name: Verify Java
-        run: java -version
-
-      - name: Verify Gradle wrapper
-        run: |
-          cd apps/core
-          ./gradlew --version
-
-      - name: Reset Nx cache
-        run: npx nx reset
-
-      - name: Validate Nx project graph
-        run: npx nx show projects --verbose
-
-      - name: Check formatting
-        run: |
-          npx nx format:check \
-            --base="$NX_BASE" \
-            --head="$NX_HEAD" \
-            --verbose
-
-      - name: Verify contracts
-        run: |
-          npx nx run contracts:format
-          npx nx run contracts:lint
-          npx nx run contracts:breaking
-          npx nx run contracts:generate-check
-          npx nx affected -t lint,test \
-            --base="$NX_BASE" \
-            --head="$NX_HEAD" \
-            --exclude=.,py-common,analyzer,ingestor,platform
-
-      - name: Test platform
+      - name: Test
         run: npx nx run platform:test
 
-      - name: Build platform
+      - name: Build
         run: npx nx run platform:build

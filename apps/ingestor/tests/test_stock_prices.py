@@ -75,9 +75,7 @@ async def test_process_stock_price_publishes_exact_write_identity_after_data_wri
     monkeypatch.setattr(
         stock_prices,
         "settings",
-        SimpleNamespace(
-            get_eod_path=lambda _exchange, _code: "eod/hose/hpg.parquet"
-        ),
+        SimpleNamespace(get_eod_path=lambda _exchange, _code: "eod/hose/hpg.parquet"),
     )
 
     status = await process_stock_price_message(
@@ -127,9 +125,7 @@ async def test_process_stock_price_reports_error_when_ready_publication_fails(
     monkeypatch.setattr(
         stock_prices,
         "settings",
-        SimpleNamespace(
-            get_eod_path=lambda _exchange, _code: "eod/hose/hpg.parquet"
-        ),
+        SimpleNamespace(get_eod_path=lambda _exchange, _code: "eod/hose/hpg.parquet"),
     )
 
     status = await process_stock_price_message(

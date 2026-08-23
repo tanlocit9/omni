@@ -42,7 +42,7 @@ Exact dataset versions and upstream lineage make reproducible analysis, stale-in
 | ----------------------- | ----------------------------------------------------------- |
 | id                      | P3-I1                                                       |
 | title                   | Manifest models, identity rules, and py_common abstractions |
-| status                  | verification_pending                                        |
+| status                  | blocked                                                     |
 | priority                | critical                                                    |
 | depends_on              | [P1-I2]                                                     |
 | blocks                  | [P3-I2, P4-I1, P6-I1, P9-I1]                                |
@@ -50,11 +50,11 @@ Exact dataset versions and upstream lineage make reproducible analysis, stale-in
 | execution_mode          | autonomous                                                  |
 | requires_owner_decision | false                                                       |
 | pr                      | null                                                        |
-| last_verified_commit    | null                                                        |
+| last_verified_commit    | a24edd2                                                     |
 
 Goal: define JSON `DatasetManifest`, `DatasetRef`, catalog pointer, identity/hash rules, and shared writer/reader abstractions in [`py_common`](../../libs/py-common/py_common).
 
-Current verification state: the canonical JSON contract, deterministic lineage-inclusive identity, exact-byte physical identity, immutable version plus READY paths, shared fixtures, Python writer/reader, and Java read compatibility are present on `main`. Fresh local verification on 2026-08-23 passed `nx run py-common:lint`, `nx run py-common:test` (137 passed), `nx run py-common:build`, and `nx run platform:test`. The test run initially exposed a missing `pytest-html` development dependency required by the configured `--html` option; the dependency and lockfile were corrected and all three py-common checks then passed. P3-I1 remains `verification_pending` because no increment-specific PR, verified commit, or CI run is recorded.
+Current verification state: the canonical JSON contract, deterministic lineage-inclusive identity, exact-byte physical identity, immutable version plus READY paths, shared fixtures, Python writer/reader, and Java read compatibility are present. Fresh local verification at branch head `a24edd2` on 2026-08-23 passed Nx graph construction, `nx run py-common:format -- --check`, `nx run py-common:lint`, `nx run py-common:test` (137 passed), `nx run py-common:build`, `nx run platform:test`, and `nx run platform:build`. The test run initially exposed a missing `pytest-html` development dependency required by the configured `--html` option; the dependency and lockfile were corrected. The Linux Nx graph bootstrap defect was also repaired by tracking `apps/core/gradlew` as executable and moving the defensive CI permission step before the first Nx invocation. P3-I1 is blocked—not completed—because no increment-specific PR or CI run is available and current code-review-graph change/impact evidence cannot be produced in this session.
 
 Acceptance criteria: manifests are immutable per `dataVersion`, READY pointer is published last, schema/data hashes are deterministic, inputs record exact upstream versions, and no Kafka message uses physical S3 paths for routing.
 

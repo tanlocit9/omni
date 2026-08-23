@@ -42,16 +42,21 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Setup UV and Python
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.5'
+
+      - name: Setup UV
         uses: astral-sh/setup-uv@v6
         with:
           version: '0.8.13'
           enable-cache: true
           python-version: '3.14.5'
 
-      - name: Install and verify Python
+      - name: Verify Python
         run: |
-          uv python install 3.14.5
+          python --version
           uv run python --version
 
       - name: Install dependencies

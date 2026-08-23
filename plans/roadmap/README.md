@@ -10,7 +10,7 @@ Planning baseline: main
 
 Default integration branch: main
 
-Last source cross-check: `main@d858750cb1766ec567b328cdcb47656ded57a888`. Query Service, Omni Console, and manifest-handling source is present, but increment-specific acceptance and CI evidence is incomplete; source presence does not satisfy milestone completion.
+Last source cross-check: `main@fd23482d2bb764b145ad2a199d45553c85ea39e8`. Query Service, Omni Console, and manifest-handling source is present, but required successful CI and graph evidence is incomplete; source presence or a merged pull request does not by itself satisfy milestone completion.
 
 ## Objective
 
@@ -113,7 +113,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Selection summary
 
-P3-I1 is the highest-priority unfinished correctness increment and is `blocked`. Complete local acceptance checks passed at verified branch head `a24edd2` on 2026-08-23, but GitHub actions are prohibited for this run, leaving its required increment-specific PR and CI evidence unavailable; current code-review-graph change/impact evidence is also unavailable. Automation must stop rather than bypass P3-I1 or promote its dependents. For the focused Metadata → Console → Dashboard plan, M0 remains the next gate: it must reconcile merged Query Service/Console source and Phase 6 dependency exceptions before any Phase 6 increment can complete. P6-I1 through P6-I3 are `verification_pending`, not eligible new work. Phase 7 remains pending until P4-I2, P6-I3, and P6-I4 are completed. Its approved operator policy permits manual triggers only for explicitly allow-listed active definitions, preserves dependency and concurrency enforcement, and excludes force, bypass, and cancellation.
+P3-I1 is the highest-priority unfinished correctness increment and is `blocked`. Complete local acceptance checks passed at verified branch head `a24edd2` on 2026-08-23, and [PR #12](https://github.com/tanlocit9/omni/pull/12) merged as `fd23482d2bb764b145ad2a199d45553c85ea39e8`. However, both the [pull-request CI](https://github.com/tanlocit9/omni/actions/runs/32634867746) and [merge-commit CI](https://github.com/tanlocit9/omni/actions/runs/32635823560) failed at `Sync query service dependencies`, and current code-review-graph change/impact evidence is unavailable. Automation must stop rather than bypass P3-I1 or promote its dependents. For the focused Metadata → Console → Dashboard plan, M0 remains the next gate: it must reconcile merged Query Service/Console source and Phase 6 dependency exceptions before any Phase 6 increment can complete. P6-I1 through P6-I3 are `verification_pending`, not eligible new work. Phase 7 remains pending until P4-I2, P6-I3, and P6-I4 are completed. Its approved operator policy permits manual triggers only for explicitly allow-listed active definitions, preserves dependency and concurrency enforcement, and excludes force, bypass, and cancellation.
 
 Automation must not select approval-required or manual work until the owner resolves the recorded decision or access need.
 

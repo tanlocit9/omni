@@ -27,6 +27,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x apps/core/gradlew
+
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
@@ -53,9 +56,6 @@ jobs:
 
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5
-
-      - name: Fix Gradle wrapper permission
-        run: chmod +x apps/core/gradlew
 
       - name: Verify Java
         run: java -version

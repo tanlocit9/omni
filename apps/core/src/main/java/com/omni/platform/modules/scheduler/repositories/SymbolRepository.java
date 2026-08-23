@@ -54,6 +54,9 @@ public interface SymbolRepository extends BaseRepository<Symbol> {
         void deactivateMissing(@Param("exchange") String exchange, @Param("codes") Collection<String> codes);
 
         default List<SymbolKeyProjection> findBySectorCodesAndLevel(String[] sectorCodes, int sectorLevel) {
+                if (sectorCodes == null || sectorCodes.length == 0) {
+                        return findAllActiveSymbolKeys();
+                }
                 String jsonKey = "sectorLv" + sectorLevel + "Code";
                 return findBySectorCodesAndLevelKey(sectorCodes, jsonKey);
         }
@@ -62,7 +65,14 @@ public interface SymbolRepository extends BaseRepository<Symbol> {
                         SELECT code, exchange
                         FROM symbols
                         WHERE is_active = TRUE
-                          AND (:sectorCodes IS NULL OR meta_json ->> :jsonKey = ANY(:sectorCodes))
+                        """, nativeQuery = true)
+        List<SymbolKeyProjection> findAllActiveSymbolKeys();
+
+        @Query(value = """
+                        SELECT code, exchange
+                        FROM symbols
+                        WHERE is_active = TRUE
+                          AND meta_json ->> CAST(:jsonKey AS text) = ANY(CAST(:sectorCodes AS text[]))
                         """, nativeQuery = true)
         List<SymbolKeyProjection> findBySectorCodesAndLevelKey(
                         @Param("sectorCodes") String[] sectorCodes,

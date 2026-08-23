@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -32,13 +33,14 @@ class JobProducerTest {
         JobExecutionHistory execution = new JobExecutionHistory();
         execution.setId(UUID.randomUUID());
         Instant now = Instant.parse("2026-08-13T00:00:00Z");
-        when(jobService.prepareClaimedExecution(job, claim, now)).thenReturn(execution);
+        when(jobService.prepareClaimedExecution(job, claim, now, Map.of())).thenReturn(execution);
         KafkaMessage message = new KafkaMessage("stable-key", java.util.Map.of("executionId", execution.getId()));
         JobProducer producer = producer(jobService, kafkaPublisher, message);
 
         UUID executionId = producer.prepareDispatch(job, claim, now);
 
         assertThat(executionId).isEqualTo(execution.getId());
+        verify(jobService).prepareClaimedExecution(job, claim, now, Map.of());
         verify(jobService).enqueueDispatch(execution, "jobs", List.of(message), now);
         verify(jobService).releaseClaim(claim);
         verifyNoInteractions(kafkaPublisher);

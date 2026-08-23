@@ -2,11 +2,13 @@ package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
@@ -53,15 +55,27 @@ public abstract class JobProducer {
         /**
          * Template method.
          */
-        @Transactional(propagation = Propagation.REQUIRES_NEW)
         public UUID prepareDispatch(
                         JobDefinition job,
                         SchedulerClaim claim,
                         Instant now) {
+                return prepareDispatch(job, claim, now, Map.of());
+        }
+
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public UUID prepareDispatch(
+                        JobDefinition job,
+                        SchedulerClaim claim,
+                        Instant now,
+                        Map<DatasetRef, String> approvedInputVersions) {
 
                 log.debug("Preparing job [{}] type [{}] source [{}] at [{}]", job.getId(), job.getJobType(),
                                 job.getSource(), now);
-                JobExecutionHistory executionLog = jobService.prepareClaimedExecution(job, claim, now);
+                JobExecutionHistory executionLog = jobService.prepareClaimedExecution(
+                                job,
+                                claim,
+                                now,
+                                approvedInputVersions);
 
                 List<KafkaMessage> messages = buildMessages(job, executionLog, now);
                 log.info("Built {} Kafka message(s) for job [{}] execution [{}] topic [{}]", messages.size(),

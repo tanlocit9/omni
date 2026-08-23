@@ -22,6 +22,7 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
@@ -35,6 +36,7 @@ import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRe
 import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationPolicy;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
+import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
 import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
 
 @ExtendWith(MockitoExtension.class)
@@ -380,6 +382,44 @@ class JobServiceTest {
 
         verify(historyRepository, never()).findAllByParentLogId(any());
         verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void prepareClaimedExecutionPersistsLogicalApprovedInputs() {
+        Instant now = Instant.parse("2026-08-13T00:00:00Z");
+        JobDefinition job = execution(JobStatus.PENDING, null).getJob();
+        UUID token = UUID.randomUUID();
+        job.setClaimToken(token);
+        job.setClaimedBy("core-a");
+        job.setClaimedAt(now);
+        job.setClaimUntil(now.plusSeconds(120));
+        SchedulerClaim claim = new SchedulerClaim(
+                job.getId(),
+                token,
+                "core-a",
+                now,
+                now.plusSeconds(120),
+                now);
+        DatasetRef eodRef = DatasetRef.of(
+                "eod",
+                Map.of("exchange", "hose", "code", "hpg"));
+
+        JobExecutionHistory prepared = service.prepareClaimedExecution(
+                job,
+                claim,
+                now,
+                Map.of(eodRef, "sha256:eod-hpg"));
+
+        assertThat(prepared.getMetaJson()).containsOnlyKeys("approvedInputs");
+        assertThat(prepared.getMetaJson().get("approvedInputs"))
+                .isEqualTo(List.of(Map.of(
+                        "dataset", "eod",
+                        "partition", Map.of(
+                                "exchange", "hose",
+                                "code", "hpg"),
+                        "dataVersion", "sha256:eod-hpg")));
+        assertThat(prepared.getMetaJson().toString()).doesNotContain("path");
+        verify(historyRepository, org.mockito.Mockito.times(2)).save(prepared);
     }
 
     @Test

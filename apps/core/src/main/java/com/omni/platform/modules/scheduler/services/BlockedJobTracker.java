@@ -220,7 +220,7 @@ public class BlockedJobTracker {
                 .map(r -> {
                     Map<String, Object> entry = new LinkedHashMap<>();
                     entry.put("status", r.getStatus().name());
-                    entry.put("reason", r.getReason());
+                    entry.put("reason", r.getReason().orElse(null));
                     entry.put("dataset", r.getDatasetRef() != null ? r.getDatasetRef().getDataset() : "unknown");
                     entry.put("partition", r.getDatasetRef() != null ? r.getDatasetRef().getPartition() : Map.of());
                     return entry;

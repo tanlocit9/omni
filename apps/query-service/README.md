@@ -16,3 +16,7 @@ never cross the HTTP boundary.
 
 The service must remain private or sit behind identity-aware access. It accepts
 only read-only SQL over logical aliases declared in each query request.
+`POST /v1/queries` requires the trusted upstream identity header
+`X-Omni-User`; anonymous or blank identities are rejected instead of being
+recorded under a shared fallback actor. The identity-aware proxy must replace,
+not append, this header before forwarding traffic to the private service.

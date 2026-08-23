@@ -1,5 +1,6 @@
 package com.omni.platform.modules.scheduler;
 
+import com.omni.platform.modules.scheduler.dependencies.JobDependencyContextFactory;
 import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard;
 import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard.GuardResult;
 import com.omni.platform.modules.scheduler.dependencies.JobExecutionContext;
@@ -17,8 +18,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * Core scheduler that claims due jobs and dispatches them via Kafka producers.
@@ -45,6 +44,7 @@ public class JobScheduler {
     private final JobProducerRegistry jobProducerRegistry;
     private final SchedulerClaimService schedulerClaimService;
     private final JobDependencyGuard jobDependencyGuard;
+    private final JobDependencyContextFactory dependencyContextFactory;
     private final BlockedJobTracker blockedJobTracker;
 
     @Scheduled(fixedDelayString = "${app.scheduler.global.fixedDelayString:30000}")
@@ -94,8 +94,8 @@ public class JobScheduler {
         }
 
         for (JobDefinition job : candidates) {
-            String executionId = UUID.randomUUID().toString();
-            JobExecutionContext context = new JobExecutionContext(job, executionId, Map.of());
+            JobExecutionContext context = dependencyContextFactory.create(job);
+            String executionId = context.executionId();
             GuardResult guardResult = jobDependencyGuard.checkDependencies(context);
 
             if (guardResult.canExecute()) {
@@ -107,10 +107,20 @@ public class JobScheduler {
                     .orElse(null);
 
                 if (matchingClaim != null) {
-                    blockedJobTracker.markResolved(job);
-                    log.info("Blocked job resolved, dispatching: jobName={} executionId={}",
-                        blockedJob.getJobName(), executionId);
-                    jobProducerRegistry.getProducer(job.getJobType()).prepareDispatch(job, matchingClaim, now);
+                    JobDefinition claimedJob = jobDefinitionRepository
+                            .findById(matchingClaim.jobDefinitionId())
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "Claimed job definition no longer exists: "
+                                            + matchingClaim.jobDefinitionId()));
+                    blockedJobTracker.markResolved(claimedJob);
+                    log.info(
+                        "Blocked job resolved, dispatching: jobName={} executionId={} approvedInputVersions={}",
+                        blockedJob.getJobName(), executionId, guardResult.approvedInputVersions());
+                    jobProducerRegistry.getProducer(claimedJob.getJobType()).prepareDispatch(
+                            claimedJob,
+                            matchingClaim,
+                            now,
+                            guardResult.approvedInputVersions());
                 } else {
                     // Job wasn't due yet per scheduler; mark resolved, will be picked up next natural cycle
                     log.info("Blocked job dependencies satisfied (not yet due): jobName={}", blockedJob.getJobName());
@@ -161,21 +171,28 @@ public class JobScheduler {
         if (blockedJobTracker.isBlocked(job)) {
             log.info("Skipping due job - already in blocked state: jobType={} source={}",
                 job.getJobType(), job.getSource());
+            schedulerClaimService.releaseClaim(
+                    claim.jobDefinitionId(),
+                    claim.claimToken(),
+                    claim.claimedBy());
             return;
         }
 
-        String executionId = UUID.randomUUID().toString();
-        JobExecutionContext context = new JobExecutionContext(job, executionId, Map.of());
+        JobExecutionContext context = dependencyContextFactory.create(job);
 
         log.info("Checking dependencies: jobType={} source={} executionId={}",
-            job.getJobType(), job.getSource(), executionId);
+            job.getJobType(), job.getSource(), context.executionId());
 
         GuardResult guardResult = jobDependencyGuard.checkDependencies(context);
 
         if (guardResult.isBlocked()) {
             log.info("Job BLOCKED by dependency guard: jobType={} source={} reason={}",
                 job.getJobType(), job.getSource(), guardResult.blockReason());
-            blockedJobTracker.recordBlocked(job, guardResult, executionId);
+            blockedJobTracker.recordBlocked(job, guardResult, context.executionId());
+            schedulerClaimService.releaseClaim(
+                    claim.jobDefinitionId(),
+                    claim.claimToken(),
+                    claim.claimedBy());
             return;
         }
 
@@ -184,10 +201,16 @@ public class JobScheduler {
                 guardResult.checks().size(), job.getJobType(), job.getSource());
         }
 
-        log.info("Dispatching due job [{}] type [{}] source [{}] nextRun [{}] active [{}]",
-            job.getId(), job.getJobType(), job.getSource(), job.getNextRun(), job.getIsActive());
+        log.info(
+            "Dispatching due job [{}] type [{}] source [{}] nextRun [{}] active [{}] approvedInputVersions={}",
+            job.getId(), job.getJobType(), job.getSource(), job.getNextRun(), job.getIsActive(),
+            guardResult.approvedInputVersions());
 
-        jobProducerRegistry.getProducer(job.getJobType()).prepareDispatch(job, claim, now);
+        jobProducerRegistry.getProducer(job.getJobType()).prepareDispatch(
+                job,
+                claim,
+                now,
+                guardResult.approvedInputVersions());
     }
 
 }

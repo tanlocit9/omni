@@ -62,6 +62,8 @@ class DefaultJobDependencyGuardTest {
 
         assertThat(result.canExecute()).isTrue();
         assertThat(result.isBlocked()).isFalse();
+        assertThat(result.approvedInputVersions())
+            .containsExactly(Map.entry(eodRef, "sha256:abc123"));
     }
 
     @Test
@@ -83,6 +85,7 @@ class DefaultJobDependencyGuardTest {
 
         assertThat(result.canExecute()).isFalse();
         assertThat(result.isBlocked()).isTrue();
+        assertThat(result.approvedInputVersions()).isEmpty();
         assertThat(result.blockReason()).isNotEmpty();
         assertThat(result.checks()).hasSize(1);
         assertThat(result.checks().get(0).getStatus()).isEqualTo(DependencyStatus.MISSING);
@@ -165,6 +168,37 @@ class DefaultJobDependencyGuardTest {
 
         assertThat(result.isBlocked()).isTrue();
         assertThat(result.blockReason()).contains("missing");
+    }
+
+    @Test
+    void blocksWithoutPartialApprovals_whenAnyEnforcedDependencyFails() {
+        DatasetRef readyRef = DatasetRef.of(
+            "eod", Map.of("exchange", "hose", "code", "hpg"));
+        DatasetRef missingRef = DatasetRef.of(
+            "eod", Map.of("exchange", "hose", "code", "vnm"));
+
+        when(manifestReader.readManifest(readyRef))
+            .thenReturn(Optional.of(readyManifest("eod")));
+        when(manifestReader.readManifest(missingRef))
+            .thenReturn(Optional.empty());
+
+        JobExecutionContext context = contextWithDeps(List.of(
+            Map.of(
+                "dataset", "eod",
+                "partition", Map.of("exchange", "hose", "code", "hpg"),
+                "conditions", List.of("READY"),
+                "mode", "ENFORCED"),
+            Map.of(
+                "dataset", "eod",
+                "partition", Map.of("exchange", "hose", "code", "vnm"),
+                "conditions", List.of("READY"),
+                "mode", "ENFORCED")
+        ));
+
+        JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
+
+        assertThat(result.isBlocked()).isTrue();
+        assertThat(result.approvedInputVersions()).isEmpty();
     }
 
     @Test

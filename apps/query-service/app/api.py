@@ -43,8 +43,13 @@ async def submit_query(
     payload: QueryRequest,
     actor: Annotated[str | None, Header(alias="X-Omni-User")] = None,
 ) -> QueryAccepted:
+    if actor is None or not actor.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authenticated operator identity is required",
+        )
     try:
-        record = await _manager(request).submit(payload, actor or "private-operator")
+        record = await _manager(request).submit(payload, actor.strip())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return QueryAccepted(queryId=record.query_id, state=record.state)

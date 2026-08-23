@@ -59,6 +59,15 @@
       "executor": "@nxlv/python:ruff-check",
       "options": { "lintFilePatterns": ["app", "tests", "main.py"] }
     },
+    "lint-fix": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run ruff check --fix app tests main.py",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": []
+    },
     "format": {
       "cache": true,
       "executor": "@nxlv/python:ruff-format",

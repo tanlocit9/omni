@@ -51,6 +51,15 @@
       },
       "outputs": []
     },
+    "lint-fix": {
+      "cache": false,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run ruff check --fix app tests",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": []
+    },
     "lock": {
       "executor": "@nxlv/python:lock",
       "options": {

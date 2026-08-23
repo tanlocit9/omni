@@ -2,7 +2,6 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
-from pydantic import ValidationError
 from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
 from py_common.storage.exceptions import StorageError
@@ -11,11 +10,11 @@ from py_common.storage.parquet import ParquetStorage
 from py_common.storage.ports import StorageProviderInfo
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
+from pydantic import ValidationError
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
-from app.settings import settings
 from app.sector_transition.handler import SectorTransitionJobHandler
 from app.sector_transition.kafka import (
     SectorTransitionAnalyzeKafkaService,
@@ -31,6 +30,7 @@ from app.sector_wave.kafka import (
     SectorWaveSectorFeatureKafkaService,
     SectorWaveSymbolFeatureKafkaService,
 )
+from app.settings import settings
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler

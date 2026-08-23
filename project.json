@@ -1,5 +1,18 @@
 {
   "targets": {
+    "format": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "prettier --write . --ignore-path .prettierignore --ignore-unknown",
+          "nx run-many -t lint-fix -p analyzer ingestor query-service py-common --parallel",
+          "nx run-many -t format -p analyzer ingestor query-service py-common --parallel"
+        ],
+        "parallel": false
+      },
+      "outputs": []
+    },
     "lint": {
       "executor": "nx:run-commands",
       "options": {

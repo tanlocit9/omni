@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock
 import pandas as pd
 import pytest
 
-from app.settings import AppSettings
-
 from app.sector_transition.calculations import (
     calculate_sector_transition_analysis,
     evaluate_sector_transition_outcomes,
@@ -18,6 +16,7 @@ from app.sector_transition.messages import (
     SectorTransitionAnalyzeJobMessage,
     SectorTransitionOutcomeEvaluationJobMessage,
 )
+from app.settings import AppSettings
 
 
 def _sector_frame(

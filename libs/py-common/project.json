@@ -11,6 +11,15 @@
         "cwd": "libs/py-common"
       }
     },
+    "lint-fix": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff check --fix py_common tests",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": []
+    },
     "format": {
       "executor": "nx:run-commands",
       "options": {

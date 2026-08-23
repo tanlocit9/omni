@@ -5,7 +5,6 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-
 from py_common.storage.exceptions import StorageObjectNotFoundError
 
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService

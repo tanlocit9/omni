@@ -38,7 +38,7 @@ Stop conditions: stop if dependency metadata semantics conflict with existing jo
 | ----------------------- | -------------------------------------------------- |
 | id                      | P4-I2                                              |
 | title                   | Scheduler enforcement for the first analytical job |
-| status                  | pending                                            |
+| status                  | verification_pending                               |
 | priority                | critical                                           |
 | depends_on              | [P4-I1]                                            |
 | blocks                  | [P5-I2, P6-I1]                                     |
@@ -46,9 +46,17 @@ Stop conditions: stop if dependency metadata semantics conflict with existing jo
 | execution_mode          | autonomous                                         |
 | requires_owner_decision | false                                              |
 | pr                      | null                                               |
-| last_verified_commit    | null                                               |
+| last_verified_commit    | cb0b397                                            |
 
 Goal: enforce dependency guard for one analytical job after shadow-mode evidence is acceptable.
+
+Verification state: `feature/phase-7@cb0b397` wires an ENFORCED per-symbol EOD
+dependency context into `SYNC_INDICATORS`, releases claims while blocked,
+persists one bounded-backoff blocked record without execution/outbox spam, and
+attaches approved manifest versions before dispatch. Unit coverage and a real
+PostgreSQL/Testcontainers BLOCKED-to-dispatch test are present. Completion is
+still pending a successful Platform test/build and CI run; the current
+automation environment could not download the pinned Gradle distribution.
 
 Acceptance criteria: missing/stale data produces blocked/deferred scheduler state, no execution-history spam is created for blocked polls, exact approved input versions attach to execution, and dependency backoff is bounded and observable.
 

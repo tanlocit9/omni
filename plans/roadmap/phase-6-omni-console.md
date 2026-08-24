@@ -85,6 +85,11 @@ bounded local history, and limited CSV export.
 
 Verification state: partial source is merged on `main`, but P6-I2 is not completed. Monaco editing, schema completion, Arrow result display, history/export behavior, and required Nx/CI evidence must be verified before completion.
 
+Fresh verification on `feature/phase-7` passed the Console's declared lint,
+typecheck, Vitest, and production build commands on 2026-08-24. The existing
+suite currently contains only one broad App test, so acceptance-level coverage
+for Monaco completion, Arrow rendering, history, and export remains incomplete.
+
 Acceptance criteria:
 
 - operator can query latest committed READY data without DBeaver.
@@ -117,3 +122,9 @@ Acceptance criteria:
 
 Stop if authentication/principal ownership is not defined; do not make Console
 APIs anonymous merely to complete the dashboard.
+
+Identity-boundary evidence on `feature/phase-7`: Query Service now rejects a
+missing/blank `X-Omni-User` on query submission and propagates the normalized
+operator identity into the audited query record. ASGI integration coverage
+verifies rejection and propagation. This closes the anonymous fallback defect,
+but does not mark the full Saved Queries/Dashboard increment complete.

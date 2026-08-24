@@ -2,6 +2,7 @@ package com.omni.platform.modules.scheduler.dependencies;
 
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,8 +20,21 @@ import java.util.Map;
 public record JobExecutionContext(
     JobDefinition jobDefinition,
     String executionId,
-    Map<DatasetRef, String> upstreamVersions
+    Map<DatasetRef, String> upstreamVersions,
+    List<Map<String, Object>> runtimeDependencies
 ) {
+
+    public JobExecutionContext(
+            JobDefinition jobDefinition,
+            String executionId,
+            Map<DatasetRef, String> upstreamVersions) {
+        this(jobDefinition, executionId, upstreamVersions, List.of());
+    }
+
+    public JobExecutionContext {
+        upstreamVersions = Map.copyOf(upstreamVersions);
+        runtimeDependencies = List.copyOf(runtimeDependencies);
+    }
 
     /**
      * Human-readable job identifier: jobType_source.
@@ -51,17 +65,20 @@ public record JobExecutionContext(
      * }
      * </pre>
      *
-     * @return dataset dependencies or empty list if not configured
+     * @return runtime-expanded dependencies, configured dependencies, or an empty list
      */
     @SuppressWarnings("unchecked")
-    public java.util.List<Map<String, Object>> getDependsOnDatasets() {
+    public List<Map<String, Object>> getDependsOnDatasets() {
+        if (!runtimeDependencies.isEmpty()) {
+            return runtimeDependencies;
+        }
         if (jobDefinition.getConfigJson() == null) {
-            return java.util.List.of();
+            return List.of();
         }
         Object deps = jobDefinition.getConfigJson().get("dependsOnDatasets");
-        if (deps instanceof java.util.List<?>) {
-            return (java.util.List<Map<String, Object>>) deps;
+        if (deps instanceof List<?>) {
+            return (List<Map<String, Object>>) deps;
         }
-        return java.util.List.of();
+        return List.of();
     }
 }

@@ -3,12 +3,15 @@ package com.omni.platform.modules.scheduler;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
+import com.omni.platform.modules.scheduler.dependencies.JobDependencyContextFactory;
 import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard;
 import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard.GuardResult;
 import com.omni.platform.modules.scheduler.dependencies.JobExecutionContext;
@@ -36,6 +41,7 @@ class JobSchedulerTest {
     private JobProducerRegistry registry;
     private SchedulerClaimService claimService;
     private JobDependencyGuard dependencyGuard;
+    private JobDependencyContextFactory dependencyContextFactory;
     private BlockedJobTracker blockedJobTracker;
     private JobScheduler scheduler;
 
@@ -45,8 +51,15 @@ class JobSchedulerTest {
         registry = mock(JobProducerRegistry.class);
         claimService = mock(SchedulerClaimService.class);
         dependencyGuard = mock(JobDependencyGuard.class);
+        dependencyContextFactory = mock(JobDependencyContextFactory.class);
         blockedJobTracker = mock(BlockedJobTracker.class);
-        scheduler = new JobScheduler(repository, registry, claimService, dependencyGuard, blockedJobTracker);
+        scheduler = new JobScheduler(
+                repository,
+                registry,
+                claimService,
+                dependencyGuard,
+                dependencyContextFactory,
+                blockedJobTracker);
 
         // Default: no blocked jobs ready for retry
         when(blockedJobTracker.findJobsReadyForRetry(any(Instant.class))).thenReturn(List.of());
@@ -60,6 +73,7 @@ class JobSchedulerTest {
 
         when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
         when(repository.findById(job.getId())).thenReturn(Optional.of(job));
+        stubContext(job);
         when(registry.getProducer(JobType.SYNC_STOCK_PRICE)).thenReturn(producer);
         // Guard returns READY
         when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
@@ -73,7 +87,8 @@ class JobSchedulerTest {
         verify(producer).prepareDispatch(
                 org.mockito.ArgumentMatchers.same(job),
                 org.mockito.ArgumentMatchers.same(claim),
-                timestamp.capture());
+                timestamp.capture(),
+                org.mockito.ArgumentMatchers.eq(Map.of()));
     }
 
     @Test
@@ -92,6 +107,7 @@ class JobSchedulerTest {
 
         when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
         when(repository.findById(job.getId())).thenReturn(Optional.of(job));
+        stubContext(job);
         when(blockedJobTracker.isBlocked(job)).thenReturn(false);
         when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
                 .thenReturn(GuardResult.blocked(List.of(), "eod dataset not READY"));
@@ -103,6 +119,10 @@ class JobSchedulerTest {
                 org.mockito.ArgumentMatchers.same(job),
                 any(GuardResult.class),
                 any(String.class));
+        verify(claimService).releaseClaim(
+                claim.jobDefinitionId(),
+                claim.claimToken(),
+                claim.claimedBy());
     }
 
     @Test
@@ -118,6 +138,10 @@ class JobSchedulerTest {
 
         verifyNoInteractions(registry);
         verify(dependencyGuard, never()).checkDependencies(any());
+        verify(claimService).releaseClaim(
+                claim.jobDefinitionId(),
+                claim.claimToken(),
+                claim.claimedBy());
     }
 
     @Test
@@ -126,10 +150,15 @@ class JobSchedulerTest {
         SchedulerClaim claim = claim(job);
         BlockedJob blockedJob = blockedJobStub(job);
 
+        DatasetRef eodRef = DatasetRef.of(
+                "eod", Map.of("exchange", "hose", "code", "hpg"));
+        Map<DatasetRef, String> approved = Map.of(eodRef, "sha256:eod-hpg");
         when(blockedJobTracker.findJobsReadyForRetry(any(Instant.class))).thenReturn(List.of(blockedJob));
         when(repository.findAll()).thenReturn(List.of(job));
+        when(repository.findById(job.getId())).thenReturn(Optional.of(job));
+        stubContext(job);
         when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
-                .thenReturn(GuardResult.ready());
+                .thenReturn(GuardResult.ready(approved));
         // Re-claim succeeds
         when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
         JobProducer producer = mock(JobProducer.class);
@@ -137,11 +166,13 @@ class JobSchedulerTest {
 
         scheduler.scan();
 
+        verify(claimService, times(2)).claimDueJobs(any(Instant.class));
         verify(blockedJobTracker).markResolved(job);
-        verify(producer).prepareDispatch(
+        verify(producer, times(2)).prepareDispatch(
                 org.mockito.ArgumentMatchers.same(job),
                 org.mockito.ArgumentMatchers.same(claim),
-                any(Instant.class));
+                any(Instant.class),
+                org.mockito.ArgumentMatchers.eq(approved));
     }
 
     @Test
@@ -151,6 +182,7 @@ class JobSchedulerTest {
 
         when(blockedJobTracker.findJobsReadyForRetry(any(Instant.class))).thenReturn(List.of(blockedJob));
         when(repository.findAll()).thenReturn(List.of(job));
+        stubContext(job);
         when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
                 .thenReturn(GuardResult.blocked(List.of(), "eod still missing"));
         // No new claims in pass 2
@@ -168,6 +200,11 @@ class JobSchedulerTest {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private void stubContext(JobDefinition job) {
+        when(dependencyContextFactory.create(job)).thenReturn(
+                new JobExecutionContext(job, "test-execution", Map.of()));
+    }
 
     private JobDefinition job(JobType jobType) {
         JobDefinition job = new JobDefinition();

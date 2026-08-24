@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.dependencies;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Guard interface for validating dataset dependencies before job execution.
@@ -28,27 +29,58 @@ public interface JobDependencyGuard {
     record GuardResult(
         boolean canExecute,
         List<DependencyCheckResult> checks,
-        String blockReason
+        String blockReason,
+        Map<DatasetRef, String> approvedInputVersions
     ) {
+        public GuardResult {
+            checks = List.copyOf(checks);
+            approvedInputVersions = Map.copyOf(approvedInputVersions);
+        }
+
         /**
          * All dependencies satisfied, job can execute.
          */
         public static GuardResult ready() {
-            return new GuardResult(true, List.of(), null);
+            return ready(Map.of());
+        }
+
+        /**
+         * All dependencies satisfied with immutable approved input versions.
+         */
+        public static GuardResult ready(
+                Map<DatasetRef, String> approvedInputVersions) {
+            return new GuardResult(
+                    true,
+                    List.of(),
+                    null,
+                    approvedInputVersions);
         }
         
         /**
          * Some ENFORCED dependencies not satisfied, job must be blocked.
          */
         public static GuardResult blocked(List<DependencyCheckResult> failedChecks, String reason) {
-            return new GuardResult(false, failedChecks, reason);
+            return new GuardResult(false, failedChecks, reason, Map.of());
         }
         
         /**
          * Only DOCUMENTATION_ONLY dependencies failed, job can proceed with warnings.
          */
         public static GuardResult readyWithWarnings(List<DependencyCheckResult> warnings) {
-            return new GuardResult(true, warnings, null);
+            return readyWithWarnings(warnings, Map.of());
+        }
+
+        /**
+         * Documentation-only failures with immutable approved input versions.
+         */
+        public static GuardResult readyWithWarnings(
+                List<DependencyCheckResult> warnings,
+                Map<DatasetRef, String> approvedInputVersions) {
+            return new GuardResult(
+                    true,
+                    warnings,
+                    null,
+                    approvedInputVersions);
         }
         
         /**

@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
@@ -83,12 +84,36 @@ public class JobService {
             JobDefinition job,
             SchedulerClaim claim,
             Instant now) {
+        return prepareClaimedExecution(job, claim, now, Map.of());
+    }
+
+    public JobExecutionHistory prepareClaimedExecution(
+            JobDefinition job,
+            SchedulerClaim claim,
+            Instant now,
+            Map<DatasetRef, String> approvedInputVersions) {
         if (!job.getId().equals(claim.jobDefinitionId())
                 || !Objects.equals(job.getClaimToken(), claim.claimToken())
                 || !Objects.equals(job.getClaimedBy(), claim.claimedBy())) {
             throw new IllegalStateException("Scheduler claim no longer owns job definition " + job.getId());
         }
-        return prepareForExecution(job, now);
+
+        JobExecutionHistory execution = prepareForExecution(job, now);
+        if (!approvedInputVersions.isEmpty()) {
+            execution.setMetaJson(Map.of(
+                    "approvedInputs",
+                    approvedInputVersions.entrySet().stream()
+                            .map(entry -> Map.<String, Object>of(
+                                    "dataset",
+                                    entry.getKey().getDataset(),
+                                    "partition",
+                                    entry.getKey().getPartition(),
+                                    "dataVersion",
+                                    entry.getValue()))
+                            .toList()));
+            jobExecutionHistoryRepository.save(execution);
+        }
+        return execution;
     }
 
     public void enqueueDispatch(

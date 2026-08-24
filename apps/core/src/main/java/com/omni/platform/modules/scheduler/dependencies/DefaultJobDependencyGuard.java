@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.dependencies;
 
 import com.omni.platform.modules.scheduler.dependencies.evaluators.*;
+import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -72,6 +73,7 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
         List<DependencyCheckResult> allResults = new ArrayList<>();
         List<DependencyCheckResult> enforcedFailures = new ArrayList<>();
         List<DependencyCheckResult> documentationOnlyFailures = new ArrayList<>();
+        Map<DatasetRef, String> approvedInputVersions = new LinkedHashMap<>();
         
         for (DatasetDependency dependency : dependencies) {
             List<DependencyCheckResult> depResults = evaluateDependency(dependency, context);
@@ -96,6 +98,11 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
                         dependency.datasetRef().getPartition(),
                         failures.size());
                 }
+            } else if (dependency.isEnforced()) {
+                approveInputVersion(
+                        dependency.datasetRef(),
+                        approvedInputVersions,
+                        enforcedFailures);
             }
         }
         
@@ -108,13 +115,15 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
         }
         
         if (!documentationOnlyFailures.isEmpty()) {
-            log.info("Job can proceed with {} DOCUMENTATION_ONLY warnings: job={}", 
+            log.info("Job can proceed with {} DOCUMENTATION_ONLY warnings: job={}",
                 documentationOnlyFailures.size(), context.getJobName());
-            return GuardResult.readyWithWarnings(documentationOnlyFailures);
+            return GuardResult.readyWithWarnings(
+                    documentationOnlyFailures,
+                    approvedInputVersions);
         }
-        
+
         log.info("All dependencies satisfied for job={}", context.getJobName());
-        return GuardResult.ready();
+        return GuardResult.ready(approvedInputVersions);
     }
     
     @Override
@@ -205,6 +214,45 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
         return results;
     }
     
+    private void approveInputVersion(
+            DatasetRef datasetRef,
+            Map<DatasetRef, String> approvedInputVersions,
+            List<DependencyCheckResult> enforcedFailures) {
+        try {
+            Optional<DatasetManifest> manifest =
+                    manifestReader.readManifest(datasetRef);
+            if (manifest.isEmpty()) {
+                enforcedFailures.add(
+                        DependencyCheckResult.missing(datasetRef));
+                return;
+            }
+
+            DatasetManifest approvedManifest = manifest.get();
+            if (!approvedManifest.isReady()) {
+                enforcedFailures.add(DependencyCheckResult.notReady(
+                        datasetRef,
+                        approvedManifest.status()));
+                return;
+            }
+            if (approvedManifest.dataVersion() == null
+                    || approvedManifest.dataVersion().isBlank()) {
+                enforcedFailures.add(DependencyCheckResult.error(
+                        datasetRef,
+                        "READY manifest has no dataVersion"));
+                return;
+            }
+
+            approvedInputVersions.put(
+                    datasetRef,
+                    approvedManifest.dataVersion());
+        } catch (Exception exception) {
+            enforcedFailures.add(DependencyCheckResult.error(
+                    datasetRef,
+                    "Failed final manifest approval: "
+                            + exception.getMessage()));
+        }
+    }
+
     /**
      * Extract condition-specific parameter from dependency config.
      */

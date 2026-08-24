@@ -6,19 +6,19 @@ Use manifests to decide whether analytical work is dispatchable, while keeping b
 
 ## Increment P4-I1 — Dependency policies and shadow guard
 
-| Field                   | Value                                |
-| ----------------------- | ------------------------------------ |
-| id                      | P4-I1                                |
-| title                   | Dependency policies and shadow guard |
-| status                  | pending                              |
-| priority                | critical                             |
-| depends_on              | [P3-I3, P1-I4]                       |
-| blocks                  | [P4-I2, P5-I2, P6-I1]                |
-| owned_modules           | [apps/core, configs, docs/data]      |
-| execution_mode          | autonomous                           |
-| requires_owner_decision | false                                |
-| pr                      | null                                 |
-| last_verified_commit    | null                                 |
+| Field                   | Value                                     |
+| ----------------------- | ----------------------------------------- |
+| id                      | P4-I1                                     |
+| title                   | Dependency policies and shadow guard      |
+| status                  | completed                                 |
+| priority                | critical                                  |
+| depends_on              | [P1-I2]                                   |
+| blocks                  | [P4-I2, P5-I2, P6-I1]                     |
+| owned_modules           | [apps/core, configs, docs/data]           |
+| execution_mode          | autonomous                                |
+| requires_owner_decision | false                                     |
+| pr                      | https://github.com/tanlocit9/omni/pull/14 |
+| last_verified_commit    | 0d09cbe14719f83d2536573575795171eca6a168  |
 
 Goal: introduce typed dependency policies and a shadow-mode guard that reports what would block without stopping dispatch.
 
@@ -38,25 +38,25 @@ Stop conditions: stop if dependency metadata semantics conflict with existing jo
 | ----------------------- | -------------------------------------------------- |
 | id                      | P4-I2                                              |
 | title                   | Scheduler enforcement for the first analytical job |
-| status                  | verification_pending                               |
+| status                  | completed                                          |
 | priority                | critical                                           |
 | depends_on              | [P4-I1]                                            |
 | blocks                  | [P5-I2, P6-I1]                                     |
 | owned_modules           | [apps/core, apps/analyzer, configs]                |
 | execution_mode          | autonomous                                         |
 | requires_owner_decision | false                                              |
-| pr                      | null                                               |
-| last_verified_commit    | cb0b397                                            |
+| pr                      | https://github.com/tanlocit9/omni/pull/14          |
+| last_verified_commit    | 0d09cbe14719f83d2536573575795171eca6a168           |
 
 Goal: enforce dependency guard for one analytical job after shadow-mode evidence is acceptable.
 
-Verification state: `feature/phase-7@cb0b397` wires an ENFORCED per-symbol EOD
+Verification state: `feature/phase-7@0d09cbe14719f83d2536573575795171eca6a168` wires an ENFORCED per-symbol EOD
 dependency context into `SYNC_INDICATORS`, releases claims while blocked,
 persists one bounded-backoff blocked record without execution/outbox spam, and
 attaches approved manifest versions before dispatch. Unit coverage and a real
 PostgreSQL/Testcontainers BLOCKED-to-dispatch test are present. Completion is
-still pending a successful Platform test/build and CI run; the current
-automation environment could not download the pinned Gradle distribution.
+passed the complete Platform build/test suite in CI run #149, including the
+real PostgreSQL/Testcontainers BLOCKED-to-dispatch path.
 
 Acceptance criteria: missing/stale data produces blocked/deferred scheduler state, no execution-history spam is created for blocked polls, exact approved input versions attach to execution, and dependency backoff is bounded and observable.
 

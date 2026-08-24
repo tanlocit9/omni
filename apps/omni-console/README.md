@@ -22,7 +22,7 @@ idempotency key, and follows an accepted execution with bounded backoff. It does
 not contain scheduler decisions, credentials, object paths, Kafka access,
 force/bypass, cancellation, or runtime-parameter controls.
 
-Verification remains through the defined Nx targets:
+Phase 7 acceptance is verified through the defined Nx targets:
 
 ```bash
 nx run omni-console:lint

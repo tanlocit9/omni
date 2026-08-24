@@ -5,6 +5,9 @@ Platform owns job orchestration. Workers execute data-plane tasks and report sta
 The private Console may request an operator-triggered run through Platform's
 `/api/v1/jobs` API. This is a second entry point into the same claim, dependency
 guard, producer, and transactional-outbox boundary; it is not a second scheduler.
+Catalog and status responses expose logical identities only. Operational errors
+are normalized, bounded, and redact secrets plus object-storage or host paths
+before leaving Platform.
 
 The repository now contains versioned `JobCommand` and `JobStatusEvent` Proto3 schemas in [`libs/contracts/proto`](../../libs/contracts/proto). They are a generated contract foundation only: the production flow described below remains on the existing JSON wire format until compatible consumers and adapters are delivered in later Phase 2 increments.
 

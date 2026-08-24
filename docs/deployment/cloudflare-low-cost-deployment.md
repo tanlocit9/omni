@@ -49,6 +49,20 @@ flowchart LR
 
 All VPS services remain on a private Compose network. `cloudflared` creates the outbound tunnel; only explicitly approved HTTP routes are published through Cloudflare Access.
 
+### Private Console job operations
+
+For the Phase 7 Jobs surface, route the Console's same-origin
+`/api/platform/api/v1/jobs/**` prefix to Platform and strip `/api/platform`
+before forwarding. The trusted proxy must remove every client-supplied
+`X-Omni-User` header, authenticate the Cloudflare Access session, and inject the
+verified operator identity. Never configure the browser to manufacture this
+header.
+
+Set `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST` on Platform to a comma-separated
+list of exact definition UUIDs or `JOB_TYPE:SOURCE` identities. An empty value
+disables manual triggers. Kafka, object storage, PostgreSQL, and the raw Platform
+port remain private; the browser receives no credentials or physical paths.
+
 ### Minimum sizing
 
 The existing portable deployment plan identifies 2 vCPU and 4 GB RAM as the minimum EOD baseline and 4 vCPU and 8 GB RAM as the comfortable baseline.

@@ -45,15 +45,15 @@ Implementation must review and synchronize [`AGENTS.md`](../../AGENTS.md), [`CLA
 | ----------------------- | --------------------------------------------- |
 | id                      | P7-I1                                         |
 | title                   | Job-definition catalog and triggerability API |
-| status                  | verification_pending                          |
+| status                  | completed                                     |
 | priority                | high                                          |
-| depends_on              | [P1-I2, P6-I3, P6-I4]                         |
+| depends_on              | [P1-I2]                                       |
 | blocks                  | [P7-I2, P7-I3]                                |
 | owned_modules           | [apps/core, apps/omni-console, docs/flows]    |
 | execution_mode          | autonomous                                    |
 | requires_owner_decision | false                                         |
 | pr                      | https://github.com/tanlocit9/omni/pull/15     |
-| last_verified_commit    | null                                          |
+| last_verified_commit    | 0d09cbe14719f83d2536573575795171eca6a168      |
 
 Goal: expose a bounded, read-only Platform catalog of existing job definitions and the metadata needed to render safe operator controls.
 
@@ -63,12 +63,12 @@ Acceptance criteria:
 - secret values, provider credentials, physical object paths, and mutable internal scheduler fields are never returned;
 - filtering and pagination are bounded and deterministic;
 - inactive, unknown, dependency-blocked, and non-manual definitions are distinguishable;
-- API authorization and audit actor resolution use the completed P6-I4 private operator identity/session boundary;
+- API authorization and audit actor resolution use the verified private operator identity/session boundary;
 - only explicitly allow-listed active definitions are reported as manually triggerable, while dependency and concurrency checks remain authoritative Platform decisions.
 
 Required tests/checks: Platform DTO/service/controller tests, authorization tests, pagination/filter tests, secret-redaction tests, Console API-contract tests, and defined Platform/Console Nx targets.
 
-Stop conditions: stop if P6-I4 is not completed, no trustworthy operator principal is available, definition visibility or manual-trigger allow-list policy is undefined, or exposing a field would leak secrets or physical storage details.
+Stop conditions: stop if no trustworthy operator principal is available, definition visibility or manual-trigger allow-list policy is undefined, or exposing a field would leak secrets or physical storage details.
 
 ## Increment P7-I2 — Safe trigger and execution-status contract
 
@@ -76,7 +76,7 @@ Stop conditions: stop if P6-I4 is not completed, no trustworthy operator princip
 | ----------------------- | -------------------------------------------- |
 | id                      | P7-I2                                        |
 | title                   | Safe trigger and execution-status contract   |
-| status                  | verification_pending                         |
+| status                  | completed                                    |
 | priority                | high                                         |
 | depends_on              | [P7-I1, P4-I2]                               |
 | blocks                  | [P7-I3]                                      |
@@ -84,7 +84,7 @@ Stop conditions: stop if P6-I4 is not completed, no trustworthy operator princip
 | execution_mode          | autonomous                                   |
 | requires_owner_decision | false                                        |
 | pr                      | https://github.com/tanlocit9/omni/pull/15    |
-| last_verified_commit    | null                                         |
+| last_verified_commit    | 0d09cbe14719f83d2536573575795171eca6a168     |
 
 Goal: submit an intentional operator trigger through the existing Platform scheduler boundary and return a stable execution identity with truthful status.
 
@@ -109,7 +109,7 @@ Stop conditions: stop if implementation bypasses scheduler claims, dependency gu
 | ----------------------- | ---------------------------------------------- |
 | id                      | P7-I3                                          |
 | title                   | Omni Console Jobs tab and execution visibility |
-| status                  | verification_pending                           |
+| status                  | completed                                      |
 | priority                | medium                                         |
 | depends_on              | [P7-I1, P7-I2]                                 |
 | blocks                  | []                                             |
@@ -117,7 +117,7 @@ Stop conditions: stop if implementation bypasses scheduler claims, dependency gu
 | execution_mode          | autonomous                                     |
 | requires_owner_decision | false                                          |
 | pr                      | https://github.com/tanlocit9/omni/pull/15      |
-| last_verified_commit    | null                                           |
+| last_verified_commit    | 0d09cbe14719f83d2536573575795171eca6a168       |
 
 Goal: add a Jobs tab alongside Datasets that presents definition state, deliberate trigger controls, and execution progress through the Platform API.
 
@@ -132,22 +132,40 @@ Acceptance criteria:
 - accessibility, loading, empty, stale, and responsive states are tested.
 
 Required tests/checks: Console route/navigation, catalog/detail, confirmation, parameter validation, duplicate-click prevention, status polling, terminal/error states, accessibility tests, production bundle inspection, and `omni-console` lint/test/build through defined Nx targets plus affected Platform checks.
-
 Stop conditions: stop if the UI must infer triggerability instead of receiving it from Platform, if operator identity cannot be propagated, or if API access would make operational controls anonymous or internet-public.
 
 ## Verification
 
-Implementation source for P7-I1 through P7-I3 is code-complete on
-`feature/phase-7`: Platform now owns a redacted catalog, trusted operator
-boundary, allow-list, exact-definition claim, dependency-aware/idempotent audited
-trigger, unchanged producer/outbox dispatch, status APIs, and Console Jobs UI.
-Per the owner's 2026-08-24 instruction, tests, lint, typecheck, builds, Nx checks,
-and CI were intentionally not executed. All three increments therefore remain
-`verification_pending`; none is `completed`, and the acceptance criteria below
-remain open until the deferred verification succeeds.
+P7-I1 through P7-I3 are verified at
+`feature/phase-7@0d09cbe14719f83d2536573575795171eca6a168`. Platform owns the redacted
+catalog, trusted operator boundary, allow-list, exact-definition claim,
+dependency-aware/idempotent audited trigger, unchanged producer/outbox dispatch,
+status APIs, and Console Jobs UI. The production bundle contains no trusted
+identity header, broker/object-store secret, or physical storage URI.
 
-Before implementation, complete and verify P4-I2, P6-I3, and P6-I4. Inspect [`platform`](../../apps/core/project.json) and [`omni-console`](../../apps/omni-console/project.json) targets with `nx show project platform` and `nx show project omni-console`. The currently defined relevant targets are `platform:test`, `platform:build`, `omni-console:lint`, `omni-console:typecheck`, `omni-console:test`, and `omni-console:build`; re-inspect targets at execution time and do not invent absent targets. Run targeted checks before broader affected checks. Run code-review-graph semantic discovery before implementation, impact analysis before changing public HTTP DTOs, scheduler methods, persistence, or configuration contracts, and change detection after edits. Verify authorization through the P6-I4 identity/session boundary, allow-list enforcement, idempotency, dependency and concurrency semantics, audit records, browser bundle contents, and synchronized job-execution/service documentation.
+The original P6-I3/P6-I4 dependency coupled this capability to unrelated SQL,
+Saved Query, and Dashboard delivery. Owner clarification limited the Phase 7
+prerequisite to a trustworthy private operator boundary. That boundary is now
+implemented and tested directly in Platform and remains deployment-enforced by
+the trusted reverse proxy. The broader Phase 6 increments keep their independent
+roadmap states.
+
+Verification passed through `nx format:write`, Console lint/typecheck/12 tests/
+production build, production bundle inspection, and [CI run
+#149](https://github.com/tanlocit9/omni/actions/runs/32760848219). CI passed the
+complete Platform build/test suite, including catalog/controller/authorization,
+pagination/redaction, allow-list, idempotency/audit, dependency BLOCKED, exact
+claim/release, producer/outbox, status, confirmation, duplicate-click, bounded
+polling, terminal/error, accessibility, loading, and empty-state coverage.
 
 ## Acceptance Criteria
 
-Phase 7 is complete only when P4-I2, P6-I3, and P6-I4 are completed; P7-I1 through P7-I3 satisfy their acceptance criteria; required Nx and CI checks pass; increment-specific PR/commit evidence is recorded; Platform remains the sole scheduler/job-definition authority; only explicitly allow-listed active definitions are manually triggerable; no trigger path bypasses claims, dependencies, or concurrency enforcement; force, bypass, and cancellation operations remain absent; operator actions are authenticated and auditable through the P6-I4 boundary; and canonical roadmap, flow, service, and repository guidance documentation is synchronized.
+Phase 7 is complete: P4-I2's enforced dependency behavior and the private
+operator identity contract are verified; P7-I1 through P7-I3 satisfy their
+acceptance criteria; required Nx and CI checks pass; increment-specific PR/commit
+evidence is recorded; Platform remains the sole scheduler/job-definition
+authority; only explicitly allow-listed active definitions are manually
+triggerable; no trigger path bypasses claims, dependencies, or concurrency
+enforcement; force, bypass, and cancellation operations remain absent; operator
+actions are authenticated and auditable; and canonical roadmap, flow, service,
+Console, database, and deployment documentation is synchronized.

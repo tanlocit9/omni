@@ -125,8 +125,8 @@ Stop conditions: stop if Java read-only scope expands into duplicate write logic
 | owned_modules           | [libs/py-common, apps/ingestor, apps/analyzer, apps/query-service] |
 | execution_mode          | autonomous                                                         |
 | requires_owner_decision | false                                                              |
-| pr                      | pending                                                            |
-| last_verified_commit    | pending                                                            |
+| pr                      | https://github.com/tanlocit9/omni/pull/16                          |
+| last_verified_commit    | 2ecb6baaddc056955aba6df5c113e4038faed2ca                           |
 
 Goal: distinguish business dates (`date32`/DuckDB `DATE`) from UTC event
 timestamps (`timestamp[us, UTC]`/DuckDB `TIMESTAMPTZ`) across EOD, Indicators,

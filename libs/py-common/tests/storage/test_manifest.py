@@ -54,7 +54,7 @@ def sample_dataframe():
 def sample_columns():
     """Sample column metadata."""
     return [
-        ColumnMetadata("date", "TIMESTAMP", False),
+        ColumnMetadata("date", "DATE", False),
         ColumnMetadata("symbol", "VARCHAR", False),
         ColumnMetadata("close", "DOUBLE", False),
         ColumnMetadata("volume", "BIGINT", False),
@@ -140,7 +140,7 @@ def test_extract_schema_from_dataframe(sample_dataframe):
 
     assert len(schema) == 4
     assert schema[0].name == "date"
-    assert schema[0].type == "TIMESTAMP"
+    assert schema[0].type == "DATE"
     assert schema[1].name == "symbol"
     assert schema[1].type == "VARCHAR"
     assert schema[2].name == "close"
@@ -165,6 +165,24 @@ def test_extract_schema_handles_nullable():
 
     assert not required_col.nullable
     assert optional_col.nullable
+
+
+def test_extract_schema_uses_event_timestamp_contract():
+    frame = pd.DataFrame(
+        {
+            "generated_at": pd.to_datetime(["2026-08-25T00:00:00Z"], utc=True),
+            "ma20_calculated_at": pd.to_datetime(
+                ["2026-08-25T00:00:00Z"], utc=True
+            ),
+        }
+    )
+
+    schema = extract_schema_from_dataframe(frame)
+
+    assert [column.type for column in schema] == [
+        "TIMESTAMP_US_UTC",
+        "TIMESTAMP_US_UTC",
+    ]
 
 
 def test_extract_timestamp_range_finds_date_column(sample_dataframe):

@@ -323,6 +323,27 @@ See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST
 | Update strategy | Append/merge realized outcomes separately from predictions once future sessions are available; do not rewrite historical prediction probabilities.                                                          |
 | Ownership       | Analyzer owns outcome-evaluation outputs.                                                                                                                                                                   |
 
+## Canonical Parquet date and timestamp types
+
+All implemented analytical producers share the contract in
+`py_common.storage.date_contracts`; producer-local dtype inference is not an
+authoritative schema contract.
+
+| Meaning                  | Semantic columns                                                                                              | Arrow/Parquet           | DuckDB and manifest                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------- |
+| Business or trading date | `date`, `signal_date`, `evaluation_date`, `target_date`, `resolved_date`, `generated_from_date`               | `date32`                | `DATE`                             |
+| Event instant            | `generated_at`, `calculated_at`, `updated_at`, `last_recalculated_at`, `actual_updated_at`, `*_calculated_at` | `timestamp[us, tz=UTC]` | `TIMESTAMPTZ` / `TIMESTAMP_US_UTC` |
+
+The shared decoder normalizes legacy strings and timestamp-backed business dates
+before Analyzer joins. Query Service uses READY manifest columns to cast legacy
+physical values into the same DuckDB types. Field names remain semantic.
+
+Existing READY objects are migrated only through a versioned sibling rewrite.
+The candidate is read back before an immutable manifest and then READY are
+published. Failure leaves the previous READY object and pointer valid; wildcard
+and multi-object partitions require a dataset-owner-specific rewrite. See
+[Normalize Parquet Date Contracts](../../plans/parquet-date-normalization-increment.md).
+
 ## Future Expansion Paths
 
 [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) also reserves path keys for future datasets, including intraday, financials, fundamentals, corporate actions, ownership, news, macro, derivatives, warrants, and ETF data. Do not document these as implemented flows until producers and consumers exist.

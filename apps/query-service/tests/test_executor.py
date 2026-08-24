@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import pyarrow as pa
@@ -36,6 +37,23 @@ def _manifest(path: str, total_bytes: int) -> DatasetManifest:
     )
 
 
+def _dated_manifest(path: str, total_bytes: int) -> DatasetManifest:
+    manifest = _manifest(path, total_bytes)
+    return DatasetManifest(
+        **{
+            **manifest.__dict__,
+            "columnCount": 3,
+            "columns": [
+                ColumnMetadata(name="date", type="DATE", nullable=False),
+                ColumnMetadata(
+                    name="generated_at", type="TIMESTAMP_US_UTC", nullable=False
+                ),
+                ColumnMetadata(name="close", type="DOUBLE", nullable=False),
+            ],
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_executes_bounded_query_and_returns_arrow(tmp_path: Path) -> None:
     parquet_path = tmp_path / "eod.parquet"
@@ -64,3 +82,40 @@ async def test_executes_bounded_query_and_returns_arrow(tmp_path: Path) -> None:
     assert result.truncated is True
     assert result.rows[0]["code"] == "FRT"
     assert result.arrow
+
+
+@pytest.mark.asyncio
+async def test_normalizes_legacy_parquet_date_types_for_duckdb(tmp_path: Path) -> None:
+    parquet_path = tmp_path / "legacy.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "date": pa.array(
+                    ["2026-08-25T12:30:00"], type=pa.string()
+                ).cast(pa.timestamp("ns")),
+                "generated_at": pa.array(
+                    ["2026-08-25T03:00:00"], type=pa.string()
+                ).cast(pa.timestamp("ns")),
+                "close": [100.0],
+            }
+        ),
+        parquet_path,
+    )
+    settings = QueryServiceSettings(
+        query_storage_scheme="file", query_local_data_root=str(tmp_path)
+    )
+    dataset = ResolvedDataset(
+        view_name="legacy_eod",
+        manifest=_dated_manifest("legacy.parquet", parquet_path.stat().st_size),
+        paths=[str(parquet_path)],
+    )
+    sql = validate_read_only_sql(
+        "SELECT date, generated_at FROM legacy_eod", {"legacy_eod"}
+    )
+
+    result = await DuckDBExecutor(settings).execute(
+        "legacy-date", sql, [dataset], {}, row_limit=10
+    )
+
+    assert result.rows[0]["date"] == date(2026, 8, 25)
+    assert result.rows[0]["generated_at"].tzinfo is not None

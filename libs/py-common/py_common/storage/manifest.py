@@ -41,6 +41,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from py_common.storage.date_contracts import manifest_type_for_column
 from py_common.storage.exceptions import (
     ManifestInvalidError,
     ManifestNotFoundError,
@@ -406,7 +407,10 @@ def extract_schema_from_dataframe(df: pd.DataFrame) -> list[ColumnMetadata]:
         nullable = bool(df[col_name].isnull().any())
 
         # Map pandas dtype to SQL-like type
-        if pd.api.types.is_integer_dtype(dtype):
+        contract_type = manifest_type_for_column(str(col_name))
+        if contract_type is not None:
+            sql_type = contract_type
+        elif pd.api.types.is_integer_dtype(dtype):
             sql_type = "BIGINT"
         elif pd.api.types.is_float_dtype(dtype):
             sql_type = "DOUBLE"

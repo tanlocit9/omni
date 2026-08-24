@@ -21,6 +21,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from py_common.storage.date_contracts import DateContractError
 from py_common.storage.exceptions import (
     ParquetDecodeError,
     StorageObjectNotFoundError,
@@ -112,8 +113,8 @@ class TestParquetCodec:
         )
         encoded = ParquetCodec.encode(df)
         decoded = ParquetCodec.decode(encoded)
-        pd.testing.assert_frame_equal(df, decoded)
-        assert str(decoded["date"].dtype).startswith("datetime64[")
+        assert list(decoded["date"]) == [date(2024, 1, 1), date(2024, 1, 2)]
+        assert pq.read_schema(io.BytesIO(encoded)).field("date").type == pa.date32()
 
     def test_date_object_column(self):
         df = pd.DataFrame(
@@ -206,6 +207,45 @@ class TestParquetCodec:
             "contribution_share",
             "above_ma20",
         ]
+        assert parquet_schema.field("date").type == pa.date32()
+
+    def test_event_timestamps_are_microsecond_utc(self):
+        df = pd.DataFrame(
+            {
+                "generated_at": ["2026-08-25T03:00:00+07:00"],
+                "actual_updated_at": [pd.Timestamp("2026-08-24T20:00:00Z")],
+            }
+        )
+
+        encoded = ParquetCodec.encode(df)
+        schema = pq.read_schema(io.BytesIO(encoded))
+        decoded = ParquetCodec.decode(encoded)
+
+        assert schema.field("generated_at").type == pa.timestamp("us", tz="UTC")
+        assert schema.field("actual_updated_at").type == pa.timestamp(
+            "us", tz="UTC"
+        )
+        assert decoded.loc[0, "generated_at"] == pd.Timestamp("2026-08-24T20:00:00Z")
+
+    def test_decode_normalizes_legacy_timestamp_business_date(self):
+        legacy = pa.table(
+            {
+                "date": pa.array(
+                    [pd.Timestamp("2026-08-25T12:30:00")],
+                    type=pa.timestamp("ns"),
+                )
+            }
+        )
+        buffer = io.BytesIO()
+        pq.write_table(legacy, buffer)
+
+        decoded = ParquetCodec.decode(buffer.getvalue())
+
+        assert decoded.loc[0, "date"] == date(2026, 8, 25)
+
+    def test_invalid_semantic_date_is_rejected(self):
+        with pytest.raises(DateContractError, match="business date"):
+            ParquetCodec.encode(pd.DataFrame({"signal_date": ["not-a-date"]}))
 
     def test_corrupt_bytes_raises_decode_error(self):
         with pytest.raises(ParquetDecodeError) as exc_info:
@@ -257,7 +297,8 @@ class TestParquetStorageRead:
         readable.read_bytes.assert_called_once_with(
             "stock-data", "eod/hose/hpg.parquet"
         )
-        pd.testing.assert_frame_equal(result, df)
+        assert result.loc[0, "date"] == date(2024, 1, 1)
+        assert result.loc[0, "close"] == df.loc[0, "close"]
 
     @pytest.mark.asyncio
     async def test_read_dataframe_not_found_raises(
@@ -303,7 +344,8 @@ class TestParquetStorageRead:
     ):
         result = await storage.read_optional_dataframe("eod/hose/hpg.parquet")
         assert result is not None
-        pd.testing.assert_frame_equal(result, df)
+        assert result.loc[0, "date"] == date(2024, 1, 1)
+        assert result.loc[0, "close"] == df.loc[0, "close"]
 
 
 class TestParquetStorageWrite:

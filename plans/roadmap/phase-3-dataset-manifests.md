@@ -112,6 +112,42 @@ Required tests/checks: Java client fixture tests, Analyzer lineage tests, schema
 
 Stop conditions: stop if Java read-only scope expands into duplicate write logic.
 
+## Increment P3-I4 — Normalize Parquet date contracts and safe rewrite
+
+| Field                   | Value                                                              |
+| ----------------------- | ------------------------------------------------------------------ |
+| id                      | P3-I4                                                              |
+| title                   | Normalize Parquet date contracts and safe versioned rewrite        |
+| status                  | verification_pending                                               |
+| priority                | critical                                                           |
+| depends_on              | [P1-I2]                                                            |
+| blocks                  | [P9-I1, P9-I2, P10-I2]                                             |
+| owned_modules           | [libs/py-common, apps/ingestor, apps/analyzer, apps/query-service] |
+| execution_mode          | autonomous                                                         |
+| requires_owner_decision | false                                                              |
+| pr                      | pending                                                            |
+| last_verified_commit    | pending                                                            |
+
+Goal: distinguish business dates (`date32`/DuckDB `DATE`) from UTC event
+timestamps (`timestamp[us, UTC]`/DuckDB `TIMESTAMPTZ`) across EOD, Indicators,
+Signals, Sector Wave, and Sector Transition while preserving semantic names.
+
+Acceptance criteria: shared encoding and legacy decoding are authoritative;
+manifest columns report canonical types; Query Service normalizes legacy files;
+cross-dataset joins work without string/timestamp drift; and backfill writes a
+validated versioned object before immutable-manifest and READY publication. The
+previous READY object is never overwritten.
+
+Required tests/checks: schema encode/decode, legacy compatibility, analytical
+joins, Sector Wave/Transition schema, manifest metadata, backfill idempotency and
+failure safety, owning Python project lint/test/build, workspace formatter, and
+green CI for the exact branch head. Detailed execution scope is in
+[`../parquet-date-normalization-increment.md`](../parquet-date-normalization-increment.md).
+
+Stop conditions: stop on wildcard/multi-object READY partitions until the owning
+dataset supplies an explicit partition rewrite, or if a physical path ownership
+change becomes necessary.
+
 ## Verification
 
 Use only inspected Nx targets. P3-I1 requires `nx run py-common:lint`, `nx run py-common:test`, and `nx run py-common:build`; Java fixture compatibility requires `nx run platform:test`. Producer migrations additionally require their owning project targets and storage-backed failure-path tests. Record any unavailable graph, PR, commit, or CI evidence rather than inferring it from local success.

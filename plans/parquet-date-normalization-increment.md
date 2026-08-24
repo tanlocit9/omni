@@ -5,7 +5,9 @@
 `verification_pending`
 
 Implementation is present on `feature/parquet-date-normalization`. Targeted local
-acceptance checks pass; completion requires the stacked pull request CI to pass.
+acceptance checks pass in implementation commit `2ecb6ba`. The increment is on
+[stacked draft PR #16](https://github.com/tanlocit9/omni/pull/16); completion
+requires CI to pass for its final head.
 
 ## Goal
 

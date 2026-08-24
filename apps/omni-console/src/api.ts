@@ -62,6 +62,18 @@ export interface QueryResult {
 
 const API_BASE =
   import.meta.env.VITE_QUERY_SERVICE_URL ?? 'http://localhost:8002';
+const PLATFORM_API_BASE =
+  import.meta.env.VITE_PLATFORM_API_URL ?? '/api/platform';
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string
+  ) {
+    super(message);
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
@@ -72,6 +84,141 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(payload?.detail ?? `Request failed (${response.status})`);
   }
   return response.json() as Promise<T>;
+}
+
+async function platformRequest<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const response = await fetch(`${PLATFORM_API_BASE}${path}`, init);
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      detail?: string;
+      code?: string;
+    } | null;
+    throw new ApiError(
+      payload?.detail ?? `Request failed (${response.status})`,
+      response.status,
+      payload?.code
+    );
+  }
+  return response.json() as Promise<T>;
+}
+
+export type JobExecutionState =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'ERROR'
+  | 'CANCELLED';
+
+export interface JobExecutionSummary {
+  id: string;
+  status: JobExecutionState;
+  triggeredAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  recordsSynced: number | null;
+  recordsSkipped: number | null;
+  error: string | null;
+}
+
+export interface JobDefinitionSummary {
+  id: string;
+  title: string | null;
+  source: string;
+  jobType: string;
+  workType: string;
+  workKey: string;
+  active: boolean;
+  cronExpression: string | null;
+  nextRun: string | null;
+  triggerable: boolean;
+  triggerBlockReason: string | null;
+  lastExecution: JobExecutionSummary | null;
+}
+
+export interface JobDefinitionDetail extends JobDefinitionSummary {
+  dependencies: {
+    jobs: string[];
+    datasets: string[];
+    produces: string[];
+  };
+  acceptedTriggerParameters: string[];
+  recentExecutions: JobExecutionSummary[];
+}
+
+export interface JobDefinitionPage {
+  items: JobDefinitionSummary[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface ManualTriggerResponse {
+  requestId: string;
+  definitionId: string;
+  executionId: string | null;
+  state: 'REQUESTED' | 'ACCEPTED' | 'BLOCKED' | 'CONFLICT' | 'FAILED';
+  duplicate: boolean;
+  blockReason: string | null;
+  error: string | null;
+  requestedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface TriggerStatusResponse {
+  trigger: ManualTriggerResponse;
+  execution: JobExecutionSummary | null;
+}
+
+export function listJobDefinitions(filters: {
+  q?: string;
+  jobType?: string;
+  active?: boolean;
+}): Promise<JobDefinitionPage> {
+  const query = new URLSearchParams({ page: '0', size: '100' });
+  if (filters.q) query.set('q', filters.q);
+  if (filters.jobType) query.set('jobType', filters.jobType);
+  if (filters.active !== undefined) query.set('active', String(filters.active));
+  return platformRequest(`/api/v1/jobs/definitions?${query.toString()}`);
+}
+
+export function getJobDefinition(id: string): Promise<JobDefinitionDetail> {
+  return platformRequest(`/api/v1/jobs/definitions/${encodeURIComponent(id)}`);
+}
+
+export function triggerJob(
+  id: string,
+  reason: string,
+  idempotencyKey: string
+): Promise<ManualTriggerResponse> {
+  return fetch(
+    `${PLATFORM_API_BASE}/api/v1/jobs/definitions/${encodeURIComponent(id)}/triggers`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason, idempotencyKey, parameters: {} }),
+    }
+  ).then(async (response) => {
+    if (response.ok || response.status === 409) {
+      return response.json() as Promise<ManualTriggerResponse>;
+    }
+    const payload = (await response.json().catch(() => null)) as {
+      detail?: string;
+      code?: string;
+    } | null;
+    throw new ApiError(
+      payload?.detail ?? `Request failed (${response.status})`,
+      response.status,
+      payload?.code
+    );
+  });
+}
+
+export function getTriggerStatus(id: string): Promise<TriggerStatusResponse> {
+  return platformRequest(`/api/v1/jobs/triggers/${encodeURIComponent(id)}`);
 }
 
 export function listDatasets(): Promise<DatasetSummary[]> {

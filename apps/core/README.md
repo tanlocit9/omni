@@ -14,6 +14,7 @@ Platform owns API boundaries, scheduler orchestration, job definitions, executio
 - Kafka job producers for ingestion and analytical workers.
 - Kafka consumers for worker status, symbol upserts, sector upserts, and notifications.
 - Platform-facing API and operational state.
+- Private job catalog, manual-trigger, audit, and execution-status API.
 
 ## Does Not Own
 
@@ -44,6 +45,21 @@ Platform owns API boundaries, scheduler orchestration, job definitions, executio
 | [`src/main/java/com/omni/platform/PlatformApplication.java`](src/main/java/com/omni/platform/PlatformApplication.java)                                     | Spring Boot application entry point. |
 | [`src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java)       | Scheduled job trigger.               |
 | [`src/main/java/com/omni/platform/modules/scheduler/services/JobService.java`](src/main/java/com/omni/platform/modules/scheduler/services/JobService.java) | Job orchestration service.           |
+| [`src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java`](src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java) | Private job operations HTTP API. |
+
+## Private job operations API
+
+`/api/v1/jobs` exposes a redacted catalog, definition detail, manual trigger,
+trigger status, and execution status to Omni Console. The trusted reverse proxy
+must replace `X-Omni-User` with the authenticated operator identity. The browser
+must not manufacture this header.
+
+Manual execution is disabled unless
+`APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST` explicitly lists a definition UUID or
+`JOB_TYPE:SOURCE`. Accepted requests reuse scheduler claims, dependency checks,
+registered producers, and the transactional outbox. They preserve the cron
+`nextRun`. Runtime parameters, force/bypass, cancellation, direct Kafka access,
+secrets, and physical paths are not part of this contract.
 
 ## Main Modules
 

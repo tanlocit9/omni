@@ -30,6 +30,8 @@ app:
   scheduler:
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}
+    manual-trigger:
+      allow-list: ${APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST:}
     claim:
       lease-duration: ${APP_SCHEDULER_CLAIM_LEASE_DURATION:PT2M}
       batch-size: ${APP_SCHEDULER_CLAIM_BATCH_SIZE:10}

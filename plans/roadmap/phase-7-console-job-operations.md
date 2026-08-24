@@ -45,7 +45,7 @@ Implementation must review and synchronize [`AGENTS.md`](../../AGENTS.md), [`CLA
 | ----------------------- | --------------------------------------------- |
 | id                      | P7-I1                                         |
 | title                   | Job-definition catalog and triggerability API |
-| status                  | pending                                       |
+| status                  | verification_pending                          |
 | priority                | high                                          |
 | depends_on              | [P1-I2, P6-I3, P6-I4]                         |
 | blocks                  | [P7-I2, P7-I3]                                |
@@ -76,7 +76,7 @@ Stop conditions: stop if P6-I4 is not completed, no trustworthy operator princip
 | ----------------------- | -------------------------------------------- |
 | id                      | P7-I2                                        |
 | title                   | Safe trigger and execution-status contract   |
-| status                  | pending                                      |
+| status                  | verification_pending                         |
 | priority                | high                                         |
 | depends_on              | [P7-I1, P4-I2]                               |
 | blocks                  | [P7-I3]                                      |
@@ -109,7 +109,7 @@ Stop conditions: stop if implementation bypasses scheduler claims, dependency gu
 | ----------------------- | ---------------------------------------------- |
 | id                      | P7-I3                                          |
 | title                   | Omni Console Jobs tab and execution visibility |
-| status                  | pending                                        |
+| status                  | verification_pending                           |
 | priority                | medium                                         |
 | depends_on              | [P7-I1, P7-I2]                                 |
 | blocks                  | []                                             |
@@ -136,6 +136,15 @@ Required tests/checks: Console route/navigation, catalog/detail, confirmation, p
 Stop conditions: stop if the UI must infer triggerability instead of receiving it from Platform, if operator identity cannot be propagated, or if API access would make operational controls anonymous or internet-public.
 
 ## Verification
+
+Implementation source for P7-I1 through P7-I3 is code-complete on
+`feature/phase-7`: Platform now owns a redacted catalog, trusted operator
+boundary, allow-list, exact-definition claim, dependency-aware/idempotent audited
+trigger, unchanged producer/outbox dispatch, status APIs, and Console Jobs UI.
+Per the owner's 2026-08-24 instruction, tests, lint, typecheck, builds, Nx checks,
+and CI were intentionally not executed. All three increments therefore remain
+`verification_pending`; none is `completed`, and the acceptance criteria below
+remain open until the deferred verification succeeds.
 
 Before implementation, complete and verify P4-I2, P6-I3, and P6-I4. Inspect [`platform`](../../apps/core/project.json) and [`omni-console`](../../apps/omni-console/project.json) targets with `nx show project platform` and `nx show project omni-console`. The currently defined relevant targets are `platform:test`, `platform:build`, `omni-console:lint`, `omni-console:typecheck`, `omni-console:test`, and `omni-console:build`; re-inspect targets at execution time and do not invent absent targets. Run targeted checks before broader affected checks. Run code-review-graph semantic discovery before implementation, impact analysis before changing public HTTP DTOs, scheduler methods, persistence, or configuration contracts, and change detection after edits. Verify authorization through the P6-I4 identity/session boundary, allow-list enforcement, idempotency, dependency and concurrency semantics, audit records, browser bundle contents, and synchronized job-execution/service documentation.
 

@@ -9,6 +9,8 @@ Flyway migrations under [`database/migrations`](../../database/migrations) are t
 ```mermaid
 erDiagram
   JOB_DEFINITIONS ||--o{ JOB_EXECUTION_HISTORIES : creates
+  JOB_DEFINITIONS ||--o{ MANUAL_JOB_TRIGGERS : receives
+  JOB_EXECUTION_HISTORIES ||--o| MANUAL_JOB_TRIGGERS : dispatches
   JOB_EXECUTION_HISTORIES ||--o{ JOB_EXECUTION_HISTORIES : parent_child
   SECTORS ||--o{ SYMBOLS : classifies
 
@@ -27,6 +29,16 @@ erDiagram
     string status
     timestamptz started_at
     timestamptz completed_at
+  }
+
+  MANUAL_JOB_TRIGGERS {
+    uuid id
+    uuid job_definition_id
+    uuid execution_id
+    string actor
+    string idempotency_key
+    string state
+    timestamptz requested_at
   }
 
   SYMBOLS {
@@ -66,6 +78,18 @@ erDiagram
 | Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java) |
 | Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                             |
+
+### Symbols
+
+### Manual job triggers
+
+| Field          | Value                                                                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration      | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                     |
+| Owner          | Platform scheduler/job-operations module                                                                                                                                                     |
+| Purpose        | Durable operator audit and idempotency ledger; a blocked request intentionally has no execution row.                                                                                        |
+| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java) |
+| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                   |
 
 ### Symbols
 

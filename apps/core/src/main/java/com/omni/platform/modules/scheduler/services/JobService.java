@@ -92,11 +92,7 @@ public class JobService {
             SchedulerClaim claim,
             Instant now,
             Map<DatasetRef, String> approvedInputVersions) {
-        if (!job.getId().equals(claim.jobDefinitionId())
-                || !Objects.equals(job.getClaimToken(), claim.claimToken())
-                || !Objects.equals(job.getClaimedBy(), claim.claimedBy())) {
-            throw new IllegalStateException("Scheduler claim no longer owns job definition " + job.getId());
-        }
+        verifyClaimOwnership(job, claim);
 
         JobExecutionHistory execution = prepareForExecution(job, now);
         if (!approvedInputVersions.isEmpty()) {
@@ -114,6 +110,43 @@ public class JobService {
             jobExecutionHistoryRepository.save(execution);
         }
         return execution;
+    }
+
+    /**
+     * Creates an execution for an operator trigger without changing the cron cadence.
+     * The caller must already own the same durable scheduler claim used by scheduled
+     * dispatches.
+     */
+    public JobExecutionHistory prepareManualClaimedExecution(
+            JobDefinition job,
+            SchedulerClaim claim,
+            Instant now,
+            Map<DatasetRef, String> approvedInputVersions,
+            Map<String, Object> manualTriggerMetadata) {
+        verifyClaimOwnership(job, claim);
+
+        JobExecutionHistory execution = createPendingLog(job);
+        execution.setTriggeredAt(now);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (!approvedInputVersions.isEmpty()) {
+            metadata.put("approvedInputs", approvedInputVersions.entrySet().stream()
+                    .map(entry -> Map.<String, Object>of(
+                            "dataset", entry.getKey().getDataset(),
+                            "partition", entry.getKey().getPartition(),
+                            "dataVersion", entry.getValue()))
+                    .toList());
+        }
+        metadata.putAll(manualTriggerMetadata);
+        execution.setMetaJson(metadata);
+        return jobExecutionHistoryRepository.save(execution);
+    }
+
+    private static void verifyClaimOwnership(JobDefinition job, SchedulerClaim claim) {
+        if (!job.getId().equals(claim.jobDefinitionId())
+                || !Objects.equals(job.getClaimToken(), claim.claimToken())
+                || !Objects.equals(job.getClaimedBy(), claim.claimedBy())) {
+            throw new IllegalStateException("Scheduler claim no longer owns job definition " + job.getId());
+        }
     }
 
     public void enqueueDispatch(

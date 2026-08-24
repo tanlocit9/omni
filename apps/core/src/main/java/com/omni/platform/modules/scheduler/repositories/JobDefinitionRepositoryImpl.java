@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
@@ -73,6 +74,56 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
 
         entityManager.flush();
         return List.copyOf(claims);
+    }
+
+    @Override
+    public Optional<SchedulerClaim> claimJobDefinition(
+            UUID jobDefinitionId,
+            Instant now,
+            String claimedBy,
+            Duration leaseDuration) {
+        List<?> rows = entityManager.createNativeQuery("""
+                SELECT id
+                FROM job_definitions
+                WHERE id = :jobDefinitionId
+                AND is_active = TRUE
+                AND (claim_until IS NULL OR claim_until <= :now)
+                FOR UPDATE SKIP LOCKED
+                """)
+                .setParameter("jobDefinitionId", jobDefinitionId)
+                .setParameter("now", now)
+                .getResultList();
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+
+        UUID claimToken = UUID.randomUUID();
+        Instant claimUntil = now.plus(leaseDuration);
+        int updated = entityManager.createNativeQuery("""
+                UPDATE job_definitions
+                SET claim_token = :claimToken,
+                    claimed_by = :claimedBy,
+                    claimed_at = :claimedAt,
+                    claim_until = :claimUntil
+                WHERE id = :jobDefinitionId
+                """)
+                .setParameter("claimToken", claimToken)
+                .setParameter("claimedBy", claimedBy)
+                .setParameter("claimedAt", now)
+                .setParameter("claimUntil", claimUntil)
+                .setParameter("jobDefinitionId", jobDefinitionId)
+                .executeUpdate();
+        entityManager.flush();
+        if (updated != 1) {
+            return Optional.empty();
+        }
+        return Optional.of(new SchedulerClaim(
+                jobDefinitionId,
+                claimToken,
+                claimedBy,
+                now,
+                claimUntil,
+                now));
     }
 
     @Override

@@ -2,9 +2,10 @@ import { useCallback, useState } from 'react';
 
 import type { DatasetManifest } from './api';
 import { DatasetExplorer } from './components/DatasetExplorer';
+import { JobsPanel } from './components/JobsPanel';
 import { SqlConsole } from './components/SqlConsole';
 
-type View = 'explorer' | 'sql' | 'dashboard';
+type View = 'explorer' | 'sql' | 'jobs' | 'dashboard';
 
 export function App() {
   const [view, setView] = useState<View>('explorer');
@@ -29,6 +30,12 @@ export function App() {
       </header>
       <nav aria-label="Console sections">
         <button
+          className={view === 'jobs' ? 'active' : ''}
+          onClick={() => setView('jobs')}
+        >
+          Jobs
+        </button>
+        <button
           className={view === 'explorer' ? 'active' : ''}
           onClick={() => setView('explorer')}
         >
@@ -50,6 +57,7 @@ export function App() {
       <div className="content">
         {view === 'explorer' && <DatasetExplorer onSelect={selectManifest} />}
         {view === 'sql' && <SqlConsole manifest={manifest} />}
+        {view === 'jobs' && <JobsPanel />}
         {view === 'dashboard' && (
           <section className="panel coming-soon">
             <p className="eyebrow">Next milestone</p>

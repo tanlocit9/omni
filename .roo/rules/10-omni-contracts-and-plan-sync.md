@@ -20,6 +20,13 @@ Use `AGENTS.md` as the repository-wide coding-agent rule source and `docs/IMPLEM
 - Use upstream/downstream `dataVersion` lineage for CURRENT_INPUTS checks.
 - Do not scan full Parquet prefixes for normal readiness checks when a manifest exists.
 
+## Manual Job Operations
+
+- Manual triggers enter through Platform's private `/api/v1/jobs` API.
+- Reuse scheduler claims, dependency guards, producer registry, and outbox; preserve cron cadence.
+- Require proxy-injected operator identity, explicit allow-list, and durable idempotency/audit.
+- Never add force/bypass, browser-to-Kafka, secrets, or physical storage paths.
+
 ## Plan / Guidance Sync
 
 When implementing or materially changing any implementation plan:

@@ -9,11 +9,21 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.omni.platform.modules.scheduler.services.JobOperationException;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(JobOperationException.class)
+    public ProblemDetail handleJobOperationException(JobOperationException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
+        pd.setTitle("Job operation rejected");
+        pd.setProperty("code", ex.getCode());
+        return pd;
+    }
 
     @ExceptionHandler(UseCaseException.class)
     public ProblemDetail handleBusinessException(UseCaseException ex) {

@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(SchedulerProperties.class)
+@EnableConfigurationProperties({SchedulerProperties.class, ManualTriggerProperties.class})
 public class SchedulerConfig {
     @Bean
     public MinioClient minioClient(

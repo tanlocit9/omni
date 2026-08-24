@@ -57,7 +57,7 @@ SECTOR_CONTRIBUTORS_TYPE = pa.list_(
 )
 SECTOR_FEATURES_SCHEMA = pa.schema(
     [
-        pa.field("date", pa.timestamp("ns")),
+        pa.field("date", pa.date32()),
         pa.field("sector_code", pa.string()),
         pa.field("sector_level", pa.int64()),
         pa.field("sector_index", pa.float64()),

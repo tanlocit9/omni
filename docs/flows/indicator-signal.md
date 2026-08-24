@@ -72,7 +72,13 @@ EOD
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | Platform  | Schedules jobs, publishes analytical job requests, consumes status/notification events.                                             | Does not compute technical indicators or signal decisions. |
 | Analyzer  | Reads EOD/indicator Parquet, computes indicators/signals/evaluations, writes Parquet outputs, publishes status/notification events. | Does not own stock ingestion or Platform database state.   |
-| Ingestor  | Produces EOD input dataset.                                                                                                         | Does not compute analytical outputs.                       |
+
+EOD and Indicator joins use the shared `date32` business-date contract. Signal
+history retains the semantic key `signal_date` with the same physical type;
+`generated_at`, `last_recalculated_at`, and `actual_updated_at` are UTC
+microsecond event timestamps. Legacy files are normalized at the shared Parquet
+read boundary before joins or outcome evaluation.
+| Ingestor | Produces EOD input dataset. | Does not compute analytical outputs. |
 
 ## Dependency Enforcement
 

@@ -38,6 +38,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from py_common.storage.date_contracts import (
+    canonicalize_arrow_schema,
+    normalize_date_contracts,
+)
 from py_common.storage.exceptions import (
     ParquetDecodeError,
     StorageObjectNotFoundError,
@@ -92,15 +96,15 @@ class ParquetCodec:
             Parquet-encoded bytes.
         """
         buffer = io.BytesIO()
-        if schema is None:
-            dataframe.to_parquet(buffer, index=index)
-        else:
-            table = pa.Table.from_pandas(
-                dataframe,
-                schema=schema,
-                preserve_index=index,
-            )
-            pq.write_table(table, buffer)
+        normalized = normalize_date_contracts(dataframe)
+        inferred = pa.Table.from_pandas(normalized, preserve_index=index)
+        target_schema = canonicalize_arrow_schema(schema or inferred.schema)
+        table = pa.Table.from_pandas(
+            normalized,
+            schema=target_schema,
+            preserve_index=index,
+        )
+        pq.write_table(table, buffer)
         return buffer.getvalue()
 
     @staticmethod
@@ -117,7 +121,7 @@ class ParquetCodec:
             ParquetDecodeError: If the bytes are not valid Parquet.
         """
         try:
-            return pd.read_parquet(io.BytesIO(data))
+            return normalize_date_contracts(pd.read_parquet(io.BytesIO(data)))
         except Exception as exc:
             raise ParquetDecodeError(cause=exc) from exc
 

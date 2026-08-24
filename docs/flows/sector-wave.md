@@ -296,6 +296,11 @@ Before using Sector Wave outputs as transition-model input, revisit these protot
 
 Generic contracts such as `MissingData`, `PredictionHorizon`, and `TransitionProbability` can move to `py_common` if reused across Analyzer features. Domain-scoped outputs such as `TransitionDecision` should remain in the sector-transition research module unless they become genuinely reusable.
 
+Sector Wave `date` and Sector Transition `evaluation_date`, `target_date`,
+`resolved_date`, and `generated_from_date` use the shared Parquet `date32`
+contract. This permits direct joins with EOD/Indicator dates without timestamp or
+string coercion. Event timestamps, when present, use UTC microsecond precision.
+
 ## Source Links
 
 | Area                           | Path                                                                                                                                                   |

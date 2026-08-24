@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import duckdb
 import pyarrow as pa
+from py_common.storage.date_contracts import manifest_type_for_column
 
 from app.security import ValidatedSql
 from app.settings import QueryServiceSettings
@@ -75,8 +76,8 @@ class DuckDBExecutor:
             connection.execute(f"SET threads = {self._settings.query_threads}")
             if self._settings.query_storage_scheme == "s3":
                 self._configure_s3(connection)
-            for dataset in datasets:
-                connection.from_parquet(dataset.paths).create_view(dataset.view_name)
+            for index, dataset in enumerate(datasets):
+                self._register_dataset(connection, dataset, index)
 
             executable_sql = sql.sql
             if sql.root_kind in {"select", "union"}:
@@ -119,6 +120,38 @@ class DuckDBExecutor:
             f"USE_SSL {'true' if use_ssl else 'false'}, URL_STYLE 'path')"
         )
 
+    def _register_dataset(
+        self,
+        connection: duckdb.DuckDBPyConnection,
+        dataset: ResolvedDataset,
+        index: int,
+    ) -> None:
+        """Expose canonical DuckDB types even while reading legacy Parquet."""
+        raw_view = f"_omni_raw_{index}"
+        connection.from_parquet(dataset.paths).create_view(raw_view)
+        casts = []
+        for column in dataset.manifest.columns:
+            contract_type = manifest_type_for_column(column.name)
+            if contract_type == "DATE":
+                duckdb_type = "DATE"
+            elif contract_type == "TIMESTAMP_US_UTC":
+                duckdb_type = "TIMESTAMPTZ"
+            else:
+                continue
+            identifier = self._quote_identifier(column.name)
+            casts.append(f"CAST({identifier} AS {duckdb_type}) AS {identifier}")
+
+        target = self._quote_identifier(dataset.view_name)
+        raw = self._quote_identifier(raw_view)
+        projection = f"* REPLACE ({', '.join(casts)})" if casts else "*"
+        connection.execute(
+            f"CREATE VIEW {target} AS SELECT {projection} FROM {raw}"
+        )
+
     @staticmethod
     def _quote(value: str) -> str:
         return "'" + value.replace("'", "''") + "'"
+
+    @staticmethod
+    def _quote_identifier(value: str) -> str:
+        return '"' + value.replace('"', '""') + '"'

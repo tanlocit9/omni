@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,14 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class JobOperationsCatalogService {
+    private static final Pattern SECRET = Pattern.compile(
+            "(?i)\\b(password|secret|token|access[-_]?key|private[-_]?key)\\b\\s*[:=]\\s*[^,;\\s]+");
+    private static final Pattern STORAGE_URI = Pattern.compile(
+            "(?i)\\b(?:s3|minio|file)://[^\\s,;]+");
+    private static final Pattern WINDOWS_PATH = Pattern.compile(
+            "(?i)(?<![A-Za-z0-9_])[A-Z]:\\\\(?:[^\\s\\\\]+\\\\)+[^\\s,;]+");
+    private static final Pattern UNIX_STORAGE_PATH = Pattern.compile(
+            "(?<![A-Za-z0-9_])/(?:data|mnt|var|tmp|opt|srv|home)/[^\\s,;]+");
     private final JobDefinitionRepository jobDefinitionRepository;
     private final JobExecutionHistoryRepository executionRepository;
     private final BlockedJobRepository blockedJobRepository;
@@ -151,6 +160,10 @@ public class JobOperationsCatalogService {
             return null;
         }
         String compact = value.replaceAll("[\\r\\n\\t]+", " ").trim();
+        compact = SECRET.matcher(compact).replaceAll("$1=[redacted]");
+        compact = STORAGE_URI.matcher(compact).replaceAll("[redacted-location]");
+        compact = WINDOWS_PATH.matcher(compact).replaceAll("[redacted-location]");
+        compact = UNIX_STORAGE_PATH.matcher(compact).replaceAll("[redacted-location]");
         return compact.length() <= 500 ? compact : compact.substring(0, 500);
     }
 

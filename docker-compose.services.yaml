@@ -27,6 +27,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-stock-data}
+      APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST: ${APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST:-}
     volumes:
       - ./apps/core/src:/app/src:ro
 

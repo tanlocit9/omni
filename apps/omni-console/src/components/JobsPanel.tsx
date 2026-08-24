@@ -209,6 +209,9 @@ export function JobsPanel() {
       </aside>
 
       <div className="panel job-detail">
+        <div aria-live="polite">
+          {message && <p className="callout warning">{message}</p>}
+        </div>
         {!selected && <p className="muted">Select a job definition.</p>}
         {selected && !detail && <p className="muted">Loading job details…</p>}
         {detail && (
@@ -282,8 +285,7 @@ export function JobsPanel() {
               </section>
             </div>
 
-            <div aria-live="polite">
-              {message && <p className="callout warning">{message}</p>}
+            <div>
               {trigger && (
                 <section className="trigger-result">
                   <div>

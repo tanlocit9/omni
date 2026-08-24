@@ -83,13 +83,13 @@ erDiagram
 
 ### Manual job triggers
 
-| Field          | Value                                                                                                                                                                                        |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Migration      | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                     |
-| Owner          | Platform scheduler/job-operations module                                                                                                                                                     |
-| Purpose        | Durable operator audit and idempotency ledger; a blocked request intentionally has no execution row.                                                                                        |
+| Field          | Value                                                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migration      | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                         |
+| Owner          | Platform scheduler/job-operations module                                                                                                                                                         |
+| Purpose        | Durable operator audit and idempotency ledger; a blocked request intentionally has no execution row.                                                                                             |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java) |
-| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                   |
+| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                       |
 
 ### Symbols
 

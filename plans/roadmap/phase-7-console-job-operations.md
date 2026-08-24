@@ -52,7 +52,7 @@ Implementation must review and synchronize [`AGENTS.md`](../../AGENTS.md), [`CLA
 | owned_modules           | [apps/core, apps/omni-console, docs/flows]    |
 | execution_mode          | autonomous                                    |
 | requires_owner_decision | false                                         |
-| pr                      | null                                          |
+| pr                      | https://github.com/tanlocit9/omni/pull/15     |
 | last_verified_commit    | null                                          |
 
 Goal: expose a bounded, read-only Platform catalog of existing job definitions and the metadata needed to render safe operator controls.
@@ -83,7 +83,7 @@ Stop conditions: stop if P6-I4 is not completed, no trustworthy operator princip
 | owned_modules           | [apps/core, database/migrations, docs/flows] |
 | execution_mode          | autonomous                                   |
 | requires_owner_decision | false                                        |
-| pr                      | null                                         |
+| pr                      | https://github.com/tanlocit9/omni/pull/15    |
 | last_verified_commit    | null                                         |
 
 Goal: submit an intentional operator trigger through the existing Platform scheduler boundary and return a stable execution identity with truthful status.
@@ -116,7 +116,7 @@ Stop conditions: stop if implementation bypasses scheduler claims, dependency gu
 | owned_modules           | [apps/omni-console, apps/core, docs]           |
 | execution_mode          | autonomous                                     |
 | requires_owner_decision | false                                          |
-| pr                      | null                                           |
+| pr                      | https://github.com/tanlocit9/omni/pull/15      |
 | last_verified_commit    | null                                           |
 
 Goal: add a Jobs tab alongside Datasets that presents definition state, deliberate trigger controls, and execution progress through the Platform API.

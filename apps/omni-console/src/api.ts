@@ -195,7 +195,9 @@ export function triggerJob(
   idempotencyKey: string
 ): Promise<ManualTriggerResponse> {
   return fetch(
-    `${PLATFORM_API_BASE}/api/v1/jobs/definitions/${encodeURIComponent(id)}/triggers`,
+    `${PLATFORM_API_BASE}/api/v1/jobs/definitions/${encodeURIComponent(
+      id
+    )}/triggers`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

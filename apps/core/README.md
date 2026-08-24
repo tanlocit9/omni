@@ -40,12 +40,12 @@ Platform owns API boundaries, scheduler orchestration, job definitions, executio
 
 ## Entry Points
 
-| Entry point                                                                                                                                                | Purpose                              |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| [`src/main/java/com/omni/platform/PlatformApplication.java`](src/main/java/com/omni/platform/PlatformApplication.java)                                     | Spring Boot application entry point. |
-| [`src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java)       | Scheduled job trigger.               |
-| [`src/main/java/com/omni/platform/modules/scheduler/services/JobService.java`](src/main/java/com/omni/platform/modules/scheduler/services/JobService.java) | Job orchestration service.           |
-| [`src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java`](src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java) | Private job operations HTTP API. |
+| Entry point                                                                                                                                                                                | Purpose                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| [`src/main/java/com/omni/platform/PlatformApplication.java`](src/main/java/com/omni/platform/PlatformApplication.java)                                                                     | Spring Boot application entry point. |
+| [`src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java)                                       | Scheduled job trigger.               |
+| [`src/main/java/com/omni/platform/modules/scheduler/services/JobService.java`](src/main/java/com/omni/platform/modules/scheduler/services/JobService.java)                                 | Job orchestration service.           |
+| [`src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java`](src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java) | Private job operations HTTP API.     |
 
 ## Private job operations API
 

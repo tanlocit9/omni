@@ -13,7 +13,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 		sharedModules = {"shared"},
 		additionalPackages = {"modules"}
 )
-@EntityScan(basePackages = {"com.omni.platform.modules"})
+@EntityScan(basePackages = {
+		"com.omni.platform.modules",
+		"org.springframework.modulith.events.jpa"
+})
 @SpringBootApplication(scanBasePackages = "com.omni.platform")
 public class PlatformApplication {
 

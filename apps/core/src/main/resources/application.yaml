@@ -27,6 +27,11 @@ spring:
       auto-offset-reset: earliest
 
 app:
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:stock-data}
   scheduler:
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}

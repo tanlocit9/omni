@@ -18,7 +18,7 @@ class QueryServiceSettings(BaseAppSettings):
     query_storage_scheme: Literal["s3", "file"] = Field(default="s3")
     query_local_data_root: str | None = Field(default=None)
     query_cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:4200"]
+        default_factory=lambda: ["http://localhost:5173"]
     )
 
 

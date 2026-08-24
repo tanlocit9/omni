@@ -204,8 +204,8 @@ jobs:
       - name: Inspect Nx project targets
         run: npx nx show project platform
 
-      - name: Test
-        run: npx nx run platform:test
-
-      - name: Build
+      # Gradle's `build` lifecycle already compiles and runs the test suite.
+      # Keeping a separate test step would run the tests twice because the
+      # platform build target executes `clean build`.
+      - name: Build and test
         run: npx nx run platform:build

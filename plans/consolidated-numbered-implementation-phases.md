@@ -2,6 +2,8 @@
 
 This file is a compatibility index. The canonical autonomous-delivery roadmap starts at [`plans/roadmap/README.md`](roadmap/README.md), and the dependency-ordered increment registry is [`plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md).
 
+> Status reconciliation: before executing or updating an increment on `feature/parquet-date-normalization`, apply [`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md) where older roadmap text conflicts with the latest verified source/evidence. In particular, the old repository-wide `workType/workKey` migration semantics for P1-I4 are superseded.
+
 ## Phase Index
 
 1. [Phase 0 — Immediate correctness hotfixes](roadmap/phase-0-immediate-correctness.md)
@@ -19,6 +21,7 @@ This file is a compatibility index. The canonical autonomous-delivery roadmap st
 ## Supporting Files
 
 - [Dependency-ordered implementation increments](roadmap/implementation-increments.md)
+- [Status reconciliation — 2026-08-25](roadmap/status-reconciliation-2026-08-25.md)
 - [Automation rules](roadmap/automation-rules.md)
 - [Cross-phase rules and definition of done](roadmap/cross-phase-rules.md)
 - [Execution log](roadmap/execution-log.md)
@@ -27,4 +30,4 @@ This file is a compatibility index. The canonical autonomous-delivery roadmap st
 
 ## Immediate Next Action
 
-The next canonical increment is [P3-I1 in the increment registry](roadmap/implementation-increments.md); implementation is present, but fresh acceptance, Nx, and CI evidence remains required.
+Do not select work from stale status summaries alone. Reconcile the increment registry with the latest evidence first: Phase 7 is complete; P3-I4 implementation commit `215b41a` passed CI run #153; P1-I3 is committed and CI-verified in that same implementation commit but still lacks an increment-specific PR if that remains a hard completion requirement. P1-I4 must preserve domain-specific keys (`symbolKey`, `sectorKey`, `exchangeKey`) at domain/Kafka boundaries and must not perform a repository-wide `workType/workKey` replacement.

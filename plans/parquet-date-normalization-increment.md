@@ -5,9 +5,15 @@
 `verification_pending`
 
 Implementation is present on `feature/parquet-date-normalization`. Targeted local
-acceptance checks pass in implementation commit `2ecb6ba`. The increment is on
-[stacked draft PR #16](https://github.com/tanlocit9/omni/pull/16); completion
-requires CI to pass for its final head.
+acceptance checks pass. The latest implementation commit is `215b41a`, and the
+increment is on [draft PR #16](https://github.com/tanlocit9/omni/pull/16), now based
+directly on `main`. CI run `#153` is in progress for implementation commit
+`215b41a`; completion still requires a green CI result for the final branch state.
+
+The same implementation commit also contains the P1-I3 canonical Sector
+Transition writer cleanup: the previous per-sector competing writers are replaced
+by one logical writer per shared output family. That change is committed but
+remains verification-pending until branch CI completes successfully.
 
 ## Goal
 
@@ -16,11 +22,14 @@ timestamps without renaming semantic fields or changing dataset ownership.
 
 ## Baseline and dependency
 
-- Base: stable `feature/phase-7` head `7b3c98f` with passing CI run `#150`.
+- Base: current `main` at `bd377c3`; before this documentation-only status update,
+  the implementation branch was 3 commits ahead and 0 behind.
+- Phase 7 prerequisite work has already been integrated into the current `main`
+  baseline; PR #16 no longer needs to remain stacked on `feature/phase-7`.
 - Requires the shared Parquet and READY-last manifest abstractions already in
   `libs/py-common`.
-- Independent from Phase 7 runtime/deployment code; delivered as a stacked draft
-  PR whose base remains `feature/phase-7` until that PR is merged.
+- Runtime/deployment ownership remains independent from the date-contract
+  normalization itself.
 
 ## Contract
 
@@ -40,6 +49,8 @@ timestamps without renaming semantic fields or changing dataset ownership.
 - Idempotent, versioned, read-back-validated backfill with immutable manifest then
   READY pointer publication. The previous READY object is never overwritten.
 - Contract, join, manifest, Query Service, and backfill failure-safety tests.
+- P1-I3 scheduler cleanup now uses one canonical-universe Sector Transition writer
+  for analysis and one for outcome evaluation instead of one writer per sector.
 
 ## Acceptance checks
 
@@ -53,8 +64,19 @@ npx nx format:write
 npx nx format:check
 ```
 
-Use the repository CI workflow as final evidence. Mark this increment `completed`
-only after its own branch head is green.
+Latest recorded local evidence for the implementation:
+
+- `py-common:test`: 144 passed
+- `ingestor:test`: 18 passed
+- `analyzer:test`: 79 passed
+- `query-service:test`: 17 passed
+- lint/build passed for all four owning projects
+- `nx format:write`, `nx format:check`, and `git diff --check` passed
+
+Use repository CI run `#153` as evidence for implementation commit `215b41a`.
+Because this status update is documentation-only, keep the increment
+`verification_pending` until the branch's final CI state is green; do not promote
+completion from local evidence alone.
 
 ## Migration and rollback
 
@@ -66,5 +88,5 @@ rejected so an owner-specific partition rewrite can be supplied. On failure the
 old READY pointer and object remain valid; rollback is republishing the previous
 immutable manifest as READY.
 
-After Phase 7 merges, rebase this branch onto `main` and retarget the draft PR;
-do not merge automatically.
+PR #16 is already targeted to `main`; no further Phase 7 retarget step is required.
+Do not merge automatically. Keep status `verification_pending` until CI is green.

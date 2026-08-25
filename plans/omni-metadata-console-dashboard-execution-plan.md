@@ -42,6 +42,7 @@ After completion:
 13. Unrelated local changes are preserved. Dirty worktrees are never destructively reset or rebased.
 14. Proto3 migration, dependency-guard expansion, portable deployment, realtime ingestion, and AI/ML are not prerequisites for this sequence.
 15. Phase 7 job operations is a follow-on capability: Platform owns definition catalog, trigger validation, scheduler dispatch, idempotency, audit, and execution status; Query Service remains read-only and the Console does not publish directly to Kafka.
+16. Pending P3-I5 may add `Refresh Metadata` to Dataset Explorer only through the existing Phase 7 trigger API. It reads existing Parquet and republishes canonical metadata; it does not rewrite Parquet, add a dataset endpoint, or depend on P1-I4 `workType`/`workKey`.
 
 ## Dataset Outputs
 
@@ -51,6 +52,7 @@ After completion:
 | M2        | Verifies canonical metadata publication for the existing EOD dataset.                                   |
 | M2A       | Repairs indicator metadata so its READY identity includes exact EOD lineage and persisted output bytes. |
 | M3–M6     | No analytical dataset output; read-only application and API behavior only.                              |
+| P3-I5     | No analytical dataset output; existing Parquet is read and metadata alone is republished.               |
 | M7        | Existing analytical outputs are keyed by `effectiveDataDate`; no new dataset family is required.        |
 
 ## Metadata Outputs
@@ -65,6 +67,11 @@ _metadata/datasets/<dataset>/<partition_path>/READY.json
 An empty partition uses `_default`. Required identity/readiness fields include manifest version, dataset, normalized partition, status, logical path, deterministic `dataVersion`, persisted object statistics, schema identity, lineage inputs, and generation timestamp. `generatedAt` is excluded from deterministic identity.
 
 M7 records requested date, effective data date, resolution policy, fallback reason, and exact consumed input versions in execution and/or manifest metadata without weakening deterministic identity.
+
+Pending P3-I5 re-derives the existing canonical manifest for one exact EOD partition
+from persisted Parquet bytes. It writes and validates the immutable version before
+replacing READY, preserves prior READY on failure, and must produce the same
+`dataVersion` for unchanged content.
 
 ## Algorithm Feature Outputs
 
@@ -317,6 +324,19 @@ Catalog navigation/filtering; partition selection; lineage; value/date formattin
 ### Gate
 
 Explorer loads the real EOD/indicator metadata through Platform; summaries require no Parquet scan; errors are actionable; Viewer receives canonical identity.
+
+### Planned P3-I5 follow-on — Refresh Metadata
+
+After the Dataset Explorer and Phase 7 trigger boundaries are available, P3-I5
+plans a supported-partition action for exact EOD HOSE/HNX/UPCOM partitions. The
+confirmation displays logical dataset and partition and requires a reason. Console
+submits `REBUILD_DATASET_METADATA` through Platform, shows the execution ID, polls
+the existing status endpoint, and reloads metadata after success. Duplicate clicks
+are disabled and a failed run leaves the current view intact.
+
+This follow-on remains `pending` and is not part of the M4 completion gate. Its
+canonical scope, contract impact, tests, and acceptance criteria are in
+[`roadmap/phase-3-dataset-manifests.md`](roadmap/phase-3-dataset-manifests.md#increment-p3-i5--manual-dataset-metadata-rebuild).
 
 ## M5 — Parquet Viewer and SQL Console
 

@@ -15,6 +15,7 @@ kafka:
     topic-sector-rotation-backtest: topic-sector-rotation-backtest
     topic-sector-transition-analyze: topic-sector-transition-analyze
     topic-sector-transition-evaluate-outcomes: topic-sector-transition-evaluate-outcomes
+    topic-sync-metadata: topic-sync-metadata
 
 app:
   scheduler:

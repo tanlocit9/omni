@@ -187,7 +187,40 @@ await publish_dataset_manifest(
 )
 ```
 
-See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) for full details.
+### Planned Manual Metadata Rebuild
+
+Roadmap increment P3-I5 plans a controlled rebuild of metadata for one exact
+existing dataset partition. V1 is limited to logical `eod` partitions with
+`exchange=HOSE`, `HNX`, or `UPCOM` and remains `pending`; no runtime capability is
+implemented by this documentation update.
+
+The operator action enters through Platform's existing Phase 7 manual-trigger API
+as `REBUILD_DATASET_METADATA`. The browser supplies only the logical dataset,
+partition, and normal trigger reason/idempotency metadata. Bucket names, object
+paths, manifest paths, and storage credentials are rejected and resolved only by
+the owning service through shared registry/path builders.
+
+```text
+existing Parquet
+  -> resolve from logical dataset + exact partition
+  -> read and validate persisted bytes
+  -> derive schema, rows, objects, bytes, checksums, and date range
+  -> calculate canonical deterministic dataVersion
+  -> write and validate immutable version manifest
+  -> replace READY last
+```
+
+This operation does not recompute analytical data, backfill history, rewrite
+Parquet, scan all partitions, or change dataset ownership. The shared manifest
+hashing and publication abstractions remain authoritative. An unchanged physical
+dataset must produce the same `dataVersion`; any read, validation, immutable-write,
+or READY-replacement failure leaves the previous READY pointer authoritative.
+Concurrent rebuilds are serialized by normalized `dataset + partition` through the
+existing Platform claim/concurrency boundary.
+
+See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) for full details and
+[Phase 3 P3-I5](../../plans/roadmap/phase-3-dataset-manifests.md#increment-p3-i5--manual-dataset-metadata-rebuild)
+for the pending manual-rebuild scope and acceptance criteria.
 
 ## Datasets
 

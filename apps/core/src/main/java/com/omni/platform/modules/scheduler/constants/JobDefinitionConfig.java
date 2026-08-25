@@ -244,6 +244,20 @@ public class JobDefinitionConfig {
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_MINUTE,
                         SECTOR_TRANSITION_STEP_MINUTES);
 
+        // Metadata Writer Job (deferred, not in boot)
+        private static final List<JobDefinitionSeed> SYNC_METADATA_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.ANALYZER,
+                                        List.of(),
+                                        JobType.SYNC_METADATA,
+                                        "Sync/publish all metadata manifests",
+                                        "0 0 20 * * MON-FRI", // Example: 8pm every weekday
+                                        configWithDependencies(
+                                                        Map.of("metadataType", "UNIVERSAL"),
+                                                        List.of(),
+                                                        List.of(),
+                                                        List.of())));
+
         public static final List<JobDefinitionSeed> BOOTSTRAP_JOB_DEFINITION_SEEDS = Stream.of(
                         SYNC_SYMBOLS_SEEDS,
                         SYNC_STOCK_PRICE_SEEDS,
@@ -259,7 +273,8 @@ public class JobDefinitionConfig {
                         PRECOMPUTE_SECTOR_FEATURES_SEEDS,
                         SECTOR_ROTATION_BACKTEST_SEEDS,
                         SECTOR_TRANSITION_ANALYZE_SEEDS,
-                        SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS)
+                        SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS,
+                        SYNC_METADATA_SEEDS)
                         .filter(Objects::nonNull)
                         .flatMap(List::stream)
                         .toList();
@@ -275,7 +290,8 @@ public class JobDefinitionConfig {
                 List<JobDefinitionSeed> seeds = new ArrayList<>();
                 for (int i = 0; i < ENABLED_SECTOR_CODES.size(); i++) {
                         String sectorCode = ENABLED_SECTOR_CODES.get(i);
-                        seeds.add(syncStockPriceSeed(sectorCode, weekdayCron(startHour, startMinute + i * stepMinutes)));
+                        seeds.add(syncStockPriceSeed(sectorCode,
+                                        weekdayCron(startHour, startMinute + i * stepMinutes)));
                 }
                 return List.copyOf(seeds);
         }
@@ -429,4 +445,5 @@ public class JobDefinitionConfig {
                         return e;
                 }
         }
+
 }

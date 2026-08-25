@@ -39,6 +39,7 @@ export function JobsPanel() {
   const [detail, setDetail] = useState<JobDefinitionDetail | null>(null);
   const [query, setQuery] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
+  const [triggerableOnly, setTriggerableOnly] = useState(false);
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -95,9 +96,14 @@ export function JobsPanel() {
     []
   );
 
+  const filtered = useMemo(
+    () => (triggerableOnly ? jobs.filter((job) => job.triggerable) : jobs),
+    [jobs, triggerableOnly]
+  );
+
   const selected = useMemo(
-    () => jobs.find((job) => job.id === selectedId) ?? null,
-    [jobs, selectedId]
+    () => filtered.find((job) => job.id === selectedId) ?? null,
+    [filtered, selectedId]
   );
 
   async function poll(requestId: string) {
@@ -163,7 +169,7 @@ export function JobsPanel() {
             <p className="eyebrow">Operations</p>
             <h2>Job catalog</h2>
           </div>
-          <span>{jobs.length}</span>
+          <span>{filtered.length}</span>
         </div>
         <label>
           <span className="field-label">Search jobs</span>
@@ -181,12 +187,20 @@ export function JobsPanel() {
           />
           Active definitions only
         </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={triggerableOnly}
+            onChange={(event) => setTriggerableOnly(event.target.checked)}
+          />
+          Allow-list only (triggerable)
+        </label>
         <div className="stack-list" aria-busy={loading}>
           {loading && <p className="muted">Loading definitions…</p>}
-          {!loading && jobs.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <p className="muted">No matching definitions.</p>
           )}
-          {jobs.map((job) => (
+          {filtered.map((job) => (
             <button
               key={job.id}
               className={`list-item ${selectedId === job.id ? 'active' : ''}`}

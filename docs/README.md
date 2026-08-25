@@ -15,7 +15,8 @@ This directory is the documentation entry point for Omni. It is designed to help
 9. [Codex control and tooling plan](development/codex-control-and-tooling.md) — proposed skills, MCP integrations, guardrails, and rollout order.
 10. [Canonical roadmap](../plans/roadmap/README.md) — phase ordering, increment status, dependencies, and execution evidence.
 11. [Phase 7 Console job operations](../plans/roadmap/phase-7-console-job-operations.md) — Platform-owned job catalog/trigger/status contracts and the Omni Console Jobs tab.
-12. [Cloudflare-first low-cost deployment decision](deployment/cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
+12. [Phase 3 dataset manifests](../plans/roadmap/phase-3-dataset-manifests.md) — canonical manifest increments, including pending P3-I5 manual metadata rebuild through the Phase 7 trigger boundary.
+13. [Cloudflare-first low-cost deployment decision](deployment/cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 
 ## Contract / Coordination Plans
 

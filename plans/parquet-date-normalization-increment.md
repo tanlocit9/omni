@@ -99,3 +99,24 @@ Do not merge automatically.
 
 For status/semantic drift in older roadmap files, see
 [`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md).
+
+## Follow-on: P3-I5 manual dataset metadata rebuild
+
+P3-I5 is a separate `pending` increment, not part of completed P3-I4 implementation.
+It may reuse P3-I4's canonical date/schema decoding while reading persisted Parquet,
+but it does not rewrite date contracts or any Parquet bytes.
+
+V1 adds a manual-only `REBUILD_DATASET_METADATA` operation for one exact EOD
+partition (`exchange=HOSE`, `HNX`, or `UPCOM`). The action must reuse the completed
+Phase 7 Platform trigger, identity, allow-list, idempotency, audit, dependency,
+claim/concurrency, producer/outbox, and status boundaries. It depends on P3-I1 and
+P7-I2 and explicitly does not depend on P1-I4 `workType`/`workKey` migration.
+
+The rebuild resolves storage internally from logical dataset/partition input, reads
+and validates existing Parquet, derives canonical statistics/schema/checksums,
+calculates deterministic `dataVersion`, writes and validates the immutable manifest,
+and replaces READY last. Failure preserves the previous READY. Browser-supplied
+bucket, object path, manifest path, credentials, wildcard partitions, force/bypass,
+direct Kafka/object-storage access, backfill, and Parquet rewrite remain out of
+scope. Canonical scope and acceptance criteria are owned by
+[`roadmap/phase-3-dataset-manifests.md`](roadmap/phase-3-dataset-manifests.md).

@@ -36,7 +36,10 @@ app:
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}
     manual-trigger:
-      allow-list: ${APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST:}
+      # allow-list is injected directly from .env as the canonical property key
+      # app.scheduler.manual-trigger.allow-list (comma-separated, split by Spring
+      # Boot relaxed binding).  A YAML scalar placeholder is NOT used here because
+      # ${ENV_VAR:} resolves to a single string and is never split into List<String>.
     claim:
       lease-duration: ${APP_SCHEDULER_CLAIM_LEASE_DURATION:PT2M}
       batch-size: ${APP_SCHEDULER_CLAIM_BATCH_SIZE:10}

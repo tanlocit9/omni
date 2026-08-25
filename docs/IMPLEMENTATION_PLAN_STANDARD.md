@@ -110,6 +110,10 @@ Rules:
 Define the Nx targets/tests/contract checks needed for the change.
 
 Shared contract changes should include producer/consumer tests and `nx affected` checks.
+Agents must not execute build, test, lint, format, affected checks, or equivalent
+underlying tools unless the current user prompt explicitly requests them or the
+user approves a concrete command list. Until approved, record required checks as
+**not run**; do not treat them as passed or waive them from acceptance criteria.
 
 ### Acceptance Criteria
 

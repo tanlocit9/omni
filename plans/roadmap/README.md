@@ -93,7 +93,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Current focused execution plan
 
-[`plans/omni-metadata-console-dashboard-execution-plan.md`](../omni-metadata-console-dashboard-execution-plan.md) is the canonical gated sequence for Query Service, Omni Console Dataset Explorer/Viewer, SQL Console, Saved Query-backed Dashboard, and Force Precompute date semantics. It does not reorder unrelated roadmap phases globally.
+[`plans/omni-metadata-console-dashboard-execution-plan.md`](../omni-metadata-console-dashboard-execution-plan.md) is the canonical gated sequence for Query Service, Omni Console Dataset Explorer/Viewer, SQL Console, Saved Query-backed Dashboard, and Force Precompute date semantics. It does not reorder unrelated roadmap phases globally. Pending P3-I5 adds a bounded Dataset Explorer `Refresh Metadata` follow-on that reuses completed Phase 7 job operations; canonical scope remains in [`phase-3-dataset-manifests.md`](phase-3-dataset-manifests.md#increment-p3-i5--manual-dataset-metadata-rebuild).
 
 ## Supporting plan inventory
 
@@ -113,7 +113,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Selection summary
 
-P3-I4 is completed on draft PR #16 at `ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124` after exact-head CI run #154 passed; the PR remains unmerged for owner review. P1-I3 is `verification_pending`: its implementation, Platform/Analyzer checks, graph review, commit, and CI evidence are present on PR #16, but the PR is owned by P3-I4 rather than increment-specific, so P3-I3 and P9-I3 remain blocked. P3-I1 remains blocked because its historical failed PR/merge CI has no fresh successful replacement. P4-I1/P4-I2 and Phase 7 retain their completed evidence. P1-I4 remains ready and unstarted.
+P3-I4 is completed on draft PR #16 at `ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124` after exact-head CI run #154 passed; the PR remains unmerged for owner review. P1-I3 is `verification_pending`: its implementation, Platform/Analyzer checks, graph review, commit, and CI evidence are present on PR #16, but the PR is owned by P3-I4 rather than increment-specific, so P3-I3 and P9-I3 remain blocked. P3-I1 remains blocked because its historical failed PR/merge CI has no fresh successful replacement. P3-I5 is recorded as `pending`, depends on P3-I1 and completed P7-I2, and has no implementation evidence. P4-I1/P4-I2 and Phase 7 retain their completed evidence. P1-I4 remains ready and unstarted.
 
 Automation must not select approval-required or manual work until the owner resolves the recorded decision or access need.
 

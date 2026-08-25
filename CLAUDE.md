@@ -3,114 +3,29 @@
 
 # General Guidelines for working with Nx
 
-- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- You have access to the Nx MCP server and its tools, use them to help the user
-- When answering questions about the repository, use the `nx_workspace` tool first to gain an understanding of the workspace architecture where applicable.
-- When working in individual projects, use the `nx_project_details` mcp tool to analyze and understand the specific project structure and dependencies
-- For questions around nx configuration, best practices or if you're unsure, use the `nx_docs` tool to get relevant, up-to-date docs. Always use this instead of assuming things about nx configuration
-- If the user needs help with an Nx configuration or project graph error, use the `nx_workspace` tool to get any errors
-- For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
+- Prefer Nx targets over underlying tools for repository operations.
+- Use Nx workspace/project MCP tools when available to inspect architecture,
+  project details, configuration errors, and current Nx documentation.
+- Check `node_modules/@nx/<plugin>/PLUGIN.md` for plugin-specific guidance when
+  present.
 
 <!-- nx configuration end-->
 
----
+# Omni repository guidance
 
-# Codebase Architecture & Guidelines
+[`AGENTS.md`](AGENTS.md) is the canonical repository-wide agent policy. Follow its
+workflow, verification approval gate, Nx boundary, contract/data guardrails, and
+repository boundaries without duplicating them here.
 
-For detailed codebase architecture, workspace structure, application specifications, and development guidelines, refer to **AGENTS.md**.
+Use `code-review-graph` before manual exploration, for impact analysis of shared
+contracts, and for post-edit change detection as specified in [`AGENTS.md`](AGENTS.md).
 
-That file contains comprehensive information about:
+Canonical navigation:
 
-- Workspace overview and structure
-- Application-specific tech stacks and architectures
-- Infrastructure configuration
-- Deployment targets and cloud portability
-- S3 data lake path configuration
-- Common workflows
-- Development best practices
+- [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/development/where-to-change.md`](docs/development/where-to-change.md) — ownership
+- [`docs/IMPLEMENTATION_PLAN_STANDARD.md`](docs/IMPLEMENTATION_PLAN_STANDARD.md) — plan rules
+- [`plans/roadmap/automation-rules.md`](plans/roadmap/automation-rules.md) — roadmap automation
 
-<!-- code-review-graph MCP tools -->
-
-## MCP Tools: code-review-graph
-
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
-
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
-
-### Key Tools
-
-| Tool                        | Use when                                               |
-| --------------------------- | ------------------------------------------------------ |
-| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
-| `get_review_context`        | Need source snippets for review — token-efficient      |
-| `get_impact_radius`         | Understanding blast radius of a change                 |
-| `get_affected_flows`        | Finding which execution paths are impacted             |
-| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
-| `get_architecture_overview` | Understanding high-level codebase structure            |
-| `refactor_tool`             | Planning renames, finding dead code                    |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
-
-## Cross-Service Proto3 Contracts
-
-Follow the canonical contract rules in `AGENTS.md` and:
-
-```text
-docs/CROSS_SERVICE_PROTOBUF_CONTRACTS_IMPLEMENTATION_PLAN.md
-```
-
-When the `contracts` Nx project exists:
-
-- use `nx run contracts:<target>` rather than direct Buf/protoc commands when a matching target exists;
-- treat `libs/contracts/gen` as ignored build output and never commit or edit generated protobuf code manually;
-- make consumer build/package targets depend on `contracts:generate` before compiling generated types;
-- review producer and consumer together;
-- run breaking-change checks for proto changes;
-- keep object-storage DatasetManifest JSON separate from Kafka protobuf contracts.
-
-## Implementation Plan Guidance Sync
-
-Every implementation plan follows:
-
-```text
-docs/IMPLEMENTATION_PLAN_STANDARD.md
-```
-
-When implementing or materially editing a plan, inspect `Contract Impact` and `Repository Guidance Updates`.
-
-If architecture/contracts/workflows/tool usage changed, synchronize:
-
-```text
-AGENTS.md
-CLAUDE.md
-.roo/rules/
-relevant canonical docs
-```
-
-Do not mark an implementation complete while agent guidance describes the previous architecture.
-
-## Manual Job Operations
-
-Manual operator runs enter through Platform's private `/api/v1/jobs` API and
-reuse scheduler claims, dependency guards, registered producers, and the
-transactional outbox without advancing cron cadence. Require a proxy-injected
-operator, an explicit allow-list, and durable idempotency/audit. Do not add
-force/bypass, browser-to-Kafka, secret fields, or physical storage paths.
+Do not execute build, test, lint, format, affected checks, or equivalent tools
+without the explicit request or command approval required by [`AGENTS.md`](AGENTS.md).

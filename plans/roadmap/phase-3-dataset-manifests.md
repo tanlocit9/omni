@@ -155,9 +155,149 @@ Stop conditions: stop on wildcard/multi-object READY partitions until the owning
 dataset supplies an explicit partition rewrite, or if a physical path ownership
 change becomes necessary.
 
+## Increment P3-I5 — Manual dataset metadata rebuild
+
+| Field                   | Value                                                                 |
+| ----------------------- | --------------------------------------------------------------------- |
+| id                      | P3-I5                                                                 |
+| title                   | Manual dataset metadata rebuild                                       |
+| status                  | pending                                                               |
+| priority                | high                                                                  |
+| depends_on              | [P3-I1, P7-I2]                                                        |
+| blocks                  | []                                                                    |
+| owned_modules           | [apps/core, apps/omni-console, libs/py-common, docs/data, docs/flows] |
+| execution_mode          | autonomous                                                            |
+| requires_owner_decision | false                                                                 |
+| pr                      | null                                                                  |
+| last_verified_commit    | null                                                                  |
+
+Goal: let an authenticated operator rebuild canonical metadata for one exact
+existing dataset partition without recomputing or rewriting its Parquet data and
+without creating a scheduler bypass. V1 supports `eod` partitions whose exact
+logical input is `dataset=eod` plus `exchange=HOSE`, `HNX`, or `UPCOM`.
+
+Outcome: Dataset Explorer exposes a `Refresh Metadata` action for supported exact
+partitions. It submits `REBUILD_DATASET_METADATA` through the existing Phase 7
+Platform trigger API with a reason and logical `dataset`/`partition` parameters,
+then displays the execution ID, polls the existing status API, and refreshes the
+metadata view only after success.
+
+Dataset outputs: no analytical dataset output. Existing Parquet is read and
+validated but is neither recomputed, backfilled, deleted, nor rewritten.
+
+Metadata outputs: the rebuild resolves physical storage internally, derives the
+canonical schema, row/object/byte statistics, exact persisted-byte checksums, and
+business-date range where applicable, then calculates deterministic `dataVersion`.
+It writes `_metadata/datasets/<dataset>/<partition_path>/versions/<dataVersion>.json`,
+validates the persisted immutable manifest, and replaces
+`_metadata/datasets/<dataset>/<partition_path>/READY.json` last. Any failure
+preserves the previous READY pointer.
+
+Algorithm feature outputs: no direct algorithm feature output. The rebuilt
+metadata restores reproducible schema/statistics/checksum identity for existing
+Parquet without changing analytical values.
+
+Algorithms unlocked: metadata health and lineage inspection become recoverable
+through a controlled operator action; no new analytical algorithm is introduced.
+
+Contract impact:
+
+- Kafka/service-to-service protobuf: unchanged for V1. The browser never publishes
+  to Kafka, and no new wire schema is planned; implementation must stop for a
+  producer/consumer migration plan if the existing dispatch contract cannot carry
+  the typed logical parameters safely.
+- Object-storage JSON manifest: no schema change is planned. P3-I5 republishes the
+  existing canonical deterministic manifest contract with immutable-before-READY
+  ordering and previous-READY preservation.
+- Storage path/dataset ownership: unchanged. Clients cannot supply bucket, object,
+  or manifest paths; shared registry/path builders resolve physical storage.
+- Public Java/Python API: a reusable Python `rebuild(dataset, partition)` service
+  is planned in `libs/py-common`, using existing hashing and `ManifestWriter`
+  publication behavior rather than duplicating it. Platform extends its existing
+  typed manual-trigger parameter validation and registered job handling.
+- Configuration/environment contract: the Phase 7 allow-list gains the dedicated
+  manual-only job definition. No storage credential or browser-visible path
+  configuration is added.
+
+Scope and approach:
+
+1. Add manual-only `REBUILD_DATASET_METADATA`; no cron is required for V1.
+2. Add it to the existing Phase 7 allow-list and reuse operator identity,
+   idempotency, audit, dependency guard, exact claim/concurrency, producer/outbox,
+   and execution-status behavior.
+3. Validate supported datasets, exact required partition keys, allowed values, and
+   reject unknown or physical-path-like fields.
+4. Resolve existing Parquet through the shared logical storage contract; derive
+   canonical metadata from persisted bytes and reuse shared deterministic hashing
+   and publication rules.
+5. Serialize work by normalized `dataset + partition`; duplicate idempotent requests
+   must not create duplicate executions and concurrent rebuilds of the same exact
+   partition must not run together.
+6. Add Dataset Explorer confirmation with dataset, partition, and required reason;
+   prevent duplicate clicks, poll boundedly, preserve the current metadata view on
+   failure, and refresh it after `SUCCESS`.
+7. Extend the same typed contract later to indicators, signals, sector-wave, and
+   sector-transition only after each dataset's exact partition contract is defined
+   and covered. V1 does not implement bulk or wildcard rebuilds.
+
+Repository guidance updates: implementation must review and synchronize
+[`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
+[`.roo/rules`](../../.roo/rules), [`docs/README.md`](../../docs/README.md),
+[`docs/data/data-lake.md`](../../docs/data/data-lake.md),
+[`docs/flows/job-execution.md`](../../docs/flows/job-execution.md), and the relevant
+Platform, py-common, and Omni Console documentation. This planning-only update
+changes no runtime behavior, so agent rules require no immediate amendment.
+
+Required tests/checks:
+
+- py-common unit/storage tests for dataset and partition validation, deterministic
+  metadata generation, persisted Parquet statistics, immutable-before-READY
+  publication, unchanged-content identity, and prior-READY preservation;
+- Platform tests for manual allow-listing, authorization, typed parameter rejection,
+  idempotency, duplicate execution prevention, exact-partition concurrency, audit,
+  sanitized failures, and SUCCESS/FAILED status;
+- Console tests for supported-partition visibility, confirmation/reason, duplicate
+  click prevention, bounded polling, success refresh, and failure-view preservation;
+- inspect targets first, then run `nx run py-common:format -- --check`,
+  `nx run py-common:lint`, `nx run py-common:test`, `nx run py-common:build`,
+  `nx run platform:test`, `nx run platform:build`, `nx run omni-console:lint`,
+  `nx run omni-console:typecheck`, `nx run omni-console:test`, and
+  `nx run omni-console:build`, followed by applicable affected and CI checks.
+
+Migration/backward compatibility: additive manual-only job and typed parameters;
+no existing cron, Parquet, manifest schema, READY pointer, or Phase 7 endpoint is
+replaced. Do not depend on P1-I4 `workType`/`workKey`. Rollback disables/removes the
+allow-list entry and Console action while retaining all existing Parquet and the
+last valid READY object.
+
+Risks and stop conditions: stop if the existing trigger API cannot safely validate
+and dispatch typed parameters, if exact dataset path ownership is ambiguous, if
+wildcard/multi-object resolution lacks a dataset-owned contract, or if the design
+would require force/bypass, direct browser-to-Kafka/object-storage, physical paths,
+credential exposure, Parquet rewrite, or a manifest schema change without impact
+analysis.
+
+Acceptance criteria:
+
+- [ ] One exact EOD partition for HOSE, HNX, or UPCOM can be submitted from Dataset Explorer.
+- [ ] Submission uses the existing Phase 7 Platform API and authenticated operator boundary.
+- [ ] Browser payload contains only logical dataset/partition, reason, and existing trigger metadata.
+- [ ] Unsupported datasets, invalid values, unknown keys, and physical path fields are rejected.
+- [ ] Existing Parquet is read and validated but not recomputed, deleted, or rewritten.
+- [ ] Metadata uses canonical deterministic schema/statistics/checksum and `dataVersion` rules.
+- [ ] Immutable manifest is persisted and validated before READY replacement.
+- [ ] Failure preserves the previous READY pointer and exposes only a sanitized execution error.
+- [ ] Identical persisted content produces the same `dataVersion`.
+- [ ] The same normalized dataset/partition cannot rebuild concurrently.
+- [ ] Existing idempotency prevents duplicate execution creation.
+- [ ] Existing execution status exposes the terminal SUCCESS or FAILED result.
+- [ ] Console requires confirmation/reason, prevents duplicate clicks, refreshes after success, and preserves the current view after failure.
+- [ ] Targeted Nx checks, affected checks, formatting, and CI pass with evidence recorded.
+- [ ] Roadmap, data/flow/Console docs, and repository guidance are synchronized.
+
 ## Verification
 
-Use only inspected Nx targets. P3-I1 requires `nx run py-common:lint`, `nx run py-common:test`, and `nx run py-common:build`; Java fixture compatibility requires `nx run platform:test`. Producer migrations additionally require their owning project targets and storage-backed failure-path tests. Record any unavailable graph, PR, commit, or CI evidence rather than inferring it from local success.
+Use only inspected Nx targets. P3-I1 requires `nx run py-common:lint`, `nx run py-common:test`, and `nx run py-common:build`; Java fixture compatibility requires `nx run platform:test`. Producer migrations additionally require their owning project targets and storage-backed failure-path tests. P3-I5 uses the inspected py-common, Platform, and Omni Console targets listed in its increment and requires storage-backed failure safety plus Phase 7 trigger regression coverage. Record any unavailable graph, PR, commit, or CI evidence rather than inferring it from local success.
 
 ## Acceptance Criteria
 

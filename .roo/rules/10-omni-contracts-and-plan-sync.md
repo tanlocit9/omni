@@ -1,40 +1,19 @@
-# Omni Contracts and Plan Sync
+# Contracts and Plan Sync
 
-Use `AGENTS.md` as the repository-wide coding-agent rule source and `docs/IMPLEMENTATION_PLAN_STANDARD.md` as the implementation-plan standard.
+Use [`AGENTS.md`](../../AGENTS.md) for repository policy and
+[`docs/IMPLEMENTATION_PLAN_STANDARD.md`](../../docs/IMPLEMENTATION_PLAN_STANDARD.md)
+for plan requirements.
 
-## Cross-Service Contracts
-
-- Canonical Kafka/service-to-service schemas live under `libs/contracts/proto` after a message family is migrated to proto3.
-- Generated Java/Python files under `libs/contracts/gen` are ignored build output; never commit or hand-edit them.
-- Use Nx `contracts` targets for format/lint/generate/breaking checks; consumer builds must depend on `contracts:generate` before compiling generated types.
-- Review producer and consumer together for every contract change.
-- Never change/reuse an existing protobuf field number; reserve deleted field numbers/names.
-- Dataset manifests under S3/R2 `_metadata/` remain JSON and are separate from protobuf transport contracts.
-- Kafka business messages use logical dataset references, not physical bucket/object paths.
-
-## Job Dependencies
-
-- Cron gaps do not guarantee upstream completion.
-- Hard dataset dependencies are checked from READY manifests before execution is dispatched.
-- A missing/stale dependency is BLOCKED/deferred, not a failed execution.
-- Use upstream/downstream `dataVersion` lineage for CURRENT_INPUTS checks.
-- Do not scan full Parquet prefixes for normal readiness checks when a manifest exists.
-
-## Manual Job Operations
-
-- Manual triggers enter through Platform's private `/api/v1/jobs` API.
-- Reuse scheduler claims, dependency guards, producer registry, and outbox; preserve cron cadence.
-- Require proxy-injected operator identity, explicit allow-list, and durable idempotency/audit.
-- Never add force/bypass, browser-to-Kafka, secrets, or physical storage paths.
-
-## Plan / Guidance Sync
-
-When implementing or materially changing any implementation plan:
-
-1. Read `docs/IMPLEMENTATION_PLAN_STANDARD.md`.
-2. Review the plan's `Contract Impact`.
-3. Review/update `AGENTS.md`, `CLAUDE.md`, `.roo/rules/` and canonical docs when architecture/workflow/tool rules changed.
-4. Do not mark the plan Done while repository guidance is stale.
-5. When touching an older plan missing `Repository Guidance Updates`, add that section.
-
-Keep Zoo Code rules short and actionable; link to canonical docs rather than duplicating full architecture prose.
+- For contract changes, review producers, consumers, schemas/configuration, tests,
+  compatibility, and canonical contract docs together; run graph impact analysis.
+- Never edit [`libs/contracts/gen`](../../libs/contracts/gen), reuse protobuf field
+  numbers/names, or put physical storage paths in Kafka business messages.
+- Preserve manifest-based readiness, `dataVersion` lineage, and READY-last writes.
+- Manual jobs must reuse Platform's private API, claims, dependency guards,
+  registered producers, and outbox; never add force/bypass or browser-to-Kafka.
+- When implementation changes architecture, contracts, workflow, or tooling,
+  synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
+  applicable rules, and canonical docs before marking work done.
+- Keep rules short and link to canonical documentation instead of copying it.
+- Required build, test, lint, format, or contract checks remain subject to the
+  verification approval gate in [`AGENTS.md`](../../AGENTS.md).

@@ -32,9 +32,9 @@ public class JobDefinitionConfig {
         private static final int SYNC_STOCK_PRICE_START_MINUTE = 0;
         private static final int PER_SECTOR_STEP_MINUTES = 2;
 
-        // Start times for the two dynamically-generated Sector Transition seed
-        // groups (see section 4b). Kept separate from the CRON_* constants above
-        // because their per-sector offsets are computed, not listed by hand.
+        // Start times for the two canonical-universe Sector Transition writers
+        // (see section 4b). Kept separate from the CRON_* constants above so each
+        // shared output family has an explicit schedule.
         private static final int SECTOR_TRANSITION_ANALYZE_START_HOUR = 20;
         private static final int SECTOR_TRANSITION_ANALYZE_START_MINUTE = 0;
         private static final int SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_HOUR = 21;
@@ -227,13 +227,11 @@ public class JobDefinitionConfig {
                                                         List.of(DATASET_SECTOR_ROTATION_BACKTESTS))));
 
         // ==========================================
-        // 4b. SECTOR TRANSITION SEEDS (dynamically generated)
+        // 4b. SECTOR TRANSITION SEEDS
         // ==========================================
-        // One seed per sector in ENABLED_SECTOR_CODES, each
-        // offset by SECTOR_TRANSITION_STEP_MINUTES from the previous one so they
-        // don't all fire at once. Adding/removing a sector in that list is
-        // enough - no need to hand-write a new CRON_* constant or a new
-        // seed(...) call here.
+        // Each shared Sector Transition dataset has one logical scheduled writer.
+        // The job resolves and computes the complete canonical sector universe in
+        // one execution instead of scheduling competing per-sector writers.
         private static final List<JobDefinitionSeed> SECTOR_TRANSITION_ANALYZE_SEEDS = generateSectorTransitionSeeds(
                         JobType.SECTOR_TRANSITION_ANALYZE,
                         SECTOR_TRANSITION_ANALYZE_START_HOUR,
@@ -311,30 +309,23 @@ public class JobDefinitionConfig {
                 return String.format("0 %d %d * * MON-FRI", normalizedMinute, normalizedHour);
         }
 
-        // Generates one seed per sector code, staggering each by stepMinutes
-        // starting at startHour:startMinute. jobType picks which seed factory
-        // (analyze vs evaluate-outcomes) to call per sector.
+        // Generates exactly one scheduled writer for each shared Sector Transition
+        // output family. The empty focus list is resolved to the full canonical
+        // universe by the producer before publication.
         static List<JobDefinitionSeed> generateSectorTransitionSeeds(
                         JobType jobType,
                         int startHour,
                         int startMinute,
                         int stepMinutes) {
-                validateScheduleInputs(startHour, startMinute, stepMinutes, ENABLED_SECTOR_CODES.size());
-                List<JobDefinitionSeed> seeds = new ArrayList<>();
-                List<String> sectorCodes = ENABLED_SECTOR_CODES;
-                for (int i = 0; i < sectorCodes.size(); i++) {
-                        String sectorCode = sectorCodes.get(i);
-                        String cronExpr = weekdayCron(startHour, startMinute + i * stepMinutes);
-                        JobDefinitionSeed seed = switch (jobType) {
-                                case SECTOR_TRANSITION_ANALYZE -> sectorTransitionAnalyzeSeed(sectorCode, cronExpr);
-                                case SECTOR_TRANSITION_EVALUATE_OUTCOMES -> sectorTransitionOutcomeSeed(sectorCode,
-                                                cronExpr);
-                                default -> throw new IllegalArgumentException(
-                                                "Unsupported Sector Transition job type: " + jobType);
-                        };
-                        seeds.add(seed);
-                }
-                return List.copyOf(seeds);
+                validateScheduleInputs(startHour, startMinute, stepMinutes, 1);
+                String cronExpr = weekdayCron(startHour, startMinute);
+                JobDefinitionSeed seed = switch (jobType) {
+                        case SECTOR_TRANSITION_ANALYZE -> sectorTransitionAnalyzeSeed(cronExpr);
+                        case SECTOR_TRANSITION_EVALUATE_OUTCOMES -> sectorTransitionOutcomeSeed(cronExpr);
+                        default -> throw new IllegalArgumentException(
+                                        "Unsupported Sector Transition job type: " + jobType);
+                };
+                return List.of(seed);
         }
 
         private static void validateScheduleInputs(int startHour, int startMinute, int stepMinutes, int seedCount) {
@@ -345,27 +336,24 @@ public class JobDefinitionConfig {
                 weekdayCron(startHour, startMinute + (seedCount - 1) * stepMinutes);
         }
 
-        private static JobDefinitionSeed sectorTransitionAnalyzeSeed(String focusSectorCode, String cronExpr) {
+        private static JobDefinitionSeed sectorTransitionAnalyzeSeed(String cronExpr) {
                 return sectorTransitionSeed(
                                 JobType.SECTOR_TRANSITION_ANALYZE,
-                                "Run Sector Transition analysis - daily " + focusSectorCode,
-                                cronExpr,
-                                focusSectorCode);
+                                "Run Sector Transition analysis - daily canonical universe",
+                                cronExpr);
         }
 
-        private static JobDefinitionSeed sectorTransitionOutcomeSeed(String focusSectorCode, String cronExpr) {
+        private static JobDefinitionSeed sectorTransitionOutcomeSeed(String cronExpr) {
                 return sectorTransitionSeed(
                                 JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES,
-                                "Evaluate Sector Transition outcomes - daily " + focusSectorCode,
-                                cronExpr,
-                                focusSectorCode);
+                                "Evaluate Sector Transition outcomes - daily canonical universe",
+                                cronExpr);
         }
 
         private static JobDefinitionSeed sectorTransitionSeed(
                         JobType jobType,
                         String title,
-                        String cronExpr,
-                        String focusSectorCode) {
+                        String cronExpr) {
                 return new JobDefinitionSeed(
                                 DataSource.ANALYZER,
                                 List.of(),
@@ -376,7 +364,7 @@ public class JobDefinitionConfig {
                                                 Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
                                                                 CONFIG_KEY_SECTOR_CODES,
                                                                 ENABLED_SECTOR_CODES,
-                                                                CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(focusSectorCode),
+                                                                CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(),
                                                                 CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                 CONFIG_KEY_SECTOR_TRANSITION_STRATEGY,
                                                                 SECTOR_TRANSITION_STRATEGY_V1,
@@ -397,8 +385,8 @@ public class JobDefinitionConfig {
                 return List.of(DATASET_SECTOR_FEATURES);
         }
 
-        // Transition rows share logical datasets. Analyzer merge keys include
-        // from_sector, which is the focus-sector dimension, so per-sector jobs upsert
+        // Transition rows share logical datasets. One canonical-universe job owns
+        // each output family, while Analyzer merge keys preserve the sector dimension
         // without requiring separate physical dataset names.
         private static List<String> sectorTransitionProducesDatasets(JobType jobType) {
                 if (jobType == JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES) {

@@ -1,8 +1,13 @@
 package com.omni.platform;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import jakarta.persistence.EntityManagerFactory;
 
 @ActiveProfiles(value = "test")
 @SpringBootTest(properties = {
@@ -15,8 +20,18 @@ import org.springframework.test.context.ActiveProfiles;
 })
 class PlatformApplicationTests {
 
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void registersModulithEventPublicationEntity() {
+        assertThat(entityManagerFactory.getMetamodel().getEntities())
+                .extracting(entityType -> entityType.getJavaType().getSimpleName())
+                .contains("DefaultJpaEventPublication");
     }
 
 }

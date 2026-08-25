@@ -19,6 +19,10 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
 
     List<JobExecutionHistory> findAllByParentLogId(UUID parentLogId);
 
+    Optional<JobExecutionHistory> findFirstByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(UUID jobId);
+
+    List<JobExecutionHistory> findTop20ByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(UUID jobId);
+
     /**
      * Loads a job execution row with a database write lock.
      * <p>

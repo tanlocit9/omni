@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,6 +13,8 @@ from app.executor import DuckDBExecutor
 from app.manager import QueryManager
 from app.settings import settings
 from app.storage import build_metadata_services, create_storage_registry
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -36,6 +39,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    logger.info("Configuring CORS allowed origins: %s", settings.query_cors_origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.query_cors_origins,

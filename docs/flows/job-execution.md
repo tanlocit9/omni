@@ -2,6 +2,13 @@
 
 Platform owns job orchestration. Workers execute data-plane tasks and report status back through Kafka.
 
+The private Console may request an operator-triggered run through Platform's
+`/api/v1/jobs` API. This is a second entry point into the same claim, dependency
+guard, producer, and transactional-outbox boundary; it is not a second scheduler.
+Catalog and status responses expose logical identities only. Operational errors
+are normalized, bounded, and redact secrets plus object-storage or host paths
+before leaving Platform.
+
 The repository now contains versioned `JobCommand` and `JobStatusEvent` Proto3 schemas in [`libs/contracts/proto`](../../libs/contracts/proto). They are a generated contract foundation only: the production flow described below remains on the existing JSON wire format until compatible consumers and adapters are delivered in later Phase 2 increments.
 
 ## Flow
@@ -59,6 +66,40 @@ JobScheduler
 
 ## Responsibilities
 
+## Manual Operator Trigger
+
+```mermaid
+sequenceDiagram
+  participant Console
+  participant Proxy as Trusted private proxy
+  participant API as Platform Jobs API
+  participant DB as PostgreSQL
+  participant Guard as JobDependencyGuard
+  participant Producer as Existing JobProducer
+
+  Console->>Proxy: definition + idempotency key + reason
+  Proxy->>API: replace/inject X-Omni-User
+  API->>DB: persist audited manual request
+  API->>DB: claim exact active definition with fencing token
+  API->>Guard: evaluate dependencies
+  alt blocked
+    API->>DB: release claim; record BLOCKED without fake execution
+  else ready
+    API->>Producer: prepareManualDispatch with approved versions
+    Producer->>DB: create execution + outbox; release claim
+    Note over Producer,DB: cron nextRun is preserved
+  end
+  API-->>Console: stable request/execution identity and state
+```
+
+Manual triggering is secure by default: `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST`
+must contain an exact definition UUID or `JOB_TYPE:SOURCE`. Runtime overrides are
+currently rejected because no producer owns a typed override contract. The API
+does not expose `config_json`, credentials, or physical storage paths and has no
+force, dependency bypass, concurrency bypass, cancellation, or direct Kafka path.
+The deployment proxy must remove any browser-supplied `X-Omni-User` and inject
+the authenticated private operator identity.
+
 | Step                  | Owner                | Responsibility                                                              |
 | --------------------- | -------------------- | --------------------------------------------------------------------------- |
 | Schedule selection    | Platform             | Atomically claim enabled jobs due for execution.                            |
@@ -104,7 +145,7 @@ Claim candidates use the Phase 0 due semantics: active jobs where `nextRun <= no
 
 ## Dependency Tree Metadata
 
-Seeded job definitions carry non-enforcing dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). The metadata is stored under `dataDependencies` inside `config_json` for visibility and future orchestration work only. The scheduler does not block, reorder, or retry jobs from this metadata yet.
+Seeded job definitions carry dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). `dependsOnJobs` remains operational/traceability metadata. Dataset dependencies declared as `ENFORCED` are checked immediately before scheduled or manual dispatch; an unmet dependency is blocked without creating a false failed execution. `DOCUMENTATION_ONLY` dependencies remain advisory.
 
 ```mermaid
 flowchart TD
@@ -151,6 +192,7 @@ flowchart TD
 | Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql) |
 | Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                         |
 | Scheduler outbox       | [`database/migrations/V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql)                                                                                                                                   |
+| Manual trigger audit   | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                                                                             |
 | Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                                                               |
 | Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                                                               |
 | Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java)                                             |

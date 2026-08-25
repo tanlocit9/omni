@@ -290,6 +290,12 @@ dependsOnJobs     -> operational/traceability dependency
 
 A due job whose dataset dependency is missing/stale is `BLOCKED`/deferred, not a failed job execution.
 
+Manual job triggers must enter through Platform's private job-operations API and
+reuse the exact scheduler claim, dependency guard, producer registry, and outbox
+boundaries. Keep the allow-list secure by default, persist operator/idempotency
+audit, preserve cron `nextRun`, and never add force/bypass or browser-to-Kafka
+paths. The trusted proxy replaces `X-Omni-User`; browser code must not set it.
+
 When a downstream dataset must reflect the current upstream version, compare its recorded `inputs[].dataVersion` with the current upstream manifest `dataVersion`.
 
 See [Job Dependency Guard plan](docs/JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md).

@@ -2,6 +2,7 @@ package com.omni.platform.modules.scheduler.services;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -27,6 +28,15 @@ public class SchedulerClaimService {
                 schedulerProperties.instanceId(),
                 schedulerProperties.claim().leaseDuration(),
                 schedulerProperties.claim().batchSize());
+    }
+
+    @Transactional
+    public Optional<SchedulerClaim> claimJobDefinition(UUID jobDefinitionId, Instant now, String actor) {
+        return jobDefinitionRepository.claimJobDefinition(
+                jobDefinitionId,
+                now,
+                "manual:" + actor,
+                schedulerProperties.claim().leaseDuration());
     }
 
     @Transactional

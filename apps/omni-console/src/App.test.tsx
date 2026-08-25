@@ -24,5 +24,6 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: 'Dashboard' })
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Jobs' })).toBeInTheDocument();
   });
 });

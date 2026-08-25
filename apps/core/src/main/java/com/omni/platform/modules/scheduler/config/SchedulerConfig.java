@@ -11,13 +11,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(SchedulerProperties.class)
+@EnableConfigurationProperties({SchedulerProperties.class, ManualTriggerProperties.class})
 public class SchedulerConfig {
     @Bean
     public MinioClient minioClient(
-            @Value("${app.minio.endpoint:http://localhost:9000}") String endpoint,
-            @Value("${app.minio.access-key:test-access-key}") String accessKey,
-            @Value("${app.minio.secret-key:test-secret-key}") String secretKey
+            @Value("${app.minio.endpoint}") String endpoint,
+            @Value("${app.minio.access-key}") String accessKey,
+            @Value("${app.minio.secret-key}") String secretKey
     ) {
         return MinioClient.builder()
                 .endpoint(endpoint)
@@ -34,7 +34,7 @@ public class SchedulerConfig {
     public ManifestReader manifestReader(
             MinioClient minioClient,
             ObjectMapper legacyObjectMapper,
-            @Value("${app.minio.bucket:omni}") String bucket
+            @Value("${app.minio.bucket}") String bucket
     ) {
         MinioManifestReader delegate = new MinioManifestReader(minioClient, bucket, legacyObjectMapper);
         return new CachedManifestReader(delegate); // default: 60s TTL, 500 max entries

@@ -69,13 +69,37 @@ public abstract class JobProducer {
                         Instant now,
                         Map<DatasetRef, String> approvedInputVersions) {
 
-                log.debug("Preparing job [{}] type [{}] source [{}] at [{}]", job.getId(), job.getJobType(),
-                                job.getSource(), now);
-                JobExecutionHistory executionLog = jobService.prepareClaimedExecution(
-                                job,
-                                claim,
-                                now,
-                                approvedInputVersions);
+                return prepareDispatchInternal(job, claim, now, approvedInputVersions, Map.of(), false);
+        }
+
+        /**
+         * Uses the normal outbox path for an operator trigger while preserving the
+         * definition's scheduled next-run time.
+         */
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public UUID prepareManualDispatch(
+                        JobDefinition job,
+                        SchedulerClaim claim,
+                        Instant now,
+                        Map<DatasetRef, String> approvedInputVersions,
+                        Map<String, Object> manualTriggerMetadata) {
+                return prepareDispatchInternal(
+                                job, claim, now, approvedInputVersions, manualTriggerMetadata, true);
+        }
+
+        private UUID prepareDispatchInternal(
+                        JobDefinition job,
+                        SchedulerClaim claim,
+                        Instant now,
+                        Map<DatasetRef, String> approvedInputVersions,
+                        Map<String, Object> manualTriggerMetadata,
+                        boolean manual) {
+                log.debug("Preparing {} job [{}] type [{}] source [{}] at [{}]",
+                                manual ? "manual" : "scheduled", job.getId(), job.getJobType(), job.getSource(), now);
+                JobExecutionHistory executionLog = manual
+                                ? jobService.prepareManualClaimedExecution(
+                                                job, claim, now, approvedInputVersions, manualTriggerMetadata)
+                                : jobService.prepareClaimedExecution(job, claim, now, approvedInputVersions);
 
                 List<KafkaMessage> messages = buildMessages(job, executionLog, now);
                 log.info("Built {} Kafka message(s) for job [{}] execution [{}] topic [{}]", messages.size(),

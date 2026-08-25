@@ -106,3 +106,11 @@ relevant canonical docs
 ```
 
 Do not mark an implementation complete while agent guidance describes the previous architecture.
+
+## Manual Job Operations
+
+Manual operator runs enter through Platform's private `/api/v1/jobs` API and
+reuse scheduler claims, dependency guards, registered producers, and the
+transactional outbox without advancing cron cadence. Require a proxy-injected
+operator, an explicit allow-list, and durable idempotency/audit. Do not add
+force/bypass, browser-to-Kafka, secret fields, or physical storage paths.

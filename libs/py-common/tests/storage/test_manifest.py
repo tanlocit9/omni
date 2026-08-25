@@ -171,9 +171,7 @@ def test_extract_schema_uses_event_timestamp_contract():
     frame = pd.DataFrame(
         {
             "generated_at": pd.to_datetime(["2026-08-25T00:00:00Z"], utc=True),
-            "ma20_calculated_at": pd.to_datetime(
-                ["2026-08-25T00:00:00Z"], utc=True
-            ),
+            "ma20_calculated_at": pd.to_datetime(["2026-08-25T00:00:00Z"], utc=True),
         }
     )
 

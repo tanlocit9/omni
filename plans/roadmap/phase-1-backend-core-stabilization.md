@@ -97,7 +97,7 @@ Stop conditions: stop if outbox boundary or idempotency key differs materially f
 | ----------------------- | ---------------------------------------------------------- |
 | id                      | P1-I3                                                      |
 | title                   | Canonical sector universe and one shared transition writer |
-| status                  | ready                                                      |
+| status                  | in_progress                                                |
 | priority                | high                                                       |
 | depends_on              | [P1-I2]                                                    |
 | blocks                  | [P3-I3, P9-I3]                                             |
@@ -107,15 +107,65 @@ Stop conditions: stop if outbox boundary or idempotency key differs materially f
 | pr                      | null                                                       |
 | last_verified_commit    | null                                                       |
 
-Goal: establish one validated sector universe and one logical writer for shared Sector Transition outputs.
+### Goal
 
-In scope: canonical config, startup validation, effective universe metadata, removal of per-sector shared-output races, deterministic final aggregation.
+Establish one validated sector universe and one logical writer for shared Sector Transition outputs.
 
-Out of scope: READY manifest publication before Phase 3.
+### Outcome
 
-Acceptance criteria: unknown sectors fail or log explicitly, stock/indicator/signal/feature/transition jobs use the same universe, and only one final writer publishes shared outputs.
+Platform seeds one analysis job and one outcome-evaluation job for the complete canonical sector universe. Existing producers resolve and validate that universe, and Analyzer computes and writes each shared output family once per scheduled execution instead of allowing competing per-sector scheduled writers.
 
-Required tests: config validation, Analyzer sector computation, writer race prevention, and affected Core/Analyzer checks.
+### Dataset Outputs
+
+No new analytical dataset output. Ownership changes for the existing `sector-transition-predictions`, `sector-transition-probabilities`, `sector-transition-decisions`, and `sector-transition-outcomes` datasets from competing per-sector schedules to one canonical-universe scheduled writer per output family.
+
+### Metadata Outputs
+
+No dataset metadata output. READY manifest publication remains out of scope until Phase 3.
+
+### Algorithm Feature Outputs
+
+No new direct algorithm feature output. Existing Sector Transition outputs become deterministic across the complete canonical universe because one execution owns each shared output family.
+
+### Algorithms Unlocked
+
+Complete-universe Sector Transition analysis and outcome evaluation can safely feed later manifest lineage and sector aggregation work without shared-writer races.
+
+### Contract Impact
+
+- Kafka/service-to-service protobuf: unchanged; existing job payload fields and wire format are unchanged.
+- Object-storage JSON manifest: unchanged; this increment does not publish or modify READY manifests.
+- Storage path/dataset ownership: logical paths are unchanged; scheduled ownership changes to one canonical-universe writer for each shared Sector Transition output family.
+- Public Java/Python API: unchanged; seed generation is package-private and existing producer/Analyzer interfaces are reused.
+- Configuration/environment contract: canonical sector configuration is unchanged; transition seeds now carry the full canonical universe with an empty focus list, which existing producer behavior resolves to the full universe.
+
+### Repository Guidance Updates
+
+No `AGENTS.md`, `CLAUDE.md`, `.roo/rules`, or canonical flow/data documentation update is required: repository guidance already requires one logical writer per shared dataset, and this change brings implementation into compliance without changing paths, wire contracts, manifest semantics, or developer workflow.
+
+### Verification
+
+Local PASS on 2026-08-25:
+
+- targeted Platform scheduler/config and producer tests;
+- `nx run platform:test`;
+- `nx run analyzer:test` (79 passed, including Sector Transition computation/handler coverage);
+- `nx run analyzer:lint`;
+- `nx run analyzer:build`;
+- `nx run platform:build`;
+- `git diff --check` (line-ending warnings only);
+- refreshed code-review graph and `detect_changes`: risk 0.40, no affected flows; graph-reported test gaps are false negatives for package-private seed functions covered through `JobDefinitionConfigTest`.
+
+PR, verified increment commit, and CI evidence are not yet recorded. The increment therefore remains `in_progress` and no dependent is promoted.
+
+### Acceptance Criteria
+
+- Unknown or focused sectors fail validation or are logged explicitly by the existing producer resolution boundary.
+- Stock, indicator, signal, feature, and transition seeds derive from the same canonical sector universe.
+- Exactly one scheduled analysis writer and one scheduled outcome writer own the shared Sector Transition output families.
+- Platform and Analyzer tests, lint, and builds pass.
+- Contract impact and repository-guidance impact are reviewed and recorded.
+- Required PR, verified commit, and CI evidence are recorded before completion.
 
 Stop conditions: stop if sector catalog ownership is unclear.
 

@@ -80,9 +80,7 @@ def normalize_date_contracts(dataframe: pd.DataFrame) -> pd.DataFrame:
         if is_business_date_column(str(name)):
             normalized[name] = _normalize_business_dates(normalized[name], str(name))
         elif is_event_timestamp_column(str(name)):
-            normalized[name] = _normalize_event_timestamps(
-                normalized[name], str(name)
-            )
+            normalized[name] = _normalize_event_timestamps(normalized[name], str(name))
     return normalized
 
 

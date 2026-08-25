@@ -222,9 +222,7 @@ class TestParquetCodec:
         decoded = ParquetCodec.decode(encoded)
 
         assert schema.field("generated_at").type == pa.timestamp("us", tz="UTC")
-        assert schema.field("actual_updated_at").type == pa.timestamp(
-            "us", tz="UTC"
-        )
+        assert schema.field("actual_updated_at").type == pa.timestamp("us", tz="UTC")
         assert decoded.loc[0, "generated_at"] == pd.Timestamp("2026-08-24T20:00:00Z")
 
     def test_decode_normalizes_legacy_timestamp_business_date(self):

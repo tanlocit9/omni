@@ -27,8 +27,8 @@ class JobDefinitionConfigTest {
     @Test
     void createsExpectedSeedCountsAndUniqueDatabaseIdentities() {
         assertThat(seeds(JobType.SYNC_STOCK_PRICE)).hasSize(19);
-        assertThat(seeds(JobType.SECTOR_TRANSITION_ANALYZE)).hasSize(19);
-        assertThat(seeds(JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES)).hasSize(19);
+        assertThat(seeds(JobType.SECTOR_TRANSITION_ANALYZE)).hasSize(1);
+        assertThat(seeds(JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES)).hasSize(1);
 
         assertThat(JobDefinitionConfig.JOB_DEFINITION_SEEDS)
                 .allSatisfy(seed -> {
@@ -61,16 +61,16 @@ class JobDefinitionConfigTest {
     }
 
     @Test
-    void createsOneStockPriceAndTransitionSeedPerEnabledSector() {
+    void createsOneStockPriceSeedPerSectorAndOneTransitionWriterPerDataset() {
         assertThat(seeds(JobType.SYNC_STOCK_PRICE).stream().map(this::singleConfiguredSector))
                 .containsExactlyInAnyOrderElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES);
 
         for (JobType type : List.of(JobType.SECTOR_TRANSITION_ANALYZE,
                 JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES)) {
-            assertThat(seeds(type)).allSatisfy(seed -> assertThat(configuredSectors(seed))
-                    .containsExactlyElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES));
-            assertThat(seeds(type).stream().map(this::singleFocusSector))
-                    .containsExactlyInAnyOrderElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES);
+            JobDefinitionSeed seed = onlySeed(type);
+            assertThat(configuredSectors(seed))
+                    .containsExactlyElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES);
+            assertThat(configuredFocusSectors(seed)).isEmpty();
         }
     }
 
@@ -114,7 +114,7 @@ class JobDefinitionConfigTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("stepMinutes");
         assertThatThrownBy(() -> JobDefinitionConfig.generateSectorTransitionSeeds(
-                JobType.SECTOR_TRANSITION_ANALYZE, 23, 30, 2))
+                JobType.SECTOR_TRANSITION_ANALYZE, 23, 60, 2))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("23:59");
     }
@@ -139,8 +139,8 @@ class JobDefinitionConfigTest {
     }
 
     @SuppressWarnings("unchecked")
-    private String singleFocusSector(JobDefinitionSeed seed) {
-        return ((List<String>) seed.config().get(JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES)).getFirst();
+    private List<String> configuredFocusSectors(JobDefinitionSeed seed) {
+        return (List<String>) seed.config().get(JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES);
     }
 
     @SuppressWarnings("unchecked")

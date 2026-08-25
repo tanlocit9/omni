@@ -17,9 +17,7 @@ def test_eod_indicators_and_signals_join_on_business_date() -> None:
     eod = _round_trip(
         pd.DataFrame({"date": [pd.Timestamp("2026-08-25")], "close": [100.0]})
     )
-    indicators = _round_trip(
-        pd.DataFrame({"date": ["2026-08-25"], "rsi14": [55.0]})
-    )
+    indicators = _round_trip(pd.DataFrame({"date": ["2026-08-25"], "rsi14": [55.0]}))
     signals = _round_trip(
         pd.DataFrame(
             {
@@ -38,9 +36,7 @@ def test_eod_indicators_and_signals_join_on_business_date() -> None:
 
 
 def test_sector_wave_and_transition_use_date32_contracts() -> None:
-    wave = pd.DataFrame(
-        {"date": [pd.Timestamp("2026-08-25")], "sector_code": ["BANK"]}
-    )
+    wave = pd.DataFrame({"date": [pd.Timestamp("2026-08-25")], "sector_code": ["BANK"]})
     transition = pd.DataFrame(
         {
             "evaluation_date": ["2026-08-25"],

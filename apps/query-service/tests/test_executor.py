@@ -90,9 +90,9 @@ async def test_normalizes_legacy_parquet_date_types_for_duckdb(tmp_path: Path) -
     pq.write_table(
         pa.table(
             {
-                "date": pa.array(
-                    ["2026-08-25T12:30:00"], type=pa.string()
-                ).cast(pa.timestamp("ns")),
+                "date": pa.array(["2026-08-25T12:30:00"], type=pa.string()).cast(
+                    pa.timestamp("ns")
+                ),
                 "generated_at": pa.array(
                     ["2026-08-25T03:00:00"], type=pa.string()
                 ).cast(pa.timestamp("ns")),

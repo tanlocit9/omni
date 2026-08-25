@@ -144,9 +144,7 @@ class DuckDBExecutor:
         target = self._quote_identifier(dataset.view_name)
         raw = self._quote_identifier(raw_view)
         projection = f"* REPLACE ({', '.join(casts)})" if casts else "*"
-        connection.execute(
-            f"CREATE VIEW {target} AS SELECT {projection} FROM {raw}"
-        )
+        connection.execute(f"CREATE VIEW {target} AS SELECT {projection} FROM {raw}")
 
     @staticmethod
     def _quote(value: str) -> str:

@@ -7,13 +7,18 @@
 Implementation is present on `feature/parquet-date-normalization`. Targeted local
 acceptance checks pass. The latest implementation commit is `215b41a`, and the
 increment is on [draft PR #16](https://github.com/tanlocit9/omni/pull/16), now based
-directly on `main`. CI run `#153` is in progress for implementation commit
-`215b41a`; completion still requires a green CI result for the final branch state.
+directly on `main`. CI run `#153` completed successfully for implementation commit
+`215b41a`.
 
 The same implementation commit also contains the P1-I3 canonical Sector
 Transition writer cleanup: the previous per-sector competing writers are replaced
-by one logical writer per shared output family. That change is committed but
-remains verification-pending until branch CI completes successfully.
+by one logical writer per shared output family. That change is committed and CI
+verified in run `#153`; it still lacks an increment-specific PR if that remains a
+hard completion requirement in the canonical roadmap.
+
+The branch contains documentation-only commits after `215b41a`, so this increment
+remains `verification_pending` while the roadmap continues to require green CI for
+the exact final branch head.
 
 ## Goal
 
@@ -22,7 +27,7 @@ timestamps without renaming semantic fields or changing dataset ownership.
 
 ## Baseline and dependency
 
-- Base: current `main` at `bd377c3`; before this documentation-only status update,
+- Base: current `main` at `bd377c3`; before the documentation-only status updates,
   the implementation branch was 3 commits ahead and 0 behind.
 - Phase 7 prerequisite work has already been integrated into the current `main`
   baseline; PR #16 no longer needs to remain stacked on `feature/phase-7`.
@@ -73,10 +78,14 @@ Latest recorded local evidence for the implementation:
 - lint/build passed for all four owning projects
 - `nx format:write`, `nx format:check`, and `git diff --check` passed
 
-Use repository CI run `#153` as evidence for implementation commit `215b41a`.
-Because this status update is documentation-only, keep the increment
-`verification_pending` until the branch's final CI state is green; do not promote
-completion from local evidence alone.
+Repository evidence:
+
+- CI run `#153`: success
+- verified implementation commit: `215b41a016924a5a1328b6c9f7b43ca22ee3f16f`
+
+Do not downgrade this implementation back to "CI pending". Keep the roadmap status
+`verification_pending` only because subsequent documentation-only branch commits
+have not themselves produced exact-head CI evidence.
 
 ## Migration and rollback
 
@@ -89,4 +98,7 @@ old READY pointer and object remain valid; rollback is republishing the previous
 immutable manifest as READY.
 
 PR #16 is already targeted to `main`; no further Phase 7 retarget step is required.
-Do not merge automatically. Keep status `verification_pending` until CI is green.
+Do not merge automatically.
+
+For status/semantic drift in older roadmap files, see
+[`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md).

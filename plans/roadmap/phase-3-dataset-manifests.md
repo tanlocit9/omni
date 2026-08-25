@@ -118,7 +118,7 @@ Stop conditions: stop if Java read-only scope expands into duplicate write logic
 | ----------------------- | ------------------------------------------------------------------ |
 | id                      | P3-I4                                                              |
 | title                   | Normalize Parquet date contracts and safe versioned rewrite        |
-| status                  | verification_pending                                               |
+| status                  | completed                                                          |
 | priority                | critical                                                           |
 | depends_on              | [P1-I2]                                                            |
 | blocks                  | [P9-I1, P9-I2, P10-I2]                                             |
@@ -126,7 +126,7 @@ Stop conditions: stop if Java read-only scope expands into duplicate write logic
 | execution_mode          | autonomous                                                         |
 | requires_owner_decision | false                                                              |
 | pr                      | https://github.com/tanlocit9/omni/pull/16                          |
-| last_verified_commit    | 2ecb6baaddc056955aba6df5c113e4038faed2ca                           |
+| last_verified_commit    | ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124                           |
 
 Goal: distinguish business dates (`date32`/DuckDB `DATE`) from UTC event
 timestamps (`timestamp[us, UTC]`/DuckDB `TIMESTAMPTZ`) across EOD, Indicators,
@@ -143,6 +143,13 @@ joins, Sector Wave/Transition schema, manifest metadata, backfill idempotency an
 failure safety, owning Python project lint/test/build, workspace formatter, and
 green CI for the exact branch head. Detailed execution scope is in
 [`../parquet-date-normalization-increment.md`](../parquet-date-normalization-increment.md).
+
+Completion evidence: all recorded targeted tests and owning-project lint/build
+checks pass; the workspace formatter and `git diff --check` pass; refreshed graph
+change detection reports no affected execution flow; and
+[CI run #154](https://github.com/tanlocit9/omni/actions/runs/32870691112)
+passed for exact PR head `ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124`.
+The PR remains draft and unmerged for owner review.
 
 Stop conditions: stop on wildcard/multi-object READY partitions until the owning
 dataset supplies an explicit partition rewrite, or if a physical path ownership

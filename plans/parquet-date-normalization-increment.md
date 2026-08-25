@@ -2,23 +2,20 @@
 
 ## Status
 
-`verification_pending`
+`completed`
 
 Implementation is present on `feature/parquet-date-normalization`. Targeted local
-acceptance checks pass. The latest implementation commit is `215b41a`, and the
-increment is on [draft PR #16](https://github.com/tanlocit9/omni/pull/16), now based
-directly on `main`. CI run `#153` completed successfully for implementation commit
-`215b41a`.
+acceptance checks pass, and [draft PR #16](https://github.com/tanlocit9/omni/pull/16)
+is based directly on `main`. CI run
+[#154](https://github.com/tanlocit9/omni/actions/runs/32870691112) completed
+successfully for the exact branch head
+`ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124`.
 
-The same implementation commit also contains the P1-I3 canonical Sector
-Transition writer cleanup: the previous per-sector competing writers are replaced
-by one logical writer per shared output family. That change is committed and CI
-verified in run `#153`; it still lacks an increment-specific PR if that remains a
-hard completion requirement in the canonical roadmap.
-
-The branch contains documentation-only commits after `215b41a`, so this increment
-remains `verification_pending` while the roadmap continues to require green CI for
-the exact final branch head.
+The same branch also contains the P1-I3 canonical Sector Transition writer
+cleanup: the previous per-sector competing writers are replaced by one logical
+writer per shared output family. That implementation is committed and covered by
+the same successful CI run, but P1-I3 remains `verification_pending` because PR
+#16 is owned by P3-I4 rather than being an increment-specific PR.
 
 ## Goal
 
@@ -27,8 +24,8 @@ timestamps without renaming semantic fields or changing dataset ownership.
 
 ## Baseline and dependency
 
-- Base: current `main` at `bd377c3`; before the documentation-only status updates,
-  the implementation branch was 3 commits ahead and 0 behind.
+- Base: current `main` at `bd377c3022fa4561e28fd70d84754ff59a3781eb`;
+  the verified branch head is 5 commits ahead and 0 behind.
 - Phase 7 prerequisite work has already been integrated into the current `main`
   baseline; PR #16 no longer needs to remain stacked on `feature/phase-7`.
 - Requires the shared Parquet and READY-last manifest abstractions already in
@@ -80,12 +77,12 @@ Latest recorded local evidence for the implementation:
 
 Repository evidence:
 
-- CI run `#153`: success
-- verified implementation commit: `215b41a016924a5a1328b6c9f7b43ca22ee3f16f`
-
-Do not downgrade this implementation back to "CI pending". Keep the roadmap status
-`verification_pending` only because subsequent documentation-only branch commits
-have not themselves produced exact-head CI evidence.
+- CI run [#154](https://github.com/tanlocit9/omni/actions/runs/32870691112):
+  success for the exact final branch head
+- verified head: `ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124`
+- refreshed post-implementation graph and `detect_changes`: risk 0.60, no affected
+  execution flows; reported seed-function gaps are covered through
+  `JobDefinitionConfigTest`
 
 ## Migration and rollback
 

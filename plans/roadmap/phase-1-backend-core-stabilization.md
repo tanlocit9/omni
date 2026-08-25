@@ -6,7 +6,8 @@ Make execution ownership, job scope, metadata, and internal events consistent be
 
 ## Phase eligibility
 
-Depends on completed Phase 0. P1-I1 and P1-I2 are completed; P1-I3 and P1-I4 are ready.
+Depends on completed Phase 0. P1-I1 and P1-I2 are completed; P1-I3 is
+`verification_pending`, and P1-I4 remains `ready` and unstarted.
 
 ## Increment P1-I1 — Claim data model and repository primitives
 
@@ -97,15 +98,15 @@ Stop conditions: stop if outbox boundary or idempotency key differs materially f
 | ----------------------- | ---------------------------------------------------------- |
 | id                      | P1-I3                                                      |
 | title                   | Canonical sector universe and one shared transition writer |
-| status                  | in_progress                                                |
+| status                  | verification_pending                                       |
 | priority                | high                                                       |
 | depends_on              | [P1-I2]                                                    |
 | blocks                  | [P3-I3, P9-I3]                                             |
 | owned_modules           | [apps/core, apps/analyzer, configs]                        |
 | execution_mode          | autonomous                                                 |
 | requires_owner_decision | false                                                      |
-| pr                      | null                                                       |
-| last_verified_commit    | null                                                       |
+| pr                      | https://github.com/tanlocit9/omni/pull/16                  |
+| last_verified_commit    | ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124                   |
 
 ### Goal
 
@@ -145,7 +146,7 @@ No `AGENTS.md`, `CLAUDE.md`, `.roo/rules`, or canonical flow/data documentation 
 
 ### Verification
 
-Local PASS on 2026-08-25:
+PASS on 2026-08-25:
 
 - targeted Platform scheduler/config and producer tests;
 - `nx run platform:test`;
@@ -154,9 +155,10 @@ Local PASS on 2026-08-25:
 - `nx run analyzer:build`;
 - `nx run platform:build`;
 - `git diff --check` (line-ending warnings only);
-- refreshed code-review graph and `detect_changes`: risk 0.40, no affected flows; graph-reported test gaps are false negatives for package-private seed functions covered through `JobDefinitionConfigTest`.
+- refreshed code-review graph and `detect_changes`: risk 0.60, no affected flows; graph-reported test gaps are false negatives for package-private seed functions covered through `JobDefinitionConfigTest`;
+- [CI run #154](https://github.com/tanlocit9/omni/actions/runs/32870691112) passed for exact branch head `ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124`.
 
-PR, verified increment commit, and CI evidence are not yet recorded. The increment therefore remains `in_progress` and no dependent is promoted.
+The implementation is committed and CI-verified on draft PR #16, but the PR is owned by P3-I4 rather than being increment-specific. P1-I3 therefore remains `verification_pending`, and no dependent is promoted.
 
 ### Acceptance Criteria
 

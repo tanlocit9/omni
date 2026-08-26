@@ -9,16 +9,20 @@ queries, and Platform-owned job operations.
 - `VITE_PLATFORM_API_URL` selects the Platform origin or same-origin reverse
   proxy prefix. It defaults to `/api/platform`; that proxy must rewrite the
   prefix before forwarding `/api/v1/jobs/**` to Platform.
+- `SYSTEM_OPERATOR_UUID` temporarily selects the UUID sent as `X-Omni-User` on
+  Platform requests. It defaults to `b252fe62-80f3-4df9-9734-5dc549705a25` and
+  must match Platform's value.
 - During `nx run omni-console:serve`, Vite proxies the default `/api/platform`
   prefix to `OMNI_CONSOLE_PLATFORM_PROXY_TARGET`, which defaults to
-  `http://localhost:8080`. `OMNI_CONSOLE_LOCAL_OPERATOR` selects the local-only
-  trusted operator identity and defaults to `local-console-operator`.
+  `http://localhost:8080`. The proxy removes any incoming `X-Omni-User` value
+  and injects `SYSTEM_OPERATOR_UUID`.
 
-The browser intentionally does not send `X-Omni-User`. The Vite development
-proxy removes any incoming value and injects the configured local identity.
-Production deployments must instead use the private reverse proxy to remove any
-incoming value and inject the authenticated operator identity on both Query
-Service and Platform requests.
+The browser also sends the temporary UUID so direct `VITE_PLATFORM_API_URL`
+requests work during this interim configuration. This is not an authentication
+boundary: production deployments with real users must use the private reverse
+proxy to remove client-provided values and inject the authenticated operator
+identity on both Query Service and Platform requests. See
+[temporary system operator UUID technical debt](../../docs/TECHNICAL-DEBT-SYSTEM-OPERATOR-UUID.md).
 
 ## Jobs tab
 

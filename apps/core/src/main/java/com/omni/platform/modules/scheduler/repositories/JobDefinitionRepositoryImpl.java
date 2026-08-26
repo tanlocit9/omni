@@ -73,6 +73,10 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
         }
 
         entityManager.flush();
+        // Native updates bypass Hibernate's first-level cache. Detach any job
+        // definitions loaded earlier in the request so ownership checks reload the
+        // fencing token and owner written above instead of observing stale fields.
+        entityManager.clear();
         return List.copyOf(claims);
     }
 
@@ -114,6 +118,10 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
                 .setParameter("jobDefinitionId", jobDefinitionId)
                 .executeUpdate();
         entityManager.flush();
+        // The manual-trigger request may already have loaded this definition before
+        // entering the claim transaction. Clear that stale managed instance after
+        // the native update so the dispatch transaction reads the committed claim.
+        entityManager.clear();
         if (updated != 1) {
             return Optional.empty();
         }
@@ -148,6 +156,8 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
                 .setParameter("claimedBy", claimedBy)
                 .executeUpdate();
         entityManager.flush();
+        // Keep the persistence context consistent with the native claim release.
+        entityManager.clear();
         return released == 1;
     }
 

@@ -64,6 +64,7 @@ const API_BASE =
   import.meta.env.VITE_QUERY_SERVICE_URL ?? 'http://localhost:8002';
 const PLATFORM_API_BASE =
   import.meta.env.VITE_PLATFORM_API_URL ?? '/api/platform';
+const SYSTEM_OPERATOR_UUID = import.meta.env.SYSTEM_OPERATOR_UUID;
 
 export class ApiError extends Error {
   constructor(
@@ -90,7 +91,12 @@ async function platformRequest<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${PLATFORM_API_BASE}${path}`, init);
+  const headers = new Headers(init?.headers);
+  headers.set('X-Omni-User', SYSTEM_OPERATOR_UUID);
+  const response = await fetch(`${PLATFORM_API_BASE}${path}`, {
+    ...init,
+    headers,
+  });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
       detail?: string;
@@ -200,7 +206,10 @@ export function triggerJob(
     )}/triggers`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Omni-User': SYSTEM_OPERATOR_UUID,
+      },
       body: JSON.stringify({ reason, idempotencyKey, parameters: {} }),
     }
   ).then(async (response) => {

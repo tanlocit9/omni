@@ -27,6 +27,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-stock-data}
+      SYSTEM_OPERATOR_UUID: ${SYSTEM_OPERATOR_UUID:-b252fe62-80f3-4df9-9734-5dc549705a25}
       APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST: ${APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST:-}
     volumes:
       - ./apps/core/src:/app/src:ro

@@ -325,7 +325,7 @@ Catalog navigation/filtering; partition selection; lineage; value/date formattin
 
 Explorer loads the real EOD/indicator metadata through Platform; summaries require no Parquet scan; errors are actionable; Viewer receives canonical identity.
 
-### Planned P3-I5 follow-on — Refresh Metadata
+### Superseded P3-I5 Console proposal — Refresh Metadata
 
 After the Dataset Explorer and Phase 7 trigger boundaries are available, P3-I5
 plans a supported-partition action for exact EOD HOSE/HNX/UPCOM partitions. The
@@ -334,9 +334,10 @@ submits `REBUILD_DATASET_METADATA` through Platform, shows the execution ID, pol
 the existing status endpoint, and reloads metadata after success. Duplicate clicks
 are disabled and a failed run leaves the current view intact.
 
-This follow-on remains `pending` and is not part of the M4 completion gate. Its
-canonical scope, contract impact, tests, and acceptance criteria are in
-[`roadmap/phase-3-dataset-manifests.md`](roadmap/phase-3-dataset-manifests.md#increment-p3-i5--manual-dataset-metadata-rebuild).
+The owner replaced this manual-only proposal with scheduled/manual automatic EOD
+reconciliation after runtime diagnosis. It is not part of the M4 completion gate.
+Canonical scope is in
+[`roadmap/phase-3-dataset-manifests.md`](roadmap/phase-3-dataset-manifests.md#increment-p3-i5--automatic-eod-metadata-reconciliation).
 
 ## M5 — Parquet Viewer and SQL Console
 

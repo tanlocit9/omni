@@ -38,10 +38,14 @@ public class SyncMetadataJobProducer extends JobProducer {
     }
 
     @Override
-    protected List<KafkaMessage> buildMessages(JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
-        // Message content here can be customized to match your metadata structure
-        Map<String,Object> config = job.getConfigJson();
-        String metadataType = (config != null && config.containsKey("metadataType")) ? config.get("metadataType").toString() : "GENERIC";
+    protected List<KafkaMessage> buildMessages(
+            JobDefinition job,
+            JobExecutionHistory jobExecutionHistory,
+            Instant timestamps) {
+        Map<String, Object> config = job.getConfigJson();
+        String metadataType = (config != null && config.containsKey("metadataType"))
+                ? config.get("metadataType").toString()
+                : "EOD";
 
         SyncMetadataJobMessage message = new SyncMetadataJobMessage(
             job.getId(),

@@ -187,40 +187,32 @@ await publish_dataset_manifest(
 )
 ```
 
-### Planned Manual Metadata Rebuild
+### Automatic EOD Metadata Reconciliation
 
-Roadmap increment P3-I5 plans a controlled rebuild of metadata for one exact
-existing dataset partition. V1 is limited to logical `eod` partitions with
-`exchange=HOSE`, `HNX`, or `UPCOM` and remains `pending`; no runtime capability is
-implemented by this documentation update.
-
-The operator action enters through Platform's existing Phase 7 manual-trigger API
-as `REBUILD_DATASET_METADATA`. The browser supplies only the logical dataset,
-partition, and normal trigger reason/idempotency metadata. Bucket names, object
-paths, manifest paths, and storage credentials are rejected and resolved only by
-the owning service through shared registry/path builders.
+P3-I5 adds a scheduled and manually triggerable `SYNC_METADATA` worker. Analyzer
+lists the internal canonical EOD prefix and accepts only exact
+`eod/<exchange>/<code>.parquet` objects; storage location and credentials never
+cross the Kafka or browser contract.
 
 ```text
-existing Parquet
-  -> resolve from logical dataset + exact partition
+canonical EOD Parquet objects
+  -> read exact persisted bytes
   -> read and validate persisted bytes
   -> derive schema, rows, objects, bytes, checksums, and date range
   -> calculate canonical deterministic dataVersion
-  -> write and validate immutable version manifest
+  -> write immutable version manifest
   -> replace READY last
 ```
 
-This operation does not recompute analytical data, backfill history, rewrite
-Parquet, scan all partitions, or change dataset ownership. The shared manifest
-hashing and publication abstractions remain authoritative. An unchanged physical
-dataset must produce the same `dataVersion`; any read, validation, immutable-write,
-or READY-replacement failure leaves the previous READY pointer authoritative.
-Concurrent rebuilds are serialized by normalized `dataset + partition` through the
-existing Platform claim/concurrency boundary.
+This operation scans EOD partitions but does not recompute analytical data, rewrite
+Parquet, or change dataset ownership. A corrupt or empty object cannot produce a
+READY manifest; if no valid object is publishable, the job fails and does not write
+the catalog. Derived datasets are excluded because reconstructing their exact
+historical lineage from bytes alone is unsafe.
 
 See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) for full details and
-[Phase 3 P3-I5](../../plans/roadmap/phase-3-dataset-manifests.md#increment-p3-i5--manual-dataset-metadata-rebuild)
-for the pending manual-rebuild scope and acceptance criteria.
+[Phase 3 P3-I5](../../plans/roadmap/phase-3-dataset-manifests.md#increment-p3-i5--automatic-eod-metadata-reconciliation)
+for the implemented scope and acceptance criteria.
 
 ## Datasets
 

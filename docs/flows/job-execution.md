@@ -270,7 +270,12 @@ flowchart TD
 
 Use `DefaultJobNotificationPolicy` for generic operational success/failure messages. Add a custom `JobNotificationPolicy` when a job type needs domain-specific rendering, such as Signal Digest summaries or actionable Sector Transition failures. Custom policies should return a notification event and keep template/Telegram delivery outside scheduler producers.
 
-`symbolKey` remains in Kafka status messages for backward compatibility. New Platform child execution code also stores `workKey` in metadata via `createChildExecution(...)`; future contract changes can promote `workKey` only after producers, consumers, tests, and this document are updated together.
+P1-I4 replaces generic status identity with required `workType` and `workKey` in
+one coordinated cutover. There is no legacy status fallback or dual-write period.
+Historical execution metadata is backfilled before the new services start, and
+old `symbolKey`-based repository/status/aggregation branches are deleted. A
+symbol-domain command may still carry `symbolKey`; that field is not generic
+execution identity.
 
 ## Failure Semantics
 

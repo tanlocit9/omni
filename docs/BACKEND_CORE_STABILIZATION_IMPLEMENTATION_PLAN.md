@@ -145,11 +145,16 @@ Use:
 ```json
 {
   "workKey": "...",
-  "workType": "SYMBOL|SECTOR|EXCHANGE|STRATEGY"
+  "workType": "SYMBOL|SECTOR|EXCHANGE|GLOBAL"
 }
 ```
 
-Only symbol-level producers populate `symbolKey`.
+`workType` and `workKey` are the only generic execution identity. Do not keep a
+dual-write or fallback to `symbolKey`. Before deployment, pause dispatch, drain
+outbox/in-flight work, backfill historical execution metadata, validate zero
+unmapped rows, deploy every status producer/consumer together, and remove old
+compatibility code. `symbolKey` may remain only inside symbol-domain commands where
+it has business meaning; it is not copied into generic execution metadata.
 
 ### 7. Tighten notification types
 

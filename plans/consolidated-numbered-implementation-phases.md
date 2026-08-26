@@ -2,7 +2,7 @@
 
 This file is a compatibility index. The canonical autonomous-delivery roadmap starts at [`plans/roadmap/README.md`](roadmap/README.md), and the dependency-ordered increment registry is [`plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md).
 
-> Status reconciliation: before executing or updating an increment on `feature/parquet-date-normalization`, apply [`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md) where older roadmap text conflicts with the latest verified source/evidence. In particular, the old repository-wide `workType/workKey` migration semantics for P1-I4 are superseded.
+> Status reconciliation: before executing or updating an increment on `feature/parquet-date-normalization`, apply [`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md) where older roadmap text conflicts with the latest verified source/evidence. P1-I4 now requires a backfill-first coordinated cutover with no generic execution/status compatibility window.
 
 ## Phase Index
 
@@ -30,4 +30,4 @@ This file is a compatibility index. The canonical autonomous-delivery roadmap st
 
 ## Immediate Next Action
 
-Do not select work from stale status summaries alone. Reconcile the increment registry with the latest evidence first: Phase 7 is complete; P3-I4 implementation commit `215b41a` passed CI run #153; P1-I3 is committed and CI-verified in that same implementation commit but still lacks an increment-specific PR if that remains a hard completion requirement. P1-I4 must preserve domain-specific keys (`symbolKey`, `sectorKey`, `exchangeKey`) at domain/Kafka boundaries and must not perform a repository-wide `workType/workKey` replacement.
+Do not select work from stale status summaries alone. Reconcile the increment registry with the latest evidence first: Phase 7 is complete; P3-I4 implementation commit `215b41a` passed CI run #153; P1-I3 is committed and CI-verified in that same implementation commit but still lacks an increment-specific PR if that remains a hard completion requirement. P1-I4 must backfill generic execution metadata and delete legacy execution/status fallbacks. Domain-specific keys remain only where they are true business inputs, never as a compatibility copy of generic `workKey`.

@@ -171,12 +171,12 @@ The implementation is committed and CI-verified on draft PR #16, but the PR is o
 
 Stop conditions: stop if sector catalog ownership is unclear.
 
-## Increment P1-I4 — workType/workKey metadata migration and notification event ownership
+## Increment P1-I4 — workType/workKey hard cutover and notification event ownership
 
 | Field                   | Value                                                                |
 | ----------------------- | -------------------------------------------------------------------- |
 | id                      | P1-I4                                                                |
-| title                   | workType/workKey metadata migration and notification event ownership |
+| title                   | workType/workKey hard cutover and notification event ownership       |
 | status                  | ready                                                                |
 | priority                | high                                                                 |
 | depends_on              | [P1-I2]                                                              |
@@ -187,14 +187,64 @@ Stop conditions: stop if sector catalog ownership is unclear.
 | pr                      | null                                                                 |
 | last_verified_commit    | null                                                                 |
 
-Goal: normalize child execution metadata and ensure terminal notification events have one owner.
+Goal: perform a one-time cutover to canonical child-execution identity and ensure
+terminal notification events have one owner.
 
-In scope: `workType`, `workKey`, optional legacy `symbolKey` read window, shared enum/value object, event payloads for completion and digest-ready notifications, single terminal aggregation publisher.
+In scope: canonical `workType`/`workKey`, a one-time backfill of historical
+`job_execution_histories.meta_json`, coordinated producer/consumer/status cutover,
+removal of legacy execution-identity reads/writes, shared enum/value object, event
+payloads for completion and digest-ready notifications, and one terminal
+aggregation publisher.
 
 Out of scope: multi-channel notification routing and Proto3 transport migration.
 
-Acceptance criteria: new child executions contain valid `workType` and `workKey`, readers accept legacy `symbolKey` during migration, writers emit normalized metadata, terminal SUCCESS aggregation emits digest-ready once, and consumers do not duplicate notification decisions.
+Migration strategy: no backward compatibility and no dual-read/dual-write window.
+Pause scheduler dispatch, drain the transactional outbox and in-flight worker
+topics, snapshot PostgreSQL, backfill every historical child execution from its job
+type and existing domain metadata, validate zero unmapped rows, deploy Platform,
+Ingestor, and Analyzer as one coordinated release, then resume dispatch. The
+migration must be idempotent and fail before cutover if any row cannot be mapped.
 
-Required tests: execution metadata tests, migration compatibility tests, notification event ownership tests, and producer/consumer impact inspection.
+Backfill mapping must be explicit per job type, never inferred from arbitrary key
+names:
 
-Stop conditions: stop if legacy compatibility window or terminal event owner is disputed.
+| Execution scope | workType   | workKey source                                       |
+| --------------- | ---------- | ---------------------------------------------------- |
+| one symbol      | `SYMBOL`   | normalized existing symbol identity                  |
+| one sector      | `SECTOR`   | canonical sector code                                |
+| one exchange    | `EXCHANGE` | canonical exchange code                              |
+| singleton/batch | `GLOBAL`   | stable job-type-owned key documented by its producer |
+
+Strategy, timeframe, evaluation date, and similar processing parameters remain
+orthogonal metadata. Unknown, ambiguous, or conflicting historical rows abort the
+migration and produce a review report; they are never assigned a guessed key.
+
+Legacy removal scope:
+
+- remove `symbolKey` fallback reads/writes from generic child-execution creation,
+  status handling, offset lookup, aggregation, and notification extraction;
+- replace generic status identity with required `workType` and `workKey` across
+  Java and `py_common`, updating every producer, consumer, fixture, and test;
+- delete legacy DTO fields, aliases, compatibility helpers, branches, and tests
+  after the backfill validation passes;
+- retain `symbolKey` only in symbol-domain command/message models where it carries
+  actual business meaning; it must not be mirrored as execution identity;
+- keep strategy/timeframe as orthogonal metadata unless the owning job explicitly
+  defines them as its canonical work identity.
+
+Acceptance criteria: all historical child executions and all new status events
+contain valid `workType`/`workKey`; zero execution/status code path falls back to
+`symbolKey`; legacy queues/outbox rows are drained before cutover; terminal SUCCESS
+aggregation emits digest-ready once; consumers do not duplicate notification
+decisions; repository search finds no obsolete execution compatibility branch.
+
+Required tests: idempotent backfill and unmapped-row failure tests; execution/status
+contract tests; producer/consumer golden fixtures; offset/aggregation/notification
+tests; notification event ownership tests; and repository-wide impact inspection.
+
+Rollback: restore the pre-cutover database snapshot and previous coordinated service
+release. Do not retain dead compatibility code as a rollback mechanism.
+
+Stop conditions: stop if the backfill cannot map every historical child row, Kafka
+or outbox work cannot be drained safely, coordinated deployment is unavailable, or
+terminal event ownership is disputed.

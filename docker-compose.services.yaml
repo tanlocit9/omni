@@ -39,6 +39,8 @@ services:
     container_name: omni-analyzer
     restart: always
     depends_on:
+      kafka:
+        condition: service_started
       postgres:
         condition: service_healthy
       minio:
@@ -59,6 +61,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-stock-data}
+      METADATA_KAFKA_ENABLED: ${METADATA_KAFKA_ENABLED:-true}
     volumes:
       - ./apps/analyzer/app:/app/app:ro
 

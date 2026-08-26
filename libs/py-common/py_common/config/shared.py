@@ -51,6 +51,7 @@ class TopicSettings(BaseSettings):
     topic_upsert_sectors: str = Field(default="topic-upsert-sectors")
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
     topic_sync_indicators: str = Field(default="topic-sync-indicators")
+    topic_sync_metadata: str = Field(default="topic-sync-metadata")
     topic_sync_signals: str = Field(default="topic-sync-signals")
     topic_evaluate_signals: str = Field(default="topic-evaluate-signals")
     topic_signal_notifications: str = Field(default="topic-signal-notifications")
@@ -135,6 +136,11 @@ class BaseAppSettings(BaseSettings):
     def topic_sync_indicators(self) -> str:
         """Backward-compatible access to the sync indicators topic."""
         return self.topics.topic_sync_indicators
+
+    @property
+    def topic_sync_metadata(self) -> str:
+        """Backward-compatible access to the metadata sync topic."""
+        return self.topics.topic_sync_metadata
 
     @property
     def topic_sync_signals(self) -> str:
@@ -331,6 +337,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_sync_indicators = topics_cfg.get(
             "topic-sync-indicators",
             self.topics.topic_sync_indicators,
+        )
+        self.topics.topic_sync_metadata = topics_cfg.get(
+            "topic-sync-metadata",
+            self.topics.topic_sync_metadata,
         )
         self.topics.topic_sync_signals = topics_cfg.get(
             "topic-sync-signals",

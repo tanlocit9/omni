@@ -155,21 +155,45 @@ Stop conditions: stop on wildcard/multi-object READY partitions until the owning
 dataset supplies an explicit partition rewrite, or if a physical path ownership
 change becomes necessary.
 
-## Increment P3-I5 — Manual dataset metadata rebuild
+## Increment P3-I5 — Automatic EOD metadata reconciliation
 
 | Field                   | Value                                                                 |
 | ----------------------- | --------------------------------------------------------------------- |
 | id                      | P3-I5                                                                 |
-| title                   | Manual dataset metadata rebuild                                       |
-| status                  | pending                                                               |
+| title                   | Automatic EOD metadata reconciliation                                 |
+| status                  | verification_pending                                                  |
 | priority                | high                                                                  |
 | depends_on              | [P3-I1, P7-I2]                                                        |
 | blocks                  | []                                                                    |
-| owned_modules           | [apps/core, apps/omni-console, libs/py-common, docs/data, docs/flows] |
+| owned_modules           | [apps/core, apps/analyzer, libs/py-common, docs/data, docs/flows]     |
 | execution_mode          | autonomous                                                            |
 | requires_owner_decision | false                                                                 |
-| pr                      | null                                                                  |
-| last_verified_commit    | null                                                                  |
+| pr                      | https://github.com/tanlocit9/omni/pull/16                            |
+| last_verified_commit    | pending final commit                                                  |
+
+Implementation scope supersedes the earlier manual-exact-partition proposal below:
+the owner requested an automatic metadata job after observing accepted triggers
+with no data. The verified cause was a missing Analyzer consumer for
+`topic-sync-metadata`. The implemented worker reconciles every canonical EOD object
+on the existing weekday 20:00 definition, and the same job remains manually
+triggerable through Phase 7. It accepts legacy `UNIVERSAL` messages as EOD during
+deployment transition. Derived datasets remain excluded because their exact input
+lineage cannot be reconstructed safely from output bytes.
+
+Implemented acceptance:
+
+- [x] Platform keeps one stable `SYNC_METADATA` definition with weekday 20:00 cron.
+- [x] Analyzer consumes `topic-sync-metadata` and emits terminal job status.
+- [x] Only canonical, non-empty EOD Parquet objects can produce manifests.
+- [x] Exact persisted bytes determine checksum and deterministic `dataVersion`.
+- [x] Unchanged READY versions are not rewritten; catalog is published after manifests.
+- [x] Zero valid partitions is ERROR; mixed corrupt/valid objects are PARTIAL_SUCCESS.
+- [x] Errors and status metrics do not expose physical storage paths.
+- [x] Parquet data is never rewritten and derived lineage is never inferred.
+- [x] Python lint, 230 tests, and py-common/Analyzer builds pass locally.
+- [ ] Platform test/build, canonical Nx formatting, and exact-head CI pass.
+
+### Superseded manual-exact-partition proposal
 
 Goal: let an authenticated operator rebuild canonical metadata for one exact
 existing dataset partition without recomputing or rewriting its Parquet data and

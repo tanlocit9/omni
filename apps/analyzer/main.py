@@ -6,8 +6,13 @@ from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
 from py_common.storage.exceptions import StorageError
 from py_common.storage.manifest import ManifestReader, ManifestWriter
+from py_common.storage.metadata_sync import EodMetadataSynchronizer
 from py_common.storage.parquet import ParquetStorage
-from py_common.storage.ports import StorageProviderInfo
+from py_common.storage.ports import (
+    ListableStorage,
+    ReadableStorage,
+    StorageProviderInfo,
+)
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
 from pydantic import ValidationError
@@ -15,6 +20,8 @@ from pydantic import ValidationError
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
 from app.indicators.messages import IndicatorJobMessage
+from app.metadata.handler import MetadataSyncJobHandler
+from app.metadata.kafka import MetadataSyncKafkaService
 from app.sector_transition.handler import SectorTransitionJobHandler
 from app.sector_transition.kafka import (
     SectorTransitionAnalyzeKafkaService,
@@ -43,15 +50,18 @@ _logger = logging.getLogger(__name__)
 
 async def startup_event(app: FastAPI) -> None:
     _logger.info(
-        "Starting up Analyzer service (indicatorKafkaEnabled=%s signalKafkaEnabled=%s "
+        "Starting up Analyzer service (indicatorKafkaEnabled=%s "
+        "metadataKafkaEnabled=%s signalKafkaEnabled=%s "
         "signalEvaluationKafkaEnabled=%s sectorWaveSymbolFeaturesKafkaEnabled=%s "
         "sectorWaveSectorFeaturesKafkaEnabled=%s sectorRotationBacktestKafkaEnabled=%s "
         "sectorTransitionAnalyzeKafkaEnabled=%s sectorTransitionOutcomeKafkaEnabled=%s "
-        "bootstrap=%s syncIndicatorsTopic=%s syncSignalsTopic=%s evaluateSignalsTopic=%s "
+        "bootstrap=%s syncIndicatorsTopic=%s syncSignalsTopic=%s "
+        "evaluateSignalsTopic=%s "
         "precomputeSymbolFeaturesTopic=%s precomputeSectorFeaturesTopic=%s "
         "sectorRotationBacktestTopic=%s sectorTransitionAnalyzeTopic=%s "
-        "sectorTransitionOutcomeTopic=%s statusTopic=%s bucket=%s)",
+        "sectorTransitionOutcomeTopic=%s metadataTopic=%s statusTopic=%s bucket=%s)",
         settings.indicator_kafka_enabled,
+        settings.metadata_kafka_enabled,
         settings.signal_kafka_enabled,
         settings.signal_evaluation_kafka_enabled,
         settings.sector_wave_symbol_features_kafka_enabled,
@@ -68,6 +78,7 @@ async def startup_event(app: FastAPI) -> None:
         settings.topic_sector_rotation_backtest,
         settings.topic_sector_transition_analyze,
         settings.topic_sector_transition_evaluate_outcomes,
+        settings.topic_sync_metadata,
         settings.sync_job_status_topic,
         settings.minio.bucket,
     )
@@ -91,6 +102,19 @@ async def startup_event(app: FastAPI) -> None:
         registry=app.state.storage_registry,
         provider=StorageProvider.MINIO,
         bucket=settings.minio.bucket,
+    )
+    app.state.metadata_sync_handler = MetadataSyncJobHandler(
+        EodMetadataSynchronizer(
+            readable=app.state.storage_registry.get_port(
+                StorageProvider.MINIO, ReadableStorage
+            ),
+            listable=app.state.storage_registry.get_port(
+                StorageProvider.MINIO, ListableStorage
+            ),
+            reader=app.state.manifest_reader,
+            writer=app.state.manifest_writer,
+            bucket=settings.minio.bucket,
+        )
     )
     app.state.indicator_handler = IndicatorJobHandler(
         settings,
@@ -124,6 +148,15 @@ async def startup_event(app: FastAPI) -> None:
         _logger.info("Indicator Kafka service started")
     else:
         _logger.info("Indicator Kafka service disabled")
+    if settings.metadata_kafka_enabled:
+        app.state.metadata_sync_kafka_service = MetadataSyncKafkaService(
+            settings,
+            app.state.metadata_sync_handler,
+        )
+        await app.state.metadata_sync_kafka_service.start()
+        _logger.info("Metadata sync Kafka service started")
+    else:
+        _logger.info("Metadata sync Kafka service disabled")
     if settings.signal_kafka_enabled:
         app.state.signal_kafka_service = SignalKafkaService(
             settings,
@@ -203,6 +236,8 @@ async def shutdown_event(app: FastAPI) -> None:
     _logger.info("Shutting down Analyzer service...")
     if hasattr(app.state, "indicator_kafka_service"):
         await app.state.indicator_kafka_service.stop()
+    if hasattr(app.state, "metadata_sync_kafka_service"):
+        await app.state.metadata_sync_kafka_service.stop()
     if hasattr(app.state, "signal_kafka_service"):
         await app.state.signal_kafka_service.stop()
     if hasattr(app.state, "signal_evaluation_kafka_service"):
@@ -317,7 +352,9 @@ async def sync_signals(
         "strategy": message.strategy,
         "timeframe": message.timeframe,
         "signalChanged": transition.signal_changed,
-        "previousSignal": transition.previous_signal.value if transition.previous_signal else None,
+        "previousSignal": (
+            transition.previous_signal.value if transition.previous_signal else None
+        ),
         "newSignal": transition.new_signal.value,
     }
 
@@ -368,9 +405,8 @@ async def analyze_sector_transition(
     """Synchronously run Sector Transition analysis using the Kafka payload contract."""
     try:
         message = SectorTransitionAnalyzeJobMessage.model_validate(payload)
-        records_processed = await request.app.state.sector_transition_handler.handle_analyze(
-            payload
-        )
+        handler = request.app.state.sector_transition_handler
+        records_processed = await handler.handle_analyze(payload)
     except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

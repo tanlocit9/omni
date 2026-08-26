@@ -126,6 +126,7 @@ class TopicSettings(BaseModel):
     topic_upsert_sectors: str = Field(default="topic-upsert-sectors")
     sync_job_status_topic: str = Field(default="topic-sync-job-status")
     topic_sync_indicators: str = Field(default="topic-sync-indicators")
+    topic_sync_metadata: str = Field(default="topic-sync-metadata")
     topic_sync_signals: str = Field(default="topic-sync-signals")
     topic_evaluate_signals: str = Field(default="topic-evaluate-signals")
     topic_signal_notifications: str = Field(default="topic-signal-notifications")

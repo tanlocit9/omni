@@ -244,16 +244,17 @@ public class JobDefinitionConfig {
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_MINUTE,
                         SECTOR_TRANSITION_STEP_MINUTES);
 
-        // Metadata Writer Job (deferred, not in boot)
+        // Automatic EOD metadata reconciliation. The cron remains stable so the
+        // seeder updates the existing definition instead of creating a duplicate.
         private static final List<JobDefinitionSeed> SYNC_METADATA_SEEDS = List.of(
                         new JobDefinitionSeed(
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.SYNC_METADATA,
-                                        "Sync/publish all metadata manifests",
-                                        "0 0 20 * * MON-FRI", // Example: 8pm every weekday
+                                        "Sync EOD dataset metadata",
+                                        "0 0 20 * * MON-FRI",
                                         configWithDependencies(
-                                                        Map.of("metadataType", "UNIVERSAL"),
+                                                        Map.of("metadataType", "EOD"),
                                                         List.of(),
                                                         List.of(),
                                                         List.of())));

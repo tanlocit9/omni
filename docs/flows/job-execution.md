@@ -100,38 +100,35 @@ force, dependency bypass, concurrency bypass, cancellation, or direct Kafka path
 The deployment proxy must remove any browser-supplied `X-Omni-User` and inject
 the authenticated private operator identity.
 
-### Planned `REBUILD_DATASET_METADATA` operation
+### `SYNC_METADATA` operation
 
-P3-I5 is a `pending` additive use of this same manual-trigger boundary; it is not a
-second endpoint or scheduler. V1 plans one manual-only definition whose typed input
-contains logical `dataset=eod` and exactly one `partition.exchange` value from
-`HOSE`, `HNX`, or `UPCOM`. Unknown keys and client-supplied bucket, object,
-manifest, credential, force, or bypass fields are rejected.
+P3-I5 uses the existing scheduler and manual-trigger boundary. Platform publishes
+`metadataType=EOD` to `topic-sync-metadata`; Analyzer consumes it, scans only
+canonical EOD objects, publishes READY-last manifests, updates the catalog after
+successful manifest publication, and emits terminal status to
+`topic-sync-job-status`. Legacy `UNIVERSAL` messages are treated as EOD.
 
 ```mermaid
 sequenceDiagram
-  participant Console as Dataset Explorer
+  participant Scheduler as Platform scheduler/manual API
   participant API as Platform Jobs API
   participant Claim as Existing exact claim/guard
   participant Worker as Metadata rebuild handler
   participant Storage as Object storage
 
-  Console->>API: REBUILD_DATASET_METADATA + dataset/partition + reason
-  API->>Claim: authorize, allow-list, idempotency, dependencies, concurrency
-  Claim->>Worker: existing producer/outbox dispatch
-  Worker->>Storage: resolve and read existing Parquet
-  Worker->>Storage: write + validate immutable manifest
-  Worker->>Storage: replace READY last
-  Worker-->>API: existing execution status
-  API-->>Console: execution ID and terminal status
+  Scheduler->>API: claim SYNC_METADATA execution
+  API->>Claim: dependencies, concurrency, idempotency
+  Claim->>Worker: topic-sync-metadata (EOD)
+  Worker->>Storage: list and read canonical EOD Parquet
+  Worker->>Storage: immutable manifest then READY
+  Worker->>Storage: update catalog after manifests
+  Worker-->>API: SUCCESS, PARTIAL_SUCCESS, or ERROR
 ```
 
-The rebuild must preserve cron cadence and reuse durable audit/idempotency plus
-normalized `dataset + partition` concurrency. It derives canonical metadata and
-deterministic `dataVersion` from persisted Parquet but does not recompute, backfill,
-delete, or rewrite Parquet. Any failure records a sanitized execution failure and
-preserves the previous READY pointer. Query Service remains read-only. See
-[Phase 3 P3-I5](../../plans/roadmap/phase-3-dataset-manifests.md#increment-p3-i5--manual-dataset-metadata-rebuild).
+The weekday 20:00 cron is retained so seeding updates the existing definition
+instead of inserting a duplicate keyed by a new cron. Invalid/empty partitions are
+skipped; zero publishable partitions is an ERROR. The worker does not recompute,
+delete, or rewrite Parquet. Query Service remains read-only.
 
 | Step                  | Owner                | Responsibility                                                              |
 | --------------------- | -------------------- | --------------------------------------------------------------------------- |

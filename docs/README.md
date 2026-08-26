@@ -35,6 +35,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 - [Backend/Core Stabilization](BACKEND_CORE_STABILIZATION_IMPLEMENTATION_PLAN.md)
 - [Algorithm Feature Catalog](ALGORITHM_FEATURE_CATALOG.md)
 - [Telegram Notification Deduplication Technical Debt](TELEGRAM_NOTIFICATION_DEDUPLICATION_TECHNICAL_DEBT.md)
+- [Temporary System Operator UUID Technical Debt](TECHNICAL-DEBT-SYSTEM-OPERATOR-UUID.md)
 
 ## Canonical Documents
 

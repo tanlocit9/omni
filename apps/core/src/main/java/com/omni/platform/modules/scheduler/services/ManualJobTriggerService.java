@@ -28,9 +28,11 @@ import com.omni.platform.modules.scheduler.repositories.ManualJobTriggerReposito
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ManualJobTriggerService {
     private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
 
@@ -126,6 +128,9 @@ public class ManualJobTriggerService {
             resolve(audit, ManualTriggerState.FAILED, null, exception.getMessage());
             throw exception;
         } catch (RuntimeException exception) {
+            log.error(
+                    "Manual trigger dispatch failed: requestId={}, definitionId={}, jobType={}, actor={}",
+                    audit.getId(), definitionId, initial.getJobType(), actor, exception);
             releaseBestEffort(claim);
             resolve(audit, ManualTriggerState.FAILED, null, "Manual trigger dispatch failed");
             throw new JobOperationException(HttpStatus.INTERNAL_SERVER_ERROR,

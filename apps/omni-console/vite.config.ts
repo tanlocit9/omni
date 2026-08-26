@@ -6,11 +6,15 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const platformTarget =
     env.OMNI_CONSOLE_PLATFORM_PROXY_TARGET ?? 'http://localhost:8080';
-  const localOperator =
-    env.OMNI_CONSOLE_LOCAL_OPERATOR ?? 'local-console-operator';
+  const systemOperatorUuid =
+    env.SYSTEM_OPERATOR_UUID ?? 'b252fe62-80f3-4df9-9734-5dc549705a25';
 
   return {
     plugins: [react()],
+    define: {
+      'import.meta.env.SYSTEM_OPERATOR_UUID':
+        JSON.stringify(systemOperatorUuid),
+    },
     server: {
       proxy: {
         '/api/platform': {
@@ -20,7 +24,7 @@ export default defineConfig(({ mode }) => {
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyRequest) => {
               proxyRequest.removeHeader('X-Omni-User');
-              proxyRequest.setHeader('X-Omni-User', localOperator);
+              proxyRequest.setHeader('X-Omni-User', systemOperatorUuid);
             });
           },
         },

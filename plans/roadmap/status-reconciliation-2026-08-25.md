@@ -52,6 +52,13 @@ Any plan text treating Phase 7 as pending, prerequisite-blocked, or not implemen
 
 ### P1-I4 — child execution semantics
 
+> Owner decision 2026-08-26: no backward-compatible execution/status window is
+> required. Backfill historical execution metadata, perform a coordinated cutover,
+> and delete legacy generic `symbolKey` fallback/dual-write code. This decision
+> supersedes the migration-compatibility guidance below. Domain-specific command
+> fields such as `SymbolJobMessage.symbolKey` remain semantic inputs, not generic
+> execution identity.
+
 The older `workType/workKey` migration proposal is no longer authoritative as written.
 
 Do **not** perform a repository-wide replacement of domain keys such as `symbolKey`, `sectorKey`, or `exchangeKey` with a generic `workKey`.
@@ -75,7 +82,8 @@ Therefore, for future P1-I4 work:
 - keep scheduler orchestration domain-neutral;
 - preserve explicit domain keys in Kafka/service contracts;
 - do not remove `symbolKey` from domain-specific messages merely to satisfy generic child-execution storage;
-- if migration compatibility is needed, limit it to the execution persistence/metadata boundary instead of rewriting downstream domain contracts;
+- do not add migration compatibility; backfill persistence before cutover and
+  remove legacy generic identity code after validation;
 - notification event ownership remains part of P1-I4, independent from this naming correction.
 
 ## Files known to contain stale wording

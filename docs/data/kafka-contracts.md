@@ -114,9 +114,18 @@ Expected payload shape includes job identity, source, `symbolKey`, optional time
 | Related flow     | [Job execution](../flows/job-execution.md)                 |
 | Related database | [Job execution history](database.md#job-execution-history) |
 
-Status payloads should carry enough identity to update the correct child execution and aggregate parent execution state. Typical fields include `jobDefinitionId`, `executionId`, optional `parentExecutionId`, `symbolKey`, `status`, metrics, duration, `metaJson`, and optional error details.
+Status payloads must carry enough identity to update the correct child execution
+and aggregate parent state. After P1-I4 the canonical fields are
+`jobDefinitionId`, `executionId`, optional `parentExecutionId`, required
+`workType`, required `workKey`, status, metrics, duration, `metaJson`, and optional
+error details.
 
-`symbolKey` remains part of the worker status contract for backward compatibility. Platform now creates child executions through a generic `createChildExecution(...)` path and stores both `symbolKey` and `workKey` in execution metadata when a work key is available. Do not remove or rename `symbolKey` in Kafka payloads until producer, consumer, shared Python messaging, Java status handling, tests, and these docs are migrated together.
+P1-I4 is an explicit breaking cutover: no backward-compatible `symbolKey` status
+field, alias, fallback, or dual-write remains. Drain old outbox/topic messages,
+backfill stored execution metadata, then deploy Java and Python producers/consumers
+together. Domain command payloads may retain `symbolKey` when the worker genuinely
+operates on a symbol, but status correlation uses only `executionId` plus canonical
+`workType`/`workKey`.
 
 Worker error statuses must preserve useful request context in `metaJson`. Do not replace failure metadata with only `recordsProcessed = 0`; include safe domain fields such as timeframe, strategy, evaluation date, sector universe/focus, prediction horizons, and the actual error message when available.
 

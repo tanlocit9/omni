@@ -169,7 +169,7 @@ change becomes necessary.
 | execution_mode          | autonomous                                                            |
 | requires_owner_decision | false                                                                 |
 | pr                      | https://github.com/tanlocit9/omni/pull/16                            |
-| last_verified_commit    | pending final commit                                                  |
+| last_verified_commit    | 392a0c244fb172c1b4a11426d71daeba8efc8be3                            |
 
 Implementation scope supersedes the earlier manual-exact-partition proposal below:
 the owner requested an automatic metadata job after observing accepted triggers

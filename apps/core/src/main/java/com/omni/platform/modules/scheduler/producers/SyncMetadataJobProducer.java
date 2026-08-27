@@ -13,6 +13,7 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SyncMetadataJobMessage;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 import lombok.extern.slf4j.Slf4j;
@@ -42,19 +43,20 @@ public class SyncMetadataJobProducer extends JobProducer {
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
-        Map<String, Object> config = job.getConfigJson();
-        String metadataType = (config != null && config.containsKey("metadataType"))
+        Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+        String metadataType = config.containsKey("metadataType")
                 ? config.get("metadataType").toString()
                 : "EOD";
 
         SyncMetadataJobMessage message = new SyncMetadataJobMessage(
-            job.getId(),
-            jobExecutionHistory.getId(),
-            jobExecutionHistory.getParentLogId(),
-            job.getSource().toString(),
-            metadataType,
-            config
-        );
+                job.getId(),
+                jobExecutionHistory.getId(),
+                jobExecutionHistory.getParentLogId(),
+                job.getSource().toString(),
+                WorkType.GLOBAL,
+                job.getJobType().name(),
+                metadataType,
+                config);
         return List.of(new KafkaMessage("metadata", message));
     }
 

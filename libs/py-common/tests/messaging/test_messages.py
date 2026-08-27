@@ -21,7 +21,8 @@ def _status_payload(**overrides):
         "jobDefinitionId": "job-definition-id",
         "executionId": "execution-id",
         "parentExecutionId": "parent-execution-id",
-        "symbolKey": "HOSE-HPG",
+        "workType": "SYMBOL",
+        "workKey": "HOSE-HPG",
         "status": "SUCCESS",
         "startedAt": "2026-01-01T00:00:00Z",
         "finishedAt": "2026-01-01T00:00:01Z",
@@ -41,7 +42,8 @@ def test_job_status_message_accepts_camel_case_wire_payload():
     assert message.job_definition_id == "job-definition-id"
     assert message.execution_id == "execution-id"
     assert message.parent_execution_id == "parent-execution-id"
-    assert message.symbol_key == "HOSE-HPG"
+    assert message.work_type == "SYMBOL"
+    assert message.work_key == "HOSE-HPG"
     assert message.status == JobStatus.SUCCESS
     assert message.records_processed == 60
     assert message.duration_ms == 1000
@@ -57,7 +59,8 @@ def test_job_status_message_accepts_snake_case_python_payload():
         job_definition_id="job-definition-id",
         execution_id="execution-id",
         parent_execution_id=None,
-        symbol_key="HOSE-HPG",
+        work_type="SYMBOL",
+        work_key="HOSE-HPG",
         status="ERROR",
         started_at=started_at,
         finished_at=finished_at,
@@ -82,7 +85,8 @@ def test_job_status_message_emits_camel_case_json_by_alias():
     assert decoded["jobDefinitionId"] == "job-definition-id"
     assert decoded["executionId"] == "execution-id"
     assert decoded["parentExecutionId"] == "parent-execution-id"
-    assert decoded["symbolKey"] == "HOSE-HPG"
+    assert decoded["workType"] == "SYMBOL"
+    assert decoded["workKey"] == "HOSE-HPG"
     assert decoded["startedAt"] == "2026-01-01T00:00:00Z"
     assert decoded["finishedAt"] == "2026-01-01T00:00:01Z"
     assert decoded["recordsProcessed"] == 60
@@ -102,7 +106,8 @@ def test_job_status_message_meta_json_default_factory_is_isolated():
     first = JobStatusMessage(
         job_definition_id="job-definition-id",
         execution_id="execution-id",
-        symbol_key="HOSE-HPG",
+        work_type="SYMBOL",
+        work_key="HOSE-HPG",
         status="SUCCESS",
         started_at=timestamp,
         finished_at=timestamp,
@@ -110,7 +115,8 @@ def test_job_status_message_meta_json_default_factory_is_isolated():
     second = JobStatusMessage(
         job_definition_id="job-definition-id",
         execution_id="execution-id",
-        symbol_key="HNX-NTP",
+        work_type="SYMBOL",
+        work_key="HNX-NTP",
         status="SUCCESS",
         started_at=timestamp,
         finished_at=timestamp,
@@ -137,7 +143,8 @@ def test_build_job_error_status_maps_wire_fields_and_zero_records():
             "jobDefinitionId": "job-definition-id",
             "executionId": "execution-id",
             "parentExecutionId": "parent-execution-id",
-            "symbolKey": "HOSE-HPG",
+            "workType": "SYMBOL",
+            "workKey": "HOSE-HPG",
             "timeframe": "1d",
             "metaJson": {"strategy": "TREND_MOMENTUM_V1"},
         },
@@ -149,7 +156,8 @@ def test_build_job_error_status_maps_wire_fields_and_zero_records():
     assert status.job_definition_id == "job-definition-id"
     assert status.execution_id == "execution-id"
     assert status.parent_execution_id == "parent-execution-id"
-    assert status.symbol_key == "HOSE-HPG"
+    assert status.work_type == "SYMBOL"
+    assert status.work_key == "HOSE-HPG"
     assert status.status == JobStatus.ERROR
     assert status.error_message == "boom"
     assert status.records_processed == 0
@@ -175,6 +183,8 @@ def test_job_message_accepts_shared_scheduler_fields():
             "executionId": "execution-id",
             "parentExecutionId": "parent-execution-id",
             "source": "VNDIRECT",
+            "workType": "SYMBOL",
+            "workKey": "HOSE-HPG",
         }
     )
 
@@ -182,6 +192,8 @@ def test_job_message_accepts_shared_scheduler_fields():
     assert message.execution_id == "execution-id"
     assert message.parent_execution_id == "parent-execution-id"
     assert message.source == "VNDIRECT"
+    assert message.work_type == "SYMBOL"
+    assert message.work_key == "HOSE-HPG"
 
 
 def test_job_message_rejects_blank_execution_id():
@@ -191,5 +203,7 @@ def test_job_message_rejects_blank_execution_id():
                 "jobDefinitionId": "job-definition-id",
                 "executionId": " ",
                 "source": "VNDIRECT",
+                "workType": "GLOBAL",
+                "workKey": "test",
             }
         )

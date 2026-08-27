@@ -157,19 +157,19 @@ change becomes necessary.
 
 ## Increment P3-I5 — Automatic EOD metadata reconciliation
 
-| Field                   | Value                                                                 |
-| ----------------------- | --------------------------------------------------------------------- |
-| id                      | P3-I5                                                                 |
-| title                   | Automatic EOD metadata reconciliation                                 |
-| status                  | verification_pending                                                  |
-| priority                | high                                                                  |
-| depends_on              | [P3-I1, P7-I2]                                                        |
-| blocks                  | []                                                                    |
-| owned_modules           | [apps/core, apps/analyzer, libs/py-common, docs/data, docs/flows]     |
-| execution_mode          | autonomous                                                            |
-| requires_owner_decision | false                                                                 |
-| pr                      | https://github.com/tanlocit9/omni/pull/16                            |
-| last_verified_commit    | ad90a491022d6cdd0265850e549db01562e66696                            |
+| Field                   | Value                                                             |
+| ----------------------- | ----------------------------------------------------------------- |
+| id                      | P3-I5                                                             |
+| title                   | Automatic EOD metadata reconciliation                             |
+| status                  | verification_pending                                              |
+| priority                | high                                                              |
+| depends_on              | [P3-I1, P7-I2]                                                    |
+| blocks                  | []                                                                |
+| owned_modules           | [apps/core, apps/analyzer, libs/py-common, docs/data, docs/flows] |
+| execution_mode          | autonomous                                                        |
+| requires_owner_decision | false                                                             |
+| pr                      | https://github.com/tanlocit9/omni/pull/16                         |
+| last_verified_commit    | ad90a491022d6cdd0265850e549db01562e66696                          |
 
 Implementation scope supersedes the earlier manual-exact-partition proposal below:
 the owner requested an automatic metadata job after observing accepted triggers

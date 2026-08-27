@@ -13,6 +13,8 @@ def test_symbol_job_message_parses_scheduler_payload():
             "executionId": "exec-1",
             "parentExecutionId": "parent-1",
             "source": "VCI",
+            "workType": "SYMBOL",
+            "workKey": "HOSE-FPT",
             "symbolKey": "HOSE-FPT",
             "fromOffset": "2024-01-01T00:00:00Z",
             "toOffset": "2024-01-02T00:00:00Z",
@@ -48,6 +50,8 @@ def test_symbol_job_message_rejects_invalid_symbol_key():
             {
                 "jobDefinitionId": "job-1",
                 "executionId": "exec-1",
+                "workType": "SYMBOL",
+                "workKey": "FPT",
                 "symbolKey": "FPT",
             }
         )
@@ -60,6 +64,8 @@ def test_sync_symbols_job_message_parses_scheduler_payload():
             "executionId": "exec-1",
             "parentExecutionId": "parent-1",
             "source": "VCI",
+            "workType": "EXCHANGE",
+            "workKey": "HOSE",
             "exchange": "hose",
             "timestamp": "2024-01-02T00:00:00Z",
             "metadata": {
@@ -80,6 +86,8 @@ def test_sync_symbols_job_message_defaults_optional_metadata_values():
         {
             "jobDefinitionId": "job-1",
             "executionId": "exec-1",
+            "workType": "EXCHANGE",
+            "workKey": "HNX",
             "exchange": "HNX",
         }
     )
@@ -95,6 +103,8 @@ def test_sync_symbols_job_message_rejects_blank_exchange():
             {
                 "jobDefinitionId": "job-1",
                 "executionId": "exec-1",
+                "workType": "EXCHANGE",
+                "workKey": "HOSE",
                 "exchange": " ",
             }
         )

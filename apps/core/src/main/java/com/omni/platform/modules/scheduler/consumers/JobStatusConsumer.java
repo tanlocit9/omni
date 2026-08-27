@@ -45,8 +45,8 @@ public class JobStatusConsumer extends AbstractConsumer {
                     record.topic(), record.partition(), record.offset(), record.key(), record.timestamp());
             JobStatusMessage response = jsonMapper.readValue(record.value(), JobStatusMessage.class);
             log.info(
-                    "JobStatusConsumer parsed status executionId={} parentExecutionId={} symbolKey={} status={} recordsProcessed={} durationMs={} metaKeys={}",
-                    response.executionId(), response.parentExecutionId(), response.symbolKey(), response.status(),
+                    "JobStatusConsumer parsed status executionId={} parentExecutionId={} workType={} workKey={} status={} recordsProcessed={} durationMs={} metaKeys={}",
+                    response.executionId(), response.parentExecutionId(), response.workType(), response.workKey(), response.status(),
                     response.recordsProcessed(), response.durationMs(),
                     response.metaJson() == null ? null : response.metaJson().keySet());
             jobService.applyStatus(response);

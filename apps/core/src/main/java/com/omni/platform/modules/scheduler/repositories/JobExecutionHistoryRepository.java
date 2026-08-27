@@ -41,10 +41,11 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
     @Query(value = """
             SELECT new_offset FROM job_execution_histories
             WHERE job_id = :jobId
-            AND meta_json ->> 'symbolKey' = :symbolKey
+            AND meta_json ->> 'workType' = 'SYMBOL'
+            AND meta_json ->> 'workKey' = :workKey
             AND new_offset IS NOT NULL
             ORDER BY finished_at DESC
             LIMIT 1
             """, nativeQuery = true)
-    Optional<String> findLastOffset(@Param("jobId") UUID jobId, @Param("symbolKey") String symbolKey);
+    Optional<String> findLastOffset(@Param("jobId") UUID jobId, @Param("workKey") String workKey);
 }

@@ -26,7 +26,23 @@ Existing analytical datasets become safer and should progressively publish MinIO
 stock-data/_metadata/datasets/...
 ```
 
-See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
+See [`DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`](DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md).
+
+## Metadata Outputs
+
+P1-I4 changes only Platform operational execution metadata:
+
+```json
+{
+  "workType": "SYMBOL|SECTOR|EXCHANGE|GLOBAL",
+  "workKey": "..."
+}
+```
+
+Operators manually clear historical execution rows during the approved maintenance
+window. V9 validates that history is empty and installs canonical indexes without
+deleting or rewriting records. No dataset manifest, READY pointer, schema metadata,
+or lineage output changes in this phase.
 
 ## Algorithm Feature Outputs
 
@@ -151,10 +167,11 @@ Use:
 
 `workType` and `workKey` are the only generic execution identity. Do not keep a
 dual-write or fallback to `symbolKey`. Before deployment, pause dispatch, drain
-outbox/in-flight work, backfill historical execution metadata, validate zero
-unmapped rows, deploy every status producer/consumer together, and remove old
-compatibility code. `symbolKey` may remain only inside symbol-domain commands where
-it has business meaning; it is not copied into generic execution metadata.
+outbox/in-flight work, snapshot PostgreSQL, manually clear execution history,
+validate zero remaining rows, deploy every status producer/consumer together, and
+remove old compatibility code. `symbolKey` may remain only inside symbol-domain
+commands where it has business meaning; it is not copied into generic execution
+metadata.
 
 ### 7. Tighten notification types
 
@@ -168,14 +185,49 @@ Keep:
 
 Outcome-evaluation failures should receive actionable diagnostics where applicable.
 
+## Contract Impact
+
+- Kafka/service-to-service protobuf: active JSON job commands and status events use
+  required `workType`/`workKey`; Platform, Analyzer, Ingestor, and shared Python
+  contracts change together. Existing Proto3 foundation schemas are unchanged.
+- Object-storage JSON manifests: unchanged; READY-last and `dataVersion` lineage
+  semantics remain mandatory.
+- Storage paths/dataset ownership: unchanged; physical object paths remain outside
+  Kafka business messages.
+- Public Java/Python APIs: shared execution/status DTOs and publishers require
+  canonical work identity. Domain `symbolKey` remains in genuine symbol commands
+  and notification content only.
+- Configuration/environment: Kafka topic names and defaults are unchanged. P1-I4
+  deployment requires a maintenance window, drained scheduler/outbox/Kafka work,
+  verified PostgreSQL snapshot, and coordinated Platform/Ingestor/Analyzer images.
+
+## Repository Guidance Updates
+
+Canonical Kafka, database, job-execution, and P1-I4 deployment documentation is
+synchronized with the implementation. Existing [`AGENTS.md`](../AGENTS.md),
+[`CLAUDE.md`](../CLAUDE.md), and [`.roo/rules`](../.roo/rules) already encode the
+contract-review, graph-impact, migration, and hard-cutover safeguards, so no new
+agent rule is required.
+
 ## Verification
 
 1. Run Java repository/service/scheduler tests.
-2. Run analyzer sector-wave/sector-transition tests.
-3. Run targeted Nx lint/test/build.
+2. Run Analyzer sector-wave/sector-transition tests.
+3. Run targeted Nx lint/test/build through project-defined targets.
 4. Run `nx affected` when shared contracts/configuration change.
-5. Verify one end-to-end daily pipeline for all configured primary sectors.
-6. In Phase 4, verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
+5. Run V9 twice against disposable PostgreSQL with empty-history and rejection
+   fixtures; require zero execution-history rows and never use production for tests.
+6. Run graph change detection, impact review, and static searches for obsolete
+   generic `symbolKey` compatibility paths.
+7. Verify one end-to-end daily pipeline for all configured primary sectors during
+   the owner-confirmed production maintenance window, not during implementation.
+8. In Phase 4, verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
+
+P1-I4 local evidence is recorded canonically in the
+[Phase 1 roadmap increment](../plans/roadmap/phase-1-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
+and [`execution-log.md`](../plans/roadmap/execution-log.md). It remains
+`verification_pending` until the final pushed head has successful exact-head CI and
+all repository gates are green.
 
 ## Acceptance Criteria
 

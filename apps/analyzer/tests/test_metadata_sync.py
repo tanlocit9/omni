@@ -16,6 +16,8 @@ def _payload(**overrides):
         "executionId": "execution-1",
         "parentExecutionId": None,
         "source": "ANALYZER",
+        "workType": "GLOBAL",
+        "workKey": "SYNC_METADATA",
         "metadataType": "EOD",
         "metadata": {},
     }

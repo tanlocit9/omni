@@ -20,6 +20,8 @@ import com.omni.platform.modules.scheduler.messaging.SignalJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 import lombok.extern.slf4j.Slf4j;
@@ -95,7 +97,7 @@ public class SyncSignalsJobProducer extends JobProducer {
 
                     JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
-                            symbol.symbolKey(),
+                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
                             metadata,
                             timestamps);
 
@@ -106,6 +108,8 @@ public class SyncSignalsJobProducer extends JobProducer {
                                     childJobExecutionHistory.getId(),
                                     jobExecutionHistory.getId(),
                                     job.getSource().toString(),
+                                    WorkType.SYMBOL,
+                                    symbol.symbolKey(),
                                     symbol.symbolKey(),
                                     timeframe,
                                     strategy,

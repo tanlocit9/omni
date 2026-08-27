@@ -70,7 +70,11 @@ flowchart LR
 | Related flow    | [Stock sync](../flows/stock-sync.md)                  |
 | Related storage | [`eod`](data-lake.md#eod)                             |
 
-Expected payload shape includes job identity, source, `symbolKey`, optional time bounds, and metadata. It must not include S3 bucket or object path routing fields.
+Expected payload shape includes required generic `workType=SYMBOL` and `workKey`,
+source, the domain command field `symbolKey`, optional time bounds, and metadata.
+`symbolKey` tells the stock-price worker which symbol to process; it is not a status
+fallback or a second execution identity. The payload must not include S3 bucket or
+object path routing fields.
 
 ### topic-sync-symbols
 
@@ -122,12 +126,24 @@ error details.
 
 P1-I4 is an explicit breaking cutover: no backward-compatible `symbolKey` status
 field, alias, fallback, or dual-write remains. Drain old outbox/topic messages,
-backfill stored execution metadata, then deploy Java and Python producers/consumers
-together. Domain command payloads may retain `symbolKey` when the worker genuinely
-operates on a symbol, but status correlation uses only `executionId` plus canonical
-`workType`/`workKey`.
+snapshot PostgreSQL, manually clear execution history, then deploy Java and Python
+producers/consumers together. Domain command payloads and signal notification content may retain
+`symbolKey` when it has genuine symbol meaning, but status correlation uses only
+`executionId` plus canonical `workType`/`workKey`.
 
-Worker error statuses must preserve useful request context in `metaJson`. Do not replace failure metadata with only `recordsProcessed = 0`; include safe domain fields such as timeframe, strategy, evaluation date, sector universe/focus, prediction horizons, and the actual error message when available.
+Every scheduler job payload also carries the same required `workType` and
+`workKey`. Workers copy those fields unchanged into terminal status messages;
+they do not derive execution identity from `symbolKey`, `exchange`, `sectorCode`,
+strategy, or arbitrary metadata. Platform rejects a child status whose work
+identity does not match the persisted child execution.
+
+Worker error statuses must preserve useful request context in `metaJson`. Do not replace failure metadata with only `recordsProcessed = 0`; include safe orthogonal fields such as timeframe, strategy, evaluation date, sector universe/focus, prediction horizons, and the actual error message when available. Generic status builders must not copy `symbolKey`, `exchange`, sector codes, or arbitrary key fields into execution identity extras.
+
+The implementation remains `verification_pending` until the final pushed PR #16
+head has successful exact-head CI and all repository gates are green. The
+maintenance-window drain/manual-cleanup/deploy sequence is documented in the
+[P1-I4 hard-cutover runbook](../deployment/p1-i4-hard-cutover.md); implementation
+verification did not deploy or modify production.
 
 ### topic-sync-indicators
 

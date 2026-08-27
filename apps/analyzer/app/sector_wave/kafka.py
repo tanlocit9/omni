@@ -96,16 +96,12 @@ class SectorWaveKafkaService(JobStatusKafkaService):
         records_processed: int,
         error_message: str | None = None,
     ) -> JobStatusMessage:
-        symbol_key = getattr(message, "symbol_key", None)
-        if symbol_key is None:
-            symbol_key = getattr(message, "sector_code", None)
-        if symbol_key is None:
-            symbol_key = getattr(message, "strategy", None)
         return JobStatusMessage(
             job_definition_id=message.job_definition_id,
             execution_id=message.execution_id,
             parent_execution_id=message.parent_execution_id,
-            symbol_key=symbol_key,
+            work_type=message.work_type,
+            work_key=message.work_key,
             status=status,
             started_at=started_at,
             finished_at=finished_at,

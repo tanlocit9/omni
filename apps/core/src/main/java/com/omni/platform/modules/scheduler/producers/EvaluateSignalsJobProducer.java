@@ -17,6 +17,8 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SignalEvaluationJobMessage;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +76,7 @@ public class EvaluateSignalsJobProducer extends JobProducer {
 
                     JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
-                            normalizedExchange,
+                            WorkIdentity.of(WorkType.EXCHANGE, normalizedExchange),
                             metadata,
                             timestamps);
 
@@ -85,6 +87,8 @@ public class EvaluateSignalsJobProducer extends JobProducer {
                                     childJobExecutionHistory.getId(),
                                     jobExecutionHistory.getId(),
                                     job.getSource().toString(),
+                                    WorkType.EXCHANGE,
+                                    normalizedExchange,
                                     normalizedExchange,
                                     timeframe,
                                     strategy,

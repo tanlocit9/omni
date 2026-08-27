@@ -8,7 +8,7 @@ from py_common.storage.manifest import ManifestWriter, publish_dataset_manifest
 from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SymbolJobMessage
-from app.messaging.status import build_status, status_publish_key
+from app.messaging.status import build_status
 from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
@@ -60,13 +60,11 @@ async def process_stock_price_message(
 ) -> JobStatusMessage:
     started_at = utc_now()
     payload: dict[str, object] = {}
-    symbol_key = None
 
     try:
         payload = decode_json_object_payload(raw_msg, "Stock price sync job")
         message = SymbolJobMessage.model_validate(payload)
         payload = message.status_payload
-        symbol_key = message.symbol_key
         exchange, code = message.parse_symbol_key()
 
         client = (
@@ -112,8 +110,6 @@ async def process_stock_price_message(
             )
 
         status = build_status(
-            "symbolKey",
-            symbol_key,
             payload,
             started_at,
             JobStatus.SUCCESS,
@@ -124,13 +120,11 @@ async def process_stock_price_message(
     except Exception as exc:
         logger.exception("Failed to process stock-price sync message: %s", exc)
         status = build_status(
-            "symbolKey",
-            symbol_key,
             payload,
             started_at,
             JobStatus.ERROR,
             error_message=str(exc),
         )
 
-    await status_publisher.publish(status, key=status_publish_key(status, "symbolKey"))
+    await status_publisher.publish(status, key=status.work_key)
     return status

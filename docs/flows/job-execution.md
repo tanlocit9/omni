@@ -272,15 +272,38 @@ Use `DefaultJobNotificationPolicy` for generic operational success/failure messa
 
 P1-I4 replaces generic status identity with required `workType` and `workKey` in
 one coordinated cutover. There is no legacy status fallback or dual-write period.
-Historical execution metadata is backfilled before the new services start, and
-old `symbolKey`-based repository/status/aggregation branches are deleted. A
+Operators manually clear historical execution rows before the new services start,
+and old `symbolKey`-based repository/status/aggregation branches are deleted. A
 symbol-domain command may still carry `symbolKey`; that field is not generic
 execution identity.
+
+Platform creates each child from a shared `WorkIdentity` value object, persists
+that identity in `meta_json`, and emits it on the job payload. Workers return it
+unchanged. Status application validates it against the persisted child before
+updating state; symbol offsets query `workType=SYMBOL` plus `workKey` only.
+
+Parent aggregation in `JobService` is the single terminal notification owner.
+Workers publish status, not operational notification decisions. The Signal
+Digest policy translates a canonical symbol `workKey` back into the domain
+`SignalDigestItem.symbolKey` only when rendering the notification event.
+
+The V9 migration requires a drained scheduler outbox and empty execution history,
+then installs canonical work-identity indexes. It never deletes or rewrites
+operational records. The database invariants are documented in
+[Database](../data/database.md).
+
+The coordinated operational sequence, maintenance-window checks, snapshot-based
+rollback procedure, and production completion gates are defined in the
+[P1-I4 hard-cutover runbook](../deployment/p1-i4-hard-cutover.md). Disposable
+PostgreSQL verification runs V9 twice against empty history and checks rejection
+of remaining history and pending outbox work. That local evidence does not replace the
+maintenance-window preflight or exact-head CI, so the canonical roadmap keeps
+P1-I4 `verification_pending`; no production database was modified.
 
 ## Failure Semantics
 
 - Worker failures should publish a status event when possible.
-- Status events should include `executionId`, optional `parentExecutionId`, final status, duration, metrics, error details, and relevant `metaJson` context.
+- Status events must include `executionId`, optional `parentExecutionId`, required `workType`/`workKey`, final status, duration, metrics, error details, and relevant `metaJson` context.
 - Workers should preserve domain metadata on failures instead of replacing metadata with only `recordsProcessed = 0`.
 - Platform should update the child execution by execution identity, not by symbol alone.
 - Parent aggregation should wait for all child executions to reach terminal states.

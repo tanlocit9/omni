@@ -40,11 +40,26 @@ class IndicatorKafkaService(JobStatusKafkaService):
     async def process_payload(
         self,
         payload: str | bytes | dict[str, Any],
-    ) -> JobStatusMessage:
+    ) -> JobStatusMessage | None:
         started_at = utc_now()
-        raw: dict[str, Any] = {}
         try:
             raw = decode_json_object_payload(payload, "Indicator job")
+        except Exception:
+            _logger.warning(
+                "Skipping malformed indicator payload without publishing status"
+            )
+            return None
+
+        if not all(
+            str(raw.get(field, "")).strip()
+            for field in ("executionId", "workType", "workKey")
+        ):
+            _logger.warning(
+                "Skipping indicator payload without canonical execution identity"
+            )
+            return None
+
+        try:
             message = IndicatorJobMessage.model_validate(raw)
             records_processed = await self._handler.handle(raw)
             status = self._build_status(
@@ -79,7 +94,8 @@ class IndicatorKafkaService(JobStatusKafkaService):
             job_definition_id=message.job_definition_id,
             execution_id=message.execution_id,
             parent_execution_id=message.parent_execution_id,
-            symbol_key=message.symbol_key,
+            work_type=message.work_type,
+            work_key=message.work_key,
             status=status,
             started_at=started_at,
             finished_at=finished_at,

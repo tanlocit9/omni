@@ -29,6 +29,7 @@ import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRe
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
+import com.omni.platform.shared.executions.WorkIdentity;
 import com.omni.platform.shared.utils.MetadataUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -171,14 +172,14 @@ public class JobService {
      * as the durable source of truth used later by aggregation.
      *
      * @param parentLogId parent execution id
-     * @param workKey work item identifier represented by the child task
+     * @param workIdentity canonical work item identity represented by the child task
      * @param metadata additional metadata to store on the child execution
      * @param now child start timestamp
      * @return persisted running child execution
      */
     public JobExecutionHistory createChildExecution(
             UUID parentLogId,
-            String workKey,
+            WorkIdentity workIdentity,
             Map<String, Object> metadata,
             Instant now) {
 
@@ -191,9 +192,10 @@ public class JobService {
         child.setStatus(JobStatus.RUNNING);
 
         Map<String, Object> meta = new LinkedHashMap<>();
-        MetadataUtils.putIfPresent(meta, "symbolKey", workKey);
-        MetadataUtils.putIfPresent(meta, "workKey", workKey);
         putAllAsStrings(meta, metadata);
+        meta.remove("symbolKey");
+        MetadataUtils.putIfPresent(meta, "workType", workIdentity.type().name());
+        MetadataUtils.putIfPresent(meta, "workKey", workIdentity.key());
         child.setMetaJson(meta);
 
         return jobExecutionHistoryRepository.save(child);
@@ -327,8 +329,8 @@ public class JobService {
     @Transactional
     public void applyStatus(JobStatusMessage response) {
         log.info(
-                "Applying job status executionId={} parentExecutionId={} symbolKey={} status={} txActive={} txName={} metaKeys={}",
-                response.executionId(), response.parentExecutionId(), response.symbolKey(), response.status(),
+                "Applying job status executionId={} parentExecutionId={} workType={} workKey={} status={} txActive={} txName={} metaKeys={}",
+                response.executionId(), response.parentExecutionId(), response.workType(), response.workKey(), response.status(),
                 TransactionSynchronizationManager.isActualTransactionActive(),
                 TransactionSynchronizationManager.getCurrentTransactionName(),
                 response.metaJson() == null ? null : response.metaJson().keySet());
@@ -361,6 +363,15 @@ public class JobService {
                 .orElse(null);
         if (history == null) {
             log.warn("Ignoring job status message for unknown execution: {}", executionId);
+            return;
+        }
+
+        if (response.workType() == null || response.workKey() == null || response.workKey().isBlank()) {
+            log.warn("Ignoring job status message with missing work identity for execution {}", executionId);
+            return;
+        }
+        if (!matchesPersistedWorkIdentity(history, response)) {
+            log.warn("Ignoring job status message with mismatched work identity for execution {}", executionId);
             return;
         }
 
@@ -546,13 +557,24 @@ public class JobService {
         Map<String, Object> meta = new HashMap<>();
         putAllAsStrings(meta, history.getMetaJson());
         putAllAsStrings(meta, response.metaJson());
-        MetadataUtils.putIfPresent(meta, "symbolKey", response.symbolKey());
+        MetadataUtils.putIfPresent(meta, "workType", response.workType().name());
+        MetadataUtils.putIfPresent(meta, "workKey", response.workKey());
         MetadataUtils.putIfPresent(meta, "jobDefinitionId", response.jobDefinitionId());
         MetadataUtils.putIfPresent(meta, "executionId", response.executionId());
         MetadataUtils.putIfPresent(meta, "parentExecutionId", response.parentExecutionId());
         MetadataUtils.putIfPresent(meta, "durationMs", response.durationMs());
         MetadataUtils.putIfPresent(meta, "recordsProcessed", response.recordsProcessed());
         return meta;
+    }
+
+    private boolean matchesPersistedWorkIdentity(JobExecutionHistory history, JobStatusMessage response) {
+        if (history.getParentLogId() == null) {
+            return true;
+        }
+        Map<String, Object> metadata = history.getMetaJson();
+        return metadata != null
+                && response.workType().name().equals(String.valueOf(metadata.get("workType")))
+                && response.workKey().equals(String.valueOf(metadata.get("workKey")));
     }
 
     private JobStatus resolveStatus(String status) {

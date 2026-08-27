@@ -21,6 +21,8 @@ import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage;
 import com.omni.platform.modules.scheduler.messaging.SymbolUpsertMessage.SymbolRecord;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
 import com.omni.platform.shared.utils.MetadataUtils;
 
@@ -140,7 +142,7 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
 
         return jobService.createChildExecution(
                 parentExecutionId,
-                symbolKey(event, record),
+                WorkIdentity.of(WorkType.SYMBOL, symbolKey(event, record)),
                 toExecutionMeta(event, record),
                 Instant.now());
     }
@@ -152,7 +154,6 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
 
     private Map<String, Object> toExecutionMeta(SymbolUpsertMessage event, SymbolRecord record) {
         Map<String, Object> meta = new LinkedHashMap<>();
-        MetadataUtils.putIfPresent(meta, "symbolKey", symbolKey(event, record));
         MetadataUtils.putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId());
         MetadataUtils.putIfPresent(meta, "executionId", event.executionId());
         MetadataUtils.putIfPresent(meta, "parentExecutionId", event.parentExecutionId());

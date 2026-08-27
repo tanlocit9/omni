@@ -82,6 +82,8 @@ async def test_process_stock_price_publishes_exact_write_identity_after_data_wri
         {
             "jobDefinitionId": "job-1",
             "executionId": "execution-1",
+            "workType": "SYMBOL",
+            "workKey": "HOSE-HPG",
             "symbolKey": "hose-hpg",
         },
         status_publisher,
@@ -132,6 +134,8 @@ async def test_process_stock_price_reports_error_when_ready_publication_fails(
         {
             "jobDefinitionId": "job-1",
             "executionId": "execution-1",
+            "workType": "SYMBOL",
+            "workKey": "HOSE-HPG",
             "symbolKey": "hose-hpg",
         },
         status_publisher,

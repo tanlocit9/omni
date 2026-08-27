@@ -19,7 +19,7 @@ class FakeProducer:
 
 
 @pytest.mark.anyio
-async def test_job_status_publisher_serializes_aliases_and_symbol_key():
+async def test_job_status_publisher_serializes_aliases_and_work_identity():
     producer = FakeProducer()
     publisher = JobStatusPublisher(producer, "topic-sync-job-status", "test")
     timestamp = datetime(2026, 1, 1, tzinfo=UTC)
@@ -28,7 +28,8 @@ async def test_job_status_publisher_serializes_aliases_and_symbol_key():
         JobStatusMessage(
             job_definition_id="job-definition-id",
             execution_id="execution-id",
-            symbol_key="HOSE-HPG",
+            work_type="SYMBOL",
+            work_key="HOSE-HPG",
             status="SUCCESS",
             started_at=timestamp,
             finished_at=timestamp,
@@ -43,7 +44,8 @@ async def test_job_status_publisher_serializes_aliases_and_symbol_key():
     decoded = json.loads(payload.decode("utf-8"))
     assert decoded["jobDefinitionId"] == "job-definition-id"
     assert decoded["executionId"] == "execution-id"
-    assert decoded["symbolKey"] == "HOSE-HPG"
+    assert decoded["workType"] == "SYMBOL"
+    assert decoded["workKey"] == "HOSE-HPG"
     assert decoded["recordsProcessed"] == 1
 
 
@@ -57,6 +59,8 @@ async def test_job_status_publisher_uses_explicit_key_for_non_symbol_status():
         JobStatusMessage(
             job_definition_id="job-definition-id",
             execution_id="execution-id",
+            work_type="EXCHANGE",
+            work_key="HOSE",
             status="SUCCESS",
             started_at=timestamp,
             finished_at=timestamp,
@@ -72,4 +76,5 @@ async def test_job_status_publisher_uses_explicit_key_for_non_symbol_status():
     assert key == b"HOSE"
     decoded = json.loads(payload.decode("utf-8"))
     assert decoded["exchange"] == "HOSE"
-    assert decoded["symbolKey"] is None
+    assert decoded["workType"] == "EXCHANGE"
+    assert decoded["workKey"] == "HOSE"

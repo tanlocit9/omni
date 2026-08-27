@@ -12,8 +12,6 @@ from py_common.messaging import (
 
 
 def build_status(
-    key_field: str,
-    key_value: str | None,
     payload: dict[str, Any],
     started_at: datetime,
     status: JobStatus | str,
@@ -24,7 +22,6 @@ def build_status(
 ) -> JobStatusMessage:
     finished_at = utc_now()
     normalized_status = _normalize_status(status)
-    resolved_key = key_value or payload.get(key_field, "unknown")
     meta_json = {
         "recordsInserted": records_inserted,
         "totalRecords": total_records,
@@ -34,7 +31,8 @@ def build_status(
         job_definition_id=_optional_str(payload.get("jobDefinitionId")),
         execution_id=_optional_str(payload.get("executionId")),
         parent_execution_id=_optional_str(payload.get("parentExecutionId")),
-        symbol_key=_optional_str(payload.get("symbolKey")),
+        work_type=payload.get("workType"),
+        work_key=_optional_str(payload.get("workKey")),
         status=normalized_status,
         meta_json=meta_json,
         new_offset=new_offset,
@@ -43,17 +41,7 @@ def build_status(
         duration_ms=calculate_duration_ms(started_at, finished_at),
         error_message=error_message,
         records_processed=records_inserted,
-        **{key_field: resolved_key},
     )
-
-
-def status_publish_key(status: JobStatusMessage, key_field: str) -> str | None:
-    value = getattr(status, key_field, None)
-    if value is None:
-        value = status.model_extra.get(key_field) if status.model_extra else None
-    if value is None and key_field == "symbolKey":
-        value = status.symbol_key
-    return str(value) if value is not None else None
 
 
 def _normalize_status(status: JobStatus | str) -> JobStatus:

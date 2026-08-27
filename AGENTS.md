@@ -13,6 +13,23 @@ rules belong in [`docs`](docs); do not duplicate them in agent files.
 - Use [`docs/development/where-to-change.md`](docs/development/where-to-change.md)
   for ownership and [`docs/README.md`](docs/README.md) for canonical documentation.
 
+## Worktree inspection boundary
+
+- Establish worktree state once at the beginning of a task when file edits are
+  expected, then cache that baseline for the current task and track files touched
+  by the agent in session state.
+- Do not repeat repository-wide Git status or diff commands unless an external
+  change is detected, the requested task depends on Git state, or a commit, push,
+  or pull-request boundary is reached.
+- Before modifying an existing file, re-read that file and preserve changes not
+  made by the agent.
+- Do not inspect branch history, remotes, pull requests, tags, commit identity, or
+  CI for ordinary local tasks unless relevant to the user's request.
+- Do not create branches, commits, tags, pushes, or pull requests unless the user
+  explicitly requests them or explicitly invokes roadmap automation.
+- Persistent agent state must use an ignored local cache and is advisory; Git
+  remains authoritative at delivery boundaries.
+
 ## Nx command boundary
 
 - Run commands from the workspace root.

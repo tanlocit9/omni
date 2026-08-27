@@ -26,6 +26,8 @@ def _job_payload(**overrides):
         "executionId": "execution-id",
         "parentExecutionId": "parent-execution-id",
         "source": "ANALYZER",
+        "workType": "SYMBOL",
+        "workKey": "HOSE-HPG",
         "indicatorSource": "ad_close",
         "symbolKey": "HOSE-HPG",
         "timeframe": "1d",
@@ -481,7 +483,7 @@ async def test_indicator_kafka_service_publishes_success_status():
 
 
 @pytest.mark.anyio
-async def test_indicator_kafka_service_publishes_error_status_for_invalid_json():
+async def test_indicator_kafka_service_skips_invalid_json_without_status():
     settings = AppSettings(indicator_kafka_enabled=False)
     handler = AsyncMock()
     service = IndicatorKafkaService(settings, handler)
@@ -490,6 +492,5 @@ async def test_indicator_kafka_service_publishes_error_status_for_invalid_json()
 
     status = await service.process_payload("not-json")
 
-    assert status.status == "ERROR"
-    assert status.records_processed == 0
-    producer.send_and_wait.assert_awaited_once()
+    assert status is None
+    producer.send_and_wait.assert_not_awaited()

@@ -30,6 +30,8 @@ def _job_payload(**overrides):
         "executionId": "execution-id",
         "parentExecutionId": "parent-execution-id",
         "source": "ANALYZER",
+        "workType": "SYMBOL",
+        "workKey": "HOSE-HPG",
         "symbolKey": "HOSE-HPG",
         "timeframe": "1d",
         "strategy": "TREND_MOMENTUM_V1",
@@ -618,6 +620,8 @@ async def test_signal_evaluator_reads_same_shared_path_used_by_persistence():
             "jobDefinitionId": "job-definition-id",
             "executionId": "execution-id",
             "source": "ANALYZER",
+            "workType": "EXCHANGE",
+            "workKey": "HOSE",
             "exchange": "HOSE",
             "timeframe": "1d",
             "strategy": "TREND_MOMENTUM_V1",
@@ -817,6 +821,8 @@ async def test_signal_evaluation_kafka_status_uses_scanned_as_processed():
             "jobDefinitionId": "job-definition-id",
             "executionId": "execution-id",
             "source": "ANALYZER",
+            "workType": "EXCHANGE",
+            "workKey": "HOSE",
             "exchange": "HOSE",
             "timeframe": "1d",
             "strategy": "TREND_MOMENTUM_V1",
@@ -867,7 +873,8 @@ async def test_signal_kafka_service_publishes_success_with_transition_metadata()
     assert status.status.value == "SUCCESS"
     assert status.execution_id == "execution-id"
     assert status.parent_execution_id == "parent-execution-id"
-    assert status.symbol_key == "HOSE-HPG"
+    assert status.work_type == "SYMBOL"
+    assert status.work_key == "HOSE-HPG"
     assert status.records_processed == 1
     assert status.meta_json == {
         "newSignal": "BULLISH",
@@ -1049,7 +1056,8 @@ async def test_signal_kafka_service_publishes_error_status_for_invalid_payload()
     assert status is not None
     assert status.status.value == "ERROR"
     assert status.execution_id == "execution-id"
-    assert status.symbol_key == "HPG"
+    assert status.work_type == "SYMBOL"
+    assert status.work_key == "HOSE-HPG"
     assert status.records_processed == 0
     assert status.meta_json["recordsProcessed"] == 0
     assert status.meta_json["errorMessage"] == status.error_message

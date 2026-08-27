@@ -48,6 +48,8 @@ class MetadataSyncKafkaService(JobStatusKafkaService):
                 job_definition_id=message.job_definition_id,
                 execution_id=message.execution_id,
                 parent_execution_id=message.parent_execution_id,
+                work_type=message.work_type,
+                work_key=message.work_key,
                 status=(
                     JobStatus.PARTIAL_SUCCESS
                     if result.is_partial

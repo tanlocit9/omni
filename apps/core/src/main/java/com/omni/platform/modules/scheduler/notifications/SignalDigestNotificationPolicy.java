@@ -66,7 +66,7 @@ public class SignalDigestNotificationPolicy implements JobNotificationPolicy {
     private SignalDigestItem toSignalDigestItem(JobExecutionHistory child) {
         Map<String, Object> metadata = child.getMetaJson() == null ? Map.of() : child.getMetaJson();
         return new SignalDigestItem(
-                stringValue(metadata.get("symbolKey")),
+                stringValue(metadata.get("workKey")),
                 stringValue(metadata.get("previousSignal")),
                 stringValue(metadata.get("newSignal")),
                 stringValue(metadata.get("price")),

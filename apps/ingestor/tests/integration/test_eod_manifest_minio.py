@@ -114,6 +114,8 @@ async def test_eod_ready_publication_persists_exact_identity_and_preserves_prior
             {
                 "jobDefinitionId": "job-minio-integration",
                 "executionId": "execution-minio-integration",
+                "workType": "SYMBOL",
+                "workKey": "HOSE-HPG",
                 "symbolKey": "hose-hpg",
             },
             status_publisher,

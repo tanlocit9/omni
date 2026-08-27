@@ -17,6 +17,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 11. [Phase 7 Console job operations](../plans/roadmap/phase-7-console-job-operations.md) — Platform-owned job catalog/trigger/status contracts and the Omni Console Jobs tab.
 12. [Phase 3 dataset manifests](../plans/roadmap/phase-3-dataset-manifests.md) — canonical manifests and verification-pending automatic EOD metadata reconciliation.
 13. [Cloudflare-first low-cost deployment decision](deployment/cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
+14. [P1-I4 execution identity hard cutover](deployment/p1-i4-hard-cutover.md) — coordinated drain, manual history cleanup, deploy, verification, and rollback procedure.
 
 ## Contract / Coordination Plans
 

@@ -47,6 +47,8 @@ def _analyze_payload() -> dict:
         "jobDefinitionId": "job-definition-id",
         "executionId": "execution-id",
         "source": "ANALYZER",
+        "workType": "GLOBAL",
+        "workKey": "SECTOR_TRANSITION_V1",
         "evaluationDate": "2026-01-08",
         "sectorCodes": ["tech", "BANKS"],
         "focusSectorCodes": [" banks "],

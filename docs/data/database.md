@@ -71,13 +71,28 @@ erDiagram
 
 ### Job execution history
 
-| Field          | Value                                                                                                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Migration      | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                           |
-| Owner          | Platform scheduler module                                                                                                                                                                              |
-| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                |
-| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java) |
-| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                             |
+| Field          | Value                                                                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql) |
+| Owner          | Platform scheduler module                                                                                                                                                                                                                  |
+| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                    |
+| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                     |
+| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                                                                 |
+
+Child rows store canonical execution identity in `meta_json.workType` and
+`meta_json.workKey`. V9 is a schema-only cutover: it never deletes or rewrites
+operational records, refuses to run while pending scheduler outbox work exists,
+and requires operators to clear all execution history manually before deployment.
+After those preconditions pass, it replaces symbol-key indexes with canonical
+work-identity/offset indexes. Domain payloads may still contain `symbolKey`; it is
+not used for execution lookup.
+
+The reproducible disposable-database harness is
+[`database/tests/p1_i4_work_identity_migration.sql`](../../database/tests/p1_i4_work_identity_migration.sql).
+It runs V9 twice against empty execution history, verifies both canonical indexes,
+and uses PostgreSQL `dblink` to prove that remaining execution history or pending
+outbox work aborts the migration. This evidence does not target or modify
+production.
 
 ### Symbols
 
@@ -126,3 +141,6 @@ erDiagram
 4. Update Platform entities/repositories/services as needed.
 5. Update this document if the migration adds or changes an important domain.
 6. Verify through the relevant Nx target, usually Platform build/tests.
+7. For data-changing migrations, add a disposable-database harness when no Nx
+   database target exists; record that exception and never substitute production
+   execution for migration tests.

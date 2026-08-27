@@ -17,6 +17,8 @@ import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorRotationBacktestJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 import lombok.extern.slf4j.Slf4j;
@@ -67,7 +69,7 @@ public class SectorRotationBacktestJobProducer extends JobProducer {
         metadata.put("resolvedSectorCodes", resolvedSectorCodes);
         JobExecutionHistory child = jobService.createChildExecution(
                 jobExecutionHistory.getId(),
-                config.strategy(),
+                WorkIdentity.of(WorkType.GLOBAL, config.strategy()),
                 metadata,
                 timestamps);
 
@@ -81,6 +83,8 @@ public class SectorRotationBacktestJobProducer extends JobProducer {
                         child.getId(),
                         jobExecutionHistory.getId(),
                         job.getSource().toString(),
+                        WorkType.GLOBAL,
+                        config.strategy(),
                         resolvedSectorCodes,
                         sectorLevel,
                         config.timeframe(),

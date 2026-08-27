@@ -11,7 +11,7 @@ from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher,
 from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SyncSymbolsJobMessage
-from app.messaging.status import build_status, status_publish_key
+from app.messaging.status import build_status
 from app.settings import settings
 from app.stocks.base import StockClient
 from app.stocks.client_factory import get_or_create_client
@@ -180,8 +180,6 @@ async def process_sync_symbols_message(
         )
 
         status = build_status(
-            "exchange",
-            exchange,
             payload,
             started_at,
             JobStatus.PARTIAL_SUCCESS if warnings else JobStatus.SUCCESS,
@@ -197,15 +195,13 @@ async def process_sync_symbols_message(
     except Exception as exc:
         logger.exception("Failed to process sync-symbols message: %s", exc)
         status = build_status(
-            "exchange",
-            exchange,
             payload,
             started_at,
             JobStatus.ERROR,
             error_message=str(exc),
         )
 
-    await status_publisher.publish(status, key=status_publish_key(status, "exchange"))
+    await status_publisher.publish(status, key=status.work_key)
     return status
 
 

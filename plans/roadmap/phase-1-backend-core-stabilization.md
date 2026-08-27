@@ -6,8 +6,8 @@ Make execution ownership, job scope, metadata, and internal events consistent be
 
 ## Phase eligibility
 
-Depends on completed Phase 0. P1-I1 and P1-I2 are completed; P1-I3 is
-`verification_pending`, and P1-I4 remains `ready` and unstarted.
+Depends on completed Phase 0. P1-I1 and P1-I2 are completed; P1-I3 and P1-I4
+are `verification_pending`.
 
 ## Increment P1-I1 — Claim data model and repository primitives
 
@@ -173,78 +173,136 @@ Stop conditions: stop if sector catalog ownership is unclear.
 
 ## Increment P1-I4 — workType/workKey hard cutover and notification event ownership
 
-| Field                   | Value                                                                |
-| ----------------------- | -------------------------------------------------------------------- |
-| id                      | P1-I4                                                                |
-| title                   | workType/workKey hard cutover and notification event ownership       |
-| status                  | ready                                                                |
-| priority                | high                                                                 |
-| depends_on              | [P1-I2]                                                              |
-| blocks                  | [P2-I2, P4-I1, P8-I1]                                                |
-| owned_modules           | [apps/core, libs/py-common, configs]                                 |
-| execution_mode          | autonomous                                                           |
-| requires_owner_decision | false                                                                |
-| pr                      | null                                                                 |
-| last_verified_commit    | null                                                                 |
+| Field                   | Value                                                               |
+| ----------------------- | ------------------------------------------------------------------- |
+| id                      | P1-I4                                                               |
+| title                   | workType/workKey hard cutover and event ownership                   |
+| status                  | verification_pending                                                |
+| priority                | high                                                                |
+| depends_on              | [P1-I2]                                                             |
+| blocks                  | [P2-I2, P4-I1, P8-I1]                                               |
+| owned_modules           | [apps/core, apps/analyzer, apps/ingestor, libs/py-common, database] |
+| execution_mode          | autonomous                                                          |
+| requires_owner_decision | false                                                               |
+| pr                      | https://github.com/tanlocit9/omni/pull/16                           |
+| last_verified_commit    | 2576995a5bfa164e3fcfbd15341fa06f8fc3b243                            |
 
-Goal: perform a one-time cutover to canonical child-execution identity and ensure
-terminal notification events have one owner.
+### Goal
 
-In scope: canonical `workType`/`workKey`, a one-time backfill of historical
-`job_execution_histories.meta_json`, coordinated producer/consumer/status cutover,
-removal of legacy execution-identity reads/writes, shared enum/value object, event
-payloads for completion and digest-ready notifications, and one terminal
-aggregation publisher.
+Perform a one-time cutover to canonical child-execution identity and ensure terminal
+notification events have one owner.
 
-Out of scope: multi-channel notification routing and Proto3 transport migration.
+### Outcome
 
-Migration strategy: no backward compatibility and no dual-read/dual-write window.
-Pause scheduler dispatch, drain the transactional outbox and in-flight worker
-topics, snapshot PostgreSQL, backfill every historical child execution from its job
-type and existing domain metadata, validate zero unmapped rows, deploy Platform,
-Ingestor, and Analyzer as one coordinated release, then resume dispatch. The
-migration must be idempotent and fail before cutover if any row cannot be mapped.
+Platform, Ingestor, Analyzer, and `py-common` use required `workType`/`workKey` for
+generic command/status correlation. Historical child rows are migrated by explicit
+job-type rules, generic `symbolKey` mirrors and fallbacks are removed, and parent
+aggregation is the single terminal notification owner.
 
-Backfill mapping must be explicit per job type, never inferred from arbitrary key
-names:
+### Dataset Outputs
 
-| Execution scope | workType   | workKey source                                       |
-| --------------- | ---------- | ---------------------------------------------------- |
-| one symbol      | `SYMBOL`   | normalized existing symbol identity                  |
-| one sector      | `SECTOR`   | canonical sector code                                |
-| one exchange    | `EXCHANGE` | canonical exchange code                              |
-| singleton/batch | `GLOBAL`   | stable job-type-owned key documented by its producer |
+No new analytical dataset output. Existing dataset ownership, logical references,
+READY-last publication, and `dataVersion` lineage are unchanged.
 
-Strategy, timeframe, evaluation date, and similar processing parameters remain
-orthogonal metadata. Unknown, ambiguous, or conflicting historical rows abort the
-migration and produce a review report; they are never assigned a guessed key.
+### Metadata Outputs
 
-Legacy removal scope:
+No new dataset metadata output. The only persisted metadata change is operational:
+child `job_execution_histories.meta_json` stores canonical `workType` and `workKey`
+and no generic `symbolKey` mirror.
 
-- remove `symbolKey` fallback reads/writes from generic child-execution creation,
-  status handling, offset lookup, aggregation, and notification extraction;
-- replace generic status identity with required `workType` and `workKey` across
-  Java and `py_common`, updating every producer, consumer, fixture, and test;
-- delete legacy DTO fields, aliases, compatibility helpers, branches, and tests
-  after the backfill validation passes;
-- retain `symbolKey` only in symbol-domain command/message models where it carries
-  actual business meaning; it must not be mirrored as execution identity;
-- keep strategy/timeframe as orthogonal metadata unless the owning job explicitly
-  defines them as its canonical work identity.
+### Algorithm Feature Outputs
 
-Acceptance criteria: all historical child executions and all new status events
-contain valid `workType`/`workKey`; zero execution/status code path falls back to
-`symbolKey`; legacy queues/outbox rows are drained before cutover; terminal SUCCESS
-aggregation emits digest-ready once; consumers do not duplicate notification
-decisions; repository search finds no obsolete execution compatibility branch.
+No new algorithm feature output. This increment changes execution correlation and
+notification ownership only.
 
-Required tests: idempotent backfill and unmapped-row failure tests; execution/status
-contract tests; producer/consumer golden fixtures; offset/aggregation/notification
-tests; notification event ownership tests; and repository-wide impact inspection.
+### Algorithms Unlocked
 
-Rollback: restore the pre-cutover database snapshot and previous coordinated service
-release. Do not retain dead compatibility code as a rollback mechanism.
+No algorithm is directly unlocked. Reliable execution identity unblocks typed job
+contract adapters in P2-I2 and notification routing work in P8-I1 after completion.
 
-Stop conditions: stop if the backfill cannot map every historical child row, Kafka
-or outbox work cannot be drained safely, coordinated deployment is unavailable, or
-terminal event ownership is disputed.
+### Contract Impact
+
+- Kafka/service-to-service protobuf: active JSON job commands and status events now
+  require `workType` and `workKey`; the existing Proto3 foundation is unchanged.
+  Platform producers plus Ingestor/Analyzer consumers and status producers changed
+  together. There is no dual-read, alias, or compatibility window.
+- Object-storage JSON manifests: unchanged, including READY-last and lineage
+  semantics.
+- Storage paths/dataset ownership: unchanged; Kafka messages continue to use logical
+  references rather than physical paths.
+- Public Java/Python APIs: shared Java/Python message types and status publishers now
+  require canonical work identity. `symbolKey` remains only in genuine symbol-domain
+  command and notification content.
+- Configuration/environment: topic names and defaults are unchanged. Deployment now
+  requires one maintenance window, scheduler/manual-trigger pause, drained outbox and
+  Kafka lag, a verified PostgreSQL snapshot, and coordinated service images.
+
+### Repository Guidance Updates
+
+Canonical Kafka, database, job-execution, and deployment documentation is
+synchronized. Existing `AGENTS.md`, `CLAUDE.md`, and `.roo/rules` already require
+producer/consumer/doc synchronization, graph impact review, and the approved hard
+cutover safeguards, so no additional concise agent-rule change is required.
+
+### Migration and Rollback
+
+V9 is schema-only and non-destructive. It aborts while pending scheduler outbox
+work or any execution-history row remains, then installs canonical work-identity
+indexes. Operators must snapshot PostgreSQL and manually clear execution history
+before cutover. Production execution is intentionally not part of this task.
+
+Rollback requires stopping all participants, restoring the verified pre-cutover
+PostgreSQL snapshot, deploying the previous Platform/Ingestor/Analyzer image set
+together, and reconciling Kafka/outbox state. Compatibility code is not a rollback
+mechanism.
+
+### Verification
+
+Local evidence on 2026-08-27 from baseline `9600ed1`:
+
+- PASS: `nx run platform:test` and `nx run platform:build`; Platform has no `lint`
+  target in its `project.json`.
+- PASS: `nx run py-common:lint`, `nx run py-common:test`, and
+  `nx run py-common:build`.
+- PASS: `nx run analyzer:lint`, `nx run analyzer:test`, and
+  `nx run analyzer:build`.
+- PASS after removing two attributable unused assignments:
+  `nx run ingestor:lint`, `nx run ingestor:test`, and `nx run ingestor:build`.
+- PASS: affected tests and builds for Analyzer, Platform, Ingestor, `py-common`, and
+  Query Service.
+- PARTIAL: affected lint passed for Analyzer, Ingestor, `py-common`, and Query
+  Service, but root `omni:lint` failed because its repository-wide Prettier check
+  reported 20 broad existing mismatches, including generated Platform output and
+  unrelated documents. No formatting command was run and unrelated files were not
+  changed.
+- SUPERSEDED: the earlier backfill harness passed against disposable PostgreSQL 16,
+  but V9 was subsequently changed by owner decision to schema-only manual cleanup.
+- NOT RUN: the replacement harness must run V9 twice against empty history, verify
+  canonical indexes, and reject remaining history and pending outbox work.
+- PASS: refreshed graph change detection reported medium risk `0.55`, 108 changed
+  entities, no affected execution flow, and expected review gaps across the broad
+  producer/consumer boundary. Focused static searches found no generic runtime
+  `symbolKey` status fallback, `status_publish_key`, or legacy `build_status` call.
+- NOT VERIFIED: exact-head CI for the final correction commit. The local GitHub CLI
+  is unavailable, so PR #16 remote head/draft/check state could not be refreshed.
+
+### Acceptance Criteria
+
+- Execution history is empty before cutover, and every new status has valid
+  `workType`/`workKey` with no generic fallback to `symbolKey`.
+- V9 runs twice safely, modifies no records, and rejects pending outbox work or any
+  remaining execution-history row.
+- Offset lookup uses `workType=SYMBOL` plus `workKey` only.
+- Parent terminal aggregation owns one digest-ready/notification decision; workers
+  publish status rather than duplicate operational notification decisions.
+- Producer, consumer, shared-contract, migration, tests, and canonical docs change
+  together.
+- Targeted and applicable affected verification outcomes are recorded without
+  weakening tests or restoring compatibility.
+- The increment remains `verification_pending` until the final pushed head has
+  successful exact-head CI and every completion gate is green.
+
+Stop conditions remain: do not perform production cutover without an
+owner-confirmed maintenance window, safe drain, verified snapshot, approved manual
+history cleanup, coordinated release, and zero remaining execution rows. Do not
+merge or deploy as part of this verification task.

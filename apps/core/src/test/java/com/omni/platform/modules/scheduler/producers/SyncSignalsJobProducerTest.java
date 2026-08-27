@@ -32,6 +32,8 @@ import com.omni.platform.modules.scheduler.messaging.SignalJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,7 +67,8 @@ class SyncSignalsJobProducerTest {
         when(manifestReader.readManifest(indicatorRef("HOSE", "HPG")))
                 .thenReturn(Optional.of(manifest("READY", "HOSE", "HPG")));
         when(manifestReader.readManifest(indicatorRef("HNX", "ONE"))).thenReturn(Optional.empty());
-        when(jobService.createChildExecution(eq(parent.getId()), eq("HOSE-HPG"), any(), any()))
+        when(jobService.createChildExecution(eq(parent.getId()),
+                eq(WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG")), any(), any()))
                 .thenReturn(readyChild);
 
         List<KafkaMessage> messages = producer.buildMessages(
@@ -77,7 +80,8 @@ class SyncSignalsJobProducerTest {
         assertThat(messages.getFirst().key()).isEqualTo("HOSE-HPG");
         SignalJobMessage payload = (SignalJobMessage) messages.getFirst().payload();
         assertThat(payload.symbolKey()).isEqualTo("HOSE-HPG");
-        verify(jobService, never()).createChildExecution(eq(parent.getId()), eq("HNX-ONE"), any(), any());
+        verify(jobService, never()).createChildExecution(eq(parent.getId()),
+                eq(WorkIdentity.of(WorkType.SYMBOL, "HNX-ONE")), any(), any());
     }
 
     @Test

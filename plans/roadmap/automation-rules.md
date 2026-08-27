@@ -1,6 +1,16 @@
 # Roadmap Automation Rules
 
-These rules make the roadmap executable by a scheduled Codex agent without granting authority to merge, weaken quality gates, or make material product decisions.
+These rules apply only to explicitly requested roadmap execution or scheduled
+roadmap automation; they are not the default workflow for ordinary local tasks.
+They make the roadmap executable by a scheduled Codex agent without granting
+authority to merge, weaken quality gates, or make material product decisions.
+
+During roadmap execution, establish branch, HEAD, pull-request, and worktree state
+once, cache that baseline for the current run, and reuse it until an operation or
+external change can invalidate it. Reconcile again only before branch creation,
+commit, push, pull-request updates, CI evidence capture, or final reporting. Any
+persistent cache must be ignored, advisory, and validated against Git at those
+boundaries.
 
 ## Source of truth
 
@@ -86,7 +96,9 @@ codex/p2-i1-proto-build
 
 Rules:
 
-- Search the current branch list and open local/remote PR metadata before creating a branch.
+- Search the current branch list and open local/remote PR metadata once during
+  reconciliation; repeat it only if the cached baseline may be stale or before
+  creating a branch.
 - Continue an existing draft PR when it owns the selected increment.
 - Do not create multiple PRs for the same increment.
 - Do not mix unrelated increments in one PR.
@@ -98,7 +110,8 @@ Rules:
 
 For each scheduled run:
 
-1. Reconcile the selected increment with the latest branch state.
+1. Reconcile the selected increment with the latest branch state once and cache
+   the result for the run.
 2. Implement only its documented scope.
 3. Add or update tests that prove the acceptance criteria.
 4. Run targeted checks first.

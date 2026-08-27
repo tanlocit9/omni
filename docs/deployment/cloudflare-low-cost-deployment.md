@@ -170,6 +170,15 @@ Omni is not safe to expose yet. Phase 5 implementation must address these blocke
 5. Run a bounded R2 compatibility test against a non-production bucket.
 6. Record backup/restore evidence before marking Phase 5 complete.
 
+### P1-I4 coordinated release
+
+Platform, Ingestor, and Analyzer images that implement the required
+`workType`/`workKey` contract must be released together. Before deployment,
+disable job dispatch and manual triggers, drain the scheduler outbox and Kafka
+consumer lag, and take a PostgreSQL snapshot. Follow the
+[P1-I4 hard-cutover runbook](p1-i4-hard-cutover.md); a rolling mixed-version
+deployment is unsupported.
+
 ## Phase 5 Implementation Order
 
 1. Complete P5-I1 image hardening and configuration contracts.

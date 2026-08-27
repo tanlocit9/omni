@@ -11,8 +11,8 @@
 - Every contract change must check producers, consumers, persistence, tests, configuration, and documentation.
 - Prefer forward-compatible additive changes unless an increment records an
   explicit owner-approved breaking cutover. P1-I4 is such an exception: snapshot,
-  drain, backfill, validate, deploy all participants together, and remove legacy
-  execution/status formats without a dual-read window.
+  drain, manually clear execution history, validate, deploy all participants
+  together, and remove legacy execution/status formats without a dual-read window.
 - All timestamps are UTC at rest and on the wire; presentation may use Asia/Ho_Chi_Minh.
 - Secrets, raw object-store credentials, and unrestricted object keys must never be exposed to the browser.
 - CI and automated tests are quality gates, not deferred cleanup.

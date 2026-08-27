@@ -23,7 +23,7 @@ class JobStatusPublisher:
         self._service_name = service_name
 
     async def publish(self, status: JobStatusMessage, key: str | None = None) -> None:
-        publish_key = key if key is not None else status.symbol_key
+        publish_key = key if key is not None else status.work_key
         result = await self._producer.send_and_wait(
             self._status_topic,
             status.model_dump_json(by_alias=True).encode("utf-8"),

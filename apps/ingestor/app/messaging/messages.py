@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from py_common.messaging import WorkType
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -21,6 +22,8 @@ class JobMessage(BaseModel):
         serialization_alias="parentExecutionId",
     )
     source: str | None = None
+    work_type: WorkType = Field(alias="workType")
+    work_key: str = Field(alias="workKey", min_length=1)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @property

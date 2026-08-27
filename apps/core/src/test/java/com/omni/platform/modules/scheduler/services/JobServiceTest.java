@@ -38,6 +38,8 @@ import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
 import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 
 @ExtendWith(MockitoExtension.class)
 class JobServiceTest {
@@ -69,6 +71,52 @@ class JobServiceTest {
                 eventPublisher,
                 policyRegistry,
                 schedulerOutboxService);
+    }
+
+    @Test
+    void createChildExecutionPersistsOnlyCanonicalWorkIdentity() {
+        JobExecutionHistory parent = execution(JobStatus.RUNNING, null);
+        when(historyRepository.findById(parent.getId())).thenReturn(Optional.of(parent));
+        when(historyRepository.save(any(JobExecutionHistory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        JobExecutionHistory child = service.createChildExecution(
+                parent.getId(),
+                WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG"),
+                Map.of("symbolKey", "legacy", "workType", "SECTOR", "workKey", "wrong"),
+                Instant.parse("2026-08-27T03:00:00Z"));
+
+        assertThat(child.getMetaJson())
+                .containsEntry("workType", "SYMBOL")
+                .containsEntry("workKey", "HOSE-HPG")
+                .doesNotContainKey("symbolKey");
+    }
+
+    @Test
+    void applyStatusRejectsMismatchedChildWorkIdentity() {
+        UUID parentId = UUID.randomUUID();
+        JobExecutionHistory child = execution(JobStatus.RUNNING, parentId);
+        when(historyRepository.findById(child.getId())).thenReturn(Optional.of(child));
+
+        JobStatusMessage mismatched = new JobStatusMessage(
+                child.getJob().getId().toString(),
+                child.getId().toString(),
+                parentId.toString(),
+                WorkType.SYMBOL,
+                "HNX-MISMATCH",
+                "SUCCESS",
+                Map.of(),
+                null,
+                Instant.parse("2026-08-27T03:00:00Z"),
+                Instant.parse("2026-08-27T03:01:00Z"),
+                60_000L,
+                null,
+                1);
+
+        service.applyStatus(mismatched);
+
+        assertThat(child.getStatus()).isEqualTo(JobStatus.RUNNING);
+        verify(historyRepository, never()).saveAndFlush(child);
     }
 
     @Test
@@ -270,19 +318,20 @@ class JobServiceTest {
         parent.getJob().setTitle("Sync market signals - daily BANKS");
         JobExecutionHistory changed = execution(JobStatus.SUCCESS, parentId);
         changed.setRecordsSynced(1);
-        changed.setMetaJson(Map.of(
-                "symbolKey", "HOSE-HPG",
-                "signalChanged", "true",
-                "previousSignal", "NEUTRAL",
-                "newSignal", "BULLISH",
-                "price", "28000.0",
-                "signalDate", "2026-07-28",
-                "strategy", "TREND_MOMENTUM_V1",
-                "timeframe", "1d",
-                "score", "4",
-                "reasonCodes", List.of("PRICE_ABOVE_MA50", "SCORE_4")));
+        changed.setMetaJson(Map.ofEntries(
+                Map.entry("workType", "SYMBOL"),
+                Map.entry("workKey", "HOSE-HPG"),
+                Map.entry("signalChanged", "true"),
+                Map.entry("previousSignal", "NEUTRAL"),
+                Map.entry("newSignal", "BULLISH"),
+                Map.entry("price", "28000.0"),
+                Map.entry("signalDate", "2026-07-28"),
+                Map.entry("strategy", "TREND_MOMENTUM_V1"),
+                Map.entry("timeframe", "1d"),
+                Map.entry("score", "4"),
+                Map.entry("reasonCodes", List.of("PRICE_ABOVE_MA50", "SCORE_4"))));
         JobExecutionHistory unchanged = execution(JobStatus.SUCCESS, parentId);
-        unchanged.setMetaJson(Map.of("symbolKey", "HOSE-VCB", "signalChanged", "false"));
+        unchanged.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-VCB", "signalChanged", "false"));
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
         when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(changed, unchanged));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
@@ -316,7 +365,7 @@ class JobServiceTest {
         parent.setId(parentId);
         parent.getJob().setJobType(JobType.SYNC_SIGNALS);
         JobExecutionHistory unchanged = execution(JobStatus.SUCCESS, parentId);
-        unchanged.setMetaJson(Map.of("symbolKey", "HOSE-HPG", "signalChanged", "false"));
+        unchanged.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG", "signalChanged", "false"));
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
         when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(unchanged));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
@@ -335,7 +384,7 @@ class JobServiceTest {
         parent.setId(parentId);
         parent.getJob().setJobType(JobType.SYNC_SIGNALS);
         JobExecutionHistory changed = execution(JobStatus.SUCCESS, parentId);
-        changed.setMetaJson(Map.of("symbolKey", "HOSE-HPG", "signalChanged", "true"));
+        changed.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG", "signalChanged", "true"));
         JobExecutionHistory failed = execution(JobStatus.FAILED, parentId);
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
         when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(changed, failed));
@@ -465,6 +514,7 @@ class JobServiceTest {
                 UUID.randomUUID().toString(),
                 executionId,
                 parentExecutionId,
+                WorkType.SYMBOL,
                 "HOSE-HPG",
                 status,
                 metaJson,
@@ -491,6 +541,9 @@ class JobServiceTest {
         execution.setParentLogId(parentLogId);
         execution.setRecordsSynced(0);
         execution.setRecordsSkipped(0);
+        if (parentLogId != null) {
+            execution.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG"));
+        }
         return execution;
     }
 }

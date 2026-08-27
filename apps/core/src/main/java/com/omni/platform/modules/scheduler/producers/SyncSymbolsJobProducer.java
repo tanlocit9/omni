@@ -18,6 +18,8 @@ import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SyncSymbolsJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +74,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
 
                     JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
                             jobExecutionHistory.getId(),
-                            exchange,
+                            WorkIdentity.of(WorkType.EXCHANGE, exchange),
                             messageConfig,
                             timestamps);
 
@@ -83,6 +85,8 @@ public class SyncSymbolsJobProducer extends JobProducer {
                                     childJobExecutionHistory.getId(),
                                     jobExecutionHistory.getId(),
                                     job.getSource().toString(),
+                                    WorkType.EXCHANGE,
+                                    exchange,
                                     exchange,
                                     timestamps.truncatedTo(ChronoUnit.SECONDS),
                                     messageConfig));

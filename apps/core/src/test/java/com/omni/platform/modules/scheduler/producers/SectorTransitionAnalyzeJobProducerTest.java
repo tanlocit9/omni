@@ -27,6 +27,8 @@ import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorTransitionAnalyzeJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.shared.executions.WorkIdentity;
+import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,7 +57,8 @@ class SectorTransitionAnalyzeJobProducerTest {
         JobExecutionHistory child = execution(UUID.randomUUID());
         when(symbolRepository.findDistinctSectorCodesByLevel(null, 2))
                 .thenReturn(List.of("BANKS", "REAL_ESTATE", "TECH"));
-        when(jobService.createChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
+        when(jobService.createChildExecution(eq(parent.getId()),
+                eq(WorkIdentity.of(WorkType.GLOBAL, JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
                 any(), any()))
                 .thenReturn(child);
 
@@ -86,7 +89,8 @@ class SectorTransitionAnalyzeJobProducerTest {
         JobExecutionHistory child = execution(UUID.randomUUID());
         when(symbolRepository.findDistinctSectorCodesByLevel(new String[] { "BANKS", "TECH" }, 2))
                 .thenReturn(List.of("BANKS", "TECH"));
-        when(jobService.createChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
+        when(jobService.createChildExecution(eq(parent.getId()),
+                eq(WorkIdentity.of(WorkType.GLOBAL, JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
                 any(), any()))
                 .thenReturn(child);
 
@@ -95,7 +99,8 @@ class SectorTransitionAnalyzeJobProducerTest {
         SectorTransitionAnalyzeJobMessage payload = (SectorTransitionAnalyzeJobMessage) messages.get(0).payload();
         assertThat(payload.focusSectorCodes()).containsExactly("BANKS", "TECH");
         ArgumentCaptor<Map<String, Object>> metadataCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(jobService).createChildExecution(eq(parent.getId()), eq(JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1),
+        verify(jobService).createChildExecution(eq(parent.getId()),
+                eq(WorkIdentity.of(WorkType.GLOBAL, JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
                 metadataCaptor.capture(), any());
         assertThat(metadataCaptor.getValue()).containsEntry("resolvedFocus", List.of("BANKS", "TECH"));
     }

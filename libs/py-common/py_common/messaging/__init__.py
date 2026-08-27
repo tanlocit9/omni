@@ -1,4 +1,4 @@
-from py_common.messaging.job_messages import JobMessage
+from py_common.messaging.job_messages import JobMessage, WorkType
 from py_common.messaging.messages import (
     JobStatus,
     JobStatusMessage,
@@ -13,6 +13,7 @@ __all__ = [
     "JobStatus",
     "JobStatusMessage",
     "JobStatusPublisher",
+    "WorkType",
     "build_job_error_status",
     "calculate_duration_ms",
     "utc_now",

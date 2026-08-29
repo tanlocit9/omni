@@ -6,8 +6,8 @@ Make execution ownership, job scope, metadata, and internal events consistent be
 
 ## Phase eligibility
 
-Depends on completed Phase 0. P1-I1 and P1-I2 are completed; P1-I3 and P1-I4
-are `verification_pending`.
+Depends on completed Phase 0. P1-I1, P1-I2, and P1-I4 are completed; P1-I3
+remains `verification_pending`.
 
 ## Increment P1-I1 — Claim data model and repository primitives
 
@@ -177,7 +177,7 @@ Stop conditions: stop if sector catalog ownership is unclear.
 | ----------------------- | ------------------------------------------------------------------- |
 | id                      | P1-I4                                                               |
 | title                   | workType/workKey hard cutover and event ownership                   |
-| status                  | verification_pending                                                |
+| status                  | completed                                                           |
 | priority                | high                                                                |
 | depends_on              | [P1-I2]                                                             |
 | blocks                  | [P2-I2, P4-I1, P8-I1]                                               |
@@ -185,7 +185,7 @@ Stop conditions: stop if sector catalog ownership is unclear.
 | execution_mode          | autonomous                                                          |
 | requires_owner_decision | false                                                               |
 | pr                      | https://github.com/tanlocit9/omni/pull/16                           |
-| last_verified_commit    | 2576995a5bfa164e3fcfbd15341fa06f8fc3b243                            |
+| last_verified_commit    | 6c51dd600c06305d9841d60f98cab89a6e54c0ca                            |
 
 ### Goal
 
@@ -258,33 +258,32 @@ mechanism.
 
 ### Verification
 
-Local evidence on 2026-08-27 from baseline `9600ed1`:
+Final local and remote evidence on 2026-08-29 for exact head
+`6c51dd600c06305d9841d60f98cab89a6e54c0ca`:
 
-- PASS: `nx run platform:test` and `nx run platform:build`; Platform has no `lint`
-  target in its `project.json`.
-- PASS: `nx run py-common:lint`, `nx run py-common:test`, and
-  `nx run py-common:build`.
-- PASS: `nx run analyzer:lint`, `nx run analyzer:test`, and
-  `nx run analyzer:build`.
-- PASS after removing two attributable unused assignments:
-  `nx run ingestor:lint`, `nx run ingestor:test`, and `nx run ingestor:build`.
-- PASS: affected tests and builds for Analyzer, Platform, Ingestor, `py-common`, and
-  Query Service.
-- PARTIAL: affected lint passed for Analyzer, Ingestor, `py-common`, and Query
-  Service, but root `omni:lint` failed because its repository-wide Prettier check
-  reported 20 broad existing mismatches, including generated Platform output and
-  unrelated documents. No formatting command was run and unrelated files were not
+- PASS: disposable PostgreSQL 16 harness ran schema-only V9 twice against empty
+  execution history, verified both canonical indexes, and confirmed rejection when
+  either execution history or pending scheduler outbox work remained.
+- PASS: targeted Platform test/build and Analyzer, Ingestor, and `py-common`
+  lint/test/build. Platform has no `lint` target in its `project.json`.
+- PASS: affected test/build for Analyzer, Platform, Ingestor, Omni Console, Query
+  Service, and `py-common`. An initial parallel affected run hit a Windows file-lock
+  deleting Platform's generated test-result directory; the serial rerun passed.
+- PASS: affected project lint for Analyzer, Ingestor, Omni Console, Query Service,
+  and `py-common`; Analyzer, Ingestor, and `py-common` Ruff format checks; Nx changed-
+  file format check; and committed/staged `git diff --check`.
+- PRE-EXISTING/GENERATED: root `omni:lint` failed only after Platform build generated
+  ignored `apps/core/build/.../spring-configuration-metadata.json`, which the root
+  repository-wide Prettier target scans. No formatter ran and no unrelated file was
   changed.
-- SUPERSEDED: the earlier backfill harness passed against disposable PostgreSQL 16,
-  but V9 was subsequently changed by owner decision to schema-only manual cleanup.
-- NOT RUN: the replacement harness must run V9 twice against empty history, verify
-  canonical indexes, and reject remaining history and pending outbox work.
-- PASS: refreshed graph change detection reported medium risk `0.55`, 108 changed
-  entities, no affected execution flow, and expected review gaps across the broad
-  producer/consumer boundary. Focused static searches found no generic runtime
-  `symbolKey` status fallback, `status_publish_key`, or legacy `build_status` call.
-- NOT VERIFIED: exact-head CI for the final correction commit. The local GitHub CLI
-  is unavailable, so PR #16 remote head/draft/check state could not be refreshed.
+- PASS: refreshed graph change detection against `origin/main` reported high risk
+  `0.85`, 192 changed entities, 27 affected flows, and 110 graph-reported test gaps
+  across this long-lived multi-increment branch. Focused fallback searches found no
+  generic runtime `symbolKey` status fallback or `status_publish_key`.
+- PASS: draft PR #16 is open and clean at the exact branch head. [CI run
+  #33095851356](https://github.com/tanlocit9/omni/actions/runs/33095851356) passed all
+  eight checks, including Platform, Analyzer, Ingestor, `py-common`, Query Service,
+  Omni Console, protobuf contracts, and affected-project detection.
 
 ### Acceptance Criteria
 
@@ -299,8 +298,8 @@ Local evidence on 2026-08-27 from baseline `9600ed1`:
   together.
 - Targeted and applicable affected verification outcomes are recorded without
   weakening tests or restoring compatibility.
-- The increment remains `verification_pending` until the final pushed head has
-  successful exact-head CI and every completion gate is green.
+- The final pushed head has successful exact-head CI and every completion gate is
+  green; P1-I4 is complete without merge, deployment, or production cutover.
 
 Stop conditions remain: do not perform production cutover without an
 owner-confirmed maintenance window, safe drain, verified snapshot, approved manual

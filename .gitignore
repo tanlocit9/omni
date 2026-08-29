@@ -79,6 +79,10 @@ out
 **/htmlcov/
 
 reports
+
+# Local agent verification artifacts and raw command logs
+/.agent/
+
 # Added by code-review-graph
 .code-review-graph/
 

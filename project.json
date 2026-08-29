@@ -19,6 +19,15 @@
         "command": "prettier --check . --ignore-path .prettierignore --ignore-unknown"
       }
     },
+    "verify": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m unittest discover -s tools/tests -p \"test_*.py\"",
+        "cwd": "{workspaceRoot}"
+      },
+      "outputs": []
+    },
     "dev": {
       "executor": "nx:run-commands",
       "options": {

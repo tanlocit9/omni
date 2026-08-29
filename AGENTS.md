@@ -54,6 +54,18 @@ commands as **not run**, and do not treat missing execution evidence as a pass.
 This gate also applies to checks otherwise required by plans or documentation.
 After approval, use the matching Nx targets and run only the approved scope.
 
+## Manual verification result handoff
+
+When the user will run verification, ask them to record every required check with
+[`tools/check_result.py`](tools/check_result.py) and confirm when the conclusion is
+ready. Do not run checks, inspect raw logs, or infer success from source code.
+
+Read the result only with
+`python tools/check_result.py conclusion --increment <ID>`. A `PASS` is
+owner-supplied evidence, `INCOMPLETE` remains `verification_pending`, and `FAIL`
+must not be recorded as completed. Inspect raw logs only when the user explicitly
+requests diagnosis. Read only the minimum roadmap sections needed for the update.
+
 ## Contract and data guardrails
 
 - Canonical migrated service/Kafka schemas live in

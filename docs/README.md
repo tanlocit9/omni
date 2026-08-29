@@ -35,6 +35,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 - [Telegram Multi-Channel](TELEGRAM_MULTI_CHANNEL_IMPLEMENTATION_PLAN.md)
 - [Backend/Core Stabilization](BACKEND_CORE_STABILIZATION_IMPLEMENTATION_PLAN.md)
 - [Algorithm Feature Catalog](ALGORITHM_FEATURE_CATALOG.md)
+- [P3-I5 Metadata Reconciliation Technical Debt](P3-I5-METADATA-RECONCILIATION-TECHNICAL-DEBT.md)
 - [Telegram Notification Deduplication Technical Debt](TELEGRAM_NOTIFICATION_DEDUPLICATION_TECHNICAL_DEBT.md)
 - [Temporary System Operator UUID Technical Debt](TECHNICAL-DEBT-SYSTEM-OPERATOR-UUID.md)
 

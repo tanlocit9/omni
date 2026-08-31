@@ -29,6 +29,7 @@ import com.omni.platform.modules.notifications.services.NotificationService;
 import com.omni.platform.modules.notifications.events.SignalDigestItem;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 import com.omni.platform.modules.notifications.templates.OperationalNotificationTemplate;
+import com.omni.platform.modules.notifications.templates.SignalChangedNotificationTemplate;
 import com.omni.platform.modules.notifications.templates.SignalNotificationTemplate;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +40,7 @@ class NotificationEventListenerTest {
 
     private final OperationalNotificationTemplate operationalNotificationTemplate = new OperationalNotificationTemplate();
     private final SignalNotificationTemplate signalNotificationTemplate = new SignalNotificationTemplate();
+    private final SignalChangedNotificationTemplate signalChangedNotificationTemplate = new SignalChangedNotificationTemplate();
 
     @Test
     void onOperationalNotificationBuildsOperationalNotificationRequest() {
@@ -128,7 +130,8 @@ class NotificationEventListenerTest {
         return new NotificationEventListener(
                 notificationService,
                 operationalNotificationTemplate,
-                signalNotificationTemplate);
+                signalNotificationTemplate,
+                signalChangedNotificationTemplate);
     }
 
     private SignalDigestNotificationEvent signalDigestEvent() {

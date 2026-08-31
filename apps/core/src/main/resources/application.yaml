@@ -27,6 +27,10 @@ spring:
       auto-offset-reset: earliest
 
 app:
+  analyzer:
+    base-url: ${ANALYZER_BASE_URL:http://localhost:8000}
+    connect-timeout: ${ANALYZER_CONNECT_TIMEOUT:PT2S}
+    read-timeout: ${ANALYZER_READ_TIMEOUT:PT10S}
   minio:
     endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
     access-key: ${MINIO_ACCESS_KEY:minioadmin}
@@ -49,10 +53,12 @@ app:
     job-definitions:
       enabled: true
   notifications:
+    signal-consumer-group: ${SIGNAL_NOTIFICATIONS_CONSUMER_GROUP:platform-signal-notifications-v1}
     telegram:
       enabled: ${TELEGRAM_NOTIFICATIONS_ENABLED:false}
       bot-token: ${TELEGRAM_BOT_TOKEN:}
-      chat-id: ${TELEGRAM_CHAT_ID:}
+      operations-chat-id: ${TELEGRAM_OPERATIONS_CHAT_ID:}
+      signals-chat-id: ${TELEGRAM_SIGNALS_CHAT_ID:}
       parse-mode: ${TELEGRAM_PARSE_MODE:html}
       api-base-url: ${TELEGRAM_API_BASE_URL:https://api.telegram.org}
       deduplication-cooldown: ${TELEGRAM_DEDUPLICATION_COOLDOWN:PT5M}

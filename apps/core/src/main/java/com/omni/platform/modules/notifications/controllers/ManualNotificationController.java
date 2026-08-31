@@ -8,11 +8,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
+import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService;
+import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService.LatestSignalNotificationResult;
 import com.omni.platform.modules.notifications.services.NotificationService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,15 @@ import lombok.RequiredArgsConstructor;
 public class ManualNotificationController {
 
     private final NotificationService notificationService;
+    private final ManualLatestSignalNotificationService latestSignalNotificationService;
+
+    @PostMapping("/signal/latest")
+    public ResponseEntity<LatestSignalNotificationResult> sendLatestSignalNotification(
+            @RequestParam(required = false) String symbolKey) {
+        String normalizedSymbol = symbolKey == null || symbolKey.isBlank() ? null : symbolKey.trim();
+        return ResponseEntity.accepted()
+                .body(latestSignalNotificationService.sendLatest(normalizedSymbol));
+    }
 
     @PostMapping("/signal")
     public ResponseEntity<ManualSignalNotificationResponse> sendSignalNotification(

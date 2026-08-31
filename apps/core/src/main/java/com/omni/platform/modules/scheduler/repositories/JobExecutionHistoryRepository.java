@@ -48,4 +48,5 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
             LIMIT 1
             """, nativeQuery = true)
     Optional<String> findLastOffset(@Param("jobId") UUID jobId, @Param("workKey") String workKey);
+
 }

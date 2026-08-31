@@ -7,9 +7,11 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 import com.omni.platform.modules.notifications.services.NotificationService;
 import com.omni.platform.modules.notifications.templates.OperationalNotificationTemplate;
+import com.omni.platform.modules.notifications.templates.SignalChangedNotificationTemplate;
 import com.omni.platform.modules.notifications.templates.SignalNotificationTemplate;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class NotificationEventListener {
     private final NotificationService notificationService;
     private final OperationalNotificationTemplate operationalNotificationTemplate;
     private final SignalNotificationTemplate signalNotificationTemplate;
+    private final SignalChangedNotificationTemplate signalChangedNotificationTemplate;
 
     @Async
     @EventListener
@@ -32,6 +35,18 @@ public class NotificationEventListener {
             notificationService.send(operationalNotificationTemplate.render(event));
         } catch (Exception exc) {
             log.warn("Notification event handling failed: {}", exc.getMessage(), exc);
+        }
+    }
+
+    @Async
+    @EventListener
+    public void onSignalChangedNotification(SignalChangedNotificationEvent event) {
+        try {
+            log.info("Received immediate signal notification event executionId={} symbolKey={}",
+                    event.executionId(), event.symbolKey());
+            notificationService.send(signalChangedNotificationTemplate.render(event));
+        } catch (Exception exc) {
+            log.warn("Immediate signal notification handling failed: {}", exc.getMessage(), exc);
         }
     }
 

@@ -37,41 +37,42 @@ public class TelegramNotificationService implements NotificationService {
 
     @Override
     public void send(NotificationRequest request) {
-        if (!properties.isConfigured()) {
+        String chatId = properties.destination(request.channel());
+        if (!properties.isConfigured(request.channel())) {
             log.warn(
-                    "Telegram notification skipped: enabled={} botTokenPresent={} chatIdPresent={} apiBaseUrl={} requestType={} severity={} title={}",
-                    properties.enabled(), hasText(properties.botToken()), hasText(properties.chatId()),
+                    "Telegram notification skipped: channel={} enabled={} botTokenPresent={} chatIdPresent={} apiBaseUrl={} requestType={} severity={} title={}",
+                    request.channel(), properties.enabled(), hasText(properties.botToken()), hasText(chatId),
                     properties.resolvedApiBaseUrl(), request.type(), request.severity(), request.title());
             return;
         }
 
         NotificationDeduplicator.Admission admission = deduplicator.admit(request);
         if (!admission.retained()) {
-            log.info("Telegram notification suppressed by cooldown type={} severity={} title={} suppressedCount={}",
-                    request.type(), request.severity(), request.title(), admission.suppressedCount());
+            log.info("Telegram notification suppressed by cooldown channel={} type={} severity={} title={} suppressedCount={}",
+                    request.channel(), request.type(), request.severity(), request.title(), admission.suppressedCount());
             return;
         }
 
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("chat_id", properties.chatId());
+            payload.put("chat_id", chatId);
             payload.put("text", truncate(formatMessage(request, admission.suppressedCount())));
             payload.put("parse_mode", resolveParseMode());
             payload.put("disable_notification", true);
 
-            log.info("Sending Telegram notification type={} severity={} title={} chatIdPresent={} parseMode={} apiBaseUrl={}",
-                    request.type(), request.severity(), request.title(), hasText(properties.chatId()), resolveParseMode(),
+            log.info("Sending Telegram notification channel={} type={} severity={} title={} chatIdPresent={} parseMode={} apiBaseUrl={}",
+                    request.channel(), request.type(), request.severity(), request.title(), hasText(chatId), resolveParseMode(),
                     properties.resolvedApiBaseUrl());
             telegramRestClient.post()
                     .uri("/bot{token}/sendMessage", properties.botToken())
                     .body(payload)
                     .retrieve()
                     .toBodilessEntity();
-            log.info("Telegram notification sent type={} severity={} title={}", request.type(), request.severity(),
-                    request.title());
+            log.info("Telegram notification sent channel={} type={} severity={} title={}", request.channel(),
+                    request.type(), request.severity(), request.title());
         } catch (Exception exc) {
-            log.warn("Telegram notification delivery failed type={} severity={} title={}: {}", request.type(),
-                    request.severity(), request.title(), exc.getMessage(), exc);
+            log.warn("Telegram notification delivery failed channel={} type={} severity={} title={}: {}", request.channel(),
+                    request.type(), request.severity(), request.title(), exc.getMessage(), exc);
         }
     }
 

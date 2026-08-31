@@ -97,6 +97,17 @@ class SignalKafkaService(JobStatusKafkaService):
         await self.publish_status(status)
         return status
 
+    async def publish_signal_notification(self, payload: dict[str, Any]) -> None:
+        """Publish a Core-compatible signal notification with broker acknowledgment."""
+        if self._producer is None:
+            raise RuntimeError("Signal notification publisher is unavailable")
+        symbol_key = str(payload["symbolKey"])
+        await self._producer.send_and_wait(
+            self._notification_topic,
+            json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            key=symbol_key.encode("utf-8"),
+        )
+
     async def _publish_signal_notification(
         self,
         message: SignalJobMessage,
@@ -105,22 +116,15 @@ class SignalKafkaService(JobStatusKafkaService):
         if not transition.signal_changed:
             return
 
-        assert self._producer is not None
         payload = self._build_signal_notification(message, transition)
-        result = await self._producer.send_and_wait(
-            self._notification_topic,
-            json.dumps(payload, separators=(",", ":")).encode("utf-8"),
-            key=message.symbol_key.encode("utf-8"),
-        )
+        await self.publish_signal_notification(payload)
         _logger.info(
             "Published signal notification symbolKey=%s executionId=%s "
-            "parentExecutionId=%s topic=%s partition=%s offset=%s",
+            "parentExecutionId=%s topic=%s",
             message.symbol_key,
             message.execution_id,
             message.parent_execution_id,
-            result.topic,
-            result.partition,
-            result.offset,
+            self._notification_topic,
         )
 
     def _build_signal_notification(

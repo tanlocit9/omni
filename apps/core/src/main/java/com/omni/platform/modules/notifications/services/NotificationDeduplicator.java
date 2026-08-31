@@ -34,7 +34,10 @@ final class NotificationDeduplicator {
 
     Admission admit(NotificationRequest request) {
         Instant now = clock.instant();
-        NotificationKey key = new NotificationKey(request.type(), request.severity(), normalizeTitle(request.title()));
+        String identity = request.deduplicationKey() == null || request.deduplicationKey().isBlank()
+                ? normalizeTitle(request.title())
+                : request.deduplicationKey();
+        NotificationKey key = new NotificationKey(request.channel(), request.type(), request.severity(), identity);
         AtomicReference<Admission> result = new AtomicReference<>();
 
         entries.compute(key, (ignored, current) -> {
@@ -96,9 +99,10 @@ final class NotificationDeduplicator {
     }
 
     private record NotificationKey(
+            com.omni.platform.modules.notifications.dtos.NotificationChannel channel,
             NotificationRequest.NotificationType type,
             NotificationRequest.NotificationSeverity severity,
-            String normalizedTitle) {
+            String identity) {
     }
 
     private record Entry(Instant retainedAt, long suppressedCount) {

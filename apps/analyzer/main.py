@@ -42,6 +42,11 @@ from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
 from app.signals.kafka import SignalKafkaService
+from app.signals.latest_notification import (
+    InvalidSymbolKeyError,
+    LatestSignalNotificationService,
+    LatestSignalRepository,
+)
 from app.signals.messages import SignalEvaluationJobMessage, SignalJobMessage
 from app.storage.factory import create_storage_registry
 
@@ -126,6 +131,10 @@ async def startup_event(app: FastAPI) -> None:
         settings,
         app.state.parquet_storage,
     )
+    app.state.latest_signal_repository = LatestSignalRepository(
+        settings,
+        app.state.parquet_storage,
+    )
     app.state.signal_outcome_evaluator = SignalOutcomeEvaluator(
         settings,
         app.state.parquet_storage,
@@ -163,6 +172,10 @@ async def startup_event(app: FastAPI) -> None:
             app.state.signal_handler,
         )
         await app.state.signal_kafka_service.start()
+        app.state.latest_signal_notification_service = LatestSignalNotificationService(
+            app.state.latest_signal_repository,
+            app.state.signal_kafka_service,
+        )
         _logger.info("Signal Kafka service started")
     else:
         _logger.info("Signal Kafka service disabled")
@@ -356,6 +369,40 @@ async def sync_signals(
             transition.previous_signal.value if transition.previous_signal else None
         ),
         "newSignal": transition.new_signal.value,
+    }
+
+
+@app.post("/v1/signals/notifications/latest", status_code=status.HTTP_202_ACCEPTED)
+async def notify_latest_signal(
+    request: Request,
+    symbolKey: str | None = None,
+) -> dict[str, Any]:
+    """Publish the latest authoritative Parquet signal for manual delivery."""
+    service = getattr(request.app.state, "latest_signal_notification_service", None)
+    if service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Signal notification publisher is unavailable",
+        )
+    try:
+        latest = await service.publish_latest(symbolKey)
+    except InvalidSymbolKeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    if latest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No signal history found",
+        )
+    return {
+        "accepted": True,
+        "status": "ACCEPTED",
+        "symbolKey": latest.symbol_key,
+        "newSignal": latest.signal,
+        "signalDate": latest.signal_date,
+        "generatedAt": latest.generated_at,
     }
 
 

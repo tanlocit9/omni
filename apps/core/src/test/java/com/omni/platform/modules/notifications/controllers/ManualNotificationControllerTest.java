@@ -2,6 +2,7 @@ package com.omni.platform.modules.notifications.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 
@@ -17,6 +18,8 @@ import com.omni.platform.modules.notifications.controllers.ManualNotificationCon
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
+import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService;
+import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService.LatestSignalNotificationResult;
 import com.omni.platform.modules.notifications.services.NotificationService;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,10 +27,12 @@ class ManualNotificationControllerTest {
 
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private ManualLatestSignalNotificationService latestSignalNotificationService;
 
     @Test
     void sendSignalNotificationSendsSignalNotificationWithDefaults() {
-        var controller = new ManualNotificationController(notificationService);
+        var controller = controller();
 
         ResponseEntity<ManualSignalNotificationResponse> response = controller.sendSignalNotification(null);
 
@@ -48,7 +53,7 @@ class ManualNotificationControllerTest {
 
     @Test
     void sendSignalNotificationSendsSignalNotificationWithRequestValues() {
-        var controller = new ManualNotificationController(notificationService);
+        var controller = controller();
         var body = new ManualSignalNotificationRequest(
                 "Signal changed",
                 "HPG changed to BEARISH",
@@ -76,5 +81,23 @@ class ManualNotificationControllerTest {
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().metadata()).containsEntry("symbolKey", "HOSE-HPG");
+    }
+
+    @Test
+    void sendLatestSignalNotificationReturnsAccepted() {
+        var result = new LatestSignalNotificationResult(
+                true, "ACCEPTED", "HOSE-HPG", "BULLISH", "2026-08-29", "2026-08-29T10:00:00Z");
+        when(latestSignalNotificationService.sendLatest("HOSE-HPG")).thenReturn(result);
+
+        ResponseEntity<LatestSignalNotificationResult> response =
+                controller().sendLatestSignalNotification(" HOSE-HPG ");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(response.getBody()).isEqualTo(result);
+        verify(latestSignalNotificationService).sendLatest("HOSE-HPG");
+    }
+
+    private ManualNotificationController controller() {
+        return new ManualNotificationController(notificationService, latestSignalNotificationService);
     }
 }

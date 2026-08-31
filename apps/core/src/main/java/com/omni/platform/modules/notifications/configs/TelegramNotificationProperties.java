@@ -4,11 +4,14 @@ import java.time.Duration;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import com.omni.platform.modules.notifications.dtos.NotificationChannel;
+
 @ConfigurationProperties(prefix = "app.notifications.telegram")
 public record TelegramNotificationProperties(
         boolean enabled,
         String botToken,
-        String chatId,
+        String operationsChatId,
+        String signalsChatId,
         String parseMode,
         String apiBaseUrl,
         Duration deduplicationCooldown,
@@ -17,30 +20,27 @@ public record TelegramNotificationProperties(
     private static final Duration DEFAULT_DEDUPLICATION_COOLDOWN = Duration.ofMinutes(5);
     private static final int DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE = 10_000;
 
-    public boolean isConfigured() {
-        return enabled && hasText(botToken) && hasText(chatId);
+    public boolean isConfigured(NotificationChannel channel) {
+        return enabled && hasText(botToken) && hasText(destination(channel));
+    }
+
+    public String destination(NotificationChannel channel) {
+        return channel == NotificationChannel.SIGNALS ? signalsChatId : operationsChatId;
     }
 
     public String resolvedApiBaseUrl() {
-        if (hasText(apiBaseUrl)) {
-            return apiBaseUrl;
-        }
-        return "https://api.telegram.org";
+        return hasText(apiBaseUrl) ? apiBaseUrl : "https://api.telegram.org";
     }
 
     public Duration resolvedDeduplicationCooldown() {
-        if (deduplicationCooldown == null || deduplicationCooldown.isNegative()
-                || deduplicationCooldown.isZero()) {
+        if (deduplicationCooldown == null || deduplicationCooldown.isNegative() || deduplicationCooldown.isZero()) {
             return DEFAULT_DEDUPLICATION_COOLDOWN;
         }
         return deduplicationCooldown;
     }
 
     public int resolvedDeduplicationMaxCacheSize() {
-        if (deduplicationMaxCacheSize <= 0) {
-            return DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE;
-        }
-        return deduplicationMaxCacheSize;
+        return deduplicationMaxCacheSize <= 0 ? DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE : deduplicationMaxCacheSize;
     }
 
     private boolean hasText(String value) {

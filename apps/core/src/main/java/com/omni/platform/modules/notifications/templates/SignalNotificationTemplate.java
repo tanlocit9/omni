@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
@@ -15,11 +16,13 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
     @Override
     public NotificationRequest render(SignalDigestNotificationEvent event) {
         return new NotificationRequest(
+                NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
                 NotificationSeverity.INFO,
                 "Market signal changes: " + event.jobTitle(),
                 buildMessage(event),
-                buildMetadata(event));
+                buildMetadata(event),
+                event.parentExecutionId().toString());
     }
 
     public NotificationRequest digest(SignalDigestNotificationEvent event) {

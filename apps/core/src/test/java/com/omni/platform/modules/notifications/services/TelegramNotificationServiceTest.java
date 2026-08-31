@@ -110,7 +110,8 @@ class TelegramNotificationServiceTest {
     private TelegramNotificationService service(boolean enabled, RestClient.Builder builder, Clock clock) {
         return new TelegramNotificationService(
                 new TelegramNotificationProperties(
-                        enabled, "token", "chat", null, "https://api.telegram.org", Duration.ofMinutes(5), 100),
+                        enabled, "token", "chat", "signals-chat", null,
+                        "https://api.telegram.org", Duration.ofMinutes(5), 100),
                 builder.build(),
                 clock);
     }

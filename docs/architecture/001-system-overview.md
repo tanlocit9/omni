@@ -107,12 +107,12 @@ flowchart LR
 
 ## Main Flows
 
-| Flow                 | Document                                                     | Summary                                                                                                                                             |
-| -------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Job execution        | [../flows/job-execution.md](../flows/job-execution.md)       | `JobScheduler` resolves producers by `JobType`, producers publish Kafka jobs, workers report status, and Platform policy registries notify.         |
-| Stock sync           | [../flows/stock-sync.md](../flows/stock-sync.md)             | Platform requests stock/symbol sync, Ingestor fetches provider data, updates Parquet, then reports status/upserts.                                  |
-| Indicator and signal | [../flows/indicator-signal.md](../flows/indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes status or signal notification events. |
-| Sector wave          | [../flows/sector-wave.md](../flows/sector-wave.md)           | Analyzer precomputes symbol features, sector aggregates, rankings, backtest outputs, and Sector Transition research datasets.                       |
+| Flow                 | Document                                                         | Summary                                                                                                                                             |
+| -------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job execution        | [../flows/job-execution.md](../flows/001-job-execution.md)       | `JobScheduler` resolves producers by `JobType`, producers publish Kafka jobs, workers report status, and Platform policy registries notify.         |
+| Stock sync           | [../flows/stock-sync.md](../flows/002-stock-sync.md)             | Platform requests stock/symbol sync, Ingestor fetches provider data, updates Parquet, then reports status/upserts.                                  |
+| Indicator and signal | [../flows/indicator-signal.md](../flows/003-indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes status or signal notification events. |
+| Sector wave          | [../flows/sector-wave.md](../flows/004-sector-wave.md)           | Analyzer precomputes symbol features, sector aggregates, rankings, backtest outputs, and Sector Transition research datasets.                       |
 
 ## Source-of-truth Config
 

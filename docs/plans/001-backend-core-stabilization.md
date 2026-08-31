@@ -26,7 +26,7 @@ Existing analytical datasets become safer and should progressively publish MinIO
 stock-data/_metadata/datasets/...
 ```
 
-See [`DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`](DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md).
+See [`DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`](003-dataset-metadata-manifest.md).
 
 ## Metadata Outputs
 
@@ -204,8 +204,8 @@ Outcome-evaluation failures should receive actionable diagnostics where applicab
 ## Repository Guidance Updates
 
 Canonical Kafka, database, job-execution, and P1-I4 deployment documentation is
-synchronized with the implementation. Existing [`AGENTS.md`](../AGENTS.md),
-[`CLAUDE.md`](../CLAUDE.md), and [`.roo/rules`](../.roo/rules) already encode the
+synchronized with the implementation. Existing [`AGENTS.md`](../../AGENTS.md),
+[`CLAUDE.md`](../../CLAUDE.md), and [`.roo/rules`](../../.roo/rules) already encode the
 contract-review, graph-impact, migration, and hard-cutover safeguards, so no new
 agent rule is required.
 
@@ -224,8 +224,8 @@ agent rule is required.
 8. In Phase 4, verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
 
 P1-I4 local evidence is recorded canonically in the
-[Phase 1 roadmap increment](../plans/roadmap/phase-1-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
-and [`execution-log.md`](../plans/roadmap/execution-log.md). It remains
+[Phase 1 roadmap increment](../../plans/roadmap/phase-1-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
+and [`execution-log.md`](../../plans/roadmap/execution-log.md). It remains
 `verification_pending` until the final pushed head has successful exact-head CI and
 all repository gates are green.
 

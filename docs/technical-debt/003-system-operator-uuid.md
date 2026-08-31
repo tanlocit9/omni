@@ -15,16 +15,16 @@ SYSTEM_OPERATOR_UUID=b252fe62-80f3-4df9-9734-5dc549705a25
 
 ## Scope
 
-- [`.env.example`](../.env.example) and [`.env.deploy.example`](../.env.deploy.example)
+- [`.env.example`](../../.env.example) and [`.env.deploy.example`](../../.env.deploy.example)
   define the shared configuration contract.
-- [`JpaAuditConfig.auditorProvider()`](../apps/core/src/main/java/com/omni/platform/shared/entities/JpaAuditConfig.java:23)
+- [`JpaAuditConfig.auditorProvider()`](../../apps/core/src/main/java/com/omni/platform/shared/entities/JpaAuditConfig.java#L23)
   parses the value as a UUID and uses it when no authenticated auditor exists.
-- [`platformRequest()`](../apps/omni-console/src/api.ts:90) sends the value on
-  Platform API requests; [`triggerJob()`](../apps/omni-console/src/api.ts:200)
+- [`platformRequest()`](../../apps/omni-console/src/api.ts#L90) sends the value on
+  Platform API requests; [`triggerJob()`](../../apps/omni-console/src/api.ts#L200)
   sends it on the manual trigger request.
-- [`vite.config.ts`](../apps/omni-console/vite.config.ts) exposes the value to the
+- [`vite.config.ts`](../../apps/omni-console/vite.config.ts) exposes the value to the
   browser bundle and overwrites the header on local proxied requests.
-- [`docker-compose.services.yaml`](../docker-compose.services.yaml) passes the
+- [`docker-compose.services.yaml`](../../docker-compose.services.yaml) passes the
   value into Platform.
 
 ## Contract Impact

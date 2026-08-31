@@ -23,5 +23,5 @@ and must not overwrite the object referenced by the current READY manifest.
 - Ingestor and Analyzer read/write Parquet through shared storage abstractions.
 - Platform database remains operational/control-plane storage.
 - Kafka messages should not include object path routing fields.
-- Dataset ownership is documented in [Data lake](../data/data-lake.md).
+- Dataset ownership is documented in [Data lake](../data/002-data-lake.md).
 - Semantic date field names are preserved across producers and consumers.

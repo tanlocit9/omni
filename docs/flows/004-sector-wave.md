@@ -54,21 +54,21 @@ EOD
 
 ## Topics
 
-| Topic                                                                                             | Direction           | Purpose                                                                 |
-| ------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------- |
-| [`topic-precompute-symbol-features`](../data/kafka-contracts.md#topic-precompute-symbol-features) | Platform → Analyzer | Build symbol-level feature files.                                       |
-| [`topic-precompute-sector-features`](../data/kafka-contracts.md#topic-precompute-sector-features) | Platform → Analyzer | Aggregate symbol features into sector-level metrics.                    |
-| [`topic-sector-rotation-backtest`](../data/kafka-contracts.md#topic-sector-rotation-backtest)     | Platform → Analyzer | Run sector rotation backtests from sector features and forward returns. |
-| [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)                       | Analyzer → Platform | Report job execution outcome.                                           |
+| Topic                                                                                                 | Direction           | Purpose                                                                 |
+| ----------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------- |
+| [`topic-precompute-symbol-features`](../data/001-kafka-contracts.md#topic-precompute-symbol-features) | Platform → Analyzer | Build symbol-level feature files.                                       |
+| [`topic-precompute-sector-features`](../data/001-kafka-contracts.md#topic-precompute-sector-features) | Platform → Analyzer | Aggregate symbol features into sector-level metrics.                    |
+| [`topic-sector-rotation-backtest`](../data/001-kafka-contracts.md#topic-sector-rotation-backtest)     | Platform → Analyzer | Run sector rotation backtests from sector features and forward returns. |
+| [`topic-sync-job-status`](../data/001-kafka-contracts.md#topic-sync-job-status)                       | Analyzer → Platform | Report job execution outcome.                                           |
 
 ## Datasets
 
-| Dataset                                                                       | Producer | Consumer                         | Path                                                                        |
-| ----------------------------------------------------------------------------- | -------- | -------------------------------- | --------------------------------------------------------------------------- |
-| [`eod`](../data/data-lake.md#eod)                                             | Ingestor | Symbol feature and backtest jobs | `eod/{exchange}/{code}.parquet`                                             |
-| [`symbol-features`](../data/data-lake.md#symbol-features)                     | Analyzer | Sector aggregation jobs          | `features/symbol/{timeframe}/{exchange}/{code}.parquet`                     |
-| [`sector-features`](../data/data-lake.md#sector-features)                     | Analyzer | Ranking/wave/backtest jobs       | `features/sector/{timeframe}/lv{sector_level}/{sector_code}.parquet`        |
-| [`sector-rotation-backtests`](../data/data-lake.md#sector-rotation-backtests) | Analyzer | Analytical/reporting consumers   | `backtests/sector-rotation/{strategy}/{timeframe}/lv{sector_level}.parquet` |
+| Dataset                                                                           | Producer | Consumer                         | Path                                                                        |
+| --------------------------------------------------------------------------------- | -------- | -------------------------------- | --------------------------------------------------------------------------- |
+| [`eod`](../data/002-data-lake.md#eod)                                             | Ingestor | Symbol feature and backtest jobs | `eod/{exchange}/{code}.parquet`                                             |
+| [`symbol-features`](../data/002-data-lake.md#symbol-features)                     | Analyzer | Sector aggregation jobs          | `features/symbol/{timeframe}/{exchange}/{code}.parquet`                     |
+| [`sector-features`](../data/002-data-lake.md#sector-features)                     | Analyzer | Ranking/wave/backtest jobs       | `features/sector/{timeframe}/lv{sector_level}/{sector_code}.parquet`        |
+| [`sector-rotation-backtests`](../data/002-data-lake.md#sector-rotation-backtests) | Analyzer | Analytical/reporting consumers   | `backtests/sector-rotation/{strategy}/{timeframe}/lv{sector_level}.parquet` |
 
 ## Core Metrics
 

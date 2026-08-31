@@ -76,16 +76,16 @@ docker compose --env-file .env up -d
 
 ## Documentation
 
-| Document                                                                     | Purpose                                     |
-| ---------------------------------------------------------------------------- | ------------------------------------------- |
-| [docs/README.md](docs/README.md)                                             | Documentation entry point and map.          |
-| [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | System overview and service boundaries.     |
-| [docs/development/where-to-change.md](docs/development/where-to-change.md)   | Where to start for common changes.          |
-| [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md)                 | Kafka topic and payload contract ownership. |
-| [docs/data/data-lake.md](docs/data/data-lake.md)                             | Parquet dataset/path ownership.             |
-| [docs/flows/job-execution.md](docs/flows/job-execution.md)                   | Scheduler and worker job execution flow.    |
-| [ARCHITECTURE.md](ARCHITECTURE.md)                                           | Compatibility index for architecture links. |
-| [AGENTS.md](AGENTS.md)                                                       | Development and agent workflow rules.       |
+| Document                                                                             | Purpose                                     |
+| ------------------------------------------------------------------------------------ | ------------------------------------------- |
+| [docs/README.md](docs/README.md)                                                     | Documentation entry point and map.          |
+| [docs/architecture/001-system-overview.md](docs/architecture/001-system-overview.md) | System overview and service boundaries.     |
+| [docs/development/001-where-to-change.md](docs/development/001-where-to-change.md)   | Where to start for common changes.          |
+| [docs/data/001-kafka-contracts.md](docs/data/001-kafka-contracts.md)                 | Kafka topic and payload contract ownership. |
+| [docs/data/002-data-lake.md](docs/data/002-data-lake.md)                             | Parquet dataset/path ownership.             |
+| [docs/flows/001-job-execution.md](docs/flows/001-job-execution.md)                   | Scheduler and worker job execution flow.    |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                                                   | Compatibility index for architecture links. |
+| [AGENTS.md](AGENTS.md)                                                               | Development and agent workflow rules.       |
 
 ## Common Development Commands
 

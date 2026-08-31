@@ -3,6 +3,14 @@
 Omni Console is the private React operations UI for dataset metadata, read-only
 queries, and Platform-owned job operations.
 
+## Planned Dashboard
+
+The [dataset-component dashboard plan](../../docs/plans/010-dataset-component-market-dashboard.md)
+proposes making Market Dashboard the default section and composing it from
+components owned by canonical logical datasets such as `eod`, `signals`, and
+`sector-features`. Until that increment is implemented and verified, Dataset
+Explorer remains the default section.
+
 ## API configuration
 
 - `VITE_QUERY_SERVICE_URL` selects the Query Service origin.
@@ -22,7 +30,7 @@ requests work during this interim configuration. This is not an authentication
 boundary: production deployments with real users must use the private reverse
 proxy to remove client-provided values and inject the authenticated operator
 identity on both Query Service and Platform requests. See
-[temporary system operator UUID technical debt](../../docs/TECHNICAL-DEBT-SYSTEM-OPERATOR-UUID.md).
+[temporary system operator UUID technical debt](../../docs/technical-debt/003-system-operator-uuid.md).
 
 ## Jobs tab
 

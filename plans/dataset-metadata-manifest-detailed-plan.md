@@ -9,7 +9,7 @@ This plan implements dataset metadata manifests stored in MinIO/S3 alongside Par
 ## Implemented Contract Reconciliation
 
 The canonical persisted contract is defined by
-[`docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`](../docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md)
+[`docs/plans/003-dataset-metadata-manifest.md`](../docs/plans/003-dataset-metadata-manifest.md)
 and the shared implementation. Where older pseudocode below shows a single
 `<partition>.json` object, read it as the implemented pair:
 
@@ -25,10 +25,10 @@ excluding `generatedAt`.
 
 ## Reference Documents
 
-- Base Plan: [`docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`](../docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md)
+- Base Plan: [`docs/plans/003-dataset-metadata-manifest.md`](../docs/plans/003-dataset-metadata-manifest.md)
 - Storage Paths: [`configs/shared/s3-paths.yaml`](../configs/shared/s3-paths.yaml)
 - Parquet Storage: [`libs/py-common/py_common/storage/parquet.py`](../libs/py-common/py_common/storage/parquet.py)
-- System Overview: [`docs/architecture/system-overview.md`](../docs/architecture/system-overview.md)
+- System Overview: [`docs/architecture/001-system-overview.md`](../docs/architecture/001-system-overview.md)
 
 ## Architecture Overview
 
@@ -860,7 +860,7 @@ OMNI_DATASETS = [
 2. Test manifest read/write round-trip
 3. Test lineage tracking with inputs[]
 4. Update [`AGENTS.md`](../AGENTS.md) with manifest rules
-5. Update [`docs/data/data-lake.md`](../docs/data/data-lake.md)
+5. Update [`docs/data/002-data-lake.md`](../docs/data/002-data-lake.md)
 6. Create manifest contract documentation
 
 ## Testing Strategy
@@ -978,7 +978,7 @@ When modifying dataset write operations:
 8. Test dataVersion determinism in unit tests
 ```
 
-### docs/data/data-lake.md
+### docs/data/002-data-lake.md
 
 Add section documenting manifest structure, READY-last semantics, and dataVersion lineage.
 

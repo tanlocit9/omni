@@ -62,7 +62,7 @@ Analyzer owns analytical jobs that read Parquet inputs, compute derived datasets
 
 ## Consumes
 
-See [Kafka contracts](../../docs/data/kafka-contracts.md).
+See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 
 | Topic                              | Purpose                              |
 | ---------------------------------- | ------------------------------------ |
@@ -75,7 +75,7 @@ See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
 ## Produces
 
-See [Kafka contracts](../../docs/data/kafka-contracts.md).
+See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 
 | Topic                        | Purpose                                  |
 | ---------------------------- | ---------------------------------------- |
@@ -84,7 +84,7 @@ See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
 ## Storage
 
-Analyzer reads and writes analytical Parquet datasets. See [Data lake](../../docs/data/data-lake.md).
+Analyzer reads and writes analytical Parquet datasets. See [Data lake](../../docs/data/002-data-lake.md).
 
 | Dataset                     | Role                                                           |
 | --------------------------- | -------------------------------------------------------------- |
@@ -97,9 +97,9 @@ Analyzer reads and writes analytical Parquet datasets. See [Data lake](../../doc
 
 ## Important Flows
 
-- [Indicator and signal](../../docs/flows/indicator-signal.md)
-- [Sector wave](../../docs/flows/sector-wave.md)
-- [Job execution](../../docs/flows/job-execution.md)
+- [Indicator and signal](../../docs/flows/003-indicator-signal.md)
+- [Sector wave](../../docs/flows/004-sector-wave.md)
+- [Job execution](../../docs/flows/001-job-execution.md)
 
 ## Run locally
 

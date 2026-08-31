@@ -67,7 +67,7 @@ erDiagram
 | Owner          | Platform scheduler module                                                                                                                                                                  |
 | Purpose        | Stores configured jobs, schedules, and job-specific config.                                                                                                                                |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobDefinition.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobDefinition.java) |
-| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                 |
+| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                             |
 
 ### Job execution history
 
@@ -77,7 +77,7 @@ erDiagram
 | Owner          | Platform scheduler module                                                                                                                                                                                                                  |
 | Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                    |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                     |
-| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                                                                 |
+| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                             |
 
 Child rows store canonical execution identity in `meta_json.workType` and
 `meta_json.workKey`. V9 is a schema-only cutover: it never deletes or rewrites
@@ -104,7 +104,7 @@ production.
 | Owner          | Platform scheduler/job-operations module                                                                                                                                                         |
 | Purpose        | Durable operator audit and idempotency ledger; a blocked request intentionally has no execution row.                                                                                             |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java) |
-| Related flow   | [Job execution](../flows/job-execution.md)                                                                                                                                                       |
+| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                   |
 
 ### Symbols
 
@@ -114,7 +114,7 @@ production.
 | Owner          | Platform scheduler/domain projection                                                                                                                                         |
 | Purpose        | Stores Platform query/projection state for tradable symbols.                                                                                                                 |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Symbol.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Symbol.java) |
-| Upsert topic   | [`topic-upsert-symbols`](kafka-contracts.md#topic-upsert-symbols)                                                                                                            |
+| Upsert topic   | [`topic-upsert-symbols`](001-kafka-contracts.md#topic-upsert-symbols)                                                                                                        |
 
 ### Sectors
 
@@ -124,7 +124,7 @@ production.
 | Owner          | Platform scheduler/domain projection                                                                                                                                         |
 | Purpose        | Stores sector classification state used by symbol metadata and sector-wave jobs.                                                                                             |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java) |
-| Upsert topic   | [`topic-upsert-sectors`](kafka-contracts.md#topic-upsert-sectors)                                                                                                            |
+| Upsert topic   | [`topic-upsert-sectors`](001-kafka-contracts.md#topic-upsert-sectors)                                                                                                        |
 
 ## Boundary Rules
 

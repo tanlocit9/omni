@@ -41,20 +41,20 @@ Platform
 
 ## Topics
 
-| Topic                                                                           | Direction           | Purpose                                         |
-| ------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
-| [`topic-sync-stock-prices`](../data/kafka-contracts.md#topic-sync-stock-prices) | Platform → Ingestor | Request EOD price sync for one symbol/task.     |
-| [`topic-sync-symbols`](../data/kafka-contracts.md#topic-sync-symbols)           | Platform → Ingestor | Request symbol metadata sync.                   |
-| [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)     | Ingestor → Platform | Report job execution outcome.                   |
-| [`topic-upsert-symbols`](../data/kafka-contracts.md#topic-upsert-symbols)       | Ingestor → Platform | Project symbol metadata into Platform database. |
-| [`topic-upsert-sectors`](../data/kafka-contracts.md#topic-upsert-sectors)       | Ingestor → Platform | Project sector metadata into Platform database. |
+| Topic                                                                               | Direction           | Purpose                                         |
+| ----------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------- |
+| [`topic-sync-stock-prices`](../data/001-kafka-contracts.md#topic-sync-stock-prices) | Platform → Ingestor | Request EOD price sync for one symbol/task.     |
+| [`topic-sync-symbols`](../data/001-kafka-contracts.md#topic-sync-symbols)           | Platform → Ingestor | Request symbol metadata sync.                   |
+| [`topic-sync-job-status`](../data/001-kafka-contracts.md#topic-sync-job-status)     | Ingestor → Platform | Report job execution outcome.                   |
+| [`topic-upsert-symbols`](../data/001-kafka-contracts.md#topic-upsert-symbols)       | Ingestor → Platform | Project symbol metadata into Platform database. |
+| [`topic-upsert-sectors`](../data/001-kafka-contracts.md#topic-upsert-sectors)       | Ingestor → Platform | Project sector metadata into Platform database. |
 
 ## Datasets
 
-| Dataset                                   | Producer | Consumer                           | Path                            |
-| ----------------------------------------- | -------- | ---------------------------------- | ------------------------------- |
-| [`symbols`](../data/data-lake.md#symbols) | Ingestor | Analyzer, Platform projection path | `symbols/{exchange}.parquet`    |
-| [`eod`](../data/data-lake.md#eod)         | Ingestor | Analyzer                           | `eod/{exchange}/{code}.parquet` |
+| Dataset                                       | Producer | Consumer                           | Path                            |
+| --------------------------------------------- | -------- | ---------------------------------- | ------------------------------- |
+| [`symbols`](../data/002-data-lake.md#symbols) | Ingestor | Analyzer, Platform projection path | `symbols/{exchange}.parquet`    |
+| [`eod`](../data/002-data-lake.md#eod)         | Ingestor | Analyzer                           | `eod/{exchange}/{code}.parquet` |
 
 ## Responsibilities
 

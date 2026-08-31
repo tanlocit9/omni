@@ -1,7 +1,7 @@
 # Contracts and Plan Sync
 
 Use [`AGENTS.md`](../../AGENTS.md) for repository policy and
-[`docs/IMPLEMENTATION_PLAN_STANDARD.md`](../../docs/IMPLEMENTATION_PLAN_STANDARD.md)
+[`docs/governance/001-implementation-plan-standard.md`](../../docs/governance/001-implementation-plan-standard.md)
 for plan requirements.
 
 - For contract changes, review producers, consumers, schemas/configuration, tests,

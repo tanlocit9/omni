@@ -67,8 +67,8 @@ flowchart LR
 | Producer        | Platform scheduler job producer                       |
 | Consumer        | Ingestor stock-price handler                          |
 | Purpose         | Request EOD stock-price synchronization for a symbol. |
-| Related flow    | [Stock sync](../flows/stock-sync.md)                  |
-| Related storage | [`eod`](data-lake.md#eod)                             |
+| Related flow    | [Stock sync](../flows/002-stock-sync.md)              |
+| Related storage | [`eod`](002-data-lake.md#eod)                         |
 
 Expected payload shape includes required generic `workType=SYMBOL` and `workKey`,
 source, the domain command field `symbolKey`, optional time bounds, and metadata.
@@ -84,8 +84,8 @@ object path routing fields.
 | Producer        | Platform scheduler job producer                             |
 | Consumer        | Ingestor symbols handler                                    |
 | Purpose         | Request symbol metadata synchronization by exchange/source. |
-| Related flow    | [Stock sync](../flows/stock-sync.md)                        |
-| Related storage | [`symbols`](data-lake.md#symbols)                           |
+| Related flow    | [Stock sync](../flows/002-stock-sync.md)                    |
+| Related storage | [`symbols`](002-data-lake.md#symbols)                       |
 
 ### topic-upsert-symbols
 
@@ -95,7 +95,7 @@ object path routing fields.
 | Producer         | Ingestor                                                                   |
 | Consumer         | Platform scheduler symbol upsert consumer                                  |
 | Purpose          | Send symbol snapshot/upsert results back to Platform-owned database state. |
-| Related database | [Symbols](database.md#symbols)                                             |
+| Related database | [Symbols](003-database.md#symbols)                                         |
 
 ### topic-upsert-sectors
 
@@ -105,18 +105,18 @@ object path routing fields.
 | Producer         | Ingestor                                                                   |
 | Consumer         | Platform scheduler sector upsert consumer                                  |
 | Purpose          | Send sector snapshot/upsert results back to Platform-owned database state. |
-| Related database | [Sectors](database.md#sectors)                                             |
+| Related database | [Sectors](003-database.md#sectors)                                         |
 
 ### topic-sync-job-status
 
-| Field            | Value                                                      |
-| ---------------- | ---------------------------------------------------------- |
-| Topic key        | `topic-sync-job-status`                                    |
-| Producer         | Ingestor and Analyzer workers                              |
-| Consumer         | Platform scheduler job status consumer                     |
-| Purpose          | Report child job completion/failure metrics to Platform.   |
-| Related flow     | [Job execution](../flows/job-execution.md)                 |
-| Related database | [Job execution history](database.md#job-execution-history) |
+| Field            | Value                                                          |
+| ---------------- | -------------------------------------------------------------- |
+| Topic key        | `topic-sync-job-status`                                        |
+| Producer         | Ingestor and Analyzer workers                                  |
+| Consumer         | Platform scheduler job status consumer                         |
+| Purpose          | Report child job completion/failure metrics to Platform.       |
+| Related flow     | [Job execution](../flows/001-job-execution.md)                 |
+| Related database | [Job execution history](003-database.md#job-execution-history) |
 
 Status payloads must carry enough identity to update the correct child execution
 and aggregate parent state. After P1-I4 the canonical fields are
@@ -142,7 +142,7 @@ Worker error statuses must preserve useful request context in `metaJson`. Do not
 The implementation remains `verification_pending` until the final pushed PR #16
 head has successful exact-head CI and all repository gates are green. The
 maintenance-window drain/manual-cleanup/deploy sequence is documented in the
-[P1-I4 hard-cutover runbook](../deployment/p1-i4-hard-cutover.md); implementation
+[P1-I4 hard-cutover runbook](../deployment/001-p1-i4-hard-cutover.md); implementation
 verification did not deploy or modify production.
 
 ### topic-sync-indicators
@@ -153,8 +153,8 @@ verification did not deploy or modify production.
 | Producer        | Platform scheduler indicator job producer                                  |
 | Consumer        | Analyzer indicator worker                                                  |
 | Purpose         | Compute technical indicators from EOD Parquet and write indicator Parquet. |
-| Related flow    | [Indicator and signal](../flows/indicator-signal.md)                       |
-| Related storage | [`indicators`](data-lake.md#indicators)                                    |
+| Related flow    | [Indicator and signal](../flows/003-indicator-signal.md)                   |
+| Related storage | [`indicators`](002-data-lake.md#indicators)                                |
 
 ### topic-sync-signals
 
@@ -164,8 +164,8 @@ verification did not deploy or modify production.
 | Producer        | Platform scheduler signal job producer                                |
 | Consumer        | Analyzer signal worker                                                |
 | Purpose         | Compute signal history/current-state records from EOD and indicators. |
-| Related flow    | [Indicator and signal](../flows/indicator-signal.md)                  |
-| Related storage | [`signals`](data-lake.md#signals)                                     |
+| Related flow    | [Indicator and signal](../flows/003-indicator-signal.md)              |
+| Related storage | [`signals`](002-data-lake.md#signals)                                 |
 
 ### topic-evaluate-signals
 
@@ -175,7 +175,7 @@ verification did not deploy or modify production.
 | Producer     | Platform scheduler signal-evaluation job producer                       |
 | Consumer     | Analyzer signal evaluation worker                                       |
 | Purpose      | Evaluate signal outcomes after forward-return windows become available. |
-| Related flow | [Indicator and signal](../flows/indicator-signal.md)                    |
+| Related flow | [Indicator and signal](../flows/003-indicator-signal.md)                |
 
 ### topic-signal-notifications
 
@@ -185,7 +185,7 @@ verification did not deploy or modify production.
 | Producer     | Analyzer                                                         |
 | Consumer     | Platform notification module                                     |
 | Purpose      | Publish signal transition notifications for downstream delivery. |
-| Related flow | [Indicator and signal](../flows/indicator-signal.md)             |
+| Related flow | [Indicator and signal](../flows/003-indicator-signal.md)         |
 
 ### topic-precompute-symbol-features
 
@@ -195,8 +195,8 @@ verification did not deploy or modify production.
 | Producer        | Platform scheduler sector-wave producer                                  |
 | Consumer        | Analyzer sector-wave worker                                              |
 | Purpose         | Precompute symbol-level features used by sector aggregation and ranking. |
-| Related flow    | [Sector wave](../flows/sector-wave.md)                                   |
-| Related storage | [`symbol-features`](data-lake.md#symbol-features)                        |
+| Related flow    | [Sector wave](../flows/004-sector-wave.md)                               |
+| Related storage | [`symbol-features`](002-data-lake.md#symbol-features)                    |
 
 ### topic-precompute-sector-features
 
@@ -206,30 +206,30 @@ verification did not deploy or modify production.
 | Producer        | Platform scheduler sector-wave producer               |
 | Consumer        | Analyzer sector-wave worker                           |
 | Purpose         | Aggregate symbol features into sector-level datasets. |
-| Related flow    | [Sector wave](../flows/sector-wave.md)                |
-| Related storage | [`sector-features`](data-lake.md#sector-features)     |
+| Related flow    | [Sector wave](../flows/004-sector-wave.md)            |
+| Related storage | [`sector-features`](002-data-lake.md#sector-features) |
 
 ### topic-sector-rotation-backtest
 
-| Field           | Value                                                                 |
-| --------------- | --------------------------------------------------------------------- |
-| Topic key       | `topic-sector-rotation-backtest`                                      |
-| Producer        | Platform scheduler sector-rotation backtest producer                  |
-| Consumer        | Analyzer sector-wave worker                                           |
-| Purpose         | Run sector rotation backtests from precomputed sector features.       |
-| Related flow    | [Sector wave](../flows/sector-wave.md)                                |
-| Related storage | [`sector-rotation-backtests`](data-lake.md#sector-rotation-backtests) |
+| Field           | Value                                                                     |
+| --------------- | ------------------------------------------------------------------------- |
+| Topic key       | `topic-sector-rotation-backtest`                                          |
+| Producer        | Platform scheduler sector-rotation backtest producer                      |
+| Consumer        | Analyzer sector-wave worker                                               |
+| Purpose         | Run sector rotation backtests from precomputed sector features.           |
+| Related flow    | [Sector wave](../flows/004-sector-wave.md)                                |
+| Related storage | [`sector-rotation-backtests`](002-data-lake.md#sector-rotation-backtests) |
 
 ### topic-sector-transition-analyze
 
-| Field           | Value                                                                                                                                                                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Topic key       | `topic-sector-transition-analyze`                                                                                                                                                                                                           |
-| Producer        | Platform scheduler Sector Transition analysis producer                                                                                                                                                                                      |
-| Consumer        | Analyzer Sector Transition analysis worker                                                                                                                                                                                                  |
-| Purpose         | Generate T-anchored Sector Transition predictions, probabilities, and private decisions.                                                                                                                                                    |
-| Related flow    | [Sector wave deferred research](../flows/sector-wave.md#deferred-research-sector-transition-and-recommendation)                                                                                                                             |
-| Related storage | [`sector-transition-predictions`](data-lake.md#sector-transition-predictions), [`sector-transition-decisions`](data-lake.md#sector-transition-decisions), [`sector-transition-probabilities`](data-lake.md#sector-transition-probabilities) |
+| Field           | Value                                                                                                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic key       | `topic-sector-transition-analyze`                                                                                                                                                                                                                       |
+| Producer        | Platform scheduler Sector Transition analysis producer                                                                                                                                                                                                  |
+| Consumer        | Analyzer Sector Transition analysis worker                                                                                                                                                                                                              |
+| Purpose         | Generate T-anchored Sector Transition predictions, probabilities, and private decisions.                                                                                                                                                                |
+| Related flow    | [Sector wave deferred research](../flows/004-sector-wave.md#deferred-research-sector-transition-and-recommendation)                                                                                                                                     |
+| Related storage | [`sector-transition-predictions`](002-data-lake.md#sector-transition-predictions), [`sector-transition-decisions`](002-data-lake.md#sector-transition-decisions), [`sector-transition-probabilities`](002-data-lake.md#sector-transition-probabilities) |
 
 Expected payload fields are job identity, `source`, `evaluationDate`, resolved-universe `sectorCodes`, resolved `focusSectorCodes`, `sectorLevel`, `timeframe`, `strategy`, `predictionHorizons`, and `metadata`. `sectorCodes = []` means all eligible sectors at `sectorLevel` only in Platform Sector Transition job config; Platform resolves the concrete universe before publishing. `focusSectorCodes = []` resolves to the full universe, while a non-empty focus must be a subset of the resolved universe. The payload must not carry bucket names or object paths. Decisions produced by this job are `PRIVATE_INTERNAL` research outputs.
 
@@ -237,14 +237,14 @@ Sector Transition failure statuses must preserve enough metadata for actionable 
 
 ### topic-sector-transition-evaluate-outcomes
 
-| Field           | Value                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| Topic key       | `topic-sector-transition-evaluate-outcomes`                                                                     |
-| Producer        | Platform scheduler Sector Transition outcome-evaluation producer                                                |
-| Consumer        | Analyzer Sector Transition outcome-evaluation worker                                                            |
-| Purpose         | Evaluate realized outcomes for prior Sector Transition predictions without rewriting them.                      |
-| Related flow    | [Sector wave deferred research](../flows/sector-wave.md#deferred-research-sector-transition-and-recommendation) |
-| Related storage | [`sector-transition-outcomes`](data-lake.md#sector-transition-outcomes)                                         |
+| Field           | Value                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Topic key       | `topic-sector-transition-evaluate-outcomes`                                                                         |
+| Producer        | Platform scheduler Sector Transition outcome-evaluation producer                                                    |
+| Consumer        | Analyzer Sector Transition outcome-evaluation worker                                                                |
+| Purpose         | Evaluate realized outcomes for prior Sector Transition predictions without rewriting them.                          |
+| Related flow    | [Sector wave deferred research](../flows/004-sector-wave.md#deferred-research-sector-transition-and-recommendation) |
+| Related storage | [`sector-transition-outcomes`](002-data-lake.md#sector-transition-outcomes)                                         |
 
 Expected payload fields match `topic-sector-transition-analyze`, including resolved-universe `sectorCodes` and resolved `focusSectorCodes`. Outcome evaluation reads stored focused predictions and appends realized outcome rows to the outcomes dataset without recalculating a focus-only model or rewriting historical prediction probabilities. Failure statuses follow the same metadata-preservation rule as analysis jobs.
 

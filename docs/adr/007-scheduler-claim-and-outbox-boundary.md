@@ -35,5 +35,5 @@ Phase 1A added the PostgreSQL-backed lease foundation required for multi-instanc
 
 ## Related Work
 
-- [Job execution flow](../flows/job-execution.md)
+- [Job execution flow](../flows/001-job-execution.md)
 - [Phase 1 backend/core stabilization roadmap](../../plans/roadmap/phase-1-backend-core-stabilization.md)

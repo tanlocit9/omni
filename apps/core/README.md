@@ -72,7 +72,7 @@ secrets, and physical paths are not part of this contract.
 
 ## Consumes
 
-See [Kafka contracts](../../docs/data/kafka-contracts.md).
+See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 
 | Topic                        | Purpose                                        |
 | ---------------------------- | ---------------------------------------------- |
@@ -83,7 +83,7 @@ See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
 ## Produces
 
-See [Kafka contracts](../../docs/data/kafka-contracts.md).
+See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 
 | Topic                              | Purpose                              |
 | ---------------------------------- | ------------------------------------ |
@@ -98,17 +98,17 @@ See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
 ## Storage
 
-| Storage    | Purpose                                                                                                                                                   |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL | Platform operational state. See [Database](../../docs/data/database.md).                                                                                  |
-| MinIO/S3   | Platform may integrate with object storage, but analytical dataset ownership belongs to Ingestor/Analyzer. See [Data lake](../../docs/data/data-lake.md). |
+| Storage    | Purpose                                                                                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | Platform operational state. See [Database](../../docs/data/003-database.md).                                                                                  |
+| MinIO/S3   | Platform may integrate with object storage, but analytical dataset ownership belongs to Ingestor/Analyzer. See [Data lake](../../docs/data/002-data-lake.md). |
 
 ## Important Flows
 
-- [Job execution](../../docs/flows/job-execution.md)
-- [Stock sync](../../docs/flows/stock-sync.md)
-- [Indicator and signal](../../docs/flows/indicator-signal.md)
-- [Sector wave](../../docs/flows/sector-wave.md)
+- [Job execution](../../docs/flows/001-job-execution.md)
+- [Stock sync](../../docs/flows/002-stock-sync.md)
+- [Indicator and signal](../../docs/flows/003-indicator-signal.md)
+- [Sector wave](../../docs/flows/004-sector-wave.md)
 
 ## Run locally
 

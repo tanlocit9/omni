@@ -37,7 +37,7 @@ No analytical algorithm is introduced. The capability improves operational recov
 
 ## Repository Guidance Updates
 
-Implementation must review and synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md), [`.roo/rules`](../../.roo/rules), [`docs/README.md`](../../docs/README.md), [`docs/flows/job-execution.md`](../../docs/flows/job-execution.md), and the affected Platform/Console service documentation. This planning-only change does not alter current runtime architecture, so repository agent guidance does not require an immediate rule change.
+Implementation must review and synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md), [`.roo/rules`](../../.roo/rules), [`docs/README.md`](../../docs/README.md), [`docs/flows/001-job-execution.md`](../../docs/flows/001-job-execution.md), and the affected Platform/Console service documentation. This planning-only change does not alter current runtime architecture, so repository agent guidance does not require an immediate rule change.
 
 ## Increment P7-I1 — Job-definition catalog and triggerability API
 

@@ -50,21 +50,21 @@ EOD
 
 ## Topics
 
-| Topic                                                                                 | Direction           | Purpose                                                             |
-| ------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------- |
-| [`topic-sync-indicators`](../data/kafka-contracts.md#topic-sync-indicators)           | Platform → Analyzer | Compute indicator Parquet from EOD input.                           |
-| [`topic-sync-signals`](../data/kafka-contracts.md#topic-sync-signals)                 | Platform → Analyzer | Compute signal history/current transition metadata.                 |
-| [`topic-evaluate-signals`](../data/kafka-contracts.md#topic-evaluate-signals)         | Platform → Analyzer | Evaluate prior signal outcomes after forward windows are available. |
-| [`topic-signal-notifications`](../data/kafka-contracts.md#topic-signal-notifications) | Analyzer → Platform | Publish signal transition notifications.                            |
-| [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)           | Analyzer → Platform | Report job execution status.                                        |
+| Topic                                                                                     | Direction           | Purpose                                                             |
+| ----------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------- |
+| [`topic-sync-indicators`](../data/001-kafka-contracts.md#topic-sync-indicators)           | Platform → Analyzer | Compute indicator Parquet from EOD input.                           |
+| [`topic-sync-signals`](../data/001-kafka-contracts.md#topic-sync-signals)                 | Platform → Analyzer | Compute signal history/current transition metadata.                 |
+| [`topic-evaluate-signals`](../data/001-kafka-contracts.md#topic-evaluate-signals)         | Platform → Analyzer | Evaluate prior signal outcomes after forward windows are available. |
+| [`topic-signal-notifications`](../data/001-kafka-contracts.md#topic-signal-notifications) | Analyzer → Platform | Publish signal transition notifications.                            |
+| [`topic-sync-job-status`](../data/001-kafka-contracts.md#topic-sync-job-status)           | Analyzer → Platform | Report job execution status.                                        |
 
 ## Datasets
 
-| Dataset                                         | Producer                | Consumer                                    | Path                                                        |
-| ----------------------------------------------- | ----------------------- | ------------------------------------------- | ----------------------------------------------------------- |
-| [`eod`](../data/data-lake.md#eod)               | Ingestor                | Analyzer indicator/signal/evaluation jobs   | `eod/{exchange}/{code}.parquet`                             |
-| [`indicators`](../data/data-lake.md#indicators) | Analyzer indicator jobs | Analyzer signal jobs                        | `indicators/{source}/{timeframe}/{exchange}/{code}.parquet` |
-| [`signals`](../data/data-lake.md#signals)       | Analyzer signal jobs    | Analyzer evaluation jobs, notification path | `signals/{strategy}/{timeframe}/{exchange}.parquet`         |
+| Dataset                                             | Producer                | Consumer                                    | Path                                                        |
+| --------------------------------------------------- | ----------------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| [`eod`](../data/002-data-lake.md#eod)               | Ingestor                | Analyzer indicator/signal/evaluation jobs   | `eod/{exchange}/{code}.parquet`                             |
+| [`indicators`](../data/002-data-lake.md#indicators) | Analyzer indicator jobs | Analyzer signal jobs                        | `indicators/{source}/{timeframe}/{exchange}/{code}.parquet` |
+| [`signals`](../data/002-data-lake.md#signals)       | Analyzer signal jobs    | Analyzer evaluation jobs, notification path | `signals/{strategy}/{timeframe}/{exchange}.parquet`         |
 
 ## Responsibilities
 

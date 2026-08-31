@@ -12,9 +12,9 @@ No implementation should create `apps/internal-tools` or treat Parquet Viewer as
 
 Use these canonical plans:
 
-1. [`plans/omni-metadata-console-dashboard-execution-plan.md`](../plans/omni-metadata-console-dashboard-execution-plan.md) — milestone-gated delivery sequence and approved private-access boundary.
-2. [`plans/roadmap/phase-6-omni-console.md`](../plans/roadmap/phase-6-omni-console.md) — roadmap increments for Omni Console.
-3. [`docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`](DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) — persisted JSON metadata contract.
+1. [`plans/omni-metadata-console-dashboard-execution-plan.md`](../../plans/omni-metadata-console-dashboard-execution-plan.md) — milestone-gated delivery sequence and approved private-access boundary.
+2. [`plans/roadmap/phase-6-omni-console.md`](../../plans/roadmap/phase-6-omni-console.md) — roadmap increments for Omni Console.
+3. [`docs/plans/003-dataset-metadata-manifest.md`](003-dataset-metadata-manifest.md) — persisted JSON metadata contract.
 
 ## Dataset Outputs
 

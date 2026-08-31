@@ -223,8 +223,8 @@ Implementation must update:
 AGENTS.md
 CLAUDE.md when agent-specific scheduler/tool instructions change
 .roo/rules/
-docs/flows/job-execution.md
-docs/data/data-lake.md when manifest lineage semantics change
+docs/flows/001-job-execution.md
+docs/data/002-data-lake.md when manifest lineage semantics change
 ```
 
 Agent/rule guidance must explicitly state that:

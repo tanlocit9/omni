@@ -18,4 +18,4 @@ Use Kafka as the asynchronous boundary between Platform and worker services. Pla
 - Workers own data-plane execution.
 - Kafka contracts must be updated on both producer and consumer sides.
 - Topic names are centralized in [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml).
-- Job flow details are documented in [Job execution](../flows/job-execution.md).
+- Job flow details are documented in [Job execution](../flows/001-job-execution.md).

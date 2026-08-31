@@ -11,10 +11,10 @@ Transform job dependency metadata from documentation-only to runtime enforcement
 
 ## Reference Documents
 
-- [Job Dependency Guard Implementation Plan](../docs/JOB_DEPENDENCY_GUARD_IMPLEMENTATION_PLAN.md) - High-level goals and outcomes
-- [Dataset Metadata Manifest](../docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) - Prerequisite manifest infrastructure
+- [Job Dependency Guard Implementation Plan](../docs/plans/004-job-dependency-guard.md) - High-level goals and outcomes
+- [Dataset Metadata Manifest](../docs/plans/003-dataset-metadata-manifest.md) - Prerequisite manifest infrastructure
 - [Dataset Manifest Rule](../AGENTS.md#dataset-manifest-rule) - Repository guidance
-- [Data Lake Documentation](../docs/data/data-lake.md) - Manifest schema and semantics
+- [Data Lake Documentation](../docs/data/002-data-lake.md) - Manifest schema and semantics
 
 ## Architecture Overview
 
@@ -1300,7 +1300,7 @@ Never assume cron gaps guarantee upstream completion. Use manifest-based depende
 
 ````
 
-#### 12.2 docs/flows/job-execution.md
+#### 12.2 docs/flows/001-job-execution.md
 
 Update flow diagram to include dependency guard:
 
@@ -1381,7 +1381,7 @@ Blocked jobs do NOT create FAILED execution history entries.
 ### Week 5: Documentation & Migration
 
 - [ ] Day 1: Update job definition seeds with typed dependencies
-- [ ] Day 2: Update AGENTS.md + docs/flows/job-execution.md
+- [ ] Day 2: Update AGENTS.md + docs/flows/001-job-execution.md
 - [ ] Day 3: Create migration guide for existing jobs
 - [ ] Day 4: Enable ENFORCED mode for pilot jobs (SYNC_INDICATORS, SYNC_SIGNALS)
 - [ ] Day 5: Monitor production, gather metrics
@@ -1395,7 +1395,7 @@ Blocked jobs do NOT create FAILED execution history entries.
 - [ ] Blocked jobs use exponential backoff
 - [ ] Manifest cache reduces S3 reads by >80%
 - [ ] No performance regression in scheduler scan loop (<100ms overhead per claim)
-- [ ] Documentation updated in AGENTS.md, docs/flows/job-execution.md
+- [ ] Documentation updated in AGENTS.md, docs/flows/001-job-execution.md
 - [ ] At least 2 pilot jobs running in ENFORCED mode successfully
 
 ## Risk Mitigation
@@ -1497,8 +1497,8 @@ Blocked jobs do NOT create FAILED execution history entries.
 ### Documentation (3 files)
 
 1. Update `AGENTS.md`
-2. Update `docs/flows/job-execution.md`
-3. Update `docs/data/data-lake.md` (if needed)
+2. Update `docs/flows/001-job-execution.md`
+3. Update `docs/data/002-data-lake.md` (if needed)
 
 **Total**: ~33 files to create/update
 

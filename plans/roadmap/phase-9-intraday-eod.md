@@ -50,7 +50,7 @@ Acceptance criteria: repeated builds from same input produce identical bars/vers
 
 Required tests/checks: bar aggregation boundary tests, deterministic rebuild tests, feature schema tests, and Analyzer/py-common checks.
 
-Stop conditions: stop if feature naming conflicts with [`docs/ALGORITHM_FEATURE_CATALOG.md`](../../docs/ALGORITHM_FEATURE_CATALOG.md).
+Stop conditions: stop if feature naming conflicts with [`docs/reference/001-algorithm-feature-catalog.md`](../../docs/reference/001-algorithm-feature-catalog.md).
 
 ## Increment P9-I3 — Sector aggregation and lineage publication
 

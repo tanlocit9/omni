@@ -210,7 +210,7 @@ READY manifest; if no valid object is publishable, the job fails and does not wr
 the catalog. Derived datasets are excluded because reconstructing their exact
 historical lineage from bytes alone is unsafe.
 
-See [Dataset Metadata Manifest Implementation Plan](../DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md) for full details and
+See [Dataset Metadata Manifest Implementation Plan](../plans/003-dataset-metadata-manifest.md) for full details and
 [Phase 3 P3-I5](../../plans/roadmap/phase-3-dataset-manifests.md#increment-p3-i5--automatic-eod-metadata-reconciliation)
 for the implemented scope and acceptance criteria.
 

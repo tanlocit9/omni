@@ -10,7 +10,7 @@ Kafka messages cross Java and Python service boundaries. Topic drift or payload 
 
 ## Decision
 
-Centralize topic names in [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) and document topic ownership in [Kafka contracts](../data/kafka-contracts.md). Shared Python payload abstractions belong in [`libs/py-common`](../../libs/py-common); Java records belong in the Platform scheduler messaging module.
+Centralize topic names in [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml) and document topic ownership in [Kafka contracts](../data/001-kafka-contracts.md). Shared Python payload abstractions belong in [`libs/py-common`](../../libs/py-common); Java records belong in the Platform scheduler messaging module.
 
 ## Consequences
 

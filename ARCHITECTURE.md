@@ -5,22 +5,22 @@ This file is kept as a compatibility index for existing links. Canonical archite
 ## Start Here
 
 - [Documentation map](docs/README.md)
-- [System overview](docs/architecture/system-overview.md)
-- [Where to change](docs/development/where-to-change.md)
+- [System overview](docs/architecture/001-system-overview.md)
+- [Where to change](docs/development/001-where-to-change.md)
 
 ## Architecture Documents
 
-| Topic                                          | Canonical document                                                           |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| System boundaries and service responsibilities | [docs/architecture/system-overview.md](docs/architecture/system-overview.md) |
-| Job execution and parent/child aggregation     | [docs/flows/job-execution.md](docs/flows/job-execution.md)                   |
-| Stock/symbol sync                              | [docs/flows/stock-sync.md](docs/flows/stock-sync.md)                         |
-| Indicator and signal flow                      | [docs/flows/indicator-signal.md](docs/flows/indicator-signal.md)             |
-| Sector Wave flow                               | [docs/flows/sector-wave.md](docs/flows/sector-wave.md)                       |
-| Kafka topics and message contracts             | [docs/data/kafka-contracts.md](docs/data/kafka-contracts.md)                 |
-| Data lake datasets and paths                   | [docs/data/data-lake.md](docs/data/data-lake.md)                             |
-| Database domains                               | [docs/data/database.md](docs/data/database.md)                               |
-| Architecture decisions                         | [docs/adr](docs/adr)                                                         |
+| Topic                                          | Canonical document                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| System boundaries and service responsibilities | [docs/architecture/001-system-overview.md](docs/architecture/001-system-overview.md) |
+| Job execution and parent/child aggregation     | [docs/flows/001-job-execution.md](docs/flows/001-job-execution.md)                   |
+| Stock/symbol sync                              | [docs/flows/002-stock-sync.md](docs/flows/002-stock-sync.md)                         |
+| Indicator and signal flow                      | [docs/flows/003-indicator-signal.md](docs/flows/003-indicator-signal.md)             |
+| Sector Wave flow                               | [docs/flows/004-sector-wave.md](docs/flows/004-sector-wave.md)                       |
+| Kafka topics and message contracts             | [docs/data/001-kafka-contracts.md](docs/data/001-kafka-contracts.md)                 |
+| Data lake datasets and paths                   | [docs/data/002-data-lake.md](docs/data/002-data-lake.md)                             |
+| Database domains                               | [docs/data/003-database.md](docs/data/003-database.md)                               |
+| Architecture decisions                         | [docs/adr/README.md](docs/adr/README.md)                                             |
 
 ## Service Documents
 

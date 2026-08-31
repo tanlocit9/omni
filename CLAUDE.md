@@ -23,8 +23,8 @@ contracts, and for post-edit change detection as specified in [`AGENTS.md`](AGEN
 Canonical navigation:
 
 - [`docs/README.md`](docs/README.md) — documentation index
-- [`docs/development/where-to-change.md`](docs/development/where-to-change.md) — ownership
-- [`docs/IMPLEMENTATION_PLAN_STANDARD.md`](docs/IMPLEMENTATION_PLAN_STANDARD.md) — plan rules
+- [`docs/development/001-where-to-change.md`](docs/development/001-where-to-change.md) — ownership
+- [`docs/governance/001-implementation-plan-standard.md`](docs/governance/001-implementation-plan-standard.md) — plan rules
 - [`plans/roadmap/automation-rules.md`](plans/roadmap/automation-rules.md) — roadmap automation
 
 Do not execute build, test, lint, format, affected checks, or equivalent tools

@@ -72,15 +72,15 @@ py-common does not publish Kafka events directly as a standalone service. It pro
 
 ## Storage
 
-py-common does not own datasets. It provides storage abstractions used by dataset owners. See [Data lake](../../docs/data/data-lake.md).
+py-common does not own datasets. It provides storage abstractions used by dataset owners. See [Data lake](../../docs/data/002-data-lake.md).
 
 ## Important Flows
 
 py-common supports these flows but does not own their business logic:
 
-- [Stock sync](../../docs/flows/stock-sync.md)
-- [Indicator and signal](../../docs/flows/indicator-signal.md)
-- [Sector wave](../../docs/flows/sector-wave.md)
+- [Stock sync](../../docs/flows/002-stock-sync.md)
+- [Indicator and signal](../../docs/flows/003-indicator-signal.md)
+- [Sector wave](../../docs/flows/004-sector-wave.md)
 
 ## Run locally
 

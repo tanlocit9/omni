@@ -10,7 +10,7 @@ rules belong in [`docs`](docs); do not duplicate them in agent files.
   messages, storage paths, dataset ownership, or shared configuration.
 - Run graph change detection after edits; this is analysis, not a build/test/lint/
   format verification command.
-- Use [`docs/development/where-to-change.md`](docs/development/where-to-change.md)
+- Use [`docs/development/001-where-to-change.md`](docs/development/001-where-to-change.md)
   for ownership and [`docs/README.md`](docs/README.md) for canonical documentation.
 
 ## Worktree inspection boundary
@@ -72,7 +72,7 @@ requests diagnosis. Read only the minimum roadmap sections needed for the update
   [`libs/contracts/proto`](libs/contracts/proto); never hand-edit generated output
   in [`libs/contracts/gen`](libs/contracts/gen).
 - Review Kafka producers, consumers, shared schemas/configuration, tests, and
-  [`docs/data/kafka-contracts.md`](docs/data/kafka-contracts.md) together.
+  [`docs/data/001-kafka-contracts.md`](docs/data/001-kafka-contracts.md) together.
 - Kafka business messages carry logical dataset references, never physical object
   paths. Storage builders use [`configs/shared/s3-paths.yaml`](configs/shared/s3-paths.yaml).
 - Dataset writers publish validated data, then an immutable version manifest, then
@@ -85,9 +85,9 @@ requests diagnosis. Read only the minimum roadmap sections needed for the update
 
 See canonical details in:
 
-- [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
-- [`docs/data/kafka-contracts.md`](docs/data/kafka-contracts.md)
-- [`docs/data/data-lake.md`](docs/data/data-lake.md)
+- [`docs/architecture/001-system-overview.md`](docs/architecture/001-system-overview.md)
+- [`docs/data/001-kafka-contracts.md`](docs/data/001-kafka-contracts.md)
+- [`docs/data/002-data-lake.md`](docs/data/002-data-lake.md)
 - [`docs/flows`](docs/flows)
 
 ## Repository boundaries
@@ -102,7 +102,7 @@ See canonical details in:
 ## Plans and documentation
 
 Implementation plans follow
-[`docs/IMPLEMENTATION_PLAN_STANDARD.md`](docs/IMPLEMENTATION_PLAN_STANDARD.md).
+[`docs/governance/001-implementation-plan-standard.md`](docs/governance/001-implementation-plan-standard.md).
 When architecture, contracts, workflow, or tooling changes, synchronize applicable
 canonical docs and agent guidance. Keep agent files concise and link to canonical
 sources rather than copying architecture prose.

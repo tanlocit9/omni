@@ -105,9 +105,9 @@ Review and synchronize, when applicable:
 - `CLAUDE.md`
 - `.roo/rules/`
 - `docs/README.md`
-- `docs/data/data-lake.md`
-- `docs/flows/job-execution.md`
-- `docs/flows/sector-wave.md`
+- `docs/data/002-data-lake.md`
+- `docs/flows/001-job-execution.md`
+- `docs/flows/004-sector-wave.md`
 - affected service READMEs
 - roadmap and supporting plans listed in M8
 
@@ -451,12 +451,12 @@ Review/update:
 - `plans/roadmap/phase-6-omni-console.md`
 - `plans/consolidated-numbered-implementation-phases.md`
 - `plans/job-dependency-guard-progress.md`
-- `docs/DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`
+- `docs/plans/003-dataset-metadata-manifest.md`
 - the superseded internal-tools Viewer plans, as compatibility pointers
-- `docs/NEXT_PHASE_IMPLEMENTATION_PLAN.md`
-- `docs/data/data-lake.md`
-- `docs/flows/job-execution.md`
-- `docs/flows/sector-wave.md`
+- `docs/plans/013-next-phase-implementation-plan.md`
+- `docs/data/002-data-lake.md`
+- `docs/flows/001-job-execution.md`
+- `docs/flows/004-sector-wave.md`
 - `docs/README.md`
 - `AGENTS.md`, `CLAUDE.md`, and `.roo/rules/`
 

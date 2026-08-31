@@ -111,7 +111,7 @@ Add typed dependencies to existing jobs:
 Update repository guidance:
 
 - [ ] Update `AGENTS.md` with job dependency rules
-- [ ] Update `docs/flows/job-execution.md`
+- [ ] Update `docs/flows/001-job-execution.md`
 - [ ] Create migration guide
 - [ ] Update job dependency plan with completion status
 

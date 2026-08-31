@@ -237,8 +237,8 @@ Implementation must review/update:
 AGENTS.md
 CLAUDE.md when storage/tool workflow guidance changes
 .roo/rules/
-docs/data/data-lake.md
-docs/flows/job-execution.md
+docs/data/002-data-lake.md
+docs/flows/001-job-execution.md
 ```
 
 Guidance must describe READY-last semantics, centralized S3/R2 metadata, `dataVersion` lineage and the rule against scanning Parquet merely to test readiness.

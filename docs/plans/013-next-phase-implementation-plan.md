@@ -1,5 +1,7 @@
 # Omni — Next Phase Implementation Plan
 
+> **Status: Superseded compatibility document.** Use the [canonical roadmap](../../plans/roadmap/README.md) for phase order, increment status, dependencies, and execution evidence. This file preserves historical context only and must not be used to schedule or report work.
+
 ## Direction
 
 Make contracts and data readiness deterministic first, then make compute portable, then increase market-data frequency.

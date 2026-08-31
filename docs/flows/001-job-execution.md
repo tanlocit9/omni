@@ -218,7 +218,7 @@ flowchart TD
 
 | Contract               | Canonical doc/source                                                                                                                                                                                                                                 |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status topic           | [`topic-sync-job-status`](../data/kafka-contracts.md#topic-sync-job-status)                                                                                                                                                                          |
+| Status topic           | [`topic-sync-job-status`](../data/001-kafka-contracts.md#topic-sync-job-status)                                                                                                                                                                      |
 | Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql) |
 | Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                         |
 | Scheduler outbox       | [`database/migrations/V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql)                                                                                                                                   |
@@ -290,11 +290,11 @@ Digest policy translates a canonical symbol `workKey` back into the domain
 The V9 migration requires a drained scheduler outbox and empty execution history,
 then installs canonical work-identity indexes. It never deletes or rewrites
 operational records. The database invariants are documented in
-[Database](../data/database.md).
+[Database](../data/003-database.md).
 
 The coordinated operational sequence, maintenance-window checks, snapshot-based
 rollback procedure, and production completion gates are defined in the
-[P1-I4 hard-cutover runbook](../deployment/p1-i4-hard-cutover.md). Disposable
+[P1-I4 hard-cutover runbook](../deployment/001-p1-i4-hard-cutover.md). Disposable
 PostgreSQL verification runs V9 twice against empty history and checks rejection
 of remaining history and pending outbox work. That local evidence does not replace the
 maintenance-window preflight or exact-head CI, so the canonical roadmap keeps
@@ -311,6 +311,6 @@ P1-I4 `verification_pending`; no production database was modified.
 
 ## Related Flows
 
-- [Stock sync](stock-sync.md)
-- [Indicator and signal](indicator-signal.md)
-- [Sector wave](sector-wave.md)
+- [Stock sync](002-stock-sync.md)
+- [Indicator and signal](003-indicator-signal.md)
+- [Sector wave](004-sector-wave.md)

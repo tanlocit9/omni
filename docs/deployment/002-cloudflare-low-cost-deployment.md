@@ -176,7 +176,7 @@ Platform, Ingestor, and Analyzer images that implement the required
 `workType`/`workKey` contract must be released together. Before deployment,
 disable job dispatch and manual triggers, drain the scheduler outbox and Kafka
 consumer lag, and take a PostgreSQL snapshot. Follow the
-[P1-I4 hard-cutover runbook](p1-i4-hard-cutover.md); a rolling mixed-version
+[P1-I4 hard-cutover runbook](001-p1-i4-hard-cutover.md); a rolling mixed-version
 deployment is unsupported.
 
 ## Phase 5 Implementation Order
@@ -224,10 +224,10 @@ Prices and free allowances change. Verify them again immediately before provisio
 
 ## Repository References
 
-- [Portable Docker Deployment plan](../PORTABLE_DOCKER_DEPLOYMENT_IMPLEMENTATION_PLAN.md)
+- [Portable Docker Deployment plan](../plans/005-portable-docker-deployment.md)
 - [Phase 5 roadmap](../../plans/roadmap/phase-5-portable-deployment.md)
 - [Compose infrastructure](../../docker-compose.infra.yaml)
 - [Compose services](../../docker-compose.services.yaml)
 - [Deployment environment example](../../.env.deploy.example)
 - [Platform application configuration](../../apps/core/src/main/resources/application.yaml)
-- [Codex control and tooling plan](../development/codex-control-and-tooling.md)
+- [Codex control and tooling plan](../development/003-codex-control-and-tooling.md)

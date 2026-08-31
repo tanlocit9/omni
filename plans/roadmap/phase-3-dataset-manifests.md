@@ -34,7 +34,7 @@ Exact dataset versions and upstream lineage make reproducible analysis, stale-in
 
 ## Repository Guidance Updates
 
-[`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md), [`.roo/rules`](../../.roo/rules), [`docs/README.md`](../../docs/README.md), and [`docs/data/data-lake.md`](../../docs/data/data-lake.md) must remain synchronized when manifest architecture, storage workflow, or development guidance changes. The P3-I1 verification repair only restores the configured pytest HTML reporter and does not change runtime architecture or guidance.
+[`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md), [`.roo/rules`](../../.roo/rules), [`docs/README.md`](../../docs/README.md), and [`docs/data/002-data-lake.md`](../../docs/data/002-data-lake.md) must remain synchronized when manifest architecture, storage workflow, or development guidance changes. The P3-I1 verification repair only restores the configured pytest HTML reporter and does not change runtime architecture or guidance.
 
 ## Increment P3-I1 — Manifest models, identity rules, and py_common abstractions
 
@@ -267,8 +267,8 @@ Scope and approach:
 Repository guidance updates: implementation must review and synchronize
 [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
 [`.roo/rules`](../../.roo/rules), [`docs/README.md`](../../docs/README.md),
-[`docs/data/data-lake.md`](../../docs/data/data-lake.md),
-[`docs/flows/job-execution.md`](../../docs/flows/job-execution.md), and the relevant
+[`docs/data/002-data-lake.md`](../../docs/data/002-data-lake.md),
+[`docs/flows/001-job-execution.md`](../../docs/flows/001-job-execution.md), and the relevant
 Platform, py-common, and Omni Console documentation. This planning-only update
 changes no runtime behavior, so agent rules require no immediate amendment.
 

@@ -57,7 +57,7 @@ Ingestor consumes Platform sync jobs, fetches external provider data, normalizes
 
 ## Consumes
 
-See [Kafka contracts](../../docs/data/kafka-contracts.md).
+See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 
 | Topic                     | Purpose                       |
 | ------------------------- | ----------------------------- |
@@ -66,7 +66,7 @@ See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
 ## Produces
 
-See [Kafka contracts](../../docs/data/kafka-contracts.md).
+See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 
 | Topic                   | Purpose                              |
 | ----------------------- | ------------------------------------ |
@@ -76,7 +76,7 @@ See [Kafka contracts](../../docs/data/kafka-contracts.md).
 
 ## Storage
 
-Ingestor owns these Parquet datasets. See [Data lake](../../docs/data/data-lake.md).
+Ingestor owns these Parquet datasets. See [Data lake](../../docs/data/002-data-lake.md).
 
 | Dataset   | Role                                      |
 | --------- | ----------------------------------------- |
@@ -85,8 +85,8 @@ Ingestor owns these Parquet datasets. See [Data lake](../../docs/data/data-lake.
 
 ## Important Flows
 
-- [Stock sync](../../docs/flows/stock-sync.md)
-- [Job execution](../../docs/flows/job-execution.md)
+- [Stock sync](../../docs/flows/002-stock-sync.md)
+- [Job execution](../../docs/flows/001-job-execution.md)
 
 ## Run locally
 

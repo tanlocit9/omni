@@ -17,4 +17,4 @@ Precompute Sector Wave datasets in Analyzer and store outputs in the Parquet dat
 - Analyzer owns Sector Wave calculations and datasets.
 - Platform schedules precompute/backtest jobs through Kafka.
 - Downstream consumers read stable Parquet outputs.
-- Sector Wave flow details live in [Sector wave](../flows/sector-wave.md).
+- Sector Wave flow details live in [Sector wave](../flows/004-sector-wave.md).

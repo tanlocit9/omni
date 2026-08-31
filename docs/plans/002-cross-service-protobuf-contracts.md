@@ -266,9 +266,9 @@ Do not mix order-book snapshots into the trade-tick contract. Introduce a separa
 Implementation must update:
 
 ```text
-docs/data/kafka-contracts.md
-docs/architecture/system-overview.md   # when contract ownership/boundaries change
-docs/flows/job-execution.md            # command/status serialization flow
+docs/data/001-kafka-contracts.md
+docs/architecture/001-system-overview.md   # when contract ownership/boundaries change
+docs/flows/001-job-execution.md            # command/status serialization flow
 ```
 
 ## Repository Guidance Updates

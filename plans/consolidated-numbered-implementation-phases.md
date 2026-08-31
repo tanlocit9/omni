@@ -1,22 +1,18 @@
 # Consolidated Numbered Implementation Phases
 
-This file is a compatibility index. The canonical autonomous-delivery roadmap starts at [`plans/roadmap/README.md`](roadmap/README.md), and the dependency-ordered increment registry is [`plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md).
+This file is a compatibility index. The canonical autonomous-delivery roadmap starts at [`plans/roadmap/README.md`](roadmap/README.md), the inherited platform is recorded in the [`pre-roadmap capability baseline`](roadmap/pre-roadmap-capability-baseline.md), and the dependency-ordered increment registry is [`plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md).
 
 > Status reconciliation: before executing or updating an increment on `feature/parquet-date-normalization`, apply [`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md) where older roadmap text conflicts with the latest verified source/evidence. P1-I4 now requires a backfill-first coordinated cutover with no generic execution/status compatibility window.
 
-## Phase Index
+## Capability Group Index
 
-1. [Phase 0 — Immediate correctness hotfixes](roadmap/phase-0-immediate-correctness.md)
-2. [Phase 1 — Backend/Core stabilization](roadmap/phase-1-backend-core-stabilization.md)
-3. [Phase 2 — Cross-service Proto3 contracts](roadmap/phase-2-proto3-contracts.md)
-4. [Phase 3 — Dataset manifests and version lineage](roadmap/phase-3-dataset-manifests.md)
-5. [Phase 4 — Job dependency guard](roadmap/phase-4-job-dependency-guard.md)
-6. [Phase 5 — Portable containers and centralized object storage](roadmap/phase-5-portable-deployment.md)
-7. [Phase 6 — Omni Console: Dataset Explorer first](roadmap/phase-6-omni-console.md)
-8. [Phase 7 — Omni Console job operations](roadmap/phase-7-console-job-operations.md)
-9. [Phase 8 — Multi-channel notification routing](roadmap/phase-8-notification-routing.md)
-10. [Phase 9 — Intraday EOD](roadmap/phase-9-intraday-eod.md)
-11. [Phase 10 — Realtime per tick](roadmap/phase-10-realtime-per-tick.md)
+- **Inherited baseline:** [Capabilities present before Phase 0](roadmap/pre-roadmap-capability-baseline.md)
+- **Group A — Control-plane safety:** [Phase 0 — Immediate correctness hotfixes](roadmap/phase-0-immediate-correctness.md), [Phase 1 — Backend/Core stabilization](roadmap/phase-1-backend-core-stabilization.md)
+- **Group B — Deterministic contracts and data:** [Phase 2 — Cross-service Proto3 contracts](roadmap/phase-2-proto3-contracts.md), [Phase 3 — Dataset manifests and version lineage](roadmap/phase-3-dataset-manifests.md), [Phase 4 — Job dependency guard](roadmap/phase-4-job-dependency-guard.md)
+- **Group C — Portable operations and product:** [Phase 5 — Portable containers and centralized object storage](roadmap/phase-5-portable-deployment.md), [Phase 6 — Omni Console](roadmap/phase-6-omni-console.md), [Phase 7 — Omni Console job operations](roadmap/phase-7-console-job-operations.md), [Phase 8 — Multi-channel notification routing](roadmap/phase-8-notification-routing.md)
+- **Group D — Higher-frequency market data:** [Phase 9 — Intraday EOD](roadmap/phase-9-intraday-eod.md), [Phase 10 — Realtime per tick](roadmap/phase-10-realtime-per-tick.md)
+
+The groups are navigation only. Existing phase numbers, dependencies, and increment IDs remain authoritative.
 
 ## Supporting Files
 

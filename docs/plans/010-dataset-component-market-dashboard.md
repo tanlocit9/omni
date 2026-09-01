@@ -1,6 +1,6 @@
 # Dataset-Component Market Dashboard Implementation Plan
 
-Status: Proposed Group C / Phase 6 product increment; not yet roadmap-scheduled  
+Status: Planned Group C / Phase 6 increment P6-I4
 Canonical status owner: [`plans/roadmap/README.md`](../../plans/roadmap/README.md)  
 Target application: `apps/omni-console`  
 Read boundary: `apps/query-service`
@@ -32,7 +32,7 @@ After implementation:
 - Do not implement intraday or realtime widgets before reliable Phase 9/10 contracts exist.
 - Do not expose Sector Transition research as production investment advice.
 - Do not add PostgreSQL or Redis copies of analytical dataset statistics.
-- Do not require Saved Query persistence before the first fixed, code-owned dashboard widgets are useful.
+- Do not add persisted dashboard layouts, user-owned SQL templates, or dashboard personalization.
 - Do not create a generic plugin loader that executes arbitrary remote component or SQL definitions.
 
 ## User Journeys
@@ -174,7 +174,7 @@ sector-features.ranking
 signals.latest
 ```
 
-The registry is code-owned and allowlisted. Saved dashboard layouts may reference registered IDs later, but persisted data must never inject component modules or arbitrary SQL.
+The registry is code-owned and allowlisted. Persisted configuration must not inject component modules, widget definitions, or arbitrary SQL.
 
 ## Component Inventory
 
@@ -241,13 +241,13 @@ Responsive behavior:
 
 Query Service already provides:
 
-- dataset catalog and partition manifests;
+- dataset catalog and partition metadata;
 - logical dataset references;
 - bounded asynchronous read-only SQL;
 - JSON and Arrow results;
-- source `dataVersions`.
+- source `dataVersions` where resolved by the existing source contract.
 
-The first implementation should reuse this boundary through code-owned query adapters. The browser must not let widget users edit the SQL.
+The first implementation reuses this boundary through code-owned query adapters. The browser must not let widget users edit the SQL. Dashboard reads do not require a new logical READY-read contract: explicit dashboard endpoints or server-owned query definitions may read supported existing datasets and must return truthful availability, effective-date, and provenance metadata.
 
 ### Dashboard Query Direction
 
@@ -270,7 +270,7 @@ rows or metric payload
 truncated/unavailable indicators
 ```
 
-Until those endpoints exist, frontend adapters may submit fixed allowlisted SQL through the existing logical query API. SQL remains colocated with the dataset adapter, uses bounded row limits, references only declared aliases, and has contract tests.
+Until those endpoints exist, frontend adapters may submit fixed allowlisted SQL through the existing logical query API for datasets supported by that API. SQL remains colocated with the dataset adapter, uses bounded row limits, references only declared aliases, and has contract tests. A dataset that is not supported by the current logical resolver requires an explicit bounded Query Service endpoint or server-owned query definition; it must not be made available by exposing physical paths to the browser.
 
 ### Cross-Dataset Composition
 
@@ -287,14 +287,14 @@ When an atomic cross-dataset comparison is necessary, Query Service must:
 
 Each component distinguishes:
 
-| State       | Meaning                                                   | Presentation                           |
-| ----------- | --------------------------------------------------------- | -------------------------------------- |
-| Loading     | Request is active                                         | stable skeleton preserving layout      |
-| Ready       | Valid rows for effective date                             | visualization plus provenance          |
-| Empty       | Valid query returned no rows                              | neutral no-data explanation            |
-| Stale       | Data is valid but older than policy                       | visible date/freshness warning         |
-| Unavailable | Required dataset/partition does not exist or is not READY | explain prerequisite; do not show zero |
-| Error       | Request or transformation failed                          | bounded error and retry action         |
+| State       | Meaning                                                         | Presentation                           |
+| ----------- | --------------------------------------------------------------- | -------------------------------------- |
+| Loading     | Request is active                                               | stable skeleton preserving layout      |
+| Ready       | Valid rows for effective date                                   | visualization plus provenance          |
+| Empty       | Valid query returned no rows                                    | neutral no-data explanation            |
+| Stale       | Data is valid but older than policy                             | visible date/freshness warning         |
+| Unavailable | The supported source contract cannot provide the requested data | explain prerequisite; do not show zero |
+| Error       | Request or transformation failed                                | bounded error and retry action         |
 
 The dashboard-level date is the latest common complete date for widgets that must be compared. Independent widgets may show a newer date only when the difference is explicit.
 
@@ -306,7 +306,7 @@ If a widget needs an expensive reusable aggregate that cannot meet Query Service
 
 ## Metadata Outputs
 
-No new object-storage metadata contract is required. Components consume existing catalog and READY manifests and display:
+No new object-storage metadata contract is required. Components consume metadata exposed by their supported Query Service contracts and display, where available:
 
 - dataset and partition identity;
 - status;
@@ -327,14 +327,14 @@ No new trading algorithm is unlocked. The dashboard makes existing analytical ou
 
 ## Contract Impact
 
-| Contract                          | Impact                                                                                            |
-| --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Kafka/service-to-service protobuf | No change. Dashboard reads persisted datasets and Platform HTTP state.                            |
-| Object-storage JSON manifest      | No schema change. Existing READY/catalog metadata is consumed.                                    |
-| Storage path/dataset ownership    | No change. Logical dataset references remain canonical; paths remain server-side.                 |
-| Public Java/Python API            | Query Service may gain bounded dashboard response models/endpoints. No producer API change in V1. |
-| Configuration/environment         | Existing Query Service and Platform origins remain. No new secret is exposed to the browser.      |
-| Frontend navigation               | Dashboard becomes the initial view; URL routes are introduced in a later navigation increment.    |
+| Contract                          | Impact                                                                                                                 |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Kafka/service-to-service protobuf | No change. Dashboard reads persisted datasets and Platform HTTP state.                                                 |
+| Object-storage JSON manifest      | No schema change and no new dashboard-specific READY-read contract. Existing metadata may be consumed where available. |
+| Storage path/dataset ownership    | No change. Logical dataset references remain canonical; paths remain server-side.                                      |
+| Public Java/Python API            | Query Service may gain bounded dashboard response models/endpoints. No producer API change in V1.                      |
+| Configuration/environment         | Existing Query Service and Platform origins remain. No new secret is exposed to the browser.                           |
+| Frontend navigation               | Dashboard becomes the initial view; URL routes are introduced in a later navigation increment.                         |
 
 ## Security and Reliability
 
@@ -349,33 +349,35 @@ No new trading algorithm is unlocked. The dashboard makes existing analytical ou
 
 ## Implementation Increments
 
+Implementation status: Increment 1 source complete; Increment 2 foundation complete except reusable fixtures; Increment 3 source complete pending approved automated and manual verification.
+
 ### Increment 1 - Default Dashboard Shell
 
-1. Change the initial Console view from Dataset Explorer to Dashboard.
-2. Move Dashboard before operator tools in visual navigation if product review approves.
-3. Replace “disabled until Saved Query” wording with the dataset-component delivery direction.
-4. Add an accessible heading and explicit current navigation state.
-5. Test first render and switching back to Dataset Explorer, SQL Console, and Jobs.
+1. [x] Change the initial Console view from Dataset Explorer to Dashboard.
+2. [x] Move Dashboard before operator tools in visual navigation.
+3. [x] Replace the persistence-dependent placeholder wording with the fixed dataset-component delivery direction.
+4. [x] Add an accessible heading and explicit current navigation state.
+5. [x] Add tests for first render and switching back to Dataset Explorer, SQL Console, and Jobs.
 
 Exit criterion: opening Console shows Dashboard as the active section without breaking existing tools.
 
 ### Increment 2 - Dataset Component Foundation
 
-1. Add shared widget types and explicit registry.
-2. Add shared frame, provenance, loading, empty, stale, unavailable, and error components.
-3. Create `metadata`, `eod`, `sector-features`, and `signals` dataset packages.
-4. Add request cancellation and per-widget error isolation.
-5. Add fixtures for ready, stale, empty, unavailable, and error states.
+1. [x] Add shared widget types and explicit registry.
+2. [x] Add shared frame, provenance, loading, empty, stale, unavailable, and error components.
+3. [x] Create initial `metadata`, `eod`, `sector-features`, and `signals` component packages.
+4. [x] Add request cancellation, manual per-widget refresh, and per-widget error isolation for connected adapters.
+5. [-] Add focused ready, stale, empty, unavailable, and error state coverage; reusable data fixtures remain pending.
 
 Exit criterion: registered dataset widgets render independently with consistent state semantics.
 
 ### Increment 3 - Freshness and Market Components
 
-1. Implement `DataFreshnessBanner` from catalog/partition manifests.
-2. Implement `MarketBreadth` from EOD data with explicit exchange/date scope.
-3. Implement `TopMovers` with deterministic sorting and bounded results.
-4. Expose effective date and `dataVersions` on every result.
-5. Add semantic/query contract tests.
+1. [x] Implement `DataFreshnessBanner` from Query Service metadata responses.
+2. [x] Implement `MarketBreadth` from EOD data with explicit exchange/date scope.
+3. [x] Implement `TopMovers` with uppercase symbols, separate deterministic gainers/losers lists, and allowlisted HOSE/HNX/UPCOM plus Top 5/10/20 selectors.
+4. [x] Expose effective date and `dataVersions` on every result.
+5. [x] Add semantic/query contract tests; execution remains pending approval.
 
 Exit criterion: the default page provides useful, truthful EOD market context.
 
@@ -407,14 +409,14 @@ Exit criterion: users can inspect recent signal transitions without reading raw 
 
 Exit criterion: dashboard drill-down produces shareable, refresh-safe detail views.
 
-### Increment 7 - Saved Layouts After Fixed Widgets
+### Increment 7 - Integration and Hardening
 
-1. Add Saved Query ownership/persistence only after fixed widgets and semantic contracts are stable.
-2. Persist layouts as registered widget IDs plus validated configuration.
-3. Reject unknown widgets, arbitrary SQL, invalid filters, and oversized layouts.
-4. Keep a safe code-owned default dashboard.
+1. Validate all registered widget definitions and configurations at construction time.
+2. Reject unknown widgets, arbitrary SQL, invalid filters, and oversized requests.
+3. Keep the dashboard composition and defaults code-owned.
+4. Complete cross-widget accessibility, responsive, partial-failure, and performance checks.
 
-Exit criterion: personalization cannot bypass query, security, or component boundaries.
+Exit criterion: the fixed dashboard is reliable and cannot bypass query, security, or component boundaries.
 
 ## Testing Strategy
 
@@ -427,29 +429,30 @@ Exit criterion: personalization cannot bypass query, security, or component boun
 - Provenance displays effective date and source version.
 - Filters are validated and encoded without SQL interpolation.
 - Independent widget failure does not hide sibling widgets.
+- Every widget frame exposes an accessible refresh action; connected widgets cancel and reissue their request, while refresh is disabled during loading or before an adapter exists.
 - Desktop and mobile layouts retain logical reading order.
 
 ### Query Contract Tests
 
-- Queries use logical dataset aliases only.
-- Date, exchange, strategy, timeframe, sorting, and limit values are allowlisted/bounded.
+- Generic query API requests use logical dataset aliases only; explicit dashboard endpoints keep physical resolution server-side.
+- Date, exchange, strategy, timeframe, sorting, and limit values are allowlisted/bounded; Top Movers accepts only the UI's fixed 5/10/20 choices even though the server retains a hard defensive maximum.
 - Results expose `dataVersions` and truthful truncation state.
 - Mixed-date inputs are rejected or explicitly labeled.
-- Missing/non-READY partitions return unavailable semantics rather than fabricated zero values.
+- Missing or unsupported source data returns unavailable semantics rather than fabricated zero values.
 - Timeout/cancellation and memory/row limits remain enforced.
 
 ### End-to-End Checks
 
 - Opening `/` shows Dashboard.
 - Dataset Explorer, SQL Console, and Jobs remain reachable.
-- Market widgets render from representative READY fixtures.
+- Market widgets render from representative supported-source fixtures.
 - Clicking supported symbol/sector entries reaches the correct detail route after routing is introduced.
 - Refresh and browser back/forward retain the selected page.
 - One failed data source leaves other widgets usable.
 
 ## Verification
 
-Status: not run. This task creates the implementation plan only; no dashboard or default-view implementation is included.
+Status: not run. Increments 1-3 are implemented locally as described above, but the required approved automated and manual checks have not run.
 
 Required checks during implementation, subject to explicit user approval under repository policy:
 
@@ -479,8 +482,8 @@ Manual checks:
 Review during implementation:
 
 - `docs/README.md` - index this plan and dashboard ownership.
-- `plans/roadmap/README.md` - assign a Phase 6 increment before autonomous selection.
-- `plans/roadmap/phase-6-omni-console.md` - reconcile fixed dataset components with Saved Query milestones.
+- `plans/roadmap/README.md` - identify this plan as canonical supporting detail for P6-I4.
+- `plans/roadmap/phase-6-omni-console.md` - keep the fixed Market Dashboard scope and status synchronized.
 - `plans/omni-metadata-console-dashboard-execution-plan.md` - update dashboard sequencing and gates.
 - `apps/omni-console/README.md` - document default page, component ownership, and navigation.
 - `apps/query-service/README.md` - document dashboard endpoints/query definitions when introduced.
@@ -502,19 +505,20 @@ Review during implementation:
 
 ## Acceptance Criteria
 
-- [ ] Dashboard is the default Omni Console page and is marked as the active navigation section on first render.
-- [ ] Dataset Explorer, SQL Console, and Jobs remain reachable and retain existing behavior.
-- [ ] Widgets are organized by canonical logical dataset, not producer service.
-- [ ] An explicit allowlisted widget registry defines supported components.
-- [ ] Dashboard V1 includes freshness, market breadth, top movers, sector heatmap/ranking, and latest signals when their source datasets are READY.
+- [x] Dashboard is the default Omni Console page and is marked as the active navigation section on first render.
+- [x] Dataset Explorer, SQL Console, and Jobs remain reachable in component coverage and retain their existing source behavior.
+- [x] Initial widgets are organized by canonical logical dataset, not producer service.
+- [x] An explicit allowlisted widget registry defines supported components.
+- [-] Dashboard V1 includes implemented freshness, market breadth, and top movers; sector heatmap/ranking and latest signals remain unavailable pending their increments.
 - [ ] Every widget handles loading, ready, empty, stale, unavailable, and error states independently.
-- [ ] Effective date and source versions are visible or inspectable for every analytical widget.
+- [-] Effective date and source versions are visible for implemented metadata/EOD widgets; later analytical widgets remain pending.
 - [ ] The browser receives neither object-store credentials nor unrestricted physical paths.
-- [ ] Widget queries are fixed/allowlisted, bounded, cancellable, and covered by contract tests.
+- [-] Implemented metadata/EOD reads are fixed, allowlisted, bounded, cancellable, and covered by source tests; approved test execution remains pending.
 - [ ] Mixed-date or partial data is rejected or visibly labeled.
 - [ ] Sector Transition research is not presented as production investment advice.
 - [ ] Mobile and desktop layouts are usable and accessible.
 - [ ] Required approved checks pass before the implementation is marked Done.
+- [ ] No persisted layout, user-owned SQL template, personalization store, or dashboard-specific READY-read contract is required.
 - [ ] Roadmap, focused execution plan, service READMEs, and repository guidance are synchronized.
 
 ## Definition of Done

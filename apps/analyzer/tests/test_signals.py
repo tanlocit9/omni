@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 from py_common.storage.exceptions import StorageObjectNotFoundError
+from py_common.storage.parquet import ParquetWriteResult
 
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
@@ -18,8 +20,10 @@ from app.signals.storage import (
     SignalTransition,
 )
 from app.signals.strategy import (
+    ICHIMOKU_V1,
     MarketSignal,
     SignalResult,
+    calculate_ichimoku_v1,
     calculate_trend_momentum_v1,
 )
 
@@ -81,7 +85,9 @@ class FakeParquetStorage:
         self.writes[path] = frame
         self.frames[path] = frame
 
-    async def replace_dataframe(self, path: str, frame: pd.DataFrame, **kwargs) -> None:
+    async def replace_dataframe(
+        self, path: str, frame: pd.DataFrame, **kwargs
+    ) -> ParquetWriteResult:
         if path in self.fail_replace_paths:
             raise RuntimeError("replace failed")
         validate = kwargs.get("validate")
@@ -89,6 +95,12 @@ class FakeParquetStorage:
             validate(frame)
         self.replacements[path] = frame
         self.frames[path] = frame
+        payload = frame.to_json(date_format="iso").encode()
+        return ParquetWriteResult(
+            object_name=path,
+            checksum=f"sha256:{hashlib.sha256(payload).hexdigest()}",
+            total_bytes=len(payload),
+        )
 
 
 class FakePaths:
@@ -188,6 +200,48 @@ def test_calculate_trend_momentum_v1_returns_no_decision_for_missing_ad_close():
 
     assert result.signal == MarketSignal.NO_DECISION
     assert "MISSING_EOD_COLUMN_AD_CLOSE" in result.reason_codes
+
+
+def test_calculate_ichimoku_v1_returns_bullish_without_chikou_dependency():
+    dates = pd.date_range("2026-01-01", periods=60, freq="D")
+    indicators = pd.DataFrame(
+        {
+            "date": dates,
+            "ichimoku_tenkan": [100.0] * 59 + [115.0],
+            "ichimoku_kijun": [100.0] * 59 + [110.0],
+            "ichimoku_span_a": [100.0] * 59 + [105.0],
+            "ichimoku_span_b": [100.0] * 59 + [95.0],
+        }
+    )
+
+    result = calculate_ichimoku_v1(_eod_frame(), indicators)
+
+    assert result.strategy == ICHIMOKU_V1
+    assert result.signal == MarketSignal.BULLISH
+    assert result.score == 4
+    assert result.reason_codes == [
+        "PRICE_ABOVE_CLOUD",
+        "TENKAN_ABOVE_KIJUN",
+        "SPAN_A_ABOVE_SPAN_B",
+        "SCORE_4",
+    ]
+
+
+def test_calculate_ichimoku_v1_returns_no_decision_for_missing_current_cloud():
+    indicators = pd.DataFrame(
+        {
+            "date": [pd.Timestamp("2026-03-01")],
+            "ichimoku_tenkan": [115.0],
+            "ichimoku_kijun": [110.0],
+            "ichimoku_span_a": [pd.NA],
+            "ichimoku_span_b": [95.0],
+        }
+    )
+
+    result = calculate_ichimoku_v1(_eod_frame(), indicators)
+
+    assert result.signal == MarketSignal.NO_DECISION
+    assert result.reason_codes == ["MISSING_VALUE_ICHIMOKU_SPAN_A"]
 
 
 @pytest.mark.anyio

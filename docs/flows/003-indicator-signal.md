@@ -123,6 +123,9 @@ stateDiagram-v2
 
 ## Contract Notes
 
+- `ICHIMOKU_V1` scores current values only: price versus cloud (+/-2), Tenkan versus Kijun (+/-1), and Span A versus Span B (+/-1). Scores at least +3 are bullish, at most -3 bearish, and intermediate scores neutral.
+- Chikou is chart-shifted output and is explicitly excluded from `ICHIMOKU_V1` signal generation.
+- Signal jobs persist upstream EOD and indicator versions per row and publish one READY `signals` manifest per strategy, timeframe, and exchange with complete lineage for the shared history object.
 - Indicator jobs identify symbol, source, timeframe, requested indicators, and job execution identity; their READY manifests contain exactly one EOD lineage input for the same `exchange` and `code`.
 - Signal jobs should identify symbol, timeframe, strategy, and job execution identity.
 - Signal dispatch requires the exact `indicators` READY manifest for `source`, `timeframe`, `exchange`, and `code`.

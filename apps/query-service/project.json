@@ -56,14 +56,18 @@
     },
     "lint": {
       "cache": true,
-      "executor": "@nxlv/python:ruff-check",
-      "options": { "lintFilePatterns": ["app", "tests", "main.py"] }
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run ruff check app tests main.py && uv run ruff format --check app tests main.py",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": []
     },
     "lint-fix": {
       "cache": false,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run ruff check --fix app tests main.py",
+        "command": "uv run ruff format app tests main.py && uv run ruff check --fix app tests main.py",
         "cwd": "{projectRoot}"
       },
       "outputs": []

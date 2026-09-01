@@ -19,6 +19,7 @@ class ResolvedDataset:
     view_name: str
     manifest: DatasetManifest
     paths: list[str]
+    include_filename: bool = False
 
 
 def create_storage_registry(settings: QueryServiceSettings) -> StorageProviderRegistry:

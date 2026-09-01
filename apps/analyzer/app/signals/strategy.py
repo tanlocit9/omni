@@ -8,7 +8,15 @@ import pandas as pd
 
 REQUIRED_EOD_COLUMNS = {"date", "ad_close"}
 REQUIRED_INDICATOR_COLUMNS = {"date", "ma20", "ma50", "rsi14", "macd", "macd_signal"}
+REQUIRED_ICHIMOKU_COLUMNS = {
+    "date",
+    "ichimoku_tenkan",
+    "ichimoku_kijun",
+    "ichimoku_span_a",
+    "ichimoku_span_b",
+}
 TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1"
+ICHIMOKU_V1 = "ICHIMOKU_V1"
 BULLISH_THRESHOLD = 3
 BEARISH_THRESHOLD = -3
 
@@ -161,6 +169,119 @@ def calculate_trend_momentum_v1(
         signal_date=signal_date,
         reason_codes=reason_codes,
         score=score,
+    )
+
+
+def calculate_ichimoku_v1(
+    eod_frame: pd.DataFrame,
+    indicators_frame: pd.DataFrame,
+) -> SignalResult:
+    """Score current, non-projected Ichimoku conditions without using Chikou."""
+    missing_eod = sorted(REQUIRED_EOD_COLUMNS - set(eod_frame.columns))
+    missing_indicators = sorted(
+        REQUIRED_ICHIMOKU_COLUMNS - set(indicators_frame.columns)
+    )
+    if missing_eod or missing_indicators:
+        return SignalResult(
+            signal=MarketSignal.NO_DECISION,
+            price=None,
+            signal_date=None,
+            reason_codes=[
+                *(f"MISSING_EOD_COLUMN_{column.upper()}" for column in missing_eod),
+                *(
+                    f"MISSING_INDICATOR_COLUMN_{column.upper()}"
+                    for column in missing_indicators
+                ),
+            ],
+            score=0,
+            strategy=ICHIMOKU_V1,
+        )
+
+    eod = _prepare_frame(eod_frame, ["date", "ad_close"])
+    indicators = _prepare_frame(indicators_frame, sorted(REQUIRED_ICHIMOKU_COLUMNS))
+    merged = eod.merge(indicators, on="date", how="inner").sort_values("date")
+    if merged.empty:
+        return SignalResult(
+            MarketSignal.NO_DECISION,
+            None,
+            None,
+            ["NO_OVERLAPPING_EOD_INDICATOR_DATES"],
+            0,
+            ICHIMOKU_V1,
+        )
+
+    latest = merged.iloc[-1]
+    value_columns = [
+        "ad_close",
+        "ichimoku_tenkan",
+        "ichimoku_kijun",
+        "ichimoku_span_a",
+        "ichimoku_span_b",
+    ]
+    signal_date = _format_date(latest["date"])
+    price = None if pd.isna(latest["ad_close"]) else float(latest["ad_close"])
+    missing_values = [column for column in value_columns if pd.isna(latest[column])]
+    if missing_values:
+        return SignalResult(
+            MarketSignal.NO_DECISION,
+            price,
+            signal_date,
+            [f"MISSING_VALUE_{column.upper()}" for column in missing_values],
+            0,
+            ICHIMOKU_V1,
+        )
+
+    price_value = float(latest["ad_close"])
+    tenkan = float(latest["ichimoku_tenkan"])
+    kijun = float(latest["ichimoku_kijun"])
+    span_a = float(latest["ichimoku_span_a"])
+    span_b = float(latest["ichimoku_span_b"])
+    cloud_top, cloud_bottom = max(span_a, span_b), min(span_a, span_b)
+    score = 0
+    reason_codes: list[str] = []
+
+    if price_value > cloud_top:
+        score += 2
+        reason_codes.append("PRICE_ABOVE_CLOUD")
+    elif price_value < cloud_bottom:
+        score -= 2
+        reason_codes.append("PRICE_BELOW_CLOUD")
+    else:
+        reason_codes.append("PRICE_INSIDE_CLOUD")
+
+    if tenkan > kijun:
+        score += 1
+        reason_codes.append("TENKAN_ABOVE_KIJUN")
+    elif tenkan < kijun:
+        score -= 1
+        reason_codes.append("TENKAN_BELOW_KIJUN")
+    else:
+        reason_codes.append("TENKAN_EQUALS_KIJUN")
+
+    if span_a > span_b:
+        score += 1
+        reason_codes.append("SPAN_A_ABOVE_SPAN_B")
+    elif span_a < span_b:
+        score -= 1
+        reason_codes.append("SPAN_A_BELOW_SPAN_B")
+    else:
+        reason_codes.append("SPAN_A_EQUALS_SPAN_B")
+
+    signal = (
+        MarketSignal.BULLISH
+        if score >= BULLISH_THRESHOLD
+        else MarketSignal.BEARISH
+        if score <= BEARISH_THRESHOLD
+        else MarketSignal.NEUTRAL
+    )
+    reason_codes.append(f"SCORE_{score}")
+    return SignalResult(
+        signal,
+        price_value,
+        signal_date,
+        reason_codes,
+        score,
+        ICHIMOKU_V1,
     )
 
 

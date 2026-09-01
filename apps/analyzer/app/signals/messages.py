@@ -6,7 +6,7 @@ from py_common.config import validate_indicator_timeframe
 from py_common.messaging import JobMessage
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
-SUPPORTED_SIGNAL_STRATEGIES = ["TREND_MOMENTUM_V1"]
+SUPPORTED_SIGNAL_STRATEGIES = ["TREND_MOMENTUM_V1", "ICHIMOKU_V1"]
 
 
 class SignalEvaluationJobMessage(JobMessage):

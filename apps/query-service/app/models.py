@@ -80,4 +80,94 @@ class JsonQueryResult(BaseModel):
     data_versions: dict[str, str] = Field(alias="dataVersions")
 
 
+class DashboardFreshnessItem(BaseModel):
+    dataset: str
+    status: str
+    generated_at: datetime | None = Field(default=None, alias="generatedAt")
+    effective_data_date: str | None = Field(default=None, alias="effectiveDataDate")
+    data_version: str | None = Field(default=None, alias="dataVersion")
+    partition_count: int | None = Field(default=None, alias="partitionCount")
+
+
+class DashboardFreshnessResponse(BaseModel):
+    generated_at: datetime = Field(alias="generatedAt")
+    datasets: list[DashboardFreshnessItem]
+
+
+class MarketBreadthPayload(BaseModel):
+    advancing: int
+    declining: int
+    unchanged: int
+    total: int
+
+
+class MarketBreadthResponse(BaseModel):
+    effective_data_date: str = Field(alias="effectiveDataDate")
+    generated_at: datetime = Field(alias="generatedAt")
+    data_versions: dict[str, str] = Field(alias="dataVersions")
+    truncated: bool
+    metrics: MarketBreadthPayload
+
+
+class TopMoverRow(BaseModel):
+    code: str
+    close: float
+    previous_close: float = Field(alias="previousClose")
+    change_percent: float = Field(alias="changePercent")
+
+
+class TopMoversResponse(BaseModel):
+    effective_data_date: str = Field(alias="effectiveDataDate")
+    generated_at: datetime = Field(alias="generatedAt")
+    data_versions: dict[str, str] = Field(alias="dataVersions")
+    truncated: bool
+    limit: int
+    gainers: list[TopMoverRow]
+    losers: list[TopMoverRow]
+
+
+class IchimokuSignalRow(BaseModel):
+    code: str
+    signal_date: str = Field(alias="signalDate")
+    signal: str
+    price: float
+    score: int
+    reason_codes: list[str] = Field(alias="reasonCodes")
+
+
+class IchimokuSignalsResponse(BaseModel):
+    effective_data_date: str = Field(alias="effectiveDataDate")
+    generated_at: datetime = Field(alias="generatedAt")
+    data_versions: dict[str, str] = Field(alias="dataVersions")
+    truncated: bool
+    exchange: str
+    limit: int
+    signals: list[IchimokuSignalRow]
+
+
+class SignalHistoryRow(BaseModel):
+    code: str
+    signal_date: str = Field(alias="signalDate")
+    signal: str
+    price: float
+    score: int
+    reason_codes: list[str] = Field(alias="reasonCodes")
+    actual_return_t5: float | None = Field(default=None, alias="actualReturnT5")
+    actual_return_t10: float | None = Field(default=None, alias="actualReturnT10")
+    actual_return_t15: float | None = Field(default=None, alias="actualReturnT15")
+    actual_return_t20: float | None = Field(default=None, alias="actualReturnT20")
+
+
+class SignalHistoryResponse(BaseModel):
+    effective_data_date: str = Field(alias="effectiveDataDate")
+    generated_at: datetime = Field(alias="generatedAt")
+    data_versions: dict[str, str] = Field(alias="dataVersions")
+    truncated: bool
+    exchange: str
+    available_exchanges: list[str] = Field(alias="availableExchanges")
+    symbol: str | None = None
+    limit: int
+    history: list[SignalHistoryRow]
+
+
 ResultFormat = Literal["json", "arrow"]

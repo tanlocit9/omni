@@ -15,6 +15,9 @@ class QueryServiceSettings(BaseAppSettings):
     query_max_concurrency: int = Field(default=2, ge=1, le=16)
     query_threads: int = Field(default=2, ge=1, le=16)
     query_cache_max_entries: int = Field(default=100, ge=0, le=1000)
+    dashboard_max_datasets: int = Field(default=100, ge=1, le=500)
+    dashboard_max_partitions: int = Field(default=1000, ge=1, le=5000)
+    dashboard_max_movers: int = Field(default=20, ge=1, le=100)
     query_storage_scheme: Literal["s3", "file"] = Field(default="s3")
     query_local_data_root: str | None = Field(default=None)
     query_cors_origins: list[str] = Field(

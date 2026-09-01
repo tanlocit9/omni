@@ -9,6 +9,7 @@ from py_common.runtime import create_fastapi_app
 
 from app.api import router
 from app.audit import StructuredLogAuditSink
+from app.dashboard import DashboardService
 from app.executor import DuckDBExecutor
 from app.manager import QueryManager
 from app.settings import settings
@@ -22,10 +23,17 @@ async def lifespan(app: FastAPI):
     registry = create_storage_registry(settings)
     await registry.validate_all(fail_fast=True)
     resolver, catalog = build_metadata_services(registry, settings)
+    executor = DuckDBExecutor(settings)
     app.state.catalog_service = catalog
+    app.state.dashboard_service = DashboardService(
+        catalog=catalog,
+        resolver=resolver,
+        executor=executor,
+        settings=settings,
+    )
     app.state.query_manager = QueryManager(
         resolver=resolver,
-        executor=DuckDBExecutor(settings),
+        executor=executor,
         settings=settings,
         audit_sink=StructuredLogAuditSink(),
     )

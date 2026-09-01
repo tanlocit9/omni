@@ -96,35 +96,50 @@ Acceptance criteria:
 - status shows duration, rows, error, and consumed versions.
 - UI stores SQL/history only, never credentials or physical paths.
 
-## P6-I4 — Saved Queries and Dashboard
+## P6-I4 — Fixed Market Dashboard
 
-| Field                   | Value             |
-| ----------------------- | ----------------- |
-| id                      | P6-I4             |
-| status                  | blocked           |
-| depends_on              | [P6-I3, P5-I3]    |
-| execution_mode          | approval_required |
-| requires_owner_decision | true              |
-| pr                      | null              |
-| last_verified_commit    | null              |
+| Field                   | Value      |
+| ----------------------- | ---------- |
+| id                      | P6-I4      |
+| status                  | pending    |
+| depends_on              | [P6-I3]    |
+| execution_mode          | autonomous |
+| requires_owner_decision | false      |
+| pr                      | null       |
+| last_verified_commit    | null       |
 
-Store Saved Query and Dashboard configuration in Platform-owned PostgreSQL.
-Widgets reference Saved Queries and support table, KPI, and basic chart views.
+Make a fixed, code-owned Market Dashboard the default Omni Console section. The
+first useful slice provides freshness, market breadth, top movers, sector
+strength, and recent signals when their source contracts support those views.
+Dataset components use bounded Query Service contracts and fail independently.
+
+Persisted layouts, personalization, arbitrary widget definitions, and user-owned
+SQL templates are outside this increment.
 
 Acceptance criteria:
 
-- Saved Query contains SQL template, parameters, owner/visibility, result limit,
-  and refresh policy.
-- cache identity includes normalized SQL, parameters, and consumed
-  `dataVersion`s.
-- widget failures remain isolated.
-- the deployment identity model supplies a trustworthy operator principal.
+- Dashboard is active on first render while Dataset Explorer, SQL Console, and
+  Jobs retain their existing behavior.
+- an explicit compile-time registry allowlists fixed dataset components;
+- each widget distinguishes loading, ready, empty, stale, unavailable, and error
+  states without hiding sibling widgets;
+- analytical widgets expose their effective data date and consumed
+  `dataVersion`s when available from the source contract;
+- dashboard reads use explicit bounded endpoints or fixed, code-owned Query
+  Service definitions over logical dataset aliases;
+- browser requests contain no object-store credentials, physical paths,
+  arbitrary SQL, or remotely supplied component definitions;
+- desktop and mobile layouts preserve a logical, accessible reading order;
+- the deployment identity boundary supplies a trusted operator principal for
+  Query Service requests.
 
-Stop if authentication/principal ownership is not defined; do not make Console
-APIs anonymous merely to complete the dashboard.
+Source datasets do not need a new dashboard-specific READY-manifest contract.
+Existing manifests may supply readiness, freshness, and provenance where already
+available; otherwise the bounded dashboard response must report truthful
+availability and date/version metadata from its supported source contract.
 
-Identity-boundary evidence on `feature/phase-7`: Query Service now rejects a
+Identity-boundary evidence on `feature/phase-7`: Query Service rejects a
 missing/blank `X-Omni-User` on query submission and propagates the normalized
-operator identity into the audited query record. ASGI integration coverage
-verifies rejection and propagation. This closes the anonymous fallback defect,
-but does not mark the full Saved Queries/Dashboard increment complete.
+operator identity into the audited query record. Dashboard implementation must
+route requests through the same trusted identity-aware boundary rather than add
+an anonymous fallback.

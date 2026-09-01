@@ -128,7 +128,9 @@ class DuckDBExecutor:
     ) -> None:
         """Expose canonical DuckDB types even while reading legacy Parquet."""
         raw_view = f"_omni_raw_{index}"
-        connection.from_parquet(dataset.paths).create_view(raw_view)
+        connection.from_parquet(
+            dataset.paths, filename=dataset.include_filename
+        ).create_view(raw_view)
         casts = []
         for column in dataset.manifest.columns:
             contract_type = manifest_type_for_column(column.name)

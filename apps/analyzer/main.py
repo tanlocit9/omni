@@ -130,6 +130,8 @@ async def startup_event(app: FastAPI) -> None:
     app.state.signal_handler = SignalJobHandler(
         settings,
         app.state.parquet_storage,
+        app.state.manifest_reader,
+        app.state.manifest_writer,
     )
     app.state.latest_signal_repository = LatestSignalRepository(
         settings,

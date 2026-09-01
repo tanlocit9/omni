@@ -76,13 +76,23 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, init);
+export async function queryServiceRequest<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (SYSTEM_OPERATOR_UUID) headers.set('X-Omni-User', SYSTEM_OPERATOR_UUID);
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
       detail?: string;
+      code?: string;
     } | null;
-    throw new Error(payload?.detail ?? `Request failed (${response.status})`);
+    throw new ApiError(
+      payload?.detail ?? `Request failed (${response.status})`,
+      response.status,
+      payload?.code
+    );
   }
   return response.json() as Promise<T>;
 }
@@ -233,11 +243,13 @@ export function getTriggerStatus(id: string): Promise<TriggerStatusResponse> {
 }
 
 export function listDatasets(): Promise<DatasetSummary[]> {
-  return request('/v1/datasets');
+  return queryServiceRequest('/v1/datasets');
 }
 
 export function listPartitions(dataset: string): Promise<DatasetManifest[]> {
-  return request(`/v1/datasets/${encodeURIComponent(dataset)}/partitions`);
+  return queryServiceRequest(
+    `/v1/datasets/${encodeURIComponent(dataset)}/partitions`
+  );
 }
 
 export async function submitQuery(
@@ -245,20 +257,23 @@ export async function submitQuery(
   datasets: DatasetRef[],
   rowLimit = 200
 ): Promise<string> {
-  const accepted = await request<{ queryId: string }>('/v1/queries', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sql, datasets, rowLimit }),
-  });
+  const accepted = await queryServiceRequest<{ queryId: string }>(
+    '/v1/queries',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql, datasets, rowLimit }),
+    }
+  );
   return accepted.queryId;
 }
 
 export function getQuery(queryId: string): Promise<QueryStatus> {
-  return request(`/v1/queries/${encodeURIComponent(queryId)}`);
+  return queryServiceRequest(`/v1/queries/${encodeURIComponent(queryId)}`);
 }
 
 export function cancelQuery(queryId: string): Promise<QueryStatus> {
-  return request(`/v1/queries/${encodeURIComponent(queryId)}`, {
+  return queryServiceRequest(`/v1/queries/${encodeURIComponent(queryId)}`, {
     method: 'DELETE',
   });
 }
@@ -276,7 +291,7 @@ export async function waitForQuery(
 }
 
 export async function getJsonResult(queryId: string): Promise<QueryResult> {
-  return request(
+  return queryServiceRequest(
     `/v1/queries/${encodeURIComponent(queryId)}/result?format=json`
   );
 }
@@ -285,8 +300,11 @@ export async function getArrowResult(
   queryId: string,
   status: QueryStatus
 ): Promise<QueryResult> {
+  const headers = new Headers();
+  if (SYSTEM_OPERATOR_UUID) headers.set('X-Omni-User', SYSTEM_OPERATOR_UUID);
   const response = await fetch(
-    `${API_BASE}/v1/queries/${encodeURIComponent(queryId)}/result?format=arrow`
+    `${API_BASE}/v1/queries/${encodeURIComponent(queryId)}/result?format=arrow`,
+    { headers }
   );
   if (!response.ok) throw new Error(`Arrow result failed (${response.status})`);
   const table = tableFromIPC(await response.arrayBuffer());

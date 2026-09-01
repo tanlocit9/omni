@@ -72,6 +72,7 @@ public class JobDefinitionConfig {
         public static final String INDICATOR_TIMEFRAME_1D = "1d";
         public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD", "ICHIMOKU");
         public static final String SIGNAL_STRATEGY_TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1";
+        public static final String SIGNAL_STRATEGY_ICHIMOKU_V1 = "ICHIMOKU_V1";
         public static final String SECTOR_WAVE_STRATEGY_V1 = "SECTOR_WAVE_V1";
         public static final String SECTOR_TRANSITION_STRATEGY_V1 = "SECTOR_TRANSITION_V1";
 
@@ -136,22 +137,10 @@ public class JobDefinitionConfig {
                                                         List.of(DATASET_INDICATORS))));
 
         private static final List<JobDefinitionSeed> SYNC_SIGNALS_SEEDS = List.of(
-                        new JobDefinitionSeed(
-                                        DataSource.ANALYZER,
-                                        List.of(),
-                                        JobType.SYNC_SIGNALS,
-                                        "Sync market signals",
-                                        CRON_19_00_WEEKDAYS,
-                                        configWithDependencies(
-                                                        Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
-                                                                        ENABLED_SECTOR_CODES,
-                                                                        CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
-                                                                        CONFIG_KEY_SIGNAL_STRATEGY,
-                                                                        SIGNAL_STRATEGY_TREND_MOMENTUM_V1),
-                                                        List.of(JobType.SYNC_STOCK_PRICE.name(),
-                                                                        JobType.SYNC_INDICATORS.name()),
-                                                        List.of(DATASET_EOD, DATASET_INDICATORS),
-                                                        List.of(DATASET_SIGNALS))));
+                        signalSeed("Sync market signals", CRON_19_00_WEEKDAYS,
+                                        SIGNAL_STRATEGY_TREND_MOMENTUM_V1),
+                        signalSeed("Sync Ichimoku signals", "0 5 19 * * MON-FRI",
+                                        SIGNAL_STRATEGY_ICHIMOKU_V1));
 
         private static final List<JobDefinitionSeed> EVALUATE_SIGNALS_SEEDS = List.of(
                         new JobDefinitionSeed(
@@ -225,6 +214,24 @@ public class JobDefinitionConfig {
                                                                         JobType.SYNC_STOCK_PRICE.name()),
                                                         List.of(DATASET_SECTOR_FEATURES, DATASET_EOD),
                                                         List.of(DATASET_SECTOR_ROTATION_BACKTESTS))));
+
+        private static JobDefinitionSeed signalSeed(String name, String cron, String strategy) {
+                return new JobDefinitionSeed(
+                                DataSource.ANALYZER,
+                                List.of(),
+                                JobType.SYNC_SIGNALS,
+                                name,
+                                cron,
+                                configWithDependencies(
+                                                Map.of(CONFIG_KEY_SECTOR_LEVEL, 2, CONFIG_KEY_SECTOR_CODES,
+                                                                ENABLED_SECTOR_CODES,
+                                                                CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
+                                                                CONFIG_KEY_SIGNAL_STRATEGY, strategy),
+                                                List.of(JobType.SYNC_STOCK_PRICE.name(),
+                                                                JobType.SYNC_INDICATORS.name()),
+                                                List.of(DATASET_EOD, DATASET_INDICATORS),
+                                                List.of(DATASET_SIGNALS)));
+        }
 
         // ==========================================
         // 4b. SECTOR TRANSITION SEEDS

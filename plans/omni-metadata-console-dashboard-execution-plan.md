@@ -9,8 +9,8 @@ Execution order: Query Service → Dataset Explorer/Viewer → SQL Console → D
 
 Keep the completed metadata foundation, add a private server-side Query Service,
 build Omni Console Dataset Explorer/Viewer and SQL Console on that boundary, add
-Saved Query-backed dashboards, and finally correct Force Precompute effective-date
-semantics.
+a fixed code-owned Market Dashboard, and finally correct Force Precompute
+effective-date semantics.
 
 Partially implemented source is evidence, not proof of completion. Every milestone uses the control loop below and blocks later milestones until its gate passes.
 
@@ -20,7 +20,7 @@ After completion:
 
 - EOD and indicator datasets publish canonical JSON manifests with deterministic identity, exact persisted-byte metadata, READY-last safety, and exact upstream lineage.
 - Query Service resolves logical dataset, partition, and version identity through READY manifests and keeps physical Parquet paths server-side.
-- `apps/omni-console` provides Dataset Explorer, Parquet Viewer, and Data Health Dashboard features; canonical Phase 7 later adds a Jobs tab on a Platform-owned operational API.
+- `apps/omni-console` provides Dataset Explorer, Parquet Viewer, SQL Console, and a fixed Market Dashboard; canonical Phase 7 adds a Jobs tab on a Platform-owned operational API.
 - Native DuckDB performs bounded server-side projection, filtering, sorting, SQL, and row limiting without exposing object-store credentials or physical paths.
 - Force Precompute distinguishes requested date from the latest common complete effective data date and preserves truthful execution states.
 - Roadmaps, canonical documentation, and repository guidance agree with verified source and test evidence.
@@ -365,27 +365,52 @@ cancellation/cleanup; JSON and Arrow contracts.
 A real READY dataset opens; query controls hold; no credentials or physical paths
 leak; schema drift is visible; production assets load.
 
-## M6 — Data Health Dashboard V1
+## M6 / P6-I4 — Fixed Market Dashboard
 
 ### Goal
 
-Provide metadata- and execution-backed operational health without a duplicate statistics store.
+Make a fixed, code-owned Market Dashboard the default Omni Console section and
+provide truthful market, sector, signal, and freshness context through bounded
+Query Service contracts.
 
 ### Tasks
 
-- Aggregate READY, STALE, MISSING/BLOCKED, and invalid states; freshness distribution; stale datasets; recent updates; lineage currentness; rows/bytes/objects.
-- Show recent execution SUCCESS/BLOCKED/FAILED distinctly when Platform data is available.
-- Link every diagnostic to dataset, partition, Viewer, or execution evidence.
-- Degrade usefully during partial API failure and on empty installations.
-- Keep market analytics widgets outside V1 unless their manifests passed all gates.
+- Make Dashboard active on first render while preserving Jobs, Dataset Explorer,
+  and SQL Console behavior.
+- Add an explicit compile-time widget registry plus shared loading, ready, empty,
+  stale, unavailable, error, provenance, and retry presentation.
+- Add dataset-owned metadata, EOD, sector-feature, and signal adapters and
+  components without exposing editable SQL, credentials, or physical paths.
+- Implement freshness, market breadth, top movers, sector heatmap/ranking, and
+  latest signal widgets where supported source contracts can provide truthful
+  data; unsupported widgets render unavailable rather than fabricated values.
+- Prefer explicit bounded dashboard endpoints or server-owned query definitions.
+  Fixed adapter-owned SQL may use the existing logical query API for supported
+  datasets as a temporary implementation.
+- Return or derive explicit effective data dates, generation timestamps, consumed
+  data versions when available, truncation, and availability semantics.
+- Keep widget requests cancellable and failures isolated; retain useful siblings
+  during partial API failure and on empty installations.
+- Use a deliberate responsive layout with a textual/table alternative for every
+  chart and a logical keyboard/screen-reader order.
+- Do not add persisted layouts, personalization, user-owned SQL templates,
+  remotely supplied widget definitions, or a new dashboard-specific READY-read
+  contract.
 
 ### Required tests
 
-Fixture aggregation; status distinction; Asia/Ho_Chi_Minh freshness; links; partial failure; empty state; responsive breakpoints.
+Default navigation and existing-tool regression; registry validation; every
+widget state; deterministic sorting and bounded filters; effective-date and
+provenance presentation; cancellation; sibling failure isolation; partial and
+empty source behavior; desktop/mobile reading order; Query Service identity,
+limit, timeout, and typed availability contracts.
 
 ### Gate
 
-Dashboard uses canonical sources, keeps BLOCKED distinct, drills into evidence, and remains useful with partial source availability. M7 cannot begin before this gate passes.
+Dashboard is the verified default; fixed widgets use bounded supported source
+contracts; unavailable data remains truthful; failures are isolated; no secrets,
+physical paths, arbitrary SQL, or remote component definitions cross the browser
+boundary. M7 cannot begin before this gate passes.
 
 ## M7 — Force Precompute Effective Data Date
 
@@ -524,7 +549,7 @@ Each milestone defines targeted Nx and contract checks. M8 adds affected and end
 - [ ] Canonical metadata and EOD READY publication are freshly verified.
 - [ ] Indicator metadata has exact EOD lineage and truthful publication status.
 - [ ] Query Service logical READY resolution and server-side read-only SQL boundary are verified.
-- [ ] Dataset Explorer, Parquet Viewer, and Dashboard gates pass.
+- [ ] Dataset Explorer, Parquet Viewer, and fixed Market Dashboard gates pass.
 - [ ] Force Precompute effective-date behavior is deterministic and truthful.
 - [ ] Cross-project checks and end-to-end scenarios pass or exact blockers are accepted.
 - [ ] Canonical docs, roadmaps, and repository guidance are synchronized.
@@ -539,7 +564,7 @@ local WIP reconciled
 + private Platform access boundary verified
 + Dataset Explorer verified
 + Parquet Viewer verified
-+ Data Health Dashboard verified
++ fixed Market Dashboard verified
 + Force Precompute date semantics verified
 + cross-project checks verified
 + canonical plans/docs/guidance synchronized

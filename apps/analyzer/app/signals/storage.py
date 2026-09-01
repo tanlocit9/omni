@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 from py_common.storage.exceptions import StorageObjectNotFoundError
-from py_common.storage.parquet import ParquetStorage
+from py_common.storage.parquet import ParquetStorage, ParquetWriteResult
 
 from app.signals.strategy import MarketSignal, SignalResult
 
@@ -23,6 +23,8 @@ SIGNAL_COLUMNS = [
     "signal_price",
     "score",
     "reason_codes",
+    "eod_data_version",
+    "indicators_data_version",
     "generated_at",
 ]
 AUDIT_COLUMNS = ["last_recalculated_at", "revision"]
@@ -50,6 +52,8 @@ class SignalTransition:
     state_frame: pd.DataFrame
     metadata: dict[str, Any]
     persisted: bool = True
+    history_frame: pd.DataFrame | None = None
+    write_result: ParquetWriteResult | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +104,10 @@ class SignalHistoryRepository:
         timeframe: str,
         result: SignalResult,
         exchange: str | None = None,
+        eod_data_version: str | None = None,
+        indicators_data_version: str | None = None,
+        after_persist: Callable[[pd.DataFrame, ParquetWriteResult], Awaitable[None]]
+        | None = None,
     ) -> SignalTransition:
         exchange = exchange or self._exchange_from_symbol_key(symbol_key)
 
@@ -117,17 +125,23 @@ class SignalHistoryRepository:
                 exchange,
                 timeframe,
                 result,
+                eod_data_version,
+                indicators_data_version,
             )
             persisted = result.signal != MarketSignal.NO_DECISION
+            history_frame = history
+            write_result = None
             if persisted:
                 history_frame = self._upsert_signal_row(history, state_frame)
-                await self._replace_history(history_path, history_frame)
+                write_result = await self._replace_history(history_path, history_frame)
                 if current_path and current_path != history_path:
                     current_frame = self._latest_current_frame(
                         history_frame,
                         symbol_key,
                     )
                     await self._replace_history(current_path, current_frame)
+                if after_persist is not None and write_result is not None:
+                    await after_persist(history_frame, write_result)
 
             metadata = result.to_metadata()
             metadata.update(
@@ -147,6 +161,8 @@ class SignalHistoryRepository:
                 state_frame=state_frame,
                 metadata=metadata,
                 persisted=persisted,
+                history_frame=history_frame if persisted else None,
+                write_result=write_result,
             )
 
         return await self._locks.run(history_path, _persist)
@@ -238,8 +254,10 @@ class SignalHistoryRepository:
                 return pd.DataFrame()
             raise
 
-    async def _replace_history(self, path: str, frame: pd.DataFrame) -> None:
-        await self._parquet_storage.replace_dataframe(
+    async def _replace_history(
+        self, path: str, frame: pd.DataFrame
+    ) -> ParquetWriteResult:
+        return await self._parquet_storage.replace_dataframe(
             path,
             self._sort_history(self._ensure_schema(frame)),
             validate=self._validate_history_frame,
@@ -307,6 +325,8 @@ class SignalHistoryRepository:
         exchange: str,
         timeframe: str,
         result: SignalResult,
+        eod_data_version: str | None,
+        indicators_data_version: str | None,
     ) -> pd.DataFrame:
         row = {
             "symbol_key": symbol_key,
@@ -318,6 +338,8 @@ class SignalHistoryRepository:
             "signal_date": result.signal_date,
             "score": result.score,
             "reason_codes": result.reason_codes,
+            "eod_data_version": eod_data_version,
+            "indicators_data_version": indicators_data_version,
             "generated_at": pd.Timestamp.now(tz="UTC"),
             "last_recalculated_at": pd.NA,
             "revision": 1,

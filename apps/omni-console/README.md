@@ -3,13 +3,16 @@
 Omni Console is the private React operations UI for dataset metadata, read-only
 queries, and Platform-owned job operations.
 
-## Planned Dashboard
+## Market Dashboard
 
-The [dataset-component dashboard plan](../../docs/plans/010-dataset-component-market-dashboard.md)
-proposes making Market Dashboard the default section and composing it from
-components owned by canonical logical datasets such as `eod`, `signals`, and
-`sector-features`. Until that increment is implemented and verified, Dataset
-Explorer remains the default section.
+The Market Dashboard is the default section. Its fixed, code-owned composition
+follows the [dataset-component dashboard plan](../../docs/plans/010-dataset-component-market-dashboard.md)
+and is organized around canonical datasets such as `eod`, `signals`, and
+`sector-features` rather than producer services.
+
+The initial shell presents honest unavailable states while bounded Query Service
+adapters are implemented. Dataset Explorer, SQL Console, and Jobs remain
+available as operator tools.
 
 ## API configuration
 

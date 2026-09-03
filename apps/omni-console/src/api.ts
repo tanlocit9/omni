@@ -1,9 +1,21 @@
 import { tableFromIPC } from 'apache-arrow';
 
+export type PartitionValueType = 'STRING' | 'DATE' | 'INTEGER' | 'BOOLEAN';
+
+export interface PartitionKeyDefinition {
+  name: string;
+  type: PartitionValueType;
+  required: boolean;
+  order: number;
+  queryable: boolean;
+  label: string | null;
+}
+
 export interface DatasetSummary {
   name: string;
-  description: string | null;
-  dataPrefix: string;
+  label: string;
+  partitionKeys: PartitionKeyDefinition[];
+  partitionCount: number;
 }
 
 export interface ColumnMetadata {
@@ -14,8 +26,8 @@ export interface ColumnMetadata {
 
 export interface DatasetManifest {
   dataset: string;
-  partition: Record<string, string>;
-  status: 'READY' | 'PROCESSING' | 'FAILED';
+  partition: Record<string, string | number | boolean>;
+  status: 'READY';
   dataVersion: string;
   rowCount: number;
   columnCount: number;
@@ -24,11 +36,20 @@ export interface DatasetManifest {
   generatedAt: string;
   minTimestamp: string | null;
   maxTimestamp: string | null;
+  schemaVersion: number;
+  schemaHash: string;
+  objectCount: number;
+  inputs: Array<{
+    dataset: string;
+    partition: Record<string, string | number | boolean>;
+    dataVersion: string;
+  }>;
+  sourceExecutionId: string | null;
 }
 
 export interface DatasetRef {
   dataset: string;
-  partition: Record<string, string>;
+  partition: Record<string, string | number | boolean>;
   alias?: string;
   dataVersion?: string;
 }
@@ -208,7 +229,8 @@ export function getJobDefinition(id: string): Promise<JobDefinitionDetail> {
 export function triggerJob(
   id: string,
   reason: string,
-  idempotencyKey: string
+  idempotencyKey: string,
+  parameters: Record<string, unknown> = {}
 ): Promise<ManualTriggerResponse> {
   return fetch(
     `${PLATFORM_API_BASE}/api/v1/jobs/definitions/${encodeURIComponent(
@@ -220,7 +242,7 @@ export function triggerJob(
         'Content-Type': 'application/json',
         'X-Omni-User': SYSTEM_OPERATOR_UUID,
       },
-      body: JSON.stringify({ reason, idempotencyKey, parameters: {} }),
+      body: JSON.stringify({ reason, idempotencyKey, parameters }),
     }
   ).then(async (response) => {
     if (response.ok || response.status === 409) {
@@ -246,9 +268,32 @@ export function listDatasets(): Promise<DatasetSummary[]> {
   return queryServiceRequest('/v1/datasets');
 }
 
+export interface DatasetPartitionPage {
+  items: DatasetManifest[];
+  offset: number;
+  limit: number;
+  total: number;
+}
+
 export function listPartitions(dataset: string): Promise<DatasetManifest[]> {
+  return queryServiceRequest<DatasetPartitionPage>(
+    `/v1/datasets/${encodeURIComponent(dataset)}/partitions?offset=0&limit=500`
+  ).then((page) => page.items);
+}
+
+export function listPartitionOptions(
+  dataset: string,
+  key: string,
+  filters: Record<string, string> = {}
+): Promise<Array<string | number | boolean>> {
+  const query = new URLSearchParams({ limit: '200' });
+  Object.entries(filters).forEach(([name, value]) =>
+    query.set(`filter.${name}`, value)
+  );
   return queryServiceRequest(
-    `/v1/datasets/${encodeURIComponent(dataset)}/partitions`
+    `/v1/datasets/${encodeURIComponent(
+      dataset
+    )}/partition-options/${encodeURIComponent(key)}?${query.toString()}`
   );
 }
 

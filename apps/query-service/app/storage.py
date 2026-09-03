@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
-from py_common.storage.manifest import DatasetManifest, ManifestReader
-from py_common.storage.ports import ListableStorage
+from py_common.storage.global_metadata import (
+    GlobalDatasetMetadata,
+    GlobalMetadataReader,
+    GlobalPartitionMetadata,
+)
+from py_common.storage.ports import ReadableStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
 
@@ -17,7 +22,7 @@ from app.settings import QueryServiceSettings
 @dataclass(frozen=True)
 class ResolvedDataset:
     view_name: str
-    manifest: DatasetManifest
+    manifest: GlobalPartitionMetadata
     paths: list[str]
     include_filename: bool = False
 
@@ -28,25 +33,26 @@ def create_storage_registry(settings: QueryServiceSettings) -> StorageProviderRe
 
 
 class DatasetResolver:
-    """Resolve logical dataset identities through canonical READY manifests."""
+    """Resolve logical identities from one validated global metadata document."""
 
     def __init__(
         self,
-        reader: ManifestReader,
+        reader: GlobalMetadataReader,
         settings: QueryServiceSettings,
     ) -> None:
         self._reader = reader
         self._settings = settings
 
     async def resolve_many(self, refs: list[DatasetRef]) -> list[ResolvedDataset]:
+        document = await self._reader.read()
         resolved = []
         for ref in refs:
-            manifest = await self._reader.read_manifest(ref.dataset, ref.partition)
-            if manifest.status != "READY":
-                raise ValueError(f"Dataset {ref.dataset!r} is not READY")
+            manifest = document.resolve(ref.dataset, ref.partition)
+            if manifest is None or manifest.status != "READY":
+                raise ValueError(f"Dataset {ref.dataset!r} partition is not READY")
             if ref.data_version and manifest.dataVersion != ref.data_version:
                 raise ValueError(
-                    f"Dataset {ref.dataset!r} READY version no longer matches request"
+                    f"Dataset {ref.dataset!r} current version no longer matches request"
                 )
             resolved.append(
                 ResolvedDataset(
@@ -59,7 +65,7 @@ class DatasetResolver:
 
     def _physical_path(self, logical_path: str) -> str:
         if logical_path.startswith("/") or ".." in logical_path.split("/"):
-            raise ValueError("Manifest contains an invalid logical data path")
+            raise ValueError("Metadata contains an invalid logical data path")
         if self._settings.query_storage_scheme == "file":
             root = self._settings.query_local_data_root
             if not root:
@@ -73,64 +79,106 @@ class DatasetResolver:
 
 
 class DatasetCatalogService:
-    """Metadata-only catalog and READY partition listing for the Explorer."""
+    """Browser-safe metadata discovery backed by the global document."""
 
-    def __init__(
-        self,
-        reader: ManifestReader,
-        listable: ListableStorage,
-        bucket: str,
-    ) -> None:
+    def __init__(self, reader: GlobalMetadataReader) -> None:
         self._reader = reader
-        self._listable = listable
-        self._bucket = bucket
 
-    async def list_datasets(self) -> list[dict[str, str | None]]:
-        catalog = await self._reader.read_catalog()
-        return [
-            {
-                "name": item.name,
-                "description": item.description,
-                "dataPrefix": item.dataPrefix,
-            }
-            for item in catalog.datasets
-        ]
+    async def list_datasets(self) -> list[dict[str, Any]]:
+        document = await self._reader.read()
+        return [self._safe_dataset(item) for item in document.datasets]
 
-    async def list_partitions(self, dataset: str) -> list[DatasetManifest]:
-        prefix = f"_metadata/datasets/{dataset}/"
-        objects = await self._listable.list_objects(self._bucket, prefix)
-        partitions: list[dict[str, str]] = []
-        for object_name in objects:
-            if not object_name.endswith("/READY.json"):
-                continue
-            relative = object_name[len(prefix) : -len("/READY.json")]
-            if relative == "_default":
-                partitions.append({})
-                continue
-            partition: dict[str, str] = {}
-            valid = True
-            for segment in relative.split("/"):
-                if "=" not in segment:
-                    valid = False
-                    break
-                key, value = segment.split("=", 1)
-                partition[key] = value
-            if valid:
-                partitions.append(partition)
-        return [await self._reader.read_manifest(dataset, item) for item in partitions]
+    async def list_partitions(
+        self, dataset: str, *, offset: int = 0, limit: int = 200
+    ) -> dict[str, Any]:
+        document = await self._reader.read()
+        section = document.dataset(dataset)
+        if section is None:
+            raise ValueError(f"Unsupported dataset: {dataset!r}")
+        selected = section.partitions[offset : offset + limit]
+        return {
+            "items": [self._safe_partition(section.name, item) for item in selected],
+            "offset": offset,
+            "limit": limit,
+            "total": len(section.partitions),
+        }
+
+    async def list_partition_options(
+        self,
+        dataset: str,
+        key: str,
+        filters: dict[str, str],
+        *,
+        limit: int = 200,
+    ) -> list[Any]:
+        document = await self._reader.read()
+        section = document.dataset(dataset)
+        if section is None:
+            raise ValueError(f"Unsupported dataset: {dataset!r}")
+        definitions = {item.name: item for item in section.partitionKeys}
+        if key not in definitions or not definitions[key].queryable:
+            raise ValueError(f"Unsupported partition key: {key!r}")
+        if not set(filters).issubset(definitions):
+            raise ValueError("Partition filters contain unsupported keys")
+        values = {
+            item.values[key]
+            for item in section.partitions
+            if key in item.values
+            and all(
+                str(item.values.get(name)) == value for name, value in filters.items()
+            )
+        }
+        return sorted(values, key=str)[:limit]
+
+    @staticmethod
+    def _safe_dataset(dataset: GlobalDatasetMetadata) -> dict[str, Any]:
+        return {
+            "name": dataset.name,
+            "label": dataset.label,
+            "partitionKeys": [
+                {
+                    "name": item.name,
+                    "type": item.type.value,
+                    "required": item.required,
+                    "order": item.order,
+                    "queryable": item.queryable,
+                    "label": item.label,
+                }
+                for item in dataset.partitionKeys
+            ],
+            "partitionCount": len(dataset.partitions),
+        }
+
+    @staticmethod
+    def _safe_partition(
+        dataset: str, partition: GlobalPartitionMetadata
+    ) -> dict[str, Any]:
+        return {
+            "dataset": dataset,
+            "partition": partition.values,
+            "status": partition.status,
+            "dataVersion": partition.dataVersion,
+            "schemaVersion": partition.schemaVersion,
+            "schemaHash": partition.schemaHash,
+            "objectCount": partition.objectCount,
+            "totalBytes": partition.totalBytes,
+            "rowCount": partition.rowCount,
+            "columnCount": partition.columnCount,
+            "columns": [vars(item) for item in partition.columns],
+            "minTimestamp": partition.minTimestamp,
+            "maxTimestamp": partition.maxTimestamp,
+            "inputs": [vars(item) for item in partition.inputs],
+            "generatedAt": partition.generatedAt,
+            "sourceExecutionId": partition.sourceExecutionId,
+        }
 
 
 def build_metadata_services(
     registry: StorageProviderRegistry,
     settings: QueryServiceSettings,
 ) -> tuple[DatasetResolver, DatasetCatalogService]:
-    reader = ManifestReader(
-        registry=registry,
-        provider=StorageProvider.MINIO,
-        bucket=settings.minio.bucket,
+    reader = GlobalMetadataReader(
+        registry.get_port(StorageProvider.MINIO, ReadableStorage),
+        settings.minio.bucket,
     )
-    listable = registry.get_port(StorageProvider.MINIO, ListableStorage)
-    return (
-        DatasetResolver(reader, settings),
-        DatasetCatalogService(reader, listable, settings.minio.bucket),
-    )
+    return DatasetResolver(reader, settings), DatasetCatalogService(reader)

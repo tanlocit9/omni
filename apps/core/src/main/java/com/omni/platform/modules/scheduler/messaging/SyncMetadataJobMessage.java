@@ -12,6 +12,6 @@ public record SyncMetadataJobMessage(
         String source,
         WorkType workType,
         String workKey,
-        String metadataType,
+        Map<String, Object> target,
         Map<String, Object> metadata) implements JobMessage {
 }

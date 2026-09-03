@@ -4,7 +4,7 @@ from datetime import date
 import pandas as pd
 from py_common.kafka import decode_json_object_payload
 from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
-from py_common.storage.manifest import ManifestWriter, publish_dataset_manifest
+from py_common.storage.date_contracts import normalize_date_contracts
 from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SymbolJobMessage
@@ -56,7 +56,6 @@ async def process_stock_price_message(
     status_publisher: JobStatusPublisher,
     default_client: StockClient,
     parquet_storage: ParquetStorage,
-    manifest_writer: ManifestWriter | None = None,
 ) -> JobStatusMessage:
     started_at = utc_now()
     payload: dict[str, object] = {}
@@ -84,30 +83,11 @@ async def process_stock_price_message(
 
         if not combined.empty:
             combined = normalize_stock_price_dataframe_columns(combined)
+            combined = normalize_date_contracts(combined)
             combined = combined.drop_duplicates(subset=["date"])
             combined = combined.sort_values("date")
 
-        write_result = await parquet_storage.write_dataframe(object_name, combined)
-
-        # Publish READY only after the exact Parquet bytes have been persisted.
-        if manifest_writer and not combined.empty:
-            await publish_dataset_manifest(
-                writer=manifest_writer,
-                dataset="eod",
-                partition={"exchange": exchange, "code": code},
-                data_path=object_name,
-                dataframe=combined,
-                object_checksums=[(write_result.object_name, write_result.checksum)],
-                inputs=[],  # EOD is a root dataset with no upstream dependencies
-                execution_id=message.execution_id,
-                object_count=1,
-                total_bytes=write_result.total_bytes,
-            )
-            logger.info(
-                "Published manifest for eod partition exchange=%s code=%s",
-                exchange,
-                code,
-            )
+        await parquet_storage.write_dataframe(object_name, combined)
 
         status = build_status(
             payload,

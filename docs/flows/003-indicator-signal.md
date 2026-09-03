@@ -82,15 +82,23 @@ read boundary before joins or outcome evaluation.
 
 ## Dependency Enforcement
 
-Platform seeds Indicator and Signal dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). The scheduler enforces parent-level dataset dependencies through READY manifests. Because a signal job expands its configured universe into symbol-level child jobs, the signal producer also checks each exact indicator partition before creating a child execution:
+Platform seeds Indicator and Signal dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). The scheduler loads `_metadata/metadata.json` and resolves exact logical dataset partitions. Because a signal job expands its configured universe into symbol-level children, the signal producer checks this identity before creating each child:
 
 ```text
-indicators/source=ad_close/timeframe={timeframe}/exchange={exchange}/code={code}/READY.json
+indicators { source=ad_close, timeframe, exchange, code }
 ```
 
-A symbol is dispatched only when that manifest exists with `status: READY`. A missing, non-READY, or unreadable manifest defers that symbol without creating a child execution; other ready symbols in the same parent run continue normally. Deferred symbols are reconsidered by a later scheduled run.
+A symbol is dispatched only when the partition exists and is valid in the global
+document. A missing or unreadable partition defers that symbol without creating a
+child execution; other available symbols continue normally.
 
-For each dispatched Indicator job, Analyzer resolves the exact EOD READY pointer for `exchange` and `code`, reads Parquet from the manifest's `path`, and publishes the Indicators READY manifest with exactly that EOD `dataVersion` in `inputs[]`. A missing, invalid, or non-READY EOD manifest fails the child job before any Indicators output or READY manifest is published.
+For each dispatched Indicator job, Analyzer resolves exact EOD metadata for
+`exchange` and `code`, reads Parquet from its trusted internal path, and persists
+that EOD `dataVersion` in the indicator Parquet `eod_data_version` column. A missing
+or invalid EOD partition fails the child before output is written. Signal Parquet
+persists both `eod_data_version` and `indicators_data_version`; the later
+`SYNC_METADATA` operation reconstructs exact lineage from those authoritative
+columns and is the only metadata writer.
 
 ```mermaid
 flowchart TD
@@ -125,11 +133,11 @@ stateDiagram-v2
 
 - `ICHIMOKU_V1` scores current values only: price versus cloud (+/-2), Tenkan versus Kijun (+/-1), and Span A versus Span B (+/-1). Scores at least +3 are bullish, at most -3 bearish, and intermediate scores neutral.
 - Chikou is chart-shifted output and is explicitly excluded from `ICHIMOKU_V1` signal generation.
-- Signal jobs persist upstream EOD and indicator versions per row and publish one READY `signals` manifest per strategy, timeframe, and exchange with complete lineage for the shared history object.
-- Indicator jobs identify symbol, source, timeframe, requested indicators, and job execution identity; their READY manifests contain exactly one EOD lineage input for the same `exchange` and `code`.
+- Signal jobs persist upstream EOD and indicator versions per row; `SYNC_METADATA` publishes complete lineage for each strategy, timeframe, and exchange partition.
+- Indicator jobs identify symbol, source, timeframe, requested indicators, and execution identity, and persist the exact EOD version used.
 - Signal jobs should identify symbol, timeframe, strategy, and job execution identity.
-- Signal dispatch requires the exact `indicators` READY manifest for `source`, `timeframe`, `exchange`, and `code`.
-- Analyzer treats a missing indicator object after dispatch as a race/stale-manifest safeguard: it returns a non-persisted `NO_DECISION` transition with reason `MISSING_INDICATOR_OBJECT` instead of failing the child job.
+- Signal dispatch requires the exact logical `indicators` partition for `source`, `timeframe`, `exchange`, and `code` in global metadata.
+- Analyzer treats a missing indicator object after dispatch as a metadata/data race safeguard: it returns a non-persisted `NO_DECISION` transition with reason `MISSING_INDICATOR_OBJECT` instead of failing the child job.
 - Signal transitions can produce notification events, while all jobs should publish job status. A defensive `NO_DECISION` does not write signal history or publish a transition notification.
 - Evaluation jobs should use stable forward-return windows and avoid mutating historical signal meaning.
 

@@ -93,42 +93,44 @@ sequenceDiagram
 ```
 
 Manual triggering is secure by default: `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST`
-must contain an exact definition UUID or `JOB_TYPE:SOURCE`. Runtime overrides are
-currently rejected because no producer owns a typed override contract. The API
-does not expose `config_json`, credentials, or physical storage paths and has no
-force, dependency bypass, concurrency bypass, cancellation, or direct Kafka path.
-The deployment proxy must remove any browser-supplied `X-Omni-User` and inject
-the authenticated private operator identity.
+must contain an exact definition UUID or `JOB_TYPE:SOURCE`. Runtime parameters are
+rejected except for the typed `SYNC_METADATA` logical target contract. The API does
+not expose `config_json`, credentials, or physical storage paths and has no force,
+dependency bypass, concurrency bypass, cancellation, or direct Kafka path. The
+deployment proxy must remove any browser-supplied `X-Omni-User` and inject the
+authenticated private operator identity.
 
 ### `SYNC_METADATA` operation
 
-P3-I5 uses the existing scheduler and manual-trigger boundary. Platform publishes
-`metadataType=EOD` to `topic-sync-metadata`; Analyzer consumes it, scans only
-canonical EOD objects, publishes READY-last manifests, updates the catalog after
-successful manifest publication, and emits terminal status to
-`topic-sync-job-status`. Legacy `UNIVERSAL` messages are treated as EOD.
+Platform publishes an optional logical target to `topic-sync-metadata`; Analyzer
+validates it against the shared dataset registry and is the sole writer of
+`_metadata/metadata.json`. An absent target requests a full rebuild, a dataset-only
+target replaces one complete section, and a dataset plus complete partition performs
+one exact upsert or removal. Unknown keys, partial identities, and all physical
+storage fields are rejected.
 
 ```mermaid
 sequenceDiagram
   participant Scheduler as Platform scheduler/manual API
   participant API as Platform Jobs API
-  participant Claim as Existing exact claim/guard
-  participant Worker as Metadata rebuild handler
+  participant Claim as Global metadata execution guard
+  participant Worker as Metadata synchronization handler
   participant Storage as Object storage
 
   Scheduler->>API: claim SYNC_METADATA execution
-  API->>Claim: dependencies, concurrency, idempotency
-  Claim->>Worker: topic-sync-metadata (EOD)
-  Worker->>Storage: list and read canonical EOD Parquet
-  Worker->>Storage: immutable manifest then READY
-  Worker->>Storage: update catalog after manifests
-  Worker-->>API: SUCCESS, PARTIAL_SUCCESS, or ERROR
+  API->>Claim: dependencies, global concurrency, idempotency
+  Claim->>Worker: topic-sync-metadata (optional logical target)
+  Worker->>Storage: read registered canonical Parquet objects
+  Worker->>Worker: validate and build complete candidate in memory
+  Worker->>Storage: replace _metadata/metadata.json once
+  Worker->>Storage: read back and validate
+  Worker-->>API: SUCCESS, PARTIAL_SUCCESS, or ERROR with bounded counts
 ```
 
-The weekday 20:00 cron is retained so seeding updates the existing definition
-instead of inserting a duplicate keyed by a new cron. Invalid/empty partitions are
-skipped; zero publishable partitions is an ERROR. The worker does not recompute,
-delete, or rewrite Parquet. Query Service remains read-only.
+Manual requests require an operator reason and may contain only `dataset` and an
+optional complete `partition`. Scheduled execution defaults to full synchronization.
+The worker never recomputes, deletes, or rewrites Parquet; data producers do not
+write metadata. Query Service remains read-only.
 
 | Step                  | Owner                | Responsibility                                                              |
 | --------------------- | -------------------- | --------------------------------------------------------------------------- |

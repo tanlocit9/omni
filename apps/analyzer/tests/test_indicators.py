@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from py_common.config import SchedulerSettings, StockDataPaths
-from py_common.storage.exceptions import ManifestInvalidError, ManifestNotFoundError
+from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.manifest import ColumnMetadata, DatasetManifest
 from py_common.storage.parquet import ParquetWriteResult
 
@@ -91,7 +91,7 @@ def _indicator_settings() -> AppSettings:
 
 def _indicator_handler(
     manifest: DatasetManifest | None = None,
-) -> tuple[IndicatorJobHandler, AsyncMock, AsyncMock, AsyncMock]:
+) -> tuple[IndicatorJobHandler, AsyncMock, AsyncMock]:
     parquet_storage = AsyncMock()
     parquet_storage.read_dataframe.return_value = _eod_frame()
     parquet_storage.write_dataframe.return_value = ParquetWriteResult(
@@ -99,16 +99,14 @@ def _indicator_handler(
         checksum=f"sha256:{'c' * 64}",
         total_bytes=2_048,
     )
-    manifest_reader = AsyncMock()
-    manifest_reader.read_manifest.return_value = manifest or _eod_manifest()
-    manifest_writer = AsyncMock()
-    handler = IndicatorJobHandler(
-        _indicator_settings(),
-        parquet_storage,
-        manifest_reader,
-        manifest_writer,
+    metadata_reader = AsyncMock()
+    metadata_reader.read.return_value = SimpleNamespace(
+        resolve=lambda dataset, partition: manifest or _eod_manifest()
     )
-    return handler, parquet_storage, manifest_reader, manifest_writer
+    handler = IndicatorJobHandler(
+        _indicator_settings(), parquet_storage, metadata_reader
+    )
+    return handler, parquet_storage, metadata_reader
 
 
 def test_indicator_job_message_validates_supported_indicator_subset():
@@ -212,98 +210,65 @@ def test_calculate_supported_indicators_returns_full_series_columns():
 
 
 @pytest.mark.anyio
-async def test_indicator_handler_resolves_eod_manifest_path_and_publishes_lineage():
+async def test_indicator_handler_resolves_global_metadata_and_persists_lineage():
     eod_version = f"sha256:{'d' * 64}"
-    handler, parquet_storage, manifest_reader, manifest_writer = _indicator_handler(
+    handler, parquet_storage, metadata_reader = _indicator_handler(
         _eod_manifest(data_version=eod_version)
     )
 
     records = await handler.handle(_job_payload())
 
     assert records == 60
-    manifest_reader.read_manifest.assert_awaited_once_with(
-        "eod", {"exchange": "hose", "code": "hpg"}
-    )
+    metadata_reader.read.assert_awaited_once()
     parquet_storage.read_dataframe.assert_awaited_once_with(
         "canonical/eod/hose/hpg-version.parquet"
     )
     written_path, written_frame = parquet_storage.write_dataframe.await_args.args
     assert written_path == "indicators/ad_close/1d/hose/hpg.parquet"
     assert len(written_frame) == 60
-
-    manifest_writer.write_manifest.assert_awaited_once()
-    indicators_manifest = manifest_writer.write_manifest.await_args.args[0]
-    assert indicators_manifest.dataset == "indicators"
-    assert indicators_manifest.path == written_path
-    assert indicators_manifest.objectCount == 1
-    assert indicators_manifest.totalBytes == 2_048
-    assert len(indicators_manifest.inputs) == 1
-    assert indicators_manifest.inputs[0].dataset == "eod"
-    assert indicators_manifest.inputs[0].partition == {
-        "exchange": "hose",
-        "code": "hpg",
-    }
-    assert indicators_manifest.inputs[0].dataVersion == eod_version
+    assert set(written_frame["eod_data_version"]) == {eod_version}
 
 
 @pytest.mark.anyio
-async def test_indicator_handler_missing_eod_manifest_prevents_publication():
-    handler, parquet_storage, manifest_reader, manifest_writer = _indicator_handler()
-    manifest_reader.read_manifest.side_effect = ManifestNotFoundError(
-        "eod", {"exchange": "hose", "code": "hpg"}
-    )
-
-    with pytest.raises(ManifestNotFoundError):
-        await handler.handle(_job_payload())
-
-    parquet_storage.read_dataframe.assert_not_awaited()
-    parquet_storage.write_dataframe.assert_not_awaited()
-    manifest_writer.write_manifest.assert_not_awaited()
-
-
-@pytest.mark.anyio
-async def test_indicator_handler_invalid_eod_manifest_prevents_publication():
-    handler, parquet_storage, manifest_reader, manifest_writer = _indicator_handler()
-    manifest_reader.read_manifest.side_effect = ManifestInvalidError(
-        "Invalid dataset manifest JSON"
-    )
-
-    with pytest.raises(ManifestInvalidError, match="Invalid dataset manifest JSON"):
-        await handler.handle(_job_payload())
-
-    parquet_storage.read_dataframe.assert_not_awaited()
-    parquet_storage.write_dataframe.assert_not_awaited()
-    manifest_writer.write_manifest.assert_not_awaited()
-
-
-@pytest.mark.anyio
-async def test_indicator_handler_not_ready_eod_manifest_prevents_publication():
-    processing_manifest = replace(_eod_manifest(), status="PROCESSING")
-    handler, parquet_storage, _, manifest_writer = _indicator_handler(
-        processing_manifest
-    )
+async def test_indicator_handler_missing_global_partition_prevents_write():
+    handler, parquet_storage, metadata_reader = _indicator_handler()
+    metadata_reader.read.return_value = SimpleNamespace(resolve=lambda *_args: None)
 
     with pytest.raises(ManifestInvalidError, match="must be READY"):
         await handler.handle(_job_payload())
 
     parquet_storage.read_dataframe.assert_not_awaited()
     parquet_storage.write_dataframe.assert_not_awaited()
-    manifest_writer.write_manifest.assert_not_awaited()
 
 
 @pytest.mark.anyio
-async def test_indicator_handler_changed_eod_version_changes_indicators_version():
-    published_versions = []
-    for eod_version_character in ("d", "e"):
-        handler, _, _, manifest_writer = _indicator_handler(
-            _eod_manifest(data_version=f"sha256:{eod_version_character * 64}")
+async def test_indicator_handler_metadata_read_failure_prevents_write():
+    handler, parquet_storage, metadata_reader = _indicator_handler()
+    metadata_reader.read.side_effect = ManifestInvalidError(
+        "Invalid global metadata JSON"
+    )
+
+    with pytest.raises(ManifestInvalidError, match="Invalid global metadata JSON"):
+        await handler.handle(_job_payload())
+
+    parquet_storage.write_dataframe.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_indicator_handler_changed_eod_version_changes_persisted_lineage():
+    versions = []
+    for character in ("d", "e"):
+        handler, parquet_storage, _ = _indicator_handler(
+            _eod_manifest(data_version=f"sha256:{character * 64}")
         )
         await handler.handle(_job_payload())
-        published_versions.append(
-            manifest_writer.write_manifest.await_args.args[0].dataVersion
+        versions.append(
+            parquet_storage.write_dataframe.await_args.args[1]["eod_data_version"].iloc[
+                0
+            ]
         )
 
-    assert published_versions[0] != published_versions[1]
+    assert versions[0] != versions[1]
 
 
 def test_calculate_ichimoku_keeps_shape_and_omni_schema_for_short_series():

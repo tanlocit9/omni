@@ -5,11 +5,11 @@ import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import java.util.Optional;
 
 /**
- * Reader interface for dataset metadata manifests stored in object storage.
- * 
- * <p>Implementations fetch mutable READY pointers from S3/MinIO paths following the convention:
- * {@code _metadata/datasets/{dataset}/{partition_path}/READY.json}
- * 
+ * Logical partition reader backed by the canonical global metadata document.
+ *
+ * <p>Implementations load {@code _metadata/metadata.json} and resolve the requested
+ * dataset and partition without deriving physical metadata object paths.
+ *
  * <p>The reader is expected to handle:
  * <ul>
  *   <li>Missing manifests (return empty Optional)</li>

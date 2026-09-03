@@ -6,13 +6,10 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Dataset metadata manifest stored in object storage.
- * <p>
- * Provides dataset readiness, schema, statistics, and lineage information
- * without requiring full Parquet scan. Published after successful data
- * validation to guarantee READY-last semantics.
- * <p>
- * Path: {@code _metadata/datasets/{dataset}/{partition_path}/READY.json}
+ * Internal logical view of one partition selected from the global metadata document.
+ *
+ * <p>The record is not persisted independently. It provides existing dependency
+ * evaluators with readiness, schema, statistics, lineage, and trusted backend path data.
  */
 public record DatasetManifest(
         int version,

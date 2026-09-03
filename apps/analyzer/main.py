@@ -5,13 +5,15 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
 from py_common.storage.exceptions import StorageError
-from py_common.storage.manifest import ManifestReader, ManifestWriter
-from py_common.storage.metadata_sync import EodMetadataSynchronizer
+from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
+from py_common.storage.global_metadata import GlobalMetadataReader, GlobalMetadataWriter
+from py_common.storage.metadata_sync import MetadataSynchronizer
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.ports import (
     ListableStorage,
     ReadableStorage,
     StorageProviderInfo,
+    WritableStorage,
 )
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
@@ -97,41 +99,37 @@ async def startup_event(app: FastAPI) -> None:
         provider=StorageProvider.MINIO,
         bucket=settings.minio.bucket,
     )
-    # Initialize manifest reader and writer for dataset metadata and lineage.
-    app.state.manifest_reader = ManifestReader(
-        registry=app.state.storage_registry,
-        provider=StorageProvider.MINIO,
-        bucket=settings.minio.bucket,
+    readable = app.state.storage_registry.get_port(
+        StorageProvider.MINIO, ReadableStorage
     )
-    app.state.manifest_writer = ManifestWriter(
-        registry=app.state.storage_registry,
-        provider=StorageProvider.MINIO,
-        bucket=settings.minio.bucket,
+    metadata_reader = GlobalMetadataReader(readable, settings.minio.bucket)
+    metadata_writer = GlobalMetadataWriter(
+        app.state.storage_registry.get_port(StorageProvider.MINIO, WritableStorage),
+        readable,
+        settings.minio.bucket,
     )
+    app.state.metadata_reader = metadata_reader
     app.state.metadata_sync_handler = MetadataSyncJobHandler(
-        EodMetadataSynchronizer(
-            readable=app.state.storage_registry.get_port(
-                StorageProvider.MINIO, ReadableStorage
-            ),
+        MetadataSynchronizer(
+            readable=readable,
             listable=app.state.storage_registry.get_port(
                 StorageProvider.MINIO, ListableStorage
             ),
-            reader=app.state.manifest_reader,
-            writer=app.state.manifest_writer,
+            reader=metadata_reader,
+            writer=metadata_writer,
+            registry=OMNI_DATASET_REGISTRY,
             bucket=settings.minio.bucket,
         )
     )
     app.state.indicator_handler = IndicatorJobHandler(
         settings,
         app.state.parquet_storage,
-        app.state.manifest_reader,
-        app.state.manifest_writer,
+        metadata_reader,
     )
     app.state.signal_handler = SignalJobHandler(
         settings,
         app.state.parquet_storage,
-        app.state.manifest_reader,
-        app.state.manifest_writer,
+        metadata_reader,
     )
     app.state.latest_signal_repository = LatestSignalRepository(
         settings,

@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   getJsonResult,
+  getTriggerStatus,
   listDatasets,
+  listJobDefinitions,
   listPartitions,
   submitQuery,
+  triggerJob,
   waitForQuery,
   type DatasetManifest,
   type DatasetSummary,
@@ -16,6 +19,8 @@ interface Props {
   onSelect: (manifest: DatasetManifest) => void;
 }
 
+const DEFAULT_SYNC_REASON = 'Manual metadata recovery from Omni Console';
+
 function quoteIdentifier(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
 }
@@ -24,6 +29,9 @@ export function DatasetExplorer({ onSelect }: Props) {
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [dataset, setDataset] = useState('');
   const [partitions, setPartitions] = useState<DatasetManifest[]>([]);
+  const [partitionFilter, setPartitionFilter] = useState<
+    Record<string, string>
+  >({});
   const [manifest, setManifest] = useState<DatasetManifest | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');
@@ -33,6 +41,8 @@ export function DatasetExplorer({ onSelect }: Props) {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncReason, setSyncReason] = useState('');
   const pageSize = 100;
 
   useEffect(() => {
@@ -50,6 +60,7 @@ export function DatasetExplorer({ onSelect }: Props) {
     listPartitions(dataset)
       .then((items) => {
         setPartitions(items);
+        setPartitionFilter({});
         setManifest(items[0] ?? null);
         if (items[0]) onSelect(items[0]);
       })
@@ -61,6 +72,93 @@ export function DatasetExplorer({ onSelect }: Props) {
     () => datasets.filter((item) => item.name.includes(search.toLowerCase())),
     [datasets, search]
   );
+
+  const selectedDataset = datasets.find((item) => item.name === dataset);
+
+  function selectPartition(next: Record<string, string>) {
+    setPartitionFilter(next);
+    const selected = partitions.find((item) =>
+      Object.entries(next).every(
+        ([key, value]) => String(item.partition[key]) === value
+      )
+    );
+    setManifest(selected ?? null);
+    if (selected) onSelect(selected);
+  }
+
+  async function synchronize(
+    mode: 'full' | 'dataset' | 'exact',
+    targetDataset = dataset
+  ) {
+    if (syncing) return;
+    const parameters =
+      mode === 'full'
+        ? {}
+        : mode === 'dataset'
+        ? { dataset: targetDataset }
+        : { dataset: targetDataset, partition: manifest?.partition };
+    const logicalTarget =
+      mode === 'full'
+        ? 'all registered datasets'
+        : mode === 'dataset'
+        ? `dataset ${targetDataset}`
+        : `${targetDataset} ${JSON.stringify(manifest?.partition)}`;
+    if (!window.confirm(`Synchronize metadata for ${logicalTarget}?`)) return;
+
+    setSyncing(true);
+    setError(null);
+    try {
+      const definitions = await listJobDefinitions({
+        jobType: 'SYNC_METADATA',
+        active: true,
+      });
+      const definition = definitions.items.find((item) => item.triggerable);
+      if (!definition)
+        throw new Error('No triggerable SYNC_METADATA job is available');
+      const trigger = await triggerJob(
+        definition.id,
+        syncReason.trim() || DEFAULT_SYNC_REASON,
+        crypto.randomUUID(),
+        parameters
+      );
+      if (trigger.state !== 'ACCEPTED') {
+        throw new Error(trigger.blockReason ?? trigger.error ?? trigger.state);
+      }
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        const status = await getTriggerStatus(trigger.requestId);
+        const state = status.execution?.status;
+        if (state === 'SUCCESS') {
+          const [nextDatasets, nextPartitions] = await Promise.all([
+            listDatasets(),
+            dataset ? listPartitions(dataset) : Promise.resolve([]),
+          ]);
+          setDatasets(nextDatasets);
+          setPartitions(nextPartitions);
+          const refreshed = nextPartitions.find((item) =>
+            Object.entries(partitionFilter).every(
+              ([key, value]) => String(item.partition[key]) === value
+            )
+          );
+          setManifest(refreshed ?? nextPartitions[0] ?? null);
+          setSyncReason('');
+          return;
+        }
+        if (state && ['FAILED', 'ERROR', 'CANCELLED'].includes(state)) {
+          throw new Error(
+            status.execution?.error ?? `Synchronization ${state}`
+          );
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+      throw new Error('Synchronization status polling timed out');
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : 'Synchronization failed'
+      );
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function preview(nextPage = page) {
     if (!manifest) return;
@@ -120,8 +218,8 @@ export function DatasetExplorer({ onSelect }: Props) {
               key={item.name}
               onClick={() => setDataset(item.name)}
             >
-              <strong>{item.name}</strong>
-              <small>{item.description ?? item.dataPrefix}</small>
+              <strong>{item.label}</strong>
+              <small>{item.partitionCount.toLocaleString()} partitions</small>
             </button>
           ))}
         </div>
@@ -129,38 +227,93 @@ export function DatasetExplorer({ onSelect }: Props) {
 
       <main className="panel detail-panel">
         {error && <div className="error-banner">{error}</div>}
-        {loading && <div className="loading-line">Loading…</div>}
+        {(loading || syncing) && (
+          <div className="loading-line">
+            {syncing ? 'Synchronizing metadata…' : 'Loading…'}
+          </div>
+        )}
+        <div className="query-toolbar" aria-label="Metadata synchronization">
+          <input
+            aria-label="Synchronization reason"
+            placeholder="Operator reason (optional)"
+            maxLength={500}
+            value={syncReason}
+            onChange={(event) => setSyncReason(event.target.value)}
+          />
+          <button
+            disabled={syncing}
+            onClick={() => synchronize('dataset', 'eod')}
+          >
+            Sync EOD metadata
+          </button>
+          <button
+            disabled={syncing}
+            onClick={() => synchronize('dataset', 'indicators')}
+          >
+            Sync indicator metadata
+          </button>
+          <button disabled={syncing} onClick={() => synchronize('full')}>
+            Sync all metadata
+          </button>
+        </div>
         {!manifest && !loading ? (
-          <div className="empty-state">No READY partition found.</div>
+          <div className="empty-state">No metadata partition found.</div>
         ) : null}
         {manifest ? (
           <>
             <div className="panel-heading">
               <div>
-                <p className="eyebrow">READY dataset</p>
+                <p className="eyebrow">Canonical metadata</p>
                 <h2>{manifest.dataset}</h2>
               </div>
-              <select
-                aria-label="Partition"
-                value={manifest.dataVersion}
-                onChange={(event) => {
-                  const selected = partitions.find(
-                    (item) => item.dataVersion === event.target.value
+              <div className="partition-controls">
+                {selectedDataset?.partitionKeys.map((definition, index) => {
+                  const prior = selectedDataset.partitionKeys.slice(0, index);
+                  const options = Array.from(
+                    new Set(
+                      partitions
+                        .filter((item) =>
+                          prior.every(
+                            (key) =>
+                              !partitionFilter[key.name] ||
+                              String(item.partition[key.name]) ===
+                                partitionFilter[key.name]
+                          )
+                        )
+                        .map((item) => String(item.partition[definition.name]))
+                    )
+                  ).sort();
+                  return (
+                    <label key={definition.name}>
+                      <span>{definition.label ?? definition.name}</span>
+                      <select
+                        aria-label={definition.label ?? definition.name}
+                        value={partitionFilter[definition.name] ?? ''}
+                        onChange={(event) =>
+                          selectPartition({
+                            ...Object.fromEntries(
+                              prior
+                                .filter((key) => partitionFilter[key.name])
+                                .map((key) => [
+                                  key.name,
+                                  partitionFilter[key.name],
+                                ])
+                            ),
+                            [definition.name]: event.target.value,
+                          })
+                        }
+                      >
+                        <option value="">All</option>
+                        {options.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   );
-                  if (selected) {
-                    setManifest(selected);
-                    onSelect(selected);
-                  }
-                }}
-              >
-                {partitions.map((item) => (
-                  <option key={item.dataVersion} value={item.dataVersion}>
-                    {Object.entries(item.partition)
-                      .map(([key, value]) => `${key}=${value}`)
-                      .join(' / ') || '_default'}
-                  </option>
-                ))}
-              </select>
+                })}
+              </div>
             </div>
             <div className="stat-grid">
               <div>

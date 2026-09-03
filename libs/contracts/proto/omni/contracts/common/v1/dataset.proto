@@ -11,9 +11,10 @@ message DatasetRef {
   map<string, string> partition = 2;
 }
 
-// DatasetOutput records the manifest and immutable version produced by a job.
+// DatasetOutput records the logical dataset identity produced by a job.
 message DatasetOutput {
   DatasetRef dataset = 1;
-  string manifest_key = 2;
+  string manifest_key = 2 [deprecated = true];
   optional string data_version = 3;
+  optional string metadata_key = 4;
 }

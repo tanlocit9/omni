@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from py_common.messaging import JobStatus
-from py_common.storage.metadata_sync import MetadataSyncResult
+from py_common.storage.metadata_sync import MetadataSyncResult, MetadataSyncTarget
 
 from app.metadata.handler import MetadataSyncJobHandler
 from app.metadata.kafka import MetadataSyncKafkaService
@@ -18,22 +18,37 @@ def _payload(**overrides):
         "source": "ANALYZER",
         "workType": "GLOBAL",
         "workKey": "SYNC_METADATA",
-        "metadataType": "EOD",
         "metadata": {},
     }
     payload.update(overrides)
     return payload
 
 
-def test_metadata_message_accepts_legacy_definition_as_eod() -> None:
-    message = SyncMetadataJobMessage.model_validate(_payload(metadataType="UNIVERSAL"))
-    assert message.metadata_type == "EOD"
+def test_metadata_message_accepts_logical_exact_target() -> None:
+    message = SyncMetadataJobMessage.model_validate(
+        _payload(
+            target={"dataset": "eod", "partition": {"exchange": "hose", "code": "hpg"}}
+        )
+    )
+
+    assert message.target is not None
+    assert message.target.dataset == "eod"
+    assert message.target.partition == {"exchange": "hose", "code": "hpg"}
 
 
 @pytest.mark.asyncio
 async def test_metadata_worker_publishes_partial_status_counts() -> None:
     synchronizer = AsyncMock()
-    synchronizer.sync.return_value = MetadataSyncResult(3, 1, 0, 1, 1)
+    synchronizer.sync.return_value = MetadataSyncResult(
+        mode="FULL",
+        objects_seen=3,
+        partitions_added=1,
+        partitions_replaced=0,
+        partitions_removed=0,
+        partitions_unchanged=0,
+        objects_skipped=1,
+        objects_failed=1,
+    )
     service = MetadataSyncKafkaService(
         AppSettings(metadata_kafka_enabled=False),
         MetadataSyncJobHandler(synchronizer),
@@ -45,21 +60,40 @@ async def test_metadata_worker_publishes_partial_status_counts() -> None:
     assert status.status == JobStatus.PARTIAL_SUCCESS
     assert status.records_processed == 1
     assert status.meta_json == {
-        "dataset": "eod",
+        "mode": "FULL",
         "objectsSeen": 3,
-        "manifestsPublished": 1,
-        "manifestsUnchanged": 0,
+        "partitionsAdded": 1,
+        "partitionsReplaced": 0,
+        "partitionsRemoved": 0,
+        "partitionsUnchanged": 0,
         "objectsSkipped": 1,
         "objectsFailed": 1,
     }
-    synchronizer.sync.assert_awaited_once_with(execution_id="execution-1")
+    synchronizer.sync.assert_awaited_once_with(
+        target=None,
+        execution_id="execution-1",
+    )
     service.publish_status.assert_awaited_once_with(status)
+
+
+@pytest.mark.asyncio
+async def test_metadata_handler_forwards_dataset_target() -> None:
+    synchronizer = AsyncMock()
+    handler = MetadataSyncJobHandler(synchronizer)
+    message = SyncMetadataJobMessage.model_validate(_payload(target={"dataset": "eod"}))
+
+    await handler.handle(message)
+
+    synchronizer.sync.assert_awaited_once_with(
+        target=MetadataSyncTarget(dataset="eod", partition=None),
+        execution_id="execution-1",
+    )
 
 
 @pytest.mark.asyncio
 async def test_metadata_worker_publishes_error_status() -> None:
     synchronizer = AsyncMock()
-    synchronizer.sync.side_effect = RuntimeError("no EOD data")
+    synchronizer.sync.side_effect = RuntimeError("synchronization failed")
     service = MetadataSyncKafkaService(
         AppSettings(metadata_kafka_enabled=False),
         MetadataSyncJobHandler(synchronizer),

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from fastapi import FastAPI
-from py_common.storage.exceptions import ManifestNotFoundError
+from py_common.storage.exceptions import ManifestInvalidError, ManifestNotFoundError
 
 from app.api import router
 from app.dashboard import DashboardService, DashboardSnapshot, DashboardUnavailableError
@@ -117,6 +117,40 @@ def app() -> FastAPI:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("path", "expected_status", "expected_payload"),
+    [
+        ("/v1/datasets", 200, []),
+        ("/v1/datasets/eod/partitions", 503, None),
+        ("/v1/datasets/eod/partition-options/exchange", 503, None),
+    ],
+)
+async def test_dataset_discovery_handles_missing_global_metadata(
+    app: FastAPI, path: str, expected_status: int, expected_payload: list | None
+) -> None:
+    class MissingMetadataCatalog:
+        async def list_datasets(self):
+            raise ManifestInvalidError("Global metadata document not found")
+
+        async def list_partitions(self, *_args, **_kwargs):
+            raise ManifestInvalidError("Global metadata document not found")
+
+        async def list_partition_options(self, *_args, **_kwargs):
+            raise ManifestInvalidError("Global metadata document not found")
+
+    app.state.catalog_service = MissingMetadataCatalog()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(path)
+
+    assert response.status_code == expected_status
+    if expected_payload is not None:
+        assert response.json() == expected_payload
+    else:
+        assert "Global metadata document not found" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_dashboard_endpoints_require_operator_identity(app: FastAPI) -> None:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -197,6 +231,38 @@ async def test_missing_source_is_unavailable_not_zero(app: FastAPI) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/v1/dashboard/freshness",
+        "/v1/dashboard/market-breadth?exchange=HOSE",
+        "/v1/dashboard/top-movers?exchange=HOSE",
+        "/v1/dashboard/ichimoku-signals?exchange=HOSE",
+        "/v1/dashboard/signal-history?exchange=HOSE",
+    ],
+)
+async def test_missing_global_metadata_returns_unavailable(
+    app: FastAPI, path: str
+) -> None:
+    class MissingMetadataDashboard:
+        max_movers = 20
+
+        def __getattr__(self, _name: str):
+            async def missing(*_args, **_kwargs):
+                raise ManifestInvalidError("Global metadata document not found")
+
+            return missing
+
+    app.state.dashboard_service = MissingMetadataDashboard()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(path, headers={"X-Omni-User": "operator"})
+
+    assert response.status_code == 503
+    assert "Global metadata document not found" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_ichimoku_feed_exposes_precomputed_reasons_and_provenance(
     app: FastAPI,
 ) -> None:
@@ -253,9 +319,9 @@ async def test_freshness_does_not_mark_large_discovered_dataset_unavailable() ->
         async def list_datasets(self):
             return [{"name": "eod"}]
 
-        async def list_partitions(self, dataset: str):
+        async def list_partitions(self, dataset: str, **_kwargs):
             assert dataset == "eod"
-            return [manifest] * 1001
+            return {"items": [manifest] * 1001}
 
     service = DashboardService(
         catalog=LargeCatalog(),
@@ -285,14 +351,16 @@ async def test_signal_history_discovers_only_matching_ready_exchanges() -> None:
         )
 
     class SignalCatalog:
-        async def list_partitions(self, dataset: str):
+        async def list_partitions(self, dataset: str, **_kwargs):
             assert dataset == "signals"
-            return [
-                manifest("hose", "trend_momentum_v1", "1d"),
-                manifest("hnx", "trend_momentum_v1", "1d"),
-                manifest("upcom", "ichimoku_v1", "1d"),
-                manifest("upcom", "trend_momentum_v1", "1h"),
-            ]
+            return {
+                "items": [
+                    manifest("hose", "trend_momentum_v1", "1d"),
+                    manifest("hnx", "trend_momentum_v1", "1d"),
+                    manifest("upcom", "ichimoku_v1", "1d"),
+                    manifest("upcom", "trend_momentum_v1", "1h"),
+                ]
+            }
 
     class CapturingResolver:
         async def resolve_many(self, refs):
@@ -329,9 +397,9 @@ async def test_signal_history_maps_missing_ready_manifest_to_unavailable() -> No
     )
 
     class SignalCatalog:
-        async def list_partitions(self, dataset: str):
+        async def list_partitions(self, dataset: str, **_kwargs):
             assert dataset == "signals"
-            return [manifest]
+            return {"items": [manifest]}
 
     service = DashboardService(
         catalog=SignalCatalog(),

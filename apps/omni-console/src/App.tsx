@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import type { DatasetManifest } from './api';
+import { listDatasets, type DatasetManifest } from './api';
 import { DatasetExplorer } from './components/DatasetExplorer';
 import { JobsPanel } from './components/JobsPanel';
 import { SqlConsole } from './components/SqlConsole';
@@ -22,6 +22,14 @@ export function App() {
     (selected: DatasetManifest) => setManifest(selected),
     []
   );
+
+  useEffect(() => {
+    listDatasets()
+      .then((datasets) => {
+        if (datasets.length === 0) setView('explorer');
+      })
+      .catch(() => undefined);
+  }, []);
 
   return (
     <div className="app-shell">

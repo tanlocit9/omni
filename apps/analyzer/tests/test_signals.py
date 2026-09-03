@@ -139,6 +139,27 @@ class FakeSettings:
         bootstrap_servers = "localhost:9092"
 
 
+class FakeMetadataReader:
+    async def read(self):
+        return self
+
+    def resolve(self, dataset, partition):
+        if dataset == "eod":
+            path = f"eod/{partition['exchange']}/{partition['code']}.parquet"
+            version = f"sha256:{'a' * 64}"
+        else:
+            path = (
+                f"indicators/{partition['source']}/{partition['timeframe']}/"
+                f"{partition['exchange']}/{partition['code']}.parquet"
+            )
+            version = f"sha256:{'b' * 64}"
+        return type(
+            "Partition",
+            (),
+            {"status": "READY", "path": path, "dataVersion": version},
+        )()
+
+
 class FakeHandler:
     def __init__(self, transition=None, exc: Exception | None = None) -> None:
         self.transition = transition
@@ -571,7 +592,7 @@ async def test_signal_handler_reads_eod_indicators_and_writes_signal_path():
             indicators_path: _indicator_frame(),
         }
     )
-    handler = SignalJobHandler(FakeSettings(), storage)
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader())
 
     transition = await handler.handle(_job_payload())
 
@@ -592,7 +613,7 @@ async def test_signal_handler_skips_missing_indicator_prerequisite(caplog):
             return await super().read_dataframe(path)
 
     storage = MissingIndicatorStorage({"eod/hnx/one.parquet": _eod_frame()})
-    handler = SignalJobHandler(FakeSettings(), storage)
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader())
 
     with caplog.at_level("WARNING", logger="app.signals.handler"):
         transition = await handler.handle(_job_payload(symbolKey="HNX-ONE"))
@@ -617,7 +638,7 @@ async def test_signal_handler_multiple_symbols_share_one_exchange_history_file()
             "indicators/ad_close/1d/hose/mbb.parquet": _indicator_frame(),
         }
     )
-    handler = SignalJobHandler(FakeSettings(), storage)
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader())
 
     await handler.handle(_job_payload(symbolKey="HOSE-ACB"))
     await handler.handle(_job_payload(symbolKey="HOSE-MBB"))

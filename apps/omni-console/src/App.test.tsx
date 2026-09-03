@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
 
@@ -92,6 +92,8 @@ vi.stubGlobal(
   })
 );
 
+afterEach(cleanup);
+
 describe('App', () => {
   it('opens on the fixed Market Dashboard', () => {
     render(<App />);
@@ -107,7 +109,7 @@ describe('App', () => {
     ).toHaveAttribute('aria-current', 'page');
     expect(screen.getByText('Market breadth')).toBeInTheDocument();
     expect(screen.getByText('Data freshness')).toBeInTheDocument();
-    expect(screen.getAllByLabelText('Loading widget')).toHaveLength(3);
+    expect(screen.getAllByLabelText('Loading widget')).toHaveLength(5);
     expect(screen.getByText('Ichimoku signals')).toBeInTheDocument();
     expect(screen.getByText('Signal history')).toBeInTheDocument();
   });
@@ -127,6 +129,20 @@ describe('App', () => {
     );
     expect(
       screen.getByRole('heading', { name: expectedHeading })
+    ).toBeInTheDocument();
+  });
+
+  it('opens metadata recovery controls when no datasets exist', async () => {
+    render(<App />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Sync EOD metadata' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sync indicator metadata' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sync all metadata' })
     ).toBeInTheDocument();
   });
 

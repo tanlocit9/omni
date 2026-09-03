@@ -3,6 +3,7 @@ syntax = "proto3";
 package omni.contracts.job.v1;
 
 import "google/protobuf/timestamp.proto";
+import "omni/contracts/common/v1/dataset.proto";
 
 option java_multiple_files = true;
 option java_package = "com.omni.contracts.job.v1";
@@ -20,6 +21,7 @@ enum JobType {
   JOB_TYPE_SECTOR_ROTATION_BACKTEST = 8;
   JOB_TYPE_SECTOR_TRANSITION_ANALYZE = 9;
   JOB_TYPE_SECTOR_TRANSITION_EVALUATE_OUTCOMES = 10;
+  JOB_TYPE_SYNC_METADATA = 11;
 }
 
 // JobContext carries transport-safe context shared by every job family.
@@ -57,6 +59,10 @@ message SyncSignalsCommand {
   optional string evaluation_date = 3;
 }
 
+message SyncMetadataCommand {
+  optional omni.contracts.common.v1.DatasetRef target = 1;
+}
+
 // JobCommand is the typed command envelope for future producer/consumer migration.
 message JobCommand {
   string execution_id = 1;
@@ -69,5 +75,6 @@ message JobCommand {
     SyncStockPriceCommand sync_stock_price = 10;
     SyncIndicatorsCommand sync_indicators = 11;
     SyncSignalsCommand sync_signals = 12;
+    SyncMetadataCommand sync_metadata = 13;
   }
 }

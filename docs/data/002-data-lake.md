@@ -52,167 +52,64 @@ flowchart TD
 - Kafka messages must not include bucket names or object names for routing.
 - Path construction should use shared path builders backed by [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml).
 
-## Dataset Manifests
+## Global Dataset Metadata
 
-Every canonical dataset partition publishes metadata under:
+The sole canonical discovery object is:
 
 ```text
-_metadata/datasets/<dataset>/<partition_path>/READY.json
-_metadata/datasets/<dataset>/<partition_path>/versions/<dataVersion>.json
+_metadata/metadata.json
 ```
 
-Partition keys are normalized and sorted as `key=value` segments; an empty
-partition uses `_default`. The immutable version manifest is written after the
-Parquet data is validated, and the mutable `READY.json` pointer is replaced last.
+It contains versioned dataset definitions, typed and ordered partition-key
+definitions, and every validated logical partition. Each partition records its
+trusted internal path, deterministic `dataVersion`, schema identity, row/object/byte
+statistics, timestamp range, source execution, and exact upstream lineage. Internal
+paths are never returned to browsers or accepted in commands.
 
-### Manifest Schema
+### Publication Semantics
 
-Manifests follow a standardized JSON schema:
+Dataset producers write and validate Parquet only. Analyzer's `SYNC_METADATA` worker
+is the only metadata writer and supports three logical modes:
 
-```json
-{
-  "version": 1,
-  "dataset": "eod",
-  "partition": { "exchange": "hose" },
-  "status": "READY",
-  "dataVersion": "sha256:abc123...",
-  "path": "eod/hose/*.parquet",
-  "objectCount": 3,
-  "totalBytes": 1048576,
-  "rowCount": 1234,
-  "columnCount": 15,
-  "columns": [
-    { "name": "date", "type": "TIMESTAMP", "nullable": false },
-    { "name": "close", "type": "DOUBLE", "nullable": false }
-  ],
-  "schemaVersion": 1,
-  "schemaHash": "sha256:def456...",
-  "minTimestamp": "2024-01-01T00:00:00Z",
-  "maxTimestamp": "2026-08-18T00:00:00Z",
-  "inputs": [
-    {
-      "dataset": "upstream_dataset",
-      "partition": { "key": "value" },
-      "dataVersion": "sha256:xyz789..."
-    }
-  ],
-  "generatedAt": "2026-08-18T12:00:00Z"
-}
-```
+- no target: rebuild every registered dataset;
+- dataset target: replace that complete dataset section;
+- dataset plus complete partition: upsert or remove exactly that partition.
 
-### READY-Last Semantics
-
-- Exact Parquet bytes are written and validated first.
-- Their SHA-256 checksums and byte lengths provide physical object identity.
-- The immutable `versions/<dataVersion>.json` manifest is published next.
-- `READY.json` is replaced **last**; `status: "READY"` guarantees the referenced data is valid and complete.
-- Immutable-write failure does not attempt READY publication.
-- READY replacement failure performs no compensating write, so the prior READY object remains authoritative.
+The worker resolves physical objects only through the trusted registry, reads exact
+persisted bytes, validates dataset invariants and derived lineage, builds the whole
+candidate in memory, serializes it deterministically, writes `metadata.json` once,
+and validates a read-back. Invalid candidates perform no write. A process-wide guard
+rejects overlapping worker operations; Platform also prevents concurrent scheduled
+or manual metadata executions.
 
 ### Data Versioning
 
-`dataVersion` is a deterministic SHA-256 fingerprint calculated from:
+`dataVersion` is a deterministic SHA-256 fingerprint of the dataset, normalized
+logical partition, schema hash, exact object checksums, and canonically sorted
+lineage inputs. `generatedAt` is excluded, so identical persisted content retains
+the same identity across retries. Derived Parquet stores authoritative upstream
+version columns so synchronization never invents lineage.
 
-```text
-SHA256(dataset + normalized_partition + schemaHash + object_checksums + inputs)
-```
+### Consumer Resolution
 
-Physical objects and lineage inputs are canonically sorted. `generatedAt` is
-excluded so an idempotent retry of identical content retains the same identity.
-
-This enables:
-
-- Exact dependency tracking via `inputs[].dataVersion`
-- Change detection without scanning Parquet files
-- Lineage verification across pipeline stages
-- Idempotent reprocessing with content-based versioning
-
-### Readiness Checks
-
-Dataset consumers should check readiness via manifests instead of scanning Parquet prefixes:
+Platform and Query Service load the single document and resolve logical identities:
 
 ```python
-from py_common.storage.manifest import ManifestReader
-
-# Read manifest
-manifest = await reader.read_manifest('eod', {'exchange': 'hose'})
-
-# Check readiness
-if manifest and manifest.status == 'READY':
-    # Dataset is ready
-    data_version = manifest.dataVersion
-    row_count = manifest.rowCount
-```
-
-Do not scan the Parquet prefix for existence checks when a manifest exists. Use the manifest as the source of truth.
-
-### Global Catalog
-
-A global catalog at `_metadata/catalog.json` lists all known datasets:
-
-```json
-{
-  "version": 1,
-  "datasets": [
-    {
-      "name": "eod",
-      "description": "End-of-day price data"
-    },
-    {
-      "name": "indicators",
-      "description": "Technical indicators"
-    }
-  ],
-  "lastUpdated": "2026-08-18T12:00:00Z"
-}
-```
-
-The catalog is bootstrapped from the `OMNI_DATASETS` registry in [`py_common.storage.manifest`](../../libs/py-common/py_common/storage/manifest.py).
-
-### Integration
-
-Dataset producers must call `publish_dataset_manifest()` after successful Parquet writes:
-
-```python
-from py_common.storage.manifest import publish_dataset_manifest, ManifestWriter
-
-# After writing Parquet data
-await publish_dataset_manifest(
-    writer=manifest_writer,
-    dataset='eod',
-    partition={'exchange': 'hose'},
-    data_path='eod/hose/*.parquet',
-    dataframe=eod_df,
-    inputs=[],  # Upstream dependencies if applicable
+document = await metadata_reader.read()
+partition = document.resolve(
+    "eod", {"exchange": "hose", "code": "hpg"}
 )
+if partition is not None:
+    data_version = partition.dataVersion
 ```
 
-### Automatic EOD Metadata Reconciliation
+Consumers do not list data prefixes to infer readiness. Query Service maps internal
+models to browser-safe DTOs containing logical partition values, dynamic key
+definitions, versions, schema, statistics, freshness, and lineage. Bucket names,
+credentials, endpoints, prefixes, and object paths remain server-side.
 
-P3-I5 adds a scheduled and manually triggerable `SYNC_METADATA` worker. Analyzer
-lists the internal canonical EOD prefix and accepts only exact
-`eod/<exchange>/<code>.parquet` objects; storage location and credentials never
-cross the Kafka or browser contract.
-
-```text
-canonical EOD Parquet objects
-  -> read exact persisted bytes
-  -> read and validate persisted bytes
-  -> derive schema, rows, objects, bytes, checksums, and date range
-  -> calculate canonical deterministic dataVersion
-  -> write immutable version manifest
-  -> replace READY last
-```
-
-This operation scans EOD partitions but does not recompute analytical data, rewrite
-Parquet, or change dataset ownership. A corrupt or empty object cannot produce a
-READY manifest; if no valid object is publishable, the job fails and does not write
-the catalog. Derived datasets are excluded because reconstructing their exact
-historical lineage from bytes alone is unsafe.
-
-See [Dataset Metadata Manifest Implementation Plan](../plans/003-dataset-metadata-manifest.md) for full details and
-[Phase 3 P3-I5](../../plans/roadmap/phase-3-dataset-manifests.md#increment-p3-i5--automatic-eod-metadata-reconciliation)
-for the implemented scope and acceptance criteria.
+See [Global Dataset Metadata Refactor](../plans/014-global-dataset-metadata-refactor.md)
+for the canonical contract and acceptance criteria.
 
 ## Datasets
 

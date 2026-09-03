@@ -74,7 +74,7 @@ class DashboardService:
         items: list[dict[str, Any]] = []
         for dataset in datasets:
             name = str(dataset["name"])
-            manifests = await self._catalog.list_partitions(name)
+            manifests = await self._list_partitions(name)
             if not manifests:
                 items.append({"dataset": name, "status": "UNAVAILABLE"})
                 continue
@@ -98,7 +98,7 @@ class DashboardService:
 
         manifests = [
             item
-            for item in await self._catalog.list_partitions("eod")
+            for item in await self._list_partitions("eod")
             if item.partition.get("exchange", "").upper() == normalized_exchange
             and item.partition.get("code")
         ]
@@ -246,7 +246,7 @@ class DashboardService:
     ) -> DashboardSnapshot:
         manifests = [
             item
-            for item in await self._catalog.list_partitions("signals")
+            for item in await self._list_partitions("signals")
             if item.status == "READY"
             and item.partition.get("strategy") == "trend_momentum_v1"
             and item.partition.get("timeframe") == "1d"
@@ -330,6 +330,18 @@ class DashboardService:
             available_exchanges=available_exchanges,
             selected_exchange=normalized_exchange,
         )
+
+    async def _list_partitions(self, dataset: str) -> list[Any]:
+        page = await self._catalog.list_partitions(
+            dataset,
+            limit=self._settings.dashboard_max_partitions + 1,
+        )
+        items = page.get("items")
+        if not isinstance(items, list):
+            raise DashboardUnavailableError(
+                f"Invalid metadata partition page for {dataset}"
+            )
+        return items
 
 
 def _manifest_effective_date(manifest: Any) -> str | None:

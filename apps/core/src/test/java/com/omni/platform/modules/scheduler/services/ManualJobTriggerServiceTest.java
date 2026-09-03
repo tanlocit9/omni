@@ -140,6 +140,7 @@ class ManualJobTriggerServiceTest {
                 .isInstanceOf(JobOperationException.class).hasMessageContaining("identity");
         assertThatThrownBy(() -> service.trigger(definition.getId(), "alice", request("bad key")))
                 .isInstanceOf(JobOperationException.class).hasMessageContaining("unsupported");
+        when(definitions.findById(definition.getId())).thenReturn(Optional.of(definition));
         assertThatThrownBy(() -> service.trigger(definition.getId(), "alice",
                 new ManualTriggerRequest("valid-key", "reason", Map.of("force", true))))
                 .isInstanceOf(JobOperationException.class).hasMessageContaining("does not accept");

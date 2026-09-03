@@ -75,10 +75,10 @@ requests diagnosis. Read only the minimum roadmap sections needed for the update
   [`docs/data/001-kafka-contracts.md`](docs/data/001-kafka-contracts.md) together.
 - Kafka business messages carry logical dataset references, never physical object
   paths. Storage builders use [`configs/shared/s3-paths.yaml`](configs/shared/s3-paths.yaml).
-- Dataset writers publish validated data, then an immutable version manifest, then
-  replace `READY.json` last. Failures preserve the previous READY pointer.
-- Dataset dependencies use manifests and `dataVersion` lineage; cron gaps are not
-  dependency guarantees.
+- Dataset producers write and validate Parquet only. `SYNC_METADATA` is the sole
+  writer of the canonical `_metadata/metadata.json` discovery document.
+- Dataset dependencies use global metadata and exact `dataVersion` lineage; cron
+  gaps are not dependency guarantees.
 - Reusable Python behavior belongs in [`libs/py-common`](libs/py-common), canonical
   language-neutral contracts in [`libs/contracts`](libs/contracts), and
   application-specific behavior in its owner.

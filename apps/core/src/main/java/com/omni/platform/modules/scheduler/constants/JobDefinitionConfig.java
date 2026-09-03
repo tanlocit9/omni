@@ -24,9 +24,12 @@ public class JobDefinitionConfig {
         // ==========================================
         private static final String CRON_18_45_WEEKDAYS = "0 45 18 * * MON-FRI";
         private static final String CRON_19_00_WEEKDAYS = "0 0 19 * * MON-FRI";
+        private static final String CRON_19_05_WEEKDAYS = "0 5 19 * * MON-FRI";
         private static final String CRON_19_15_WEEKDAYS = "0 15 19 * * MON-FRI";
         private static final String CRON_19_30_WEEKDAYS = "0 30 19 * * MON-FRI";
         private static final String CRON_19_45_WEEKDAYS = "0 45 19 * * MON-FRI";
+        private static final String CRON_19_50_WEEKDAYS = "0 50 19 * * MON-FRI";
+        private static final String CRON_20_00_WEEKDAYS = "0 0 20 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
         private static final int SYNC_STOCK_PRICE_START_HOUR = 18;
         private static final int SYNC_STOCK_PRICE_START_MINUTE = 0;
@@ -139,7 +142,7 @@ public class JobDefinitionConfig {
         private static final List<JobDefinitionSeed> SYNC_SIGNALS_SEEDS = List.of(
                         signalSeed("Sync market signals", CRON_19_00_WEEKDAYS,
                                         SIGNAL_STRATEGY_TREND_MOMENTUM_V1),
-                        signalSeed("Sync Ichimoku signals", "0 5 19 * * MON-FRI",
+                        signalSeed("Sync Ichimoku signals", CRON_19_05_WEEKDAYS,
                                         SIGNAL_STRATEGY_ICHIMOKU_V1));
 
         private static final List<JobDefinitionSeed> EVALUATE_SIGNALS_SEEDS = List.of(
@@ -202,7 +205,7 @@ public class JobDefinitionConfig {
                                         List.of(),
                                         JobType.SECTOR_ROTATION_BACKTEST,
                                         "Run Sector Wave rotation backtest - daily",
-                                        "0 50 19 * * MON-FRI",
+                                        CRON_19_50_WEEKDAYS,
                                         configWithDependencies(
                                                         Map.of(CONFIG_KEY_SECTOR_LEVEL, 2,
                                                                         CONFIG_KEY_SECTOR_CODES,
@@ -251,17 +254,16 @@ public class JobDefinitionConfig {
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_MINUTE,
                         SECTOR_TRANSITION_STEP_MINUTES);
 
-        // Automatic EOD metadata reconciliation. The cron remains stable so the
-        // seeder updates the existing definition instead of creating a duplicate.
+        // Full metadata synchronization after the daily data-producing window.
         private static final List<JobDefinitionSeed> SYNC_METADATA_SEEDS = List.of(
                         new JobDefinitionSeed(
                                         DataSource.ANALYZER,
                                         List.of(),
                                         JobType.SYNC_METADATA,
-                                        "Sync EOD dataset metadata",
-                                        "0 0 20 * * MON-FRI",
+                                        "Synchronize global dataset metadata",
+                                        CRON_20_00_WEEKDAYS,
                                         configWithDependencies(
-                                                        Map.of("metadataType", "EOD"),
+                                                        Map.of(),
                                                         List.of(),
                                                         List.of(),
                                                         List.of())));

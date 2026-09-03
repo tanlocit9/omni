@@ -66,7 +66,6 @@ async def test_ingestor_routing_service_dispatches_stock_price_topic():
     service._status_publisher = object()
     service._default_client = object()
     service._parquet_storage = object()
-    service._manifest_writer = object()
     service._settings = settings
     message = SimpleNamespace(
         topic="topic-sync-stock-prices",
@@ -95,6 +94,5 @@ async def test_ingestor_routing_service_dispatches_stock_price_topic():
         service._status_publisher,
         service._default_client,
         service._parquet_storage,
-        service._manifest_writer,
     )
     symbol_handler.assert_not_awaited()

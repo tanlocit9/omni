@@ -61,9 +61,6 @@ public class ManualJobTriggerService {
         }
         String reason = required(request.reason(), "reason", 500);
         Map<String, Object> parameters = request.parameters() == null ? Map.of() : Map.copyOf(request.parameters());
-        if (!parameters.isEmpty()) {
-            throw invalid("This job catalog does not accept runtime parameters");
-        }
 
         Optional<ManualJobTrigger> duplicate = triggerRepository.findByActorAndIdempotencyKey(actor, key);
         if (duplicate.isPresent()) {
@@ -71,6 +68,7 @@ public class ManualJobTriggerService {
         }
 
         JobDefinition initial = findDefinition(definitionId);
+        Map<String, Object> target = validateParameters(initial, parameters);
         ManualJobTrigger audit = new ManualJobTrigger();
         audit.setJobDefinition(initial);
         audit.setActor(actor);
@@ -115,12 +113,14 @@ public class ManualJobTriggerService {
                     claim,
                     Instant.now(),
                     guardResult.approvedInputVersions(),
-                    Map.of("trigger", Map.of(
-                            "kind", "MANUAL",
-                            "requestId", audit.getId().toString(),
-                            "actor", actor,
-                            "reason", reason,
-                            "idempotencyKey", key)));
+                    Map.of(
+                            "trigger", Map.of(
+                                    "kind", "MANUAL",
+                                    "requestId", audit.getId().toString(),
+                                    "actor", actor,
+                                    "reason", reason,
+                                    "idempotencyKey", key),
+                            "metadataTarget", target));
             audit.setExecutionId(executionId);
             return resolve(audit, ManualTriggerState.ACCEPTED, null, null);
         } catch (JobOperationException exception) {
@@ -187,6 +187,43 @@ public class ManualJobTriggerService {
                 JobOperationsCatalogService.sanitize(trigger.getBlockReason()),
                 JobOperationsCatalogService.sanitize(trigger.getError()),
                 trigger.getRequestedAt(), trigger.getResolvedAt());
+    }
+
+    private static Map<String, Object> validateParameters(
+            JobDefinition definition, Map<String, Object> parameters) {
+        if (definition.getJobType() != JobDefinition.JobType.SYNC_METADATA) {
+            if (!parameters.isEmpty()) {
+                throw invalid("This job does not accept runtime parameters");
+            }
+            return Map.of();
+        }
+        if (parameters.isEmpty()) {
+            return Map.of();
+        }
+        if (!parameters.keySet().equals(parameters.containsKey("partition")
+                ? java.util.Set.of("dataset", "partition")
+                : java.util.Set.of("dataset"))) {
+            throw invalid("Metadata synchronization accepts only dataset and partition");
+        }
+        String dataset = required(String.valueOf(parameters.get("dataset")), "dataset", 64).toLowerCase();
+        Map<String, java.util.Set<String>> keys = Map.of(
+                "eod", java.util.Set.of("exchange", "code"),
+                "indicators", java.util.Set.of("source", "timeframe", "exchange", "code"),
+                "signals", java.util.Set.of("strategy", "timeframe", "exchange"));
+        if (!keys.containsKey(dataset)) {
+            throw invalid("Unsupported metadata dataset");
+        }
+        if (!parameters.containsKey("partition")) {
+            return Map.of("dataset", dataset);
+        }
+        if (!(parameters.get("partition") instanceof Map<?, ?> raw)
+                || !raw.keySet().equals(keys.get(dataset))) {
+            throw invalid("Metadata partition keys are incomplete or unsupported");
+        }
+        Map<String, String> partition = new java.util.LinkedHashMap<>();
+        raw.forEach((key, value) -> partition.put(
+                String.valueOf(key), required(String.valueOf(value), "partition value", 256).toLowerCase()));
+        return Map.of("dataset", dataset, "partition", partition);
     }
 
     private static String required(String value, String name, int maxLength) {

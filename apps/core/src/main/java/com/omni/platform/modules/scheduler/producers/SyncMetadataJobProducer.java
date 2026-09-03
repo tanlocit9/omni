@@ -44,9 +44,13 @@ public class SyncMetadataJobProducer extends JobProducer {
             JobExecutionHistory jobExecutionHistory,
             Instant timestamps) {
         Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
-        String metadataType = config.containsKey("metadataType")
-                ? config.get("metadataType").toString()
-                : "EOD";
+        Map<String, Object> target = null;
+        if (jobExecutionHistory.getMetaJson() != null
+                && jobExecutionHistory.getMetaJson().get("metadataTarget") instanceof Map<?, ?> raw
+                && !raw.isEmpty()) {
+            target = raw.entrySet().stream().collect(java.util.stream.Collectors.toMap(
+                    entry -> String.valueOf(entry.getKey()), Map.Entry::getValue));
+        }
 
         SyncMetadataJobMessage message = new SyncMetadataJobMessage(
                 job.getId(),
@@ -55,7 +59,7 @@ public class SyncMetadataJobProducer extends JobProducer {
                 job.getSource().toString(),
                 WorkType.GLOBAL,
                 job.getJobType().name(),
-                metadataType,
+                target,
                 config);
         return List.of(new KafkaMessage("metadata", message));
     }

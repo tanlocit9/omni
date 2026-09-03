@@ -10,7 +10,6 @@ from py_common.messaging import JobStatusPublisher
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.exceptions import StorageValidationError
-from py_common.storage.manifest import ManifestWriter
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
@@ -34,7 +33,6 @@ class IngestorKafkaRoutingService:
         self._status_publisher: JobStatusPublisher | None = None
         self._default_client: StockClient | None = None
         self._parquet_storage: ParquetStorage | None = None
-        self._manifest_writer: ManifestWriter | None = None
 
     async def run(self) -> None:
         logger.info(
@@ -55,7 +53,6 @@ class IngestorKafkaRoutingService:
             "ingestor",
         )
         self._parquet_storage = await self._create_parquet_storage()
-        self._manifest_writer = await self._create_manifest_writer()
 
         try:
             logger.info("Ingestor waiting for Kafka messages")
@@ -140,15 +137,6 @@ class IngestorKafkaRoutingService:
             bucket=self._settings.minio.bucket,
         )
 
-    async def _create_manifest_writer(self) -> ManifestWriter:
-        registry = create_storage_registry(self._settings)
-        logger.info("Ingestor manifest writer initialized")
-        return ManifestWriter(
-            registry=registry,
-            provider=StorageProvider.MINIO,
-            bucket=self._settings.minio.bucket,
-        )
-
     async def _route_message(self, msg) -> None:
         assert self._producer is not None
         assert self._status_publisher is not None
@@ -177,7 +165,6 @@ class IngestorKafkaRoutingService:
             self._status_publisher,
             self._default_client,
             self._parquet_storage,
-            self._manifest_writer,
         )
 
 

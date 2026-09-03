@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
+from py_common.storage.exceptions import ManifestInvalidError
 
 from app.dashboard import DashboardService, DashboardUnavailableError
 from app.manager import QueryManager, QueryNotFoundError, QueryNotReadyError
@@ -51,14 +51,48 @@ def _require_actor(actor: str | None) -> str:
 
 
 @router.get("/datasets")
-async def list_datasets(request: Request) -> list[dict[str, str | None]]:
-    return await _catalog(request).list_datasets()
+async def list_datasets(request: Request) -> list[dict[str, Any]]:
+    try:
+        return await _catalog(request).list_datasets()
+    except ManifestInvalidError:
+        return []
 
 
 @router.get("/datasets/{dataset}/partitions")
-async def list_partitions(request: Request, dataset: str) -> list[dict]:
-    manifests = await _catalog(request).list_partitions(dataset)
-    return jsonable_encoder([asdict(item) for item in manifests])
+async def list_partitions(
+    request: Request, dataset: str, offset: int = 0, limit: int = 200
+) -> dict[str, Any]:
+    if offset < 0 or limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="Invalid pagination bounds")
+    try:
+        return await _catalog(request).list_partitions(
+            dataset, offset=offset, limit=limit
+        )
+    except ManifestInvalidError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/datasets/{dataset}/partition-options/{key}")
+async def list_partition_options(
+    request: Request, dataset: str, key: str, limit: int = 200
+) -> list[Any]:
+    if limit < 1 or limit > 500:
+        raise HTTPException(status_code=400, detail="Invalid option limit")
+    filters = {
+        name.removeprefix("filter."): value
+        for name, value in request.query_params.multi_items()
+        if name.startswith("filter.")
+    }
+    try:
+        return await _catalog(request).list_partition_options(
+            dataset, key, filters, limit=limit
+        )
+    except ManifestInvalidError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post(
@@ -126,7 +160,7 @@ async def dashboard_freshness(
     _require_actor(actor)
     try:
         payload = await _dashboard(request).freshness()
-    except DashboardUnavailableError as exc:
+    except (DashboardUnavailableError, ManifestInvalidError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return DashboardFreshnessResponse.model_validate(payload)
 
@@ -140,7 +174,7 @@ async def dashboard_market_breadth(
     _require_actor(actor)
     try:
         snapshot = await _dashboard(request).eod_snapshot(exchange)
-    except DashboardUnavailableError as exc:
+    except (DashboardUnavailableError, ManifestInvalidError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     advancing = declining = unchanged = 0
     for row in snapshot.rows:
@@ -181,7 +215,7 @@ async def dashboard_top_movers(
         )
     try:
         snapshot = await _dashboard(request).eod_snapshot(exchange)
-    except DashboardUnavailableError as exc:
+    except (DashboardUnavailableError, ManifestInvalidError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     bounded_limit = min(limit, _dashboard(request).max_movers)
     movers = []
@@ -232,7 +266,7 @@ async def dashboard_ichimoku_signals(
     _require_actor(actor)
     try:
         snapshot = await _dashboard(request).latest_ichimoku_signals(exchange, limit)
-    except DashboardUnavailableError as exc:
+    except (DashboardUnavailableError, ManifestInvalidError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     rows = [
         IchimokuSignalRow(
@@ -267,7 +301,7 @@ async def dashboard_signal_history(
     _require_actor(actor)
     try:
         snapshot = await _dashboard(request).signal_history(exchange, symbol, limit)
-    except DashboardUnavailableError as exc:
+    except (DashboardUnavailableError, ManifestInvalidError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     rows = [
         SignalHistoryRow(

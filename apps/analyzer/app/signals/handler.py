@@ -7,12 +7,7 @@ from py_common.storage.exceptions import (
     ManifestInvalidError,
     StorageObjectNotFoundError,
 )
-from py_common.storage.manifest import (
-    DatasetInput,
-    ManifestReader,
-    ManifestWriter,
-    publish_dataset_manifest,
-)
+from py_common.storage.global_metadata import GlobalMetadataReader
 from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
@@ -37,13 +32,11 @@ class SignalJobHandler:
         self,
         settings: AppSettings,
         parquet_storage: ParquetStorage,
-        manifest_reader: ManifestReader | None = None,
-        manifest_writer: ManifestWriter | None = None,
+        metadata_reader: GlobalMetadataReader,
     ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
-        self._manifest_reader = manifest_reader
-        self._manifest_writer = manifest_writer
+        self._metadata_reader = metadata_reader
         self._signal_repository = SignalHistoryRepository(parquet_storage)
 
     async def handle(self, payload: dict[str, Any]) -> SignalTransition:
@@ -84,19 +77,18 @@ class SignalJobHandler:
             eod_path,
             indicators_path,
         )
-        eod_manifest = None
-        indicator_manifest = None
-        if self._manifest_reader is not None:
-            eod_manifest = await self._manifest_reader.read_manifest(
-                "eod", eod_partition
-            )
-            indicator_manifest = await self._manifest_reader.read_manifest(
-                "indicators", indicator_partition
-            )
-            if eod_manifest.status != "READY" or indicator_manifest.status != "READY":
-                raise ManifestInvalidError("Signal inputs must have READY manifests")
-            eod_path = eod_manifest.path
-            indicators_path = indicator_manifest.path
+        document = await self._metadata_reader.read()
+        eod_manifest = document.resolve("eod", eod_partition)
+        indicator_manifest = document.resolve("indicators", indicator_partition)
+        if (
+            eod_manifest is None
+            or indicator_manifest is None
+            or eod_manifest.status != "READY"
+            or indicator_manifest.status != "READY"
+        ):
+            raise ManifestInvalidError("Signal inputs must have READY metadata")
+        eod_path = eod_manifest.path
+        indicators_path = indicator_manifest.path
 
         eod_frame = await self._parquet_storage.read_dataframe(eod_path)
         try:
@@ -131,25 +123,6 @@ class SignalJobHandler:
             else:
                 raise ValueError(f"Unsupported signal strategy: {message.strategy}")
 
-        async def publish_manifest(history_frame, write_result) -> None:
-            if self._manifest_writer is None:
-                return
-            await publish_dataset_manifest(
-                writer=self._manifest_writer,
-                dataset="signals",
-                partition={
-                    "strategy": message.strategy.lower(),
-                    "timeframe": message.timeframe,
-                    "exchange": exchange.lower(),
-                },
-                data_path=history_path,
-                dataframe=history_frame,
-                object_checksums=[(write_result.object_name, write_result.checksum)],
-                inputs=self._lineage_inputs(history_frame),
-                execution_id=str(message.execution_id),
-                total_bytes=write_result.total_bytes,
-            )
-
         return await self._signal_repository.persist_transition(
             history_path,
             current_path,
@@ -157,38 +130,6 @@ class SignalJobHandler:
             message.timeframe,
             result,
             exchange=exchange,
-            eod_data_version=eod_manifest.dataVersion if eod_manifest else None,
-            indicators_data_version=(
-                indicator_manifest.dataVersion if indicator_manifest else None
-            ),
-            after_persist=publish_manifest,
+            eod_data_version=eod_manifest.dataVersion,
+            indicators_data_version=indicator_manifest.dataVersion,
         )
-
-    @staticmethod
-    def _lineage_inputs(history_frame) -> list[DatasetInput]:
-        inputs: dict[tuple[str, tuple[tuple[str, str], ...], str], DatasetInput] = {}
-        for row in history_frame.to_dict("records"):
-            symbol_parts = str(row["symbol_key"]).split("-", maxsplit=1)
-            if len(symbol_parts) != 2:
-                continue
-            exchange, code = (part.lower() for part in symbol_parts)
-            partitions = {
-                "eod": {"exchange": exchange, "code": code},
-                "indicators": {
-                    "source": "ad_close",
-                    "timeframe": str(row["timeframe"]),
-                    "exchange": exchange,
-                    "code": code,
-                },
-            }
-            for dataset, version_column in (
-                ("eod", "eod_data_version"),
-                ("indicators", "indicators_data_version"),
-            ):
-                version = row.get(version_column)
-                if not isinstance(version, str) or not version:
-                    continue
-                item = DatasetInput(dataset, partitions[dataset], version)
-                key = (dataset, tuple(item.partition.items()), version)
-                inputs[key] = item
-        return list(inputs.values())

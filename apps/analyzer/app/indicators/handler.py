@@ -4,12 +4,7 @@ import logging
 from typing import Any
 
 from py_common.storage.exceptions import ManifestInvalidError
-from py_common.storage.manifest import (
-    DatasetInput,
-    ManifestReader,
-    ManifestWriter,
-    publish_dataset_manifest,
-)
+from py_common.storage.global_metadata import GlobalMetadataReader
 from py_common.storage.parquet import ParquetStorage
 
 from app.calculations.indicators import calculate_supported_indicators
@@ -26,13 +21,11 @@ class IndicatorJobHandler:
         self,
         settings: AppSettings,
         parquet_storage: ParquetStorage,
-        manifest_reader: ManifestReader,
-        manifest_writer: ManifestWriter,
+        metadata_reader: GlobalMetadataReader,
     ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
-        self._manifest_reader = manifest_reader
-        self._manifest_writer = manifest_writer
+        self._metadata_reader = metadata_reader
 
     async def handle(self, payload: dict[str, Any]) -> int:
         message = IndicatorJobMessage.model_validate(payload)
@@ -40,11 +33,13 @@ class IndicatorJobHandler:
         exchange = raw_exchange.lower()
         code = raw_code.lower()
         eod_partition = {"exchange": exchange, "code": code}
-        eod_manifest = await self._manifest_reader.read_manifest("eod", eod_partition)
-        if eod_manifest.status != "READY":
+        document = await self._metadata_reader.read()
+        eod_manifest = document.resolve("eod", eod_partition)
+        if eod_manifest is None or eod_manifest.status != "READY":
+            status = eod_manifest.status if eod_manifest is not None else "MISSING"
             raise ManifestInvalidError(
-                "EOD manifest must be READY for "
-                f"exchange={exchange} code={code}; status={eod_manifest.status}"
+                "EOD metadata must be READY for "
+                f"exchange={exchange} code={code}; status={status}"
             )
 
         indicators_path = self._build_indicators_path(
@@ -69,36 +64,11 @@ class IndicatorJobHandler:
             message.indicators,
             self._settings.scheduler,
         )
-        write_result = await self._parquet_storage.write_dataframe(
-            indicators_path, result
-        )
-
-        await publish_dataset_manifest(
-            writer=self._manifest_writer,
-            dataset="indicators",
-            partition={
-                "source": message.indicator_source,
-                "timeframe": message.timeframe,
-                "exchange": exchange,
-                "code": code,
-            },
-            data_path=indicators_path,
-            dataframe=result,
-            object_checksums=[
-                (write_result.object_name, write_result.checksum),
-            ],
-            inputs=[
-                DatasetInput(
-                    dataset="eod",
-                    partition=eod_partition,
-                    dataVersion=eod_manifest.dataVersion,
-                )
-            ],
-            object_count=1,
-            total_bytes=write_result.total_bytes,
-        )
+        result = result.copy()
+        result["eod_data_version"] = eod_manifest.dataVersion
+        await self._parquet_storage.write_dataframe(indicators_path, result)
         _logger.info(
-            "Published manifest for indicators partition source=%s timeframe=%s "
+            "Persisted indicators partition source=%s timeframe=%s "
             "exchange=%s code=%s eodDataVersion=%s",
             message.indicator_source,
             message.timeframe,

@@ -1,8 +1,8 @@
 # Telegram Notification Format Modernization Implementation Plan
 
-Status: Proposed Phase 8 follow-up; not yet roadmap-scheduled
-Canonical status owner: [`plans/roadmap/README.md`](../../plans/roadmap/README.md)
-Relationship: extends presentation and delivery safety after multi-channel routing; does not replace Phase 8 routing scope
+Status: Scheduled supporting detail for P8-I1, P8-I2, and P8-I3
+Canonical status owner: [`plans/roadmap/implementation-increments.md`](../../plans/roadmap/implementation-increments.md)
+Relationship: integrated into Phase 8; P8-I1 owns shared infrastructure plus operational/generic formats, P8-I2 owns immediate/digest signal formats, and P8-I3 owns delivery hardening/rollout
 
 ## Goal
 
@@ -508,6 +508,14 @@ No direct algorithm feature output. This increment presents existing signal deci
 ## Algorithms Unlocked
 
 No new algorithm is unlocked. The implementation makes existing algorithm outputs safer and easier to monitor and reduces the risk of losing alerts because Telegram rejects malformed messages.
+
+## Roadmap Increment Allocation
+
+- **P8-I1 — Operational and generic formats:** freeze shared contracts; add `NotificationKind`, HTML safety, block-aware budgeting, deterministic value/metadata formatting, timezone and sound policies; implement operational, job-lifecycle, and generic/manual renderers with golden tests.
+- **P8-I2 — Signal formats:** build on P8-I1 infrastructure to implement immediate BUY/SELL/HOLD and signal-digest renderers, structured signal template data, budget-based digest inclusion, and exact signal golden tests without changing Analyzer calculations or Kafka/Proto3 contracts.
+- **P8-I3 — Delivery hardening and rollout:** integrate all renderers into Telegram delivery, preserve routing/deduplication, add retry and observability behavior, synchronize configuration/docs, and perform owner-authorized non-production manual verification.
+
+Each increment must remain independently reviewable. P8-I1 must not include signal-specific renderers, P8-I2 must not add delivery retries/provider behavior, and P8-I3 must not redesign notification meaning or layouts except to repair an attributable integration defect.
 
 ## Implementation Sequence
 

@@ -2,52 +2,84 @@
 
 ## Goal
 
-Evolve the existing single Telegram target into template-based, recipient-aware routing without coupling job aggregation to delivery providers.
+Modernize Telegram operational and signal notifications with typed classification, safe purpose-specific rendering, recipient-aware routing, and reliable delivery without coupling job aggregation to delivery providers.
 
-## Increment P8-I1 — Typed operation/signal routes and notification templates
+Owner-approved execution exception (2026-09-04): execute P8-I1, P8-I2, and P8-I3 ahead of P2-I2/P2-I3. Existing internal Java notification events and `NotificationRequest` remain the boundary for Phase 8; this phase must not change Kafka or Proto3 contracts. If a renderer requires a semantic field unavailable at that boundary, stop and return the contract change to Phase 2 rather than parsing display text or expanding the exception.
 
-| Field                   | Value                                                    |
-| ----------------------- | -------------------------------------------------------- |
-| id                      | P8-I1                                                    |
-| title                   | Typed operation/signal routes and notification templates |
-| status                  | pending                                                  |
-| priority                | medium                                                   |
-| depends_on              | [P1-I4, P2-I3]                                           |
-| blocks                  | [P8-I2]                                                  |
-| owned_modules           | [apps/core, configs]                                     |
-| execution_mode          | autonomous                                               |
-| requires_owner_decision | false                                                    |
-| pr                      | null                                                     |
-| last_verified_commit    | null                                                     |
+## Increment P8-I1 — Operational and generic Telegram notification formats
 
-Goal: separate domain events, notification policy, templates, and delivery routing.
+| Field                   | Value                                                 |
+| ----------------------- | ----------------------------------------------------- |
+| id                      | P8-I1                                                 |
+| title                   | Operational and generic Telegram notification formats |
+| status                  | ready                                                 |
+| priority                | critical                                              |
+| depends_on              | [P1-I4]                                               |
+| blocks                  | [P8-I2, P8-I3]                                        |
+| owned_modules           | [apps/core, configs, docs/plans]                      |
+| execution_mode          | autonomous                                            |
+| requires_owner_decision | false                                                 |
+| pr                      | null                                                  |
+| last_verified_commit    | null                                                  |
 
-Acceptance criteria: operational events and signal digests resolve to explicit routes, templates validate required variables, domain publishers do not contain Telegram chat IDs, and missing route behavior is deliberate and tested.
+Goal: establish shared safe Telegram rendering and modernize operational, job-lifecycle, generic, and manual notification formats without changing signal presentation.
 
-Required tests/checks: routing config validation, template variable tests, event-to-route tests, and Core Nx checks.
+Scope: add transport-neutral notification classification, a renderer registry, HTML escaping, block-aware length budgeting, deterministic value and metadata formatting, the `Asia/Bangkok` display-time default, severity-aware sound policy, operational/job renderers, and a safe generic/manual fallback. Preserve existing operations/signals destination resolution, deduplication identity, and listener transaction semantics. Detailed presentation rules are in [`docs/plans/012-telegram-notification-format-modernization.md`](../../docs/plans/012-telegram-notification-format-modernization.md).
 
-Stop conditions: stop if channel taxonomy or default-route fallback semantics are owner decisions.
+Acceptance criteria: every operational, job-lifecycle, generic, and manual request resolves to an explicit kind and renderer; dynamic content is escaped exactly once; output contains valid complete HTML within Telegram's 4,096-character limit; operational metadata is selected and ordered deliberately; sensitive generic metadata is filtered; operational errors are audible by default while informational notifications remain silent; and domain publishers contain no Telegram markup or chat IDs.
 
-## Increment P8-I2 — Delivery adapters, retries, idempotency, and provider migration
+Required tests/checks: classification/template tests; exact golden operational/job/generic renderer tests; escaping, Unicode, metadata-filtering, timezone, sound-policy, and 4,096-boundary tests; routing and deduplication regressions; mocked HTTP payload tests; and Core Nx test/build/format checks.
 
-| Field                   | Value                                                           |
-| ----------------------- | --------------------------------------------------------------- |
-| id                      | P8-I2                                                           |
-| title                   | Delivery adapters, retries, idempotency, and provider migration |
-| status                  | pending                                                         |
-| priority                | medium                                                          |
-| depends_on              | [P8-I1]                                                         |
-| blocks                  | []                                                              |
-| owned_modules           | [apps/core, configs, docs/flows]                                |
-| execution_mode          | autonomous                                                      |
-| requires_owner_decision | false                                                           |
-| pr                      | null                                                            |
-| last_verified_commit    | null                                                            |
+Stop conditions: stop if implementation needs a Kafka/Proto3 field, requires title/message parsing for classification, changes deduplication identity, includes signal-specific renderers, or needs live credentials.
 
-Goal: add provider adapters and reliable delivery semantics without changing job execution status.
+## Increment P8-I2 — Immediate and digest signal notification formats
 
-Acceptance criteria: duplicate terminal events do not duplicate deliveries, provider failures are retryable and observable, exhausted deliveries record failure/dead-letter state, provider message IDs are tracked, and Telegram remains compatible during migration.
+| Field                   | Value                                            |
+| ----------------------- | ------------------------------------------------ |
+| id                      | P8-I2                                            |
+| title                   | Immediate and digest signal notification formats |
+| status                  | pending                                          |
+| priority                | critical                                         |
+| depends_on              | [P8-I1]                                          |
+| blocks                  | [P8-I3]                                          |
+| owned_modules           | [apps/core, configs, docs/plans]                 |
+| execution_mode          | autonomous                                       |
+| requires_owner_decision | false                                            |
+| pr                      | null                                             |
+| last_verified_commit    | null                                             |
 
-Required tests/checks: idempotency tests, retryability tests, provider adapter tests with secrets mocked, and affected Nx checks.
+Goal: modernize immediate signal-change and signal-digest presentation using the shared rendering infrastructure established by P8-I1.
 
-Stop conditions: stop if provider credentials or live provider access are required.
+Scope: add explicit immediate-signal and signal-digest kinds, update signal templates to provide structured values available from the current internal boundary, implement BUY/SELL/HOLD/unknown layouts, deterministic price/score/date/reason formatting, budget-based digest item inclusion, and accurate omitted-item summaries. Preserve Analyzer calculations, signal event semantics, the SIGNALS destination, digest `AFTER_COMMIT` handling, deduplication identity, and silent signal delivery.
+
+Acceptance criteria: immediate and digest signal events select distinct renderers without parsing title/message text; symbol and transition are primary; strategy/timeframe and optional values are presented consistently; unknown or malformed values degrade safely; digest entries are included only as complete blocks; original and omitted counts remain accurate; all values are escaped; every payload remains valid and within Telegram's limit; and failed signal-processing jobs continue to route to OPERATIONS rather than SIGNALS.
+
+Required tests/checks: signal template/classification tests; exact BUY, SELL, HOLD, unknown, and digest golden tests; price/score/date/reason fallback tests; oversized digest and omission-count tests; escaping and Unicode boundaries; listener channel and `AFTER_COMMIT` regression tests; exact mocked Telegram payload tests; and Core Nx test/build/format checks.
+
+Stop conditions: stop if a required semantic value is absent from the current Java event/request boundary, if implementation would parse pre-rendered prose, alter Analyzer calculations, change Kafka/Proto3 contracts, or introduce delivery retry/provider behavior owned by P8-I3.
+
+## Increment P8-I3 — Telegram delivery safety, retries, idempotency, and rollout
+
+| Field                   | Value                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| id                      | P8-I3                                                       |
+| title                   | Telegram delivery safety, retries, idempotency, and rollout |
+| status                  | pending                                                     |
+| priority                | critical                                                    |
+| depends_on              | [P8-I1, P8-I2]                                              |
+| blocks                  | []                                                          |
+| owned_modules           | [apps/core, configs, docs/flows]                            |
+| execution_mode          | autonomous                                                  |
+| requires_owner_decision | false                                                       |
+| pr                      | null                                                        |
+| last_verified_commit    | null                                                        |
+
+Goal: harden Telegram delivery and complete a controlled rollout without changing job execution status or adding another transport.
+
+Scope: integrate all operational and signal renderer output into delivery, preserve channel isolation and cooldown semantics, add retry/observability behavior where absent, synchronize configuration and documentation, and verify representative operational and signal messages in non-production Telegram destinations. Additional providers remain future scope.
+
+Acceptance criteria: duplicate terminal events do not duplicate deliveries; provider failures are retryable and observable; exhausted deliveries record a deliberate failure/dead-letter outcome where supported; rendered content is not logged; Telegram API payloads use fixed HTML and correct sound behavior; operations/signals destinations remain isolated; and representative plus oversized messages pass manual desktop/mobile verification.
+
+Required tests/checks: idempotency, retryability, mocked Telegram adapter, exact HTTP payload, channel isolation, configuration binding, affected Nx checks, and owner-authorized manual Telegram verification.
+
+Stop conditions: stop before manual verification if non-production bot/chat credentials are unavailable; never use production credentials merely to satisfy completion evidence.

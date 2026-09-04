@@ -67,7 +67,7 @@ Stop conditions: stop if a boundary lacks a clear producer and consumer owner or
 | status                  | pending                                                            |
 | priority                | high                                                               |
 | depends_on              | [P2-I2]                                                            |
-| blocks                  | [P6-I1, P8-I1]                                                     |
+| blocks                  | [P6-I1]                                                            |
 | owned_modules           | [apps/core, apps/analyzer, apps/ingestor, configs]                 |
 | execution_mode          | approval_required                                                  |
 | requires_owner_decision | true                                                               |
@@ -75,6 +75,8 @@ Stop conditions: stop if a boundary lacks a clear producer and consumer owner or
 | last_verified_commit    | null                                                               |
 
 Goal: migrate one high-value boundary using dual-read consumers before producer switch.
+
+Phase 8 exception: on 2026-09-04 the owner removed P8-I1 from this increment's blocked set so Telegram formatting, routing, and signal presentation can run first. Phase 8 must preserve existing internal Java notification events/requests and must not change Kafka or Proto3 contracts. Discovery of a missing cross-service semantic field is a stop condition and must be handled by P2-I2/P2-I3 rather than inferred from display text.
 
 Acceptance criteria: consumers accept legacy JSON and Proto3, one producer switches after compatibility tests, metrics show decode/validation failures and duplicate deliveries, rollback thresholds are defined, and legacy removal is tracked but not premature.
 

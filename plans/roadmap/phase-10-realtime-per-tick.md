@@ -6,11 +6,13 @@ Add live processing only after the intraday batch vocabulary and EOD reconciliat
 
 ## Increment P10-I1 — Tick contract and ingestion
 
+MVP decision (2026-09-05): all Phase 10 increments are deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Realtime processing requires a future product decision after the daily/EOD MVP.
+
 | Field                   | Value                       |
 | ----------------------- | --------------------------- |
 | id                      | P10-I1                      |
 | title                   | Tick contract and ingestion |
-| status                  | pending                     |
+| status                  | superseded                  |
 | priority                | low                         |
 | depends_on              | [P9-I3, P2-I3]              |
 | blocks                  | [P10-I2]                    |
@@ -34,7 +36,7 @@ Stop conditions: stop if provider tick guarantees are unknown or conditional fie
 | ----------------------- | ---------------------------------------------------- |
 | id                      | P10-I2                                               |
 | title                   | Live bars, features, archive, and EOD reconciliation |
-| status                  | pending                                              |
+| status                  | superseded                                           |
 | priority                | low                                                  |
 | depends_on              | [P10-I1, P9-I2]                                      |
 | blocks                  | []                                                   |

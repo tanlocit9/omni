@@ -6,11 +6,13 @@ Introduce post-close intraday processing with the same contract, manifest, linea
 
 ## Increment P9-I1 — Post-close intraday ingestion contracts and normalization
 
+MVP decision (2026-09-05): all Phase 9 increments are deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). The active product boundary remains daily/EOD processing.
+
 | Field                   | Value                                                     |
 | ----------------------- | --------------------------------------------------------- |
 | id                      | P9-I1                                                     |
 | title                   | Post-close intraday ingestion contracts and normalization |
-| status                  | pending                                                   |
+| status                  | superseded                                                |
 | priority                | medium                                                    |
 | depends_on              | [P2-I3, P3-I3, P5-I2]                                     |
 | blocks                  | [P9-I2]                                                   |
@@ -34,7 +36,7 @@ Stop conditions: stop if provider data semantics or session calendar ownership i
 | ----------------------- | ----------------------------------------------- |
 | id                      | P9-I2                                           |
 | title                   | Intraday bars, reusable features, and manifests |
-| status                  | pending                                         |
+| status                  | superseded                                      |
 | priority                | medium                                          |
 | depends_on              | [P9-I1]                                         |
 | blocks                  | [P9-I3, P10-I2]                                 |
@@ -58,7 +60,7 @@ Stop conditions: stop if feature naming conflicts with [`docs/reference/001-algo
 | ----------------------- | ------------------------------------------ |
 | id                      | P9-I3                                      |
 | title                   | Sector aggregation and lineage publication |
-| status                  | pending                                    |
+| status                  | superseded                                 |
 | priority                | medium                                     |
 | depends_on              | [P9-I2, P1-I3]                             |
 | blocks                  | [P10-I1]                                   |

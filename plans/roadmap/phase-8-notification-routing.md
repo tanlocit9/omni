@@ -64,11 +64,13 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 req
 
 ## Increment P8-I3 — Telegram delivery safety, retries, idempotency, and rollout
 
+MVP decision (2026-09-05): this entire increment is deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Existing delivery safeguards remain in place, but automation must not select retries, distributed idempotency, dead-letter handling, observability expansion, or live rollout without a new owner decision.
+
 | Field                   | Value                                                       |
 | ----------------------- | ----------------------------------------------------------- |
 | id                      | P8-I3                                                       |
 | title                   | Telegram delivery safety, retries, idempotency, and rollout |
-| status                  | pending                                                     |
+| status                  | superseded                                                  |
 | priority                | critical                                                    |
 | depends_on              | [P8-I1, P8-I2]                                              |
 | blocks                  | []                                                          |

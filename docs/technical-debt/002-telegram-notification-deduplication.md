@@ -1,5 +1,9 @@
 # Telegram Notification Deduplication Technical Debt
 
+## MVP Status
+
+This debt is part of the owner-approved post-MVP deferral recorded in [`004-post-mvp-roadmap-work.md`](004-post-mvp-roadmap-work.md). The existing in-memory cooldown remains the MVP baseline. Distributed admission, durable counters, delivery retries, dead-letter outcomes, and rollout hardening must not be selected without a new owner decision or a safety-triggering production defect.
+
 ## Current Decision
 
 The platform applies an in-memory cooldown before Telegram delivery. The key combines notification type, severity, and a normalized title. Retained messages are sent with Telegram's `disable_notification=true`, and the next retained message reports how many repeats were suppressed during the previous cooldown interval.

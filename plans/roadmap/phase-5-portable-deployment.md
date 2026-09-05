@@ -6,11 +6,13 @@ Turn existing container and Compose assets into reproducible local/shared deploy
 
 ## Increment P5-I1 — Image hardening and configuration contracts
 
+MVP decision (2026-09-05): all Phase 5 increments are deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md) until a concrete deployment target is selected. Existing deployment assets and safeguards remain intact.
+
 | Field                   | Value                                                     |
 | ----------------------- | --------------------------------------------------------- |
 | id                      | P5-I1                                                     |
 | title                   | Image hardening and configuration contracts               |
-| status                  | ready                                                     |
+| status                  | superseded                                                |
 | priority                | high                                                      |
 | depends_on              | [P1-I2]                                                   |
 | blocks                  | [P5-I2, P6-I3]                                            |
@@ -34,7 +36,7 @@ Stop conditions: stop if deployment target architecture or required environment 
 | ----------------------- | ------------------------------------------------------------- |
 | id                      | P5-I2                                                         |
 | title                   | Compose profiles and centralized object storage compatibility |
-| status                  | pending                                                       |
+| status                  | superseded                                                    |
 | priority                | high                                                          |
 | depends_on              | [P4-I2, P5-I1]                                                |
 | blocks                  | [P5-I3, P6-I1]                                                |
@@ -58,7 +60,7 @@ Stop conditions: owner must approve shared storage provider assumptions, credent
 | ----------------------- | -------------------------------------------------------- |
 | id                      | P5-I3                                                    |
 | title                   | Backup/restore rehearsal and immutable image publication |
-| status                  | pending                                                  |
+| status                  | superseded                                               |
 | priority                | medium                                                   |
 | depends_on              | [P5-I2]                                                  |
 | blocks                  | [P6-I4]                                                  |

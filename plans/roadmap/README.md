@@ -118,7 +118,9 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Current focused execution plan
 
-[`plans/omni-metadata-console-dashboard-execution-plan.md`](../omni-metadata-console-dashboard-execution-plan.md) is the canonical gated sequence for Query Service, Omni Console Dataset Explorer/Viewer, SQL Console, the fixed Market Dashboard, and Force Precompute date semantics. It does not reorder unrelated roadmap phases globally. P3-I5 now implements automatic EOD metadata reconciliation through the existing scheduler/manual trigger; canonical scope is in [`phase-3-dataset-manifests.md`](phase-3-dataset-manifests.md#increment-p3-i5--automatic-eod-metadata-reconciliation).
+The active MVP is the existing daily/EOD pipeline plus usable Telegram operational and signal notifications and basic Phase 7 operator controls. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because they directly support that boundary. There is no additional feature increment selected after those gates.
+
+The previous Query Service, Dataset Explorer, SQL Console, Dashboard, and metadata expansion plan is deferred with other post-MVP work in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Existing source and historical evidence remain valid, but deferred increments are not eligible for automation.
 
 ## Supporting plan inventory
 
@@ -132,7 +134,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 | [`docs/plans/006-internal-tools-parquet-viewer.md`](../../docs/plans/006-internal-tools-parquet-viewer.md)                           | Compatibility pointer             | Canonical execution is the focused Omni Console plan                                 |
 | [`docs/plans/010-dataset-component-market-dashboard.md`](../../docs/plans/010-dataset-component-market-dashboard.md)                 | P6-I4 supporting detail           | Canonical fixed Market Dashboard scope is scheduled as P6-I4                         |
 | [`docs/plans/007-telegram-multi-channel.md`](../../docs/plans/007-telegram-multi-channel.md)                                         | Supporting detail                 | Phase 8 routing increments                                                           |
-| [`docs/plans/012-telegram-notification-format-modernization.md`](../../docs/plans/012-telegram-notification-format-modernization.md) | Scheduled Phase 8 detail          | P8-I1 operational/generic formats, P8-I2 signal formats, and P8-I3 delivery/rollout  |
+| [`docs/plans/012-telegram-notification-format-modernization.md`](../../docs/plans/012-telegram-notification-format-modernization.md) | Scheduled/deferred Phase 8 detail | P8-I1 operational/generic formats, P8-I2 signal formats; P8-I3 is technical debt     |
 | [`docs/plans/011-cross-service-observability-correlation.md`](../../docs/plans/011-cross-service-observability-correlation.md)       | Proposed cross-cutting plan       | Not roadmap-scheduled; assign dependencies/increment IDs before selection            |
 | [`docs/plans/008-intraday-eod.md`](../../docs/plans/008-intraday-eod.md)                                                             | Supporting detail                 | Phase 9 increments                                                                   |
 | [`docs/plans/009-realtime-per-tick.md`](../../docs/plans/009-realtime-per-tick.md)                                                   | Supporting detail                 | Phase 10 increments                                                                  |
@@ -141,7 +143,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Selection summary
 
-P8-I1 is the first eligible increment and owns operational plus generic/manual Telegram formats. P8-I2 then owns immediate and digest signal formats, and P8-I3 owns delivery hardening and rollout. On 2026-09-04 the owner prioritized all three Phase 8 increments ahead of P2-I2 and explicitly removed P2-I3 as a prerequisite. Phase 8 must preserve current internal Java notification events/requests and cannot alter Kafka or Proto3 contracts; a missing semantic field is a stop condition that returns contract work to Phase 2. P1-I4 and P3-I4 are completed with exact-head CI evidence on draft PR #16, which remains unmerged for owner review. P1-I3 and P3-I5 remain `verification_pending`; P3-I1 remains blocked by failed historical CI; Phase 7 remains completed.
+P8-I1 and P8-I2 are the active notification evidence gates, and P1-I3 may finish reconciliation for the daily/EOD pipeline. P8-I3 and all unfinished Proto3 migration, advanced manifest/metadata, portable-deployment hardening, Console/query polish, intraday, and realtime increments are `superseded` for MVP scheduling and recorded in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Automation must not select deferred work without a new owner decision. Completed work and existing safety controls remain unchanged.
 
 Automation must not select approval-required or manual work until the owner resolves the recorded decision or access need.
 

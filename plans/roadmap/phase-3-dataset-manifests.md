@@ -38,11 +38,13 @@ Exact dataset versions and upstream lineage make reproducible analysis, stale-in
 
 ## Increment P3-I1 — Manifest models, identity rules, and py_common abstractions
 
+MVP decision (2026-09-05): P3-I1, P3-I2, P3-I3, and P3-I5 are deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). P3-I4 remains completed because its date-contract correction protects the retained daily/EOD pipeline. Existing implementation and verification evidence is historical and must not be discarded.
+
 | Field                   | Value                                                       |
 | ----------------------- | ----------------------------------------------------------- |
 | id                      | P3-I1                                                       |
 | title                   | Manifest models, identity rules, and py_common abstractions |
-| status                  | blocked                                                     |
+| status                  | superseded                                                  |
 | priority                | critical                                                    |
 | depends_on              | [P1-I2]                                                     |
 | blocks                  | [P3-I2, P4-I1, P6-I1, P9-I1]                                |
@@ -68,7 +70,7 @@ Stop conditions: stop if object path ownership or JSON-vs-Proto persistence boun
 | ----------------------- | ------------------------------------------------ |
 | id                      | P3-I2                                            |
 | title                   | First Ingestor READY manifest and failure safety |
-| status                  | pending                                          |
+| status                  | superseded                                       |
 | priority                | critical                                         |
 | depends_on              | [P3-I1, P2-I2]                                   |
 | blocks                  | [P3-I3, P4-I1]                                   |
@@ -94,7 +96,7 @@ Stop conditions: stop if the first dataset family or object-store test backend i
 | ----------------------- | ----------------------------------------------------------- |
 | id                      | P3-I3                                                       |
 | title                   | Java read-only manifest client and first Analyzer migration |
-| status                  | pending                                                     |
+| status                  | superseded                                                  |
 | priority                | high                                                        |
 | depends_on              | [P3-I2, P1-I3]                                              |
 | blocks                  | [P4-I1, P6-I1]                                              |
@@ -161,7 +163,7 @@ change becomes necessary.
 | ----------------------- | ----------------------------------------------------------------- |
 | id                      | P3-I5                                                             |
 | title                   | Automatic EOD metadata reconciliation                             |
-| status                  | verification_pending                                              |
+| status                  | superseded                                                        |
 | priority                | high                                                              |
 | depends_on              | [P3-I1, P7-I2]                                                    |
 | blocks                  | []                                                                |

@@ -36,11 +36,13 @@ Stop conditions: stop if package ownership, field numbering, or compatibility ba
 
 ## Increment P2-I2 — Generated Java/Python adapters and golden fixtures
 
+MVP decision (2026-09-05): P2-I2 and P2-I3 are deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). The current daily/EOD JSON boundary remains the MVP baseline; automation must not resume migration without a new owner decision.
+
 | Field                   | Value                                                                     |
 | ----------------------- | ------------------------------------------------------------------------- |
 | id                      | P2-I2                                                                     |
 | title                   | Generated Java/Python adapters and golden fixtures                        |
-| status                  | pending                                                                   |
+| status                  | superseded                                                                |
 | priority                | critical                                                                  |
 | depends_on              | [P2-I1, P1-I4]                                                            |
 | blocks                  | [P2-I3, P3-I2]                                                            |
@@ -64,7 +66,7 @@ Stop conditions: stop if a boundary lacks a clear producer and consumer owner or
 | ----------------------- | ------------------------------------------------------------------ |
 | id                      | P2-I3                                                              |
 | title                   | Pilot dual-read migration, producer switch, and observation window |
-| status                  | pending                                                            |
+| status                  | superseded                                                         |
 | priority                | high                                                               |
 | depends_on              | [P2-I2]                                                            |
 | blocks                  | [P6-I1]                                                            |

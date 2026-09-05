@@ -55,6 +55,8 @@ Allowed execution modes:
 
 ## Selection rules
 
+The active MVP boundary is the existing daily/EOD pipeline, usable Telegram operational and signal notifications, and basic operator controls. Work marked `superseded` by the 2026-09-05 MVP audit is tracked in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md) and cannot be selected without a new owner decision. Correctness, data-loss, credential, and unsafe-operation defects remain eligible MVP work even when related hardening is deferred.
+
 1. Continue an `in_progress` increment that has an existing draft PR.
 2. Continue a `verification_pending` increment whose implementation exists but CI or review is incomplete.
 3. Otherwise select the highest-priority `ready` increment whose dependencies are `completed`.

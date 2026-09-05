@@ -1,8 +1,8 @@
 # Telegram Notification Format Modernization Implementation Plan
 
-Status: Scheduled supporting detail for P8-I1, P8-I2, and P8-I3
+Status: Scheduled supporting detail for P8-I1 and P8-I2; P8-I3 is deferred technical debt
 Canonical status owner: [`plans/roadmap/implementation-increments.md`](../../plans/roadmap/implementation-increments.md)
-Relationship: integrated into Phase 8; P8-I1 owns shared infrastructure plus operational/generic formats, P8-I2 owns immediate/digest signal formats, and P8-I3 owns delivery hardening/rollout
+Relationship: integrated into Phase 8; P8-I1 owns shared infrastructure plus operational/generic formats, P8-I2 owns immediate/digest signal formats, and P8-I3 delivery hardening/rollout is tracked in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md)
 
 ## Goal
 
@@ -513,7 +513,7 @@ No new algorithm is unlocked. The implementation makes existing algorithm output
 
 - **P8-I1 — Operational and generic formats:** freeze shared contracts; add `NotificationKind`, HTML safety, block-aware budgeting, deterministic value/metadata formatting, timezone and sound policies; implement operational, job-lifecycle, and generic/manual renderers with golden tests.
 - **P8-I2 — Signal formats:** build on P8-I1 infrastructure to implement immediate BUY/SELL/HOLD and signal-digest renderers, structured signal template data, budget-based digest inclusion, and exact signal golden tests without changing Analyzer calculations or Kafka/Proto3 contracts.
-- **P8-I3 — Delivery hardening and rollout:** integrate all renderers into Telegram delivery, preserve routing/deduplication, add retry and observability behavior, synchronize configuration/docs, and perform owner-authorized non-production manual verification.
+- **P8-I3 — Deferred technical debt:** delivery retries, distributed idempotency, dead-letter outcomes, observability expansion, configuration/rollout work, and non-production manual verification require a new owner decision after MVP.
 
 Each increment must remain independently reviewable. P8-I1 must not include signal-specific renderers, P8-I2 must not add delivery retries/provider behavior, and P8-I3 must not redesign notification meaning or layouts except to repair an attributable integration defect.
 

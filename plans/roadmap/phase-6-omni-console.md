@@ -18,15 +18,17 @@ without exposing object-storage credentials or physical paths to the browser.
 
 ## P6-I1 — Query Service
 
-| Field                   | Value                |
-| ----------------------- | -------------------- |
-| id                      | P6-I1                |
-| status                  | verification_pending |
-| depends_on              | [P3-I3, P5-I2]       |
-| execution_mode          | autonomous           |
-| requires_owner_decision | false                |
-| pr                      | null                 |
-| last_verified_commit    | 5ecb6c2              |
+MVP decision (2026-09-05): all Phase 6 increments are deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Basic operator controls remain owned by completed Phase 7; existing merged Query Service and Console source is retained without active completion work.
+
+| Field                   | Value          |
+| ----------------------- | -------------- |
+| id                      | P6-I1          |
+| status                  | superseded     |
+| depends_on              | [P3-I3, P5-I2] |
+| execution_mode          | autonomous     |
+| requires_owner_decision | false          |
+| pr                      | null           |
+| last_verified_commit    | 5ecb6c2        |
 
 Build read-only APIs for catalog, READY partitions, query submission/status,
 cancellation, JSON results, and Arrow IPC results.
@@ -45,15 +47,15 @@ Acceptance criteria:
 
 ## P6-I2 — Dataset Explorer and Viewer
 
-| Field                   | Value                |
-| ----------------------- | -------------------- |
-| id                      | P6-I2                |
-| status                  | verification_pending |
-| depends_on              | [P6-I1]              |
-| execution_mode          | autonomous           |
-| requires_owner_decision | false                |
-| pr                      | null                 |
-| last_verified_commit    | 5ecb6c2              |
+| Field                   | Value      |
+| ----------------------- | ---------- |
+| id                      | P6-I2      |
+| status                  | superseded |
+| depends_on              | [P6-I1]    |
+| execution_mode          | autonomous |
+| requires_owner_decision | false      |
+| pr                      | null       |
+| last_verified_commit    | 5ecb6c2    |
 
 Scaffold `apps/omni-console`, browse dataset/partition/schema/status/version/size
 metadata, and generate bounded server-side preview queries with filter, sort,
@@ -70,15 +72,15 @@ Acceptance criteria:
 
 ## P6-I3 — SQL Console
 
-| Field                   | Value                |
-| ----------------------- | -------------------- |
-| id                      | P6-I3                |
-| status                  | verification_pending |
-| depends_on              | [P6-I2]              |
-| execution_mode          | autonomous           |
-| requires_owner_decision | false                |
-| pr                      | null                 |
-| last_verified_commit    | 5ecb6c2              |
+| Field                   | Value      |
+| ----------------------- | ---------- |
+| id                      | P6-I3      |
+| status                  | superseded |
+| depends_on              | [P6-I2]    |
+| execution_mode          | autonomous |
+| requires_owner_decision | false      |
+| pr                      | null       |
+| last_verified_commit    | 5ecb6c2    |
 
 Add Monaco editing, schema completion, run/cancel/rerun, Arrow result display,
 bounded local history, and limited CSV export.
@@ -101,7 +103,7 @@ Acceptance criteria:
 | Field                   | Value      |
 | ----------------------- | ---------- |
 | id                      | P6-I4      |
-| status                  | pending    |
+| status                  | superseded |
 | depends_on              | [P6-I3]    |
 | execution_mode          | autonomous |
 | requires_owner_decision | false      |

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,9 +23,13 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.dtos.NotificationChannel;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalChangedContent;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
 import com.omni.platform.modules.notifications.services.NotificationService;
 import com.omni.platform.modules.notifications.events.SignalDigestItem;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
@@ -83,6 +88,28 @@ class NotificationEventListenerTest {
     }
 
     @Test
+    void onSignalChangedNotificationRemainsImmediateAsyncAndCarriesTypedContent() throws NoSuchMethodException {
+        SignalChangedNotificationEvent event = new SignalChangedNotificationEvent(
+                UUID.randomUUID(), UUID.randomUUID(), "SET:PTT", "HOLD", "BUY", 34.75,
+                "2026-08-29", List.of("RSI_OVERSOLD"), 0.91, "momentum-v1", "1d",
+                Instant.parse("2026-08-29T08:30:00Z"), Map.of());
+
+        listener().onSignalChangedNotification(event);
+
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationService).send(captor.capture());
+        NotificationRequest request = captor.getValue();
+        assertThat(request.channel()).isEqualTo(NotificationChannel.SIGNALS);
+        assertThat(request.kind()).isEqualTo(NotificationKind.SIGNAL_CHANGED);
+        assertThat(request.structuredContent()).isInstanceOf(SignalChangedContent.class);
+        Method method = NotificationEventListener.class.getDeclaredMethod(
+                "onSignalChangedNotification", SignalChangedNotificationEvent.class);
+        assertThat(method.isAnnotationPresent(Async.class)).isTrue();
+        assertThat(method.isAnnotationPresent(org.springframework.context.event.EventListener.class)).isTrue();
+        assertThat(method.isAnnotationPresent(TransactionalEventListener.class)).isFalse();
+    }
+
+    @Test
     void onSignalDigestNotificationRendersAndSendsSignalNotificationOnce() {
         SignalDigestNotificationEvent event = signalDigestEvent();
         var listener = listener();
@@ -94,7 +121,9 @@ class NotificationEventListenerTest {
         verifyNoMoreInteractions(notificationService);
 
         NotificationRequest request = captor.getValue();
+        assertThat(request.channel()).isEqualTo(NotificationChannel.SIGNALS);
         assertThat(request.type()).isEqualTo(NotificationType.SIGNAL);
+        assertThat(request.kind()).isEqualTo(NotificationKind.SIGNAL_DIGEST);
         assertThat(request.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(request.title()).isEqualTo("Market signal changes: Sync market signals - daily BANKS");
         assertThat(request.message()).contains("1 signal change(s) detected");

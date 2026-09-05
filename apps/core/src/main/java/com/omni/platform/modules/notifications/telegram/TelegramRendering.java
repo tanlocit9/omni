@@ -1,10 +1,13 @@
 package com.omni.platform.modules.notifications.telegram;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -20,8 +23,10 @@ import com.omni.platform.modules.notifications.configs.TelegramNotificationPrope
 import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalChangedContent;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalDigestContent;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalDigestEntry;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
-import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 
 public final class TelegramRendering {
 
@@ -49,7 +54,8 @@ public final class TelegramRendering {
             ZoneId displayZone = properties.resolvedDisplayTimeZone();
             this.renderers = List.of(
                     new OperationalRenderer(displayZone),
-                    new LegacySignalRenderer(),
+                    new SignalChangedRenderer(displayZone),
+                    new SignalDigestRenderer(displayZone),
                     new GenericRenderer());
             this.soundPolicy = new SoundPolicy(properties.resolvedAudibleOperationalErrors());
         }
@@ -163,20 +169,89 @@ public final class TelegramRendering {
         }
     }
 
-    /** Keeps pre-P8 signal presentation until P8-I2 supplies purpose-specific renderers. */
-    static final class LegacySignalRenderer implements Renderer {
+    static final class SignalChangedRenderer implements Renderer {
+        private final ZoneId displayZone;
+
+        SignalChangedRenderer(ZoneId displayZone) {
+            this.displayZone = displayZone;
+        }
+
         @Override
         public boolean supports(NotificationRequest request) {
-            return request.type() == NotificationType.SIGNAL && request.kind() != NotificationKind.MANUAL_GENERIC;
+            return request.kind() == NotificationKind.SIGNAL_CHANGED;
         }
 
         @Override
         public String render(NotificationRequest request, long suppressedCount) {
+            if (!(request.structuredContent() instanceof SignalChangedContent signal)) {
+                throw new IllegalArgumentException("SIGNAL_CHANGED requires SignalChangedContent");
+            }
+            SignalStyle style = signalStyle(signal.newSignal());
             Builder builder = new Builder();
-            builder.required("<b>" + Html.escape(String.valueOf(request.severity())) + "</b> - <b>"
-                    + Html.escape(bound(request.title(), 320, "Untitled notification")) + "</b>");
-            builder.optional(escapedBound(request.message(), 3_200));
+            builder.required(style.marker() + " <b>" + Html.escape(style.label()) + " · "
+                    + Html.escape(bound(signal.symbolKey(), 120, "Unknown symbol")) + "</b>");
+            builder.optional(subtitle(signal.strategy(), signal.timeframe()));
+            List<String> details = new ArrayList<>();
+            details.add("<b>Price:</b> " + formatNumber(signal.price()));
+            details.add("<b>Signal:</b> " + Html.escape(signalName(signal.previousSignal(), "BASELINE"))
+                    + " → " + Html.escape(signalName(signal.newSignal(), "UNKNOWN")));
+            details.add("<b>Score:</b> " + formatScore(signal.score()));
+            details.add("<b>Date:</b> " + formatDate(signal.signalDate()));
+            details.add("<b>Reasons:</b> " + formatReasons(signal.reasonCodes()));
+            builder.optional(String.join("\n", details));
+            builder.optional(updated(signal.createdAt(), displayZone));
             builder.optional(suppression(suppressedCount));
+            return builder.build();
+        }
+    }
+
+    static final class SignalDigestRenderer implements Renderer {
+        private static final int ABSOLUTE_ITEM_CAP = 100;
+        private final ZoneId displayZone;
+
+        SignalDigestRenderer(ZoneId displayZone) {
+            this.displayZone = displayZone;
+        }
+
+        @Override
+        public boolean supports(NotificationRequest request) {
+            return request.kind() == NotificationKind.SIGNAL_DIGEST;
+        }
+
+        @Override
+        public String render(NotificationRequest request, long suppressedCount) {
+            if (!(request.structuredContent() instanceof SignalDigestContent digest)) {
+                throw new IllegalArgumentException("SIGNAL_DIGEST requires SignalDigestContent");
+            }
+            List<SignalDigestEntry> items = digest.items() == null ? List.of() : digest.items();
+            int total = Math.max(0, digest.changedCount());
+            String header = "📊 <b>" + total + " signal " + (total == 1 ? "change" : "changes")
+                    + subtitleInline(digest.strategy(), digest.timeframe()) + "</b>";
+            String suppression = suppression(suppressedCount);
+            int shown = 0;
+            List<String> blocks = new ArrayList<>();
+            int candidates = Math.min(Math.min(items.size(), total), ABSOLUTE_ITEM_CAP);
+            for (int index = 0; index < candidates; index++) {
+                SignalDigestEntry item = items.get(index);
+                if (item == null) {
+                    continue;
+                }
+                String block = digestItem(item);
+                int proposedShown = shown + 1;
+                String footer = digestFooter(proposedShown, total, digest.createdAt(), displayZone);
+                int length = joinedLength(header, blocks, block, footer, suppression);
+                if (length > MAX_MESSAGE_LENGTH) {
+                    break;
+                }
+                blocks.add(block);
+                shown = proposedShown;
+            }
+            String footer = digestFooter(shown, total, digest.createdAt(), displayZone);
+            Builder builder = new Builder();
+            builder.required(header);
+            blocks.forEach(builder::optional);
+            builder.required(footer);
+            builder.optional(suppression);
             return builder.build();
         }
     }
@@ -189,7 +264,8 @@ public final class TelegramRendering {
 
         @Override
         public boolean supports(NotificationRequest request) {
-            return true;
+            return request.kind() != NotificationKind.SIGNAL_CHANGED
+                    && request.kind() != NotificationKind.SIGNAL_DIGEST;
         }
 
         @Override
@@ -261,6 +337,141 @@ public final class TelegramRendering {
             String greaterThan = "&" + "gt;";
             return value.replace("&", ampersand).replace("<", lessThan).replace(">", greaterThan);
         }
+    }
+
+    private static String subtitle(String strategy, String timeframe) {
+        List<String> values = new ArrayList<>();
+        if (strategy != null && !strategy.isBlank()) {
+            values.add(Html.escape(bound(strategy, 100, "")));
+        }
+        if (timeframe != null && !timeframe.isBlank()) {
+            values.add(Html.escape(bound(timeframe.toUpperCase(Locale.ROOT), 30, "")));
+        }
+        return values.isEmpty() ? null : String.join(" · ", values);
+    }
+
+    private static String subtitleInline(String strategy, String timeframe) {
+        String value = subtitle(strategy, timeframe);
+        return value == null ? "" : " · " + value;
+    }
+
+    private static SignalStyle signalStyle(String source) {
+        String normalized = signalName(source, "UNKNOWN");
+        return switch (normalized) {
+            case "BUY", "BULLISH" -> new SignalStyle("🟢", normalized);
+            case "SELL", "BEARISH" -> new SignalStyle("🔴", normalized);
+            case "HOLD", "NEUTRAL" -> new SignalStyle("⚪", normalized);
+            default -> new SignalStyle("⚪", "UNKNOWN");
+        };
+    }
+
+    private static String signalName(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : bound(value.trim().toUpperCase(Locale.ROOT), 40, fallback);
+    }
+
+    private static String formatNumber(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return "n/a";
+        }
+        try {
+            BigDecimal decimal = new BigDecimal(String.valueOf(value));
+            NumberFormat format = NumberFormat.getNumberInstance(Locale.ENGLISH);
+            format.setGroupingUsed(true);
+            format.setMinimumFractionDigits(0);
+            format.setMaximumFractionDigits(4);
+            format.setRoundingMode(RoundingMode.HALF_UP);
+            return format.format(decimal);
+        } catch (RuntimeException ignored) {
+            return Html.escape(bound(String.valueOf(value), 80, "n/a"));
+        }
+    }
+
+    private static String formatScore(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return "n/a";
+        }
+        try {
+            BigDecimal decimal = new BigDecimal(String.valueOf(value)).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
+            return decimal.toPlainString();
+        } catch (RuntimeException ignored) {
+            return "n/a";
+        }
+    }
+
+    private static String formatDate(String value) {
+        if (value == null || value.isBlank()) {
+            return "n/a";
+        }
+        try {
+            return DateTimeFormatter.ofPattern("dd MMM uuuu", Locale.ENGLISH).format(LocalDate.parse(value));
+        } catch (DateTimeParseException ignored) {
+            return Html.escape(bound(value, 80, "n/a"));
+        }
+    }
+
+    private static String formatReasons(List<String> reasons) {
+        if (reasons == null || reasons.isEmpty()) {
+            return "n/a";
+        }
+        List<String> values = reasons.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .limit(5)
+                .map(value -> Html.escape(bound(value, 60, "")))
+                .toList();
+        String result = values.isEmpty() ? "n/a" : String.join(", ", values);
+        if (reasons.stream().filter(value -> value != null && !value.isBlank()).count() > values.size()) {
+            result += ", ...";
+        }
+        return result;
+    }
+
+    private static String updated(Instant instant, ZoneId zone) {
+        return instant == null ? null : "<i>Updated "
+                + DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH).withZone(zone).format(instant) + "</i>";
+    }
+
+    private static String digestItem(SignalDigestEntry item) {
+        SignalStyle style = signalStyle(item.newSignal());
+        String strategy = subtitle(item.strategy(), item.timeframe());
+        StringBuilder block = new StringBuilder(style.marker()).append(" <b>")
+                .append(Html.escape(bound(item.symbolKey(), 120, "Unknown symbol"))).append("</b>  ")
+                .append(Html.escape(signalName(item.previousSignal(), "BASELINE"))).append(" → ")
+                .append(Html.escape(signalName(item.newSignal(), "UNKNOWN"))).append("  @ ")
+                .append(formatNumber(item.price()));
+        if (strategy != null) {
+            block.append("\n").append(strategy);
+        }
+        String date = formatDate(item.signalDate());
+        String score = formatScore(item.score());
+        String reasons = formatReasons(item.reasonCodes());
+        block.append("\n<b>Date:</b> ").append(date).append(" · <b>Score:</b> ").append(score)
+                .append("\n<b>Reasons:</b> ").append(reasons);
+        return block.toString();
+    }
+
+    private static String digestFooter(int shown, int total, Instant instant, ZoneId zone) {
+        int omitted = Math.max(0, total - shown);
+        String count = "Showing " + shown + " of " + total + " · " + omitted + " omitted";
+        String time = instant == null ? null
+                : DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH).withZone(zone).format(instant);
+        return "<i>" + count + (time == null ? "" : " · Updated " + time) + "</i>";
+    }
+
+    private static int joinedLength(String header, List<String> blocks, String candidate, String footer, String suppression) {
+        int length = header.length() + NEW_BLOCK.length() + footer.length();
+        for (String block : blocks) {
+            length += NEW_BLOCK.length() + block.length();
+        }
+        if (candidate != null) {
+            length += NEW_BLOCK.length() + candidate.length();
+        }
+        if (suppression != null) {
+            length += NEW_BLOCK.length() + suppression.length();
+        }
+        return length;
+    }
+
+    private record SignalStyle(String marker, String label) {
     }
 
     private static String escapedBound(String value, int maxCodePoints) {

@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,10 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import com.omni.platform.modules.notifications.configs.TelegramNotificationProperties;
+import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalChangedContent;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.telegram.TelegramRendering.Registry;
@@ -72,11 +76,36 @@ class TelegramNotificationServiceTest {
         TelegramNotificationService service = service(true, builder, Clock.systemUTC());
 
         service.send(new NotificationRequest(
+                NotificationChannel.OPERATIONS,
                 NotificationType.OPERATIONAL,
+                NotificationKind.OPERATIONAL_GENERIC,
                 NotificationSeverity.INFO,
                 "Consumer ready",
                 "Ready",
-                Map.of()));
+                Map.of(),
+                null));
+
+        server.verify();
+    }
+
+    @Test
+    void sendDeliversExactSilentSignalPayloadToSignalsDestination() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
+                .andExpect(content().string(containsString("\"chat_id\":\"signals-chat\"")))
+                .andExpect(content().string(containsString("\"parse_mode\":\"HTML\"")))
+                .andExpect(content().string(containsString("\"disable_notification\":true")))
+                .andExpect(content().string(containsString("🟢 <b>BUY · SET:PTT</b>")))
+                .andExpect(content().string(not(containsString("\"chat_id\":\"chat\""))))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        NotificationRequest request = new NotificationRequest(
+                NotificationChannel.SIGNALS, NotificationType.SIGNAL, NotificationKind.SIGNAL_CHANGED,
+                NotificationSeverity.INFO, "Signal changed: SET:PTT", "HOLD -> BUY", Map.of(), "signal-id",
+                new SignalChangedContent("SET:PTT", "HOLD", "BUY", 34.75, "2026-08-29", 0.91,
+                        List.of("RSI_OVERSOLD"), "momentum-v1", "1d", Instant.parse("2026-08-29T08:30:00Z")));
+
+        service(true, builder, Clock.systemUTC()).send(request);
 
         server.verify();
     }
@@ -142,12 +171,21 @@ class TelegramNotificationServiceTest {
     }
 
     private NotificationRequest request(NotificationType type, String title, String message) {
+        NotificationChannel channel = type == NotificationType.OPERATIONAL
+                ? NotificationChannel.OPERATIONS
+                : NotificationChannel.SIGNALS;
+        NotificationKind kind = type == NotificationType.OPERATIONAL
+                ? NotificationKind.OPERATIONAL_GENERIC
+                : NotificationKind.MANUAL_GENERIC;
         return new NotificationRequest(
+                channel,
                 type,
+                kind,
                 NotificationSeverity.ERROR,
                 title,
                 message,
-                Map.of("topic", "topic-sync-job-status"));
+                Map.of("topic", "topic-sync-job-status"),
+                null);
     }
 
     private static final class MutableClock extends Clock {

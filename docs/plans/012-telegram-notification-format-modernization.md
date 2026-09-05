@@ -165,7 +165,7 @@ SIGNAL_DIGEST
 MANUAL_GENERIC
 ```
 
-Preferred implementation: add a transport-neutral `NotificationKind` field to `NotificationRequest`, with a backward-compatible default derived from type/severity. Update producers/templates to set an explicit kind. If changing the request record would create excessive churn, use a reserved metadata key such as `notificationKind` as an interim internal contract, then remove it from visible metadata. Do not classify by matching title/message strings.
+Owner decision for P8-I2: this internal request boundary uses a hard cutover with no backward compatibility. `NotificationRequest` callers must provide an explicit `NotificationKind`; `SIGNAL_CHANGED` and `SIGNAL_DIGEST` additionally require their matching structured content and reject missing or mismatched content. `MANUAL_GENERIC` remains the explicit canonical kind for manual signal API requests. Do not derive signal kinds from type/severity, route malformed canonical signal kinds to generic rendering, or classify by matching title/message strings.
 
 ## Shared Telegram Visual Grammar
 

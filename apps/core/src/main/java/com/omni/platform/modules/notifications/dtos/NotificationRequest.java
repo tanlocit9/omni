@@ -1,5 +1,7 @@
 package com.omni.platform.modules.notifications.dtos;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 public record NotificationRequest(
@@ -10,33 +12,37 @@ public record NotificationRequest(
         String title,
         String message,
         Map<String, Object> metadata,
-        String deduplicationKey) {
+        String deduplicationKey,
+        StructuredContent structuredContent) {
+
+    public NotificationRequest {
+        if (kind == null) {
+            throw new IllegalArgumentException("Notification kind is required");
+        }
+        if (kind == NotificationKind.SIGNAL_CHANGED && !(structuredContent instanceof SignalChangedContent)) {
+            throw new IllegalArgumentException("SIGNAL_CHANGED requires SignalChangedContent");
+        }
+        if (kind == NotificationKind.SIGNAL_DIGEST && !(structuredContent instanceof SignalDigestContent)) {
+            throw new IllegalArgumentException("SIGNAL_DIGEST requires SignalDigestContent");
+        }
+        if (kind != NotificationKind.SIGNAL_CHANGED && structuredContent instanceof SignalChangedContent) {
+            throw new IllegalArgumentException(kind + " does not accept SignalChangedContent");
+        }
+        if (kind != NotificationKind.SIGNAL_DIGEST && structuredContent instanceof SignalDigestContent) {
+            throw new IllegalArgumentException(kind + " does not accept SignalDigestContent");
+        }
+    }
 
     public NotificationRequest(
             NotificationChannel channel,
             NotificationType type,
+            NotificationKind kind,
             NotificationSeverity severity,
             String title,
             String message,
             Map<String, Object> metadata,
             String deduplicationKey) {
-        this(channel, type, defaultKind(type), severity, title, message, metadata, deduplicationKey);
-    }
-
-    public NotificationRequest(
-            NotificationType type,
-            NotificationSeverity severity,
-            String title,
-            String message,
-            Map<String, Object> metadata) {
-        this(type == NotificationType.OPERATIONAL ? NotificationChannel.OPERATIONS : NotificationChannel.SIGNALS,
-                type, defaultKind(type), severity, title, message, metadata, null);
-    }
-
-    private static NotificationKind defaultKind(NotificationType type) {
-        return type == NotificationType.OPERATIONAL
-                ? NotificationKind.OPERATIONAL_GENERIC
-                : NotificationKind.MANUAL_GENERIC;
+        this(channel, type, kind, severity, title, message, metadata, deduplicationKey, null);
     }
 
     public enum NotificationKind {
@@ -53,6 +59,42 @@ public record NotificationRequest(
     public enum NotificationType {
         OPERATIONAL,
         SIGNAL
+    }
+
+    public sealed interface StructuredContent permits SignalChangedContent, SignalDigestContent {
+    }
+
+    public record SignalChangedContent(
+            String symbolKey,
+            String previousSignal,
+            String newSignal,
+            Object price,
+            String signalDate,
+            Object score,
+            List<String> reasonCodes,
+            String strategy,
+            String timeframe,
+            Instant createdAt) implements StructuredContent {
+    }
+
+    public record SignalDigestContent(
+            String strategy,
+            String timeframe,
+            int changedCount,
+            List<SignalDigestEntry> items,
+            Instant createdAt) implements StructuredContent {
+    }
+
+    public record SignalDigestEntry(
+            String symbolKey,
+            String previousSignal,
+            String newSignal,
+            Object price,
+            String signalDate,
+            Object score,
+            List<String> reasonCodes,
+            String strategy,
+            String timeframe) {
     }
 
     public enum NotificationSeverity {

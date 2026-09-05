@@ -40,7 +40,7 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 req
 | ----------------------- | ------------------------------------------------ |
 | id                      | P8-I2                                            |
 | title                   | Immediate and digest signal notification formats |
-| status                  | pending                                          |
+| status                  | verification_pending                             |
 | priority                | critical                                         |
 | depends_on              | [P8-I1]                                          |
 | blocks                  | [P8-I3]                                          |
@@ -52,13 +52,15 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 req
 
 Goal: modernize immediate signal-change and signal-digest presentation using the shared rendering infrastructure established by P8-I1.
 
-Scope: add explicit immediate-signal and signal-digest kinds, update signal templates to provide structured values available from the current internal boundary, implement BUY/SELL/HOLD/unknown layouts, deterministic price/score/date/reason formatting, budget-based digest item inclusion, and accurate omitted-item summaries. Preserve Analyzer calculations, signal event semantics, the SIGNALS destination, digest `AFTER_COMMIT` handling, deduplication identity, and silent signal delivery.
+Scope: add explicit immediate-signal and signal-digest kinds, update signal templates to provide structured values available from the current internal boundary, implement BUY/SELL/HOLD/unknown layouts, deterministic price/score/date/reason formatting, budget-based digest item inclusion, and accurate omitted-item summaries. Apply the owner-approved hard cutover with no backward compatibility: remove implicit signal-kind construction and legacy signal rendering. Preserve Analyzer calculations, signal event semantics, the SIGNALS destination, digest `AFTER_COMMIT` handling, deduplication identity, and silent signal delivery.
 
-Acceptance criteria: immediate and digest signal events select distinct renderers without parsing title/message text; symbol and transition are primary; strategy/timeframe and optional values are presented consistently; unknown or malformed values degrade safely; digest entries are included only as complete blocks; original and omitted counts remain accurate; all values are escaped; every payload remains valid and within Telegram's limit; and failed signal-processing jobs continue to route to OPERATIONS rather than SIGNALS.
+Acceptance criteria: immediate and digest signal events select distinct renderers without parsing title/message text; canonical signal kinds require matching structured content and fail deterministically when it is missing or mismatched; malformed canonical signal kinds never route to generic rendering; explicit manual signal API requests remain `MANUAL_GENERIC`; symbol and transition are primary; strategy/timeframe and optional values are presented consistently; unknown semantic field values degrade safely; digest entries are included only as complete blocks; original and omitted counts remain accurate; all values are escaped; every valid payload remains within Telegram's limit; and failed signal-processing jobs continue to route to OPERATIONS rather than SIGNALS.
 
-Required tests/checks: signal template/classification tests; exact BUY, SELL, HOLD, unknown, and digest golden tests; price/score/date/reason fallback tests; oversized digest and omission-count tests; escaping and Unicode boundaries; listener channel and `AFTER_COMMIT` regression tests; exact mocked Telegram payload tests; and Core Nx test/build/format checks.
+Required tests/checks: signal template/classification tests; hard-cutover rejection tests for missing/mismatched content and removed implicit construction; exact BUY, SELL, HOLD, unknown, and digest golden tests; price/score/date/reason fallback tests; oversized digest and omission-count tests; escaping and Unicode boundaries; listener channel and `AFTER_COMMIT` regression tests; exact mocked Telegram payload tests; and Core Nx test/build/format checks.
 
 Stop conditions: stop if a required semantic value is absent from the current Java event/request boundary, if implementation would parse pre-rendered prose, alter Analyzer calculations, change Kafka/Proto3 contracts, or introduce delivery retry/provider behavior owned by P8-I3.
+
+Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and scoped Prettier checking of the three P8-I2 documentation files. Coverage includes typed signal-change/digest content, purpose-specific renderers, deterministic formatting, digest budgeting, hard-cutover rejection, templates, listeners, HTTP payloads, and deduplication regressions. Static inspection confirms no Kafka/Proto3 or Analyzer calculation changes. Status remains `verification_pending`; no commit, PR, CI, or live Telegram evidence is claimed.
 
 ## Increment P8-I3 — Telegram delivery safety, retries, idempotency, and rollout
 

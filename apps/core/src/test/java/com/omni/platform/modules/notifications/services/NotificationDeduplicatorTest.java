@@ -18,7 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 
+import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalChangedContent;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 
@@ -97,6 +100,25 @@ class NotificationDeduplicatorTest {
     }
 
     @Test
+    void explicitSignalIdentityIsUnaffectedByStructuredRenderingContent() {
+        NotificationDeduplicator deduplicator = new NotificationDeduplicator(
+                Duration.ofMinutes(5), 100, Clock.fixed(Instant.EPOCH, ZoneOffset.UTC));
+        NotificationRequest first = new NotificationRequest(
+                NotificationChannel.SIGNALS, NotificationType.SIGNAL, NotificationKind.SIGNAL_CHANGED,
+                NotificationSeverity.INFO, "old title", "old message", Map.of(), "stable-signal-id",
+                new SignalChangedContent("SET:PTT", "HOLD", "BUY", 34.75, "2026-08-29", 0.91,
+                        java.util.List.of("RSI_OVERSOLD"), "momentum", "1d", Instant.EPOCH));
+        NotificationRequest reformatted = new NotificationRequest(
+                NotificationChannel.SIGNALS, NotificationType.SIGNAL, NotificationKind.SIGNAL_CHANGED,
+                NotificationSeverity.INFO, "new title", "new message", Map.of(), "stable-signal-id",
+                new SignalChangedContent("SET:PTT", "HOLD", "BUY", 34.7500, "2026-08-29", 0.910,
+                        java.util.List.of("RSI_OVERSOLD"), "momentum", "1D", Instant.EPOCH));
+
+        assertTrue(deduplicator.admit(first).retained());
+        assertFalse(deduplicator.admit(reformatted).retained());
+    }
+
+    @Test
     void boundsCacheWithoutClearingCurrentEntry() {
         MutableClock clock = new MutableClock(Instant.EPOCH);
         NotificationDeduplicator deduplicator = new NotificationDeduplicator(Duration.ofMinutes(5), 2, clock);
@@ -110,7 +132,13 @@ class NotificationDeduplicatorTest {
     }
 
     private NotificationRequest request(NotificationType type, NotificationSeverity severity, String title) {
-        return new NotificationRequest(type, severity, title, "message", Map.of());
+        NotificationChannel channel = type == NotificationType.OPERATIONAL
+                ? NotificationChannel.OPERATIONS
+                : NotificationChannel.SIGNALS;
+        NotificationKind kind = type == NotificationType.OPERATIONAL
+                ? NotificationKind.OPERATIONAL_GENERIC
+                : NotificationKind.MANUAL_GENERIC;
+        return new NotificationRequest(channel, type, kind, severity, title, "message", Map.of(), null);
     }
 
     private static final class MutableClock extends Clock {

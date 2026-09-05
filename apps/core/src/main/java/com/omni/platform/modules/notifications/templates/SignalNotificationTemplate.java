@@ -1,5 +1,7 @@
 package com.omni.platform.modules.notifications.templates;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
@@ -7,6 +9,8 @@ import org.springframework.stereotype.Component;
 import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalDigestContent;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.SignalDigestEntry;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
@@ -24,7 +28,8 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
                 "Market signal changes: " + event.jobTitle(),
                 buildMessage(event),
                 buildMetadata(event),
-                event.parentExecutionId().toString());
+                event.parentExecutionId().toString(),
+                structuredContent(event));
     }
 
     public NotificationRequest digest(SignalDigestNotificationEvent event) {
@@ -41,7 +46,9 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
                 .append(event.timeframe())
                 .append(".");
 
-        event.items().stream()
+        List<com.omni.platform.modules.notifications.events.SignalDigestItem> items =
+                event.items() == null ? List.of() : event.items();
+        items.stream()
                 .limit(20)
                 .forEach(item -> message.append(System.lineSeparator())
                         .append("- ")
@@ -58,14 +65,50 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
                         .append(defaultText(item.score(), "n/a"))
                         .append(")"));
 
-        if (event.items().size() > 20) {
+        if (items.size() > 20) {
             message.append(System.lineSeparator())
                     .append("...")
-                    .append(event.items().size() - 20)
+                    .append(items.size() - 20)
                     .append(" more changes omitted");
         }
 
         return message.toString();
+    }
+
+    private SignalDigestContent structuredContent(SignalDigestNotificationEvent event) {
+        List<SignalDigestEntry> items = event.items() == null ? List.of() : event.items().stream()
+                .map(item -> new SignalDigestEntry(
+                        item.symbolKey(),
+                        item.previousSignal(),
+                        item.newSignal(),
+                        item.price(),
+                        item.signalDate(),
+                        item.score(),
+                        item.reasonCodes(),
+                        item.strategy(),
+                        item.timeframe()))
+                .toList();
+        return new SignalDigestContent(
+                event.strategy(),
+                event.timeframe(),
+                event.changedCount(),
+                items,
+                timestamp(event.metadata()));
+    }
+
+    private Instant timestamp(Map<String, Object> metadata) {
+        if (metadata == null) {
+            return null;
+        }
+        Object value = metadata.get("createdAt");
+        if (value == null) {
+            value = metadata.get("generatedAt");
+        }
+        try {
+            return value instanceof Instant instant ? instant : value == null ? null : Instant.parse(String.valueOf(value));
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private Map<String, Object> buildMetadata(SignalDigestNotificationEvent event) {

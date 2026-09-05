@@ -59,10 +59,12 @@ app:
       bot-token: ${TELEGRAM_BOT_TOKEN:}
       operations-chat-id: ${TELEGRAM_OPERATIONS_CHAT_ID:}
       signals-chat-id: ${TELEGRAM_SIGNALS_CHAT_ID:}
-      parse-mode: ${TELEGRAM_PARSE_MODE:html}
+      parse-mode: HTML
       api-base-url: ${TELEGRAM_API_BASE_URL:https://api.telegram.org}
       deduplication-cooldown: ${TELEGRAM_DEDUPLICATION_COOLDOWN:PT5M}
       deduplication-max-cache-size: ${TELEGRAM_DEDUPLICATION_MAX_CACHE_SIZE:10000}
+      display-time-zone: ${TELEGRAM_DISPLAY_TIME_ZONE:Asia/Bangkok}
+      audible-operational-errors: ${TELEGRAM_AUDIBLE_OPERATIONAL_ERRORS:true}
 
 logging:
   level:

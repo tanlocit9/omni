@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
@@ -28,6 +29,7 @@ public class SignalChangedNotificationTemplate extends AbstractNotificationTempl
         return new NotificationRequest(
                 NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
+                NotificationKind.SIGNAL_CHANGED,
                 NotificationSeverity.INFO,
                 "Signal changed: " + event.symbolKey(),
                 event.symbolKey() + ": " + defaultText(event.previousSignal(), "BASELINE") + " -> "

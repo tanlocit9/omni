@@ -12,7 +12,7 @@ Owner-approved execution exception (2026-09-04): execute P8-I1, P8-I2, and P8-I3
 | ----------------------- | ----------------------------------------------------- |
 | id                      | P8-I1                                                 |
 | title                   | Operational and generic Telegram notification formats |
-| status                  | ready                                                 |
+| status                  | verification_pending                                  |
 | priority                | critical                                              |
 | depends_on              | [P1-I4]                                               |
 | blocks                  | [P8-I2, P8-I3]                                        |
@@ -31,6 +31,8 @@ Acceptance criteria: every operational, job-lifecycle, generic, and manual reque
 Required tests/checks: classification/template tests; exact golden operational/job/generic renderer tests; escaping, Unicode, metadata-filtering, timezone, sound-policy, and 4,096-boundary tests; routing and deduplication regressions; mocked HTTP payload tests; and Core Nx test/build/format checks.
 
 Stop conditions: stop if implementation needs a Kafka/Proto3 field, requires title/message parsing for classification, changes deduplication identity, includes signal-specific renderers, or needs live credentials.
+
+Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and explicitly scoped Prettier formatting of P8-I1 documentation/configuration files. Focused coverage includes renderer classification, HTML safety, Unicode boundaries, metadata filtering, timezone and sound policies, routing, deduplication, listener behavior, and mocked HTTP payloads. Platform defines no lint or Java format Nx target. No live Telegram verification, PR, or CI evidence exists; status therefore remains `verification_pending` rather than completed.
 
 ## Increment P8-I2 — Immediate and digest signal notification formats
 

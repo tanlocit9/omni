@@ -12,10 +12,13 @@ public class OperationalNotificationTemplate extends AbstractNotificationTemplat
     @Override
     public NotificationRequest render(OperationalNotificationEvent event) {
         return new NotificationRequest(
+                com.omni.platform.modules.notifications.dtos.NotificationChannel.OPERATIONS,
                 NotificationType.OPERATIONAL,
+                event.kind(),
                 event.severity(),
                 event.title(),
                 event.message(),
-                metadata(event.metadata()));
+                metadata(event.metadata()),
+                null);
     }
 }

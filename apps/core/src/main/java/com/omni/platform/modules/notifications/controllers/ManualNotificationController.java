@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService;
@@ -43,11 +44,14 @@ public class ManualNotificationController {
                 ? ManualSignalNotificationRequest.defaults().withDefaults()
                 : request.withDefaults();
         NotificationRequest notification = new NotificationRequest(
+                com.omni.platform.modules.notifications.dtos.NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
+                NotificationKind.MANUAL_GENERIC,
                 NotificationSeverity.INFO,
                 resolved.title(),
                 resolved.message(),
-                resolved.metadata());
+                resolved.metadata(),
+                null);
 
         notificationService.send(notification);
         return ResponseEntity.ok(new ManualSignalNotificationResponse(

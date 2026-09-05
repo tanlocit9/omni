@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
@@ -31,6 +32,7 @@ public class JobNotificationTemplate {
      */
     public OperationalNotificationEvent standaloneSucceeded(JobExecutionHistory execution) {
         return new OperationalNotificationEvent(
+                NotificationKind.JOB_SUCCEEDED,
                 NotificationSeverity.INFO,
                 "Job completed: " + jobTitle(execution),
                 "Job completed successfully",
@@ -46,6 +48,7 @@ public class JobNotificationTemplate {
      */
     public OperationalNotificationEvent standaloneFailed(JobExecutionHistory execution) {
         return new OperationalNotificationEvent(
+                NotificationKind.JOB_FAILED,
                 NotificationSeverity.ERROR,
                 "Job failed: " + jobTitle(execution),
                 failureMessage(execution),
@@ -68,6 +71,7 @@ public class JobNotificationTemplate {
             long success,
             long failed) {
         return new OperationalNotificationEvent(
+                NotificationKind.JOB_DIGEST_SUCCEEDED,
                 NotificationSeverity.INFO,
                 "Job completed: " + jobTitle(parent),
                 success + "/" + total + " tasks completed successfully",
@@ -90,6 +94,7 @@ public class JobNotificationTemplate {
             long success,
             long failed) {
         return new OperationalNotificationEvent(
+                NotificationKind.JOB_DIGEST_FAILED,
                 NotificationSeverity.ERROR,
                 "Job failed: " + jobTitle(parent),
                 failed + "/" + total + " tasks failed",

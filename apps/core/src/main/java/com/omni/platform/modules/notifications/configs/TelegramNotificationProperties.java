@@ -1,6 +1,8 @@
 package com.omni.platform.modules.notifications.configs;
 
 import java.time.Duration;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -15,7 +17,9 @@ public record TelegramNotificationProperties(
         String parseMode,
         String apiBaseUrl,
         Duration deduplicationCooldown,
-        int deduplicationMaxCacheSize) {
+        int deduplicationMaxCacheSize,
+        String displayTimeZone,
+        Boolean audibleOperationalErrors) {
 
     private static final Duration DEFAULT_DEDUPLICATION_COOLDOWN = Duration.ofMinutes(5);
     private static final int DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE = 10_000;
@@ -41,6 +45,18 @@ public record TelegramNotificationProperties(
 
     public int resolvedDeduplicationMaxCacheSize() {
         return deduplicationMaxCacheSize <= 0 ? DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE : deduplicationMaxCacheSize;
+    }
+
+    public ZoneId resolvedDisplayTimeZone() {
+        try {
+            return ZoneId.of(hasText(displayTimeZone) ? displayTimeZone : "Asia/Bangkok");
+        } catch (DateTimeException exc) {
+            throw new IllegalArgumentException("Invalid Telegram display time zone: " + displayTimeZone, exc);
+        }
+    }
+
+    public boolean resolvedAudibleOperationalErrors() {
+        return audibleOperationalErrors == null || audibleOperationalErrors;
     }
 
     private boolean hasText(String value) {

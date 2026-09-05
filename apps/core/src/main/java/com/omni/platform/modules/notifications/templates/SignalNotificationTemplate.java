@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
@@ -18,6 +19,7 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
         return new NotificationRequest(
                 NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
+                NotificationKind.SIGNAL_DIGEST,
                 NotificationSeverity.INFO,
                 "Market signal changes: " + event.jobTitle(),
                 buildMessage(event),

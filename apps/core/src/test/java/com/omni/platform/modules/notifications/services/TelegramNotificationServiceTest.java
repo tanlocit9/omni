@@ -1,6 +1,7 @@
 package com.omni.platform.modules.notifications.services;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.springframework.test.web.client.ExpectedCount.never;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -25,6 +26,7 @@ import com.omni.platform.modules.notifications.configs.TelegramNotificationPrope
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
+import com.omni.platform.modules.notifications.telegram.TelegramRendering.Registry;
 
 class TelegramNotificationServiceTest {
 
@@ -41,6 +43,26 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    void sendDeliversAudibleOperationalErrorWithFixedHtmlParseMode() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(once(), requestTo("https://api.telegram.org/bottoken/sendMessage"))
+                .andExpect(content().string(containsString("\"parse_mode\":\"HTML\"")))
+                .andExpect(content().string(containsString("\"disable_notification\":false")))
+                .andExpect(content().string(containsString("Consumer \u0026amp; \u0026lt;failed\u0026gt;")))
+                .andExpect(content().string(containsString("Failed \u0026amp; \u0026lt;unsafe\u0026gt;")))
+                .andExpect(content().string(not(containsString("Consumer & <failed>"))))
+                .andExpect(content().string(not(containsString("Failed & <unsafe>"))))
+                .andExpect(content().string(not(containsString("topic-sync-job-status"))))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        service(true, builder, Clock.systemUTC())
+                .send(request(NotificationType.OPERATIONAL, "Consumer & <failed>", "Failed & <unsafe>"));
+
+        server.verify();
+    }
+
+    @Test
     void sendDeliversSilentTelegramMessageWhenConfigured() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://api.telegram.org");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
@@ -49,7 +71,12 @@ class TelegramNotificationServiceTest {
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
         TelegramNotificationService service = service(true, builder, Clock.systemUTC());
 
-        service.send(request(NotificationType.OPERATIONAL, "Consumer failed", "Failed to process message"));
+        service.send(new NotificationRequest(
+                NotificationType.OPERATIONAL,
+                NotificationSeverity.INFO,
+                "Consumer ready",
+                "Ready",
+                Map.of()));
 
         server.verify();
     }
@@ -108,12 +135,10 @@ class TelegramNotificationServiceTest {
     }
 
     private TelegramNotificationService service(boolean enabled, RestClient.Builder builder, Clock clock) {
-        return new TelegramNotificationService(
-                new TelegramNotificationProperties(
-                        enabled, "token", "chat", "signals-chat", null,
-                        "https://api.telegram.org", Duration.ofMinutes(5), 100),
-                builder.build(),
-                clock);
+        TelegramNotificationProperties properties = new TelegramNotificationProperties(
+                enabled, "token", "chat", "signals-chat", null,
+                "https://api.telegram.org", Duration.ofMinutes(5), 100, null, null);
+        return new TelegramNotificationService(properties, builder.build(), clock, new Registry(properties));
     }
 
     private NotificationRequest request(NotificationType type, String title, String message) {

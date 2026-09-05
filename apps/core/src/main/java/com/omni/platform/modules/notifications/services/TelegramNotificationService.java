@@ -9,6 +9,8 @@ import org.springframework.web.client.RestClient;
 
 import com.omni.platform.modules.notifications.configs.TelegramNotificationProperties;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest;
+import com.omni.platform.modules.notifications.telegram.TelegramRendering.Registry;
+import com.omni.platform.modules.notifications.telegram.TelegramRendering.RenderedMessage;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,19 +18,21 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class TelegramNotificationService implements NotificationService {
 
-    private static final int MAX_MESSAGE_LENGTH = 4_096;
     private static final String HTML_PARSE_MODE = "HTML";
 
     private final TelegramNotificationProperties properties;
     private final RestClient telegramRestClient;
     private final NotificationDeduplicator deduplicator;
+    private final Registry rendererRegistry;
 
     public TelegramNotificationService(
             TelegramNotificationProperties properties,
             RestClient telegramRestClient,
-            Clock notificationClock) {
+            Clock notificationClock,
+            Registry rendererRegistry) {
         this.properties = properties;
         this.telegramRestClient = telegramRestClient;
+        this.rendererRegistry = rendererRegistry;
         this.deduplicator = new NotificationDeduplicator(
                 properties.resolvedDeduplicationCooldown(),
                 properties.resolvedDeduplicationMaxCacheSize(),
@@ -54,15 +58,16 @@ public class TelegramNotificationService implements NotificationService {
         }
 
         try {
+            RenderedMessage rendered = rendererRegistry.render(request, admission.suppressedCount());
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("chat_id", chatId);
-            payload.put("text", truncate(formatMessage(request, admission.suppressedCount())));
-            payload.put("parse_mode", resolveParseMode());
-            payload.put("disable_notification", true);
+            payload.put("text", rendered.html());
+            payload.put("parse_mode", HTML_PARSE_MODE);
+            payload.put("disable_notification", rendered.disableNotification());
 
-            log.info("Sending Telegram notification channel={} type={} severity={} title={} chatIdPresent={} parseMode={} apiBaseUrl={}",
-                    request.channel(), request.type(), request.severity(), request.title(), hasText(chatId), resolveParseMode(),
-                    properties.resolvedApiBaseUrl());
+            log.info("Sending Telegram notification channel={} kind={} type={} severity={} title={} renderedLength={} chatIdPresent={} parseMode={} apiBaseUrl={}",
+                    request.channel(), request.kind(), request.type(), request.severity(), request.title(), rendered.html().length(),
+                    hasText(chatId), HTML_PARSE_MODE, properties.resolvedApiBaseUrl());
             telegramRestClient.post()
                     .uri("/bot{token}/sendMessage", properties.botToken())
                     .body(payload)
@@ -74,79 +79,6 @@ public class TelegramNotificationService implements NotificationService {
             log.warn("Telegram notification delivery failed channel={} type={} severity={} title={}: {}", request.channel(),
                     request.type(), request.severity(), request.title(), exc.getMessage(), exc);
         }
-    }
-
-    private String formatMessage(NotificationRequest request, long suppressedCount) {
-        StringBuilder message = new StringBuilder();
-        message.append("<b>")
-                .append(escapeHtml(String.valueOf(request.severity())))
-                .append("</b>")
-                .append(" — ")
-                .append("<b>")
-                .append(escapeHtml(defaultText(request.title(), "Untitled notification")))
-                .append("</b>");
-
-        if (hasText(request.message())) {
-            message.append(System.lineSeparator())
-                    .append(System.lineSeparator())
-                    .append(escapeHtml(request.message()));
-        }
-
-        if (request.metadata() != null && !request.metadata().isEmpty()) {
-            appendMetadata(message, request.metadata());
-        }
-
-        if (suppressedCount > 0) {
-            message.append(System.lineSeparator())
-                    .append(System.lineSeparator())
-                    .append("<i>Repeated notifications suppressed: ")
-                    .append(suppressedCount)
-                    .append("</i>");
-        }
-
-        return message.toString();
-    }
-
-    private void appendMetadata(StringBuilder message, Map<String, Object> metadata) {
-        String renderedMetadata = metadata.entrySet().stream()
-                .filter(entry -> entry.getValue() != null)
-                .map(entry -> "• <b>" + escapeHtml(entry.getKey()) + ":</b> "
-                        + escapeHtml(String.valueOf(entry.getValue())))
-                .reduce((left, right) -> left + System.lineSeparator() + right)
-                .orElse("");
-
-        if (hasText(renderedMetadata)) {
-            message.append(System.lineSeparator())
-                    .append(System.lineSeparator())
-                    .append(renderedMetadata);
-        }
-    }
-
-    private String truncate(String message) {
-        if (message.length() <= MAX_MESSAGE_LENGTH) {
-            return message;
-        }
-        return message.substring(0, MAX_MESSAGE_LENGTH - 3) + "...";
-    }
-
-    private String resolveParseMode() {
-        if (hasText(properties.parseMode())) {
-            return properties.parseMode();
-        }
-        return HTML_PARSE_MODE;
-    }
-
-    private String defaultText(String value, String fallback) {
-        if (hasText(value)) {
-            return value;
-        }
-        return fallback;
-    }
-
-    private String escapeHtml(String value) {
-        return value.replace("&", "&#38;")
-                .replace("<", "&#60;")
-                .replace(">", "&#62;");
     }
 
     private boolean hasText(String value) {

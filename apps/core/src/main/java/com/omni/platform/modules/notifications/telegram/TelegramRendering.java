@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -32,6 +33,36 @@ public final class TelegramRendering {
 
     public static final int MAX_MESSAGE_LENGTH = 4_096;
     private static final String NEW_BLOCK = "\n\n";
+    private static final Map<String, String> SIGNAL_DESCRIPTIONS = Map.of(
+            "BUY", "Mua",
+            "BULLISH", "Tăng giá",
+            "SELL", "Bán",
+            "BEARISH", "Giảm giá",
+            "HOLD", "Nắm giữ",
+            "NEUTRAL", "Trung lập",
+            "BASELINE", "Mốc cơ sở");
+    private static final Map<String, String> REASON_DESCRIPTIONS = Map.ofEntries(
+            Map.entry("PRICE_ABOVE_MA50", "Giá cao hơn MA50"),
+            Map.entry("PRICE_BELOW_MA50", "Giá thấp hơn MA50"),
+            Map.entry("PRICE_EQUALS_MA50", "Giá bằng MA50"),
+            Map.entry("MA20_ABOVE_MA50", "MA20 cao hơn MA50"),
+            Map.entry("MA20_BELOW_MA50", "MA20 thấp hơn MA50"),
+            Map.entry("MA20_EQUALS_MA50", "MA20 bằng MA50"),
+            Map.entry("RSI14_ABOVE_55", "RSI14 cao hơn 55"),
+            Map.entry("RSI14_BELOW_45", "RSI14 thấp hơn 45"),
+            Map.entry("RSI14_NEUTRAL", "RSI14 ở vùng trung lập"),
+            Map.entry("MACD_ABOVE_SIGNAL", "MACD cao hơn đường tín hiệu"),
+            Map.entry("MACD_BELOW_SIGNAL", "MACD thấp hơn đường tín hiệu"),
+            Map.entry("MACD_EQUALS_SIGNAL", "MACD bằng đường tín hiệu"),
+            Map.entry("PRICE_ABOVE_CLOUD", "Giá cao hơn mây Ichimoku"),
+            Map.entry("PRICE_BELOW_CLOUD", "Giá thấp hơn mây Ichimoku"),
+            Map.entry("PRICE_INSIDE_CLOUD", "Giá nằm trong mây Ichimoku"),
+            Map.entry("TENKAN_ABOVE_KIJUN", "Tenkan cao hơn Kijun"),
+            Map.entry("TENKAN_BELOW_KIJUN", "Tenkan thấp hơn Kijun"),
+            Map.entry("TENKAN_EQUALS_KIJUN", "Tenkan bằng Kijun"),
+            Map.entry("SPAN_A_ABOVE_SPAN_B", "Span A cao hơn Span B"),
+            Map.entry("SPAN_A_BELOW_SPAN_B", "Span A thấp hơn Span B"),
+            Map.entry("SPAN_A_EQUALS_SPAN_B", "Span A bằng Span B"));
 
     private TelegramRendering() {
     }
@@ -188,16 +219,16 @@ public final class TelegramRendering {
             }
             SignalStyle style = signalStyle(signal.newSignal());
             Builder builder = new Builder();
-            builder.required(style.marker() + " <b>" + Html.escape(style.label()) + " · "
+            builder.required(style.marker() + " <b>" + Html.escape(describeSignal(style.label())) + " · "
                     + Html.escape(bound(signal.symbolKey(), 120, "Unknown symbol")) + "</b>");
             builder.optional(subtitle(signal.strategy(), signal.timeframe()));
             List<String> details = new ArrayList<>();
             details.add("<b>Price:</b> " + formatNumber(signal.price()));
-            details.add("<b>Signal:</b> " + Html.escape(signalName(signal.previousSignal(), "BASELINE"))
-                    + " → " + Html.escape(signalName(signal.newSignal(), "UNKNOWN")));
+            details.add("<b>Signal:</b> " + Html.escape(describeSignal(signalName(signal.previousSignal(), "BASELINE")))
+                    + " → " + Html.escape(describeSignal(signalName(signal.newSignal(), "UNKNOWN"))));
             details.add("<b>Score:</b> " + formatScore(signal.score()));
             details.add("<b>Date:</b> " + formatDate(signal.signalDate()));
-            details.add("<b>Reasons:</b> " + formatReasons(signal.reasonCodes()));
+            details.add("<b>Reasons:</b>" + formatReasons(signal.reasonCodes()));
             builder.optional(String.join("\n", details));
             builder.optional(updated(signal.createdAt(), displayZone));
             builder.optional(suppression(suppressedCount));
@@ -402,27 +433,50 @@ public final class TelegramRendering {
         if (value == null || value.isBlank()) {
             return "n/a";
         }
+        DateTimeFormatter display = DateTimeFormatter.ofPattern("dd MMM uuuu", Locale.ENGLISH);
         try {
-            return DateTimeFormatter.ofPattern("dd MMM uuuu", Locale.ENGLISH).format(LocalDate.parse(value));
+            return display.format(LocalDate.parse(value));
         } catch (DateTimeParseException ignored) {
-            return Html.escape(bound(value, 80, "n/a"));
+            try {
+                return display.format(LocalDateTime.parse(value));
+            } catch (DateTimeParseException alsoIgnored) {
+                return Html.escape(bound(value, 80, "n/a"));
+            }
         }
+    }
+
+    private static String describeSignal(String signal) {
+        String description = SIGNAL_DESCRIPTIONS.get(signal);
+        return description == null ? signal : signal + " (" + description + ")";
     }
 
     private static String formatReasons(List<String> reasons) {
         if (reasons == null || reasons.isEmpty()) {
-            return "n/a";
+            return " n/a";
         }
         List<String> values = reasons.stream()
                 .filter(value -> value != null && !value.isBlank())
                 .limit(5)
-                .map(value -> Html.escape(bound(value, 60, "")))
+                .map(TelegramRendering::formatReason)
                 .toList();
-        String result = values.isEmpty() ? "n/a" : String.join(", ", values);
+        String result = values.isEmpty() ? " n/a" : String.join("\n- ", values);
+        if (!values.isEmpty()) {
+            result = "\n- " + result;
+        }
         if (reasons.stream().filter(value -> value != null && !value.isBlank()).count() > values.size()) {
-            result += ", ...";
+            result += "\n- ...";
         }
         return result;
+    }
+
+    private static String formatReason(String value) {
+        String code = bound(value.trim().toUpperCase(Locale.ROOT), 80, "");
+        String description = REASON_DESCRIPTIONS.get(code);
+        if (description == null && code.matches("SCORE_-?\\d+(?:\\.\\d+)?")) {
+            description = "Điểm tín hiệu " + code.substring("SCORE_".length());
+        }
+        String displayCode = code.replace('_', ' ');
+        return Html.escape(description == null ? displayCode : displayCode + " — " + description);
     }
 
     private static String updated(Instant instant, ZoneId zone) {
@@ -435,8 +489,8 @@ public final class TelegramRendering {
         String strategy = subtitle(item.strategy(), item.timeframe());
         StringBuilder block = new StringBuilder(style.marker()).append(" <b>")
                 .append(Html.escape(bound(item.symbolKey(), 120, "Unknown symbol"))).append("</b>  ")
-                .append(Html.escape(signalName(item.previousSignal(), "BASELINE"))).append(" → ")
-                .append(Html.escape(signalName(item.newSignal(), "UNKNOWN"))).append("  @ ")
+                .append(Html.escape(describeSignal(signalName(item.previousSignal(), "BASELINE")))).append(" → ")
+                .append(Html.escape(describeSignal(signalName(item.newSignal(), "UNKNOWN")))).append("  @ ")
                 .append(formatNumber(item.price()));
         if (strategy != null) {
             block.append("\n").append(strategy);
@@ -445,7 +499,7 @@ public final class TelegramRendering {
         String score = formatScore(item.score());
         String reasons = formatReasons(item.reasonCodes());
         block.append("\n<b>Date:</b> ").append(date).append(" · <b>Score:</b> ").append(score)
-                .append("\n<b>Reasons:</b> ").append(reasons);
+                .append("\n<b>Reasons:</b>").append(reasons);
         return block.toString();
     }
 

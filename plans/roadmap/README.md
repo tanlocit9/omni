@@ -118,7 +118,7 @@ Phases 2 and 3 may overlap only after their boundary is agreed: Proto3 owns cros
 
 ## Current focused execution plan
 
-The active MVP is the existing daily/EOD pipeline plus usable Telegram operational and signal notifications and basic Phase 7 operator controls. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because they directly support that boundary. There is no additional feature increment selected after those gates.
+The active MVP is the existing daily/EOD pipeline plus usable Telegram operational and signal notifications and basic Phase 7 operator controls. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because they directly support that boundary. P8-I4 then adds the bounded `CONFIRMED_TREND_EQUALS` signal, strategy-aware exact-symbol history, and configurable Telegram strategy selection without introducing a generalized ensemble control plane.
 
 The previous Query Service, Dataset Explorer, SQL Console, Dashboard, and metadata expansion plan is deferred with other post-MVP work in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Existing source and historical evidence remain valid, but deferred increments are not eligible for automation.
 
@@ -135,6 +135,7 @@ The previous Query Service, Dataset Explorer, SQL Console, Dashboard, and metada
 | [`docs/plans/010-dataset-component-market-dashboard.md`](../../docs/plans/010-dataset-component-market-dashboard.md)                 | P6-I4 supporting detail           | Canonical fixed Market Dashboard scope is scheduled as P6-I4                         |
 | [`docs/plans/007-telegram-multi-channel.md`](../../docs/plans/007-telegram-multi-channel.md)                                         | Supporting detail                 | Phase 8 routing increments                                                           |
 | [`docs/plans/012-telegram-notification-format-modernization.md`](../../docs/plans/012-telegram-notification-format-modernization.md) | Scheduled/deferred Phase 8 detail | P8-I1 operational/generic formats, P8-I2 signal formats; P8-I3 is technical debt     |
+| [`docs/plans/016-confirmed-trend-equals-mvp.md`](../../docs/plans/016-confirmed-trend-equals-mvp.md)                                 | Scheduled P8-I4 MVP detail        | Equal-vote combined signal, symbol query, and Telegram strategy selection            |
 | [`docs/plans/011-cross-service-observability-correlation.md`](../../docs/plans/011-cross-service-observability-correlation.md)       | Proposed cross-cutting plan       | Not roadmap-scheduled; assign dependencies/increment IDs before selection            |
 | [`docs/plans/008-intraday-eod.md`](../../docs/plans/008-intraday-eod.md)                                                             | Supporting detail                 | Phase 9 increments                                                                   |
 | [`docs/plans/009-realtime-per-tick.md`](../../docs/plans/009-realtime-per-tick.md)                                                   | Supporting detail                 | Phase 10 increments                                                                  |
@@ -143,7 +144,7 @@ The previous Query Service, Dataset Explorer, SQL Console, Dashboard, and metada
 
 ## Selection summary
 
-P8-I1 and P8-I2 are the active notification evidence gates, and P1-I3 may finish reconciliation for the daily/EOD pipeline. P8-I3 and all unfinished Proto3 migration, advanced manifest/metadata, portable-deployment hardening, Console/query polish, intraday, and realtime increments are `superseded` for MVP scheduling and recorded in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Automation must not select deferred work without a new owner decision. Completed work and existing safety controls remain unchanged.
+P8-I1 and P8-I2 are the active notification evidence gates, followed by P8-I4 `CONFIRMED_TREND_EQUALS`; P1-I3 may also finish reconciliation for the daily/EOD pipeline. P8-I3 and all unfinished Proto3 migration, advanced manifest/metadata, portable-deployment hardening, broad Console/query polish, intraday, and realtime increments are `superseded` for MVP scheduling. The generalized weighted combination/versioning platform is documented post-MVP in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Automation must not expand P8-I4 into that platform without a new owner decision.
 
 Automation must not select approval-required or manual work until the owner resolves the recorded decision or access need.
 

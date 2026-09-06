@@ -120,36 +120,39 @@ class TelegramRenderingTest {
     @Test
     void rendersExactBuySignalFromTypedContentAndEscapesOnce() {
         NotificationRequest request = signalRequest(NotificationKind.SIGNAL_CHANGED, new SignalChangedContent(
-                "HOSE-<FPT>", "baseline", "buy", 126500.12567, "2026-08-31", 0.846,
-                List.of("TREND_UP", "MOMENTUM_&STRONG"), "Trend & Momentum", "1d",
+                "HOSE-<FPT>", "baseline", "buy", 126500.12567, "2026-08-31T00:00:00", 0.846,
+                List.of("PRICE_ABOVE_MA50", "MOMENTUM_&STRONG"), "Trend & Momentum", "1d",
                 Instant.parse("2026-08-31T10:22:00Z")));
 
         var rendered = registry().render(request, 0);
 
         assertThat(rendered.html()).isEqualTo("""
-                🟢 <b>BUY · HOSE-\u0026lt;FPT\u0026gt;</b>
+                🟢 <b>BUY (Mua) · HOSE-\u0026lt;FPT\u0026gt;</b>
 
                 Trend \u0026amp; Momentum · 1D
 
                 <b>Price:</b> 126,500.1257
-                <b>Signal:</b> BASELINE → BUY
+                <b>Signal:</b> BASELINE (Mốc cơ sở) → BUY (Mua)
                 <b>Score:</b> 0.85
                 <b>Date:</b> 31 Aug 2026
-                <b>Reasons:</b> TREND_UP, MOMENTUM_\u0026amp;STRONG
+                <b>Reasons:</b>
+                - PRICE ABOVE MA50 — Giá cao hơn MA50
+                - MOMENTUM \u0026amp;STRONG
 
                 <i>Updated 17:22 ICT</i>""");
         assertThat(rendered.disableNotification()).isTrue();
     }
 
     @Test
-    void mapsSellHoldAliasesAndUnknownWithoutChangingSourceContent() {
+    void mapsSellHoldAliasesAndKeepsUnknownValuesUntranslated() {
         assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
-                signal("BEARISH")), 0).html()).startsWith("🔴 <b>BEARISH");
+                signal("BEARISH")), 0).html()).startsWith("🔴 <b>BEARISH (Giảm giá)");
         assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
-                signal("NEUTRAL")), 0).html()).startsWith("⚪ <b>NEUTRAL");
+                signal("NEUTRAL")), 0).html()).startsWith("⚪ <b>NEUTRAL (Trung lập)");
         assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
                 signal("watch")), 0).html()).startsWith("⚪ <b>UNKNOWN")
-                .contains("BASELINE → WATCH");
+                .contains("BASELINE (Mốc cơ sở) → WATCH")
+                .doesNotContain("Chưa có mô tả");
     }
 
     @Test

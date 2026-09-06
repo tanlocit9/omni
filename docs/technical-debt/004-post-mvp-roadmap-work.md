@@ -49,3 +49,115 @@ Reassess deferred work when one of these becomes true:
 - observed production failures show that a deferred control is required for safe operation.
 
 Reactivation requires an owner decision, refreshed dependencies and acceptance criteria, and a new or restored canonical roadmap increment. Do not treat this document as authorization to implement deferred work autonomously.
+
+## Configurable Signal Combination Platform
+
+The MVP deliberately implements only the fixed, equal-vote `CONFIRMED_TREND_EQUALS` strategy described in [`docs/plans/016-confirmed-trend-equals-mvp.md`](../plans/016-confirmed-trend-equals-mvp.md). The following generalized combination platform is post-MVP technical debt.
+
+### Intended Capability
+
+Operators can create named combinations from arbitrary registered signal strategies, assign optional weights, enable or disable the whole combination or individual components, precompute results, select combinations in Dashboard, and choose which combinations produce Telegram notifications.
+
+A stable display name points to one active immutable version. Editing calculation behavior creates a new version rather than rewriting historical meaning.
+
+### Generalized Configuration
+
+```json
+{
+  "name": "CONFIRMED_TREND",
+  "enabled": true,
+  "timeframe": "1d",
+  "threshold": 0.6,
+  "components": [
+    {
+      "strategy": "TREND_MOMENTUM_V1",
+      "enabled": true,
+      "weight": 0.7
+    },
+    {
+      "strategy": "ICHIMOKU_V1",
+      "enabled": true,
+      "weight": 0.3
+    }
+  ]
+}
+```
+
+Rules:
+
+- normalize strategy names and reject duplicate component strategies;
+- require at least two enabled, distinct components;
+- split weights equally across enabled components when all enabled weights are omitted;
+- reject mixed omitted/provided weights unless a future contract defines unambiguous semantics;
+- require finite, non-negative explicit weights with a positive total;
+- exclude disabled components and normalize enabled weights to total `1.0`;
+- map `BULLISH = +1`, `NEUTRAL = 0`, and `BEARISH = -1`;
+- calculate the weighted sum and apply the immutable version's threshold;
+- produce `NO_DECISION` when a required enabled component is missing, stale, date-mismatched, or `NO_DECISION`;
+- retain component signals, source scores, normalized weights, contributions, reasons, dates, and source data versions.
+
+Changing combination enablement, component enablement, component membership, weights, threshold, timeframe, or ensemble algorithm creates a new immutable version.
+
+### Identity and Lifecycle
+
+The stable name is operator-facing. The `combinationId` identifies exact canonical calculation semantics and should be derived from stable name, canonical sorted components, enabled flags, normalized decimal weights, threshold, timeframe, and ensemble algorithm version.
+
+Suggested lifecycle:
+
+```text
+DRAFT -> PRECOMPUTING -> READY -> ACTIVE -> INACTIVE
+                         \\-> FAILED
+```
+
+Activation rules:
+
+1. Platform validates and stores a new immutable version.
+2. Analyzer precomputes all available supported history for that version.
+3. The previous active version remains active during precompute.
+4. Analyzer reports processed, skipped, unavailable, and failed counts plus published data identity.
+5. Platform atomically activates only a successfully published READY version.
+6. Failed precompute leaves the previous version active.
+7. Old READY/INACTIVE versions remain queryable and may be reactivated for rollback.
+
+### Platform Persistence and APIs
+
+Suggested relational ownership:
+
+- `signal_combinations`: stable name, enabled state, active version ID, audit fields;
+- `signal_combination_versions`: immutable combination ID, version, canonical configuration, configuration hash, lifecycle state, precompute execution ID, actor/timestamps;
+- existing manual-trigger/outbox patterns should carry idempotent precompute requests rather than adding browser-to-Kafka access.
+
+Suggested operator-only APIs:
+
+```text
+GET  /api/v1/signal-combinations
+GET  /api/v1/signal-combinations/{name}
+POST /api/v1/signal-combinations
+PUT  /api/v1/signal-combinations/{name}
+POST /api/v1/signal-combinations/{name}/versions/{version}/precompute
+POST /api/v1/signal-combinations/{name}/versions/{version}/activate
+```
+
+Writes require authenticated operator identity, idempotency, optimistic concurrency, validation, and audit. Creating or changing a combination starts precompute automatically; the explicit precompute endpoint retries failed work.
+
+### Analyzer and Dataset Ownership
+
+Analyzer owns ensemble calculation and persisted result datasets. Platform owns configuration and activation state. Query Service and browsers must never calculate combinations.
+
+Persist each immutable version separately, for example:
+
+```text
+signals/combination=confirmed_trend/combination_id=<immutable-id>/timeframe=1d/exchange=HOSE/
+```
+
+Rows retain combination identity and complete component evidence. Existing outcome evaluation can attach realized T+5/T+10/T+15/T+20 outcomes without rewriting the original decision.
+
+### Dashboard and Telegram
+
+Dashboard lists existing enabled named combinations and their available versions. Normal use reads the active READY version with exchange, exact symbol, and limit filters; historical version selection is explicit. Combined rows expose expandable component evidence.
+
+Telegram configuration references stable combination names or an explicit approved list. Delivery resolves each name to its active READY `combinationId`. Disabled combinations send nothing. Deduplication identity includes combination ID, symbol, signal date, and result so version changes cannot collapse distinct decisions.
+
+### Deferred Verification
+
+Before reactivation, add coverage for canonical identity, weight normalization, enablement, validation, immutable version creation, precompute failure, atomic activation, rollback, concurrent updates, stale components, READY publication, outcome evaluation, Dashboard selection, Telegram selection, and audit history.

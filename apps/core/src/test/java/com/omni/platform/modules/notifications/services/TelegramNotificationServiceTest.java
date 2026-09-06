@@ -96,7 +96,7 @@ class TelegramNotificationServiceTest {
                 .andExpect(content().string(containsString("\"chat_id\":\"signals-chat\"")))
                 .andExpect(content().string(containsString("\"parse_mode\":\"HTML\"")))
                 .andExpect(content().string(containsString("\"disable_notification\":true")))
-                .andExpect(content().string(containsString("🟢 <b>BUY · SET:PTT</b>")))
+                .andExpect(content().string(containsString("🟢 <b>BUY (Mua) · SET:PTT</b>")))
                 .andExpect(content().string(not(containsString("\"chat_id\":\"chat\""))))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
         NotificationRequest request = new NotificationRequest(

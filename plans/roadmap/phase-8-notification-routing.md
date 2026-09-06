@@ -43,7 +43,7 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 req
 | status                  | verification_pending                             |
 | priority                | critical                                         |
 | depends_on              | [P8-I1]                                          |
-| blocks                  | [P8-I3]                                          |
+| blocks                  | [P8-I3, P8-I4]                                   |
 | owned_modules           | [apps/core, configs, docs/plans]                 |
 | execution_mode          | autonomous                                       |
 | requires_owner_decision | false                                            |
@@ -61,6 +61,32 @@ Required tests/checks: signal template/classification tests; hard-cutover reject
 Stop conditions: stop if a required semantic value is absent from the current Java event/request boundary, if implementation would parse pre-rendered prose, alter Analyzer calculations, change Kafka/Proto3 contracts, or introduce delivery retry/provider behavior owned by P8-I3.
 
 Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and scoped Prettier checking of the three P8-I2 documentation files. Coverage includes typed signal-change/digest content, purpose-specific renderers, deterministic formatting, digest budgeting, hard-cutover rejection, templates, listeners, HTTP payloads, and deduplication regressions. Static inspection confirms no Kafka/Proto3 or Analyzer calculation changes. Status remains `verification_pending`; no commit, PR, CI, or live Telegram evidence is claimed.
+
+## Increment P8-I4 — Equal-vote confirmed trend, symbol query, and notification choice
+
+| Field                   | Value                                                             |
+| ----------------------- | ----------------------------------------------------------------- |
+| id                      | P8-I4                                                             |
+| title                   | Equal-vote confirmed trend, symbol query, and notification choice |
+| status                  | pending                                                           |
+| priority                | critical                                                          |
+| depends_on              | [P8-I2]                                                           |
+| blocks                  | []                                                                |
+| owned_modules           | [apps/analyzer, apps/core, apps/query-service, apps/omni-console] |
+| execution_mode          | autonomous                                                        |
+| requires_owner_decision | false                                                             |
+| pr                      | null                                                              |
+| last_verified_commit    | null                                                              |
+
+Goal: add a minimal `CONFIRMED_TREND_EQUALS` daily signal by equally combining `TREND_MOMENTUM_V1` and `ICHIMOKU_V1`, expose strategy-aware exact-symbol history in Dashboard, and make the Telegram signal strategy a bounded configuration choice.
+
+Scope: implement the fixed `+1/0/-1` equal-vote matrix with directional thresholds at `±0.5`; produce `NO_DECISION` for missing, stale, mismatched, or undecidable components; persist combined history and component evidence under a separate strategy; reuse existing outcome evaluation; add a three-value Dashboard strategy selector with the existing symbol filter; and default Telegram selection to `CONFIRMED_TREND_EQUALS`. Detailed scope is in [`docs/plans/016-confirmed-trend-equals-mvp.md`](../../docs/plans/016-confirmed-trend-equals-mvp.md).
+
+Acceptance criteria: the decision matrix is deterministic; component histories remain unchanged; combined rows identify `CONFIRMED_TREND_EQUALS_V1` and retain both component decisions; Dashboard selects Trend Momentum, Ichimoku, or Confirmed Trend and filters by exact symbol; Telegram sends only the configured allowed strategy; unavailable combined data is reported truthfully; and no target price or trading instruction is inferred.
+
+Required tests/checks: decision matrix and invalid-component tests; persistence, ordering, and outcome-evaluation regressions; Platform configuration and notification-selection tests; Query Service strategy/READY/symbol tests; Console selector tests; Telegram component rendering tests; and relevant Analyzer, Platform, Query Service, and Console Nx checks.
+
+Stop conditions: stop if implementation expands into arbitrary combinations, weights, component flags, operator CRUD, immutable activation/versioning, Query Service calculation, Kafka/Proto3 migration, or automated trading advice. Those extensions remain post-MVP technical debt.
 
 ## Increment P8-I3 — Telegram delivery safety, retries, idempotency, and rollout
 

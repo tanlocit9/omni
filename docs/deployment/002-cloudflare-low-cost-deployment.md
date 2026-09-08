@@ -224,7 +224,7 @@ Prices and free allowances change. Verify them again immediately before provisio
 
 ## Repository References
 
-- [Portable Docker Deployment plan](../plans/005-portable-docker-deployment.md)
+- [Portable Docker Deployment plan](../plans/007-portable-docker-deployment.md)
 - [Phase 5 roadmap](../../plans/roadmap/phase-5-portable-deployment.md)
 - [Compose infrastructure](../../docker-compose.infra.yaml)
 - [Compose services](../../docker-compose.services.yaml)

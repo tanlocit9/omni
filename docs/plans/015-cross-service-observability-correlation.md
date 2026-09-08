@@ -1,8 +1,8 @@
 # Cross-Service Observability Correlation Implementation Plan
 
-Status: Proposed supporting plan; not yet assigned roadmap increment IDs
-Canonical status owner: [`plans/roadmap/README.md`](../../plans/roadmap/README.md)
-Scheduling rule: reconcile dependencies and add roadmap increments before implementation selection
+Status: Deferred technical debt; not assigned roadmap increment IDs and not eligible for current MVP scheduling
+Canonical status owner: [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md)
+Scheduling rule: require an owner reactivation decision, then reconcile dependencies and add roadmap increments before implementation selection
 
 ## Goal
 

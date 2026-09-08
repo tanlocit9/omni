@@ -6,7 +6,7 @@ queries, and Platform-owned job operations.
 ## Market Dashboard
 
 The Market Dashboard is the default section. Its fixed, code-owned composition
-follows the [dataset-component dashboard plan](../../docs/plans/010-dataset-component-market-dashboard.md)
+follows the [dataset-component dashboard plan](../../docs/plans/009-dataset-component-market-dashboard.md)
 and is organized around canonical datasets such as `eod`, `signals`, and
 `sector-features` rather than producer services.
 

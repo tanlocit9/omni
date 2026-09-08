@@ -20,6 +20,23 @@ This is prioritization debt, not a claim that the work has no long-term value. E
 | Intraday EOD                    | P9-I1, P9-I2, P9-I3        | Higher-frequency post-close datasets and features are outside the daily/EOD MVP.                                                                                                                                                            |
 | Realtime per tick               | P10-I1, P10-I2             | Tick ingestion and live processing are outside the daily/EOD MVP.                                                                                                                                                                           |
 
+## Deferred Supporting Plans
+
+The following consolidated supporting plans are retained as design or historical records, but they are technical debt for current scheduling and must not create MVP prerequisites:
+
+| Plan                                                                                                                                 | Classification                   | MVP rule                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`docs/plans/006-job-dependency-guard-progress.md`](../plans/006-job-dependency-guard-progress.md)                                   | Historical Phase 4 progress      | Remaining tracking, cache, dashboard, alerting, and retry-polish checklist items are deferred; completed Phase 4 behavior remains part of the safety baseline. |
+| [`docs/plans/007-portable-docker-deployment.md`](../plans/007-portable-docker-deployment.md)                                         | Deployment hardening debt        | Do not require cloud profiles, backup rehearsal, restore proof, or immutable image publication without an approved deployment target.                          |
+| [`docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`](../plans/008-omni-metadata-console-dashboard-execution-plan.md) | Console/query expansion debt     | Its internal milestone gates apply only after reactivation and cannot block daily/EOD, Phase 7 controls, or Telegram completion.                               |
+| [`docs/plans/009-dataset-component-market-dashboard.md`](../plans/009-dataset-component-market-dashboard.md)                         | Dashboard product debt           | Existing source may remain, but dashboard completion and polish are not current MVP gates.                                                                     |
+| [`docs/plans/013-intraday-eod.md`](../plans/013-intraday-eod.md)                                                                     | Future product debt              | Intraday contracts, bars, features, and manifests require a new product decision.                                                                              |
+| [`docs/plans/014-realtime-per-tick.md`](../plans/014-realtime-per-tick.md)                                                           | Future product debt              | Tick ingestion, live bars, archive, and reconciliation require a new product decision.                                                                         |
+| [`docs/plans/015-cross-service-observability-correlation.md`](../plans/015-cross-service-observability-correlation.md)               | Cross-cutting observability debt | Correlation and tracing improve diagnosis but do not block current business processing unless an observed production defect proves otherwise.                  |
+| [`docs/plans/016-shared-api-contract-and-unified-openapi.md`](../plans/016-shared-api-contract-and-unified-openapi.md)               | Developer-platform debt          | Generated clients, unified Swagger, and contract-diff CI are not prerequisites while current HTTP contracts remain usable.                                     |
+
+Compatibility and already-implemented historical documents remain references rather than executable work. A concrete correctness, security, data-loss, or unsafe-operation defect found inside a deferred area is still MVP work under the existing safety baseline.
+
 ## Retained MVP Scope
 
 The active MVP keeps:
@@ -52,7 +69,7 @@ Reactivation requires an owner decision, refreshed dependencies and acceptance c
 
 ## Configurable Signal Combination Platform
 
-The MVP deliberately implements only the fixed, equal-vote `CONFIRMED_TREND_EQUALS` strategy described in [`docs/plans/016-confirmed-trend-equals-mvp.md`](../plans/016-confirmed-trend-equals-mvp.md). The following generalized combination platform is post-MVP technical debt.
+The MVP deliberately implements only the fixed, equal-vote `CONFIRMED_TREND_EQUALS` strategy described in [`docs/plans/012-confirmed-trend-equals-mvp.md`](../plans/012-confirmed-trend-equals-mvp.md). The following generalized combination platform is post-MVP technical debt.
 
 ### Intended Capability
 

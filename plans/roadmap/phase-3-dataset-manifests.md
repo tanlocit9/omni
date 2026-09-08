@@ -144,7 +144,7 @@ Required tests/checks: schema encode/decode, legacy compatibility, analytical
 joins, Sector Wave/Transition schema, manifest metadata, backfill idempotency and
 failure safety, owning Python project lint/test/build, workspace formatter, and
 green CI for the exact branch head. Detailed execution scope is in
-[`../parquet-date-normalization-increment.md`](../parquet-date-normalization-increment.md).
+[`../../docs/plans/004-parquet-date-normalization-increment.md`](../../docs/plans/004-parquet-date-normalization-increment.md).
 
 Completion evidence: all recorded targeted tests and owning-project lint/build
 checks pass; the workspace formatter and `git diff --check` pass; refreshed graph

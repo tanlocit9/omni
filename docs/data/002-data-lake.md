@@ -108,7 +108,7 @@ models to browser-safe DTOs containing logical partition values, dynamic key
 definitions, versions, schema, statistics, freshness, and lineage. Bucket names,
 credentials, endpoints, prefixes, and object paths remain server-side.
 
-See [Global Dataset Metadata Refactor](../plans/014-global-dataset-metadata-refactor.md)
+See [Global Dataset Metadata Refactor](../plans/017-global-dataset-metadata-refactor.md)
 for the canonical contract and acceptance criteria.
 
 ## Datasets
@@ -264,7 +264,7 @@ Existing READY objects are migrated only through a versioned sibling rewrite.
 The candidate is read back before an immutable manifest and then READY are
 published. Failure leaves the previous READY object and pointer valid; wildcard
 and multi-object partitions require a dataset-owner-specific rewrite. See
-[Normalize Parquet Date Contracts](../../plans/parquet-date-normalization-increment.md).
+[Normalize Parquet Date Contracts](../plans/004-parquet-date-normalization-increment.md).
 
 ## Future Expansion Paths
 

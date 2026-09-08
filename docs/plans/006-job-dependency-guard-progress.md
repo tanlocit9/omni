@@ -1,6 +1,8 @@
 # Job Dependency Guard Implementation Progress
 
-## Status: In Progress (Phases 1-5 Complete)
+## Status: Historical progress record; remaining follow-ups are deferred technical debt
+
+The canonical Phase 4 increments are complete. Unfinished tracking, dashboard, cache, alerting, and retry-polish items in this historical checklist must not block the current MVP and require explicit owner reactivation.
 
 Implementation started: 2026-08-18
 Last updated: 2026-08-18T13:52:28Z

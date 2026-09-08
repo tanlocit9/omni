@@ -453,7 +453,7 @@ Update together:
 - `docs/flows/002-stock-sync.md`
 - `docs/flows/003-indicator-signal.md`
 - `plans/roadmap/phase-3-dataset-manifests.md`
-- `plans/omni-metadata-console-dashboard-execution-plan.md`
+- `plans/008-omni-metadata-console-dashboard-execution-plan.md`
 - `configs/shared/s3-paths.yaml`
 - relevant service READMEs
 - repository agent guidance if storage workflow rules change

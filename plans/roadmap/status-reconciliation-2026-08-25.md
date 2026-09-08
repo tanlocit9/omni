@@ -94,7 +94,7 @@ The following files should be interpreted with this reconciliation note when the
 - `plans/roadmap/implementation-increments.md`
 - `plans/roadmap/phase-1-backend-core-stabilization.md`
 - `plans/roadmap/execution-log.md`
-- `plans/consolidated-numbered-implementation-phases.md`
+- `plans/019-consolidated-numbered-implementation-phases.md`
 - older supporting Phase 1 / manifest plans that still refer to `workType/workKey` as a repository-wide migration
 
 ## Next documentation fold-in

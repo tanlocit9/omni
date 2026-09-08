@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed implementation plan.
+Deferred technical debt. Generated HTTP clients, unified API documentation, and contract CI improve maintainability but do not add immediate value to the current daily/EOD, basic operator-control, or Telegram MVP. This plan is not a prerequisite and requires owner reactivation through [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
 
 ## Objective
 

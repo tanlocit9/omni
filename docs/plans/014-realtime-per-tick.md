@@ -1,5 +1,7 @@
 # Realtime Per-Tick Market Data Implementation Plan
 
+Status: Deferred technical debt for the current daily/EOD MVP. This plan must not be treated as a prerequisite or blocker until the owner approves realtime product scope. See [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
+
 ## Goal
 
 Add realtime market-data ingestion only after the historical Intraday EOD pipeline is stable.

@@ -13,7 +13,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 7. [Job execution](flows/001-job-execution.md) — scheduler/worker execution flow.
 8. [Implementation plan standard](governance/001-implementation-plan-standard.md) — mandatory plan/outcome/feature/contract/agent-guidance format.
 9. [Pre-roadmap capability baseline](../plans/roadmap/pre-roadmap-capability-baseline.md) — working platform capabilities inherited by Phase 0.
-10. [Metadata → Omni Console → Dashboard execution plan](../plans/omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.
+10. [Metadata → Omni Console → Dashboard execution plan](plans/008-omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.
 11. [Codex control and tooling plan](development/003-codex-control-and-tooling.md) — proposed skills, MCP integrations, guardrails, and rollout order.
 12. [Canonical roadmap](../plans/roadmap/README.md) — capability groups, phase ordering, increment status, dependencies, and execution evidence.
 13. [Phase 7 Console job operations](../plans/roadmap/phase-7-console-job-operations.md) — Platform-owned job catalog/trigger/status contracts and the Omni Console Jobs tab.
@@ -26,34 +26,40 @@ This directory is the documentation entry point for Omni. It is designed to help
 Use planning documents in this order:
 
 1. [Canonical roadmap](../plans/roadmap/README.md) for capability groups, global phase order, increment status, dependencies, and evidence; use its [pre-roadmap baseline](../plans/roadmap/pre-roadmap-capability-baseline.md) for inherited features.
-2. A focused execution plan under `plans/` when the roadmap delegates a bounded delivery sequence.
-3. A supporting implementation plan under `docs/plans/` for design and verification detail; it does not override roadmap status or sequencing.
+2. A focused or supporting execution plan under `docs/plans/` when the roadmap delegates a bounded delivery sequence.
+3. The numbered order in `docs/plans/` for phase-local design, implementation, progress, and verification detail; these plans do not override roadmap status or sequencing.
 4. A technical-debt document under `docs/technical-debt/` for a deferred, explicitly scoped follow-up; it is not independently scheduled unless linked from an active increment.
 
 Compatibility indexes and superseded plans remain only as navigation aids and must point to their canonical owner.
-
-### Focused and Proposed Plans
-
-- [Metadata, Dataset Explorer, Parquet Viewer, and Dashboard](../plans/omni-metadata-console-dashboard-execution-plan.md) — canonical gated product sequence.
-- [Dataset-Component Market Dashboard](plans/010-dataset-component-market-dashboard.md) — proposed Phase 6 dashboard composition plan, including making Dashboard the default Console page during implementation.
-- [Cross-Service Observability Correlation](plans/011-cross-service-observability-correlation.md) — proposed cross-cutting observability sequence; not yet integrated into the roadmap.
-- [Telegram Notification Format Modernization](plans/012-telegram-notification-format-modernization.md) — proposed presentation/safety follow-up to Phase 8 routing.
 
 ### Roadmap Supporting Plans
 
 - [Backend/Core Stabilization](plans/001-backend-core-stabilization.md) — Phase 1 detail.
 - [Cross-Service Proto3 Contracts](plans/002-cross-service-protobuf-contracts.md) — Phase 2 detail.
-- [Dataset Metadata Manifest](plans/003-dataset-metadata-manifest.md) — Phase 3 detail.
-- [Job Dependency Guard](plans/004-job-dependency-guard.md) — Phase 4 detail.
-- [Portable Docker Deployment](plans/005-portable-docker-deployment.md) — Phase 5 detail.
-- [Omni Console / Parquet Viewer compatibility pointer](plans/006-internal-tools-parquet-viewer.md) — Phase 6 compatibility pointer.
-- [Telegram Multi-Channel](plans/007-telegram-multi-channel.md) — Phase 8 routing detail.
-- [Intraday EOD](plans/008-intraday-eod.md) — Phase 9 detail.
-- [Realtime Per-Tick](plans/009-realtime-per-tick.md) — Phase 10 detail.
+- [Dataset Metadata Manifest](plans/003-dataset-metadata-manifest.md) — Phase 3 detail, including the former detailed plan.
+- [Parquet Date Normalization](plans/004-parquet-date-normalization-increment.md) — Phase 3 increment record.
+- [Job Dependency Guard](plans/005-job-dependency-guard.md) — Phase 4 detail, including the former detailed plan.
+- [Job Dependency Guard Progress](plans/006-job-dependency-guard-progress.md) — Phase 4 historical progress record.
+- [Portable Docker Deployment](plans/007-portable-docker-deployment.md) — deferred Phase 5 deployment debt.
+- [Omni Metadata and Console Execution Plan](plans/008-omni-metadata-console-dashboard-execution-plan.md) — deferred Phase 6 execution record.
+- [Dataset-Component Market Dashboard](plans/009-dataset-component-market-dashboard.md) — deferred Phase 6 dashboard debt.
+- [Telegram Multi-Channel](plans/010-telegram-multi-channel.md) — Phase 8 routing detail.
+- [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) — Phase 8 presentation detail.
+- [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md) — Phase 8 combined-signal detail.
+- [Intraday EOD](plans/013-intraday-eod.md) — deferred Phase 9 product debt.
+- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — deferred Phase 10 product debt.
+
+### Proposed, Historical, and Compatibility Plans
+
+- [Cross-Service Observability Correlation](plans/015-cross-service-observability-correlation.md) — deferred observability debt; not roadmap-scheduled.
+- [Shared API Contract and Unified OpenAPI](plans/016-shared-api-contract-and-unified-openapi.md) — deferred developer-platform debt.
+- [Global Dataset Metadata Refactor](plans/017-global-dataset-metadata-refactor.md) — implemented historical migration plan.
+- [Omni Console / Parquet Viewer](plans/018-internal-tools-parquet-viewer.md) — Phase 6 compatibility pointer with the former detailed pointer merged in.
+- [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) — compatibility roadmap index.
+- [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md) — superseded compatibility document.
 
 ### References and Technical Debt
 
-- [Superseded next-phase plan](plans/013-next-phase-implementation-plan.md) — historical compatibility document; use the canonical roadmap for scheduling and status.
 - [Algorithm Feature Catalog](reference/001-algorithm-feature-catalog.md)
 - [P3-I5 Metadata Reconciliation Technical Debt](technical-debt/001-p3-i5-metadata-reconciliation.md)
 - [Telegram Notification Deduplication Technical Debt](technical-debt/002-telegram-notification-deduplication.md)

@@ -12,7 +12,7 @@ No implementation should create `apps/internal-tools` or treat Parquet Viewer as
 
 Use these canonical plans:
 
-1. [`plans/omni-metadata-console-dashboard-execution-plan.md`](../../plans/omni-metadata-console-dashboard-execution-plan.md) — milestone-gated delivery sequence and approved private-access boundary.
+1. [`plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md) — milestone-gated delivery sequence and approved private-access boundary.
 2. [`plans/roadmap/phase-6-omni-console.md`](../../plans/roadmap/phase-6-omni-console.md) — roadmap increments for Omni Console.
 3. [`docs/plans/003-dataset-metadata-manifest.md`](003-dataset-metadata-manifest.md) — persisted JSON metadata contract.
 
@@ -54,3 +54,21 @@ Verify links resolve and ensure no active plan instructs creation of `apps/inter
 - [x] Existing links remain valid.
 - [x] Superseded product/path naming is explicit.
 - [x] Canonical execution and roadmap documents are linked.
+
+---
+
+## Legacy Detailed-Plan Pointer
+
+Status: Superseded
+
+The former `apps/internal-tools` plan is retained at this path only so historical links do not break. Do not scaffold or implement `apps/internal-tools`.
+
+Canonical direction:
+
+- Application: `apps/omni-console`
+- Product: Omni Console
+- Features: Dataset Explorer, Parquet Viewer, and Data Health Dashboard
+- Private access: Query Service resolves logical dataset/partition/version references from READY manifests; physical paths and credentials remain server-side
+- Query engine: native DuckDB in `apps/query-service`; the browser is a thin client and cannot submit arbitrary URLs or write SQL
+
+Execute [`plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md) from M0. Roadmap ownership remains in [`plans/roadmap/phase-6-omni-console.md`](roadmap/phase-6-omni-console.md).

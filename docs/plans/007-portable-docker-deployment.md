@@ -1,5 +1,7 @@
 # Portable Docker Deployment Implementation Plan
 
+Status: Deferred technical debt for the current MVP. This plan must not block the existing daily/EOD pipeline; reactivate it only when a concrete deployment target requires these guarantees. See [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
+
 ## Goal
 
 Make Omni compute disposable and portable.

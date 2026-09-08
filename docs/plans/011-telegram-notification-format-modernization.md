@@ -704,7 +704,7 @@ Review during implementation:
 - `CLAUDE.md` - likely no change; no Nx/tool workflow change.
 - `.roo/rules/` - update only if notification-specific coding rules already exist there.
 - `docs/README.md` - add this plan if canonical implementation plans are indexed individually.
-- `docs/plans/007-telegram-multi-channel.md` - update completed-state wording and replace claims that old parse-mode/truncation behavior remains unchanged.
+- `docs/plans/010-telegram-multi-channel.md` - update completed-state wording and replace claims that old parse-mode/truncation behavior remains unchanged.
 - relevant notification flow/service documentation - document renderer ownership, classification, HTML safety, and sound policy.
 - `.agents/skills/manual-verification-handoff/SKILL.md` - no change expected unless the Telegram manual-verification procedure becomes reusable skill guidance.
 

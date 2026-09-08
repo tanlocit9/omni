@@ -1,6 +1,6 @@
 # Omni Metadata, Dataset Explorer, Parquet Viewer, and Dashboard Execution Plan
 
-Status: Canonical execution plan  
+Status: Deferred technical debt execution record; not eligible for current MVP scheduling
 Source baseline: `main@19055b3731b45934fd85cb28dda5a8636a2ed4a0`  
 Target application: `apps/omni-console`  
 Execution order: Query Service → Dataset Explorer/Viewer → SQL Console → Dashboard → Force Precompute date fix
@@ -12,7 +12,7 @@ build Omni Console Dataset Explorer/Viewer and SQL Console on that boundary, add
 a fixed code-owned Market Dashboard, and finally correct Force Precompute
 effective-date semantics.
 
-Partially implemented source is evidence, not proof of completion. Every milestone uses the control loop below and blocks later milestones until its gate passes.
+Partially implemented source is evidence, not proof of completion. These milestone gates apply only after owner reactivation and do not block the current daily/EOD, basic operator-control, or Telegram MVP. Deferral is recorded in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
 
 ## Outcome
 
@@ -167,7 +167,7 @@ Until M6 passes:
 - verify DOCUMENTATION_ONLY jobs proceed with warnings;
 - verify ENFORCED behavior does not block bootstrap/metadata generation accidentally;
 - treat correctness defects as focused blockers, not Phase 4 expansion;
-- treat `plans/job-dependency-guard-progress.md` as stale until M8 reconciliation;
+- treat `plans/006-job-dependency-guard-progress.md` as stale until M8 reconciliation;
 - keep BLOCKED distinct from FAILED in APIs and UI.
 
 ## M0 — Reconcile Local Work
@@ -474,11 +474,11 @@ Review/update:
 - `plans/roadmap/implementation-increments.md`
 - `plans/roadmap/phase-3-dataset-manifests.md`
 - `plans/roadmap/phase-6-omni-console.md`
-- `plans/consolidated-numbered-implementation-phases.md`
-- `plans/job-dependency-guard-progress.md`
+- `plans/019-consolidated-numbered-implementation-phases.md`
+- `plans/006-job-dependency-guard-progress.md`
 - `docs/plans/003-dataset-metadata-manifest.md`
 - the superseded internal-tools Viewer plans, as compatibility pointers
-- `docs/plans/013-next-phase-implementation-plan.md`
+- `docs/plans/020-next-phase-implementation-plan.md`
 - `docs/data/002-data-lake.md`
 - `docs/flows/001-job-execution.md`
 - `docs/flows/004-sector-wave.md`

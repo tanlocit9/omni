@@ -1,5 +1,7 @@
 # Intraday End-of-Day Sync Implementation Plan
 
+Status: Deferred technical debt for the current daily/EOD MVP. This plan must not be treated as a prerequisite or blocker until the owner approves intraday product scope. See [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
+
 ## Goal
 
 Add historical intraday market data after market close, then build deterministic 1m/5m/15m bars and reusable features.

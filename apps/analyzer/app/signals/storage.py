@@ -25,6 +25,8 @@ SIGNAL_COLUMNS = [
     "reason_codes",
     "eod_data_version",
     "indicators_data_version",
+    "model_version",
+    "components",
     "generated_at",
 ]
 AUDIT_COLUMNS = ["last_recalculated_at", "revision"]
@@ -244,6 +246,36 @@ class SignalHistoryRepository:
 
         return await self._locks.run(history_path, _update)
 
+    async def latest_result(
+        self,
+        history_path: str,
+        symbol_key: str,
+        timeframe: str,
+        strategy: str,
+    ) -> SignalResult | None:
+        history = await self._read_history(history_path)
+        required = {"symbol_key", "timeframe", "strategy", "signal", "signal_date"}
+        if history.empty or not required.issubset(history.columns):
+            return None
+        matches = history[
+            (history["symbol_key"].astype(str) == symbol_key)
+            & (history["timeframe"].astype(str) == timeframe)
+            & (history["strategy"].astype(str).str.upper() == strategy)
+        ].dropna(subset=["signal_date"])
+        if matches.empty:
+            return None
+        row = matches.sort_values("signal_date").iloc[-1]
+        return SignalResult(
+            signal=MarketSignal(str(row["signal"]).upper()),
+            price=(
+                None if pd.isna(row.get("signal_price")) else float(row["signal_price"])
+            ),
+            signal_date=str(row["signal_date"]),
+            reason_codes=list(row.get("reason_codes", [])),
+            score=float(row.get("score", 0)),
+            strategy=str(row["strategy"]).upper(),
+        )
+
     async def _read_history(self, path: str) -> pd.DataFrame:
         try:
             return await self._parquet_storage.read_dataframe(path)
@@ -340,6 +372,8 @@ class SignalHistoryRepository:
             "reason_codes": result.reason_codes,
             "eod_data_version": eod_data_version,
             "indicators_data_version": indicators_data_version,
+            "model_version": result.model_version,
+            "components": result.components,
             "generated_at": pd.Timestamp.now(tz="UTC"),
             "last_recalculated_at": pd.NA,
             "revision": 1,

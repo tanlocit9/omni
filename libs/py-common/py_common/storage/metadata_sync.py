@@ -390,10 +390,15 @@ def _extract_lineage(
                 "timeframe": values["timeframe"],
                 **partition,
             }
-            candidates = (
-                ("eod", partition, row.get("eod_data_version")),
-                ("indicators", indicator_partition, row.get("indicators_data_version")),
-            )
+            candidates = [("eod", partition, row.get("eod_data_version"))]
+            if str(values.get("strategy", "")).upper() != "CONFIRMED_TREND_EQUALS":
+                candidates.append(
+                    (
+                        "indicators",
+                        indicator_partition,
+                        row.get("indicators_data_version"),
+                    )
+                )
         for upstream, partition, version in candidates:
             if not isinstance(version, str) or not re.fullmatch(
                 r"sha256:[0-9a-f]{64}", version

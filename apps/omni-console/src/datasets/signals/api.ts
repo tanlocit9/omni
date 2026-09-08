@@ -1,5 +1,9 @@
 import { queryServiceRequest } from '../../api';
-import type { IchimokuSignalsResponse, SignalHistoryResponse } from './types';
+import type {
+  IchimokuSignalsResponse,
+  SignalHistoryResponse,
+  SignalStrategy,
+} from './types';
 
 export function getIchimokuSignals(
   signal: AbortSignal,
@@ -16,9 +20,13 @@ export function getSignalHistory(
   signal: AbortSignal,
   exchange: string | null,
   symbol: string,
+  strategy: SignalStrategy,
   limit: number
 ): Promise<SignalHistoryResponse> {
-  const query = new URLSearchParams({ limit: String(limit) });
+  const query = new URLSearchParams({
+    strategy,
+    limit: String(limit),
+  });
   if (exchange) query.set('exchange', exchange);
   if (symbol) query.set('symbol', symbol);
   return queryServiceRequest(`/v1/dashboard/signal-history?${query}`, {

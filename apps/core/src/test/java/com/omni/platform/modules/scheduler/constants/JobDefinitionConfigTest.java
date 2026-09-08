@@ -44,6 +44,23 @@ class JobDefinitionConfigTest {
     }
 
     @Test
+    void schedulesConfirmedTrendAfterBothComponentStrategies() {
+        List<JobDefinitionSeed> signalSeeds = seeds(JobType.SYNC_SIGNALS);
+
+        assertThat(signalSeeds).extracting(seed -> seed.config().get(
+                JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY))
+                .containsExactly(
+                        JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1,
+                        JobDefinitionConfig.SIGNAL_STRATEGY_ICHIMOKU_V1,
+                        JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
+        assertThat(signalSeeds).extracting(JobDefinitionSeed::cronExpr)
+                .containsExactly(
+                        "0 0 19 * * MON-FRI",
+                        "0 5 19 * * MON-FRI",
+                        "0 10 19 * * MON-FRI");
+    }
+
+    @Test
     void separatesBootstrapAndDeferredSeedsWithoutOverlap() {
         assertThat(JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS)
                 .extracting(JobDefinitionSeed::jobType)

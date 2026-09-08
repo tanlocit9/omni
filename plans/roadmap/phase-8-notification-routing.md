@@ -68,7 +68,7 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 req
 | ----------------------- | ----------------------------------------------------------------- |
 | id                      | P8-I4                                                             |
 | title                   | Equal-vote confirmed trend, symbol query, and notification choice |
-| status                  | pending                                                           |
+| status                  | in_progress                                                       |
 | priority                | critical                                                          |
 | depends_on              | [P8-I2]                                                           |
 | blocks                  | []                                                                |
@@ -78,6 +78,8 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 req
 | pr                      | null                                                              |
 | last_verified_commit    | null                                                              |
 
+Dependency exception (2026-09-06): the owner approved starting implementation against locally verified P8-I2 source before P8-I2 reaches `completed`. P8-I4 cannot complete before P8-I2 completes; stop if subsequent P8-I2 changes are incompatible.
+
 Goal: add a minimal `CONFIRMED_TREND_EQUALS` daily signal by equally combining `TREND_MOMENTUM_V1` and `ICHIMOKU_V1`, expose strategy-aware exact-symbol history in Dashboard, and make the Telegram signal strategy a bounded configuration choice.
 
 Scope: implement the fixed `+1/0/-1` equal-vote matrix with directional thresholds at `±0.5`; produce `NO_DECISION` for missing, stale, mismatched, or undecidable components; persist combined history and component evidence under a separate strategy; reuse existing outcome evaluation; add a three-value Dashboard strategy selector with the existing symbol filter; and default Telegram selection to `CONFIRMED_TREND_EQUALS`. Detailed scope is in [`docs/plans/016-confirmed-trend-equals-mvp.md`](../../docs/plans/016-confirmed-trend-equals-mvp.md).
@@ -85,6 +87,8 @@ Scope: implement the fixed `+1/0/-1` equal-vote matrix with directional threshol
 Acceptance criteria: the decision matrix is deterministic; component histories remain unchanged; combined rows identify `CONFIRMED_TREND_EQUALS_V1` and retain both component decisions; Dashboard selects Trend Momentum, Ichimoku, or Confirmed Trend and filters by exact symbol; Telegram sends only the configured allowed strategy; unavailable combined data is reported truthfully; and no target price or trading instruction is inferred.
 
 Required tests/checks: decision matrix and invalid-component tests; persistence, ordering, and outcome-evaluation regressions; Platform configuration and notification-selection tests; Query Service strategy/READY/symbol tests; Console selector tests; Telegram component rendering tests; and relevant Analyzer, Platform, Query Service, and Console Nx checks.
+
+Local implementation evidence (2026-09-06): PASS for Analyzer tests (113), Query Service tests (38), focused Platform scheduler/notification tests, Console tests (31), Console typecheck, and Analyzer/Query Service/Console lint. Coverage includes stale and missing component rejection, persisted component evidence, combined outcome evaluation, post-component schedule order, indicator-gate bypass for the persisted-signal combiner, strategy validation, component API response, exact-symbol submission, Telegram filtering, and bilingual version-free rendering. P8-I4 remains `in_progress` because P8-I2 is still `verification_pending` and no verified P8-I4 commit, PR, or CI evidence exists.
 
 Stop conditions: stop if implementation expands into arbitrary combinations, weights, component flags, operator CRUD, immutable activation/versioning, Query Service calculation, Kafka/Proto3 migration, or automated trading advice. Those extensions remain post-MVP technical debt.
 

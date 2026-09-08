@@ -150,8 +150,10 @@ class SignalHistoryRow(BaseModel):
     signal_date: str = Field(alias="signalDate")
     signal: str
     price: float
-    score: int
+    score: float
     reason_codes: list[str] = Field(alias="reasonCodes")
+    model_version: str | None = Field(default=None, alias="modelVersion")
+    components: list[dict[str, Any]] | None = None
     actual_return_t5: float | None = Field(default=None, alias="actualReturnT5")
     actual_return_t10: float | None = Field(default=None, alias="actualReturnT10")
     actual_return_t15: float | None = Field(default=None, alias="actualReturnT15")
@@ -164,6 +166,7 @@ class SignalHistoryResponse(BaseModel):
     data_versions: dict[str, str] = Field(alias="dataVersions")
     truncated: bool
     exchange: str
+    strategy: str
     available_exchanges: list[str] = Field(alias="availableExchanges")
     symbol: str | None = None
     limit: int

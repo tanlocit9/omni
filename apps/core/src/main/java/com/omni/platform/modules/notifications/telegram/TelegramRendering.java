@@ -62,7 +62,13 @@ public final class TelegramRendering {
             Map.entry("TENKAN_EQUALS_KIJUN", "Tenkan bằng Kijun"),
             Map.entry("SPAN_A_ABOVE_SPAN_B", "Span A cao hơn Span B"),
             Map.entry("SPAN_A_BELOW_SPAN_B", "Span A thấp hơn Span B"),
-            Map.entry("SPAN_A_EQUALS_SPAN_B", "Span A bằng Span B"));
+            Map.entry("SPAN_A_EQUALS_SPAN_B", "Span A bằng Span B"),
+            Map.entry("TREND_MOMENTUM_V1_BULLISH", "Xu hướng và động lượng tăng giá"),
+            Map.entry("TREND_MOMENTUM_V1_NEUTRAL", "Xu hướng và động lượng trung lập"),
+            Map.entry("TREND_MOMENTUM_V1_BEARISH", "Xu hướng và động lượng giảm giá"),
+            Map.entry("ICHIMOKU_V1_BULLISH", "Ichimoku tăng giá"),
+            Map.entry("ICHIMOKU_V1_NEUTRAL", "Ichimoku trung lập"),
+            Map.entry("ICHIMOKU_V1_BEARISH", "Ichimoku giảm giá"));
 
     private TelegramRendering() {
     }
@@ -373,7 +379,7 @@ public final class TelegramRendering {
     private static String subtitle(String strategy, String timeframe) {
         List<String> values = new ArrayList<>();
         if (strategy != null && !strategy.isBlank()) {
-            values.add(Html.escape(bound(strategy, 100, "")));
+            values.add(Html.escape(bound(displayStrategy(strategy), 100, "")));
         }
         if (timeframe != null && !timeframe.isBlank()) {
             values.add(Html.escape(bound(timeframe.toUpperCase(Locale.ROOT), 30, "")));
@@ -445,6 +451,10 @@ public final class TelegramRendering {
         }
     }
 
+    private static String displayStrategy(String strategy) {
+        return strategy.trim().replaceFirst("(?i)_V\\d+$", "");
+    }
+
     private static String describeSignal(String signal) {
         String description = SIGNAL_DESCRIPTIONS.get(signal);
         return description == null ? signal : signal + " (" + description + ")";
@@ -474,8 +484,11 @@ public final class TelegramRendering {
         String description = REASON_DESCRIPTIONS.get(code);
         if (description == null && code.matches("SCORE_-?\\d+(?:\\.\\d+)?")) {
             description = "Điểm tín hiệu " + code.substring("SCORE_".length());
+        } else if (description == null && code.matches("EQUAL_VOTE_SCORE_-?\\d+(?:\\.\\d+)?")) {
+            description = "Điểm đồng thuận trung bình "
+                    + code.substring("EQUAL_VOTE_SCORE_".length());
         }
-        String displayCode = code.replace('_', ' ');
+        String displayCode = code.replaceAll("_V\\d+(?=_|$)", "").replace('_', ' ');
         return Html.escape(description == null ? displayCode : displayCode + " — " + description);
     }
 

@@ -64,6 +64,16 @@ class SignalChangedNotificationConsumerTest {
     }
 
     @Test
+    void handleIgnoresSignalsFromAnUnselectedStrategy() {
+        SignalChangedNotificationConsumer consumer = new SignalChangedNotificationConsumer(
+                eventPublisher, jsonMapper, "CONFIRMED_TREND_EQUALS");
+
+        consumer.handle(record(validPayload(), 2L));
+
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     void handlePublishesOperationalFailureAndRethrowsMalformedJson() {
         SignalChangedNotificationConsumer consumer = consumer();
 
@@ -105,7 +115,7 @@ class SignalChangedNotificationConsumerTest {
     }
 
     private SignalChangedNotificationConsumer consumer() {
-        return new SignalChangedNotificationConsumer(eventPublisher, jsonMapper);
+        return new SignalChangedNotificationConsumer(eventPublisher, jsonMapper, "momentum-v1");
     }
 
     private ConsumerRecord<String, String> record(String payload, long offset) {

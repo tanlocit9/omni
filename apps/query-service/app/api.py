@@ -295,12 +295,19 @@ async def dashboard_signal_history(
     request: Request,
     exchange: Annotated[str | None, Query(pattern="^(?i:HOSE|HNX|UPCOM)$")] = None,
     symbol: Annotated[str | None, Query(pattern="^[A-Za-z0-9]+$")] = None,
+    strategy: Annotated[
+        str,
+        Query(pattern="^(?i:TREND_MOMENTUM_V1|ICHIMOKU_V1|CONFIRMED_TREND_EQUALS)$"),
+    ] = "CONFIRMED_TREND_EQUALS",
     limit: Annotated[int, Query(ge=1, le=20)] = 10,
     actor: Annotated[str | None, Header(alias="X-Omni-User")] = None,
 ) -> SignalHistoryResponse:
     _require_actor(actor)
+    normalized_strategy = strategy.upper()
     try:
-        snapshot = await _dashboard(request).signal_history(exchange, symbol, limit)
+        snapshot = await _dashboard(request).signal_history(
+            exchange, symbol, normalized_strategy, limit
+        )
     except (DashboardUnavailableError, ManifestInvalidError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     rows = [
@@ -309,8 +316,10 @@ async def dashboard_signal_history(
             signalDate=str(row["signal_date"]),
             signal=str(row["signal"]).upper(),
             price=float(row["signal_price"]),
-            score=int(row["score"]),
+            score=float(row["score"]),
             reasonCodes=list(row["reason_codes"]),
+            modelVersion=row.get("model_version"),
+            components=row.get("components"),
             actualReturnT5=row.get("actual_return_t5"),
             actualReturnT10=row.get("actual_return_t10"),
             actualReturnT15=row.get("actual_return_t15"),
@@ -330,6 +339,7 @@ async def dashboard_signal_history(
         dataVersions=snapshot.data_versions,
         truncated=snapshot.truncated,
         exchange=snapshot.selected_exchange,
+        strategy=normalized_strategy,
         availableExchanges=list(snapshot.available_exchanges),
         symbol=normalized_symbol,
         limit=limit,

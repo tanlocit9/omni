@@ -4,21 +4,34 @@ import { WidgetStateView } from '../../../dashboard/shared/WidgetStateView';
 import type { DatasetWidgetProps, WidgetState } from '../../../dashboard/types';
 import { useWidgetRequest } from '../../../dashboard/useWidgetRequest';
 import { getSignalHistory } from '../api';
-import type { SignalHistoryResponse, SignalHistoryRow } from '../types';
+import type {
+  SignalHistoryResponse,
+  SignalHistoryRow,
+  SignalStrategy,
+} from '../types';
 
 type Exchange = 'HOSE' | 'HNX' | 'UPCOM';
 type HistoryLimit = 5 | 10 | 20;
 
 const limits: HistoryLimit[] = [5, 10, 20];
+const strategies: SignalStrategy[] = [
+  'CONFIRMED_TREND_EQUALS',
+  'TREND_MOMENTUM_V1',
+  'ICHIMOKU_V1',
+];
 
 export function SignalHistory({ definition }: DatasetWidgetProps) {
   const [exchange, setExchange] = useState<Exchange | null>(null);
   const [limit, setLimit] = useState<HistoryLimit>(10);
   const [symbolInput, setSymbolInput] = useState('');
   const [symbol, setSymbol] = useState('');
+  const [strategy, setStrategy] = useState<SignalStrategy>(
+    'CONFIRMED_TREND_EQUALS'
+  );
   const request = useCallback(
-    (signal: AbortSignal) => getSignalHistory(signal, exchange, symbol, limit),
-    [exchange, symbol, limit]
+    (signal: AbortSignal) =>
+      getSignalHistory(signal, exchange, symbol, strategy, limit),
+    [exchange, symbol, strategy, limit]
   );
   const toState = useCallback(
     (data: SignalHistoryResponse): WidgetState<SignalHistoryResponse> =>
@@ -26,8 +39,8 @@ export function SignalHistory({ definition }: DatasetWidgetProps) {
         ? {
             status: 'empty',
             message: data.symbol
-              ? `No Trend Momentum history is available for ${data.symbol}.`
-              : 'No Trend Momentum signal history is available.',
+              ? `No ${data.strategy} history is available for ${data.symbol}.`
+              : `No ${data.strategy} signal history is available.`,
             provenance: {
               effectiveDataDate: data.effectiveDataDate,
               generatedAt: data.generatedAt,
@@ -72,6 +85,20 @@ export function SignalHistory({ definition }: DatasetWidgetProps) {
                 }
               >
                 {data.availableExchanges.map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <label className="mover-selector">
+              <span>Strategy</span>
+              <select
+                aria-label="Signal history strategy"
+                value={strategy}
+                onChange={(event) =>
+                  setStrategy(event.target.value as SignalStrategy)
+                }
+              >
+                {strategies.map((value) => (
                   <option key={value}>{value}</option>
                 ))}
               </select>
@@ -155,6 +182,16 @@ function SignalHistoryTableRow({ row }: { row: SignalHistoryRow }) {
       </td>
       <td className="signal-reasons">
         {row.reasonCodes.map(formatReason).join(' · ')}
+        {row.components && (
+          <details>
+            <summary>Components</summary>
+            {row.components.map((component) => (
+              <div key={component.strategy}>
+                {component.strategy}: {component.signal}
+              </div>
+            ))}
+          </details>
+        )}
       </td>
       <OutcomeCell value={row.actualReturnT5} />
       <OutcomeCell value={row.actualReturnT10} />

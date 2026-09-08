@@ -25,6 +25,7 @@ public class JobDefinitionConfig {
         private static final String CRON_18_45_WEEKDAYS = "0 45 18 * * MON-FRI";
         private static final String CRON_19_00_WEEKDAYS = "0 0 19 * * MON-FRI";
         private static final String CRON_19_05_WEEKDAYS = "0 5 19 * * MON-FRI";
+        private static final String CRON_19_10_WEEKDAYS = "0 10 19 * * MON-FRI";
         private static final String CRON_19_15_WEEKDAYS = "0 15 19 * * MON-FRI";
         private static final String CRON_19_30_WEEKDAYS = "0 30 19 * * MON-FRI";
         private static final String CRON_19_45_WEEKDAYS = "0 45 19 * * MON-FRI";
@@ -76,6 +77,7 @@ public class JobDefinitionConfig {
         public static final List<String> SUPPORTED_INDICATORS = List.of("MA20", "MA50", "RSI14", "MACD", "ICHIMOKU");
         public static final String SIGNAL_STRATEGY_TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1";
         public static final String SIGNAL_STRATEGY_ICHIMOKU_V1 = "ICHIMOKU_V1";
+        public static final String SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS = "CONFIRMED_TREND_EQUALS";
         public static final String SECTOR_WAVE_STRATEGY_V1 = "SECTOR_WAVE_V1";
         public static final String SECTOR_TRANSITION_STRATEGY_V1 = "SECTOR_TRANSITION_V1";
 
@@ -143,7 +145,9 @@ public class JobDefinitionConfig {
                         signalSeed("Sync market signals", CRON_19_00_WEEKDAYS,
                                         SIGNAL_STRATEGY_TREND_MOMENTUM_V1),
                         signalSeed("Sync Ichimoku signals", CRON_19_05_WEEKDAYS,
-                                        SIGNAL_STRATEGY_ICHIMOKU_V1));
+                                        SIGNAL_STRATEGY_ICHIMOKU_V1),
+                        signalSeed("Sync confirmed trend signals", CRON_19_10_WEEKDAYS,
+                                        SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS));
 
         private static final List<JobDefinitionSeed> EVALUATE_SIGNALS_SEEDS = List.of(
                         new JobDefinitionSeed(

@@ -77,7 +77,11 @@ class FakeDashboardService:
         )
 
     async def signal_history(
-        self, exchange: str | None, symbol: str | None, limit: int
+        self,
+        exchange: str | None,
+        symbol: str | None,
+        strategy: str,
+        limit: int,
     ):
         selected_exchange = exchange.upper() if exchange else "HNX"
         return DashboardSnapshot(
@@ -94,6 +98,17 @@ class FakeDashboardService:
                     "signal_price": 110.0,
                     "score": 4,
                     "reason_codes": ["PRICE_ABOVE_MA50", "SCORE_4"],
+                    "model_version": "CONFIRMED_TREND_EQUALS_V1",
+                    "components": [
+                        {
+                            "strategy": "TREND_MOMENTUM_V1",
+                            "signal": "BULLISH",
+                            "mappedValue": 1,
+                            "score": 4,
+                            "signalDate": "2026-08-29",
+                            "reasonCodes": ["PRICE_ABOVE_MA50"],
+                        }
+                    ],
                     "actual_return_t5": 3.5,
                     "actual_return_t10": 5.0,
                     "actual_return_t15": -1.25,
@@ -298,11 +313,26 @@ async def test_signal_history_returns_persisted_outcomes_when_available(
     assert response.status_code == 200
     payload = response.json()
     assert payload["symbol"] == "HPG"
+    assert payload["strategy"] == "CONFIRMED_TREND_EQUALS"
     assert payload["availableExchanges"] == ["HNX", "HOSE"]
     assert payload["dataVersions"] == {"signals": HASH_B}
     assert payload["history"][0]["code"] == "HPG"
+    assert payload["history"][0]["modelVersion"] == "CONFIRMED_TREND_EQUALS_V1"
+    assert payload["history"][0]["components"][0]["strategy"] == "TREND_MOMENTUM_V1"
     assert payload["history"][0]["actualReturnT5"] == 3.5
     assert payload["history"][0]["actualReturnT20"] is None
+
+
+@pytest.mark.asyncio
+async def test_signal_history_rejects_unknown_strategy(app: FastAPI) -> None:
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/v1/dashboard/signal-history?strategy=UNKNOWN",
+            headers={"X-Omni-User": "operator"},
+        )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -376,7 +406,7 @@ async def test_signal_history_discovers_only_matching_ready_exchanges() -> None:
     )
 
     with pytest.raises(DashboardUnavailableError, match="HNX"):
-        await service.signal_history(None, None, 10)
+        await service.signal_history(None, None, "TREND_MOMENTUM_V1", 10)
 
 
 @pytest.mark.asyncio
@@ -408,8 +438,8 @@ async def test_signal_history_maps_missing_ready_manifest_to_unavailable() -> No
         settings=QueryServiceSettings(),
     )
 
-    with pytest.raises(DashboardUnavailableError, match="No READY Trend Momentum"):
-        await service.signal_history("HOSE", None, 10)
+    with pytest.raises(DashboardUnavailableError, match="No READY TREND_MOMENTUM_V1"):
+        await service.signal_history("HOSE", None, "TREND_MOMENTUM_V1", 10)
 
 
 def test_dashboard_settings_keep_hard_bounds() -> None:

@@ -144,6 +144,32 @@ class TelegramRenderingTest {
     }
 
     @Test
+    void removesTrailingStrategyVersionFromDisplayOnly() {
+        NotificationRequest request = signalRequest(NotificationKind.SIGNAL_CHANGED, new SignalChangedContent(
+                "HOSE-HPG", "NEUTRAL", "BULLISH", 28000.0, "2026-09-06", 0.5,
+                List.of("TREND_MOMENTUM_V1_BULLISH"), "TREND_MOMENTUM_V1", "1d",
+                Instant.parse("2026-09-06T10:22:00Z")));
+
+        assertThat(registry().render(request, 0).html())
+                .contains("TREND_MOMENTUM · 1D")
+                .doesNotContain("TREND_MOMENTUM_V1", "TREND MOMENTUM V1");
+    }
+
+    @Test
+    void rendersConfirmedTrendReasonsWithVietnameseDescriptions() {
+        NotificationRequest request = signalRequest(NotificationKind.SIGNAL_CHANGED, new SignalChangedContent(
+                "HOSE-HPG", "NEUTRAL", "BULLISH", 28000.0, "2026-09-06", 0.5,
+                List.of("TREND_MOMENTUM_V1_BULLISH", "ICHIMOKU_V1_NEUTRAL", "EQUAL_VOTE_SCORE_0.5"),
+                "CONFIRMED_TREND_EQUALS", "1d", Instant.parse("2026-09-06T10:22:00Z")));
+
+        assertThat(registry().render(request, 0).html())
+                .contains("- TREND MOMENTUM BULLISH — Xu hướng và động lượng tăng giá")
+                .contains("- ICHIMOKU NEUTRAL — Ichimoku trung lập")
+                .contains("- EQUAL VOTE SCORE 0.5 — Điểm đồng thuận trung bình 0.5")
+                .doesNotContain("TREND_MOMENTUM", "ICHIMOKU V1", "EQUAL_VOTE");
+    }
+
+    @Test
     void mapsSellHoldAliasesAndKeepsUnknownValuesUntranslated() {
         assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
                 signal("BEARISH")), 0).html()).startsWith("🔴 <b>BEARISH (Giảm giá)");

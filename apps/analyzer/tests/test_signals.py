@@ -20,9 +20,14 @@ from app.signals.storage import (
     SignalTransition,
 )
 from app.signals.strategy import (
+    CONFIRMED_TREND_EQUALS,
+    CONFIRMED_TREND_EQUALS_MODEL_VERSION,
     ICHIMOKU_V1,
+    TREND_MOMENTUM_V1,
     MarketSignal,
+    SignalComponent,
     SignalResult,
+    calculate_confirmed_trend_equals,
     calculate_ichimoku_v1,
     calculate_trend_momentum_v1,
 )
@@ -183,6 +188,10 @@ class FakeProducer:
         return SimpleNamespace(topic=topic, partition=0, offset=len(self.sent) - 1)
 
 
+async def _async(value):
+    return value
+
+
 def test_signal_job_message_validates_contract():
     message = SignalJobMessage.model_validate(
         _job_payload(strategy="trend_momentum_v1")
@@ -263,6 +272,91 @@ def test_calculate_ichimoku_v1_returns_no_decision_for_missing_current_cloud():
 
     assert result.signal == MarketSignal.NO_DECISION
     assert result.reason_codes == ["MISSING_VALUE_ICHIMOKU_SPAN_A"]
+
+
+@pytest.mark.parametrize(
+    ("trend_signal", "ichimoku_signal", "expected_signal", "expected_score"),
+    [
+        (MarketSignal.BULLISH, MarketSignal.BULLISH, MarketSignal.BULLISH, 1.0),
+        (MarketSignal.BULLISH, MarketSignal.NEUTRAL, MarketSignal.BULLISH, 0.5),
+        (MarketSignal.BULLISH, MarketSignal.BEARISH, MarketSignal.NEUTRAL, 0.0),
+        (MarketSignal.NEUTRAL, MarketSignal.BULLISH, MarketSignal.BULLISH, 0.5),
+        (MarketSignal.NEUTRAL, MarketSignal.NEUTRAL, MarketSignal.NEUTRAL, 0.0),
+        (MarketSignal.NEUTRAL, MarketSignal.BEARISH, MarketSignal.BEARISH, -0.5),
+        (MarketSignal.BEARISH, MarketSignal.BULLISH, MarketSignal.NEUTRAL, 0.0),
+        (MarketSignal.BEARISH, MarketSignal.NEUTRAL, MarketSignal.BEARISH, -0.5),
+        (MarketSignal.BEARISH, MarketSignal.BEARISH, MarketSignal.BEARISH, -1.0),
+    ],
+)
+def test_calculate_confirmed_trend_equals_decision_matrix(
+    trend_signal, ichimoku_signal, expected_signal, expected_score
+):
+    trend = SignalComponent(
+        "HOSE-HPG",
+        "1d",
+        SignalResult(trend_signal, 120.0, "2026-03-01", ["TREND_REASON"], 4),
+    )
+    ichimoku = SignalComponent(
+        "HOSE-HPG",
+        "1d",
+        SignalResult(
+            ichimoku_signal,
+            120.0,
+            "2026-03-01",
+            ["ICHIMOKU_REASON"],
+            3,
+            ICHIMOKU_V1,
+        ),
+    )
+
+    result = calculate_confirmed_trend_equals(trend, ichimoku)
+
+    assert result.strategy == CONFIRMED_TREND_EQUALS
+    assert result.model_version == CONFIRMED_TREND_EQUALS_MODEL_VERSION
+    assert result.signal == expected_signal
+    assert result.score == expected_score
+    assert result.price == 120.0
+    assert result.components is not None
+    assert [item["strategy"] for item in result.components] == [
+        TREND_MOMENTUM_V1,
+        ICHIMOKU_V1,
+    ]
+
+
+@pytest.mark.parametrize(
+    "mutation,reason",
+    [
+        ("no_decision", "COMPONENT_NO_DECISION"),
+        ("symbol", "COMPONENT_SYMBOL_MISMATCH"),
+        ("timeframe", "COMPONENT_TIMEFRAME_MISMATCH"),
+        ("date", "COMPONENT_DATE_MISMATCH"),
+    ],
+)
+def test_calculate_confirmed_trend_equals_rejects_invalid_components(mutation, reason):
+    trend = SignalComponent(
+        "HOSE-HPG",
+        "1d",
+        SignalResult(MarketSignal.BULLISH, 120.0, "2026-03-01", [], 4),
+    )
+    ichimoku_result = SignalResult(
+        MarketSignal.NO_DECISION if mutation == "no_decision" else MarketSignal.BULLISH,
+        120.0,
+        "2026-03-02" if mutation == "date" else "2026-03-01",
+        [],
+        3,
+        ICHIMOKU_V1,
+    )
+    ichimoku = SignalComponent(
+        "HNX-HPG" if mutation == "symbol" else "HOSE-HPG",
+        "1w" if mutation == "timeframe" else "1d",
+        ichimoku_result,
+    )
+
+    result = calculate_confirmed_trend_equals(trend, ichimoku)
+
+    assert result.signal == MarketSignal.NO_DECISION
+    assert result.signal_date is None
+    assert reason in result.reason_codes
 
 
 @pytest.mark.anyio
@@ -418,6 +512,44 @@ async def test_signal_repository_updates_available_actual_outcomes_by_trading_da
     assert pd.isna(row["actual_price_t10"])
     assert row["signal"] == "BULLISH"
     assert row["signal_price"] == 100.0
+
+
+@pytest.mark.anyio
+async def test_signal_repository_evaluates_combined_signal_outcomes():
+    path = "signals/confirmed_trend_equals/1d/hose.parquet"
+    history = pd.DataFrame(
+        [
+            {
+                "symbol_key": "HOSE-HPG",
+                "exchange": "HOSE",
+                "strategy": CONFIRMED_TREND_EQUALS,
+                "timeframe": "1d",
+                "signal": "BULLISH",
+                "signal_price": 100.0,
+                "signal_date": "2026-01-02",
+                "score": 0.5,
+                "reason_codes": ["EQUAL_VOTE_SCORE_0.5"],
+                "model_version": CONFIRMED_TREND_EQUALS_MODEL_VERSION,
+                "components": [],
+                "generated_at": pd.Timestamp("2026-01-02T00:00:00Z"),
+            }
+        ]
+    )
+    eod = pd.DataFrame(
+        {
+            "date": pd.date_range("2026-01-02", periods=6, freq="B"),
+            "ad_close": [100.0, 101.0, 102.0, 103.0, 104.0, 110.0],
+        }
+    )
+    storage = FakeParquetStorage({path: history})
+    repository = SignalHistoryRepository(storage)
+
+    evaluation = await repository.update_outcomes(path, lambda _symbol_key: _async(eod))
+
+    assert evaluation.records_updated == 1
+    row = storage.replacements[path].iloc[0]
+    assert row["actual_return_t5"] == 0.1
+    assert row["model_version"] == CONFIRMED_TREND_EQUALS_MODEL_VERSION
 
 
 @pytest.mark.anyio
@@ -600,6 +732,91 @@ async def test_signal_handler_reads_eod_indicators_and_writes_signal_path():
     assert signals_path in storage.replacements
     assert "signals/trend_momentum_v1/1d/hose/hpg.parquet" in storage.replacements
     assert len(storage.replacements) == 2
+
+
+@pytest.mark.anyio
+async def test_signal_handler_combines_current_persisted_component_results():
+    trend_path = "signals/trend_momentum_v1/1d/hose.parquet"
+    ichimoku_path = "signals/ichimoku_v1/1d/hose.parquet"
+    combined_path = "signals/confirmed_trend_equals/1d/hose.parquet"
+    component_row = {
+        "symbol_key": "HOSE-HPG",
+        "exchange": "HOSE",
+        "timeframe": "1d",
+        "signal_date": "2026-03-01",
+        "signal_price": 120.0,
+        "reason_codes": ["COMPONENT_REASON"],
+        "generated_at": pd.Timestamp("2026-03-01T12:00:00Z"),
+    }
+    storage = FakeParquetStorage(
+        {
+            "eod/hose/hpg.parquet": _eod_frame(),
+            trend_path: pd.DataFrame(
+                [
+                    {
+                        **component_row,
+                        "strategy": TREND_MOMENTUM_V1,
+                        "signal": "BULLISH",
+                        "score": 5,
+                    }
+                ]
+            ),
+            ichimoku_path: pd.DataFrame(
+                [
+                    {
+                        **component_row,
+                        "strategy": ICHIMOKU_V1,
+                        "signal": "NEUTRAL",
+                        "score": 1,
+                    }
+                ]
+            ),
+        }
+    )
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader())
+
+    transition = await handler.handle(_job_payload(strategy=CONFIRMED_TREND_EQUALS))
+
+    assert transition.new_signal == MarketSignal.BULLISH
+    assert transition.metadata["modelVersion"] == CONFIRMED_TREND_EQUALS_MODEL_VERSION
+    assert len(transition.metadata["components"]) == 2
+    row = storage.replacements[combined_path].iloc[0]
+    assert row["strategy"] == CONFIRMED_TREND_EQUALS
+    assert row["model_version"] == CONFIRMED_TREND_EQUALS_MODEL_VERSION
+    assert len(row["components"]) == 2
+
+
+@pytest.mark.anyio
+async def test_signal_handler_does_not_persist_stale_combined_components():
+    component_row = {
+        "symbol_key": "HOSE-HPG",
+        "exchange": "HOSE",
+        "timeframe": "1d",
+        "signal_date": "2026-02-28",
+        "signal": "BULLISH",
+        "signal_price": 119.0,
+        "score": 4,
+        "reason_codes": [],
+    }
+    storage = FakeParquetStorage(
+        {
+            "eod/hose/hpg.parquet": _eod_frame(),
+            "signals/trend_momentum_v1/1d/hose.parquet": pd.DataFrame(
+                [{**component_row, "strategy": TREND_MOMENTUM_V1}]
+            ),
+            "signals/ichimoku_v1/1d/hose.parquet": pd.DataFrame(
+                [{**component_row, "strategy": ICHIMOKU_V1}]
+            ),
+        }
+    )
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader())
+
+    transition = await handler.handle(_job_payload(strategy=CONFIRMED_TREND_EQUALS))
+
+    assert transition.new_signal == MarketSignal.NO_DECISION
+    assert transition.persisted is False
+    assert "STALE_COMPONENT_DATE" in transition.metadata["reasonCodes"]
+    assert "signals/confirmed_trend_equals/1d/hose.parquet" not in storage.replacements
 
 
 @pytest.mark.anyio

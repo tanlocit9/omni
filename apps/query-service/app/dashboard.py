@@ -242,13 +242,18 @@ class DashboardService:
         )
 
     async def signal_history(
-        self, exchange: str | None, symbol: str | None, limit: int
+        self,
+        exchange: str | None,
+        symbol: str | None,
+        strategy: str,
+        limit: int,
     ) -> DashboardSnapshot:
+        partition_strategy = strategy.lower()
         manifests = [
             item
             for item in await self._list_partitions("signals")
             if item.status == "READY"
-            and item.partition.get("strategy") == "trend_momentum_v1"
+            and item.partition.get("strategy") == partition_strategy
             and item.partition.get("timeframe") == "1d"
             and item.partition.get("exchange", "").upper() in _ALLOWED_EXCHANGES
         ]
@@ -257,13 +262,12 @@ class DashboardService:
         )
         if not available_exchanges:
             raise DashboardUnavailableError(
-                "No READY Trend Momentum signal history partitions are available"
+                f"No READY {strategy} signal history partitions are available"
             )
         normalized_exchange = exchange.upper() if exchange else available_exchanges[0]
         if normalized_exchange not in available_exchanges:
             raise DashboardUnavailableError(
-                "Trend Momentum signal history is not available for "
-                f"{normalized_exchange}"
+                f"{strategy} signal history is not available for {normalized_exchange}"
             )
         manifest = next(
             item
@@ -285,7 +289,7 @@ class DashboardService:
             )[0]
         except (FileNotFoundError, ManifestNotFoundError, ValueError) as exc:
             raise DashboardUnavailableError(
-                "No READY Trend Momentum signal history is available for "
+                f"No READY {strategy} signal history is available for "
                 f"{normalized_exchange}"
             ) from exc
         columns = {column.name for column in resolved.manifest.columns}
@@ -297,12 +301,17 @@ class DashboardService:
             column if column in columns else f"NULL AS {column}"
             for column in sorted(_SIGNAL_OUTCOME_COLUMNS)
         ]
+        component_select = [
+            column if column in columns else f"NULL AS {column}"
+            for column in ("model_version", "components")
+        ]
         normalized_symbol = symbol.upper() if symbol else None
         where_clause = "WHERE symbol_key = $symbol_key" if normalized_symbol else ""
         sql = validate_read_only_sql(
             f"""
             SELECT symbol_key, signal_date, signal, signal_price, score, reason_codes,
-                   {", ".join(outcome_select)}, generated_at
+                   {", ".join(outcome_select)},
+                   {", ".join(component_select)}, generated_at
             FROM signal_history
             {where_clause}
             ORDER BY CAST(signal_date AS DATE) DESC, generated_at DESC, symbol_key

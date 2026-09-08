@@ -17,14 +17,19 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
 
     private final ApplicationEventPublisher eventPublisher;
     private final JsonMapper jsonMapper;
+    private final String notificationStrategy;
 
     @Value("${kafka.topics.topic-signal-notifications}")
     private String topic;
 
-    public SignalChangedNotificationConsumer(ApplicationEventPublisher eventPublisher, JsonMapper jsonMapper) {
+    public SignalChangedNotificationConsumer(
+            ApplicationEventPublisher eventPublisher,
+            JsonMapper jsonMapper,
+            @Value("${app.notifications.signal-strategy:CONFIRMED_TREND_EQUALS}") String notificationStrategy) {
         super(eventPublisher);
         this.eventPublisher = eventPublisher;
         this.jsonMapper = jsonMapper;
+        this.notificationStrategy = notificationStrategy;
     }
 
     @Override
@@ -40,6 +45,9 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
             SignalChangedNotificationMessage message = jsonMapper.readValue(
                     record.value(), SignalChangedNotificationMessage.class);
             validate(message);
+            if (!notificationStrategy.equalsIgnoreCase(message.strategy())) {
+                return;
+            }
             eventPublisher.publishEvent(new SignalChangedNotificationEvent(
                     message.executionId(), message.parentExecutionId(), message.symbolKey(), message.previousSignal(),
                     message.newSignal(), message.price(), message.signalDate(), message.reasonCodes(), message.score(),

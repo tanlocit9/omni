@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
+import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
 import com.omni.platform.modules.scheduler.constants.SyncSignalsConfig;
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.dependencies.ManifestReadException;
@@ -80,8 +81,10 @@ public class SyncSignalsJobProducer extends JobProducer {
                     job.getId(), sectorCodes, sectorLevel);
         }
 
+        boolean combinesPersistedSignals = JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS
+                .equals(strategy);
         List<SymbolKeyProjection> readySymbols = symbols.stream()
-                .filter(symbol -> hasReadyIndicatorPartition(symbol, timeframe))
+                .filter(symbol -> combinesPersistedSignals || hasReadyIndicatorPartition(symbol, timeframe))
                 .toList();
         int deferredCount = symbols.size() - readySymbols.size();
         if (deferredCount > 0) {

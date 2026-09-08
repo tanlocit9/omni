@@ -3,6 +3,7 @@ package com.omni.platform.modules.scheduler.producers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -85,6 +86,34 @@ class SyncSignalsJobProducerTest {
     }
 
     @Test
+    void dispatchesConfirmedTrendWithoutRequiringIndicatorManifest() {
+        SyncSignalsJobProducer producer = new SyncSignalsJobProducer(
+                jobService,
+                kafkaPublisher,
+                symbolRepository,
+                manifestReader);
+        JobDefinition job = job(JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
+        JobExecutionHistory parent = execution(UUID.randomUUID());
+        JobExecutionHistory child = execution(UUID.randomUUID());
+        SymbolKeyProjection symbol = symbol("HOSE", "HPG");
+        when(symbolRepository.findBySectorCodesAndLevel(null, 2)).thenReturn(List.of(symbol));
+        when(jobService.createChildExecution(eq(parent.getId()),
+                eq(WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG")), any(), any()))
+                .thenReturn(child);
+
+        List<KafkaMessage> messages = producer.buildMessages(
+                job,
+                parent,
+                Instant.parse("2026-09-06T00:00:00Z"));
+
+        assertThat(messages).singleElement().satisfies(message -> {
+            SignalJobMessage payload = (SignalJobMessage) message.payload();
+            assertThat(payload.strategy()).isEqualTo(JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
+        });
+        verify(manifestReader, never()).readManifest(any());
+    }
+
+    @Test
     void defersSymbolWhenIndicatorManifestIsNotReady() {
         SyncSignalsJobProducer producer = new SyncSignalsJobProducer(
                 jobService,
@@ -108,13 +137,17 @@ class SyncSignalsJobProducerTest {
     }
 
     private JobDefinition job() {
+        return job(JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1);
+    }
+
+    private JobDefinition job(String strategy) {
         JobDefinition job = new JobDefinition();
         job.setId(UUID.randomUUID());
         job.setSource(DataSource.ANALYZER);
         job.setJobType(JobType.SYNC_SIGNALS);
         job.setConfigJson(Map.of(
                 JobDefinitionConfig.CONFIG_KEY_TIMEFRAME, "1d",
-                JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY, "TREND_MOMENTUM_V1"));
+                JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY, strategy));
         return job;
     }
 
@@ -126,8 +159,8 @@ class SyncSignalsJobProducerTest {
 
     private SymbolKeyProjection symbol(String exchange, String code) {
         SymbolKeyProjection symbol = mock(SymbolKeyProjection.class);
-        when(symbol.getExchange()).thenReturn(exchange);
-        when(symbol.getCode()).thenReturn(code);
+        lenient().when(symbol.getExchange()).thenReturn(exchange);
+        lenient().when(symbol.getCode()).thenReturn(code);
         when(symbol.symbolKey()).thenReturn(exchange + "-" + code);
         return symbol;
     }

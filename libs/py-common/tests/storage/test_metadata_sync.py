@@ -133,6 +133,44 @@ async def test_exact_sync_removes_missing_partition_only() -> None:
 
 
 @pytest.mark.asyncio
+async def test_confirmed_trend_metadata_uses_only_eod_lineage() -> None:
+    eod_version = f"sha256:{'a' * 64}"
+    parquet = ParquetCodec.encode(
+        pd.DataFrame(
+            {
+                "symbol_key": ["HOSE-HPG"],
+                "eod_data_version": [eod_version],
+                "indicators_data_version": [None],
+            }
+        )
+    )
+    current = GlobalMetadataDocument(
+        version=1,
+        generatedAt="2026-09-07T13:00:00Z",
+        datasets=[],
+    )
+    sync, writer = synchronizer(
+        {"signals/confirmed_trend_equals/1d/hose.parquet": parquet}, current
+    )
+
+    result = await sync.sync(target=MetadataSyncTarget(dataset="signals"))
+
+    assert result.partitions_added == 1
+    partition = writer.documents[0].resolve(
+        "signals",
+        {
+            "strategy": "confirmed_trend_equals",
+            "timeframe": "1d",
+            "exchange": "hose",
+        },
+    )
+    assert partition is not None
+    assert [(item.dataset, item.dataVersion) for item in partition.inputs] == [
+        ("eod", eod_version)
+    ]
+
+
+@pytest.mark.asyncio
 async def test_full_sync_does_not_publish_when_no_valid_partition_exists() -> None:
     sync, writer = synchronizer({"eod/hose/_versions/old.parquet": b"invalid"})
 

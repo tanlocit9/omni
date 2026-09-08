@@ -17,6 +17,8 @@ REQUIRED_ICHIMOKU_COLUMNS = {
 }
 TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1"
 ICHIMOKU_V1 = "ICHIMOKU_V1"
+CONFIRMED_TREND_EQUALS = "CONFIRMED_TREND_EQUALS"
+CONFIRMED_TREND_EQUALS_MODEL_VERSION = "CONFIRMED_TREND_EQUALS_V1"
 BULLISH_THRESHOLD = 3
 BEARISH_THRESHOLD = -3
 
@@ -29,16 +31,25 @@ class MarketSignal(StrEnum):
 
 
 @dataclass(frozen=True)
+class SignalComponent:
+    symbol_key: str
+    timeframe: str
+    result: SignalResult
+
+
+@dataclass(frozen=True)
 class SignalResult:
     signal: MarketSignal
     price: float | None
     signal_date: str | None
     reason_codes: list[str]
-    score: int
+    score: float
     strategy: str = TREND_MOMENTUM_V1
+    model_version: str | None = None
+    components: list[dict[str, Any]] | None = None
 
     def to_metadata(self) -> dict[str, Any]:
-        return {
+        metadata = {
             "newSignal": self.signal.value,
             "price": self.price,
             "signalDate": self.signal_date,
@@ -46,6 +57,11 @@ class SignalResult:
             "score": self.score,
             "strategy": self.strategy,
         }
+        if self.model_version is not None:
+            metadata["modelVersion"] = self.model_version
+        if self.components is not None:
+            metadata["components"] = self.components
+        return metadata
 
 
 def calculate_trend_momentum_v1(
@@ -282,6 +298,90 @@ def calculate_ichimoku_v1(
         reason_codes,
         score,
         ICHIMOKU_V1,
+    )
+
+
+def calculate_confirmed_trend_equals(
+    trend_momentum: SignalComponent,
+    ichimoku: SignalComponent,
+    expected_signal_date: str | None = None,
+) -> SignalResult:
+    """Combine the two fixed component strategies using an equal vote."""
+    components = [trend_momentum, ichimoku]
+    expected_strategies = {TREND_MOMENTUM_V1, ICHIMOKU_V1}
+    actual_strategies = {component.result.strategy for component in components}
+    invalid_reasons: list[str] = []
+
+    if actual_strategies != expected_strategies:
+        invalid_reasons.append("INVALID_COMPONENT_STRATEGIES")
+    if len({component.symbol_key for component in components}) != 1:
+        invalid_reasons.append("COMPONENT_SYMBOL_MISMATCH")
+    if len({component.timeframe for component in components}) != 1:
+        invalid_reasons.append("COMPONENT_TIMEFRAME_MISMATCH")
+    if len({component.result.signal_date for component in components}) != 1:
+        invalid_reasons.append("COMPONENT_DATE_MISMATCH")
+    elif expected_signal_date is not None and any(
+        component.result.signal_date != expected_signal_date for component in components
+    ):
+        invalid_reasons.append("STALE_COMPONENT_DATE")
+    if any(
+        component.result.signal == MarketSignal.NO_DECISION for component in components
+    ):
+        invalid_reasons.append("COMPONENT_NO_DECISION")
+    if any(component.result.signal_date is None for component in components):
+        invalid_reasons.append("MISSING_COMPONENT_DATE")
+
+    mapped_values = {
+        MarketSignal.BULLISH: 1,
+        MarketSignal.NEUTRAL: 0,
+        MarketSignal.BEARISH: -1,
+    }
+    component_details = [
+        {
+            "strategy": component.result.strategy,
+            "signal": component.result.signal.value,
+            "mappedValue": mapped_values.get(component.result.signal),
+            "score": component.result.score,
+            "signalDate": component.result.signal_date,
+            "reasonCodes": component.result.reason_codes,
+        }
+        for component in components
+    ]
+    if invalid_reasons:
+        return SignalResult(
+            MarketSignal.NO_DECISION,
+            None,
+            None,
+            invalid_reasons,
+            0.0,
+            CONFIRMED_TREND_EQUALS,
+            CONFIRMED_TREND_EQUALS_MODEL_VERSION,
+            component_details,
+        )
+
+    score = sum(mapped_values[component.result.signal] for component in components) / 2
+    signal = (
+        MarketSignal.BULLISH
+        if score >= 0.5
+        else MarketSignal.BEARISH
+        if score <= -0.5
+        else MarketSignal.NEUTRAL
+    )
+    prices = [component.result.price for component in components]
+    price = prices[0] if prices[0] == prices[1] else None
+    return SignalResult(
+        signal,
+        price,
+        trend_momentum.result.signal_date,
+        [
+            f"{TREND_MOMENTUM_V1}_{trend_momentum.result.signal.value}",
+            f"{ICHIMOKU_V1}_{ichimoku.result.signal.value}",
+            f"EQUAL_VOTE_SCORE_{score:g}",
+        ],
+        score,
+        CONFIRMED_TREND_EQUALS,
+        CONFIRMED_TREND_EQUALS_MODEL_VERSION,
+        component_details,
     )
 
 

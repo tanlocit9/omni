@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import pandas as pd
 from py_common.storage.exceptions import (
     ManifestInvalidError,
     StorageObjectNotFoundError,
@@ -14,10 +15,13 @@ from app.settings import AppSettings
 from app.signals.messages import SignalJobMessage
 from app.signals.storage import SignalHistoryRepository, SignalTransition
 from app.signals.strategy import (
+    CONFIRMED_TREND_EQUALS,
     ICHIMOKU_V1,
     TREND_MOMENTUM_V1,
     MarketSignal,
+    SignalComponent,
     SignalResult,
+    calculate_confirmed_trend_equals,
     calculate_ichimoku_v1,
     calculate_trend_momentum_v1,
 )
@@ -79,18 +83,28 @@ class SignalJobHandler:
         )
         document = await self._metadata_reader.read()
         eod_manifest = document.resolve("eod", eod_partition)
+        if eod_manifest is None or eod_manifest.status != "READY":
+            raise ManifestInvalidError("Signal EOD input must have READY metadata")
+        eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
+
+        if message.strategy == CONFIRMED_TREND_EQUALS:
+            return await self._handle_confirmed_trend_equals(
+                message.symbol_key,
+                message.timeframe,
+                exchange,
+                history_path,
+                current_path,
+                eod_frame,
+                eod_manifest.dataVersion,
+            )
+
         indicator_manifest = document.resolve("indicators", indicator_partition)
-        if (
-            eod_manifest is None
-            or indicator_manifest is None
-            or eod_manifest.status != "READY"
-            or indicator_manifest.status != "READY"
-        ):
-            raise ManifestInvalidError("Signal inputs must have READY metadata")
-        eod_path = eod_manifest.path
+        if indicator_manifest is None or indicator_manifest.status != "READY":
+            raise ManifestInvalidError(
+                "Signal indicator input must have READY metadata"
+            )
         indicators_path = indicator_manifest.path
 
-        eod_frame = await self._parquet_storage.read_dataframe(eod_path)
         try:
             indicators_frame = await self._parquet_storage.read_dataframe(
                 indicators_path
@@ -132,4 +146,59 @@ class SignalJobHandler:
             exchange=exchange,
             eod_data_version=eod_manifest.dataVersion,
             indicators_data_version=indicator_manifest.dataVersion,
+        )
+
+    async def _handle_confirmed_trend_equals(
+        self,
+        symbol_key: str,
+        timeframe: str,
+        exchange: str,
+        history_path: str,
+        current_path: str,
+        eod_frame: pd.DataFrame,
+        eod_data_version: str,
+    ) -> SignalTransition:
+        component_results = []
+        for strategy in (TREND_MOMENTUM_V1, ICHIMOKU_V1):
+            component_path = self._settings.stock_data_paths.signal_history(
+                strategy,
+                timeframe,
+                exchange,
+            )
+            result = await self._signal_repository.latest_result(
+                component_path,
+                symbol_key,
+                timeframe,
+                strategy,
+            )
+            if result is None:
+                result = SignalResult(
+                    MarketSignal.NO_DECISION,
+                    None,
+                    None,
+                    [f"MISSING_COMPONENT_{strategy}"],
+                    0,
+                    strategy,
+                )
+            component_results.append(SignalComponent(symbol_key, timeframe, result))
+
+        expected_signal_date = None
+        if {"date", "ad_close"}.issubset(eod_frame.columns):
+            valid_eod = eod_frame.dropna(subset=["date", "ad_close"])
+            if not valid_eod.empty:
+                expected_signal_date = (
+                    pd.Timestamp(valid_eod["date"].max()).date().isoformat()
+                )
+        result = calculate_confirmed_trend_equals(
+            *component_results,
+            expected_signal_date=expected_signal_date,
+        )
+        return await self._signal_repository.persist_transition(
+            history_path,
+            current_path,
+            symbol_key,
+            timeframe,
+            result,
+            exchange=exchange,
+            eod_data_version=eod_data_version,
         )

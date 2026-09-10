@@ -92,6 +92,14 @@ class JobDefinitionConfigTest {
     }
 
     @Test
+    void configuresIntradayEodForSharedVietnamExchangeUniverse() {
+        JobDefinitionSeed intradayEod = onlySeed(JobType.SYNC_INTRADAY_EOD);
+
+        assertThat(intradayEod.config().get(JobDefinitionConfig.CONFIG_KEY_EXCHANGES))
+                .isEqualTo(JobDefinitionConfig.VIETNAM_EXCHANGES);
+    }
+
+    @Test
     void documentsVerifiedSymbolFeatureAndTransitionOutcomeLineage() {
         JobDefinitionSeed symbolFeatures = onlySeed(JobType.PRECOMPUTE_SYMBOL_FEATURES);
         assertThat(dependencies(symbolFeatures, JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_DATASETS))

@@ -29,6 +29,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | flows/002 | [Stock Sync Flow](flows/002-stock-sync.md)                 | Canonical ingestion flow                              | Pre-roadmap; Group D / Phases 9-10                                         | [Data Lake](data/002-data-lake.md), [Kafka Contracts](data/001-kafka-contracts.md)                                                                        |
 | flows/003 | [Indicator and Signal Flow](flows/003-indicator-signal.md) | Canonical analytics flow                              | Pre-roadmap; Group D consumers                                             | [Data Lake](data/002-data-lake.md), [Kafka Contracts](data/001-kafka-contracts.md), [Feature Catalog](reference/001-algorithm-feature-catalog.md)         |
 | flows/004 | [Sector Wave Flow](flows/004-sector-wave.md)               | Canonical sector-analytics and deferred-research flow | Pre-roadmap; future analytical scope                                       | [ADR-006](adr/ADR-006-sector-wave-precompute-model.md), [Data Lake](data/002-data-lake.md), [Feature Catalog](reference/001-algorithm-feature-catalog.md) |
+| flows/005 | [Intraday EOD Flow](flows/005-intraday-eod.md)             | Canonical post-close ingestion flow                   | Group D / Phase 9 / P9-I1                                                  | [Data Lake](data/002-data-lake.md), [Kafka Contracts](data/001-kafka-contracts.md), [Intraday EOD plan](plans/013-intraday-eod.md)                        |
 
 ## Development and Operations Guides
 
@@ -42,22 +43,22 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 
 ## Roadmap Supporting Plans
 
-| No.       | Document                                                                                              | Classification                    | Roadmap mapping    |
-| --------- | ----------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------ |
-| plans/001 | [Backend/Core Stabilization](plans/001-backend-core-stabilization.md)                                 | Supporting implementation plan    | Group A / Phase 1  |
-| plans/002 | [Cross-Service Proto3 Contracts](plans/002-cross-service-protobuf-contracts.md)                       | Supporting implementation plan    | Group B / Phase 2  |
-| plans/003 | [Dataset Metadata Manifest](plans/003-dataset-metadata-manifest.md)                                   | Consolidated implementation plan  | Group B / Phase 3  |
-| plans/004 | [Parquet Date Normalization](plans/004-parquet-date-normalization-increment.md)                       | Increment record                  | Group B / Phase 3  |
-| plans/005 | [Job Dependency Guard](plans/005-job-dependency-guard.md)                                             | Consolidated implementation plan  | Group B / Phase 4  |
-| plans/006 | [Job Dependency Guard Progress](plans/006-job-dependency-guard-progress.md)                           | Historical progress record        | Group B / Phase 4  |
-| plans/007 | [Portable Docker Deployment](plans/007-portable-docker-deployment.md)                                 | Deferred technical debt           | Group C / Phase 5  |
-| plans/008 | [Omni Metadata and Console Execution](plans/008-omni-metadata-console-dashboard-execution-plan.md)    | Deferred technical-debt record    | Group C / Phase 6  |
-| plans/009 | [Dataset-Component Market Dashboard](plans/009-dataset-component-market-dashboard.md)                 | Deferred technical debt           | Group C / Phase 6  |
-| plans/010 | [Telegram Multi-Channel](plans/010-telegram-multi-channel.md)                                         | Supporting implementation plan    | Group C / Phase 8  |
-| plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation | Group C / Phase 8  |
-| plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail       | Group C / Phase 8  |
-| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Deferred technical debt           | Group D / Phase 9  |
-| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred technical debt           | Group D / Phase 10 |
+| No.       | Document                                                                                              | Classification                     | Roadmap mapping    |
+| --------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------ |
+| plans/001 | [Backend/Core Stabilization](plans/001-backend-core-stabilization.md)                                 | Supporting implementation plan     | Group A / Phase 1  |
+| plans/002 | [Cross-Service Proto3 Contracts](plans/002-cross-service-protobuf-contracts.md)                       | Supporting implementation plan     | Group B / Phase 2  |
+| plans/003 | [Dataset Metadata Manifest](plans/003-dataset-metadata-manifest.md)                                   | Consolidated implementation plan   | Group B / Phase 3  |
+| plans/004 | [Parquet Date Normalization](plans/004-parquet-date-normalization-increment.md)                       | Increment record                   | Group B / Phase 3  |
+| plans/005 | [Job Dependency Guard](plans/005-job-dependency-guard.md)                                             | Consolidated implementation plan   | Group B / Phase 4  |
+| plans/006 | [Job Dependency Guard Progress](plans/006-job-dependency-guard-progress.md)                           | Historical progress record         | Group B / Phase 4  |
+| plans/007 | [Portable Docker Deployment](plans/007-portable-docker-deployment.md)                                 | Deferred technical debt            | Group C / Phase 5  |
+| plans/008 | [Omni Metadata and Console Execution](plans/008-omni-metadata-console-dashboard-execution-plan.md)    | Deferred technical-debt record     | Group C / Phase 6  |
+| plans/009 | [Dataset-Component Market Dashboard](plans/009-dataset-component-market-dashboard.md)                 | Deferred technical debt            | Group C / Phase 6  |
+| plans/010 | [Telegram Multi-Channel](plans/010-telegram-multi-channel.md)                                         | Supporting implementation plan     | Group C / Phase 8  |
+| plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation  | Group C / Phase 8  |
+| plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail        | Group C / Phase 8  |
+| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Active bounded implementation plan | Group D / Phase 9  |
+| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred technical debt            | Group D / Phase 10 |
 
 ## Proposed, Historical, and Compatibility Plans
 

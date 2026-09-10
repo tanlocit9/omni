@@ -54,6 +54,7 @@ class SignalTransition:
     state_frame: pd.DataFrame
     metadata: dict[str, Any]
     persisted: bool = True
+    new_signal_date: bool = False
     history_frame: pd.DataFrame | None = None
     write_result: ParquetWriteResult | None = None
 
@@ -131,6 +132,10 @@ class SignalHistoryRepository:
                 indicators_data_version,
             )
             persisted = result.signal != MarketSignal.NO_DECISION
+            new_signal_date = (
+                persisted
+                and not self._same_signal_key(history, state_frame.iloc[0]).any()
+            )
             history_frame = history
             write_result = None
             if persisted:
@@ -149,6 +154,7 @@ class SignalHistoryRepository:
             metadata.update(
                 {
                     "signalChanged": signal_changed,
+                    "newSignalDate": new_signal_date,
                     "previousSignal": (
                         previous_signal.value if previous_signal else None
                     ),
@@ -163,6 +169,7 @@ class SignalHistoryRepository:
                 state_frame=state_frame,
                 metadata=metadata,
                 persisted=persisted,
+                new_signal_date=new_signal_date,
                 history_frame=history_frame if persisted else None,
                 write_result=write_result,
             )

@@ -13,6 +13,7 @@ flowchart TD
   Analyzer["Analyzer"]
   Symbols["symbols/{exchange}.parquet"]
   EOD["eod/{exchange}/{code}.parquet"]
+  Intraday["intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/{symbol}.parquet"]
   Indicators["indicators/{source}/{timeframe}/{exchange}/{code}.parquet"]
   Signals["signals/{strategy}/{timeframe}/{exchange}.parquet"]
   SymbolFeatures["features/symbol/{timeframe}/{exchange}/{code}.parquet"]
@@ -26,6 +27,7 @@ flowchart TD
   Provider --> Ingestor
   Ingestor --> Symbols
   Ingestor --> EOD
+  Ingestor --> Intraday
   EOD --> Analyzer
   Symbols --> Analyzer
   Analyzer --> Indicators
@@ -47,7 +49,8 @@ flowchart TD
 
 - Exchange names and ticker codes are lowercased in paths.
 - Folder names use kebab-case.
-- No temporal partitioning such as `dt=` or `run_id=`.
+- Temporal partitioning is dataset-specific; P9-I1 intraday trades use the approved
+  `trading_date=YYYY-MM-DD` partition and never an incidental run identifier.
 - Files are overwritten or merged in place depending on dataset strategy.
 - Kafka messages must not include bucket names or object names for routing.
 - Path construction should use shared path builders backed by [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml).
@@ -136,6 +139,28 @@ for the canonical contract and acceptance criteria.
 | Schema/key      | One symbol per file, keyed by trading date/timeframe data columns.                                                                          |
 | Update strategy | Merge incremental provider rows with existing Parquet and deduplicate by date.                                                              |
 | Ownership       | Ingestor owns EOD Parquet files.                                                                                                            |
+
+### intraday-trades
+
+| Field           | Value                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| Config key      | `intraday-trades`                                                                                           |
+| Logical path    | `intraday/trades/provider={provider}/exchange={exchange}/trading_date={trading_date}/{symbol}.parquet`      |
+| Producer        | Ingestor `SYNC_INTRADAY_EOD` handler                                                                        |
+| Consumer        | Deferred P9-I2 bars/features and offline research                                                           |
+| Schema/key      | One symbol object; deterministic UTC timestamp then provider-ID ordering.                                   |
+| Update strategy | Write immutable data, read back/validate, write immutable version manifest, then replace `READY.json` last. |
+| Ownership       | Ingestor owns normalized VCI trades; shared builders own physical path construction/publication semantics.  |
+
+P9-I1 supports VCI across HOSE, HNX, and UPCOM and the latest completed configured
+session only. The logical partition identity is `(provider, exchange, trading_date)`
+and each symbol remains a
+separate object. Exact duplicate provider IDs collapse; conflicting IDs, mixed/out-of-
+session timestamps, cursor ambiguity, unavailable symbols, reconciliation rejection,
+or any publication failure prevent a replacement READY pointer. Prior immutable
+versions and the prior pointer remain valid. `SYNC_METADATA` remains the sole writer of
+canonical `_metadata/metadata.json`; the per-partition `READY.json` is the ingestion
+publication boundary, not a second global discovery writer.
 
 ### indicators
 

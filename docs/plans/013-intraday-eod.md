@@ -1,6 +1,6 @@
 # Intraday End-of-Day Sync Implementation Plan
 
-Status: Deferred technical debt for the current daily/EOD MVP. This plan must not be treated as a prerequisite or blocker until the owner approves intraday product scope. See [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
+Status: P9-I1 bounded implementation is active following owner approval on 2026-09-10. P9-I2 and P9-I3 remain deferred technical debt. See [`plans/roadmap/phase-9-intraday-eod.md`](../../plans/roadmap/phase-9-intraday-eod.md).
 
 ## Goal
 
@@ -17,6 +17,19 @@ After this phase Omni can:
 - calculate VWAP, momentum, volume and volatility features;
 - inspect partition size, object count, row count, schema, range and freshness through MinIO manifests;
 - use those manifests as downstream dataset readiness markers.
+
+## Implementation Eligibility
+
+The owner approved all six P9-I1 decisions and reactivated the bounded increment on 2026-09-10. The first delivery slice is vnstock 4.x with source VCI, HOSE/HNX/UPCOM, all active symbols on each configured exchange, the latest completed trading session only, and normalized trades only. Bars, features, sectors, Console work, and realtime coupling remain deferred.
+
+| Gate                         | Approved decision                                                                                                                                                                                                                                                                                                                                             | Evidence / deterministic policy                                                                                                                                                                                                                                                     | Current state |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| D9-1 Provider schema         | Use `vnstock.api.quote.Quote` with source `VCI`. Canonical required source fields are timezone-aware `time`, `price`, `volume`, `match_type`, and provider `id`; `id` is the trade identity and `match_type` remains provider evidence rather than a canonical aggressor side.                                                                                | A live redacted HPG probe established fields/dtypes. Normal, empty, and cursor-page fixtures retain redacted live structure; conflicting duplicate/correction cases are synthetic fixtures derived from that schema. VCI pagination uses `last_time`/`truncTime`, not page numbers. | `approved`    |
+| D9-2 Trading-date validation | Platform remains scheduled after all configured Vietnam exchanges close and selects the latest completed weekday. Ingestor converts every provider timestamp to `Asia/Ho_Chi_Minh` and requires its local date to equal the requested `tradingDate`; persisted timestamps remain UTC. No repository calendar, holiday, or session-segment validation is used. | Focused fixtures cover accepted timestamps and rejection when the converted local date differs from the requested date.                                                                                                                                                             | `approved`    |
+| D9-3 Completeness            | Every active symbol on each configured HOSE, HNX, or UPCOM exchange must reach a terminal successful trade result. Empty/unavailable symbols, exhausted-page ambiguity, mixed dates, repeated cursors, conflicting duplicate IDs, or fetch failures prevent exchange-date READY and publish no replacement pointer.                                           | Cursor fetching continues until fewer than the configured page size are returned. Exact duplicate provider IDs with identical values collapse deterministically; conflicting duplicates reject the partition.                                                                       | `approved`    |
+| D9-4 EOD reconciliation      | Compare final normalized trade price with canonical `ad_close`; compare summed trade volume and value with canonical EOD volume/value. Close warns above 0.01% and rejects above 0.05%; volume/value warn above 0.10% and reject above 0.50%. Use the greater of relative tolerance or one provider price/quantity tick where applicable.                     | Boundary fixtures cover pass, warning, and rejection. Warning may publish READY with evidence; rejection preserves the previous READY pointer.                                                                                                                                      | `approved`    |
+| D9-5 Corrections             | Accept provider corrections for seven calendar days after the trading date. Rebuild an immutable version from the complete corrected session, validate it, then replace READY last. Identical corrected input is idempotent; correction failure preserves the prior READY pointer.                                                                            | Synthetic correction fixtures prove changed provider-ID values reject as conflicting within one fetch and complete later snapshots publish a new immutable version only after validation. Corrections after the cutoff are unavailable/manual-review outcomes.                      | `approved`    |
+| D9-6 Partition layout        | Partition by `(provider, exchange, trading_date)` with one symbol Parquet object per partition, deterministic UTC timestamp/provider-ID ordering, Zstandard compression, and no cross-symbol compaction in P9-I1.                                                                                                                                             | Logical object shape: `intraday/trades/provider=vci/exchange=hose/trading_date=YYYY-MM-DD/{symbol}.parquet`; immutable versions and READY metadata remain owned by shared builders.                                                                                                 | `approved`    |
 
 ## Proposed Jobs
 
@@ -120,7 +133,7 @@ sourceExecutionId
 generatedAt
 ```
 
-See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
+Use the canonical metadata contract in [`docs/plans/003-dataset-metadata-manifest.md`](003-dataset-metadata-manifest.md).
 
 ## Algorithm Feature Outputs
 
@@ -222,28 +235,75 @@ Do not repeatedly scan the full data prefix just to decide whether a dataset is 
 
 ## Idempotency and Validation
 
-- Prefer provider trade id/sequence for identity when available.
-- Timestamp alone is not assumed unique.
-- Re-running the same partition must be deterministic.
-- Failed rewrites should not replace the last valid READY manifest.
-- Validate session range, duplicates, symbol/exchange, price/volume, schema and daily volume reconciliation where feasible.
+- Use only the identity selected by D9-1; timestamp alone is never assumed unique.
+- Re-running identical provider input for the same approved partition must produce identical normalized rows, object ordering, and data identity.
+- Apply D9-2 local-date validation after converting provider timestamps to `Asia/Ho_Chi_Minh`; keep normalized persisted timestamps UTC.
+- Apply D9-3 completeness and D9-4 reconciliation before publishing READY.
+- Apply D9-5 correction semantics without mutating or deleting the last valid READY version before replacement validation succeeds.
+- Write only the object and partition layout approved by D9-6.
 
 ## Implementation Steps
 
-1. Confirm provider intraday schema/history availability.
-2. Add canonical trade/bar contracts and manifest contract in `py_common`.
-3. Add intraday + `_metadata` path builders.
-4. Implement `SYNC_INTRADAY_EOD` and publish manifest after validation.
-5. Build 1m then deterministic 5m/15m bars and manifests.
-6. Build reusable feature dataset and manifest.
-7. Use manifests for scheduler dependency checks.
-8. Add manifests to Internal Tools Dataset Browser.
+1. Record owner decisions D9-1 through D9-6 and the bounded first delivery slice.
+2. Capture provider and local-date fixtures without credentials or sensitive payload content.
+3. Update the canonical roadmap to reactivate only P9-I1 and replace its obsolete dependency chain with dependencies actually required by the approved slice.
+4. Add canonical trade contracts, validation policy, and approved path builders.
+5. Implement ingestion and normalization for the bounded provider/exchange/history scope.
+6. Validate completeness and EOD reconciliation, then publish data and metadata using the existing READY-last boundary.
+7. Add deterministic 1m bars only if they are included in the approved first slice.
+8. Defer 5m/15m bars, features, sectors, Console work, and realtime coupling to their owning increments.
 
-## Acceptance Criteria
+## Contract Impact
 
-- Intraday sessions sync idempotently.
-- 1m/5m/15m outputs are deterministic.
-- Feature outputs are reusable by multiple algorithms.
-- Every successful partition has a READY MinIO manifest.
-- Internal Tools can display stats without scanning all Parquet objects.
-- Downstream jobs can validate freshness/readiness from the manifest.
+- **Kafka/service-to-service protobuf:** the active JSON wire contract adds
+  `topic-sync-intraday-eod` and matching Java producer/Python consumer fields. Proto3
+  and generated contracts are unchanged for this bounded increment.
+- **Object-storage JSON manifest:** adds immutable per-version manifests plus a small
+  mutable `READY.json` pointer. Candidate failure preserves the prior pointer;
+  `_metadata/metadata.json` remains solely owned by `SYNC_METADATA`.
+- **Storage path/dataset ownership:** adds `intraday-trades` through shared builders;
+  Ingestor owns normalized VCI trade objects for HOSE, HNX, and UPCOM.
+- **Public Java/Python API:** adds the scheduler producer/message, reconciliation, path,
+  and immutable publication APIs, plus the Ingestor VCI adapter. The command has no
+  calendar-version field or shared calendar API.
+- **Configuration/environment contract:** adds the shared path pattern, Kafka topic, and
+  `exchanges` job configuration. The default is the shared HOSE/HNX/UPCOM universe; no
+  market-calendar configuration is required. No credential, region, or physical path
+  enters a job message.
+
+## Repository Guidance Updates
+
+Canonical Kafka, data-lake, and flow documentation is synchronized in
+[`docs/data/001-kafka-contracts.md`](../data/001-kafka-contracts.md),
+[`docs/data/002-data-lake.md`](../data/002-data-lake.md), and
+[`docs/flows/005-intraday-eod.md`](../flows/005-intraday-eod.md). `AGENTS.md`,
+`CLAUDE.md`, and `.roo/rules` require no change because their existing READY-last,
+logical-routing, generated-contract, and verification-gate rules already cover P9-I1.
+
+## Verification
+
+Required checks are **not run** by owner instruction: inspect targets, then run focused
+Platform producer/config tests, Ingestor fixture/router/handler tests, py-common
+reconciliation/publication/path tests, owning-project lint/build targets, and only then
+approved affected checks. No local pass, CI, commit, deployment, or production
+verification is claimed.
+
+## P9-I1 Acceptance Criteria
+
+- D9-1 through D9-6 are recorded as `approved` with linked fixtures or contract evidence.
+- The first provider, exchange/symbol scope, history range, and output boundary are explicit.
+- Provider timestamps convert to `Asia/Ho_Chi_Minh`, match the requested local date, and persist normalized in UTC without holiday/session validation.
+- Duplicate, gap, pagination, partial-session, and correction behavior follows approved deterministic policies.
+- Completeness and EOD reconciliation produce explicit READY, unavailable, warning, or rejected outcomes without guessed thresholds.
+- Re-running identical input is byte/order/data-version deterministic where the existing storage contract requires it.
+- Failed or rejected publication preserves the previous READY version.
+- Published metadata records exact source object identity, provider, partition, normalization version, reconciliation outcome, and source execution ID; it has no calendar-version lineage.
+- Tests cover every decision fixture and the selected partition layout.
+
+## Stop Conditions
+
+Stop planning or implementation when any D9 gate remains `decision_required`, required provider fixtures cannot be captured, provider semantics conflict across sampled sessions, reconciliation cannot distinguish semantic differences from missing data, or the first slice would require reactivating unrelated Proto3, deployment, Console, or realtime debt.
+
+## Later Increment Acceptance
+
+After P9-I1 is independently proven, P9-I2 may add deterministic 1m/5m/15m bars and reusable features, and P9-I3 may add sector aggregation. Their activation requires separate roadmap status changes; neither is implied by approving P9-I1.

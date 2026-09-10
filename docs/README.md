@@ -46,7 +46,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Telegram Multi-Channel](plans/010-telegram-multi-channel.md) — Phase 8 routing detail.
 - [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) — Phase 8 presentation detail.
 - [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md) — Phase 8 combined-signal detail.
-- [Intraday EOD](plans/013-intraday-eod.md) — deferred Phase 9 product debt.
+- [Intraday EOD](plans/013-intraday-eod.md) — active bounded P9-I1 VCI normalized-trade implementation for HOSE/HNX/UPCOM; later bars/features remain deferred.
 - [Realtime Per-Tick](plans/014-realtime-per-tick.md) — deferred Phase 10 product debt.
 
 ### Proposed, Historical, and Compatibility Plans

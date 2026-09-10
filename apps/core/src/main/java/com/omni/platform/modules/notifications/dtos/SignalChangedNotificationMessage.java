@@ -19,6 +19,11 @@ public record SignalChangedNotificationMessage(
         String strategy,
         String timeframe,
         boolean signalChanged,
+        Boolean newSignalDate,
         Instant createdAt,
         Map<String, Object> metadata) {
+
+    public boolean isNewSignalDate() {
+        return Boolean.TRUE.equals(newSignalDate);
+    }
 }

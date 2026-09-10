@@ -10,10 +10,13 @@ from py_common.messaging import JobStatusPublisher
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.exceptions import StorageValidationError
+from py_common.storage.immutable_publication import ImmutableDatasetPublisher
 from py_common.storage.parquet import ParquetStorage
+from py_common.storage.ports import ReadableStorage, WritableStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
 
+from app.handlers.intraday_eod import process_intraday_eod_message
 from app.handlers.stock_prices import process_stock_price_message
 from app.handlers.symbols import process_sync_symbols_message
 from app.settings import Settings, settings
@@ -33,6 +36,7 @@ class IngestorKafkaRoutingService:
         self._status_publisher: JobStatusPublisher | None = None
         self._default_client: StockClient | None = None
         self._parquet_storage: ParquetStorage | None = None
+        self._immutable_publisher: ImmutableDatasetPublisher | None = None
 
     async def run(self) -> None:
         logger.info(
@@ -52,7 +56,7 @@ class IngestorKafkaRoutingService:
             self._settings.sync_job_status_topic,
             "ingestor",
         )
-        self._parquet_storage = await self._create_parquet_storage()
+        self._parquet_storage, self._immutable_publisher = await self._create_storage()
 
         try:
             logger.info("Ingestor waiting for Kafka messages")
@@ -79,6 +83,7 @@ class IngestorKafkaRoutingService:
                     self._settings.kafka,
                     [
                         self._settings.topic_sync_stock_prices,
+                        self._settings.topic_sync_intraday_eod,
                         self._settings.topic_sync_symbols,
                     ],
                     group_id=ConsumerGroup.INGESTOR.for_topic("sync-jobs"),
@@ -118,7 +123,9 @@ class IngestorKafkaRoutingService:
                     await producer.stop()
                 await asyncio.sleep(self._settings.kafka_retry_interval_seconds)
 
-    async def _create_parquet_storage(self) -> ParquetStorage:
+    async def _create_storage(
+        self,
+    ) -> tuple[ParquetStorage, ImmutableDatasetPublisher]:
         registry = create_storage_registry(self._settings)
         try:
             await registry.validate_all(fail_fast=True)
@@ -131,17 +138,24 @@ class IngestorKafkaRoutingService:
         await minio_adapter.ensure_bucket(self._settings.minio.bucket)
         logger.info("Ingestor storage bucket ready: %s", self._settings.minio.bucket)
 
-        return ParquetStorage(
+        parquet = ParquetStorage(
             registry=registry,
             provider=StorageProvider.MINIO,
             bucket=self._settings.minio.bucket,
         )
+        publisher = ImmutableDatasetPublisher(
+            registry.get_port(StorageProvider.MINIO, ReadableStorage),
+            registry.get_port(StorageProvider.MINIO, WritableStorage),
+            self._settings.minio.bucket,
+        )
+        return parquet, publisher
 
     async def _route_message(self, msg) -> None:
         assert self._producer is not None
         assert self._status_publisher is not None
         assert self._default_client is not None
         assert self._parquet_storage is not None
+        assert self._immutable_publisher is not None
 
         logger.info(
             "Received Kafka message topic=%s partition=%s offset=%s key=%s",
@@ -150,6 +164,14 @@ class IngestorKafkaRoutingService:
             msg.offset,
             msg.key.decode("utf-8", errors="replace") if msg.key else None,
         )
+        if msg.topic == self._settings.topic_sync_intraday_eod:
+            await process_intraday_eod_message(
+                msg.value,
+                self._status_publisher,
+                self._immutable_publisher,
+            )
+            return
+
         if msg.topic == self._settings.topic_sync_symbols:
             await process_sync_symbols_message(
                 msg.value,

@@ -45,6 +45,11 @@ class StockDataPaths:
     eod_pattern: str
     indicators_base: str
     indicators_pattern: str
+    intraday_trades_base: str = "intraday/trades/"
+    intraday_trades_pattern: str = (
+        "provider={provider}/exchange={exchange}/"
+        "trading_date={trading_date}/{symbol}.parquet"
+    )
     signals_base: str = "signals/"
     signals_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
     signal_current_base: str = "signals/"
@@ -124,6 +129,24 @@ class StockDataPaths:
         return self.eod_base + self.eod_pattern.format(
             exchange=self._normalize_path_part(exchange, "exchange"),
             code=self._normalize_path_part(code, "code"),
+        )
+
+    def intraday_trades(
+        self,
+        provider: str,
+        exchange: str,
+        trading_date: str,
+        symbol: str,
+    ) -> str:
+        """Build the logical one-symbol normalized trade object path."""
+        from datetime import date
+
+        normalized_date = date.fromisoformat(trading_date).isoformat()
+        return self.intraday_trades_base + self.intraday_trades_pattern.format(
+            provider=self._normalize_path_part(provider, "provider"),
+            exchange=self._normalize_path_part(exchange, "exchange"),
+            trading_date=normalized_date,
+            symbol=self._normalize_path_part(symbol, "symbol"),
         )
 
     def indicators(
@@ -402,6 +425,7 @@ class StockDataPaths:
         symbols_cfg = paths_config.get("symbols", {})
         eod_cfg = paths_config.get("eod", {})
         indicators_cfg = paths_config.get("indicators", {})
+        intraday_trades_cfg = paths_config.get("intraday-trades", {})
         signals_cfg = paths_config.get("signals", {})
         signal_current_cfg = paths_config.get("signal-current", {})
         symbol_features_cfg = paths_config.get("symbol-features", {})
@@ -430,6 +454,12 @@ class StockDataPaths:
             indicators_base=indicators_cfg.get("base", "indicators/"),
             indicators_pattern=indicators_cfg.get(
                 "pattern", "{source}/{timeframe}/{exchange}/{code}.parquet"
+            ),
+            intraday_trades_base=intraday_trades_cfg.get("base", "intraday/trades/"),
+            intraday_trades_pattern=intraday_trades_cfg.get(
+                "pattern",
+                "provider={provider}/exchange={exchange}/"
+                "trading_date={trading_date}/{symbol}.parquet",
             ),
             signals_base=signals_cfg.get("base", "signals/"),
             signals_pattern=signals_cfg.get(

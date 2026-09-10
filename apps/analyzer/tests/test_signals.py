@@ -660,8 +660,12 @@ async def test_signal_repository_same_day_rerun_preserves_outcomes_and_signal():
         strategy="TREND_MOMENTUM_V1",
     )
 
-    await repository.persist_transition(path, None, "HOSE-HPG", "1d", result)
+    transition = await repository.persist_transition(
+        path, None, "HOSE-HPG", "1d", result
+    )
 
+    assert transition.new_signal_date is False
+    assert transition.metadata["newSignalDate"] is False
     written = storage.replacements[path]
     assert len(written) == 1
     row = written.iloc[0]
@@ -706,8 +710,12 @@ async def test_signal_repository_new_trading_day_appends_new_row():
         strategy="TREND_MOMENTUM_V1",
     )
 
-    await repository.persist_transition(path, None, "HOSE-HPG", "1d", result)
+    transition = await repository.persist_transition(
+        path, None, "HOSE-HPG", "1d", result
+    )
 
+    assert transition.new_signal_date is True
+    assert transition.metadata["newSignalDate"] is True
     written = storage.replacements[path]
     assert len(written) == 2
     assert set(written["signal_date"].astype(str)) == {"2026-01-02", "2026-01-05"}
@@ -1237,6 +1245,7 @@ async def test_signal_kafka_service_publishes_notification_for_changed_signal():
         "reasonCodes": ["PRICE_ABOVE_MA50", "MACD_BULLISH"],
         "score": 4,
         "signalChanged": True,
+        "newSignalDate": False,
         "createdAt": notification["createdAt"],
         "metadata": {
             "newSignal": "BULLISH",
@@ -1310,6 +1319,82 @@ async def test_signal_kafka_service_skips_notification_when_signal_unchanged():
     service._producer = producer
 
     status = await service.process_payload(_job_payload())
+
+    assert status is not None
+    assert [sent[0] for sent in producer.sent] == ["topic-sync-job-status"]
+
+
+@pytest.mark.anyio
+async def test_signal_kafka_service_publishes_new_daily_confirmed_result():
+    transition = SignalTransition(
+        signal_changed=False,
+        previous_signal=MarketSignal.BULLISH,
+        new_signal=MarketSignal.BULLISH,
+        state_frame=pd.DataFrame(),
+        metadata={
+            **SignalResult(
+                signal=MarketSignal.BULLISH,
+                score=1,
+                reason_codes=["COMPONENTS_AGREE_BULLISH"],
+                price=28000.0,
+                signal_date="2026-07-29",
+                strategy=CONFIRMED_TREND_EQUALS,
+            ).to_metadata(),
+            "signalChanged": False,
+            "newSignalDate": True,
+            "previousSignal": "BULLISH",
+            "timeframe": "1d",
+        },
+        new_signal_date=True,
+    )
+    service = SignalKafkaService(FakeSettings(), FakeHandler(transition=transition))
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(
+        _job_payload(strategy=CONFIRMED_TREND_EQUALS)
+    )
+
+    assert status is not None
+    assert [sent[0] for sent in producer.sent] == [
+        "topic-sync-job-status",
+        "topic-signal-notifications",
+    ]
+    notification = json.loads(producer.sent[1][1].decode("utf-8"))
+    assert notification["signalChanged"] is False
+    assert notification["newSignalDate"] is True
+
+
+@pytest.mark.anyio
+async def test_signal_kafka_service_skips_same_day_confirmed_rerun():
+    transition = SignalTransition(
+        signal_changed=False,
+        previous_signal=MarketSignal.BULLISH,
+        new_signal=MarketSignal.BULLISH,
+        state_frame=pd.DataFrame(),
+        metadata={
+            **SignalResult(
+                signal=MarketSignal.BULLISH,
+                score=1,
+                reason_codes=["COMPONENTS_AGREE_BULLISH"],
+                price=28000.0,
+                signal_date="2026-07-29",
+                strategy=CONFIRMED_TREND_EQUALS,
+            ).to_metadata(),
+            "signalChanged": False,
+            "newSignalDate": False,
+            "previousSignal": "BULLISH",
+            "timeframe": "1d",
+        },
+        new_signal_date=False,
+    )
+    service = SignalKafkaService(FakeSettings(), FakeHandler(transition=transition))
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(
+        _job_payload(strategy=CONFIRMED_TREND_EQUALS)
+    )
 
     assert status is not None
     assert [sent[0] for sent in producer.sent] == ["topic-sync-job-status"]

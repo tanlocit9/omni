@@ -2,6 +2,7 @@ kafka:
   bootstrap-servers: localhost:9092
   topics:
     topic-sync-stock-prices: topic-sync-stock-prices
+    topic-sync-intraday-eod: topic-sync-intraday-eod
     topic-sync-symbols: topic-sync-symbols
     topic-upsert-symbols: topic-upsert-symbols
     topic-upsert-sectors: topic-upsert-sectors

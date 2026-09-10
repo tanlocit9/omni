@@ -4,6 +4,7 @@ import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -53,11 +54,11 @@ public class SyncIntradayEodJobProducer extends JobProducer {
     @Override
     protected List<KafkaMessage> buildMessages(JobDefinition job, JobExecutionHistory parent, Instant now) {
         Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
-        LocalDate tradingDate = latestCompletedWeekday(now.atZone(VIETNAM_ZONE).toLocalDate());
+        List<LocalDate> tradingDates = requestedTradingDates(parent, now);
 
         return configuredExchanges(jobConfig).stream()
                 .flatMap(exchange -> symbolRepository.findAllActiveSymbolKeysByExchange(exchange).stream())
-                .map(symbol -> {
+                .flatMap(symbol -> tradingDates.stream().map(tradingDate -> {
                     String symbolKey = symbol.symbolKey();
                     String projectionExchange = normalizeExchange(symbol.getExchange());
                     Map<String, Object> metadata = new HashMap<>(jobConfig);
@@ -65,12 +66,42 @@ public class SyncIntradayEodJobProducer extends JobProducer {
                     metadata.put("tradingDate", tradingDate.toString());
                     JobExecutionHistory child = jobService.createChildExecution(
                             parent.getId(), WorkIdentity.of(WorkType.SYMBOL, symbolKey), metadata, now);
-                    return new KafkaMessage(symbolKey, new IntradayEodJobMessage(
+                    return new KafkaMessage(symbolKey + ":" + tradingDate, new IntradayEodJobMessage(
                             job.getId(), child.getId(), parent.getId(), job.getSource().name(),
                             WorkType.SYMBOL, symbolKey, symbolKey, projectionExchange, tradingDate,
                             "VCI", metadata));
-                })
+                }))
                 .toList();
+    }
+
+    private static List<LocalDate> requestedTradingDates(JobExecutionHistory parent, Instant now) {
+        Map<String, Object> metadata = parent.getMetaJson() == null ? Map.of() : parent.getMetaJson();
+        Object targetValue = metadata.get("metadataTarget");
+        if (!(targetValue instanceof Map<?, ?> target)) {
+            return List.of(latestCompletedWeekday(now.atZone(VIETNAM_ZONE).toLocalDate()));
+        }
+        String tradingDate = stringValue(target.get("tradingDate"));
+        if (!tradingDate.isBlank()) {
+            return List.of(LocalDate.parse(tradingDate));
+        }
+        String startDate = stringValue(target.get("startDate"));
+        String endDate = stringValue(target.get("endDate"));
+        if (startDate.isBlank() || endDate.isBlank()) {
+            return List.of(latestCompletedWeekday(now.atZone(VIETNAM_ZONE).toLocalDate()));
+        }
+        LocalDate start = LocalDate.parse(startDate);
+        LocalDate end = LocalDate.parse(endDate);
+        List<LocalDate> dates = new ArrayList<>();
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            if (date.getDayOfWeek() != DayOfWeek.SATURDAY && date.getDayOfWeek() != DayOfWeek.SUNDAY) {
+                dates.add(date);
+            }
+        }
+        return List.copyOf(dates);
+    }
+
+    private static String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private static List<String> configuredExchanges(Map<String, Object> config) {

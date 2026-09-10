@@ -70,6 +70,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/018 | [Internal Tools Parquet Viewer](plans/018-internal-tools-parquet-viewer.md)                             | Compatibility pointer             | Group C / Phase 6                 |
 | plans/019 | [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) | Compatibility roadmap index       | Historical Phases 0-10            |
 | plans/020 | [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md)                           | Superseded compatibility document | Historical Phases 1-10            |
+| plans/021 | [Intraday Confirmation for Confirmed Trend](plans/021-intraday-confirmed-rules.md)                     | Implementation-ready follow-up    | Phase 9 follow-up / Phase 8 signal |
 
 ## Technical Debt
 
@@ -81,15 +82,15 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 
 ## Roadmap View
 
-| Roadmap scope                              | Primary registry entries                                                                           |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Pre-roadmap baseline                       | `architecture/001`; `data/001-003`; `reference/001`; `flows/001-004`                               |
-| Group A - Control-plane safety             | `data/003`; `flows/001`; `deployment/001`; `plans/001`                                             |
-| Group B - Deterministic contracts and data | `data/001-003`; `plans/002-004`; `technical-debt/001`                                              |
-| Group C - Portable operations and product  | `flows/001`; `deployment/002`; `plans/005-007`, `plans/010`, `plans/012`; `technical-debt/002-003` |
-| Group D - Higher-frequency market data     | `data/001-002`; `reference/001`; `flows/002-003`; `plans/008-009`                                  |
-| Cross-cutting governance and tooling       | `governance/001`; `development/001-003`; `plans/011`                                               |
-| Historical compatibility                   | `plans/006`, `plans/013`                                                                           |
+| Roadmap scope                              | Primary registry entries                                                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Pre-roadmap baseline                       | `architecture/001`; `data/001-003`; `reference/001`; `flows/001-004`                                           |
+| Group A - Control-plane safety             | `data/003`; `flows/001`; `deployment/001`; `plans/001`                                                         |
+| Group B - Deterministic contracts and data | `data/001-003`; `plans/002-004`; `technical-debt/001`                                                          |
+| Group C - Portable operations and product  | `flows/001`; `deployment/002`; `plans/005-007`, `plans/010`, `plans/012`, `plans/021`; `technical-debt/002-003` |
+| Group D - Higher-frequency market data     | `data/001-002`; `reference/001`; `flows/002-003`; `plans/008-009`, `plans/021`                                 |
+| Cross-cutting governance and tooling       | `governance/001`; `development/001-003`; `plans/011`                                                           |
+| Historical compatibility                   | `plans/006`, `plans/013`                                                                                       |
 
 ## Numbering Rules
 

@@ -36,14 +36,9 @@ import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 @ExtendWith(MockitoExtension.class)
 class SyncIntradayEodJobProducerTest {
 
-    @Mock
-    private JobService jobService;
-
-    @Mock
-    private KafkaPublisher kafkaPublisher;
-
-    @Mock
-    private SymbolRepository symbolRepository;
+    @Mock private JobService jobService;
+    @Mock private KafkaPublisher kafkaPublisher;
+    @Mock private SymbolRepository symbolRepository;
 
     @Test
     void dispatchesActiveSymbolsForAllConfiguredVietnamExchanges() {
@@ -66,7 +61,7 @@ class SyncIntradayEodJobProducerTest {
                 job, parent, Instant.parse("2026-09-11T08:16:00Z"));
 
         assertThat(messages).extracting(KafkaMessage::key)
-                .containsExactly("HOSE-HPG", "HNX-SHS", "UPCOM-ACV");
+                .containsExactly("HOSE-HPG:2026-09-11", "HNX-SHS:2026-09-11", "UPCOM-ACV:2026-09-11");
         assertThat(messages).allSatisfy(message -> {
             IntradayEodJobMessage payload = (IntradayEodJobMessage) message.payload();
             assertThat(payload.exchange()).isIn("HOSE", "HNX", "UPCOM");
@@ -109,6 +104,44 @@ class SyncIntradayEodJobProducerTest {
 
         assertThat(payload.exchange()).isEqualTo("HNX");
         assertThat(payload.tradingDate()).isEqualTo(LocalDate.parse("2026-09-11"));
+    }
+
+    @Test
+    void manualSingleDateBackfillUsesRequestedHistoricalDate() {
+        SyncIntradayEodJobProducer producer = producer();
+        JobDefinition job = job(Map.of(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of("HOSE")));
+        JobExecutionHistory parent = execution(UUID.randomUUID());
+        parent.setMetaJson(Map.of("metadataTarget", Map.of("tradingDate", "2026-09-07")));
+        SymbolKeyProjection symbol = symbol("HOSE", "HPG");
+        when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE")).thenReturn(List.of(symbol));
+        stubChild(parent, "HOSE-HPG");
+
+        List<KafkaMessage> messages = producer.buildMessages(
+                job, parent, Instant.parse("2026-09-11T08:16:00Z"));
+
+        assertThat(messages).hasSize(1);
+        IntradayEodJobMessage payload = (IntradayEodJobMessage) messages.getFirst().payload();
+        assertThat(payload.tradingDate()).isEqualTo(LocalDate.parse("2026-09-07"));
+        assertThat(messages.getFirst().key()).isEqualTo("HOSE-HPG:2026-09-07");
+    }
+
+    @Test
+    void manualRangeBackfillSkipsWeekendAndFansOutSamePipeline() {
+        SyncIntradayEodJobProducer producer = producer();
+        JobDefinition job = job(Map.of(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of("HOSE")));
+        JobExecutionHistory parent = execution(UUID.randomUUID());
+        parent.setMetaJson(Map.of("metadataTarget", Map.of("startDate", "2026-09-04", "endDate", "2026-09-07")));
+        SymbolKeyProjection symbol = symbol("HOSE", "HPG");
+        when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE")).thenReturn(List.of(symbol));
+        stubChild(parent, "HOSE-HPG");
+
+        List<KafkaMessage> messages = producer.buildMessages(
+                job, parent, Instant.parse("2026-09-11T08:16:00Z"));
+
+        assertThat(messages).extracting(message -> ((IntradayEodJobMessage) message.payload()).tradingDate())
+                .containsExactly(LocalDate.parse("2026-09-04"), LocalDate.parse("2026-09-07"));
+        assertThat(messages).extracting(KafkaMessage::key)
+                .containsExactly("HOSE-HPG:2026-09-04", "HOSE-HPG:2026-09-07");
     }
 
     private SyncIntradayEodJobProducer producer() {

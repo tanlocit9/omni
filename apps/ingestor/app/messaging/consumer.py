@@ -40,8 +40,7 @@ class IngestorKafkaRoutingService:
 
     async def run(self) -> None:
         logger.info(
-            "Starting ingestor consume loop (topics=%s,%s statusTopic=%s bootstrap=%s "
-            "bucket=%s defaultStockSource=%s)",
+            "Starting ingestor consume loop (topics=%s,%s statusTopic=%s bootstrap=%s bucket=%s defaultStockSource=%s)",
             self._settings.topic_sync_stock_prices,
             self._settings.topic_sync_symbols,
             self._settings.sync_job_status_topic,
@@ -52,9 +51,7 @@ class IngestorKafkaRoutingService:
         self._default_client = get_or_create_client(self._settings.default_stock_source)
         self._consumer, self._producer = await self._start_kafka_clients()
         self._status_publisher = JobStatusPublisher(
-            self._producer,
-            self._settings.sync_job_status_topic,
-            "ingestor",
+            self._producer, self._settings.sync_job_status_topic, "ingestor"
         )
         self._parquet_storage, self._immutable_publisher = await self._create_storage()
 
@@ -89,27 +86,9 @@ class IngestorKafkaRoutingService:
                     group_id=ConsumerGroup.INGESTOR.for_topic("sync-jobs"),
                 )
                 producer = KafkaClientFactory.create_producer(self._settings.kafka)
-
                 await consumer.start()
                 await producer.start()
-                logger.info(
-                    "Kafka producer ready "
-                    "(statusTopic=%s upsertTopics=%s,%s bootstrap=%s)",
-                    self._settings.sync_job_status_topic,
-                    self._settings.topic_upsert_sectors,
-                    self._settings.topic_upsert_symbols,
-                    self._settings.kafka.bootstrap_servers,
-                )
                 await consumer.getmany(timeout_ms=1000)
-                logger.info(
-                    "Kafka consumer ready "
-                    "(topics=%s,%s groupId=%s bootstrap=%s source=%s)",
-                    self._settings.topic_sync_stock_prices,
-                    self._settings.topic_sync_symbols,
-                    ConsumerGroup.INGESTOR.for_topic("sync-jobs"),
-                    self._settings.kafka.bootstrap_servers,
-                    self._settings.default_stock_source,
-                )
                 return consumer, producer
             except Exception as exc:
                 logger.warning(
@@ -123,21 +102,15 @@ class IngestorKafkaRoutingService:
                     await producer.stop()
                 await asyncio.sleep(self._settings.kafka_retry_interval_seconds)
 
-    async def _create_storage(
-        self,
-    ) -> tuple[ParquetStorage, ImmutableDatasetPublisher]:
+    async def _create_storage(self) -> tuple[ParquetStorage, ImmutableDatasetPublisher]:
         registry = create_storage_registry(self._settings)
         try:
             await registry.validate_all(fail_fast=True)
         except StorageValidationError as e:
             logger.critical("Storage validation failed: %s", e)
             raise
-
-        logger.info("Ingestor storage providers validated")
         minio_adapter = registry.get_adapter(StorageProvider.MINIO)
         await minio_adapter.ensure_bucket(self._settings.minio.bucket)
-        logger.info("Ingestor storage bucket ready: %s", self._settings.minio.bucket)
-
         parquet = ParquetStorage(
             registry=registry,
             provider=StorageProvider.MINIO,
@@ -157,18 +130,12 @@ class IngestorKafkaRoutingService:
         assert self._parquet_storage is not None
         assert self._immutable_publisher is not None
 
-        logger.info(
-            "Received Kafka message topic=%s partition=%s offset=%s key=%s",
-            msg.topic,
-            msg.partition,
-            msg.offset,
-            msg.key.decode("utf-8", errors="replace") if msg.key else None,
-        )
         if msg.topic == self._settings.topic_sync_intraday_eod:
             await process_intraday_eod_message(
                 msg.value,
                 self._status_publisher,
                 self._immutable_publisher,
+                self._parquet_storage,
             )
             return
 
@@ -190,9 +157,7 @@ class IngestorKafkaRoutingService:
         )
 
 
-def create_storage_registry(
-    app_settings: Settings = settings,
-) -> StorageProviderRegistry:
+def create_storage_registry(app_settings: Settings = settings) -> StorageProviderRegistry:
     minio_client = create_minio_client(app_settings.minio)
     minio_adapter = MinioStorageAdapter(minio_client)
     return StorageProviderRegistry([minio_adapter])

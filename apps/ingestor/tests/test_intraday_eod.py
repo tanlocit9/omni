@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app.handlers.intraday_eod import normalize_intraday_trades
+from app.handlers.intraday_eod import normalize_intraday_trades, reconcile_against_eod
 from app.messaging.messages import IntradayEodJobMessage
 from app.stocks.clients.vci_intraday import VCIIntradayQuoteAdapter
 
@@ -45,15 +45,13 @@ def test_rejects_provider_timestamp_on_different_local_date(
     message: IntradayEodJobMessage,
 ) -> None:
     frame = pd.DataFrame(
-        [
-            {
-                "time": "2026-09-08T23:59:59+07:00",
-                "price": 10,
-                "volume": 1,
-                "match_type": "LO",
-                "id": "previous-day",
-            },
-        ]
+        [{
+            "time": "2026-09-08T23:59:59+07:00",
+            "price": 10,
+            "volume": 1,
+            "match_type": "LO",
+            "id": "previous-day",
+        }]
     )
 
     with pytest.raises(ValueError, match="local date differs"):
@@ -65,25 +63,55 @@ def test_rejects_conflicting_duplicate_provider_id(
 ) -> None:
     frame = pd.DataFrame(
         [
-            {
-                "time": "2026-09-09T09:15:00+07:00",
-                "price": 10,
-                "volume": 1,
-                "match_type": "LO",
-                "id": "same",
-            },
-            {
-                "time": "2026-09-09T09:15:00+07:00",
-                "price": 11,
-                "volume": 1,
-                "match_type": "LO",
-                "id": "same",
-            },
+            {"time": "2026-09-09T09:15:00+07:00", "price": 10, "volume": 1, "match_type": "LO", "id": "same"},
+            {"time": "2026-09-09T09:15:00+07:00", "price": 11, "volume": 1, "match_type": "LO", "id": "same"},
         ]
     )
 
     with pytest.raises(ValueError, match="Conflicting duplicate"):
         normalize_intraday_trades(frame, message)
+
+
+def test_reconciliation_ready_against_canonical_eod(message: IntradayEodJobMessage) -> None:
+    normalized = pd.DataFrame(
+        {
+            "price": [10.0, 10.0],
+            "volume": [100.0, 200.0],
+            "trade_value": [1000.0, 2000.0],
+        }
+    )
+    eod = pd.DataFrame(
+        [{"date": "2026-09-09", "ad_close": 10.0, "total_volume": 300.0, "nm_value": 3000.0}]
+    )
+
+    result = reconcile_against_eod(normalized, eod, message)
+
+    assert result.status.value == "READY"
+
+
+def test_reconciliation_rejects_large_difference(message: IntradayEodJobMessage) -> None:
+    normalized = pd.DataFrame(
+        {
+            "price": [10.0],
+            "volume": [100.0],
+            "trade_value": [1000.0],
+        }
+    )
+    eod = pd.DataFrame(
+        [{"date": "2026-09-09", "ad_close": 12.0, "total_volume": 300.0, "nm_value": 3600.0}]
+    )
+
+    result = reconcile_against_eod(normalized, eod, message)
+
+    assert result.status.value == "REJECTED"
+
+
+def test_reconciliation_requires_exact_eod_trading_date(message: IntradayEodJobMessage) -> None:
+    normalized = pd.DataFrame({"price": [10.0], "volume": [1.0], "trade_value": [10.0]})
+    eod = pd.DataFrame([{"date": "2026-09-08", "ad_close": 10.0, "total_volume": 1.0, "nm_value": 10.0}])
+
+    with pytest.raises(ValueError, match="unavailable or ambiguous"):
+        reconcile_against_eod(normalized, eod, message)
 
 
 @pytest.mark.anyio

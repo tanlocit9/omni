@@ -12,6 +12,11 @@ from py_common.storage.global_metadata import GlobalMetadataReader
 from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
+from app.signals.intraday_confirmation import (
+    IntradayDatasetResolver,
+    calculate_intraday_facts,
+    evaluate_intraday_confirmation,
+)
 from app.signals.messages import SignalJobMessage
 from app.signals.storage import SignalHistoryRepository, SignalTransition
 from app.signals.strategy import (
@@ -22,6 +27,7 @@ from app.signals.strategy import (
     SignalComponent,
     SignalResult,
     calculate_confirmed_trend_equals,
+    calculate_confirmed_trend_equals_v2,
     calculate_ichimoku_v1,
     calculate_trend_momentum_v1,
 )
@@ -37,10 +43,12 @@ class SignalJobHandler:
         settings: AppSettings,
         parquet_storage: ParquetStorage,
         metadata_reader: GlobalMetadataReader,
+        intraday_resolver: IntradayDatasetResolver | None = None,
     ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
         self._metadata_reader = metadata_reader
+        self._intraday_resolver = intraday_resolver
         self._signal_repository = SignalHistoryRepository(parquet_storage)
 
     async def handle(self, payload: dict[str, Any]) -> SignalTransition:
@@ -137,6 +145,16 @@ class SignalJobHandler:
             else:
                 raise ValueError(f"Unsupported signal strategy: {message.strategy}")
 
+        _logger.info(
+            "Calculated signal symbolKey=%s strategy=%s modelVersion=%s "
+            "signal=%s score=%s reasonCodes=%s",
+            message.symbol_key,
+            result.strategy,
+            result.model_version,
+            result.signal.value,
+            result.score,
+            result.reason_codes,
+        )
         return await self._signal_repository.persist_transition(
             history_path,
             current_path,
@@ -189,9 +207,40 @@ class SignalJobHandler:
                 expected_signal_date = (
                     pd.Timestamp(valid_eod["date"].max()).date().isoformat()
                 )
-        result = calculate_confirmed_trend_equals(
+        daily_candidate = calculate_confirmed_trend_equals(
             *component_results,
             expected_signal_date=expected_signal_date,
+        )
+        if self._intraday_resolver is None:
+            return await self._signal_repository.persist_transition(
+                history_path,
+                current_path,
+                symbol_key,
+                timeframe,
+                daily_candidate,
+                exchange=exchange,
+                eod_data_version=eod_data_version,
+            )
+        intraday_result = await self._resolve_intraday_confirmation(
+            symbol_key=symbol_key,
+            exchange=exchange,
+            signal_date=daily_candidate.signal_date or expected_signal_date,
+        )
+        result = calculate_confirmed_trend_equals_v2(
+            daily_candidate,
+            intraday_result,
+        )
+        _logger.info(
+            "Calculated confirmed signal symbolKey=%s modelVersion=%s "
+            "dailySignal=%s intradayResult=%s finalSignal=%s score=%s "
+            "reasonCodes=%s",
+            symbol_key,
+            result.model_version,
+            daily_candidate.signal.value,
+            intraday_result.result.value,
+            result.signal.value,
+            result.score,
+            result.reason_codes,
         )
         return await self._signal_repository.persist_transition(
             history_path,
@@ -202,3 +251,34 @@ class SignalJobHandler:
             exchange=exchange,
             eod_data_version=eod_data_version,
         )
+
+    async def _resolve_intraday_confirmation(
+        self,
+        *,
+        symbol_key: str,
+        exchange: str,
+        signal_date: str | None,
+    ):
+        if signal_date is None:
+            return evaluate_intraday_confirmation(None, ["MISSING_INTRADAY"])
+        symbol = symbol_key.split("-", maxsplit=1)[1]
+        resolution = await self._intraday_resolver.resolve(
+            provider="VCI",
+            exchange=exchange,
+            symbol=symbol,
+            trading_date=signal_date,
+        )
+        if resolution.dataset is None:
+            return evaluate_intraday_confirmation(None, resolution.reason_codes)
+        try:
+            facts = calculate_intraday_facts(
+                resolution.dataset,
+                symbol_key=symbol_key,
+                trading_date=signal_date,
+            )
+        except ValueError:
+            return evaluate_intraday_confirmation(
+                None,
+                ["INVALID_INTRADAY_PARTITION"],
+            )
+        return evaluate_intraday_confirmation(facts)

@@ -48,7 +48,7 @@ class StockDataPaths:
     intraday_trades_base: str = "intraday/trades/"
     intraday_trades_pattern: str = (
         "provider={provider}/exchange={exchange}/"
-        "trading_date={trading_date}/{symbol}.parquet"
+        "trading_date={trading_date}/symbol={symbol}/trades.parquet"
     )
     signals_base: str = "signals/"
     signals_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
@@ -141,7 +141,7 @@ class StockDataPaths:
         """Build the logical one-symbol normalized trade object path."""
         from datetime import date
 
-        normalized_date = date.fromisoformat(trading_date).isoformat()
+        normalized_date = date.fromisoformat(trading_date.strip()).isoformat()
         return self.intraday_trades_base + self.intraday_trades_pattern.format(
             provider=self._normalize_path_part(provider, "provider"),
             exchange=self._normalize_path_part(exchange, "exchange"),
@@ -459,7 +459,7 @@ class StockDataPaths:
             intraday_trades_pattern=intraday_trades_cfg.get(
                 "pattern",
                 "provider={provider}/exchange={exchange}/"
-                "trading_date={trading_date}/{symbol}.parquet",
+                "trading_date={trading_date}/symbol={symbol}/trades.parquet",
             ),
             signals_base=signals_cfg.get("base", "signals/"),
             signals_pattern=signals_cfg.get(

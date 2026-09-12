@@ -9,7 +9,10 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from py_common.intraday_reconciliation import ReconciliationStatus, reconcile_intraday_eod
+from py_common.intraday_reconciliation import (
+    ReconciliationStatus,
+    reconcile_intraday_eod,
+)
 from py_common.kafka import decode_json_object_payload
 from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
 from py_common.storage.immutable_publication import ImmutableDatasetPublisher
@@ -45,12 +48,16 @@ async def process_intraday_eod_message(
         if message.exchange != exchange:
             raise ValueError("Message exchange differs from symbolKey exchange")
 
-        frame = await (adapter or VCIIntradayQuoteAdapter()).fetch_session(symbol, message.trading_date)
+        frame = await (adapter or VCIIntradayQuoteAdapter()).fetch_session(
+            symbol, message.trading_date
+        )
         normalized = normalize_intraday_trades(frame, message)
         if normalized.empty:
             raise ValueError("Provider returned no terminal successful trade result")
 
-        eod = await parquet_storage.read_optional_dataframe(settings.stock_data_paths.eod(exchange, symbol))
+        eod = await parquet_storage.read_optional_dataframe(
+            settings.stock_data_paths.eod(exchange, symbol)
+        )
         reconciliation = reconcile_against_eod(normalized, eod, message)
         if reconciliation.status == ReconciliationStatus.REJECTED:
             raise ValueError("Intraday EOD reconciliation rejected candidate partition")
@@ -70,6 +77,7 @@ async def process_intraday_eod_message(
                     "provider": message.provider.lower(),
                     "exchange": exchange.lower(),
                     "trading_date": message.trading_date.isoformat(),
+                    "symbol": symbol.lower(),
                 },
                 "normalizationVersion": 1,
                 "sourceExecutionId": message.execution_id,
@@ -81,17 +89,25 @@ async def process_intraday_eod_message(
             validate_data=lambda raw: _validate_parquet(raw, len(normalized)),
         )
         status = build_status(
-            payload, started_at, JobStatus.SUCCESS,
-            records_inserted=len(normalized), total_records=len(normalized), new_offset=result.data_version,
+            payload,
+            started_at,
+            JobStatus.SUCCESS,
+            records_inserted=len(normalized),
+            total_records=len(normalized),
+            new_offset=result.data_version,
         )
     except Exception as exc:
         logger.exception("Failed to process intraday EOD message: %s", exc)
-        status = build_status(payload, started_at, JobStatus.ERROR, error_message=str(exc))
+        status = build_status(
+            payload, started_at, JobStatus.ERROR, error_message=str(exc)
+        )
     await status_publisher.publish(status, key=status.work_key)
     return status
 
 
-def normalize_intraday_trades(frame: pd.DataFrame, message: IntradayEodJobMessage) -> pd.DataFrame:
+def normalize_intraday_trades(
+    frame: pd.DataFrame, message: IntradayEodJobMessage
+) -> pd.DataFrame:
     missing = [name for name in _REQUIRED if name not in frame.columns]
     if missing and not frame.empty:
         raise ValueError(f"Missing required VCI trade fields: {missing}")
@@ -102,7 +118,9 @@ def normalize_intraday_trades(frame: pd.DataFrame, message: IntradayEodJobMessag
     normalized["timestamp"] = pd.to_datetime(normalized.pop("time"), utc=True)
     local_dates = normalized["timestamp"].dt.tz_convert(_VIETNAM_ZONE).dt.date
     if (local_dates != message.trading_date).any():
-        raise ValueError("Provider timestamp local date differs from requested trading date")
+        raise ValueError(
+            "Provider timestamp local date differs from requested trading date"
+        )
     normalized["provider_id"] = normalized.pop("id").astype(str)
     normalized["price"] = pd.to_numeric(normalized["price"])
     normalized["volume"] = pd.to_numeric(normalized["volume"])
@@ -119,7 +137,9 @@ def normalize_intraday_trades(frame: pd.DataFrame, message: IntradayEodJobMessag
     return normalized.sort_values(["timestamp", "provider_id"]).reset_index(drop=True)
 
 
-def reconcile_against_eod(normalized: pd.DataFrame, eod: pd.DataFrame | None, message: IntradayEodJobMessage):
+def reconcile_against_eod(
+    normalized: pd.DataFrame, eod: pd.DataFrame | None, message: IntradayEodJobMessage
+):
     if eod is None or eod.empty or "date" not in eod.columns:
         raise ValueError("Canonical EOD data unavailable for reconciliation")
     dates = pd.to_datetime(eod["date"]).dt.date
@@ -131,9 +151,12 @@ def reconcile_against_eod(normalized: pd.DataFrame, eod: pd.DataFrame | None, me
     volume = _required_eod_value(row, ("total_volume", "nm_volume", "volume"), "volume")
     value = _required_eod_value(row, ("nm_value", "total_value", "value"), "value")
     return reconcile_intraday_eod(
-        final_price=normalized.iloc[-1]["price"], expected_close=close,
-        total_volume=normalized["volume"].sum(), expected_volume=volume,
-        total_value=normalized["trade_value"].sum(), expected_value=value,
+        final_price=normalized.iloc[-1]["price"],
+        expected_close=close,
+        total_volume=normalized["volume"].sum(),
+        expected_volume=volume,
+        total_value=normalized["trade_value"].sum(),
+        expected_value=value,
     )
 
 
@@ -147,13 +170,18 @@ def _required_eod_value(row: pd.Series, names: tuple[str, ...], label: str) -> D
 def reconciliation_manifest(reconciliation) -> dict[str, object]:
     def item(value) -> dict[str, str]:
         return {
-            "actual": str(value.actual), "expected": str(value.expected),
-            "absolute": str(value.absolute), "relative": str(value.relative),
+            "actual": str(value.actual),
+            "expected": str(value.expected),
+            "absolute": str(value.absolute),
+            "relative": str(value.relative),
             "status": value.status.value,
         }
+
     return {
         "status": reconciliation.status.value,
-        "close": item(reconciliation.close), "volume": item(reconciliation.volume), "value": item(reconciliation.value),
+        "close": item(reconciliation.close),
+        "volume": item(reconciliation.volume),
+        "value": item(reconciliation.value),
     }
 
 

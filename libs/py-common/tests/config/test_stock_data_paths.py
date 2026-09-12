@@ -43,6 +43,14 @@ def test_indicators_happy_path(paths: StockDataPaths):
     )
 
 
+def test_intraday_trades_happy_path(paths: StockDataPaths):
+    assert (
+        paths.intraday_trades(" VCI ", " HOSE ", " 2026-09-11 ", " HPG ")
+        == "intraday/trades/provider=vci/exchange=hose/"
+        "trading_date=2026-09-11/symbol=hpg/trades.parquet"
+    )
+
+
 def test_signals_happy_path(paths: StockDataPaths):
     assert (
         paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
@@ -112,6 +120,13 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
         "base": "indicators/",
         "pattern": "{source}/{timeframe}/{exchange}/{code}.parquet",
     }
+    assert config["paths"]["intraday-trades"] == {
+        "base": "intraday/trades/",
+        "pattern": (
+            "provider={provider}/exchange={exchange}/"
+            "trading_date={trading_date}/symbol={symbol}/trades.parquet"
+        ),
+    }
     assert config["paths"]["signals"] == {
         "base": "signals/",
         "pattern": "{strategy}/{timeframe}/{exchange}.parquet",
@@ -152,6 +167,11 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
     assert (
         paths.indicators("close", "1d", "HOSE", "HPG")
         == "indicators/close/1d/hose/hpg.parquet"
+    )
+    assert (
+        paths.intraday_trades("VCI", "HOSE", "2026-09-11", "HPG")
+        == "intraday/trades/provider=vci/exchange=hose/"
+        "trading_date=2026-09-11/symbol=hpg/trades.parquet"
     )
     assert (
         paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")

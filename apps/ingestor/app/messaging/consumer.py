@@ -40,7 +40,8 @@ class IngestorKafkaRoutingService:
 
     async def run(self) -> None:
         logger.info(
-            "Starting ingestor consume loop (topics=%s,%s statusTopic=%s bootstrap=%s bucket=%s defaultStockSource=%s)",
+            "Starting ingestor consume loop (topics=%s,%s statusTopic=%s "
+            "bootstrap=%s bucket=%s defaultStockSource=%s)",
             self._settings.topic_sync_stock_prices,
             self._settings.topic_sync_symbols,
             self._settings.sync_job_status_topic,
@@ -157,7 +158,9 @@ class IngestorKafkaRoutingService:
         )
 
 
-def create_storage_registry(app_settings: Settings = settings) -> StorageProviderRegistry:
+def create_storage_registry(
+    app_settings: Settings = settings,
+) -> StorageProviderRegistry:
     minio_client = create_minio_client(app_settings.minio)
     minio_adapter = MinioStorageAdapter(minio_client)
     return StorageProviderRegistry([minio_adapter])

@@ -27,13 +27,16 @@ async def test_publishes_immutable_version_and_ready_last() -> None:
     publisher = ImmutableDatasetPublisher(storage, storage, "stock-data")
 
     result = await publisher.publish(
-        partition_prefix="intraday/trades/provider=vci/exchange=hose/trading_date=2026-09-09",
-        object_name="hpg.parquet",
+        partition_prefix=(
+            "intraday/trades/provider=vci/exchange=hose/"
+            "trading_date=2026-09-09/symbol=hpg"
+        ),
+        object_name="trades.parquet",
         data=b"parquet",
         manifest={"dataset": "intraday-trades", "rowCount": 2},
     )
 
-    assert result.data_object.endswith("/hpg.parquet")
+    assert result.data_object.endswith("/trades.parquet")
     assert ("stock-data", result.version_manifest_object) in storage.objects
     assert storage.objects[("stock-data", result.ready_object)].startswith(
         b'{"dataVersion"'
@@ -41,9 +44,37 @@ async def test_publishes_immutable_version_and_ready_last() -> None:
 
 
 @pytest.mark.anyio
+async def test_symbols_publish_independent_ready_pointers() -> None:
+    storage = MemoryStorage()
+    publisher = ImmutableDatasetPublisher(storage, storage, "stock-data")
+    base = "intraday/trades/provider=vci/exchange=hose/trading_date=2026-09-09"
+
+    hpg = await publisher.publish(
+        partition_prefix=f"{base}/symbol=hpg",
+        object_name="trades.parquet",
+        data=b"hpg-parquet",
+        manifest={"dataset": "intraday-trades", "partition": {"symbol": "hpg"}},
+    )
+    fpt = await publisher.publish(
+        partition_prefix=f"{base}/symbol=fpt",
+        object_name="trades.parquet",
+        data=b"fpt-parquet",
+        manifest={"dataset": "intraday-trades", "partition": {"symbol": "fpt"}},
+    )
+
+    assert hpg.ready_object == f"{base}/symbol=hpg/READY.json"
+    assert fpt.ready_object == f"{base}/symbol=fpt/READY.json"
+    assert hpg.ready_object != fpt.ready_object
+    assert ("stock-data", hpg.ready_object) in storage.objects
+    assert ("stock-data", fpt.ready_object) in storage.objects
+
+
+@pytest.mark.anyio
 async def test_failure_before_ready_preserves_old_pointer() -> None:
     storage = MemoryStorage()
-    prefix = "intraday/trades/provider=vci/exchange=hose/trading_date=2026-09-09"
+    prefix = (
+        "intraday/trades/provider=vci/exchange=hose/trading_date=2026-09-09/symbol=hpg"
+    )
     ready = f"{prefix}/READY.json"
     storage.objects[("stock-data", ready)] = b"old-ready"
     publisher = ImmutableDatasetPublisher(storage, storage, "stock-data")
@@ -55,7 +86,7 @@ async def test_failure_before_ready_preserves_old_pointer() -> None:
     with pytest.raises(ValueError, match="candidate rejected"):
         await publisher.publish(
             partition_prefix=prefix,
-            object_name="hpg.parquet",
+            object_name="trades.parquet",
             data=b"candidate",
             manifest={"dataset": "intraday-trades"},
             validate_data=reject,

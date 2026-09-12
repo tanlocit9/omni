@@ -13,7 +13,7 @@ flowchart TD
   Analyzer["Analyzer"]
   Symbols["symbols/{exchange}.parquet"]
   EOD["eod/{exchange}/{code}.parquet"]
-  Intraday["intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/{symbol}.parquet"]
+  Intraday["intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/symbol={symbol}/trades.parquet"]
   Indicators["indicators/{source}/{timeframe}/{exchange}/{code}.parquet"]
   Signals["signals/{strategy}/{timeframe}/{exchange}.parquet"]
   SymbolFeatures["features/symbol/{timeframe}/{exchange}/{code}.parquet"]
@@ -50,7 +50,9 @@ flowchart TD
 - Exchange names and ticker codes are lowercased in paths.
 - Folder names use kebab-case.
 - Temporal partitioning is dataset-specific; P9-I1 intraday trades use the approved
-  `trading_date=YYYY-MM-DD` partition and never an incidental run identifier.
+  `trading_date=YYYY-MM-DD/symbol={symbol}` partition and never an incidental run
+  identifier. Symbol-level ownership follows EOD: each logical symbol partition has
+  an independent readiness pointer.
 - Files are overwritten or merged in place depending on dataset strategy.
 - Kafka messages must not include bucket names or object names for routing.
 - Path construction should use shared path builders backed by [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml).
@@ -142,25 +144,35 @@ for the canonical contract and acceptance criteria.
 
 ### intraday-trades
 
-| Field           | Value                                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------------------------- |
-| Config key      | `intraday-trades`                                                                                           |
-| Logical path    | `intraday/trades/provider={provider}/exchange={exchange}/trading_date={trading_date}/{symbol}.parquet`      |
-| Producer        | Ingestor `SYNC_INTRADAY_EOD` handler                                                                        |
-| Consumer        | Deferred P9-I2 bars/features and offline research                                                           |
-| Schema/key      | One symbol object; deterministic UTC timestamp then provider-ID ordering.                                   |
-| Update strategy | Write immutable data, read back/validate, write immutable version manifest, then replace `READY.json` last. |
-| Ownership       | Ingestor owns normalized VCI trades; shared builders own physical path construction/publication semantics.  |
+| Field           | Value                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Config key      | `intraday-trades`                                                                                                        |
+| Logical path    | `intraday/trades/provider={provider}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/trades.parquet`     |
+| Producer        | Ingestor `SYNC_INTRADAY_EOD` handler                                                                                     |
+| Consumer        | Analyzer `CONFIRMED_TREND_EQUALS_V2_INTRADAY`; deferred P9-I2 bars/features; offline research                            |
+| Schema/key      | One symbol partition; deterministic UTC timestamp then provider-ID ordering.                                             |
+| Update strategy | Write immutable data, read back/validate, write immutable version manifest, then replace symbol-level `READY.json` last. |
+| Ownership       | Ingestor owns normalized VCI trades; shared builders own physical path construction/publication semantics.               |
 
 P9-I1 supports VCI across HOSE, HNX, and UPCOM and the latest completed configured
-session only. The logical partition identity is `(provider, exchange, trading_date)`
-and each symbol remains a
-separate object. Exact duplicate provider IDs collapse; conflicting IDs, mixed/out-of-
-session timestamps, cursor ambiguity, unavailable symbols, reconciliation rejection,
-or any publication failure prevent a replacement READY pointer. Prior immutable
-versions and the prior pointer remain valid. `SYNC_METADATA` remains the sole writer of
-canonical `_metadata/metadata.json`; the per-partition `READY.json` is the ingestion
-publication boundary, not a second global discovery writer.
+session only. Following EOD ownership, the logical partition identity is
+`(provider, exchange, trading_date, symbol)`. Each symbol partition therefore owns an
+independent immutable version history and `READY.json`; publication for one symbol
+cannot move another symbol's pointer. Exact duplicate provider IDs collapse;
+conflicting IDs, mixed/out-of-session timestamps, cursor ambiguity, unavailable
+symbols, reconciliation rejection, or any publication failure prevent replacement of
+that symbol's READY pointer. Prior immutable versions and the prior pointer remain
+valid. `SYNC_METADATA` remains the sole writer of canonical
+`_metadata/metadata.json`; the per-partition `READY.json` is the ingestion publication
+boundary, not a second global discovery writer. The V2 confirmed-signal resolver reads
+the exact provider/exchange/date/symbol READY pointer and immutable version manifest,
+accepts reconciliation `READY` or `WARNING`, and never falls back to another symbol or
+trading date.
+
+Objects published under the earlier shared provider/exchange/date READY layout are not
+valid V2 inputs. They must be republished into symbol-level partitions; consumers do
+not infer a symbol from a shared date-level pointer and do not provide a compatibility
+fallback.
 
 ### indicators
 
@@ -176,15 +188,15 @@ publication boundary, not a second global discovery writer.
 
 ### signals
 
-| Field           | Value                                                                                                             |
-| --------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Config key      | `signals` and compatibility alias `signal-current`                                                                |
-| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                               |
-| Producer        | Analyzer signal jobs                                                                                              |
-| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                           |
-| Schema/key      | Strategy/timeframe/exchange-level signal history. Stable keys should include symbol and signal date.              |
-| Update strategy | Upsert new signal rows into history; latest state is derived from history.                                        |
-| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status. |
+| Field           | Value                                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `signals` and compatibility alias `signal-current`                                                                                 |
+| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                                                |
+| Producer        | Analyzer signal jobs                                                                                                               |
+| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                                            |
+| Schema/key      | Strategy/timeframe/exchange-level signal history. Versioned combined rows include symbol, signal date, and model version identity. |
+| Update strategy | Upsert matching model-version rows while preserving historical V1 rows; latest state is derived from history.                      |
+| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status.                  |
 
 ### symbol-features
 

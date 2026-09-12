@@ -12,6 +12,7 @@ from py_common.storage.parquet import ParquetWriteResult
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
+from app.signals.intraday_confirmation import IntradayDataset, IntradayResolution
 from app.signals.kafka import SignalKafkaService
 from app.signals.messages import SignalEvaluationJobMessage, SignalJobMessage
 from app.signals.storage import (
@@ -22,6 +23,7 @@ from app.signals.storage import (
 from app.signals.strategy import (
     CONFIRMED_TREND_EQUALS,
     CONFIRMED_TREND_EQUALS_MODEL_VERSION,
+    CONFIRMED_TREND_EQUALS_V2_MODEL_VERSION,
     ICHIMOKU_V1,
     TREND_MOMENTUM_V1,
     MarketSignal,
@@ -357,6 +359,37 @@ def test_calculate_confirmed_trend_equals_rejects_invalid_components(mutation, r
     assert result.signal == MarketSignal.NO_DECISION
     assert result.signal_date is None
     assert reason in result.reason_codes
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("legacy_score", [pytest.param(None, id="missing"), pd.NA])
+async def test_signal_repository_rejects_legacy_component_without_score(legacy_score):
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    row = {
+        "symbol_key": "HOSE-HPG",
+        "strategy": TREND_MOMENTUM_V1,
+        "timeframe": "1d",
+        "signal": "BULLISH",
+        "signal_date": "2026-03-01",
+        "signal_price": 120.0,
+        "reason_codes": ["LEGACY"],
+    }
+    if legacy_score is not None:
+        row["score"] = legacy_score
+    storage = FakeParquetStorage({path: pd.DataFrame([row])})
+    repository = SignalHistoryRepository(storage)
+
+    result = await repository.latest_result(
+        path,
+        "HOSE-HPG",
+        "1d",
+        TREND_MOMENTUM_V1,
+    )
+
+    assert result is not None
+    assert result.signal == MarketSignal.NO_DECISION
+    assert result.signal_date == "2026-03-01"
+    assert result.reason_codes == ["LEGACY_COMPONENT_SCORE_MISSING"]
 
 
 @pytest.mark.anyio
@@ -792,6 +825,92 @@ async def test_signal_handler_combines_current_persisted_component_results():
     assert row["strategy"] == CONFIRMED_TREND_EQUALS
     assert row["model_version"] == CONFIRMED_TREND_EQUALS_MODEL_VERSION
     assert len(row["components"]) == 2
+
+
+@pytest.mark.anyio
+async def test_signal_handler_persists_exact_date_intraday_confirmation():
+    trend_path = "signals/trend_momentum_v1/1d/hose.parquet"
+    ichimoku_path = "signals/ichimoku_v1/1d/hose.parquet"
+    combined_path = "signals/confirmed_trend_equals/1d/hose.parquet"
+    component_row = {
+        "symbol_key": "HOSE-HPG",
+        "exchange": "HOSE",
+        "timeframe": "1d",
+        "signal_date": "2026-03-01",
+        "signal": "BULLISH",
+        "signal_price": 120.0,
+        "score": 5,
+        "reason_codes": ["COMPONENT_REASON"],
+        "generated_at": pd.Timestamp("2026-03-01T12:00:00Z"),
+    }
+    storage = FakeParquetStorage(
+        {
+            "eod/hose/hpg.parquet": _eod_frame(),
+            trend_path: pd.DataFrame(
+                [{**component_row, "strategy": TREND_MOMENTUM_V1}]
+            ),
+            ichimoku_path: pd.DataFrame([{**component_row, "strategy": ICHIMOKU_V1}]),
+        }
+    )
+
+    class RecordingIntradayResolver:
+        def __init__(self) -> None:
+            self.requests = []
+
+        async def resolve(self, **request):
+            self.requests.append(request)
+            trades = pd.DataFrame(
+                {
+                    "timestamp": pd.to_datetime(
+                        [
+                            "2026-03-01T06:00:00Z",
+                            "2026-03-01T07:00:00Z",
+                            "2026-03-01T07:20:00Z",
+                        ],
+                        utc=True,
+                    ),
+                    "price": [100.0, 102.0, 104.0],
+                    "volume": [10, 20, 30],
+                    "trading_date": [pd.Timestamp("2026-03-01").date()] * 3,
+                    "exchange": ["HOSE"] * 3,
+                    "symbol": ["HPG"] * 3,
+                }
+            )
+            return IntradayResolution(
+                IntradayDataset(
+                    frame=trades,
+                    dataset="intraday-trades",
+                    data_version="sha256:intraday-version",
+                    manifest_version=1,
+                    reconciliation_status="READY",
+                    manifest_path="intraday/version/manifest.json",
+                ),
+                [],
+            )
+
+    resolver = RecordingIntradayResolver()
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader(), resolver)
+
+    transition = await handler.handle(_job_payload(strategy=CONFIRMED_TREND_EQUALS))
+
+    assert resolver.requests == [
+        {
+            "provider": "VCI",
+            "exchange": "HOSE",
+            "symbol": "HPG",
+            "trading_date": "2026-03-01",
+        }
+    ]
+    assert transition.new_signal == MarketSignal.BULLISH
+    assert transition.metadata["modelVersion"] == (
+        CONFIRMED_TREND_EQUALS_V2_MODEL_VERSION
+    )
+    row = storage.replacements[combined_path].iloc[0]
+    assert row["model_version"] == CONFIRMED_TREND_EQUALS_V2_MODEL_VERSION
+    assert row["input_versions"]["intraday"]["dataVersion"] == (
+        "sha256:intraday-version"
+    )
+    assert row["intraday_confirmation"]["result"] == "BULLISH_CONFIRM"
 
 
 @pytest.mark.anyio

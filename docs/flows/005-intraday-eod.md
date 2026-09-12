@@ -25,24 +25,29 @@ sequenceDiagram
     V-->>I: trade page
   end
   I->>I: Normalize UTC, validate ICT local date, deduplicate/reconcile
-  I->>S: Write immutable symbol Parquet
+  I->>S: Write immutable symbol-partition Parquet
   I->>S: Read back and validate
-  I->>S: Write/read immutable version manifest
-  I->>S: Replace READY.json last
+  I->>S: Write/read immutable symbol-partition version manifest
+  I->>S: Replace symbol-partition READY.json last
   I->>K: terminal topic-sync-job-status
 ```
 
 The Kafka message contains logical domain identity only. Ingestor resolves storage
-through shared builders backed by `configs/shared/s3-paths.yaml`. Each provider
-timestamp is converted to `Asia/Ho_Chi_Minh` and its local date must equal the requested
-`tradingDate`; the persisted timestamp remains UTC. No holiday or session-segment
-validation is performed. An empty/unavailable symbol, cursor ambiguity, conflicting
-provider ID, local-date mismatch, reconciliation rejection, or storage validation
-failure produces an error status and does not replace an existing READY pointer.
+through shared builders backed by `configs/shared/s3-paths.yaml`. Following EOD
+ownership, `(provider, exchange, trading_date, symbol)` identifies one partition at
+`intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/symbol={symbol}/trades.parquet`.
+Each symbol owns an independent READY pointer. Each provider timestamp is converted to
+`Asia/Ho_Chi_Minh` and its local date must equal the requested `tradingDate`; the
+persisted timestamp remains UTC. No holiday or session-segment validation is performed.
+An empty/unavailable symbol, cursor ambiguity, conflicting provider ID, local-date
+mismatch, reconciliation rejection, or storage validation failure produces an error
+status and does not replace that symbol's existing READY pointer.
 
 ## Correction Window
 
 For seven calendar days after the trading date, a complete corrected provider snapshot
 may produce a new immutable version. Identical bytes retain the same SHA-256 identity.
 No prior immutable object is mutated or deleted, and READY changes only after candidate
-validation succeeds.
+validation succeeds. Objects from the former shared provider/exchange/date READY layout
+must be republished into symbol-level partitions; consumers do not fall back to the old
+layout.

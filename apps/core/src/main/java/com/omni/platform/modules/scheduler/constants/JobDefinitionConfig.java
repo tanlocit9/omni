@@ -225,6 +225,14 @@ public class JobDefinitionConfig {
                                                         List.of(DATASET_SECTOR_ROTATION_BACKTESTS))));
 
         private static JobDefinitionSeed signalSeed(String name, String cron, String strategy) {
+                boolean confirmedWithIntraday = SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS.equals(strategy);
+                List<String> jobDependencies = confirmedWithIntraday
+                                ? List.of(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_INDICATORS.name(),
+                                                JobType.SYNC_INTRADAY_EOD.name())
+                                : List.of(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_INDICATORS.name());
+                List<String> datasetDependencies = confirmedWithIntraday
+                                ? List.of(DATASET_EOD, DATASET_INDICATORS, DATASET_INTRADAY_TRADES)
+                                : List.of(DATASET_EOD, DATASET_INDICATORS);
                 return new JobDefinitionSeed(
                                 DataSource.ANALYZER,
                                 List.of(),
@@ -236,9 +244,8 @@ public class JobDefinitionConfig {
                                                                 ENABLED_SECTOR_CODES,
                                                                 CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                 CONFIG_KEY_SIGNAL_STRATEGY, strategy),
-                                                List.of(JobType.SYNC_STOCK_PRICE.name(),
-                                                                JobType.SYNC_INDICATORS.name()),
-                                                List.of(DATASET_EOD, DATASET_INDICATORS),
+                                                jobDependencies,
+                                                datasetDependencies,
                                                 List.of(DATASET_SIGNALS)));
         }
 

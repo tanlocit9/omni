@@ -10,14 +10,14 @@ P9-I1 remains intentionally bounded to normalized trades. Bars, reusable intrada
 
 ## Approved decisions
 
-| Gate | Decision |
-| --- | --- |
-| D9-1 Provider | `vnstock.api.quote.Quote`, source `VCI`; required fields `time`, `price`, `volume`, `match_type`, `id`; provider `id` is trade identity. |
-| D9-2 Trading date | Convert provider timestamps to `Asia/Ho_Chi_Minh` and require local date = requested `tradingDate`; persist timestamp UTC. No holiday/calendar-version validation in P9-I1. |
-| D9-3 Completeness | A symbol/date candidate must produce non-empty terminal normalized trades. Mixed dates, cursor ambiguity, fetch failure, or conflicting duplicate provider IDs reject the candidate. |
-| D9-4 Reconciliation | Compare final price to canonical EOD close and summed trade volume/value to canonical EOD volume/value. Close warns >0.01%, rejects >0.05%; volume/value warn >0.10%, reject >0.50%. |
-| D9-5 Corrections | Rebuild a complete immutable candidate; validation/reconciliation must finish before READY replacement. Identical normalized bytes retain content-derived identity. |
-| D9-6 Layout | `intraday/trades/provider=vci/exchange=<exchange>/trading_date=YYYY-MM-DD/<symbol>.parquet`, one symbol object per partition leaf. |
+| Gate                | Decision                                                                                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D9-1 Provider       | `vnstock.api.quote.Quote`, source `VCI`; required fields `time`, `price`, `volume`, `match_type`, `id`; provider `id` is trade identity.                                                                                                          |
+| D9-2 Trading date   | Convert provider timestamps to `Asia/Ho_Chi_Minh` and require local date = requested `tradingDate`; persist timestamp UTC. No holiday/calendar-version validation in P9-I1.                                                                       |
+| D9-3 Completeness   | A symbol/date candidate must produce non-empty terminal normalized trades. Mixed dates, cursor ambiguity, fetch failure, or conflicting duplicate provider IDs reject the candidate.                                                              |
+| D9-4 Reconciliation | Compare final price to canonical EOD close and summed trade volume/value to canonical EOD volume/value. Close warns >0.01%, rejects >0.05%; volume/value warn >0.10%, reject >0.50%.                                                              |
+| D9-5 Corrections    | Rebuild a complete immutable candidate; validation/reconciliation must finish before READY replacement. Identical normalized bytes retain content-derived identity.                                                                               |
+| D9-6 Layout         | Follow EOD ownership: `(provider, exchange, trading_date, symbol)` identifies `intraday/trades/provider=vci/exchange=<exchange>/trading_date=YYYY-MM-DD/symbol=<symbol>/trades.parquet`, with one independent READY pointer per symbol partition. |
 
 ## Execution paths
 
@@ -32,13 +32,13 @@ The existing Phase 7 manual trigger API is reused; there is no separate backfill
 Accepted runtime parameter shapes for `SYNC_INTRADAY_EOD`:
 
 ```json
-{"tradingDate":"2026-09-07"}
+{ "tradingDate": "2026-09-07" }
 ```
 
 or:
 
 ```json
-{"startDate":"2026-09-01","endDate":"2026-09-07"}
+{ "startDate": "2026-09-01", "endDate": "2026-09-07" }
 ```
 
 Rules:
@@ -125,10 +125,15 @@ path
 
 - Same normalized Parquet bytes derive the same SHA-256 `dataVersion`.
 - Partition and object identity depend only on provider/exchange/trading date/symbol.
+- Each symbol partition owns its immutable versions and READY pointer; publishing one
+  symbol cannot move another symbol's pointer.
 - Manual backfill uses the same immutable publisher as scheduled ingestion.
 - Reconciliation rejection happens before publication.
 - Candidate data/version-manifest validation happens before `READY.json` replacement.
 - Failure before READY replacement preserves the prior READY pointer.
+- Objects published under the former shared provider/exchange/date READY layout require
+  republishing into symbol-level partitions; no consumer compatibility fallback is
+  provided.
 
 ## Source evidence
 
@@ -155,7 +160,7 @@ Focused test source exists in:
 
 Use the complete checklist in [`plans/roadmap/phase-9-intraday-eod.md`](../../plans/roadmap/phase-9-intraday-eod.md). It covers exchange/provider scope, single-date/range backfill, future-date rejection, deterministic reruns, completeness, reconciliation, duplicate/correction behavior, immutable READY preservation, partition identity, Kafka contracts, timestamp/date semantics, scheduler behavior, manual-trigger allow-list, and affected Nx/project checks.
 
-P9-I1 must remain `pending_owner_verification` and `last_verified_commit` must remain `null` until the owner runs and records the approved checks.
+P9-I1 must remain `verification_pending` and `last_verified_commit` must remain `null` until the owner runs and records the approved checks.
 
 ## Intentional technical debt
 

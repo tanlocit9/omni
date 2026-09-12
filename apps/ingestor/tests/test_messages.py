@@ -3,7 +3,11 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from app.messaging.messages import SymbolJobMessage, SyncSymbolsJobMessage
+from app.messaging.messages import (
+    IntradayEodJobMessage,
+    SymbolJobMessage,
+    SyncSymbolsJobMessage,
+)
 
 
 def test_symbol_job_message_parses_scheduler_payload():
@@ -95,6 +99,28 @@ def test_sync_symbols_job_message_defaults_optional_metadata_values():
     assert message.metadata == {}
     assert message.expected_count is None
     assert message.include_sector_classification is False
+
+
+def test_intraday_eod_message_parses_bounded_contract():
+    message = IntradayEodJobMessage.model_validate(
+        {
+            "jobDefinitionId": "job-1",
+            "executionId": "exec-1",
+            "parentExecutionId": "parent-1",
+            "source": "VCI",
+            "workType": "SYMBOL",
+            "workKey": "HOSE-HPG",
+            "symbolKey": "hose-hpg",
+            "exchange": "hose",
+            "tradingDate": "2026-09-09",
+            "provider": "vci",
+        }
+    )
+
+    assert message.symbol_key == "HOSE-HPG"
+    assert message.parse_symbol_key() == ("HOSE", "HPG")
+    assert message.provider == "VCI"
+    assert message.trading_date.isoformat() == "2026-09-09"
 
 
 def test_sync_symbols_job_message_rejects_blank_exchange():

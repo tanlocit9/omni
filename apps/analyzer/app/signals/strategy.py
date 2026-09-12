@@ -19,6 +19,7 @@ TREND_MOMENTUM_V1 = "TREND_MOMENTUM_V1"
 ICHIMOKU_V1 = "ICHIMOKU_V1"
 CONFIRMED_TREND_EQUALS = "CONFIRMED_TREND_EQUALS"
 CONFIRMED_TREND_EQUALS_MODEL_VERSION = "CONFIRMED_TREND_EQUALS_V1"
+CONFIRMED_TREND_EQUALS_V2_MODEL_VERSION = "CONFIRMED_TREND_EQUALS_V2_INTRADAY"
 BULLISH_THRESHOLD = 3
 BEARISH_THRESHOLD = -3
 
@@ -47,6 +48,8 @@ class SignalResult:
     strategy: str = TREND_MOMENTUM_V1
     model_version: str | None = None
     components: list[dict[str, Any]] | None = None
+    input_versions: dict[str, Any] | None = None
+    intraday_confirmation: dict[str, Any] | None = None
 
     def to_metadata(self) -> dict[str, Any]:
         metadata = {
@@ -61,6 +64,10 @@ class SignalResult:
             metadata["modelVersion"] = self.model_version
         if self.components is not None:
             metadata["components"] = self.components
+        if self.input_versions is not None:
+            metadata["inputVersions"] = self.input_versions
+        if self.intraday_confirmation is not None:
+            metadata["intradayConfirmation"] = self.intraday_confirmation
         return metadata
 
 
@@ -344,6 +351,8 @@ def calculate_confirmed_trend_equals(
             "score": component.result.score,
             "signalDate": component.result.signal_date,
             "reasonCodes": component.result.reason_codes,
+            "modelVersion": component.result.model_version,
+            "inputVersions": component.result.input_versions,
         }
         for component in components
     ]
@@ -383,6 +392,73 @@ def calculate_confirmed_trend_equals(
         CONFIRMED_TREND_EQUALS_MODEL_VERSION,
         component_details,
     )
+
+
+def calculate_confirmed_trend_equals_v2(
+    daily_candidate: SignalResult,
+    intraday_confirmation: Any,
+) -> SignalResult:
+    """Confirm or suppress a daily candidate using exact-date intraday evidence."""
+    from app.signals.intraday_confirmation import IntradayConfirmation
+
+    intraday_metadata = intraday_confirmation.to_metadata()
+    input_versions = {
+        "trendMomentum": _component_version(daily_candidate, TREND_MOMENTUM_V1),
+        "ichimoku": _component_version(daily_candidate, ICHIMOKU_V1),
+    }
+    facts = intraday_confirmation.facts
+    if facts is not None:
+        input_versions["intraday"] = {
+            "dataset": facts.dataset,
+            "dataVersion": facts.data_version,
+        }
+
+    reasons = [*daily_candidate.reason_codes, *intraday_confirmation.reason_codes]
+    if daily_candidate.signal == MarketSignal.NO_DECISION:
+        final_signal = MarketSignal.NO_DECISION
+        reasons.append("DAILY_CANDIDATE_UNAVAILABLE")
+    elif daily_candidate.signal == MarketSignal.NEUTRAL:
+        final_signal = MarketSignal.NEUTRAL
+        reasons.append("INTRADAY_CANNOT_PROMOTE_NEUTRAL")
+    elif intraday_confirmation.result == IntradayConfirmation.UNAVAILABLE:
+        final_signal = MarketSignal.NO_DECISION
+        reasons.append("INTRADAY_UNAVAILABLE_BLOCKS_DIRECTIONAL_CANDIDATE")
+    elif (
+        daily_candidate.signal == MarketSignal.BULLISH
+        and intraday_confirmation.result == IntradayConfirmation.BULLISH_CONFIRM
+    ) or (
+        daily_candidate.signal == MarketSignal.BEARISH
+        and intraday_confirmation.result == IntradayConfirmation.BEARISH_CONFIRM
+    ):
+        final_signal = daily_candidate.signal
+        reasons.append("INTRADAY_CONFIRMED_DAILY_CANDIDATE")
+    else:
+        final_signal = MarketSignal.NEUTRAL
+        reasons.append("INTRADAY_SUPPRESSED_DAILY_CANDIDATE")
+
+    return SignalResult(
+        signal=final_signal,
+        price=daily_candidate.price,
+        signal_date=daily_candidate.signal_date,
+        reason_codes=reasons,
+        score=daily_candidate.score,
+        strategy=CONFIRMED_TREND_EQUALS,
+        model_version=CONFIRMED_TREND_EQUALS_V2_MODEL_VERSION,
+        components=daily_candidate.components,
+        input_versions=input_versions,
+        intraday_confirmation=intraday_metadata,
+    )
+
+
+def _component_version(result: SignalResult, strategy: str) -> dict[str, Any]:
+    component = next(
+        (item for item in result.components or [] if item.get("strategy") == strategy),
+        {},
+    )
+    return {
+        "modelVersion": component.get("modelVersion"),
+        **(component.get("inputVersions") or {}),
+    }
 
 
 def _prepare_frame(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:

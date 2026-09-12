@@ -1,249 +1,175 @@
-# Intraday End-of-Day Sync Implementation Plan
+# Intraday End-of-Day Sync — P9-I1
 
-Status: Deferred technical debt for the current daily/EOD MVP. This plan must not be treated as a prerequisite or blocker until the owner approves intraday product scope. See [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
+Status: **implementation complete / pending owner verification**. Verification commands are intentionally not run by agent instruction. Canonical checklist and commit evidence live in [`plans/roadmap/phase-9-intraday-eod.md`](../../plans/roadmap/phase-9-intraday-eod.md).
 
 ## Goal
 
-Add historical intraday market data after market close, then build deterministic 1m/5m/15m bars and reusable features.
+Persist completed-session intraday trades for VCI across HOSE/HNX/UPCOM using deterministic normalization, canonical EOD reconciliation, immutable READY-last publication, and the existing scheduler/manual-trigger boundary.
 
-Every completed data partition must publish its dataset metadata to MinIO. No PostgreSQL/Redis metadata cache is required in V1.
+P9-I1 remains intentionally bounded to normalized trades. Bars, reusable intraday features, sector aggregation, Console-specific UI work, and realtime coupling remain deferred to later increments.
 
-## Outcome
+## Approved decisions
 
-After this phase Omni can:
+| Gate                | Decision                                                                                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D9-1 Provider       | `vnstock.api.quote.Quote`, source `VCI`; required fields `time`, `price`, `volume`, `match_type`, `id`; provider `id` is trade identity.                                                                                                          |
+| D9-2 Trading date   | Convert provider timestamps to `Asia/Ho_Chi_Minh` and require local date = requested `tradingDate`; persist timestamp UTC. No holiday/calendar-version validation in P9-I1.                                                                       |
+| D9-3 Completeness   | A symbol/date candidate must produce non-empty terminal normalized trades. Mixed dates, cursor ambiguity, fetch failure, or conflicting duplicate provider IDs reject the candidate.                                                              |
+| D9-4 Reconciliation | Compare final price to canonical EOD close and summed trade volume/value to canonical EOD volume/value. Close warns >0.01%, rejects >0.05%; volume/value warn >0.10%, reject >0.50%.                                                              |
+| D9-5 Corrections    | Rebuild a complete immutable candidate; validation/reconciliation must finish before READY replacement. Identical normalized bytes retain content-derived identity.                                                                               |
+| D9-6 Layout         | Follow EOD ownership: `(provider, exchange, trading_date, symbol)` identifies `intraday/trades/provider=vci/exchange=<exchange>/trading_date=YYYY-MM-DD/symbol=<symbol>/trades.parquet`, with one independent READY pointer per symbol partition. |
 
-- sync complete intraday sessions;
-- backtest with 1m/5m/15m data;
-- calculate VWAP, momentum, volume and volatility features;
-- inspect partition size, object count, row count, schema, range and freshness through MinIO manifests;
-- use those manifests as downstream dataset readiness markers.
+## Execution paths
 
-## Proposed Jobs
+### Scheduled
 
-```text
-SYNC_INTRADAY_EOD
-  -> intraday trades
-  -> READY manifest
+`SYNC_INTRADAY_EOD` runs after market close on weekdays. Platform resolves the latest completed weekday, enumerates all active symbols in configured HOSE/HNX/UPCOM exchanges, and emits one `IntradayEodJobMessage` per symbol/date.
 
-BUILD_INTRADAY_BARS
-  -> 1m / 5m / 15m bars
-  -> READY manifest
+### Manual historical backfill
 
-BUILD_INTRADAY_FEATURES
-  -> reusable features
-  -> READY manifest
+The existing Phase 7 manual trigger API is reused; there is no separate backfill pipeline.
+
+Accepted runtime parameter shapes for `SYNC_INTRADAY_EOD`:
+
+```json
+{ "tradingDate": "2026-09-07" }
 ```
 
-Writer order is mandatory:
+or:
 
-```text
-write Parquet -> validate -> write metadata manifest last
+```json
+{ "startDate": "2026-09-01", "endDate": "2026-09-07" }
 ```
 
-## Dataset Outputs
+Rules:
+
+- dates must be historical;
+- single-date requests must be weekdays;
+- range length is bounded to 31 calendar days;
+- range fan-out skips Saturday/Sunday;
+- scheduled cron cadence is unchanged;
+- manual and scheduled runs produce the same message and pass through the same Ingestor handler;
+- deterministic message work key is `<symbolKey>:<tradingDate>`;
+- deployment must explicitly allow-list `SYNC_INTRADAY_EOD:VCI` (or the definition UUID) before operator-triggered backfill is available.
+
+The allow-list is not changed automatically because repository guidance requires explicit owner/deployment authorization for that security boundary.
+
+## Processing flow
 
 ```text
-stock-data/intraday/trades/
-  date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
-
-stock-data/intraday/bars/
-  timeframe=1m/date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
-
-stock-data/intraday/features/
-  timeframe=1m/date=YYYY-MM-DD/exchange=HOSE/part-*.parquet
+Platform scheduler/manual trigger
+  -> SYNC_INTRADAY_EOD producer
+  -> IntradayEodJobMessage(symbol, exchange, tradingDate, provider=VCI)
+  -> VCI cursor fetch
+  -> normalize + local-date validation + duplicate policy
+  -> read canonical EOD symbol Parquet for exact tradingDate
+  -> deterministic reconciliation
+      READY/WARNING -> continue
+      REJECTED      -> stop before publication
+  -> encode Parquet
+  -> immutable candidate data
+  -> read-back validation
+  -> immutable version manifest
+  -> READY.json last
+  -> terminal job status
 ```
 
-Raw trade fields where available:
+## Canonical normalization
+
+Persisted normalized trade fields include:
 
 ```text
 trading_date
-timestamp
+timestamp          # UTC
 exchange
 symbol
+provider_id
 price
 volume
 trade_value
-trade_id?
-sequence?
-side?
+match_type
 ```
 
-Bar fields:
+Exact duplicate `provider_id` rows with identical comparable values collapse deterministically. Conflicting values under the same provider ID reject the candidate.
 
-```text
-trading_date
-bar_time
-exchange
-symbol
-open
-high
-low
-close
-volume
-value
-trade_count
-vwap
-```
+## Canonical EOD reconciliation
 
-5m/15m should be derived from canonical trade/1m data.
+The handler reads the existing EOD Parquet through `ParquetStorage` using `StockDataPaths.eod(exchange, symbol)` and requires exactly one row matching the requested trading date.
 
-## MinIO Metadata Outputs
+Accepted canonical field aliases are:
 
-Each completed partition writes one manifest under:
+- close: `ad_close` or `close`;
+- volume: `total_volume`, `nm_volume`, or `volume`;
+- value: `nm_value`, `total_value`, or `value`.
 
-```text
-stock-data/_metadata/datasets/intraday-trades/...
-stock-data/_metadata/datasets/intraday-bars/...
-stock-data/_metadata/datasets/intraday-features/...
-```
+Missing/ambiguous canonical EOD evidence rejects the candidate. Reconciliation runs before immutable publication. `WARNING` may publish with evidence; `REJECTED` cannot replace the previous READY pointer.
 
-Example:
-
-```text
-_metadata/datasets/intraday-bars/
-  timeframe=1m/date=2026-08-11/exchange=HOSE.json
-```
-
-Manifest should contain:
+Manifest evidence includes:
 
 ```text
 status = READY
-path
-objectCount
-totalBytes
-rowCount
-columnCount
-schemaHash
-minTimestamp
-maxTimestamp
+completeness = COMPLETE
+reconciliation.status = READY | WARNING
+reconciliation.close
+reconciliation.volume
+reconciliation.value
 sourceExecutionId
-generatedAt
+normalizationVersion
+rowCount
+objectCount
+dataVersion
+path
 ```
 
-See `DATASET_METADATA_MANIFEST_IMPLEMENTATION_PLAN.md`.
+## Idempotency and failure semantics
 
-## Algorithm Feature Outputs
+- Same normalized Parquet bytes derive the same SHA-256 `dataVersion`.
+- Partition and object identity depend only on provider/exchange/trading date/symbol.
+- Each symbol partition owns its immutable versions and READY pointer; publishing one
+  symbol cannot move another symbol's pointer.
+- Manual backfill uses the same immutable publisher as scheduled ingestion.
+- Reconciliation rejection happens before publication.
+- Candidate data/version-manifest validation happens before `READY.json` replacement.
+- Failure before READY replacement preserves the prior READY pointer.
+- Objects published under the former shared provider/exchange/date READY layout require
+  republishing into symbol-level partitions; no consumer compatibility fallback is
+  provided.
 
-Price/momentum:
+## Source evidence
 
-```text
-return_1m
-return_5m
-return_15m
-return_from_open
-distance_from_session_high
-distance_from_session_low
-close_location_value
-intraday_momentum_5m
-intraday_momentum_15m
-```
+Implementation is represented by the Phase 9 branch commits following the initial `328450d` slice:
 
-VWAP:
+- `022b855` — scheduled/manual date fan-out in the intraday producer;
+- `880fb24` — bounded manual backfill parameter validation;
+- `6aa6f13` — HOSE/HNX/UPCOM alignment and canonical EOD reconciliation;
+- `0152ddc` — pass existing EOD `ParquetStorage` into the intraday handler;
+- `43c8d0c` — reconciliation-focused Ingestor tests;
+- `9ee71dc` — scheduled, single-date, and range fan-out producer tests;
+- `190fab1` — owner verification checklist/status in the canonical roadmap.
 
-```text
-vwap
-vwap_distance_pct
-above_vwap
-minutes_above_vwap
-```
+Focused test source exists in:
 
-Volume/liquidity:
+- `apps/ingestor/tests/test_intraday_eod.py`;
+- `apps/core/src/test/java/com/omni/platform/modules/scheduler/producers/SyncIntradayEodJobProducerTest.java`;
+- `libs/py-common/tests/storage/test_immutable_publication.py`;
+- existing messaging/config tests referenced by the roadmap checklist.
 
-```text
-trade_count
-cumulative_volume
-cumulative_value
-volume_share_of_session
-relative_intraday_volume
-average_trade_size
-volume_acceleration
-```
+## Owner verification
 
-Volatility/range:
+**NOT RUN.** Do not interpret source tests or commits as successful verification.
 
-```text
-bar_range_pct
-realized_volatility_15m
-realized_volatility_30m
-opening_range_pct
-opening_range_position
-opening_range_breakout
-```
+Use the complete checklist in [`plans/roadmap/phase-9-intraday-eod.md`](../../plans/roadmap/phase-9-intraday-eod.md). It covers exchange/provider scope, single-date/range backfill, future-date rejection, deterministic reruns, completeness, reconciliation, duplicate/correction behavior, immutable READY preservation, partition identity, Kafka contracts, timestamp/date semantics, scheduler behavior, manual-trigger allow-list, and affected Nx/project checks.
 
-Provider-dependent (`CONDITIONAL`):
+P9-I1 must remain `verification_pending` and `last_verified_commit` must remain `null` until the owner runs and records the approved checks.
 
-```text
-buy_volume
-sell_volume
-volume_delta
-cumulative_volume_delta
-buy_trade_ratio
-```
+## Intentional technical debt
 
-Do not fabricate canonical buy/sell side when the provider does not supply a reliable field.
+- No Vietnam exchange holiday/calendar-version model; weekday-only scheduling/backfill may safely fail on market holidays.
+- No session-segment validation.
+- No dedicated large-backfill queue/backpressure policy beyond the 31-calendar-day request bound.
+- No automatic market-calendar correction-window enforcement.
+- No bars/features/sectors/realtime work in P9-I1.
 
-## Sector-Level Features Unlocked
+## Later increments
 
-```text
-sector_return_5m
-sector_return_15m
-breadth_positive_return_5m
-breadth_above_vwap
-breadth_new_session_high
-sector_relative_volume
-sector_realized_volatility
-leader_contribution
-laggard_contribution
-```
-
-## Algorithms Unlocked
-
-- intraday momentum/reversal;
-- VWAP confirmation;
-- opening-range strategies;
-- sector rotation by session phase;
-- volume breakout confirmation;
-- intraday volatility regimes;
-- next-session/daily signal confirmation.
-
-## Readiness / Dependency Rule
-
-Downstream jobs must read the expected partition manifest and verify:
-
-```text
-manifest exists
-status == READY
-partition date/timeframe matches
-schema version supported
-freshness acceptable
-```
-
-Do not repeatedly scan the full data prefix just to decide whether a dataset is ready.
-
-## Idempotency and Validation
-
-- Prefer provider trade id/sequence for identity when available.
-- Timestamp alone is not assumed unique.
-- Re-running the same partition must be deterministic.
-- Failed rewrites should not replace the last valid READY manifest.
-- Validate session range, duplicates, symbol/exchange, price/volume, schema and daily volume reconciliation where feasible.
-
-## Implementation Steps
-
-1. Confirm provider intraday schema/history availability.
-2. Add canonical trade/bar contracts and manifest contract in `py_common`.
-3. Add intraday + `_metadata` path builders.
-4. Implement `SYNC_INTRADAY_EOD` and publish manifest after validation.
-5. Build 1m then deterministic 5m/15m bars and manifests.
-6. Build reusable feature dataset and manifest.
-7. Use manifests for scheduler dependency checks.
-8. Add manifests to Internal Tools Dataset Browser.
-
-## Acceptance Criteria
-
-- Intraday sessions sync idempotently.
-- 1m/5m/15m outputs are deterministic.
-- Feature outputs are reusable by multiple algorithms.
-- Every successful partition has a READY MinIO manifest.
-- Internal Tools can display stats without scanning all Parquet objects.
-- Downstream jobs can validate freshness/readiness from the manifest.
+P9-I2 may add deterministic 1m/5m/15m bars and reusable intraday features after P9-I1 is independently owner-verified and explicitly reactivated. P9-I3 may then add sector aggregation/lineage under its own gate. Neither is activated by this implementation.

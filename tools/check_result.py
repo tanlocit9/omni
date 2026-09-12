@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -117,6 +118,10 @@ def command_run(args: argparse.Namespace) -> int:
     if not args.command:
         raise CheckResultError("missing command after --")
     check_key(args.kind, args.name)
+    executable = shutil.which(args.command[0])
+    if executable is None:
+        raise CheckResultError(f"command not found: {args.command[0]}")
+    resolved_command = [executable, *args.command[1:]]
     directory = result_dir(args.increment)
     output_path = log_path(directory, args.name)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +129,7 @@ def command_run(args: argparse.Namespace) -> int:
     started = time.monotonic()
     with output_path.open("w", encoding="utf-8", errors="replace", newline="\n") as log:
         process = subprocess.Popen(
-            args.command,
+            resolved_command,
             cwd=ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

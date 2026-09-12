@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -11,8 +12,11 @@ from py_common.storage.parquet import ParquetStorage, ParquetWriteResult
 
 from app.signals.strategy import MarketSignal, SignalResult
 
+_logger = logging.getLogger(__name__)
+
 OUTCOME_WINDOWS = (5, 10, 15, 20)
 SIGNAL_KEY_COLUMNS = ["symbol_key", "strategy", "timeframe", "signal_date"]
+SIGNAL_VERSIONED_KEY_COLUMNS = [*SIGNAL_KEY_COLUMNS, "model_version"]
 SIGNAL_COLUMNS = [
     "symbol_key",
     "exchange",
@@ -27,6 +31,8 @@ SIGNAL_COLUMNS = [
     "indicators_data_version",
     "model_version",
     "components",
+    "input_versions",
+    "intraday_confirmation",
     "generated_at",
 ]
 AUDIT_COLUMNS = ["last_recalculated_at", "revision"]
@@ -54,6 +60,7 @@ class SignalTransition:
     state_frame: pd.DataFrame
     metadata: dict[str, Any]
     persisted: bool = True
+    new_signal_date: bool = False
     history_frame: pd.DataFrame | None = None
     write_result: ParquetWriteResult | None = None
 
@@ -116,6 +123,7 @@ class SignalHistoryRepository:
         async def _persist() -> SignalTransition:
             history = await self._read_history(history_path)
             previous_signal = self._previous_signal(history, symbol_key)
+            history = self._ensure_schema(history)
             signal_changed = (
                 result.signal != MarketSignal.NO_DECISION
                 and previous_signal is not None
@@ -131,6 +139,10 @@ class SignalHistoryRepository:
                 indicators_data_version,
             )
             persisted = result.signal != MarketSignal.NO_DECISION
+            new_signal_date = (
+                persisted
+                and not self._same_signal_key(history, state_frame.iloc[0]).any()
+            )
             history_frame = history
             write_result = None
             if persisted:
@@ -149,6 +161,7 @@ class SignalHistoryRepository:
             metadata.update(
                 {
                     "signalChanged": signal_changed,
+                    "newSignalDate": new_signal_date,
                     "previousSignal": (
                         previous_signal.value if previous_signal else None
                     ),
@@ -163,6 +176,7 @@ class SignalHistoryRepository:
                 state_frame=state_frame,
                 metadata=metadata,
                 persisted=persisted,
+                new_signal_date=new_signal_date,
                 history_frame=history_frame if persisted else None,
                 write_result=write_result,
             )
@@ -265,6 +279,24 @@ class SignalHistoryRepository:
         if matches.empty:
             return None
         row = matches.sort_values("signal_date").iloc[-1]
+        if "score" not in matches.columns or pd.isna(row.get("score")):
+            _logger.warning(
+                "Rejecting legacy signal row without score "
+                "symbolKey=%s timeframe=%s strategy=%s signalDate=%s path=%s",
+                symbol_key,
+                timeframe,
+                strategy,
+                row["signal_date"],
+                history_path,
+            )
+            return SignalResult(
+                signal=MarketSignal.NO_DECISION,
+                price=None,
+                signal_date=str(row["signal_date"]),
+                reason_codes=["LEGACY_COMPONENT_SCORE_MISSING"],
+                score=0,
+                strategy=str(row["strategy"]).upper(),
+            )
         return SignalResult(
             signal=MarketSignal(str(row["signal"]).upper()),
             price=(
@@ -274,6 +306,23 @@ class SignalHistoryRepository:
             reason_codes=list(row.get("reason_codes", [])),
             score=float(row.get("score", 0)),
             strategy=str(row["strategy"]).upper(),
+            model_version=(
+                None
+                if pd.isna(row.get("model_version"))
+                else str(row.get("model_version"))
+            ),
+            input_versions={
+                "eodDataVersion": (
+                    None
+                    if pd.isna(row.get("eod_data_version"))
+                    else str(row.get("eod_data_version"))
+                ),
+                "indicatorsDataVersion": (
+                    None
+                    if pd.isna(row.get("indicators_data_version"))
+                    else str(row.get("indicators_data_version"))
+                ),
+            },
         )
 
     async def _read_history(self, path: str) -> pd.DataFrame:
@@ -322,12 +371,16 @@ class SignalHistoryRepository:
         return self._sort_history(merged)
 
     def _same_signal_key(self, history: pd.DataFrame, incoming: pd.Series) -> pd.Series:
-        return (
+        same_key = (
             (history["symbol_key"].astype(str) == str(incoming["symbol_key"]))
             & (history["strategy"].astype(str) == str(incoming["strategy"]))
             & (history["timeframe"].astype(str) == str(incoming["timeframe"]))
             & (history["signal_date"].astype(str) == str(incoming["signal_date"]))
         )
+        incoming_version = incoming.get("model_version")
+        if pd.notna(incoming_version):
+            same_key &= history["model_version"].astype(str) == str(incoming_version)
+        return same_key
 
     def _previous_signal(
         self, history: pd.DataFrame, symbol_key: str
@@ -374,6 +427,8 @@ class SignalHistoryRepository:
             "indicators_data_version": indicators_data_version,
             "model_version": result.model_version,
             "components": result.components,
+            "input_versions": result.input_versions,
+            "intraday_confirmation": result.intraday_confirmation,
             "generated_at": pd.Timestamp.now(tz="UTC"),
             "last_recalculated_at": pd.NA,
             "revision": 1,
@@ -404,6 +459,7 @@ class SignalHistoryRepository:
                 "exchange",
                 "symbol_key",
                 "signal_date",
+                "model_version",
             ]
             if column in frame.columns
         ]
@@ -469,8 +525,14 @@ class SignalHistoryRepository:
             raise ValueError(f"Signal history is missing columns: {missing_columns}")
         if frame[SIGNAL_KEY_COLUMNS].isna().any().any():
             raise ValueError("Signal history contains null signal key values")
-        duplicate_keys = frame.duplicated(subset=SIGNAL_KEY_COLUMNS, keep=False)
-        if duplicate_keys.any():
+        legacy = frame[frame["model_version"].isna()]
+        versioned = frame[frame["model_version"].notna()]
+        duplicate_legacy = legacy.duplicated(subset=SIGNAL_KEY_COLUMNS, keep=False)
+        duplicate_versioned = versioned.duplicated(
+            subset=SIGNAL_VERSIONED_KEY_COLUMNS,
+            keep=False,
+        )
+        if duplicate_legacy.any() or duplicate_versioned.any():
             raise ValueError("Signal history contains duplicate signal key records")
         invalid_signals = sorted(
             set(frame["signal"].astype(str).str.upper()) - VALID_SIGNAL_VALUES

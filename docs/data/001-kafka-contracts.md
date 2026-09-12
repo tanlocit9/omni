@@ -33,8 +33,10 @@ flowchart LR
   Kafka["Kafka"]
 
   Platform -->|topic-sync-stock-prices| Kafka
+  Platform -->|topic-sync-intraday-eod| Kafka
   Platform -->|topic-sync-symbols| Kafka
   Kafka -->|topic-sync-stock-prices| Ingestor
+  Kafka -->|topic-sync-intraday-eod| Ingestor
   Kafka -->|topic-sync-symbols| Ingestor
   Ingestor -->|topic-sync-job-status| Kafka
   Ingestor -->|topic-upsert-symbols| Kafka
@@ -75,6 +77,26 @@ source, the domain command field `symbolKey`, optional time bounds, and metadata
 `symbolKey` tells the stock-price worker which symbol to process; it is not a status
 fallback or a second execution identity. The payload must not include S3 bucket or
 object path routing fields.
+
+### topic-sync-intraday-eod
+
+| Field           | Value                                                            |
+| --------------- | ---------------------------------------------------------------- |
+| Topic key       | `topic-sync-intraday-eod`                                        |
+| Producer        | Platform `SYNC_INTRADAY_EOD` scheduler producer                  |
+| Consumer        | Ingestor VCI completed-session handler                           |
+| Purpose         | Request normalized trades for one active configured symbol/date. |
+| Related flow    | [Intraday EOD](../flows/005-intraday-eod.md)                     |
+| Related storage | [`intraday-trades`](002-data-lake.md#intraday-trades)            |
+
+The JSON command carries canonical execution identity plus `symbolKey`, `exchange`,
+`tradingDate`, and provider `VCI`. It never carries a bucket or object path. Platform
+publishes one child command for each active symbol on configured HOSE, HNX, and UPCOM
+after configured close, preserving the symbol projection's actual exchange. Ingestor
+converts every provider timestamp to `Asia/Ho_Chi_Minh`, requires its local date to equal
+`tradingDate`, persists the normalized timestamp in UTC, and reports terminal status
+through `topic-sync-job-status`. This bounded JSON contract does not modify proto3 or
+generated contracts.
 
 ### topic-sync-symbols
 
@@ -179,13 +201,22 @@ verification did not deploy or modify production.
 
 ### topic-signal-notifications
 
-| Field        | Value                                                            |
-| ------------ | ---------------------------------------------------------------- |
-| Topic key    | `topic-signal-notifications`                                     |
-| Producer     | Analyzer                                                         |
-| Consumer     | Platform notification module                                     |
-| Purpose      | Publish signal transition notifications for downstream delivery. |
-| Related flow | [Indicator and signal](../flows/003-indicator-signal.md)         |
+| Field        | Value                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Topic key    | `topic-signal-notifications`                                                            |
+| Producer     | Analyzer                                                                                |
+| Consumer     | Platform notification module                                                            |
+| Purpose      | Publish signal transitions and eligible newly persisted daily results for notification. |
+| Related flow | [Indicator and signal](../flows/003-indicator-signal.md)                                |
+
+The JSON payload keeps `signalChanged` as the truthful state-transition flag and
+adds the optional `newSignalDate` flag. `newSignalDate=true` means Analyzer has
+persisted the first row for the exact `(symbolKey, strategy, timeframe,
+signalDate)` key; a same-date recalculation/upsert sets it to false. Platform
+accepts a notification when either flag is true and treats an absent
+`newSignalDate` as false for existing producers/messages. Analyzer publishes
+unchanged results under this exception only for newly persisted daily
+`CONFIRMED_TREND_EQUALS` rows. Component strategies remain transition-only.
 
 ### topic-precompute-symbol-features
 

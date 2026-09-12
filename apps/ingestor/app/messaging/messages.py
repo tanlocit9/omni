@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from py_common.messaging import WorkType
@@ -71,3 +71,32 @@ class SyncSymbolsJobMessage(JobMessage):
     @property
     def include_sector_classification(self) -> bool:
         return bool(self.metadata.get("includeSectorClassification", False))
+
+
+class IntradayEodJobMessage(JobMessage):
+    symbol_key: str = Field(alias="symbolKey")
+    exchange: str
+    trading_date: date = Field(alias="tradingDate")
+    provider: str
+
+    @field_validator("symbol_key")
+    @classmethod
+    def validate_symbol_key(cls, value: str) -> str:
+        parts = value.split("-", maxsplit=1)
+        if len(parts) != 2 or not all(part.strip() for part in parts):
+            raise ValueError("symbolKey must use '<exchange>-<code>' format")
+        return value.upper()
+
+    @field_validator("exchange", "provider")
+    @classmethod
+    def normalize_upper(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("value must not be blank")
+        return normalized
+
+    def parse_symbol_key(self) -> tuple[str, str]:
+        exchange, code = self.symbol_key.split("-", maxsplit=1)
+        if exchange != self.exchange:
+            raise ValueError("symbolKey exchange must match exchange")
+        return exchange, code

@@ -72,6 +72,16 @@ public interface SymbolRepository extends BaseRepository<Symbol> {
                         SELECT code, exchange
                         FROM symbols
                         WHERE is_active = TRUE
+                          AND UPPER(exchange) = UPPER(:exchange)
+                        ORDER BY code
+                        """, nativeQuery = true)
+        List<SymbolKeyProjection> findAllActiveSymbolKeysByExchange(
+                        @Param("exchange") String exchange);
+
+        @Query(value = """
+                        SELECT code, exchange
+                        FROM symbols
+                        WHERE is_active = TRUE
                           AND meta_json ->> CAST(:jsonKey AS text) = ANY(CAST(:sectorCodes AS text[]))
                         """, nativeQuery = true)
         List<SymbolKeyProjection> findBySectorCodesAndLevelKey(

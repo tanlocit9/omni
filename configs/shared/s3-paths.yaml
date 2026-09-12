@@ -83,14 +83,14 @@ stock-data:
       base: 'research/sector-transition/outcomes/'
       pattern: '{strategy}/{timeframe}/lv{sector_level}.parquet'
 
+    # Immutable normalized intraday trades. Each symbol is an independently
+    # READY-addressable partition, following the EOD one-symbol ownership model.
+    intraday-trades:
+      base: 'intraday/trades/'
+      pattern: 'provider={provider}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/trades.parquet'
+
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features
-
-    # Intraday price data (ticker-level)
-    # Pattern: intraday/{exchange}/{code}.parquet
-    intraday:
-      base: 'intraday/'
-      pattern: '{exchange}/{code}.parquet'
 
     # Financial statements (ticker-level, by statement type)
     # Pattern: financials/{code}/{statement_type}.parquet
@@ -156,6 +156,7 @@ stock-data:
 # Path Construction Rules:
 # 1. All exchange names and codes are lowercase in paths (hose, hnx, upcom, hpg, fpt)
 # 2. Folder names use kebab-case (corporate-actions, income-statement)
-# 3. No temporal partitioning (dt=/run_id=) - files are overwritten/merged in place
+# 3. Existing mutable datasets do not add temporal partitioning; intraday-trades
+#    intentionally partitions by provider, exchange, trading_date, and symbol.
 # 4. One ticker = one data file per path type
 # 5. Metadata (sector, industry) stored in separate metadata files, not in paths

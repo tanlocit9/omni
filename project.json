@@ -23,8 +23,21 @@
       "cache": false,
       "executor": "nx:run-commands",
       "options": {
-        "command": "python -m unittest discover -s tools/tests -p \"test_*.py\"",
-        "cwd": "{workspaceRoot}"
+        "commands": [
+          "python tools/check_result.py init --increment {args.increment} --require test/tools-tests --require test/platform-tests --require test/analyzer-tests --require test/ingestor-tests --require test/query-service-tests --require test/omni-console-tests --require test/py-common-tests --require test/contracts-tests --require integration/ingestor-integration",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name tools-tests -- python -m unittest discover -s tools/tests -p \"test_*.py\"",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name platform-tests -- nx run platform:test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name analyzer-tests -- nx run analyzer:test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name ingestor-tests -- nx run ingestor:test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name query-service-tests -- nx run query-service:test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name omni-console-tests -- nx run omni-console:test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name py-common-tests -- nx run py-common:test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name contracts-tests -- nx run contracts:test",
+          "python tools/check_result.py run --increment {args.increment} --kind integration --name ingestor-integration -- nx run ingestor:test-integration",
+          "python tools/check_result.py conclusion --increment {args.increment}"
+        ],
+        "cwd": "{workspaceRoot}",
+        "parallel": false
       },
       "outputs": []
     },

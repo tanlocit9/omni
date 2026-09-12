@@ -64,6 +64,20 @@ class SignalChangedNotificationConsumerTest {
     }
 
     @Test
+    void handlePublishesUnchangedSignalForANewSignalDate() {
+        SignalChangedNotificationConsumer consumer = new SignalChangedNotificationConsumer(
+                eventPublisher, jsonMapper, "CONFIRMED_TREND_EQUALS");
+        String payload = validPayload()
+                .replace("\"strategy\":\"momentum-v1\"", "\"strategy\":\"CONFIRMED_TREND_EQUALS\"")
+                .replace("\"signalChanged\":true", "\"signalChanged\":false,\"newSignalDate\":true");
+
+        consumer.handle(record(payload, 2L));
+
+        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(eventPublisher, never()).publishEvent(any(OperationalNotificationEvent.class));
+    }
+
+    @Test
     void handleIgnoresSignalsFromAnUnselectedStrategy() {
         SignalChangedNotificationConsumer consumer = new SignalChangedNotificationConsumer(
                 eventPublisher, jsonMapper, "CONFIRMED_TREND_EQUALS");
@@ -104,7 +118,8 @@ class SignalChangedNotificationConsumerTest {
     private static Stream<Arguments> invalidContracts() {
         return Stream.of(
                 Arguments.of("unsupported type", "\"type\":\"SIGNAL_CHANGED\"", "\"type\":\"SIGNAL_CREATED\"", 10L),
-                Arguments.of("signalChanged false", "\"signalChanged\":true", "\"signalChanged\":false", 11L),
+                Arguments.of("signalChanged false without a new date", "\"signalChanged\":true", "\"signalChanged\":false", 11L),
+                Arguments.of("both event reasons false", "\"signalChanged\":true", "\"signalChanged\":false,\"newSignalDate\":false", 19L),
                 Arguments.of("null executionId", "\"executionId\":\"44e8cce7-7197-42d7-93ce-e64d3002e88a\"", "\"executionId\":null", 12L),
                 Arguments.of("null parentExecutionId", "\"parentExecutionId\":\"adf8625c-cb75-42c5-ae99-621566b5b89d\"", "\"parentExecutionId\":null", 13L),
                 Arguments.of("blank symbolKey", "\"symbolKey\":\"SET:PTT\"", "\"symbolKey\":\"  \"", 14L),

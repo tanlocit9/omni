@@ -113,7 +113,16 @@ class SignalKafkaService(JobStatusKafkaService):
         message: SignalJobMessage,
         transition: SignalTransition,
     ) -> None:
-        if not transition.signal_changed:
+        metadata = transition.metadata
+        strategy = str(metadata.get("strategy", message.strategy)).upper()
+        timeframe = str(metadata.get("timeframe", message.timeframe)).lower()
+        is_new_daily_confirmed_result = (
+            transition.persisted
+            and transition.new_signal_date
+            and strategy == "CONFIRMED_TREND_EQUALS"
+            and timeframe == "1d"
+        )
+        if not transition.signal_changed and not is_new_daily_confirmed_result:
             return
 
         payload = self._build_signal_notification(message, transition)
@@ -156,6 +165,7 @@ class SignalKafkaService(JobStatusKafkaService):
             "reasonCodes": metadata.get("reasonCodes", []),
             "score": metadata.get("score"),
             "signalChanged": transition.signal_changed,
+            "newSignalDate": transition.new_signal_date,
             "createdAt": utc_now().isoformat(),
             "metadata": metadata,
         }

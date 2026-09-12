@@ -90,6 +90,7 @@ public class JobDefinition extends AuditableEntity {
         SECTOR_ROTATION_BACKTEST,
         SECTOR_TRANSITION_ANALYZE,
         SECTOR_TRANSITION_EVALUATE_OUTCOMES,
+        SYNC_INTRADAY_EOD,
         SYNC_METADATA
     }
 }

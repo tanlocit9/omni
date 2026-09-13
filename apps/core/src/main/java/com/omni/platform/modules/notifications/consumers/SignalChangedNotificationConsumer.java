@@ -59,7 +59,8 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
     }
 
     private void validate(SignalChangedNotificationMessage message) {
-        if (message == null || !"SIGNAL_CHANGED".equals(message.type()) || !message.signalChanged()
+        if (message == null || !"SIGNAL_CHANGED".equals(message.type())
+                || (!message.signalChanged() && !message.isNewSignalDate())
                 || message.executionId() == null || message.parentExecutionId() == null
                 || isBlank(message.symbolKey()) || isBlank(message.newSignal()) || message.createdAt() == null) {
             throw new IllegalArgumentException("Invalid SIGNAL_CHANGED notification contract");

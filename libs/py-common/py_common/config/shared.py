@@ -46,6 +46,7 @@ class TopicSettings(BaseSettings):
     """Kafka topic names shared by Python services."""
 
     topic_sync_stock_prices: str = Field(default="topic-sync-stock-prices")
+    topic_sync_intraday_eod: str = Field(default="topic-sync-intraday-eod")
     topic_sync_symbols: str = Field(default="topic-sync-symbols")
     topic_upsert_symbols: str = Field(default="topic-upsert-symbols")
     topic_upsert_sectors: str = Field(default="topic-upsert-sectors")
@@ -116,6 +117,11 @@ class BaseAppSettings(BaseSettings):
     def topic_sync_stock_prices(self) -> str:
         """Backward-compatible access to the sync stock prices topic."""
         return self.topics.topic_sync_stock_prices
+
+    @property
+    def topic_sync_intraday_eod(self) -> str:
+        """Access the post-close intraday synchronization topic."""
+        return self.topics.topic_sync_intraday_eod
 
     @property
     def topic_sync_symbols(self) -> str:
@@ -317,6 +323,10 @@ class BaseAppSettings(BaseSettings):
         self.topics.topic_sync_stock_prices = topics_cfg.get(
             "topic-sync-stock-prices",
             self.topics.topic_sync_stock_prices,
+        )
+        self.topics.topic_sync_intraday_eod = topics_cfg.get(
+            "topic-sync-intraday-eod",
+            self.topics.topic_sync_intraday_eod,
         )
         self.topics.topic_sync_symbols = topics_cfg.get(
             "topic-sync-symbols",

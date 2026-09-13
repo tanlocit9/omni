@@ -13,6 +13,8 @@ flowchart TD
   Analyzer["Analyzer"]
   Symbols["symbols/{exchange}.parquet"]
   EOD["eod/{exchange}/{code}.parquet"]
+  Intraday["intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/symbol={symbol}/trades.parquet"]
+  RealtimeTicks["realtime/ticks/source={source}/exchange={exchange}/trading_date={date}/symbol={symbol}/archive_version={version}/part={part}.parquet"]
   Indicators["indicators/{source}/{timeframe}/{exchange}/{code}.parquet"]
   Signals["signals/{strategy}/{timeframe}/{exchange}.parquet"]
   SymbolFeatures["features/symbol/{timeframe}/{exchange}/{code}.parquet"]
@@ -26,6 +28,8 @@ flowchart TD
   Provider --> Ingestor
   Ingestor --> Symbols
   Ingestor --> EOD
+  Ingestor --> Intraday
+  Ingestor -. "future; no writer yet" .-> RealtimeTicks
   EOD --> Analyzer
   Symbols --> Analyzer
   Analyzer --> Indicators
@@ -47,7 +51,10 @@ flowchart TD
 
 - Exchange names and ticker codes are lowercased in paths.
 - Folder names use kebab-case.
-- No temporal partitioning such as `dt=` or `run_id=`.
+- Temporal partitioning is dataset-specific; P9-I1 intraday trades use the approved
+  `trading_date=YYYY-MM-DD/symbol={symbol}` partition and never an incidental run
+  identifier. Symbol-level ownership follows EOD: each logical symbol partition has
+  an independent readiness pointer.
 - Files are overwritten or merged in place depending on dataset strategy.
 - Kafka messages must not include bucket names or object names for routing.
 - Path construction should use shared path builders backed by [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml).
@@ -137,6 +144,61 @@ for the canonical contract and acceptance criteria.
 | Update strategy | Merge incremental provider rows with existing Parquet and deduplicate by date.                                                              |
 | Ownership       | Ingestor owns EOD Parquet files.                                                                                                            |
 
+### intraday-trades
+
+| Field           | Value                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Config key      | `intraday-trades`                                                                                                        |
+| Logical path    | `intraday/trades/provider={provider}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/trades.parquet`     |
+| Producer        | Ingestor `SYNC_INTRADAY_EOD` handler                                                                                     |
+| Consumer        | Analyzer `CONFIRMED_TREND_EQUALS_V2_INTRADAY`; deferred P9-I2 bars/features; offline research                            |
+| Schema/key      | One symbol partition; deterministic UTC timestamp then provider-ID ordering.                                             |
+| Update strategy | Write immutable data, read back/validate, write immutable version manifest, then replace symbol-level `READY.json` last. |
+| Ownership       | Ingestor owns normalized VCI trades; shared builders own physical path construction/publication semantics.               |
+
+P9-I1 supports VCI across HOSE, HNX, and UPCOM and the latest completed configured
+session only. Following EOD ownership, the logical partition identity is
+`(provider, exchange, trading_date, symbol)`. Each symbol partition therefore owns an
+independent immutable version history and `READY.json`; publication for one symbol
+cannot move another symbol's pointer. Exact duplicate provider IDs collapse;
+conflicting IDs, mixed/out-of-session timestamps, cursor ambiguity, unavailable
+symbols, reconciliation rejection, or any publication failure prevent replacement of
+that symbol's READY pointer. Prior immutable versions and the prior pointer remain
+valid. `SYNC_METADATA` remains the sole writer of canonical
+`_metadata/metadata.json`; the per-partition `READY.json` is the ingestion publication
+boundary, not a second global discovery writer. The V2 confirmed-signal resolver reads
+the exact provider/exchange/date/symbol READY pointer and immutable version manifest,
+accepts reconciliation `READY` or `WARNING`, and never falls back to another symbol or
+trading date.
+
+Objects published under the earlier shared provider/exchange/date READY layout are not
+valid V2 inputs. They must be republished into symbol-level partitions; consumers do
+not infer a symbol from a shared date-level pointer and do not provide a compatibility
+fallback.
+
+### realtime-tick-archive
+
+| Field           | Value                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Config key      | `realtime-tick-archive`                                                                                                                                |
+| Logical path    | `realtime/ticks/source={source}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/archive_version={archive_version}/part={part}.parquet` |
+| Producer        | No runtime producer; P10-I2 exposes an injected shared publication callable only                                                                       |
+| Consumer        | Shared finite compaction, one-minute bars, and completed-session reconciliation; no live consumer                                                      |
+| Schema/key      | Canonical strict rows with exact decimal strings, UTC microsecond timestamps, and `eventId` identity                                                   |
+| Update strategy | Bounded content-addressed immutable micro-batches; version manifest before partition `READY.json`; never per-tick writes                               |
+| Ownership       | Shared code owns deterministic representation/publication behavior; application runtime ownership is blocked in P10-I3                                 |
+
+P10-I2 accepts finite canonical ticks and injected storage ports. Reordered inputs and
+exact duplicates produce the same ordered rows and bytes. Publication validates the
+persisted part through `ImmutableDatasetPublisher`, writes the immutable version and
+manifest before READY, and preserves the prior pointer on pre-READY failure. Compaction
+rejects absent, empty, mixed-identity, or conflicting parts and collapses exact
+`eventId` duplicates. One-minute bars use UTC event time and completed-session
+reconciliation requires exact source/exchange/symbol/date against P9-I1 normalized
+trades. No service invokes these callables, and no provider completeness, correction,
+ordering, Kafka, or WebSocket semantics are implied. There is no fallback path, alias,
+dual read, per-tick write, or historical rewrite.
+
 ### indicators
 
 | Field           | Value                                                                                                                                                                                  |
@@ -151,15 +213,15 @@ for the canonical contract and acceptance criteria.
 
 ### signals
 
-| Field           | Value                                                                                                             |
-| --------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Config key      | `signals` and compatibility alias `signal-current`                                                                |
-| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                               |
-| Producer        | Analyzer signal jobs                                                                                              |
-| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                           |
-| Schema/key      | Strategy/timeframe/exchange-level signal history. Stable keys should include symbol and signal date.              |
-| Update strategy | Upsert new signal rows into history; latest state is derived from history.                                        |
-| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status. |
+| Field           | Value                                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `signals` and compatibility alias `signal-current`                                                                                 |
+| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                                                |
+| Producer        | Analyzer signal jobs                                                                                                               |
+| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                                            |
+| Schema/key      | Strategy/timeframe/exchange-level signal history. Versioned combined rows include symbol, signal date, and model version identity. |
+| Update strategy | Upsert matching model-version rows while preserving historical V1 rows; latest state is derived from history.                      |
+| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status.                  |
 
 ### symbol-features
 
@@ -268,7 +330,7 @@ and multi-object partitions require a dataset-owner-specific rewrite. See
 
 ## Future Expansion Paths
 
-[`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) also reserves path keys for future datasets, including intraday, financials, fundamentals, corporate actions, ownership, news, macro, derivatives, warrants, and ETF data. Do not document these as implemented flows until producers and consumers exist.
+[`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) also reserves path keys for future datasets, including the provider-independent realtime tick archive, financials, fundamentals, corporate actions, ownership, news, macro, derivatives, warrants, and ETF data. A configured path is not evidence that a producer, consumer, or runtime capability exists.
 
 ## Ownership Summary
 

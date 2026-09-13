@@ -43,6 +43,7 @@ from app.settings import settings
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
+from app.signals.intraday_confirmation import IntradayDatasetResolver
 from app.signals.kafka import SignalKafkaService
 from app.signals.latest_notification import (
     InvalidSymbolKeyError,
@@ -130,6 +131,12 @@ async def startup_event(app: FastAPI) -> None:
         settings,
         app.state.parquet_storage,
         metadata_reader,
+        IntradayDatasetResolver(
+            readable,
+            app.state.parquet_storage,
+            settings.minio.bucket,
+            settings.stock_data_paths,
+        ),
     )
     app.state.latest_signal_repository = LatestSignalRepository(
         settings,

@@ -16,12 +16,14 @@ async def test_ingestor_routing_service_dispatches_symbol_topic():
     settings = SimpleNamespace(
         topic_sync_symbols="topic-sync-symbols",
         topic_sync_stock_prices="topic-sync-stock-prices",
+        topic_sync_intraday_eod="topic-sync-intraday-eod",
     )
     service = IngestorKafkaRoutingService(settings)
     service._producer = object()
     service._status_publisher = object()
     service._default_client = object()
     service._parquet_storage = object()
+    service._immutable_publisher = object()
     service._settings = settings
     message = SimpleNamespace(
         topic="topic-sync-symbols",
@@ -60,12 +62,14 @@ async def test_ingestor_routing_service_dispatches_stock_price_topic():
     settings = SimpleNamespace(
         topic_sync_symbols="topic-sync-symbols",
         topic_sync_stock_prices="topic-sync-stock-prices",
+        topic_sync_intraday_eod="topic-sync-intraday-eod",
     )
     service = IngestorKafkaRoutingService(settings)
     service._producer = object()
     service._status_publisher = object()
     service._default_client = object()
     service._parquet_storage = object()
+    service._immutable_publisher = object()
     service._settings = settings
     message = SimpleNamespace(
         topic="topic-sync-stock-prices",

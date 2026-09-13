@@ -8,7 +8,7 @@ Canonical versioned schemas live under [`libs/contracts/proto`](../../libs/contr
 
 The initial `omni.contracts.common.v1` and `omni.contracts.job.v1` schemas define `DatasetRef`, `DatasetOutput`, `ExecutionStatus`, `JobCommand`, and `JobStatusEvent`. Dataset references are logical and do not expose bucket names or physical object paths. Persisted dataset manifests remain JSON.
 
-This foundation does not change the active wire format. Existing producer/consumer pairs continue using their documented JSON payloads until adapter and dual-read increments add compatibility tests and a rollout-safe migration.
+This foundation does not change the active wire format. Existing producer/consumer pairs continue using their documented JSON payloads. Superseded P2-I3 dual-read migration is not an implicit prerequisite for newly reactivated Phase 10; a Proto3 route must be independently justified by current repository evidence and owner-approved scope.
 
 Canonical topic names live in [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml). This document explains ownership and purpose; the YAML file remains the source of truth for literal topic values.
 
@@ -33,8 +33,10 @@ flowchart LR
   Kafka["Kafka"]
 
   Platform -->|topic-sync-stock-prices| Kafka
+  Platform -->|topic-sync-intraday-eod| Kafka
   Platform -->|topic-sync-symbols| Kafka
   Kafka -->|topic-sync-stock-prices| Ingestor
+  Kafka -->|topic-sync-intraday-eod| Ingestor
   Kafka -->|topic-sync-symbols| Ingestor
   Ingestor -->|topic-sync-job-status| Kafka
   Ingestor -->|topic-upsert-symbols| Kafka
@@ -57,6 +59,25 @@ flowchart LR
   Kafka -->|topic-signal-notifications| Platform
 ```
 
+## Phase 10 MarketTick foundation (no active topic)
+
+P10-I1 defines a strict provider-independent JSON `MarketTick` domain/boundary in
+`py_common.market_ticks`, but it does not add a Kafka topic, producer, consumer,
+provider adapter, or runtime capability. The exact camelCase field set is
+`schemaVersion`, `eventId`, `source`, `exchange`, `symbol`, `marketTimestamp`,
+`receivedAt`, `price`, `volume`, optional `tradeId`, and optional `sequence`.
+Unknown fields, aliases, coercion, non-UTC timestamps, and identity mismatches are
+rejected. No physical archive path appears in this payload.
+
+P10-I2 adds only finite shared archive/rebuild/bar/reconciliation callables and an
+injected object-storage publication boundary. It does not establish a topic, delivery,
+offset, ordering, reconnect/resume, correction, or live-consumer contract.
+
+Any future transport increment must first complete provider capability evidence and
+then update topic configuration, producer, consumer, fixtures/tests, and this document
+together. Phase 10 introduces no fallback topic, dual-read DTO, permissive parser, or
+Proto3 schema. Existing unrelated compatibility is unchanged.
+
 ## Topics
 
 ### topic-sync-stock-prices
@@ -75,6 +96,26 @@ source, the domain command field `symbolKey`, optional time bounds, and metadata
 `symbolKey` tells the stock-price worker which symbol to process; it is not a status
 fallback or a second execution identity. The payload must not include S3 bucket or
 object path routing fields.
+
+### topic-sync-intraday-eod
+
+| Field           | Value                                                            |
+| --------------- | ---------------------------------------------------------------- |
+| Topic key       | `topic-sync-intraday-eod`                                        |
+| Producer        | Platform `SYNC_INTRADAY_EOD` scheduler producer                  |
+| Consumer        | Ingestor VCI completed-session handler                           |
+| Purpose         | Request normalized trades for one active configured symbol/date. |
+| Related flow    | [Intraday EOD](../flows/005-intraday-eod.md)                     |
+| Related storage | [`intraday-trades`](002-data-lake.md#intraday-trades)            |
+
+The JSON command carries canonical execution identity plus `symbolKey`, `exchange`,
+`tradingDate`, and provider `VCI`. It never carries a bucket or object path. Platform
+publishes one child command for each active symbol on configured HOSE, HNX, and UPCOM
+after configured close, preserving the symbol projection's actual exchange. Ingestor
+converts every provider timestamp to `Asia/Ho_Chi_Minh`, requires its local date to equal
+`tradingDate`, persists the normalized timestamp in UTC, and reports terminal status
+through `topic-sync-job-status`. This bounded JSON contract does not modify proto3 or
+generated contracts.
 
 ### topic-sync-symbols
 
@@ -179,13 +220,22 @@ verification did not deploy or modify production.
 
 ### topic-signal-notifications
 
-| Field        | Value                                                            |
-| ------------ | ---------------------------------------------------------------- |
-| Topic key    | `topic-signal-notifications`                                     |
-| Producer     | Analyzer                                                         |
-| Consumer     | Platform notification module                                     |
-| Purpose      | Publish signal transition notifications for downstream delivery. |
-| Related flow | [Indicator and signal](../flows/003-indicator-signal.md)         |
+| Field        | Value                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Topic key    | `topic-signal-notifications`                                                            |
+| Producer     | Analyzer                                                                                |
+| Consumer     | Platform notification module                                                            |
+| Purpose      | Publish signal transitions and eligible newly persisted daily results for notification. |
+| Related flow | [Indicator and signal](../flows/003-indicator-signal.md)                                |
+
+The JSON payload keeps `signalChanged` as the truthful state-transition flag and
+adds the optional `newSignalDate` flag. `newSignalDate=true` means Analyzer has
+persisted the first row for the exact `(symbolKey, strategy, timeframe,
+signalDate)` key; a same-date recalculation/upsert sets it to false. Platform
+accepts a notification when either flag is true and treats an absent
+`newSignalDate` as false for existing producers/messages. Analyzer publishes
+unchanged results under this exception only for newly persisted daily
+`CONFIRMED_TREND_EQUALS` rows. Component strategies remain transition-only.
 
 ### topic-precompute-symbol-features
 

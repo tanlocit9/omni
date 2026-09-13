@@ -10,6 +10,7 @@ flowchart TD
   IndicatorJob["topic-sync-indicators"]
   Indicators["Indicators<br/>indicators/{source}/{timeframe}/{exchange}/{code}.parquet"]
   SignalJob["topic-sync-signals"]
+  Intraday["Exact-date intraday-trades READY"]
   Signals["Signal History<br/>signals/{strategy}/{timeframe}/{exchange}.parquet"]
   EvalJob["topic-evaluate-signals"]
   Evaluation["Evaluation<br/>forward outcome metrics"]
@@ -26,6 +27,7 @@ flowchart TD
   SignalJob --> Indicators
   Indicators --> Signals
   EOD --> Signals
+  Intraday --> Signals
   Signals --> Status
   Signals --> NotifyTopic
   Platform --> EvalJob
@@ -60,11 +62,12 @@ EOD
 
 ## Datasets
 
-| Dataset                                             | Producer                | Consumer                                    | Path                                                        |
-| --------------------------------------------------- | ----------------------- | ------------------------------------------- | ----------------------------------------------------------- |
-| [`eod`](../data/002-data-lake.md#eod)               | Ingestor                | Analyzer indicator/signal/evaluation jobs   | `eod/{exchange}/{code}.parquet`                             |
-| [`indicators`](../data/002-data-lake.md#indicators) | Analyzer indicator jobs | Analyzer signal jobs                        | `indicators/{source}/{timeframe}/{exchange}/{code}.parquet` |
-| [`signals`](../data/002-data-lake.md#signals)       | Analyzer signal jobs    | Analyzer evaluation jobs, notification path | `signals/{strategy}/{timeframe}/{exchange}.parquet`         |
+| Dataset                                                       | Producer                | Consumer                                    | Path                                                                                                         |
+| ------------------------------------------------------------- | ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [`eod`](../data/002-data-lake.md#eod)                         | Ingestor                | Analyzer indicator/signal/evaluation jobs   | `eod/{exchange}/{code}.parquet`                                                                              |
+| [`indicators`](../data/002-data-lake.md#indicators)           | Analyzer indicator jobs | Analyzer signal jobs                        | `indicators/{source}/{timeframe}/{exchange}/{code}.parquet`                                                  |
+| [`intraday-trades`](../data/002-data-lake.md#intraday-trades) | Ingestor                | Analyzer confirmed-signal V2                | `intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/symbol={symbol}/trades.parquet` |
+| [`signals`](../data/002-data-lake.md#signals)                 | Analyzer signal jobs    | Analyzer evaluation jobs, notification path | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                          |
 
 ## Responsibilities
 
@@ -106,6 +109,7 @@ flowchart TD
   SyncIndicators --> Indicators[(indicators)]
   EOD --> SyncSignals["SYNC_SIGNALS"]
   Indicators --> SyncSignals
+  Intraday[(intraday-trades)] --> SyncSignals
   SyncSignals --> Signals[(signals)]
   EOD --> EvaluateSignals["EVALUATE_SIGNALS"]
   Signals --> EvaluateSignals
@@ -138,7 +142,10 @@ stateDiagram-v2
 - Signal jobs should identify symbol, timeframe, strategy, and job execution identity.
 - Signal dispatch requires the exact logical `indicators` partition for `source`, `timeframe`, `exchange`, and `code` in global metadata.
 - Analyzer treats a missing indicator object after dispatch as a metadata/data race safeguard: it returns a non-persisted `NO_DECISION` transition with reason `MISSING_INDICATOR_OBJECT` instead of failing the child job.
-- Signal transitions can produce notification events, while all jobs should publish job status. A defensive `NO_DECISION` does not write signal history or publish a transition notification.
+- `CONFIRMED_TREND_EQUALS_V2_INTRADAY` first computes the unchanged two-component daily candidate, then resolves the exact same-date, same-symbol VCI intraday READY/version manifest. Intraday confirms or suppresses direction and never acts as a third vote or promotes neutral.
+- Intraday readiness follows EOD ownership: `(provider, exchange, trading_date, symbol)` identifies one independently READY-addressable partition. Old shared date-level READY objects require republishing and are not compatibility inputs.
+- Reconciliation `WARNING` remains consumable and is exposed in reasons/metadata; missing, stale, rejected, or invalid intraday input makes a directional candidate `NO_DECISION` with no previous-date or other-symbol fallback.
+- Signal transitions can produce notification events through the existing route, while all jobs should publish job status. A defensive `NO_DECISION` does not write signal history or publish a transition notification.
 - Evaluation jobs should use stable forward-return windows and avoid mutating historical signal meaning.
 
 ## Source Links

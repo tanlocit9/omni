@@ -21,6 +21,8 @@ This directory is the documentation entry point for Omni. It is designed to help
 15. [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 16. [P1-I4 execution identity hard cutover](deployment/001-p1-i4-hard-cutover.md) — coordinated drain, manual history cleanup, deploy, verification, and rollback procedure.
 
+17. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; provider/Kafka/WebSocket/live runtime is deferred technical debt.
+
 ## Planning Map
 
 Use planning documents in this order:
@@ -46,8 +48,8 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Telegram Multi-Channel](plans/010-telegram-multi-channel.md) — Phase 8 routing detail.
 - [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) — Phase 8 presentation detail.
 - [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md) — Phase 8 combined-signal detail.
-- [Intraday EOD](plans/013-intraday-eod.md) — deferred Phase 9 product debt.
-- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — deferred Phase 10 product debt.
+- [Intraday EOD](plans/013-intraday-eod.md) — active bounded P9-I1 VCI normalized-trade implementation for HOSE/HNX/UPCOM; later bars/features remain deferred.
+- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence; provider capability and live runtime are deferred technical debt.
 
 ### Proposed, Historical, and Compatibility Plans
 

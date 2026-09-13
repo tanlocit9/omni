@@ -31,6 +31,7 @@ public class JobDefinitionConfig {
         private static final String CRON_19_45_WEEKDAYS = "0 45 19 * * MON-FRI";
         private static final String CRON_19_50_WEEKDAYS = "0 50 19 * * MON-FRI";
         private static final String CRON_20_00_WEEKDAYS = "0 0 20 * * MON-FRI";
+        private static final String CRON_15_15_WEEKDAYS = "0 15 15 * * MON-FRI";
         private static final String CRON_03_00_MONTHLY = "0 0 3 1 * *";
         private static final int SYNC_STOCK_PRICE_START_HOUR = 18;
         private static final int SYNC_STOCK_PRICE_START_MINUTE = 0;
@@ -94,6 +95,7 @@ public class JobDefinitionConfig {
         private static final String DATASET_SECTOR_TRANSITION_PROBABILITIES = "sector-transition-probabilities";
         private static final String DATASET_SECTOR_TRANSITION_DECISIONS = "sector-transition-decisions";
         private static final String DATASET_SECTOR_TRANSITION_OUTCOMES = "sector-transition-outcomes";
+        private static final String DATASET_INTRADAY_TRADES = "intraday-trades";
 
         public static final List<String> ENABLED_SECTOR_CODES = SectorSeedConfig.SECTOR_SEEDS.stream()
                         .map(SectorSeedConfig.SectorSeed::code)
@@ -223,6 +225,14 @@ public class JobDefinitionConfig {
                                                         List.of(DATASET_SECTOR_ROTATION_BACKTESTS))));
 
         private static JobDefinitionSeed signalSeed(String name, String cron, String strategy) {
+                boolean confirmedWithIntraday = SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS.equals(strategy);
+                List<String> jobDependencies = confirmedWithIntraday
+                                ? List.of(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_INDICATORS.name(),
+                                                JobType.SYNC_INTRADAY_EOD.name())
+                                : List.of(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_INDICATORS.name());
+                List<String> datasetDependencies = confirmedWithIntraday
+                                ? List.of(DATASET_EOD, DATASET_INDICATORS, DATASET_INTRADAY_TRADES)
+                                : List.of(DATASET_EOD, DATASET_INDICATORS);
                 return new JobDefinitionSeed(
                                 DataSource.ANALYZER,
                                 List.of(),
@@ -234,9 +244,8 @@ public class JobDefinitionConfig {
                                                                 ENABLED_SECTOR_CODES,
                                                                 CONFIG_KEY_TIMEFRAME, INDICATOR_TIMEFRAME_1D,
                                                                 CONFIG_KEY_SIGNAL_STRATEGY, strategy),
-                                                List.of(JobType.SYNC_STOCK_PRICE.name(),
-                                                                JobType.SYNC_INDICATORS.name()),
-                                                List.of(DATASET_EOD, DATASET_INDICATORS),
+                                                jobDependencies,
+                                                datasetDependencies,
                                                 List.of(DATASET_SIGNALS)));
         }
 
@@ -257,6 +266,21 @@ public class JobDefinitionConfig {
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_HOUR,
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_START_MINUTE,
                         SECTOR_TRANSITION_STEP_MINUTES);
+
+        // Vietnam exchanges are configured to close before 15:15 ICT.
+        private static final List<JobDefinitionSeed> SYNC_INTRADAY_EOD_SEEDS = List.of(
+                        new JobDefinitionSeed(
+                                        DataSource.VCI,
+                                        List.of(),
+                                        JobType.SYNC_INTRADAY_EOD,
+                                        "Synchronize completed Vietnam intraday sessions",
+                                        CRON_15_15_WEEKDAYS,
+                                        configWithDependencies(
+                                                        Map.of(CONFIG_KEY_EXCHANGES, VIETNAM_EXCHANGES),
+                                                        List.of(JobType.SYNC_SYMBOLS.name(),
+                                                                        JobType.SYNC_STOCK_PRICE.name()),
+                                                        List.of(DATASET_SYMBOLS, DATASET_EOD),
+                                                        List.of(DATASET_INTRADAY_TRADES))));
 
         // Full metadata synchronization after the daily data-producing window.
         private static final List<JobDefinitionSeed> SYNC_METADATA_SEEDS = List.of(
@@ -286,6 +310,7 @@ public class JobDefinitionConfig {
                         PRECOMPUTE_SYMBOL_FEATURES_SEEDS,
                         PRECOMPUTE_SECTOR_FEATURES_SEEDS,
                         SECTOR_ROTATION_BACKTEST_SEEDS,
+                        SYNC_INTRADAY_EOD_SEEDS,
                         SECTOR_TRANSITION_ANALYZE_SEEDS,
                         SECTOR_TRANSITION_EVALUATE_OUTCOMES_SEEDS,
                         SYNC_METADATA_SEEDS)

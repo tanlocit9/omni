@@ -58,6 +58,12 @@ class JobDefinitionConfigTest {
                         "0 0 19 * * MON-FRI",
                         "0 5 19 * * MON-FRI",
                         "0 10 19 * * MON-FRI");
+        JobDefinitionSeed confirmed = signalSeeds.get(2);
+        assertThat(dependencies(confirmed, JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_JOBS))
+                .containsExactly(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_INDICATORS.name(),
+                        JobType.SYNC_INTRADAY_EOD.name());
+        assertThat(dependencies(confirmed, JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_DATASETS))
+                .containsExactly("eod", "indicators", "intraday-trades");
     }
 
     @Test
@@ -89,6 +95,14 @@ class JobDefinitionConfigTest {
                     .containsExactlyElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES);
             assertThat(configuredFocusSectors(seed)).isEmpty();
         }
+    }
+
+    @Test
+    void configuresIntradayEodForSharedVietnamExchangeUniverse() {
+        JobDefinitionSeed intradayEod = onlySeed(JobType.SYNC_INTRADAY_EOD);
+
+        assertThat(intradayEod.config().get(JobDefinitionConfig.CONFIG_KEY_EXCHANGES))
+                .isEqualTo(JobDefinitionConfig.VIETNAM_EXCHANGES);
     }
 
     @Test

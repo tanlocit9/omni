@@ -540,6 +540,7 @@ version = "1.0.0"
 source = { editable = "apps/ingestor" }
 dependencies = [
     { name = "omni-py-common" },
+    { name = "vnstock" },
 ]
 
 [package.dev-dependencies]
@@ -551,7 +552,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "omni-py-common", editable = "libs/py-common" }]
+requires-dist = [
+    { name = "omni-py-common", editable = "libs/py-common" },
+    { name = "vnstock", specifier = ">=4.0.2" },
+]
 
 [package.metadata.requires-dev]
 dev = [

@@ -6,7 +6,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "check_result.py"
@@ -55,6 +55,34 @@ class CheckResultTests(unittest.TestCase):
         )
         with redirect_stdout(io.StringIO()):
             return check_result.command_import(args)
+
+    def test_run_resolves_windows_command_launcher(self):
+        args = SimpleNamespace(
+            increment="P3-I5",
+            kind="test",
+            name="platform-tests",
+            command=["nx", "run", "platform:test"],
+        )
+        process = MagicMock()
+        process.stdout = []
+        process.wait.return_value = 0
+
+        with (
+            patch.object(check_result.shutil, "which", return_value="C:\\repo\\node_modules\\.bin\\nx.CMD"),
+            patch.object(check_result.subprocess, "Popen", return_value=process) as popen,
+        ):
+            result = check_result.command_run(args)
+
+        self.assertEqual(result, 0)
+        popen.assert_called_once_with(
+            ["C:\\repo\\node_modules\\.bin\\nx.CMD", "run", "platform:test"],
+            cwd=self.root,
+            stdout=check_result.subprocess.PIPE,
+            stderr=check_result.subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
 
     def test_exit_code_results_produce_pass(self):
         self.init()

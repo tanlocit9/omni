@@ -1,6 +1,10 @@
 package com.omni.platform.modules.scheduler.services;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +39,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ManualJobTriggerService {
     private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
+    private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final long MAX_INTRADAY_BACKFILL_DAYS = 31;
 
     private final JobDefinitionRepository jobDefinitionRepository;
     private final JobExecutionHistoryRepository executionRepository;
@@ -45,11 +51,6 @@ public class ManualJobTriggerService {
     private final JobProducerRegistry producerRegistry;
     private final ManualTriggerProperties triggerProperties;
 
-    /**
-     * Orchestrates independent claim and outbox transactions. This method is
-     * intentionally not transactional: the claim must commit before the producer's
-     * REQUIRES_NEW transaction validates ownership.
-     */
     public ManualTriggerResponse trigger(UUID definitionId, String actorValue, ManualTriggerRequest request) {
         String actor = required(actorValue, "operator identity", 200);
         if (request == null) {
@@ -128,8 +129,7 @@ public class ManualJobTriggerService {
             resolve(audit, ManualTriggerState.FAILED, null, exception.getMessage());
             throw exception;
         } catch (RuntimeException exception) {
-            log.error(
-                    "Manual trigger dispatch failed: requestId={}, definitionId={}, jobType={}, actor={}",
+            log.error("Manual trigger dispatch failed: requestId={}, definitionId={}, jobType={}, actor={}",
                     audit.getId(), definitionId, initial.getJobType(), actor, exception);
             releaseBestEffort(claim);
             resolve(audit, ManualTriggerState.FAILED, null, "Manual trigger dispatch failed");
@@ -170,7 +170,6 @@ public class ManualJobTriggerService {
         try {
             claimService.releaseClaim(claim.jobDefinitionId(), claim.claimToken(), claim.claimedBy());
         } catch (RuntimeException ignored) {
-            // The producer may already have released the exact claim atomically.
         }
     }
 
@@ -191,6 +190,9 @@ public class ManualJobTriggerService {
 
     private static Map<String, Object> validateParameters(
             JobDefinition definition, Map<String, Object> parameters) {
+        if (definition.getJobType() == JobDefinition.JobType.SYNC_INTRADAY_EOD) {
+            return validateIntradayBackfill(parameters);
+        }
         if (definition.getJobType() != JobDefinition.JobType.SYNC_METADATA) {
             if (!parameters.isEmpty()) {
                 throw invalid("This job does not accept runtime parameters");
@@ -224,6 +226,50 @@ public class ManualJobTriggerService {
         raw.forEach((key, value) -> partition.put(
                 String.valueOf(key), required(String.valueOf(value), "partition value", 256).toLowerCase()));
         return Map.of("dataset", dataset, "partition", partition);
+    }
+
+    private static Map<String, Object> validateIntradayBackfill(Map<String, Object> parameters) {
+        if (parameters.isEmpty()) {
+            return Map.of();
+        }
+        LocalDate today = LocalDate.now(VIETNAM_ZONE);
+        if (parameters.keySet().equals(java.util.Set.of("tradingDate"))) {
+            LocalDate date = parseBackfillDate(parameters.get("tradingDate"), "tradingDate");
+            validateHistoricalWeekday(date, today, "tradingDate");
+            return Map.of("tradingDate", date.toString());
+        }
+        if (!parameters.keySet().equals(java.util.Set.of("startDate", "endDate"))) {
+            throw invalid("Intraday backfill accepts tradingDate or startDate/endDate only");
+        }
+        LocalDate start = parseBackfillDate(parameters.get("startDate"), "startDate");
+        LocalDate end = parseBackfillDate(parameters.get("endDate"), "endDate");
+        if (start.isAfter(end)) {
+            throw invalid("startDate must not be after endDate");
+        }
+        if (!end.isBefore(today)) {
+            throw invalid("Intraday backfill dates must be historical");
+        }
+        if (ChronoUnit.DAYS.between(start, end) + 1 > MAX_INTRADAY_BACKFILL_DAYS) {
+            throw invalid("Intraday backfill range exceeds 31 calendar days");
+        }
+        return Map.of("startDate", start.toString(), "endDate", end.toString());
+    }
+
+    private static LocalDate parseBackfillDate(Object value, String name) {
+        try {
+            return LocalDate.parse(required(String.valueOf(value), name, 10));
+        } catch (RuntimeException exception) {
+            throw invalid(name + " must use ISO-8601 YYYY-MM-DD");
+        }
+    }
+
+    private static void validateHistoricalWeekday(LocalDate date, LocalDate today, String name) {
+        if (!date.isBefore(today)) {
+            throw invalid(name + " must be historical");
+        }
+        if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            throw invalid(name + " must be a weekday");
+        }
     }
 
     private static String required(String value, String name, int maxLength) {

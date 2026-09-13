@@ -8,7 +8,7 @@ import com.omni.platform.shared.executions.WorkType;
 public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessage, IndicatorJobMessage, SignalJobMessage,
         SignalEvaluationJobMessage, SectorWaveSymbolFeatureJobMessage, SectorWaveSectorFeatureJobMessage,
         SectorRotationBacktestJobMessage, SectorTransitionAnalyzeJobMessage,
-        SectorTransitionOutcomeEvaluationJobMessage,
+        SectorTransitionOutcomeEvaluationJobMessage, IntradayEodJobMessage,
         SyncMetadataJobMessage {
     UUID jobDefinitionId();
 

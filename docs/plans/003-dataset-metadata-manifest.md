@@ -345,12 +345,8 @@ stock-data/
 │       │   └── exchange=hose/
 │       │       ├── READY.json
 │       │       └── versions/<dataVersion>.json
-│       ├── indicators/
-│       │   └── code=hpg/exchange=hose/source=ad_close/timeframe=1d/
-│       │       ├── READY.json
-│       │       └── versions/<dataVersion>.json
-│       └── market-calendar/
-│           └── _default/
+│       └── indicators/
+│           └── code=hpg/exchange=hose/source=ad_close/timeframe=1d/
 │               ├── READY.json
 │               └── versions/<dataVersion>.json
 └── [data files as before...]

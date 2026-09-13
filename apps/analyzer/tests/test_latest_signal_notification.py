@@ -150,17 +150,18 @@ def test_endpoint_returns_accepted_and_not_found_without_live_dependencies():
         async def publish_latest(self, symbol_key=None):
             return None if symbol_key == "HOSE-NONE" else found
 
-    with TestClient(app) as client:
-        app.state.latest_signal_notification_service = Service()
-        accepted = client.post("/v1/signals/notifications/latest?symbolKey=HOSE-ACB")
-        missing = client.post("/v1/signals/notifications/latest?symbolKey=HOSE-NONE")
+    client = TestClient(app)
+    client.app.state.latest_signal_notification_service = Service()
+    accepted = client.post("/v1/signals/notifications/latest?symbolKey=HOSE-ACB")
+    missing = client.post("/v1/signals/notifications/latest?symbolKey=HOSE-NONE")
     assert accepted.status_code == 202
     assert accepted.json()["accepted"] is True
     assert missing.status_code == 404
 
 
 def test_endpoint_returns_503_when_publisher_unavailable():
-    with TestClient(app) as client:
-        app.state.__delattr__("latest_signal_notification_service")
-        response = client.post("/v1/signals/notifications/latest")
+    client = TestClient(app)
+    if hasattr(client.app.state, "latest_signal_notification_service"):
+        client.app.state.__delattr__("latest_signal_notification_service")
+    response = client.post("/v1/signals/notifications/latest")
     assert response.status_code == 503

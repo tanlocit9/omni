@@ -31,6 +31,8 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | flows/004 | [Sector Wave Flow](flows/004-sector-wave.md)               | Canonical sector-analytics and deferred-research flow | Pre-roadmap; future analytical scope                                       | [ADR-006](adr/ADR-006-sector-wave-precompute-model.md), [Data Lake](data/002-data-lake.md), [Feature Catalog](reference/001-algorithm-feature-catalog.md) |
 | flows/005 | [Intraday EOD Flow](flows/005-intraday-eod.md)             | Canonical post-close ingestion flow                   | Group D / Phase 9 / P9-I1                                                  | [Data Lake](data/002-data-lake.md), [Kafka Contracts](data/001-kafka-contracts.md), [Intraday EOD plan](plans/013-intraday-eod.md)                        |
 
+| flows/006 | [Realtime Tick Foundation Flow](flows/006-realtime-tick-foundation.md) | Provider-independent contract/archive/rebuild; no live runtime | Group D / Phase 10 / P10-I0-P10-I3 | [Kafka Contracts](data/001-kafka-contracts.md), [Data Lake](data/002-data-lake.md), [Realtime plan](plans/014-realtime-per-tick.md) |
+
 ## Development and Operations Guides
 
 | No.             | Document                                                                                          | Classification                  | Roadmap mapping                      | Related documents                                                                                                                                |
@@ -58,7 +60,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation  | Group C / Phase 8  |
 | plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail        | Group C / Phase 8  |
 | plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Active bounded implementation plan | Group D / Phase 9  |
-| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred technical debt            | Group D / Phase 10 |
+| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Active bounded implementation plan | Group D / Phase 10 |
 
 ## Proposed, Historical, and Compatibility Plans
 

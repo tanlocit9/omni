@@ -51,6 +51,16 @@ def test_intraday_trades_happy_path(paths: StockDataPaths):
     )
 
 
+def test_realtime_tick_archive_happy_path(paths: StockDataPaths):
+    assert (
+        paths.realtime_tick_archive(
+            " Provider-A ", " HOSE ", " 2026-09-11 ", " HPG ", " V1 ", " 000001 "
+        )
+        == "realtime/ticks/source=provider-a/exchange=hose/"
+        "trading_date=2026-09-11/symbol=hpg/archive_version=v1/part=000001.parquet"
+    )
+
+
 def test_signals_happy_path(paths: StockDataPaths):
     assert (
         paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")
@@ -127,6 +137,13 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
             "trading_date={trading_date}/symbol={symbol}/trades.parquet"
         ),
     }
+    assert config["paths"]["realtime-tick-archive"] == {
+        "base": "realtime/ticks/",
+        "pattern": (
+            "source={source}/exchange={exchange}/trading_date={trading_date}/"
+            "symbol={symbol}/archive_version={archive_version}/part={part}.parquet"
+        ),
+    }
     assert config["paths"]["signals"] == {
         "base": "signals/",
         "pattern": "{strategy}/{timeframe}/{exchange}.parquet",
@@ -172,6 +189,13 @@ def test_production_yaml_contains_indicators_path_and_composes_exactly():
         paths.intraday_trades("VCI", "HOSE", "2026-09-11", "HPG")
         == "intraday/trades/provider=vci/exchange=hose/"
         "trading_date=2026-09-11/symbol=hpg/trades.parquet"
+    )
+    assert (
+        paths.realtime_tick_archive(
+            "PROVIDER-A", "HOSE", "2026-09-11", "HPG", "V1", "000001"
+        )
+        == "realtime/ticks/source=provider-a/exchange=hose/"
+        "trading_date=2026-09-11/symbol=hpg/archive_version=v1/part=000001.parquet"
     )
     assert (
         paths.signals("TREND_MOMENTUM_V1", "1d", "HOSE", "HPG")

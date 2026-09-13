@@ -50,6 +50,11 @@ class StockDataPaths:
         "provider={provider}/exchange={exchange}/"
         "trading_date={trading_date}/symbol={symbol}/trades.parquet"
     )
+    realtime_tick_archive_base: str = "realtime/ticks/"
+    realtime_tick_archive_pattern: str = (
+        "source={source}/exchange={exchange}/trading_date={trading_date}/"
+        "symbol={symbol}/archive_version={archive_version}/part={part}.parquet"
+    )
     signals_base: str = "signals/"
     signals_pattern: str = "{strategy}/{timeframe}/{exchange}.parquet"
     signal_current_base: str = "signals/"
@@ -148,6 +153,31 @@ class StockDataPaths:
             trading_date=normalized_date,
             symbol=self._normalize_path_part(symbol, "symbol"),
         )
+
+    def realtime_tick_archive(
+        self,
+        source: str,
+        exchange: str,
+        trading_date: str,
+        symbol: str,
+        archive_version: str,
+        part: str,
+    ) -> str:
+        """Build one immutable logical tick archive part path."""
+        from datetime import date
+
+        normalized_date = date.fromisoformat(trading_date.strip()).isoformat()
+        pattern = self.realtime_tick_archive_pattern.format(
+            source=self._normalize_path_part(source, "source"),
+            exchange=self._normalize_path_part(exchange, "exchange"),
+            trading_date=normalized_date,
+            symbol=self._normalize_path_part(symbol, "symbol"),
+            archive_version=self._normalize_path_part(
+                archive_version, "archive_version"
+            ),
+            part=self._normalize_path_part(part, "part"),
+        )
+        return self.realtime_tick_archive_base + pattern
 
     def indicators(
         self, source: str, timeframe: Timeframe | str, exchange: str, code: str
@@ -426,6 +456,7 @@ class StockDataPaths:
         eod_cfg = paths_config.get("eod", {})
         indicators_cfg = paths_config.get("indicators", {})
         intraday_trades_cfg = paths_config.get("intraday-trades", {})
+        realtime_tick_archive_cfg = paths_config.get("realtime-tick-archive", {})
         signals_cfg = paths_config.get("signals", {})
         signal_current_cfg = paths_config.get("signal-current", {})
         symbol_features_cfg = paths_config.get("symbol-features", {})
@@ -460,6 +491,14 @@ class StockDataPaths:
                 "pattern",
                 "provider={provider}/exchange={exchange}/"
                 "trading_date={trading_date}/symbol={symbol}/trades.parquet",
+            ),
+            realtime_tick_archive_base=realtime_tick_archive_cfg.get(
+                "base", "realtime/ticks/"
+            ),
+            realtime_tick_archive_pattern=realtime_tick_archive_cfg.get(
+                "pattern",
+                "source={source}/exchange={exchange}/trading_date={trading_date}/"
+                "symbol={symbol}/archive_version={archive_version}/part={part}.parquet",
             ),
             signals_base=signals_cfg.get("base", "signals/"),
             signals_pattern=signals_cfg.get(

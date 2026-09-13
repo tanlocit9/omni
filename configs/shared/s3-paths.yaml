@@ -89,6 +89,12 @@ stock-data:
       base: 'intraday/trades/'
       pattern: 'provider={provider}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/trades.parquet'
 
+    # Provider-independent immutable realtime tick archive parts. This reserves a
+    # logical dataset route only; no provider adapter or runtime writer exists yet.
+    realtime-tick-archive:
+      base: 'realtime/ticks/'
+      pattern: 'source={source}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/archive_version={archive_version}/part={part}.parquet'
+
     # Future expansion paths (not yet implemented)
     # These paths are defined for future features
 
@@ -157,6 +163,7 @@ stock-data:
 # 1. All exchange names and codes are lowercase in paths (hose, hnx, upcom, hpg, fpt)
 # 2. Folder names use kebab-case (corporate-actions, income-statement)
 # 3. Existing mutable datasets do not add temporal partitioning; intraday-trades
-#    intentionally partitions by provider, exchange, trading_date, and symbol.
+#    intentionally partitions by provider, exchange, trading_date, and symbol;
+#    realtime-tick-archive additionally uses immutable archive_version and part.
 # 4. One ticker = one data file per path type
 # 5. Metadata (sector, industry) stored in separate metadata files, not in paths

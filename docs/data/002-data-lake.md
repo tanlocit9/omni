@@ -14,6 +14,7 @@ flowchart TD
   Symbols["symbols/{exchange}.parquet"]
   EOD["eod/{exchange}/{code}.parquet"]
   Intraday["intraday/trades/provider={provider}/exchange={exchange}/trading_date={date}/symbol={symbol}/trades.parquet"]
+  RealtimeTicks["realtime/ticks/source={source}/exchange={exchange}/trading_date={date}/symbol={symbol}/archive_version={version}/part={part}.parquet"]
   Indicators["indicators/{source}/{timeframe}/{exchange}/{code}.parquet"]
   Signals["signals/{strategy}/{timeframe}/{exchange}.parquet"]
   SymbolFeatures["features/symbol/{timeframe}/{exchange}/{code}.parquet"]
@@ -28,6 +29,7 @@ flowchart TD
   Ingestor --> Symbols
   Ingestor --> EOD
   Ingestor --> Intraday
+  Ingestor -. "future; no writer yet" .-> RealtimeTicks
   EOD --> Analyzer
   Symbols --> Analyzer
   Analyzer --> Indicators
@@ -174,6 +176,29 @@ valid V2 inputs. They must be republished into symbol-level partitions; consumer
 not infer a symbol from a shared date-level pointer and do not provide a compatibility
 fallback.
 
+### realtime-tick-archive
+
+| Field           | Value                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Config key      | `realtime-tick-archive`                                                                                                                                |
+| Logical path    | `realtime/ticks/source={source}/exchange={exchange}/trading_date={trading_date}/symbol={symbol}/archive_version={archive_version}/part={part}.parquet` |
+| Producer        | No runtime producer; P10-I2 exposes an injected shared publication callable only                                                                       |
+| Consumer        | Shared finite compaction, one-minute bars, and completed-session reconciliation; no live consumer                                                      |
+| Schema/key      | Canonical strict rows with exact decimal strings, UTC microsecond timestamps, and `eventId` identity                                                   |
+| Update strategy | Bounded content-addressed immutable micro-batches; version manifest before partition `READY.json`; never per-tick writes                               |
+| Ownership       | Shared code owns deterministic representation/publication behavior; application runtime ownership is blocked in P10-I3                                 |
+
+P10-I2 accepts finite canonical ticks and injected storage ports. Reordered inputs and
+exact duplicates produce the same ordered rows and bytes. Publication validates the
+persisted part through `ImmutableDatasetPublisher`, writes the immutable version and
+manifest before READY, and preserves the prior pointer on pre-READY failure. Compaction
+rejects absent, empty, mixed-identity, or conflicting parts and collapses exact
+`eventId` duplicates. One-minute bars use UTC event time and completed-session
+reconciliation requires exact source/exchange/symbol/date against P9-I1 normalized
+trades. No service invokes these callables, and no provider completeness, correction,
+ordering, Kafka, or WebSocket semantics are implied. There is no fallback path, alias,
+dual read, per-tick write, or historical rewrite.
+
 ### indicators
 
 | Field           | Value                                                                                                                                                                                  |
@@ -305,7 +330,7 @@ and multi-object partitions require a dataset-owner-specific rewrite. See
 
 ## Future Expansion Paths
 
-[`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) also reserves path keys for future datasets, including intraday, financials, fundamentals, corporate actions, ownership, news, macro, derivatives, warrants, and ETF data. Do not document these as implemented flows until producers and consumers exist.
+[`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) also reserves path keys for future datasets, including the provider-independent realtime tick archive, financials, fundamentals, corporate actions, ownership, news, macro, derivatives, warrants, and ETF data. A configured path is not evidence that a producer, consumer, or runtime capability exists.
 
 ## Ownership Summary
 

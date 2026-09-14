@@ -29,7 +29,7 @@ results. Oversized digests become deterministic complete Telegram pages.
 
 ## Canonical Priority and Provider Scope
 
-The canonical registry schedules P9-I5 VCI health metrics before P8-I5. P8-I5 keeps its declared dependencies exactly `[P8-I1, P8-I2]`, while the owner-approved selection exception prevents promotion, selection, or start until P9-I5 is completed. This supporting plan does not duplicate or override that schedule.
+The canonical registry schedules P9-I5 VCI health metrics before P8-I5 through a real dependency edge: P8-I5 depends on completed P8-I1, P8-I2, and P9-I5, while P9-I5 explicitly blocks P8-I5. This supporting plan does not duplicate or override that schedule.
 
 P8-I5 implements only the notification outbox and durable Telegram delivery path. VCI capacity assessment follows measured P9-I5 evidence and remains deferred until separately scheduled. Multi-provider ingestion requires a separate owner decision and remains deferred after capacity assessment.
 
@@ -304,7 +304,7 @@ Mocked HTTP acknowledgement is not live Telegram rollout evidence.
 - Credentials and concrete destination identifiers are not persisted or logged.
 - Immediate and digest eligibility includes qualified newSignalDate results.
 - Pagination sends every eligible complete item with deterministic page identities.
-- Canonical P9-I5 health evidence precedes P8-I5 implementation through the roadmap selection gate.
+- Canonical P9-I5 health evidence precedes P8-I5 implementation through the declared roadmap dependency.
 - Capacity assessment and multi-provider ingestion remain outside P8-I5 and deferred until separately scheduled/approved.
 - This increment introduces no automatic market-data provider fallback or rate-limit-bypass concurrency.
 - Metrics, operator visibility, docs, and approved verification evidence are complete.

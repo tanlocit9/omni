@@ -169,7 +169,7 @@ Owner priority decision (2026-09-14): measure the existing bounded VCI processin
 | status                  | pending                                                                          |
 | priority                | critical                                                                         |
 | depends_on              | [P9-I1]                                                                          |
-| blocks                  | []                                                                               |
+| blocks                  | [P8-I5]                                                                          |
 | owned_modules           | [apps/ingestor, apps/core, apps/query-service, apps/omni-console, configs, docs] |
 | execution_mode          | autonomous                                                                       |
 | requires_owner_decision | false                                                                            |

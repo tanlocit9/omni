@@ -128,7 +128,7 @@ Stop conditions: stop before manual verification if non-production bot/chat cred
 | title                   | Notification Outbox and Durable Delivery |
 | status                  | pending                                  |
 | priority                | critical                                 |
-| depends_on              | [P8-I1, P8-I2]                           |
+| depends_on              | [P8-I1, P8-I2, P9-I5]                    |
 | blocks                  | []                                       |
 | owned_modules           | [apps/core, configs, database, docs]     |
 | execution_mode          | autonomous                               |
@@ -136,7 +136,7 @@ Stop conditions: stop before manual verification if non-production bot/chat cred
 | pr                      | null                                     |
 | last_verified_commit    | null                                     |
 
-Selection gate: dependencies remain exactly P8-I1 and P8-I2, but the owner requires P9-I5 to complete before automation may promote, select, or start P8-I5. This priority exception is canonical and is not an added dependency edge.
+Dependency order: P8-I5 requires completed P8-I1, P8-I2, and P9-I5. P9-I5 explicitly blocks P8-I5, allowing the standard readiness rules to enforce VCI health metrics before Notification Outbox.
 
 Goal: make accepted Telegram notifications durable and auditable without mixing provider delivery semantics into the scheduler Kafka outbox. Detailed implementation design is in [`docs/plans/022-notification-outbox.md`](../../docs/plans/022-notification-outbox.md), which is supporting detail and does not own scheduling.
 

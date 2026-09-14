@@ -47,7 +47,7 @@ The active MVP keeps:
 - P8-I1 operational/generic Telegram formats;
 - P8-I2 immediate/digest signal formats;
 - P9-I5 VCI health metrics and basic visibility after P9-I1 completes;
-- P8-I5 Notification Outbox and Durable Delivery after P9-I5 completes under the explicit selection gate.
+- P8-I5 Notification Outbox and Durable Delivery after its P9-I5 dependency completes.
 
 Completed increments remain completed. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because their implementations directly support the retained MVP. P8-I3 remains a superseded historical increment; it does not own the active P8-I5 scope. Deferred increments must not block those MVP evidence gates solely because of historical dependency links.
 

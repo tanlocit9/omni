@@ -21,7 +21,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 15. [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 16. [P1-I4 execution identity hard cutover](deployment/001-p1-i4-hard-cutover.md) — coordinated drain, manual history cleanup, deploy, verification, and rollback procedure.
 
-17. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; provider/Kafka/WebSocket/live runtime is deferred technical debt.
+17. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are reactivated but evidence-gated and blocked.
 
 ## Planning Map
 
@@ -49,7 +49,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) — Phase 8 presentation detail.
 - [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md) — Phase 8 combined-signal detail.
 - [Intraday EOD](plans/013-intraday-eod.md) — active bounded P9-I1 VCI normalized-trade implementation for HOSE/HNX/UPCOM; later bars/features remain deferred.
-- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence; provider capability and live runtime are deferred technical debt.
+- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and approved live-collector sequence.
 
 ### Proposed, Historical, and Compatibility Plans
 
@@ -59,12 +59,13 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Omni Console / Parquet Viewer](plans/018-internal-tools-parquet-viewer.md) — Phase 6 compatibility pointer with the former detailed pointer merged in.
 - [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) — compatibility roadmap index.
 - [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md) — superseded compatibility document.
+- [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md) — active P8-I5 supporting detail for separate scheduler/notification outboxes and durable Telegram delivery; canonical scheduling remains in the roadmap registry.
 
 ### References and Technical Debt
 
 - [Algorithm Feature Catalog](reference/001-algorithm-feature-catalog.md)
 - [P3-I5 Metadata Reconciliation Technical Debt](technical-debt/001-p3-i5-metadata-reconciliation.md)
-- [Telegram Notification Deduplication Technical Debt](technical-debt/002-telegram-notification-deduplication.md)
+- [Telegram Notification Deduplication Technical Debt](technical-debt/002-telegram-notification-deduplication.md) — retained cooldown-specific follow-ups; active durable delivery is P8-I5.
 - [Temporary System Operator UUID Technical Debt](technical-debt/003-system-operator-uuid.md)
 - [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md)
 

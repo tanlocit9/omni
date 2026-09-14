@@ -15,7 +15,7 @@ Owner-approved execution exception (2026-09-04): execute P8-I1, P8-I2, and P8-I3
 | status                  | verification_pending                                  |
 | priority                | critical                                              |
 | depends_on              | [P1-I4]                                               |
-| blocks                  | [P8-I2, P8-I3]                                        |
+| blocks                  | [P8-I2, P8-I3, P8-I5]                                 |
 | owned_modules           | [apps/core, configs, docs/plans]                      |
 | execution_mode          | autonomous                                            |
 | requires_owner_decision | false                                                 |
@@ -43,7 +43,7 @@ Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 req
 | status                  | verification_pending                             |
 | priority                | critical                                         |
 | depends_on              | [P8-I1]                                          |
-| blocks                  | [P8-I3, P8-I4]                                   |
+| blocks                  | [P8-I3, P8-I4, P8-I5]                            |
 | owned_modules           | [apps/core, configs, docs/plans]                 |
 | execution_mode          | autonomous                                       |
 | requires_owner_decision | false                                            |
@@ -94,7 +94,7 @@ Stop conditions: stop if implementation expands into arbitrary combinations, wei
 
 ## Increment P8-I3 — Telegram delivery safety, retries, idempotency, and rollout
 
-MVP decision (2026-09-05): this entire increment is deferred to [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../../docs/technical-debt/004-post-mvp-roadmap-work.md). Existing delivery safeguards remain in place, but automation must not select retries, distributed idempotency, dead-letter handling, observability expansion, or live rollout without a new owner decision.
+Historical decision (2026-09-05): this broad increment was superseded during the MVP audit. Its identifier and meaning remain historical. The owner reactivated a narrower, explicit two-outbox design as P8-I5 on 2026-09-14; P8-I5 now owns durable enqueue, retries, idempotency, terminal failure visibility, and bounded observability. Scope outside P8-I5 remains technical debt.
 
 | Field                   | Value                                                       |
 | ----------------------- | ----------------------------------------------------------- |
@@ -119,3 +119,33 @@ Acceptance criteria: duplicate terminal events do not duplicate deliveries; prov
 Required tests/checks: idempotency, retryability, mocked Telegram adapter, exact HTTP payload, channel isolation, configuration binding, affected Nx checks, and owner-authorized manual Telegram verification.
 
 Stop conditions: stop before manual verification if non-production bot/chat credentials are unavailable; never use production credentials merely to satisfy completion evidence.
+
+## Increment P8-I5 — Notification Outbox and Durable Delivery
+
+| Field                   | Value                                    |
+| ----------------------- | ---------------------------------------- |
+| id                      | P8-I5                                    |
+| title                   | Notification Outbox and Durable Delivery |
+| status                  | pending                                  |
+| priority                | critical                                 |
+| depends_on              | [P8-I1, P8-I2]                           |
+| blocks                  | []                                       |
+| owned_modules           | [apps/core, configs, database, docs]     |
+| execution_mode          | autonomous                               |
+| requires_owner_decision | false                                    |
+| pr                      | null                                     |
+| last_verified_commit    | null                                     |
+
+Selection gate: dependencies remain exactly P8-I1 and P8-I2, but the owner requires P9-I5 to complete before automation may promote, select, or start P8-I5. This priority exception is canonical and is not an added dependency edge.
+
+Goal: make accepted Telegram notifications durable and auditable without mixing provider delivery semantics into the scheduler Kafka outbox. Detailed implementation design is in [`docs/plans/022-notification-outbox.md`](../../docs/plans/022-notification-outbox.md), which is supporting detail and does not own scheduling.
+
+Scope: retain `scheduler_outbox_messages` and add separate `notification_outbox_messages`. Both entities share only `AbstractClaimableOutboxMessage` claim, lease, fencing, attempt, retry-metadata, and audit fields. Their dispatchers, statuses, payloads, acknowledgement semantics, and retry policies remain separate. Persist a typed notification request before Telegram delivery; provide replay-safe idempotency, bounded attempts, exponential backoff with jitter, `Retry-After`, terminal `DEAD`, deterministic complete-block pagination, metrics/operator visibility, and consistent `newSignalDate` eligibility for qualified first-persisted daily confirmed results.
+
+Contract impact: Kafka/service-to-service protobuf, object-storage manifests, analytical storage paths/ownership, and public Java/Python APIs remain unchanged. Implementation adds an internal versioned persisted notification payload, a Platform database migration, and notification outbox/rate-limit/retry configuration. Scheduler outbox schema and behavior remain backward compatible.
+
+Acceptance criteria: the two tables and dispatchers remain separate; shared inheritance contains no status, payload, dispatcher, destination, or retry-policy semantics; enqueue commits before provider delivery; retries are bounded and fenced; 429 honors `Retry-After`; exhausted/permanent failures become visible `DEAD` records; duplicate enqueue is idempotent; every eligible digest item is delivered in deterministic complete pages; metrics expose pending age, sent, retry, dead, rate-limited, and duration state without payloads or secrets; and immediate/digest eligibility handles qualified `newSignalDate` consistently.
+
+Verification: required Platform, migration, scheduler-regression, claim/fencing, replay/idempotency, restart recovery, Telegram failure-classification, pagination, configuration, and redaction checks are not run for this plan-only update. Approved Nx checks, PR/commit, and CI evidence are required before completion.
+
+Stop conditions: do not combine outbox tables or dispatchers, persist credentials/chat IDs, change Kafka/Proto3 contracts, automatically replay `DEAD`, add market-data provider fallback, or silently mix provider lineage.

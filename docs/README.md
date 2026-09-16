@@ -59,6 +59,8 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Omni Console / Parquet Viewer](plans/018-internal-tools-parquet-viewer.md) — Phase 6 compatibility pointer with the former detailed pointer merged in.
 - [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) — compatibility roadmap index.
 - [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md) — superseded compatibility document.
+- [Intraday Confirmation for Confirmed Trend](plans/021-intraday-confirmed-rules.md) — implementation-ready Phase 9/Phase 8 signal follow-up.
+- [Dependency-Aware Outbox Dispatch](plans/022-dependency-aware-outbox-dispatch.md) — draft plan for static VN dependencies and outbox eligibility gating.
 
 ### References and Technical Debt
 

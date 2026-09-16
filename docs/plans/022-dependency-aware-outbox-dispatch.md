@@ -11,8 +11,8 @@ Prevent overdue scheduled jobs from starting nearly simultaneously after a servi
 - `JobScheduler` creates due executions and PENDING outbox messages without blocking on dependencies.
 - `SchedulerOutboxDispatcher` evaluates dependency eligibility before claim/publish.
 - A dedicated Spring Modulith module exports only the `DependencyRegistry` contract and the minimum immutable request/result types.
-- The module implementation, factory abstraction, VN factory/catalog, evaluators, codecs, and storage-shape helpers remain private.
-- The registry selects a dependency factory by market, so future markets can add factories without changing Scheduler or Outbox.
+- The module follows the existing notification-policy registration pattern: one public registry, private policies discovered as Spring beans, and fail-fast duplicate registration.
+- The registry selects a dependency policy by domain, so future VN/US/Crypto policies can be added without changing Scheduler or Outbox.
 - V1 uses static definitions; no dependency repository or dependency table is introduced.
 - Dispatch is scoped to the same logical run and work item so an older success cannot unlock a new run.
 - Metadata jobs use a global barrier and cannot race upstream sync/manifest updates after evening startup.
@@ -34,34 +34,35 @@ public interface DependencyRegistry {
 }
 ```
 
-The minimum exported immutable types are `DependencyKey`, `DependencySpec`, `DependencyRequest`, and `DependencyDecision`. All factories and implementation packages stay private.
+The minimum exported immutable types are `DependencyDomain`, `DependencyKey`, `DependencySpec`, `DependencyRequest`, and `DependencyDecision`. Policy interfaces and implementations stay private.
 
-Private V1 implementation:
+Use the same registration pattern as `JobNotificationPolicyRegistry`:
 
 ```text
 DependencyRegistry
-  -> DependencyFactory
-       -> VNDependencyFactory
-            -> specs()
-            -> evaluate(request)
+  -> List<DependencyPolicy>
+       -> VNDependencyPolicy
+       -> future USDependencyPolicy
+       -> future CryptoDependencyPolicy
 ```
 
-- `DependencyFactory`: private internal SPI with a stable market key, `specs()`, and `evaluate(request)`.
-- `VNDependencyFactory`: V1 implementation that owns the immutable VN dependency catalog and evaluation rules.
-- `StaticDependencyRegistry`: indexes all injected factories by market and delegates lookup/evaluation to the matching factory.
-- A future market adds another private `DependencyFactory` implementation; Scheduler and Outbox continue using only `DependencyRegistry`.
-- Registry startup fails on duplicate market keys or when a request has no matching factory, instead of silently choosing a default.
-- `DependencyEvaluator`: resolves job status, dataset readiness, and global barriers for the selected factory.
+- `DependencyPolicy`: private internal policy contract exposing `domain()`, `specs()`, and `evaluate(request)`.
+- `VNDependencyPolicy`: V1 Spring component that owns the immutable VN dependency catalog and evaluation rules.
+- `StaticDependencyRegistry`: receives `List<DependencyPolicy>`, indexes policies by `DependencyDomain`, and delegates `specs(domain)` and `evaluate(request)`.
+- This mirrors notification: `DependencyRegistry` corresponds to `JobNotificationPolicyRegistry`; `DependencyPolicy` corresponds to `JobNotificationPolicy`; VN/US/Crypto policies correspond to concrete notification policies.
+- Scheduler and Outbox inject only `DependencyRegistry`; they never request or cast to `VNDependencyPolicy`.
+- Duplicate domain registration fails during startup. Unlike notification, dependency dispatch has no permissive default policy: an unsupported domain fails closed with a diagnosable decision.
+- `DependencyEvaluator`: resolves job status, dataset readiness, and global barriers for the selected policy.
 - `DependencySpecCodec`: converts definitions to/from neutral column/JSON maps for future persistence or SQL binding; it does not generate raw SQL.
-- No repository, dependency table, or runtime write API in V1.
+- No factory layer, repository, dependency table, or runtime write API in V1.
 
 ## Runtime Flow
 
 1. Scheduler calculates due work, creates the execution, and writes a PENDING outbox message.
 2. Dispatcher over-fetches PENDING candidates so blocked rows do not consume the publish batch.
-3. For each candidate, dispatcher builds a request with `market`, `jobDefinitionId`, `executionId`, `parentExecutionId`, `workType`, `workKey`, and `runKey`/trading date.
-4. Registry selects the matching `DependencyFactory`; V1 routes VN requests to `VNDependencyFactory`.
-5. The selected factory evaluates its static specs and returns:
+3. For each candidate, dispatcher builds a request with `domain`, `jobDefinitionId`, `executionId`, `parentExecutionId`, `workType`, `workKey`, and `runKey`/trading date.
+4. Registry selects the registered `DependencyPolicy`; V1 routes `VN` to `VNDependencyPolicy`.
+5. The selected policy evaluates its static specs and returns:
    - `READY`: atomically claim and publish.
    - `WAITING`: keep PENDING, do not increment attempts, and return an optional `retryAt`.
    - `FAILED`: stop retrying and mark the downstream execution blocked/failed with a reason code.
@@ -83,7 +84,7 @@ Eligibility is evaluated before the atomic claim. Concurrent dispatchers must st
 
 ## Implementation Increments
 
-1. Add the `dependency` module and exported registry contract, plus the private `DependencyFactory` SPI, `VNDependencyFactory`, evaluator, and codec.
+1. Add the `dependency` module and exported registry contract, plus private `DependencyPolicy`, `VNDependencyPolicy`, evaluator, and codec using the notification registry pattern.
 2. Migrate existing scheduler dependency definitions into the registry without changing their meaning.
 3. Remove dependency blocking from `JobScheduler`; always enqueue due work transactionally.
 4. Add the registry gate to outbox candidate selection/claim and prevent head-of-line blocking.
@@ -136,7 +137,7 @@ Not run for this documentation-only draft.
 Required implementation evidence:
 
 - Spring Modulith boundary test proves only the dependency contract package is exported.
-- Factory-routing tests prove VN selection, rejection of duplicate market keys, and failure for an unsupported market.
+- Policy-registry tests prove VN selection, rejection of duplicate domains, and fail-closed behavior for an unsupported domain.
 - Scheduler test proves unmet dependencies do not prevent PENDING outbox creation.
 - Dispatcher tests cover `READY`, `WAITING`, `FAILED`, no attempt increment while waiting, and no blocked-row starvation.
 - Scope tests prove exact run/trading-date and work-key matching.
@@ -155,7 +156,7 @@ Required implementation evidence:
 - Dependency resolution is exact to the same run and work item.
 - Metadata dispatch waits for the complete upstream run barrier.
 - Only the registry contract is visible outside the dependency module.
-- A new market factory can be added without changing Scheduler, Outbox, or the exported registry contract.
+- A new VN/US/Crypto policy can be registered without changing Scheduler, Outbox, or the exported registry contract.
 - V1 has no dependency repository and no Kafka, manifest, or storage-path contract change.
 
 ## Non-goals

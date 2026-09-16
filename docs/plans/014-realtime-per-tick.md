@@ -1,6 +1,6 @@
 # Realtime Per-Tick Market Data Implementation Plan
 
-Status: P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-12 the owner moved P10-I0 provider discovery and P10-I3 provider/Kafka/WebSocket/live runtime to technical debt as `superseded` increments. Canonical schedule lives in [`plans/roadmap/phase-10-realtime-per-tick.md`](../../plans/roadmap/phase-10-realtime-per-tick.md).
+Status: P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. P10-I0 remains `blocked` pending genuine realtime provider evidence; P10-I3 remains `blocked` pending completed P10-I0/P10-I2 and owner approval of evidence-derived contracts. Canonical schedule lives in [`plans/roadmap/phase-10-realtime-per-tick.md`](../../plans/roadmap/phase-10-realtime-per-tick.md).
 
 ## Goal
 
@@ -68,11 +68,11 @@ Rules:
 
 Boundary rejection categories are `INVALID_JSON`, `INVALID_SHAPE`, `MISSING_FIELD`, `UNKNOWN_FIELD`, `INVALID_VALUE`, `INVALID_TIMESTAMP`, and `IDENTITY_MISMATCH`. Provider adapters must map provider frames to the canonical constructor before serialization; raw provider payloads never pass as permissive canonical ticks.
 
-Finite replay deduplicates by event identity and sorts by event timestamp, available sequence, then event identity. This is a deterministic rebuild rule, not a claim of provider delivery order and not a substitute for a future correction/resume policy.
+Finite replay deduplicates by event identity, retains the earliest `receivedAt` observation when retries of the same event differ only by arrival time, and sorts by event timestamp, available sequence, then event identity. This makes replay and archive bytes independent of retry input order. It is a deterministic rebuild rule, not a claim of provider delivery order and not a substitute for a future correction/resume policy.
 
 ## Provider Capability Gate
 
-P10-I0 is deferred technical debt. After explicit reactivation, owner-reviewed evidence must answer:
+P10-I0 is reactivated for VCI-first discovery but remains blocked. The Phase 9 vnstock completed-session/history endpoint is not evidence of live capability. Owner-reviewed documented or observed realtime evidence must answer:
 
 | Capability                         | Required evidence                                                                  |
 | ---------------------------------- | ---------------------------------------------------------------------------------- |
@@ -86,26 +86,36 @@ P10-I0 is deferred technical debt. After explicit reactivation, owner-reviewed e
 | Rate limits                        | connection/message/subscription limits and required backoff                        |
 | Conditional fields                 | exact mandatory/optional semantics for IDs, sequence, side, conditions, depth      |
 
-Evidence must include redacted representative frames and failures, separate written guarantees from observations, and cover the intended exchange/symbol matrix. Unknowns remain blockers; they are not filled with assumptions in shared code.
+Current source-inspection evidence (2026-09-13) is intentionally insufficient to pass the gate:
+
+| Evidence class             | Finding                                                                                                                                                                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Installed-package behavior | Ingestor's installed `vnstock` 4.0.2 VCI intraday implementation uses an HTTPS POST to `market-watch/LEData/getAll`, with `symbol`, `limit`, and `truncTime`; its mapping includes `truncTime`, `matchPrice`, `matchVol`, `matchType`, and `id`. This is package implementation evidence, not an official VCI guarantee. |
+| Repository observation     | P9 calls `Quote(..., source="VCI").intraday(...)` and follows finite `last_time`/`truncTime` pages for a completed session. It does not observe or prove a live subscription.                                                                                                                                            |
+| Not established            | Authorized realtime availability; WebSocket/SSE/streaming/polling contract; authentication lifecycle; exchange coverage; trade-ID uniqueness; sequence/order/gaps; event-clock semantics; reconnect/resume; corrections/cancellations; duplicates/late events; limits/backoff; and mandatory/conditional live fields.    |
+
+No provider network call was made, no credentials were accessed, and no market-session behavior was observed during this evidence pass. Future evidence must identify source/version/date and conditions; redact credentials, tokens, cookies, account/customer identifiers, and unrelated payload data; include only minimum representative success/failure frames; and separate official guarantees from observations. The full capability-by-capability matrix and exact next action are maintained in the canonical phase file.
+
+P10-I0 remains `blocked`, and P10-I3 remains `blocked` and unimplemented. Unknowns are not filled with assumptions in shared code or inferred from the Phase 9 endpoint.
 
 ## Provider-Independent Archive and Rebuild
 
-Canonical archive rows preserve exact decimal values as canonical strings, UTC microsecond timestamps, optional trade/sequence values, and exact source/exchange/symbol/trading-date identity. Input ordering and exact duplicates cannot alter Parquet bytes. Batches are bounded by tick count and identified from their bytes. Compaction accepts finite non-empty parts only, rejects mixed identities or conflicting duplicate `eventId` rows, collapses exact duplicates, and sorts by event time, sequence availability/value, then identity.
+Canonical archive rows preserve exact decimal values as canonical strings, UTC microsecond timestamps, optional trade/sequence values, and exact source/exchange/symbol/trading-date identity. Input ordering, exact duplicates, and same-identity retries with different arrival times cannot alter Parquet bytes; the earliest observed arrival is retained deterministically. Batches are bounded by tick count and identified from their bytes. Compaction accepts finite non-empty parts only, rejects mixed identities or conflicting duplicate `eventId` rows, collapses exact duplicates, and sorts by event time, sequence availability/value, then identity.
 
 One-minute bars floor `marketTimestamp` in UTC and use deterministic event ordering for open/close. Completed-session reconciliation requires exact source/exchange/symbol/trading date and reuses existing intraday relative thresholds for counts, volume, value, open, and close. This is a finite comparison callable, not a provider correction or live completeness policy.
 
-## Deferred Provider and Runtime Sequence
+## Reactivated Provider and Runtime Sequence
 
-The following sequence is technical debt and is inactive until explicit owner reactivation:
+The approved planning sequence is:
 
-1. Complete and approve P10-I0 evidence.
-2. Verify P10-I1 shared contract/path tests and CI.
-3. Refresh P10-I2 acceptance criteria from actual provider guarantees.
-4. Implement one bounded provider adapter and explicit boundary mapping.
-5. If Kafka is selected, update topic config, producer, consumer, tests, and canonical Kafka docs together; carry logical identity only.
-6. Implement immutable micro-batch archive publication with READY last.
-7. Add reconnect/resume/gap/correction/duplicate/late-event integration tests.
-8. Rebuild and reconcile a completed session against the P9-I1 normalized-trades source contract.
+1. Obtain and approve P10-I0 VCI realtime evidence, including protocol, authentication, subscriptions, identity/order, timestamps, reconnect/resume, corrections, late events, limits, and redacted frames/failures.
+2. Complete P10-I1/P10-I2 delivery evidence, including CI/PR and configured archive publication.
+3. Approve the evidence-derived P10-I3 contract; unknown provider guarantees remain stop conditions.
+4. Add Platform-owned desired-state persistence and a private operator enable/disable/status API with authentication, idempotency, optimistic concurrency, and audit.
+5. Publish generation-fenced collector control commands atomically through the existing Platform outbox/Kafka pattern; never browser-to-Kafka.
+6. Add an independently deployed, always-on Ingestor collector that owns the VCI connection, subscriptions, canonical mapping, bounded buffering, reconnect/resume, graceful drain, and P10-I2 archive publication.
+7. Report heartbeat and observed state to Platform, distinguishing desired from observed state and sanitizing errors/secrets.
+8. Add evidence-derived broker, control concurrency, restart/recovery, reconnect/gap/correction, configured storage, provider-session, deployment, and production checks.
 
 P9-I1 is only the locally verified completed-session batch reference. It remains `verification_pending`; P9-I4 remains `in_progress`; P9-I2 and P9-I3 stay `superseded`. No Phase 9 completion or reactivation is implied.
 
@@ -131,28 +141,28 @@ Reviewed `AGENTS.md`, `CLAUDE.md`, and `.roo/rules`. No guidance change is requi
 
 ## Verification
 
-P10-I1 focused tests cover strict validation/rejection, canonical identity, decimal normalization, receive-time-independent deduplication, replay ordering, duplicate collapse, alias rejection, and shared YAML path composition.
+P10-I1 focused tests cover strict validation/rejection, canonical identity, decimal normalization, deterministic earliest-arrival selection for same-identity retries, replay ordering, duplicate collapse, alias rejection, and shared YAML path composition.
 
 P10-I2 adds focused tests for deterministic bytes/order, bounded batches, reordered parts, duplicate collapse, empty/mixed rejection, repeated publication identity, pre-READY failure safety, UTC one-minute bars, and reconciliation ready/warning/rejected/date mismatch.
 
-Owner-authorized local verification passed on 2026-09-12:
+Owner-authorized local verification passed again on 2026-09-13:
 
 ```text
 nx run py-common:lint
-nx run py-common:test  # 125 passed, 8 existing deprecation warnings
+nx run py-common:test  # 127 passed, 8 existing deprecation warnings
 nx run py-common:build
 ```
 
-The first lint attempt found attributable line-length and formatting issues. They were corrected and the complete sequence passed on rerun. CI, PR/commit, configured archive-publication, and production evidence remain unresolved for P10-I1/P10-I2. Provider capability and Kafka/runtime evidence move with P10-I0/P10-I3 to technical debt. Code-review-graph impact and post-edit change detection are static analysis, not substitutes for active delivery gates.
+The expanded suite includes deterministic earliest-arrival selection and identical Parquet bytes for reordered same-identity retries. Earlier attributable formatting and canonical-Parquet issues remain resolved. CI, PR/commit, configured archive-publication, and production evidence remain unresolved for P10-I1/P10-I2. P10-I0 source inspection does not satisfy provider capability validation, and no P10-I3 Kafka/runtime evidence exists; both increments remain blocked. Code-review-graph impact and post-edit change detection are static analysis, not substitutes for active delivery gates.
 
 ## Acceptance Criteria
 
-- P10-I1 and P10-I2 are `verification_pending`; P10-I0 and P10-I3 are `superseded` technical debt and ineligible for automation.
+- P10-I1 and P10-I2 are `verification_pending`; reactivated P10-I0 and P10-I3 are `blocked` and ineligible for implementation until their recorded gates are satisfied.
 - P10-I2 local checks pass but it remains incomplete until CI/PR evidence exists.
 - One strict canonical JSON model rejects aliases, extras, coercion, invalid UTC timestamps, and identity tampering.
 - Identity and replay behavior are deterministic and duplicate-safe without inventing provider guarantees.
 - One canonical logical archive path is configured and built by shared Python code.
-- No provider adapter, WebSocket, topic, producer/consumer, proto, generated edit, configured archive runtime, provider capability, or historical rewrite is claimed.
+- No provider adapter, WebSocket, topic, producer/consumer, proto, generated edit, configured archive runtime, provider capability, or historical rewrite is currently claimed; these become implementation scope only after P10-I0 evidence and owner approval.
 - Phase 9 statuses and unrelated compatibility remain unchanged.
 - Roadmap, supporting plan, canonical data/flow docs, and documentation indexes agree.
 - Required Nx checks and CI/PR evidence are recorded before P10-I1/P10-I2 completion; deferred provider/runtime evidence is required only after explicit reactivation of P10-I0/P10-I3.

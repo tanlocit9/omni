@@ -274,7 +274,7 @@ class TelegramRenderingTest {
     private TelegramNotificationProperties properties(String zone, Boolean audibleErrors) {
         return new TelegramNotificationProperties(
                 true, "token", "operations", "signals", "Markdown", "https://api.telegram.org",
-                Duration.ofMinutes(5), 100, zone, audibleErrors);
+                Duration.ofMinutes(5), 100, zone, audibleErrors, null);
     }
 
     private NotificationRequest request(

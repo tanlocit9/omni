@@ -96,6 +96,75 @@ See [Kafka contracts](../../docs/data/001-kafka-contracts.md).
 | `topic-precompute-sector-features` | Request Sector Wave sector features. |
 | `topic-sector-rotation-backtest`   | Request sector rotation backtest.    |
 
+## Telegram Notification Filtering
+
+Platform consumes signal notification events from Analyzer and routes them to Telegram. Comprehensive filters control which notifications are sent:
+
+### Filter Configuration
+
+Configure filters via environment variables or [`application.yaml`](src/main/resources/application.yaml):
+
+```yaml
+app:
+  notifications:
+    telegram:
+      signal-filter:
+        allowed-strategies: CONFIRMED_TREND_EQUALS,TREND_MOMENTUM_V1
+        allowed-symbols: HOSE-FPT,HOSE-VNM
+        symbol-patterns: HOSE-*,HNX-*
+        allowed-directions: BUY,SELL
+        allowed-timeframes: 1d
+        min-score: 0.7
+        enable-new-signal-date: true
+```
+
+### Available Filters
+
+| Filter                   | Purpose                               | Example                                    | Default                  |
+| ------------------------ | ------------------------------------- | ------------------------------------------ | ------------------------ |
+| `allowed-strategies`     | Filter by strategy                    | `CONFIRMED_TREND_EQUALS,TREND_MOMENTUM_V1` | `CONFIRMED_TREND_EQUALS` |
+| `allowed-symbols`        | Exact symbol match                    | `HOSE-FPT,HOSE-VNM,HNX-ACB`                | Empty (all symbols)      |
+| `symbol-patterns`        | Glob pattern match                    | `HOSE-*,HNX-*`                             | Empty (no patterns)      |
+| `allowed-directions`     | Filter by signal                      | `BUY,SELL` (excludes HOLD)                 | Empty (all directions)   |
+| `allowed-timeframes`     | Filter by timeframe                   | `1d,4h`                                    | Empty (all timeframes)   |
+| `min-score`              | Minimum score threshold               | `0.7` (only >= 0.7)                        | Empty (no threshold)     |
+| `enable-new-signal-date` | Include daily confirmed first-persist | `true` or `false`                          | `true`                   |
+
+### Filter Behavior
+
+- **Empty list = allow all**: An empty `allowed-symbols` or `allowed-directions` matches everything
+- **Case insensitive**: Strategies/directions normalized to uppercase, timeframes to lowercase
+- **Glob patterns**: Use `*` for any characters, `?` for single character
+  - `HOSE-*` matches `HOSE-FPT`, `HOSE-VNM`, etc.
+  - `H*-F*` matches `HOSE-FPT`, `HNX-FLC`, etc.
+- **Early filtering**: Applied at Kafka consumption before rendering
+- **Debug logging**: Filtered notifications logged at DEBUG level
+
+### Example Configurations
+
+**BUY signals only from HOSE stocks with high confidence:**
+
+```bash
+TELEGRAM_SIGNAL_FILTER_SYMBOL_PATTERNS=HOSE-*
+TELEGRAM_SIGNAL_FILTER_ALLOWED_DIRECTIONS=BUY
+TELEGRAM_SIGNAL_FILTER_MIN_SCORE=0.7
+```
+
+**Specific symbols across multiple strategies:**
+
+```bash
+TELEGRAM_SIGNAL_FILTER_ALLOWED_STRATEGIES=CONFIRMED_TREND_EQUALS,TREND_MOMENTUM_V1,ICHIMOKU_V1
+TELEGRAM_SIGNAL_FILTER_ALLOWED_SYMBOLS=HOSE-FPT,HOSE-VNM,HOSE-HPG
+```
+
+**Daily timeframe only:**
+
+```bash
+TELEGRAM_SIGNAL_FILTER_ALLOWED_TIMEFRAMES=1d
+```
+
+See [`.env.example`](../../.env.example) for complete environment variable documentation.
+
 ## Storage
 
 | Storage    | Purpose                                                                                                                                                       |

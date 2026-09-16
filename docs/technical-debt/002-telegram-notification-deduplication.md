@@ -2,7 +2,7 @@
 
 ## MVP Status
 
-This debt is part of the owner-approved post-MVP deferral recorded in [`004-post-mvp-roadmap-work.md`](004-post-mvp-roadmap-work.md). The existing in-memory cooldown remains the MVP baseline. Distributed admission, durable counters, delivery retries, dead-letter outcomes, and rollout hardening must not be selected without a new owner decision or a safety-triggering production defect.
+The 2026-09-05 full deferral is historical. Active P8-I5 in the [canonical increment registry](../../plans/roadmap/implementation-increments.md) now owns durable enqueue/delivery identity, bounded retries, terminal `DEAD`, and operator visibility through the separate notification outbox described in [`docs/plans/022-notification-outbox.md`](../plans/022-notification-outbox.md). This record retains cooldown-specific limitations and out-of-scope follow-ups; it is not a competing schedule.
 
 ## Current Decision
 
@@ -32,9 +32,9 @@ Silent delivery only suppresses client-side notification sound. It does not redu
 
 The two layers can therefore both apply without representing the same policy. The consumer guard remains lossy and process-local and should be revisited independently if its global-clear behavior becomes operationally significant.
 
-## Migration Triggers
+## Retained Follow-up Triggers
 
-Move admission and counters to a distributed or persistent implementation when any of the following occurs:
+Reassess cooldown-specific distributed counters or policy beyond P8-I5 when any of the following occurs:
 
 - the platform routinely runs multiple notification-producing replicas;
 - restart-related duplicate delivery or lost counts becomes operationally relevant;
@@ -42,9 +42,9 @@ Move admission and counters to a distributed or persistent implementation when a
 - suppression summaries require auditability or exact counts;
 - notification routing expands to channels requiring shared rate limits.
 
-## Migration Options
+## Retained Options
 
-Preferred options are an atomic Redis-backed cooldown/counter operation with TTL, or a durable database/outbox-backed notification delivery policy. Either option must preserve atomic first admission, repeat counting, cooldown rollover, bounded retention, and failure semantics.
+P8-I5 selects the durable database/outbox-backed notification delivery policy for accepted notifications. A future atomic Redis-backed cooldown/counter operation with TTL is optional technical debt only if exact cross-replica suppression counters remain necessary after P8-I5. Any follow-up must preserve atomic first admission, repeat counting, cooldown rollover, bounded retention, and failure semantics.
 
 ## Contract Impact
 

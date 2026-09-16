@@ -17,7 +17,7 @@ Owner reactivation decision (2026-09-10): P9-I1 alone is reactivated for a bound
 | status                  | verification_pending                                      |
 | priority                | medium                                                    |
 | depends_on              | []                                                        |
-| blocks                  | [P9-I2, P9-I4]                                            |
+| blocks                  | [P9-I2, P9-I4, P9-I5]                                     |
 | owned_modules           | [contracts, apps/core, apps/ingestor, libs/py-common]     |
 | execution_mode          | autonomous                                                |
 | requires_owner_decision | false                                                     |
@@ -157,3 +157,86 @@ Owner decision (2026-09-11): implement this bounded follow-up while P9-I1 remain
 Goal: use exact-date completed-session VCI trades to confirm or suppress the existing two-component daily candidate under `CONFIRMED_TREND_EQUALS_V2_INTRADAY`, preserving the public strategy key, V1 history, Analyzer ownership, and existing notification flow.
 
 Supporting detail and the verification checklist are in [`docs/plans/021-intraday-confirmed-rules.md`](../../docs/plans/021-intraday-confirmed-rules.md). Local Analyzer and Platform checks passed on 2026-09-12; PR/commit, CI, runtime object-storage/provider, notification-runtime, and production evidence remain unresolved.
+
+## Increment P9-I5 — VCI health metrics and basic visibility
+
+Owner priority decision (2026-09-14): measure the existing bounded VCI processing path before implementing P8-I5 Notification Outbox, then assess VCI capacity and consider multi-provider ingestion only as later, separately approved work.
+
+| Field                   | Value                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| id                      | P9-I5                                                                            |
+| title                   | VCI health metrics and basic visibility                                          |
+| status                  | pending                                                                          |
+| priority                | critical                                                                         |
+| depends_on              | [P9-I1]                                                                          |
+| blocks                  | [P8-I5]                                                                          |
+| owned_modules           | [apps/ingestor, apps/core, apps/query-service, apps/omni-console, configs, docs] |
+| execution_mode          | autonomous                                                                       |
+| requires_owner_decision | false                                                                            |
+| pr                      | null                                                                             |
+| last_verified_commit    | null                                                                             |
+
+### Goal
+
+Instrument the existing P9-I1 VCI completed-session workflow sufficiently to make provider and pipeline health observable without changing how market data is collected or increasing provider pressure.
+
+### Outcome
+
+Operators can inspect average, P50, and P95 VCI call duration; processing, storage, and child end-to-end duration; throughput; backlog; failures; and HTTP 429 responses through an existing health endpoint or existing dashboard surface. Metrics use bounded labels and distinguish provider wait from local processing and persistence.
+
+### Dataset Outputs
+
+No analytical dataset output.
+
+### Metadata Outputs
+
+No dataset metadata output.
+
+### Algorithm Feature Outputs
+
+No direct algorithm feature output.
+
+### Algorithms Unlocked
+
+No analytical algorithm is unlocked. The measurements support a later owner capacity assessment without pre-deciding a concurrency or provider strategy.
+
+### Scope and approach
+
+1. Measure each existing VCI request from dispatch to response and aggregate average, P50, and P95 duration over a documented bounded window.
+2. Measure normalized processing time, storage/publication time, and child end-to-end duration independently so provider latency is not conflated with local work.
+3. Count completed work and normalized rows for throughput; expose queued/in-flight work or oldest pending age for backlog; count failures by bounded sanitized category; count provider HTTP 429 responses separately.
+4. Reuse an existing health endpoint or dashboard. Do not build a WebSocket feed, Kafka/live metrics collector, or new always-on collection service.
+5. Preserve the existing sequential/bounded provider behavior. Do not add concurrency to evade rate limits, provider rotation, fallback, or source mixing.
+
+### Contract Impact
+
+| Contract area                        | Decision                                                                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Kafka or service-to-service protobuf | Unchanged. No topic, message, producer, consumer, or Proto3 change.                                    |
+| Object-storage JSON manifests        | Unchanged. Existing immutable-version-before-READY and lineage semantics remain intact.                |
+| Storage paths or dataset ownership   | Unchanged. No dataset, path, partition, writer, or ownership change.                                   |
+| Public Java or Python APIs           | Unchanged. Instrumentation remains internal and visibility reuses an existing operator-facing surface. |
+| Configuration or environment         | Future implementation may add bounded metric-window settings only; this plan-only update changes none. |
+
+### Repository Guidance Updates
+
+Review `AGENTS.md`, `CLAUDE.md`, `.roo/rules/`, the existing health/dashboard documentation, and the P9-I1 flow during implementation. No agent-guidance update is required for this plan-only change because collection, contract, storage, and verification rules are unchanged.
+
+### Verification
+
+Build, test, lint, and format are not run for this plan-only update. Implementation verification must use defined Nx targets after owner approval and include deterministic timing aggregation, metric-label bounds, 429/failure classification, backlog/throughput behavior, endpoint or dashboard access, and regressions proving unchanged P9-I1 collection/publication behavior.
+
+### Acceptance Criteria
+
+- Average, P50, and P95 VCI call durations are available for a documented bounded aggregation window.
+- Processing, storage, and end-to-end child durations are separately observable.
+- Throughput, backlog, failures, and HTTP 429 responses are visible with bounded, non-sensitive labels.
+- An existing health endpoint or dashboard presents the measurements without introducing a competing telemetry runtime.
+- No WebSocket provider runtime, Kafka tick transport, always-on/live collector, provider fallback/rotation, or multi-provider ingestion is implemented.
+- No concurrency is added to bypass or mask provider rate limits.
+- No capacity conclusion is encoded in P9-I5; capacity assessment follows measured evidence and remains deferred until separately scheduled.
+- Required tests, approved Nx checks, documentation, PR/commit, and CI evidence are recorded before completion.
+
+### Stop Conditions
+
+Stop if implementation requires a new cross-service contract, physical storage path exposure, a new data writer, an always-on collector, unbounded metric cardinality, provider credentials in telemetry, increased request concurrency, provider fallback, or owner approval of a capacity/product decision.

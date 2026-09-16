@@ -66,6 +66,27 @@ app:
       deduplication-max-cache-size: ${TELEGRAM_DEDUPLICATION_MAX_CACHE_SIZE:10000}
       display-time-zone: ${TELEGRAM_DISPLAY_TIME_ZONE:Asia/Bangkok}
       audible-operational-errors: ${TELEGRAM_AUDIBLE_OPERATIONAL_ERRORS:true}
+      signal-filter:
+        # Allowed strategies (comma-separated, defaults to CONFIRMED_TREND_EQUALS)
+        # Example: CONFIRMED_TREND_EQUALS,TREND_MOMENTUM_V1,ICHIMOKU_V1
+        allowed-strategies: ${TELEGRAM_SIGNAL_FILTER_ALLOWED_STRATEGIES:CONFIRMED_TREND_EQUALS}
+        # Allowed symbols (comma-separated, empty = all symbols)
+        # Example: HOSE-FPT,HOSE-VNM,HNX-ACB
+        allowed-symbols: ${TELEGRAM_SIGNAL_FILTER_ALLOWED_SYMBOLS:}
+        # Symbol patterns using glob syntax (comma-separated, empty = no patterns)
+        # Example: HOSE-*,HNX-*
+        symbol-patterns: ${TELEGRAM_SIGNAL_FILTER_SYMBOL_PATTERNS:}
+        # Allowed signal directions (comma-separated, empty = all directions)
+        # Example: BUY,SELL (excludes HOLD)
+        allowed-directions: ${TELEGRAM_SIGNAL_FILTER_ALLOWED_DIRECTIONS:}
+        # Allowed timeframes (comma-separated, empty = all timeframes)
+        # Example: 1d,4h
+        allowed-timeframes: ${TELEGRAM_SIGNAL_FILTER_ALLOWED_TIMEFRAMES:}
+        # Minimum score threshold (null/empty = no threshold)
+        # Example: 0.7 (only signals with score >= 0.7)
+        min-score: ${TELEGRAM_SIGNAL_FILTER_MIN_SCORE:0.7}
+        # Enable newSignalDate eligibility for daily confirmed results
+        enable-new-signal-date: ${TELEGRAM_SIGNAL_FILTER_ENABLE_NEW_SIGNAL_DATE:true}
 
 logging:
   level:

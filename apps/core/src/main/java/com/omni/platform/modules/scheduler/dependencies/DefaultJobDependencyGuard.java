@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
@@ -26,10 +29,14 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
     
     private final ManifestReader manifestReader;
     private final Map<DependencyCondition, ConditionEvaluator> evaluators;
+    private final ExecutorService ioExecutor;
     
     public DefaultJobDependencyGuard(ManifestReader manifestReader) {
         this.manifestReader = manifestReader;
         this.evaluators = registerEvaluators();
+        // Virtual thread executor for I/O-bound manifest reads
+        // Unbounded pool since virtual threads are lightweight and block efficiently
+        this.ioExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
     
     /**
@@ -56,7 +63,7 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
     
     @Override
     public GuardResult checkDependencies(JobExecutionContext context) {
-        log.debug("Checking dependencies for job={} executionId={}", 
+        log.debug("Checking dependencies for job={} executionId={}",
             context.getJobName(), context.executionId());
         
         // Parse dependencies from job config
@@ -67,16 +74,39 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
             return GuardResult.ready();
         }
         
-        log.info("Found {} dataset dependencies for job={}", dependencies.size(), context.getJobName());
+        log.info("Found {} dataset dependencies for job={}, evaluating in parallel",
+            dependencies.size(), context.getJobName());
         
-        // Evaluate each dependency
+        // Evaluate all dependencies in parallel using CompletableFuture
+        List<CompletableFuture<DependencyEvaluationResult>> futures = dependencies.stream()
+            .map(dep -> CompletableFuture.supplyAsync(
+                () -> evaluateDependencyAsync(dep, context),
+                ioExecutor
+            ))
+            .toList();
+        
+        // Wait for all evaluations to complete
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(
+            futures.toArray(new CompletableFuture[0])
+        );
+        
+        // Collect results (blocking wait)
+        allOf.join();
+        
+        List<DependencyEvaluationResult> evaluationResults = futures.stream()
+            .map(CompletableFuture::join)
+            .toList();
+        
+        // Aggregate results
         List<DependencyCheckResult> allResults = new ArrayList<>();
         List<DependencyCheckResult> enforcedFailures = new ArrayList<>();
         List<DependencyCheckResult> documentationOnlyFailures = new ArrayList<>();
         Map<DatasetRef, String> approvedInputVersions = new LinkedHashMap<>();
         
-        for (DatasetDependency dependency : dependencies) {
-            List<DependencyCheckResult> depResults = evaluateDependency(dependency, context);
+        for (DependencyEvaluationResult evalResult : evaluationResults) {
+            DatasetDependency dependency = evalResult.dependency();
+            List<DependencyCheckResult> depResults = evalResult.results();
+            
             allResults.addAll(depResults);
             
             // Separate enforced failures from documentation-only failures
@@ -109,7 +139,7 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
         // Determine final result
         if (!enforcedFailures.isEmpty()) {
             String blockReason = buildBlockReason(enforcedFailures);
-            log.info("Job BLOCKED due to {} unmet ENFORCED dependencies: job={} reason={}", 
+            log.info("Job BLOCKED due to {} unmet ENFORCED dependencies: job={} reason={}",
                 enforcedFailures.size(), context.getJobName(), blockReason);
             return GuardResult.blocked(enforcedFailures, blockReason);
         }
@@ -151,10 +181,22 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
     }
     
     /**
-     * Evaluate all conditions for a single dataset dependency.
+     * Wrapper for async dependency evaluation result.
      */
-    private List<DependencyCheckResult> evaluateDependency(
-        DatasetDependency dependency, 
+    private record DependencyEvaluationResult(
+        DatasetDependency dependency,
+        List<DependencyCheckResult> results
+    ) {}
+    
+    /**
+     * Evaluate all conditions for a single dataset dependency (async-compatible).
+     *
+     * <p>This method is designed to be called from a virtual thread executor,
+     * allowing multiple dependencies to be evaluated in parallel without blocking
+     * the main scheduler thread.
+     */
+    private DependencyEvaluationResult evaluateDependencyAsync(
+        DatasetDependency dependency,
         JobExecutionContext context
     ) {
         List<DependencyCheckResult> results = new ArrayList<>();
@@ -167,7 +209,8 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
             context.executionId()
         );
         
-        // Evaluate each condition
+        // Evaluate each condition sequentially within this dependency
+        // (parallelizing across dependencies is more important than within a dependency)
         for (DependencyCondition condition : dependency.conditions()) {
             ConditionEvaluator evaluator = evaluators.get(condition);
             
@@ -211,7 +254,7 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
             }
         }
         
-        return results;
+        return new DependencyEvaluationResult(dependency, results);
     }
     
     private void approveInputVersion(

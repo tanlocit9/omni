@@ -11,7 +11,8 @@ Prevent overdue scheduled jobs from starting nearly simultaneously after a servi
 - `JobScheduler` creates due executions and PENDING outbox messages without blocking on dependencies.
 - `SchedulerOutboxDispatcher` evaluates dependency eligibility before claim/publish.
 - A dedicated Spring Modulith module exports only the `DependencyRegistry` contract and the minimum immutable request/result types.
-- The module implementation, VN factory/catalog, evaluators, codecs, and storage-shape helpers remain private.
+- The module implementation, factory abstraction, VN factory/catalog, evaluators, codecs, and storage-shape helpers remain private.
+- The registry selects a dependency factory by market, so future markets can add factories without changing Scheduler or Outbox.
 - V1 uses static definitions; no dependency repository or dependency table is introduced.
 - Dispatch is scoped to the same logical run and work item so an older success cannot unlock a new run.
 - Metadata jobs use a global barrier and cannot race upstream sync/manifest updates after evening startup.
@@ -37,9 +38,20 @@ The minimum exported immutable types are `DependencyKey`, `DependencySpec`, `Dep
 
 Private V1 implementation:
 
-- `StaticDependencyRegistry`: immutable definitions keyed by stable job/work type.
-- `VnDependencyFactory`: creates the VN dependency catalog.
-- `DependencyEvaluator`: resolves job status, dataset readiness, and global barriers.
+```text
+DependencyRegistry
+  -> DependencyFactory
+       -> VNDependencyFactory
+            -> specs()
+            -> evaluate(request)
+```
+
+- `DependencyFactory`: private internal SPI with a stable market key, `specs()`, and `evaluate(request)`.
+- `VNDependencyFactory`: V1 implementation that owns the immutable VN dependency catalog and evaluation rules.
+- `StaticDependencyRegistry`: indexes all injected factories by market and delegates lookup/evaluation to the matching factory.
+- A future market adds another private `DependencyFactory` implementation; Scheduler and Outbox continue using only `DependencyRegistry`.
+- Registry startup fails on duplicate market keys or when a request has no matching factory, instead of silently choosing a default.
+- `DependencyEvaluator`: resolves job status, dataset readiness, and global barriers for the selected factory.
 - `DependencySpecCodec`: converts definitions to/from neutral column/JSON maps for future persistence or SQL binding; it does not generate raw SQL.
 - No repository, dependency table, or runtime write API in V1.
 
@@ -47,12 +59,13 @@ Private V1 implementation:
 
 1. Scheduler calculates due work, creates the execution, and writes a PENDING outbox message.
 2. Dispatcher over-fetches PENDING candidates so blocked rows do not consume the publish batch.
-3. For each candidate, dispatcher builds a request with `jobDefinitionId`, `executionId`, `parentExecutionId`, `workType`, `workKey`, and `runKey`/trading date.
-4. Registry returns:
+3. For each candidate, dispatcher builds a request with `market`, `jobDefinitionId`, `executionId`, `parentExecutionId`, `workType`, `workKey`, and `runKey`/trading date.
+4. Registry selects the matching `DependencyFactory`; V1 routes VN requests to `VNDependencyFactory`.
+5. The selected factory evaluates its static specs and returns:
    - `READY`: atomically claim and publish.
    - `WAITING`: keep PENDING, do not increment attempts, and return an optional `retryAt`.
    - `FAILED`: stop retrying and mark the downstream execution blocked/failed with a reason code.
-5. On the next poll, completed upstream work unlocks eligible downstream messages.
+6. On the next poll, completed upstream work unlocks eligible downstream messages.
 
 Eligibility is evaluated before the atomic claim. Concurrent dispatchers must still rely on the existing database claim/locking boundary to prevent duplicate publication.
 
@@ -70,7 +83,7 @@ Eligibility is evaluated before the atomic claim. Concurrent dispatchers must st
 
 ## Implementation Increments
 
-1. Add the `dependency` module, exported contract, private VN static factory, evaluator, and codec.
+1. Add the `dependency` module and exported registry contract, plus the private `DependencyFactory` SPI, `VNDependencyFactory`, evaluator, and codec.
 2. Migrate existing scheduler dependency definitions into the registry without changing their meaning.
 3. Remove dependency blocking from `JobScheduler`; always enqueue due work transactionally.
 4. Add the registry gate to outbox candidate selection/claim and prevent head-of-line blocking.
@@ -123,6 +136,7 @@ Not run for this documentation-only draft.
 Required implementation evidence:
 
 - Spring Modulith boundary test proves only the dependency contract package is exported.
+- Factory-routing tests prove VN selection, rejection of duplicate market keys, and failure for an unsupported market.
 - Scheduler test proves unmet dependencies do not prevent PENDING outbox creation.
 - Dispatcher tests cover `READY`, `WAITING`, `FAILED`, no attempt increment while waiting, and no blocked-row starvation.
 - Scope tests prove exact run/trading-date and work-key matching.
@@ -141,6 +155,7 @@ Required implementation evidence:
 - Dependency resolution is exact to the same run and work item.
 - Metadata dispatch waits for the complete upstream run barrier.
 - Only the registry contract is visible outside the dependency module.
+- A new market factory can be added without changing Scheduler, Outbox, or the exported registry contract.
 - V1 has no dependency repository and no Kafka, manifest, or storage-path contract change.
 
 ## Non-goals

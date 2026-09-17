@@ -33,6 +33,11 @@ rules belong in [`docs`](docs); do not duplicate them in agent files.
 ## Nx command boundary
 
 - Run commands from the workspace root.
+- Always prefer using Nx targets for dependency installation, environment sync, and service execution in Python projects:
+  - After editing `pyproject.toml` or dependency group, run:
+    - `nx run <project>:install` to install dependencies and set up the environment
+    - `nx run <project>:lock` to update and synchronize the lock file
+  - This ensures reproducible environments across development, CI/CD, and all contributors.
 - Inspect unfamiliar projects with `nx show project <project>` and use only targets
   defined by that project's `project.json`.
 - Invoke project operations as `nx run <project>:<target>`. Use an underlying tool

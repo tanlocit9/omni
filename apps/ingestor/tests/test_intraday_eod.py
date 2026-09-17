@@ -158,14 +158,18 @@ def test_reconciliation_requires_exact_eod_trading_date(
 
 
 @pytest.mark.anyio
-async def test_cursor_adapter_rejects_repeated_full_page_cursor() -> None:
+async def test_intraday_adapter_fetches_complete_session_in_one_call() -> None:
+    calls: list[dict[str, str]] = []
+    expected = pd.DataFrame([{"time": "2026-09-09T09:15:00+07:00"}])
+
     class Quote:
         def intraday(self, **kwargs):
-            return pd.DataFrame(
-                [{"time": "2026-09-09T09:15:00+07:00", "truncTime": "same"}]
-            )
+            calls.append(kwargs)
+            return expected
 
-    adapter = VCIIntradayQuoteAdapter(lambda **kwargs: Quote(), page_size=1)
+    adapter = VCIIntradayQuoteAdapter(lambda **kwargs: Quote())
 
-    with pytest.raises(ValueError, match="did not advance"):
-        await adapter.fetch_session("HPG", date(2026, 9, 9))
+    result = await adapter.fetch_session("HPG", date(2026, 9, 9))
+
+    assert calls == [{"start": "2026-09-09", "end": "2026-09-09"}]
+    pd.testing.assert_frame_equal(result, expected)

@@ -4,6 +4,8 @@
 
 Deferred technical debt. Generated HTTP clients, unified API documentation, and contract CI improve maintainability but do not add immediate value to the current daily/EOD, basic operator-control, or Telegram MVP. This plan is not a prerequisite and requires owner reactivation through [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
 
+Generic contract-lifecycle tooling adoption is tracked separately in [Plan 026 — ContractKit Adoption for Omni](026-contractkit-adoption.md). This plan continues to own HTTP/OpenAPI models, generated HTTP clients, and the unified API documentation boundary.
+
 ## Objective
 
 Create a reusable workspace-level API contract pipeline for Python backend services and TypeScript/React clients. FastAPI/Pydantic remains the source of truth, OpenAPI is the language-neutral artifact, generated TypeScript models and clients are consumed by Omni Console, and one developer portal exposes all backend service APIs through Swagger UI.

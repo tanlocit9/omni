@@ -61,8 +61,9 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) — compatibility roadmap index.
 - [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md) — superseded compatibility document.
 - [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md) — active P8-I5 supporting detail for separate scheduler/notification outboxes and durable Telegram delivery; canonical scheduling remains in the roadmap registry.
-- [Intraday Confirmation for Confirmed Trend](plans/021-intraday-confirmed-rules.md) — implementation-ready Phase 9/Phase 8 signal follow-up.
-- [Dependency-Aware Outbox Dispatch](plans/023-dependency-aware-outbox-dispatch.md) — active P4-I3 supporting detail for static VN dependency policies, shared scheduled/manual outbox gating, and terminal dependency blocking; canonical scheduling remains in the roadmap registry.
+- [MVP Polyglot Correlation and Sync Failure Logging](plans/024-polyglot-correlation-structured-logging.md) — proposed debugging MVP for locating when and why sync work fails; not roadmap-scheduled.
+- [Polycheck Adoption for Omni](plans/025-polycheck-adoption.md) — deferred generic repository-readiness CLI adoption with Nx as the first adapter.
+- [ContractKit Adoption for Omni](plans/026-contractkit-adoption.md) — deferred generic contract-lifecycle adoption with Buf as the Protobuf engine and Karapace optional.
 
 ### References and Technical Debt
 
@@ -70,6 +71,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [P3-I5 Metadata Reconciliation Technical Debt](technical-debt/001-p3-i5-metadata-reconciliation.md)
 - [Telegram Notification Deduplication Technical Debt](technical-debt/002-telegram-notification-deduplication.md) — retained cooldown-specific follow-ups; active durable delivery is P8-I5.
 - [Temporary System Operator UUID Technical Debt](technical-debt/003-system-operator-uuid.md)
+- [Post-MVP Roadmap Work](technical-debt/004-post-mvp-roadmap-work.md) — deferred scope that must not block the active MVP, including production logging hardening.
 - [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md)
 
 ## Canonical Documents

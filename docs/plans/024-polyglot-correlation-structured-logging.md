@@ -1,28 +1,61 @@
-# Plan 024 — Polyglot Correlation and Structured Logging
+# Plan 024 — MVP Polyglot Correlation and Sync Failure Logging
 
-Canonical status and schedule owner: [Phase 11 increments P11-I1 through P11-I5](../../plans/roadmap/implementation-increments.md). This document is the canonical supporting implementation design and does not independently own statuses or readiness.
+Plan ID: `024`  
+Status: Owner-approved MVP direction; supporting plan; not roadmap-scheduled  
+Primary outcome: know which sync failed, when it failed, where it failed, and why  
+Scope: Java Platform, Python workers, Kafka, jobs, scheduler outbox, HTTP support lookup, Fluent Bit, and VictoriaLogs  
+Delivery rule: implement four independently reviewable increments; production hardening remains technical debt
 
-Plan ID: `024`
-Status: Owner-approved Phase 11 supporting plan; implementation not started
-Scope: Java Platform, Python services, TypeScript console, HTTP, Kafka, jobs, and durable outbox boundaries
-Roadmap: Execute P11-I1 through P11-I5 sequentially after completed P4-I3 and P8-I5; do not implement the full plan as one change
-Selected log stack: structured JSON → Fluent Bit → VictoriaLogs; Loki is not required
+Selected stack:
+
+```text
+structured JSON stdout -> Fluent Bit -> VictoriaLogs
+```
+
+Loki is not required. Grafana, Prometheus, VictoriaMetrics, OpenTelemetry, S3/MinIO log archive, Kubernetes, and HA are not MVP dependencies.
 
 ## Goal
 
-Establish one durable business-correlation model and one structured-log contract across Omni's Java, Python, and browser boundaries without coupling business availability to a log collector or tracing backend.
+Make a failed sync diagnosable without searching unrelated console output across services.
+
+Starting from a job, symbol/work item, timestamp, or support ID, the operator must be able to answer:
+
+1. Which sync operation failed?
+2. When did it start and fail?
+3. Which service and processing stage failed?
+4. Which job execution, work item, Kafka record, and retry attempt were involved?
+5. What normalized error category/code was reported?
+6. What exception and safe diagnostic message explain the failure?
+7. Is the failure retryable, and did a later attempt succeed?
+8. Which Java -> Kafka -> Python -> Kafka -> Java events belong to the same flow?
+
+This is a debugging MVP, not a complete observability platform.
 
 ## Outcome
 
-After P11-I1 through P11-I5 complete, HTTP requests, scheduled and manual jobs, durable outbox retries, Kafka processing, and status callbacks preserve independently meaningful `correlationId`, `requestId`, and `executionId` values. Java and Python emit schema-compatible structured JSON, the browser propagates identifiers without bundling a server logger, and an optional Fluent Bit/VictoriaLogs profile provides searchable logs while remaining fail-open.
+After the MVP:
+
+- Java and Python emit compatible single-line JSON logs;
+- one `correlationId` follows the complete sync flow and survives outbox delay/retry;
+- HTTP-triggered work also carries a `requestId`;
+- every sync boundary emits a small set of stable lifecycle events;
+- failures contain normalized, searchable diagnostic fields;
+- Java MDC and Python `ContextVar` scopes are cleared after each request/record/task;
+- Fluent Bit collects service stdout and sends it to one VictoriaLogs instance;
+- an operator can query one `correlationId` and see the ordered failure trail;
+- logging/collector/backend failure never changes the sync business result.
 
 ## Dataset Outputs
 
 No analytical dataset output.
 
+Operational logs are not market datasets and are not consumed by trading algorithms.
+
 ## Metadata Outputs
 
 No dataset metadata output.
+
+DatasetManifest, READY publication, and `dataVersion` lineage are unchanged.
 
 ## Algorithm Feature Outputs
 
@@ -30,184 +63,143 @@ No direct algorithm feature output.
 
 ## Algorithms Unlocked
 
-No trading algorithm directly. Durable correlation and structured logs make pipeline failures, retries, stale inputs, duplicate processing, and latency regressions diagnosable without changing analytical behavior.
+No trading algorithm is unlocked. The MVP makes ingestion and analysis failures easier to diagnose.
 
-## Decision
+## MVP Boundary
 
-Use three separate identifiers with fixed semantics:
+### Included
 
-| Field           | Lifetime                                                             | Durable storage                                              | Purpose                              |
-| --------------- | -------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
-| `correlationId` | Entire business flow across HTTP, jobs, Kafka, retries, and services | Required on job execution and durable outbox rows            | Primary end-to-end investigation key |
-| `requestId`     | Originating request/trigger and its asynchronous chain               | Required on outbox when available; optional on job execution | Operator-facing request lookup       |
-| `executionId`   | One durable job execution                                            | Existing job execution identity                              | Job status, retry, and lineage       |
+- shared `correlationId`, `requestId`, and existing job/execution identifiers;
+- Java scoped MDC and Python scoped `ContextVar`;
+- structured JSON for Platform, Analyzer, Ingestor, and Query Service;
+- sync lifecycle events and a small error taxonomy;
+- HTTP ingress/response header propagation needed for support lookup;
+- Kafka producer/consumer header propagation;
+- durable correlation on new job execution and scheduler-outbox rows;
+- retry/failure/status propagation;
+- minimal browser TypeScript header propagation and support-ID display;
+- optional local/VM Compose profile with Fluent Bit and VictoriaLogs;
+- saved debug queries and a short failure-investigation runbook.
 
-Do not alias these values. Do not replace them with OpenTelemetry `traceId`. A later tracing increment may add `traceId` and `spanId` without changing the business correlation model.
+### Explicitly excluded from MVP
 
-Canonical propagation names:
+- Kubernetes and Helm deployment;
+- `VLCluster`, replicated VictoriaLogs, or multi-zone HA;
+- VictoriaLogs snapshot backup/restore and disaster-recovery objectives;
+- production SLO, RPO, RTO, capacity certification, and long outage testing;
+- `vmauth`, multitenancy, mTLS, and enterprise RBAC;
+- S3/R2/MinIO raw log archive;
+- Grafana dashboards and a new alerting subsystem;
+- OpenTelemetry traces, `traceId`, and `spanId`;
+- dynamic sampling and advanced cardinality analysis;
+- historical database backfill and immediate `NOT NULL` enforcement;
+- Node/Pino implementation while no Node backend exists;
+- browser log ingestion;
+- automated privacy deletion workflow.
+
+Excluded work is recorded under the production logging section of
+`docs/technical-debt/004-post-mvp-roadmap-work.md`. None of it blocks the MVP.
+
+## Identifier Semantics
+
+| Field               | Lifetime                               | Source                             | MVP persistence                   | Purpose                                          |
+| ------------------- | -------------------------------------- | ---------------------------------- | --------------------------------- | ------------------------------------------------ |
+| `correlationId`     | Entire business flow                   | Accepted/generated at root         | New job execution and outbox rows | Primary end-to-end debug key                     |
+| `requestId`         | Originating HTTP request/trigger chain | Accepted/generated at HTTP ingress | Outbox when available             | Support/request lookup                           |
+| `executionId`       | One job execution                      | Existing scheduler domain          | Already durable                   | Job state and retry lineage                      |
+| `parentExecutionId` | Parent/fan-out relationship            | Existing scheduler domain          | Already durable                   | Relate child executions                          |
+| `triggerRequestId`  | Existing manual-trigger audit request  | Existing job operations API        | Existing audit persistence        | Distinguish domain request from HTTP `requestId` |
+
+Do not alias these values. They are diagnostic metadata, never authentication, authorization, ownership, idempotency, or deduplication keys.
+
+Canonical wire names:
 
 ```text
-HTTP
+HTTP:
   X-Correlation-ID
   X-Request-ID
 
-Kafka
+Kafka:
   x-correlation-id
   x-request-id
 ```
 
-`correlationId` remains unchanged for the whole flow. Child executions inherit it and receive their own `executionId`. Outbox retries reuse the values captured when the row was created.
+The existing manual-job API field and route parameter named `requestId` remain wire-compatible. Structured logs call that value `triggerRequestId`; HTTP transport context remains `requestId`.
 
-## Main-Branch Scan
+## Current-State Findings
 
-Scan base: `main` on 2026-09-17.
+Scan base: `main` at `476d61d692525e484a28bb9c5ffe903b11faa3be`.
 
-- Core's Logback pattern reads MDC `traceId`, but Core has no tracing dependency or shared MDC population. The field normally falls back to `system`.
-- `KafkaPublisher` publishes key and payload only. `AbstractConsumer` records Kafka coordinates but does not extract correlation headers or open a scoped logging context.
-- `job_execution_histories` has no `correlation_id` or transport request identifier.
-- `scheduler_outbox_messages` stores payload and delivery state but no immutable correlation snapshot.
-- Python services use ordinary `logging.basicConfig`; shared ASGI and Kafka helpers have no `ContextVar` correlation support.
-- Python status publishers do not inject Kafka correlation headers.
-- TypeScript currently exists as the React/Vite `omni-console`; there is no Node backend service on `main`.
-- Console API requests do not create or propagate correlation/request headers.
-- `libs/contracts` currently owns Protobuf service contracts only. Its Nx targets do not validate JSON schemas.
-- Notification outbox is planned but not implemented on `main`; its implementation must adopt this model from the start.
+- Platform Logback references MDC `traceId`, but no shared context populates it.
+- Kafka publishers/consumers do not propagate application correlation headers.
+- Job execution and scheduler outbox rows do not persist correlation.
+- Python services have no shared `ContextVar` logging context.
+- TypeScript is currently browser-only.
+- Core error handling creates a failure-only request ID that is disconnected from preceding logs.
+- Logs cannot currently be queried in one place by business flow.
 
-## Architecture
+## Contract Ownership
 
-```text
-Omni Console
-  -> HTTP headers
-Core / Query Service
-  -> scoped log context
-  -> job execution + outbox correlation snapshot
-Kafka
-  -> headers
-Analyzer / Ingestor
-  -> scoped log context
-  -> Kafka headers
-Core
-```
-
-### Contract ownership
-
-Keep machine-readable names and shapes in `libs/contracts`, but keep runtime logging implementations language-specific.
-
-Proposed contract files:
+Add:
 
 ```text
-libs/contracts/observability/log-event.schema.json
-libs/contracts/observability/correlation-context.schema.json
-libs/contracts/observability/README.md
+libs/contracts/observability/
+  correlation-context.schema.json
+  log-event.schema.json
+  README.md
 ```
 
-The contracts define:
+The contract defines:
 
-- canonical structured-log field names and types;
+- canonical field names and JSON types;
 - HTTP and Kafka header names;
-- identifier validation and length limits;
-- required versus optional fields;
-- schema version.
+- ID validation and maximum length;
+- required MVP lifecycle/error fields;
+- `schemaVersion: 1`;
+- prohibited fields and basic truncation/redaction rules.
 
-Do not add logging libraries, MDC helpers, Python context code, or TypeScript runtime code to `libs/contracts`. Update the contracts Nx targets so JSON schemas are included in lint/test checks.
-
-Do not add correlation fields to every Protobuf business payload. HTTP/Kafka headers carry transport context; job and outbox tables provide durable correlation.
-
-### Java
-
-Proposed location:
+Runtime code remains language-specific:
 
 ```text
-apps/core/src/main/java/com/omni/platform/shared/infrastructure/observability/
+Java   -> apps/core/.../shared/infrastructure/observability
+Python -> libs/py-common/py_common/observability
+Web    -> apps/omni-console HTTP client helper
 ```
 
-Add:
+Do not add correlation fields to every Protobuf payload. Headers carry transport context; jobs/outboxes carry durable context.
 
-- `CorrelationContext`: immutable validated values.
-- `CorrelationIds`: generation and validation.
-- `MdcScope implements AutoCloseable`: install and restore fields.
-- `RequestCorrelationFilter`: HTTP extraction/generation and response headers.
-- Kafka extraction/injection helpers or Spring interceptors.
-- `CorrelationTaskDecorator`: explicit context copy for approved executor boundaries.
+### Contract Impact
 
-Use SLF4J MDC as the Java per-thread log context. MDC is already thread-local in its runtime behavior; do not introduce a second raw `ThreadLocal<Map<...>>`. Every consumer, scheduler, executor, and request boundary must close/clear its scope in `finally` or try-with-resources.
+| Surface                  | MVP impact                                                   |
+| ------------------------ | ------------------------------------------------------------ |
+| Kafka/service Protobuf   | No payload change; additive headers only                     |
+| Object-storage manifests | No change                                                    |
+| Dataset paths/ownership  | No change                                                    |
+| Java API                 | Internal observability helpers                               |
+| Python API               | Shared `py-common.observability` helpers                     |
+| HTTP                     | Additive request/response headers                            |
+| Database                 | Nullable correlation/request columns for new job/outbox rows |
+| Configuration            | JSON log mode plus optional collector/backend settings       |
 
-Do not assume MDC automatically follows `@Async`, executor pools, callbacks, or virtual threads. Copy only the allowlisted context through an explicit decorator/snapshot.
+Consumers must continue accepting Kafka records without headers during rollout.
 
-Use Logback structured JSON output. Prefer Spring Boot-supported structured logging when it satisfies the schema; otherwise use one maintained JSON encoder behind Logback. An async appender may buffer console/file output, but no application appender may upload directly to MinIO/S3.
+## Sync Lifecycle Events
 
-### Python
+Use a stable `eventName`, not free-text messages, as the primary query field.
 
-Proposed location:
+| Event                    | Level | Required timing                                     | Purpose                                |
+| ------------------------ | ----- | --------------------------------------------------- | -------------------------------------- |
+| `sync.started`           | INFO  | When a worker begins one logical work item          | Establish start time and attempt       |
+| `sync.completed`         | INFO  | After output/status persistence succeeds            | Establish success and duration         |
+| `sync.failed`            | ERROR | At the boundary that owns the failed work item      | Primary failure record                 |
+| `sync.retry_scheduled`   | WARN  | When another attempt will occur                     | Explain retry delay/attempt            |
+| `sync.blocked`           | WARN  | When a dependency prevents execution                | Separate dependency state from failure |
+| `outbox.dispatch_failed` | ERROR | When scheduler outbox publish fails                 | Locate pre-worker Kafka failure        |
+| `kafka.consume_failed`   | ERROR | When record processing fails before a domain result | Locate transport/decoding failure      |
 
-```text
-libs/py-common/py_common/observability/
-  context.py
-  logging.py
-  http.py
-  kafka.py
-```
+One boundary owns the canonical `sync.failed` event for a work item. Lower layers may log supporting errors, but must not emit multiple canonical failure events for the same attempt.
 
-Use `ContextVar`, not `threading.local()`, because the services use asynchronous ASGI and aiokafka flows.
-
-Add:
-
-- token-based context install/reset helpers;
-- ASGI middleware for HTTP headers;
-- logging filter/formatter that emits the canonical JSON schema;
-- aiokafka header extraction/injection helpers;
-- wrappers that reset context after every record, including failures and cancellation.
-
-Use one maintained JSON logger/formatter through `py-common`. Business handlers must not manipulate global logging state directly.
-
-### TypeScript
-
-Current TypeScript scope is browser-only.
-
-Add a small console HTTP client helper that:
-
-- creates or accepts a `correlationId` for a user operation;
-- generates a new `requestId` for each outbound HTTP request;
-- sets both canonical headers;
-- reads returned IDs for error/support display;
-- never uploads browser console logs directly to MinIO.
-
-Do not add Pino or `AsyncLocalStorage` to the React bundle.
-
-If a Node service is introduced later, create `libs/ts-common/observability` and use:
-
-- Node `AsyncLocalStorage` for scoped context;
-- Pino-compatible structured JSON;
-- HTTP and Kafka middleware using the same contracts;
-- mandatory cleanup/isolation tests.
-
-## Canonical Structured Log
-
-All backend runtimes emit the same logical fields. Optional fields are omitted rather than filled with misleading placeholders.
-
-```json
-{
-  "schemaVersion": 1,
-  "timestamp": "2026-09-17T10:00:00.000Z",
-  "level": "INFO",
-  "service": "ingestor",
-  "environment": "local",
-  "logger": "app.handlers.eod",
-  "correlationId": "4a948e9b-3c3d-47e3-aaf9-8409df7b3256",
-  "requestId": "req-01",
-  "executionId": "598d1db0-5e97-45a4-bfaa-dcff35069563",
-  "parentExecutionId": null,
-  "jobDefinitionId": "2f917bcb-ef30-43e8-b646-3a8f4b623688",
-  "workType": "SYMBOL",
-  "workKey": "FPT",
-  "topic": "sync-symbols-job",
-  "partition": 0,
-  "offset": 100,
-  "message": "Processing EOD command"
-}
-```
-
-Canonical fields:
+### Required failure fields
 
 ```text
 schemaVersion
@@ -215,304 +207,391 @@ timestamp
 level
 service
 environment
-logger
+eventName
 message
 correlationId
-requestId
+requestId                  # when available
 executionId
-parentExecutionId
-jobDefinitionId
+parentExecutionId          # when available
+jobDefinitionId            # when available
 workType
 workKey
-topic
-partition
-offset
-messageKey
-httpMethod
-httpPath
-httpStatus
-durationMs
+stage
+attempt
+retryable
+errorCategory
+errorCode
 exceptionType
 exceptionMessage
-stackTrace
+durationMs                 # when start time is known
+topic partition offset     # Kafka consumer failure
 ```
 
-Never log payload bodies, authorization values, cookies, credentials, Telegram tokens, SQL text, or arbitrary request headers. IDs belong in logs, not metric labels.
+### MVP error taxonomy
 
-## Persistence
+| `errorCategory`       | Example causes                                              |
+| --------------------- | ----------------------------------------------------------- |
+| `PROVIDER_RATE_LIMIT` | HTTP 429, provider throttle                                 |
+| `PROVIDER_AUTH`       | Invalid/expired provider credentials                        |
+| `PROVIDER_TIMEOUT`    | Provider read/connect timeout                               |
+| `PROVIDER_RESPONSE`   | Invalid response shape or provider error                    |
+| `NETWORK`             | DNS, connection reset, unreachable host                     |
+| `VALIDATION`          | Invalid command/payload/data                                |
+| `DEPENDENCY_BLOCKED`  | Required upstream state/data unavailable                    |
+| `KAFKA`               | Publish, consume, serialization, or deserialization failure |
+| `DATABASE`            | Job/outbox/status persistence failure                       |
+| `STORAGE`             | MinIO/S3/Parquet read/write failure                         |
+| `INTERNAL`            | Unclassified application failure                            |
 
-Add a new migration after rechecking the latest Flyway version at implementation time. On the scanned `main`, `V10` is the next candidate.
+`errorCode` is a stable application/provider code where available. Do not use the full exception message as a code.
 
-### Job execution
+The first implementation may map unknown errors to `INTERNAL`; it must preserve `exceptionType`, a sanitized `exceptionMessage`, and stack trace so the taxonomy can be refined later.
+
+## Canonical Log Example
+
+```json
+{
+  "schemaVersion": 1,
+  "timestamp": "2026-09-18T10:00:00.000Z",
+  "level": "ERROR",
+  "service": "ingestor",
+  "environment": "local",
+  "eventName": "sync.failed",
+  "message": "Stock price sync failed",
+  "correlationId": "4a948e9b-3c3d-47e3-aaf9-8409df7b3256",
+  "requestId": "6d0de49c-c31d-4f87-b750-72bc258e1f71",
+  "executionId": "598d1db0-5e97-45a4-bfaa-dcff35069563",
+  "workType": "SYMBOL",
+  "workKey": "FPT",
+  "stage": "provider.fetch_eod",
+  "attempt": 3,
+  "retryable": true,
+  "errorCategory": "PROVIDER_RATE_LIMIT",
+  "errorCode": "HTTP_429",
+  "exceptionType": "RetryError",
+  "exceptionMessage": "Provider request exhausted retry policy",
+  "durationMs": 30124,
+  "topic": "sync-stock-prices-job",
+  "partition": 0,
+  "offset": 100
+}
+```
+
+Optional fields are omitted rather than filled with misleading placeholders.
+
+## Runtime Context
+
+### Java
 
 Add:
 
+- immutable `CorrelationContext`;
+- ID generation/validation helpers;
+- `MdcScope implements AutoCloseable`;
+- HTTP request filter;
+- Kafka header helpers at shared publisher/consumer boundaries;
+- explicit snapshot/task decorator only where an executor boundary requires it.
+
+Use SLF4J MDC. Do not add another raw `ThreadLocal<Map<...>>`. Always restore/clear scope in `finally` or try-with-resources.
+
+Remove the misleading `traceId:-system` Logback placeholder and emit JSON in production/observability mode.
+
+### Python
+
+Add under `libs/py-common/py_common/observability`:
+
+- token-based `ContextVar` install/reset;
+- JSON logging formatter/filter;
+- aiokafka header extraction/injection;
+- shared failure-event helper;
+- optional ASGI middleware for services exposing HTTP.
+
+Reset context after success, exception, cancellation, and consumer shutdown.
+
+### TypeScript
+
+The browser console only:
+
+- sends `X-Correlation-ID` and `X-Request-ID`;
+- reads returned IDs;
+- shows the IDs in a support/error detail.
+
+Do not add Pino, `AsyncLocalStorage`, or browser log shipping in the MVP.
+
+## Propagation and Persistence
+
+### HTTP
+
+- accept one valid canonical UUID per header;
+- generate missing/invalid values;
+- never log rejected raw header values;
+- return both IDs on success and mapped errors;
+- never use IDs for authorization;
+- propagate only to approved internal Omni HTTP destinations.
+
+### Kafka
+
+- producer removes duplicate canonical keys and adds one value per header;
+- consumer validates headers before processing;
+- missing/invalid legacy headers generate safe values and do not fail the record;
+- retry/status/derived-event publishers preserve active IDs;
+- every consumer closes context before the next record.
+
+### Jobs and outbox
+
+Add nullable columns:
+
 ```sql
-correlation_id UUID NOT NULL
-request_id VARCHAR(128)
+job_execution_histories.correlation_id UUID
+job_execution_histories.request_id VARCHAR(128)
+scheduler_outbox_messages.correlation_id UUID
+scheduler_outbox_messages.request_id VARCHAR(128)
 ```
 
-Migration rules:
+MVP migration rules:
 
-- backfill each existing root execution with a generated UUID;
-- child executions inherit the parent's correlation ID when the relationship is reliable;
-- otherwise generate a safe independent correlation ID;
-- add an index on `correlation_id`;
-- do not hide these values only inside `meta_json`.
+- all new root executions receive a correlation ID;
+- children inherit the parent's correlation ID;
+- new outbox rows snapshot the current durable IDs;
+- dispatcher reads the row snapshot, never ambient MDC;
+- retries preserve the same IDs;
+- existing historical rows may remain null;
+- no historical backfill or immediate `NOT NULL` constraint is required for MVP.
 
-Scheduled work generates a correlation ID when the root execution is created. HTTP-triggered work uses the validated incoming/generated correlation ID.
+The future notification outbox must adopt the same snapshot semantics when implemented, but notification-outbox implementation does not block this plan.
 
-The existing manual-trigger `requestId` is the default `X-Request-ID` and durable request identifier for that manual-trigger flow. If no valid request ID is available at an ingress or background boundary, generate one and propagate it under `X-Request-ID`/`x-request-id`. Do not create a second competing request identifier for the same flow; `correlationId` and `executionId` remain separate.
+## Minimal Collection
 
-### Scheduler outbox
+Applications emit one JSON object per line to stdout.
 
-Persist an immutable snapshot:
+Fluent Bit:
 
-```sql
-correlation_id UUID NOT NULL
-request_id VARCHAR(128)
-```
+- runs as a separate Compose service;
+- reads container logs without mounting the Docker socket;
+- parses Docker wrapping and application JSON;
+- uses bounded filesystem buffering;
+- adds trusted `service`, `environment`, and `instance` fields;
+- sends records to VictoriaLogs;
+- does not block application readiness.
 
-The dispatcher reads these columns and injects Kafka headers. It must not read whatever MDC happens to exist on the scheduled dispatcher thread. Retries preserve the original values.
+VictoriaLogs:
 
-A constrained `headers_json` is acceptable only if future tracing headers require it. If introduced, allowlist keys and enforce per-value and aggregate size limits.
+- runs as one `VLSingle` Compose service with persistent local storage;
+- binds only to the private Compose network or localhost;
+- uses explicit time and disk retention suitable for local/home-lab use;
+- provides the initial query UI;
+- is not described as HA or fully production-ready.
 
-### Notification outbox
-
-The future notification outbox must use the same base correlation fields and retry semantics from its first migration. A shared Java outbox base type may expose correlation behavior, while each outbox remains independently owned and queryable.
-
-## Processing Rules
-
-### HTTP ingress
-
-1. Validate incoming IDs.
-2. Generate missing IDs.
-3. Open scoped context.
-4. Return both IDs in response headers.
-5. Reuse them in mapped error responses.
-6. Always close context.
-
-Suggested validation:
-
-- `correlationId`: canonical UUID.
-- `requestId`: 1-128 visible ASCII characters matching `[A-Za-z0-9._:-]+`.
-- Invalid values are replaced and rate-limited warnings do not echo raw input.
-
-### Kafka produce
-
-1. Snapshot the current allowlisted context.
-2. Inject lowercase ASCII headers.
-3. Preserve domain identifiers in the existing payload contract.
-4. Do not fail business processing solely because context is absent during rollout.
-
-### Kafka consume
-
-1. Extract and validate headers before payload handling.
-2. Generate missing values for legacy records.
-3. Open scoped log context with Kafka coordinates.
-4. Add domain fields after successful decoding.
-5. Process, publish, retry, or report failure.
-6. Clear/reset context in all paths.
-
-### Jobs and async execution
-
-- Root job: create or inherit the flow correlation ID.
-- Child job: inherit correlation ID; create a new execution ID.
-- Retry of the same execution/outbox record: preserve correlation ID.
-- New operator action: create a new request ID; reuse correlation ID only when intentionally continuing an existing flow.
-- Background scheduler/executor threads start clean unless a context snapshot is explicitly installed.
-
-## Log Collection and Deployment
-
-Application services emit structured JSON to stdout or rolling files. The selected runtime is:
+MVP VictoriaLogs stream fields:
 
 ```text
-Java / Python / future Node
-  -> JSON stdout or file
-  -> Fluent Bit
-  -> VictoriaLogs
+service
+environment
+eventName
 ```
 
-- Fluent Bit owns collection, disk buffering, retry, parsing, and delivery.
-- VictoriaLogs is the only required log backend; Loki is not part of the target stack.
-- Grafana is optional because VictoriaLogs provides a built-in query UI.
-- Prometheus and VictoriaMetrics are metrics systems and remain outside this logging plan.
-- Application services must not maintain a logging connection pool or upload one object per record.
-- Observability remains an optional deployment profile; application health must not depend on Fluent Bit or VictoriaLogs.
+Do not make `correlationId`, `requestId`, `executionId`, `workKey`, exception text, or raw HTTP paths stream fields or metrics labels.
 
-Deployment progression:
+## Debug Queries and Runbook
 
-| Environment         | Deployment                                                         |
-| ------------------- | ------------------------------------------------------------------ |
-| Local default       | JSON stdout only                                                   |
-| Local observability | One Fluent Bit container + one VictoriaLogs container              |
-| Single cloud VM     | Reuse the Compose profile with persistent VictoriaLogs storage     |
-| Kubernetes          | Fluent Bit DaemonSet + VictoriaLogs `VLSingle`/StatefulSet         |
-| Larger cluster      | Fluent Bit per node + `VLCluster` through VictoriaMetrics Operator |
-
-If raw long-term archive is later required, configure an explicit second Fluent Bit output to MinIO/S3:
+Document equivalent LogsQL queries for:
 
 ```text
-Fluent Bit
-  -> VictoriaLogs        # realtime search, bounded retention
-  -> MinIO/S3 JSON.gz    # optional raw archive
+one correlationId ordered by timestamp
+all sync.failed events in a time range
+failures by service and stage
+failures by workType/workKey
+provider rate-limit failures
+retryable failures with no later sync.completed
+outbox dispatch failures
+Kafka record by topic/partition/offset
 ```
 
-The archive is optional and must not be confused with VictoriaLogs persistence. Use a service/date/hour object layout only when the archive output is enabled.
+Failure investigation:
 
-Browser logs are excluded unless a separate authenticated, rate-limited, redacted ingestion API is approved.
-
-## Contract Impact
-
-| Contract area                     | Decision                                                                                                                                                                                                      |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kafka/service-to-service protobuf | Protobuf payloads remain unchanged. Add optional, validated `x-correlation-id` and `x-request-id` Kafka headers; update every producer and consumer together with backward-compatible header-absent handling. |
-| Object-storage JSON manifest      | Unchanged. Correlation does not alter READY, immutable version, or `dataVersion` lineage semantics.                                                                                                           |
-| Storage path/dataset ownership    | Unchanged. Optional raw log archive, if later enabled, is an operations output owned by Fluent Bit and is not a business dataset or routing contract.                                                         |
-| Public Java/Python API            | Add small shared Java observability APIs and `py_common.observability` APIs. Browser HTTP helpers add canonical headers. Callers and implementations migrate incrementally in P11-I1 through P11-I4.          |
-| Configuration/environment         | Add structured-log and optional collector/backend settings with fail-open defaults. VictoriaLogs is optional; application health cannot depend on it.                                                         |
-| Database                          | P11-I3 adds additive correlation/request columns to job execution and scheduler/notification outbox persistence. Schema and compatible readers deploy before writers; retries preserve immutable snapshots.   |
-
-Compatibility and rollout are consumer-first: accept absent headers, deploy schema/readers before writers, then enable producers. Physical object paths never enter Kafka business messages, generated protobuf output is not edited, and existing READY-last behavior is unchanged.
-
-## Repository Guidance Updates
-
-Implementation must review and synchronize:
-
-- `docs/architecture/001-system-overview.md`;
-- `docs/flows/001-job-execution.md` and affected service flows;
-- `docs/data/001-kafka-contracts.md` for transport-header conventions;
-- `docs/data/003-database.md` for durable correlation columns;
-- `docs/development/001-where-to-change.md`;
-- Platform, Analyzer, Ingestor, Query Service, Console, contracts, and `py-common` README files where their runtime boundary changes;
-- `AGENTS.md`, `CLAUDE.md`, and `.roo/rules/` only when repository workflow or ownership guidance changes.
+1. Start from `executionId`, `workKey`, timestamp, or support ID.
+2. Find the canonical `sync.failed` event.
+3. Copy its `correlationId`.
+4. Query all records with that correlation ID ordered by time.
+5. Identify the last successful stage and first failed stage.
+6. Inspect `errorCategory`, `errorCode`, `retryable`, attempt, and exception fields.
+7. Check whether a later `sync.completed` exists for the same execution/work item.
+8. Use Kafka coordinates only when record-level inspection/replay is required.
 
 ## Implementation Increments
 
-### P11-I1 — Contract and structured logging
+### 024-I1 — Context, schema, and lifecycle events
 
-- Add observability JSON schemas and contract tests.
-- Implement Java `MdcScope` and canonical JSON output.
-- Implement Python `ContextVar` and canonical JSON output.
-- Remove the misleading Logback `traceId:-system` placeholder.
-- Add isolation, nesting, cleanup, and schema-conformance tests.
+Status: pending; not roadmap-scheduled.
 
-Exit: representative Java and Python log events validate against one schema without stale context leakage.
+- Add observability JSON schemas and field glossary.
+- Implement Java MDC and Python `ContextVar` scopes.
+- Configure one-line JSON output.
+- Add lifecycle-event helper and MVP error taxonomy.
+- Add redaction/truncation rules for exception messages and stack traces.
+- Add isolation, cleanup, schema, and error-mapping tests.
 
-### P11-I2 — HTTP and console propagation
+Exit: representative Java/Python `sync.started`, `sync.completed`, and `sync.failed` events validate against one schema with no context leakage.
 
-- Add Core request-correlation filter.
-- Add shared Python ASGI middleware.
-- Update exception responses to reuse active IDs.
-- Update console HTTP clients to send and receive the canonical headers.
-- Configure CORS to allow request headers and expose response headers.
-- Add integration tests for missing, valid, invalid, and concurrent IDs.
+### 024-I2 — HTTP, Kafka, job, and outbox correlation
 
-Exit: a console request can be located in Core or Query Service logs by correlation/request ID.
+Status: pending.  
+Depends on: 024-I1.
 
-### P11-I3 — Job and outbox persistence
+- Add HTTP request filter/middleware and response headers.
+- Add minimal console header propagation/support display.
+- Update all shared Java/Python Kafka produce/consume boundaries.
+- Add nullable job/outbox columns and populate new rows.
+- Preserve context through retries, status messages, and process restart.
+- Keep legacy headerless records and historical null rows compatible.
 
-- Add migration and entity fields.
-- Populate root/child execution correlation.
-- Snapshot correlation/request IDs in scheduler outbox rows.
-- Include correlation fields in job API responses where operationally useful.
-- Define notification outbox adoption requirements.
+Exit: Java -> Kafka -> Python -> Kafka -> Java keeps one correlation ID, and outbox retry after restart uses the stored IDs.
 
-Exit: delayed dispatch and retry retain the original correlation ID after process restart.
+### 024-I3 — Sync failure diagnostics
 
-### P11-I4 — Kafka propagation
+Status: pending.  
+Depends on: 024-I1 and 024-I2.
 
-- Add Java and Python header helpers.
-- Update every producer and consumer boundary.
-- Update scheduler outbox dispatch to publish stored headers.
-- Cover status, upsert, signal, metadata, notification, and intraday paths.
-- Test absent, malformed, duplicated, oversized, and invalid UTF-8 headers.
+- Instrument sync entry/exit/failure boundaries in Platform, Ingestor, and Analyzer.
+- Map provider, Kafka, database, storage, validation, and dependency failures.
+- Record stage, attempt, retryable, duration, work identity, and Kafka coordinates.
+- Ensure exactly one canonical `sync.failed` per work-item attempt.
+- Add integration tests for provider 429/timeout/bad response, validation, storage, Kafka, and unknown exception paths.
 
-Exit: Java → Kafka → Python → Kafka → Java logs share one correlation ID and retain the expected request/execution IDs.
+Exit: every tested failure answers which sync, when, where, why, retryability, and correlation trail.
 
-### P11-I5 — Fluent Bit and VictoriaLogs deployment
+### 024-I4 — Central search and debug runbook
 
-- Add an optional Compose observability profile with Fluent Bit and VictoriaLogs.
-- Add persistent VictoriaLogs storage and an explicit retention period.
-- Add Fluent Bit disk buffering, bounded retry, health checks, and fail-open behavior.
-- Add Kubernetes-ready configuration for Fluent Bit DaemonSet and VictoriaLogs `VLSingle`; defer `VLCluster` until capacity requires it.
-- Keep Grafana optional and keep Loki out of the deployment.
-- Add optional MinIO/S3 raw JSON archive only as a separate Fluent Bit output.
-- Verify collector/backend/archive outages cannot block business processing.
-- Add OpenTelemetry only if span timing is needed; keep it independent of durable business correlation.
+Status: pending.  
+Depends on: 024-I1 through 024-I3.
 
-Exit: logs are searchable in VictoriaLogs by service, time range, and correlation fields; the same application images run with observability disabled, on Compose, and on Kubernetes.
+- Add optional Compose profile with pinned Fluent Bit and VictoriaLogs images.
+- Add bounded Fluent Bit filesystem buffer and persistent VictoriaLogs volume.
+- Add local/home-lab retention and private binding.
+- Add saved/example LogsQL queries and the failure runbook.
+- Test collector/backend unavailable and restart behavior without failing sync processing.
+
+Exit: an operator finds a failed sync in VictoriaLogs and reconstructs the Java/Python/Kafka flow from one correlation ID.
 
 ## Verification
 
-Required unit coverage:
+Required coverage:
 
-- Java MDC nested scope restore and thread-pool isolation.
-- Python `ContextVar` nested reset and concurrent task isolation.
-- Future Node `AsyncLocalStorage` isolation if a Node service exists.
-- HTTP identifier validation/generation.
-- Kafka extraction/injection and cleanup.
-- Job parent/child inheritance.
-- Outbox restart/retry preservation.
-- JSON schema validation and secret redaction.
+- Java MDC nesting, cleanup, and reused-thread isolation;
+- Python `ContextVar` reset, concurrent-task isolation, and cancellation;
+- structured-log schema and prohibited-field fixtures;
+- HTTP missing/invalid/duplicate ID handling;
+- Kafka inject/extract, missing legacy headers, retry preservation, and cleanup;
+- new job/outbox row persistence and restart/retry behavior;
+- lifecycle event success/failure ordering;
+- one canonical failure per attempt;
+- error taxonomy mapping and safe unknown fallback;
+- Fluent Bit parsing/buffering and VictoriaLogs search smoke test;
+- collector/backend failure does not change business processing.
 
-Required integration flow:
+Required end-to-end scenario:
 
 ```text
-Console HTTP
-  -> Core
-  -> job execution
+manual/scheduled trigger
+  -> Platform job execution
   -> scheduler outbox
   -> Kafka
-  -> Analyzer or Ingestor
+  -> Python sync handler
+  -> forced provider/storage failure
   -> status Kafka
-  -> Core
+  -> Platform
+  -> VictoriaLogs correlation query
 ```
 
-Assert the same `correlationId` at every boundary. Assert the expected `requestId` and `executionId` semantics independently.
+Assert:
 
-Required repository checks remain subject to the approval gate; confirm each target before implementation:
+- one `correlationId` across all boundaries;
+- correct `executionId`, `workType`, and `workKey`;
+- one canonical `sync.failed` for the failed attempt;
+- failure timestamp, stage, attempt, retryability, category, code, exception, and Kafka coordinates;
+- a clean context for the next unrelated request/record.
+
+Candidate Nx targets must be confirmed from each `project.json` before execution:
 
 ```text
 nx run contracts:test
-nx run platform:test
 nx run platform:build
+nx run py-common:lint
 nx run py-common:test
+nx run analyzer:lint
 nx run analyzer:test
+nx run ingestor:lint
 nx run ingestor:test
+nx run query-service:lint
 nx run query-service:test
-nx run omni-console:test
+nx run omni-console:lint
 nx run omni-console:typecheck
-nx affected -t test,lint,build
+nx run omni-console:test
 ```
 
-This plan-only roadmap reconciliation does not run implementation checks. Each increment records only checks applicable to its changed projects, followed by exact-head CI evidence before completion.
+Executable checks are **not run** for this documentation-only revision.
 
-## Acceptance Criteria
+## MVP Acceptance Criteria
 
-- [ ] One canonical schema is validated across Java and Python backend logs.
-- [ ] Browser TypeScript propagates IDs without bundling a server logger.
-- [ ] Future Node services have an explicit `AsyncLocalStorage` and Pino direction.
-- [ ] Java uses scoped MDC without an additional raw ThreadLocal store.
-- [ ] Python uses token-reset `ContextVar` scopes.
-- [ ] Every HTTP response exposes correlation and request IDs.
-- [ ] Every Kafka producer/consumer supports canonical headers.
-- [ ] Job executions persist `correlationId`.
-- [ ] Scheduler and notification outboxes preserve immutable correlation across retries.
-- [ ] Java → Kafka → Python → Kafka → Java retains one correlation ID.
-- [ ] Context never leaks across requests, records, tasks, or executor threads.
-- [ ] Fluent Bit owns collection and delivery; application code remains backend-agnostic.
-- [ ] VictoriaLogs is the selected log backend and Loki is not required.
-- [ ] The same application images run with no backend, Compose VictoriaLogs, or Kubernetes VictoriaLogs.
-- [ ] Logging or collector failure never fails business processing.
-- [ ] Logs contain no secrets or uncontrolled payload data.
+- [ ] Java and Python logs validate against one schema.
+- [ ] Every backend log is one JSON line and contains no prohibited payload/credential fields.
+- [ ] Java uses scoped MDC without a second raw ThreadLocal store.
+- [ ] Python uses token-reset `ContextVar`.
+- [ ] HTTP returns correlation/request IDs on success and error.
+- [ ] Kafka producers/consumers preserve or safely create canonical headers.
+- [ ] New job executions and scheduler-outbox rows persist correlation.
+- [ ] Retry and restart preserve the same correlation ID.
+- [ ] Every sync attempt emits start plus either completed or one canonical failed event.
+- [ ] Failed events contain when, service, stage, work identity, attempt, retryability, category/code, and safe exception details.
+- [ ] Java -> Kafka -> Python -> Kafka -> Java is queryable by one correlation ID.
+- [ ] Fluent Bit/VictoriaLogs are optional and never affect application readiness.
+- [ ] A documented query/runbook locates the cause of a failed sync.
+- [ ] Production hardening remains explicitly deferred and does not block MVP completion.
+
+## Technical Debt Boundary
+
+Move to post-MVP technical debt:
+
+- Kubernetes/Helm and cluster operations;
+- VictoriaLogs HA or `VLCluster`;
+- production authentication proxy beyond private/localhost MVP binding;
+- backup/restore, RPO/RTO, and disaster recovery;
+- numeric SLOs, formal load/capacity certification, and long outage tests;
+- full alerting/dashboards stack;
+- raw S3/R2/MinIO log archive;
+- OpenTelemetry tracing;
+- advanced sampling/cardinality governance;
+- historical DB backfill and enforced non-null correlation;
+- full privacy deletion automation;
+- future Node logging runtime.
+
+These items may be promoted independently after the MVP proves useful failure diagnostics.
+
+## Repository Guidance Updates
+
+MVP implementation must review and update where applicable:
+
+```text
+docs/INDEX.md
+docs/README.md
+docs/data/001-kafka-contracts.md
+docs/data/003-database.md
+docs/flows/001-job-execution.md
+apps/core and Python service READMEs
+AGENTS.md
+CLAUDE.md
+.roo/rules/
+```
+
+This documentation-only revision updates the plan, registries, and post-MVP technical-debt owner. Runtime/canonical flow/data docs change when implementation begins.
 
 ## Non-Goals
 
-- No direct Logback/Python/Pino appender to VictoriaLogs, S3, or MinIO.
-- No Loki dependency in the selected deployment.
-- No storage of logs in PostgreSQL.
-- No mandatory OpenTelemetry backend in the first increments.
-- No trace IDs inside every business payload.
-- No browser-to-MinIO log upload.
-- No one-size-fits-all runtime logging package shared across languages.
+- No direct application appender to VictoriaLogs, S3, or MinIO.
+- No Loki dependency.
+- No PostgreSQL log storage.
+- No browser log shipping.
+- No logging of payload bodies, authorization values, cookies, credentials, provider tokens, SQL text, or arbitrary headers.
+- No trace IDs in business payloads.
+- No production-ready or HA claim for the MVP Compose stack.
+- No blocking the MVP on deferred production-hardening work.

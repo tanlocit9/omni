@@ -50,16 +50,19 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md) — Phase 8 combined-signal detail.
 - [Intraday EOD](plans/013-intraday-eod.md) — active bounded P9-I1 VCI normalized-trade implementation for HOSE/HNX/UPCOM; later bars/features remain deferred.
 - [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and approved live-collector sequence.
+- [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — canonical Phase 11 supporting plan; P11-I1 through P11-I5 run sequentially after completed P4-I3 and P8-I5.
 
 ### Proposed, Historical, and Compatibility Plans
 
-- [Cross-Service Observability Correlation](plans/015-cross-service-observability-correlation.md) — deferred observability debt; not roadmap-scheduled.
+- [Cross-Service Observability Correlation](plans/015-cross-service-observability-correlation.md) — superseded historical design; Plan 024 and Phase 11 are canonical.
 - [Shared API Contract and Unified OpenAPI](plans/016-shared-api-contract-and-unified-openapi.md) — deferred developer-platform debt.
 - [Global Dataset Metadata Refactor](plans/017-global-dataset-metadata-refactor.md) — implemented historical migration plan.
 - [Omni Console / Parquet Viewer](plans/018-internal-tools-parquet-viewer.md) — Phase 6 compatibility pointer with the former detailed pointer merged in.
 - [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) — compatibility roadmap index.
 - [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md) — superseded compatibility document.
 - [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md) — active P8-I5 supporting detail for separate scheduler/notification outboxes and durable Telegram delivery; canonical scheduling remains in the roadmap registry.
+- [Intraday Confirmation for Confirmed Trend](plans/021-intraday-confirmed-rules.md) — implementation-ready Phase 9/Phase 8 signal follow-up.
+- [Dependency-Aware Outbox Dispatch](plans/023-dependency-aware-outbox-dispatch.md) — active P4-I3 supporting detail for static VN dependency policies, shared scheduled/manual outbox gating, and terminal dependency blocking; canonical scheduling remains in the roadmap registry.
 
 ### References and Technical Debt
 

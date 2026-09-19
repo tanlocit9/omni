@@ -129,7 +129,7 @@ Stop conditions: stop before manual verification if non-production bot/chat cred
 | status                  | pending                                  |
 | priority                | critical                                 |
 | depends_on              | [P8-I1, P8-I2, P9-I5]                    |
-| blocks                  | []                                       |
+| blocks                  | [P11-I1]                                 |
 | owned_modules           | [apps/core, configs, database, docs]     |
 | execution_mode          | autonomous                               |
 | requires_owner_decision | false                                    |

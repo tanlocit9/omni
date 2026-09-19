@@ -88,19 +88,32 @@ Ingestor owns these Parquet datasets. See [Data lake](../../docs/data/002-data-l
 - [Stock sync](../../docs/flows/002-stock-sync.md)
 - [Job execution](../../docs/flows/001-job-execution.md)
 
-## Run locally
+## Run locally and dependency management
 
-Inspect targets first:
+### Inspect targets first
 
 ```bash
 nx show project ingestor
 ```
 
-Run the service:
+### Install and sync dependencies (recommended)
+
+After adding or changing a dependency in `pyproject.toml`, run:
+
+```bash
+nx run ingestor:install
+nx run ingestor:lock
+```
+
+These targets install dependencies and update lockfiles to ensure consistent environments across development and CI/CD.
+
+### Run the service:
+
+````
 
 ```bash
 nx run ingestor:serve
-```
+````
 
 Run with hot reload when developing manually:
 

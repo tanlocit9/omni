@@ -1,8 +1,8 @@
 # Cross-Service Observability Correlation Implementation Plan
 
-Status: Deferred technical debt; not assigned roadmap increment IDs and not eligible for current MVP scheduling
-Canonical status owner: [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md)
-Scheduling rule: require an owner reactivation decision, then reconcile dependencies and add roadmap increments before implementation selection
+Status: Superseded historical design; do not implement or schedule from this document.
+Canonical replacement: [`024-polyglot-correlation-structured-logging.md`](024-polyglot-correlation-structured-logging.md), scheduled as P11-I1 through P11-I5 in the [canonical increment registry](../../plans/roadmap/implementation-increments.md).
+Supersession decision: on 2026-09-17 the owner selected durable business `correlationId`, existing-or-generated `requestId`, separate `executionId`, structured JSON, Fluent Bit, and VictoriaLogs. Earlier W3C/OpenTelemetry-first and backend-neutral choices below are retained only as historical context.
 
 ## Goal
 

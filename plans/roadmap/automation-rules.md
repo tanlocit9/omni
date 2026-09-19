@@ -17,7 +17,7 @@ boundaries.
 - Canonical roadmap index: [`README.md`](README.md).
 - Canonical increment registry: [`implementation-increments.md`](implementation-increments.md).
 - Cross-phase definition of done: [`cross-phase-rules.md`](cross-phase-rules.md).
-- Phase detail files: [`phase-0-immediate-correctness.md`](phase-0-immediate-correctness.md) through [`phase-10-realtime-per-tick.md`](phase-10-realtime-per-tick.md).
+- Phase detail files: [`phase-0-immediate-correctness.md`](phase-0-immediate-correctness.md) through [`phase-11-cross-service-observability.md`](phase-11-cross-service-observability.md).
 - Supporting detail plans under [`../../docs`](../../docs) are reconciled references, not competing schedules.
 
 Current source and verified behavior take precedence when recording factual baseline. Do not silently override an agreed architecture decision; mark the contradiction as an owner decision.

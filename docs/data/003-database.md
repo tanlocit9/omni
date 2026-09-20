@@ -94,6 +94,22 @@ and uses PostgreSQL `dblink` to prove that remaining execution history or pendin
 outbox work aborts the migration. This evidence does not target or modify
 production.
 
+### Notification outbox
+
+| Field          | Value                                                                                                                                                                                                                      |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration      | [`database/migrations/V10__create_notification_outbox.sql`](../../database/migrations/V10__create_notification_outbox.sql)                                                                                                 |
+| Owner          | Platform notifications module                                                                                                                                                                                              |
+| Purpose        | Durable, idempotent provider-delivery state with leased claims, fencing, bounded retries, and visible `SENT`/`DEAD` outcomes.                                                                                              |
+| Related source | [`apps/core/src/main/java/com/omni/platform/modules/notifications/entities/NotificationOutboxMessage.java`](../../apps/core/src/main/java/com/omni/platform/modules/notifications/entities/NotificationOutboxMessage.java) |
+| Related plan   | [Notification outbox](../plans/022-notification-outbox.md)                                                                                                                                                                 |
+
+The payload is a versioned typed notification request. Provider credentials, API
+credentials, and concrete chat identifiers are resolved from configuration only at
+dispatch and are never stored in either notification table. The separate
+`notification_provider_rate_limits` row serializes provider permits across Platform
+instances. `DEAD` rows are visible terminal records and are not replayed automatically.
+
 ### Symbols
 
 ### Manual job triggers

@@ -14,12 +14,13 @@ import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxRepository;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+import com.omni.platform.shared.outbox.ClaimableOutboxStore;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-public class SchedulerOutboxService {
+public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOutboxClaim> {
 
     private final SchedulerOutboxRepository repository;
     private final KafkaPublisher kafkaPublisher;
@@ -43,6 +44,7 @@ public class SchedulerOutboxService {
         }
     }
 
+    @Override
     @Transactional
     public List<SchedulerOutboxClaim> claimPending(
             Instant now,
@@ -52,19 +54,32 @@ public class SchedulerOutboxService {
         return repository.claimPending(now, instanceId, leaseDuration, batchSize);
     }
 
+    @Override
+    @Transactional
+    public boolean markDelivered(SchedulerOutboxClaim claim, Instant deliveredAt) {
+        return markPublished(claim, deliveredAt);
+    }
+
     @Transactional
     public boolean markPublished(SchedulerOutboxClaim claim, Instant publishedAt) {
         return repository.markPublished(claim.messageId(), claim.claimToken(), claim.claimedBy(), publishedAt);
     }
 
+    @Override
+    @Transactional
+    public boolean scheduleRetry(SchedulerOutboxClaim claim, Instant retryAt, String sanitizedError) {
+        return repository.markFailed(
+                claim.messageId(), claim.claimToken(), claim.claimedBy(), retryAt, sanitize(sanitizedError));
+    }
+
     @Transactional
     public boolean markFailed(SchedulerOutboxClaim claim, Instant availableAt, Throwable error) {
-        String message = error.getMessage();
-        if (message != null && message.length() > 4000) {
-            message = message.substring(0, 4000);
-        }
-        return repository.markFailed(
-                claim.messageId(), claim.claimToken(), claim.claimedBy(), availableAt, message);
+        return scheduleRetry(claim, availableAt, error == null ? null : error.getMessage());
+    }
+
+    private String sanitize(String error) {
+        String normalized = error == null ? "unknown" : error.replaceAll("[\\r\\n\\t]+", " ").trim();
+        return normalized.substring(0, Math.min(normalized.length(), 4000));
     }
 
     public List<SchedulerOutboxMessage> findByExecution(UUID executionId) {

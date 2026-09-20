@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 import com.omni.platform.modules.notifications.dtos.NotificationChannel;
 
@@ -23,7 +24,30 @@ public record TelegramNotificationProperties(
         int deduplicationMaxCacheSize,
         String displayTimeZone,
         Boolean audibleOperationalErrors,
+        Duration rateLimit,
         SignalFilterConfig signalFilter) {
+
+    @Deprecated(forRemoval = false)
+    public TelegramNotificationProperties(
+            boolean enabled,
+            String botToken,
+            String operationsChatId,
+            String signalsChatId,
+            String parseMode,
+            String apiBaseUrl,
+            Duration deduplicationCooldown,
+            int deduplicationMaxCacheSize,
+            String displayTimeZone,
+            Boolean audibleOperationalErrors,
+            SignalFilterConfig signalFilter) {
+        this(enabled, botToken, operationsChatId, signalsChatId, parseMode, apiBaseUrl,
+                deduplicationCooldown, deduplicationMaxCacheSize, displayTimeZone,
+                audibleOperationalErrors, null, signalFilter);
+    }
+
+    @ConstructorBinding
+    public TelegramNotificationProperties {
+    }
 
     private static final Duration DEFAULT_DEDUPLICATION_COOLDOWN = Duration.ofMinutes(5);
     private static final int DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE = 10_000;
@@ -61,6 +85,12 @@ public record TelegramNotificationProperties(
 
     public boolean resolvedAudibleOperationalErrors() {
         return audibleOperationalErrors == null || audibleOperationalErrors;
+    }
+
+    public Duration resolvedRateLimit() {
+        return rateLimit == null || rateLimit.isZero() || rateLimit.isNegative()
+                ? Duration.ofMillis(50)
+                : rateLimit;
     }
 
     private boolean hasText(String value) {

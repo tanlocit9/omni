@@ -3,9 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
 
 import pandas as pd
 from py_common.storage.exceptions import StorageObjectNotFoundError
@@ -127,38 +125,14 @@ class LatestSignalRepository:
         )
 
 
-class LatestSignalNotificationService:
-    def __init__(self, repository: LatestSignalRepository, publisher: Any) -> None:
-        self._repository = repository
-        self._publisher = publisher
+class LatestSignalQueryService:
+    """Returns authoritative signal data without initiating notification delivery."""
 
-    async def publish_latest(
-        self, symbol_key: str | None = None
-    ) -> LatestSignal | None:
-        latest = await self._repository.find_latest(symbol_key)
-        if latest is None:
-            return None
-        identity = str(uuid4())
-        payload = {
-            "type": "SIGNAL_CHANGED",
-            "executionId": identity,
-            "parentExecutionId": str(uuid4()),
-            "source": "ANALYZER",
-            "symbolKey": latest.symbol_key,
-            "previousSignal": None,
-            "newSignal": latest.signal,
-            "price": latest.signal_price,
-            "signalDate": latest.signal_date,
-            "reasonCodes": latest.reason_codes,
-            "score": latest.score,
-            "strategy": latest.strategy,
-            "timeframe": latest.timeframe,
-            "signalChanged": True,
-            "createdAt": datetime.now(UTC).isoformat(),
-            "metadata": {"manual": True, "generatedAt": latest.generated_at},
-        }
-        await self._publisher.publish_signal_notification(payload)
-        return latest
+    def __init__(self, repository: LatestSignalRepository) -> None:
+        self._repository = repository
+
+    async def find_latest(self, symbol_key: str | None = None) -> LatestSignal | None:
+        return await self._repository.find_latest(symbol_key)
 
 
 def _reason_codes(value: Any) -> list[str]:

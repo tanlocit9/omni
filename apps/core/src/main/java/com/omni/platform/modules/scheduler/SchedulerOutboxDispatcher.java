@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component;
 
 import com.omni.platform.modules.scheduler.config.SchedulerProperties;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim;
-import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+import com.omni.platform.shared.outbox.ClaimableOutboxStore;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ public class SchedulerOutboxDispatcher {
     private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration RETRY_DELAY = Duration.ofSeconds(30);
 
-    private final SchedulerOutboxService outboxService;
+    private final ClaimableOutboxStore<SchedulerOutboxClaim> outboxStore;
     private final KafkaPublisher kafkaPublisher;
     private final SchedulerProperties schedulerProperties;
 
@@ -33,7 +33,7 @@ public class SchedulerOutboxDispatcher {
     }
 
     void dispatchBatch(Instant now) {
-        List<SchedulerOutboxClaim> claims = outboxService.claimPending(
+        List<SchedulerOutboxClaim> claims = outboxStore.claimPending(
                 now,
                 schedulerProperties.instanceId(),
                 schedulerProperties.claim().leaseDuration(),
@@ -42,14 +42,21 @@ public class SchedulerOutboxDispatcher {
             try {
                 kafkaPublisher.publishSerializedAndWait(
                         claim.topic(), claim.key(), claim.payload(), PUBLISH_TIMEOUT);
-                if (!outboxService.markPublished(claim, Instant.now())) {
+                if (!outboxStore.markDelivered(claim, Instant.now())) {
                     log.warn("Outbox claim was superseded before publish acknowledgement messageId={}", claim.messageId());
                 }
             } catch (Exception exception) {
-                outboxService.markFailed(claim, Instant.now().plus(RETRY_DELAY), exception);
+                outboxStore.scheduleRetry(
+                        claim, Instant.now().plus(RETRY_DELAY), sanitizedError(exception));
                 log.error("Outbox publish failed messageId={} executionId={} attempt={}",
                         claim.messageId(), claim.executionId(), claim.attempts(), exception);
             }
         }
+    }
+
+    private String sanitizedError(Exception exception) {
+        String error = exception.getMessage();
+        String normalized = error == null ? "unknown" : error.replaceAll("[\\r\\n\\t]+", " ").trim();
+        return normalized.substring(0, Math.min(normalized.length(), 4000));
     }
 }

@@ -1,6 +1,7 @@
 package com.omni.platform.modules.notifications.templates;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +21,37 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
 
     @Override
     public NotificationRequest render(SignalDigestNotificationEvent event) {
+        return pages(event).getFirst();
+    }
+
+    public List<NotificationRequest> pages(SignalDigestNotificationEvent event) {
+        List<com.omni.platform.modules.notifications.events.SignalDigestItem> sorted =
+                (event.items() == null ? List.<com.omni.platform.modules.notifications.events.SignalDigestItem>of()
+                        : event.items()).stream()
+                        .filter(item -> item != null && item.symbolKey() != null)
+                        .sorted(Comparator.comparing(
+                                com.omni.platform.modules.notifications.events.SignalDigestItem::symbolKey)
+                                .thenComparing(item -> defaultText(item.strategy(), ""))
+                                .thenComparing(item -> defaultText(item.timeframe(), "")))
+                        .toList();
+        if (sorted.isEmpty()) {
+            throw new IllegalArgumentException("Signal digest requires at least one eligible item");
+        }
+        int pageCount = sorted.size();
+        return java.util.stream.IntStream.range(0, pageCount)
+                .mapToObj(index -> page(event, sorted.get(index), index + 1, pageCount))
+                .toList();
+    }
+
+    public NotificationRequest digest(SignalDigestNotificationEvent event) {
+        return render(event);
+    }
+
+    private NotificationRequest page(
+            SignalDigestNotificationEvent event,
+            com.omni.platform.modules.notifications.events.SignalDigestItem item,
+            int pageNumber,
+            int pageCount) {
         return new NotificationRequest(
                 NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
@@ -28,12 +60,8 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
                 "Market signal changes: " + event.jobTitle(),
                 buildMessage(event),
                 buildMetadata(event),
-                event.parentExecutionId().toString(),
-                structuredContent(event));
-    }
-
-    public NotificationRequest digest(SignalDigestNotificationEvent event) {
-        return render(event);
+                event.parentExecutionId() + ":" + pageNumber,
+                structuredContent(event, List.of(item), pageNumber, pageCount));
     }
 
     private String buildMessage(SignalDigestNotificationEvent event) {
@@ -75,8 +103,12 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
         return message.toString();
     }
 
-    private SignalDigestContent structuredContent(SignalDigestNotificationEvent event) {
-        List<SignalDigestEntry> items = event.items() == null ? List.of() : event.items().stream()
+    private SignalDigestContent structuredContent(
+            SignalDigestNotificationEvent event,
+            List<com.omni.platform.modules.notifications.events.SignalDigestItem> pageItems,
+            int pageNumber,
+            int pageCount) {
+        List<SignalDigestEntry> items = pageItems.stream()
                 .map(item -> new SignalDigestEntry(
                         item.symbolKey(),
                         item.previousSignal(),
@@ -93,7 +125,9 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
                 event.timeframe(),
                 event.changedCount(),
                 items,
-                timestamp(event.metadata()));
+                timestamp(event.metadata()),
+                pageNumber,
+                pageCount);
     }
 
     private Instant timestamp(Map<String, Object> metadata) {

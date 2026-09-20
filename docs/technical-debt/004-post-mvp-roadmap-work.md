@@ -2,7 +2,7 @@
 
 ## Decision
 
-On 2026-09-05, the owner narrowed the active MVP to the existing daily/EOD pipeline, usable Telegram operational and signal notifications, and basic operator controls. On 2026-09-14, the owner reactivated bounded VCI health visibility as P9-I5 and Notification Outbox durable delivery as P8-I5 in the canonical registry.
+On 2026-09-05, the owner narrowed the active MVP to the existing daily/EOD pipeline, usable Telegram operational and signal notifications, and basic operator controls. On 2026-09-14, the owner reactivated bounded VCI health visibility as P9-I5 and Notification Outbox durable delivery as P8-I5. On 2026-09-19, the owner superseded P9-I5 back into technical debt and removed it as a prerequisite for P8-I5.
 
 Work that primarily adds migration machinery, advanced metadata, deployment hardening, Console/query polish, out-of-scope notification operations, intraday features beyond active increments, or realtime processing remains deferred. It must not be selected by roadmap automation until the owner explicitly promotes it into the canonical increment registry.
 
@@ -17,7 +17,7 @@ This is prioritization debt, not a claim that the work has no long-term value. E
 | Portable deployment hardening   | P5-I1, P5-I2, P5-I3        | Image hardening, cloud/storage profiles, backup rehearsal, and immutable publication are deferred until an MVP deployment target is selected.                                                                                                                                                                                   |
 | Console and query polish        | P6-I1, P6-I2, P6-I3, P6-I4 | Dataset exploration, SQL tooling, Arrow workflows, and dashboard work are outside the basic operator-control MVP. Existing merged source is retained but is not an active completion priority.                                                                                                                                  |
 | Notification follow-ups         | Outside P8-I5              | P8-I5 now owns durable enqueue, distributed idempotency, bounded retries/backoff/jitter, `Retry-After`, `DEAD`, pagination, metrics, and operator status visibility. Audited manual replay of `DEAD`, broader notification-provider expansion, and optional operational tooling beyond status/count visibility remain deferred. |
-| Intraday EOD                    | P9-I1, P9-I2, P9-I3        | Higher-frequency post-close datasets and features are outside the daily/EOD MVP.                                                                                                                                                                                                                                                |
+| Intraday EOD                    | P9-I1, P9-I2, P9-I3, P9-I5 | Higher-frequency post-close datasets, features, and VCI health visibility are outside the daily/EOD MVP. P9-I5 requires explicit owner reactivation before scheduling.                                                                                                                                                          |
 | Realtime per tick               | Historical deferral lifted | On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. The canonical registry now owns their blocked status and gates; this document retains the prior deferral as history only.                                                                                                                |
 
 ## Deferred Supporting Plans
@@ -46,8 +46,7 @@ The active MVP keeps:
 - Phase 7 basic job catalog, safe trigger, and execution visibility;
 - P8-I1 operational/generic Telegram formats;
 - P8-I2 immediate/digest signal formats;
-- P9-I5 VCI health metrics and basic visibility after P9-I1 completes;
-- P8-I5 Notification Outbox and Durable Delivery after its P9-I5 dependency completes.
+- P8-I5 Notification Outbox and Durable Delivery after P8-I1 and P8-I2 complete.
 
 Completed increments remain completed. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because their implementations directly support the retained MVP. P8-I3 remains a superseded historical increment; it does not own the active P8-I5 scope. Deferred increments must not block those MVP evidence gates solely because of historical dependency links.
 
@@ -69,9 +68,9 @@ Reassess deferred work when one of these becomes true:
 
 Reactivation requires an owner decision, refreshed dependencies and acceptance criteria, and a new or restored canonical roadmap increment. Do not treat this document as authorization to implement deferred work autonomously.
 
-## Deferred VCI Capacity and Provider Expansion
+## Deferred VCI Health, Capacity, and Provider Expansion
 
-P9-I5 measures the current VCI path but does not decide capacity policy. After P9-I5 and P8-I5, a separate owner review may assess measured latency, throughput, backlog, failures, HTTP 429 frequency, availability, and data coverage. No capacity conclusion or implementation schedule is created here.
+P9-I5 VCI health metrics and basic visibility is superseded technical debt. A future owner reactivation may measure latency, throughput, backlog, failures, HTTP 429 frequency, availability, and data coverage through a refreshed canonical increment. No capacity conclusion or implementation schedule is created here, and this work does not block P8-I5.
 
 Multi-provider ingestion, provider rotation/fallback, IP rotation, source mixing, and concurrency intended to evade upstream limits remain deferred. Any future provider increment must receive owner approval, preserve provider lineage, avoid silently mixing sources in one logical partition, and remain separate from blocked P10-I0/P10-I3 realtime design.
 

@@ -126,9 +126,9 @@ Stop conditions: stop before manual verification if non-production bot/chat cred
 | ----------------------- | ---------------------------------------- |
 | id                      | P8-I5                                    |
 | title                   | Notification Outbox and Durable Delivery |
-| status                  | pending                                  |
+| status                  | verification_pending                     |
 | priority                | critical                                 |
-| depends_on              | [P8-I1, P8-I2, P9-I5]                    |
+| depends_on              | [P8-I1, P8-I2]                           |
 | blocks                  | [P11-I1]                                 |
 | owned_modules           | [apps/core, configs, database, docs]     |
 | execution_mode          | autonomous                               |
@@ -136,7 +136,7 @@ Stop conditions: stop before manual verification if non-production bot/chat cred
 | pr                      | null                                     |
 | last_verified_commit    | null                                     |
 
-Dependency order: P8-I5 requires completed P8-I1, P8-I2, and P9-I5. P9-I5 explicitly blocks P8-I5, allowing the standard readiness rules to enforce VCI health metrics before Notification Outbox.
+Dependency order revised by owner decision on 2026-09-19: P8-I5 requires completed P8-I1 and P8-I2. P9-I5 VCI health metrics is superseded into post-MVP technical debt and does not block Notification Outbox.
 
 Goal: make accepted Telegram notifications durable and auditable without mixing provider delivery semantics into the scheduler Kafka outbox. Detailed implementation design is in [`docs/plans/022-notification-outbox.md`](../../docs/plans/022-notification-outbox.md), which is supporting detail and does not own scheduling.
 
@@ -146,6 +146,27 @@ Contract impact: Kafka/service-to-service protobuf, object-storage manifests, an
 
 Acceptance criteria: the two tables and dispatchers remain separate; shared inheritance contains no status, payload, dispatcher, destination, or retry-policy semantics; enqueue commits before provider delivery; retries are bounded and fenced; 429 honors `Retry-After`; exhausted/permanent failures become visible `DEAD` records; duplicate enqueue is idempotent; every eligible digest item is delivered in deterministic complete pages; metrics expose pending age, sent, retry, dead, rate-limited, and duration state without payloads or secrets; and immediate/digest eligibility handles qualified `newSignalDate` consistently.
 
-Verification: required Platform, migration, scheduler-regression, claim/fencing, replay/idempotency, restart recovery, Telegram failure-classification, pagination, configuration, and redaction checks are not run for this plan-only update. Approved Nx checks, PR/commit, and CI evidence are required before completion.
+Progress evidence (2026-09-19): source implementation is present for the separate
+notification outbox migration/entity/repository, versioned typed payload round-trip,
+atomic idempotent enqueue, durable immediate enqueue, transactional parent-digest
+enqueue, fencing, bounded retry and `DEAD`, distributed provider pacing, delta/date
+`Retry-After`, deterministic page identities, metrics, environment examples, focused
+source tests, and canonical documentation. The scheduler and notification services now
+implement the shared claim/deliver/retry protocol while their dispatchers, SQL,
+acknowledgement semantics, and notification-only terminal operations remain separate.
+Manual signal API acceptance now creates a durable outbox row and returns `202 ACCEPTED`
+with its delivery identity; the legacy async signal listener was removed, while manual
+latest-signal requests retain one Analyzer Kafka-to-Platform-outbox handoff.
+Static diff inspection passed. Owner-approved
+local `nx run platform:test` passed after attributable constructor-binding and stale
+expectation repairs; `nx run platform:build` then passed, including the Platform test
+lifecycle. Existing Hikari/Modulith shutdown warnings remained non-failing. P8-I1 and
+P8-I2 remain `verification_pending`; they are not promoted by this work.
+
+Verification: local Platform tests and build passed. Focused coverage includes typed
+payload round-trip, durable enqueue identity, immediate/digest handoff, pagination,
+configuration binding, scheduler regressions, and `Retry-After`. Dedicated migration
+runtime, live Telegram/provider, PR/commit, CI, and prerequisite evidence remain
+unresolved and are required before completion.
 
 Stop conditions: do not combine outbox tables or dispatchers, persist credentials/chat IDs, change Kafka/Proto3 contracts, automatically replay `DEAD`, add market-data provider fallback, or silently mix provider lineage.

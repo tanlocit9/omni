@@ -1,10 +1,17 @@
 # Plan 024 — MVP Polyglot Correlation and Sync Failure Logging
 
-Plan ID: `024`  
-Status: Owner-approved MVP direction; supporting plan; not roadmap-scheduled  
-Primary outcome: know which sync failed, when it failed, where it failed, and why  
-Scope: Java Platform, Python workers, Kafka, jobs, scheduler outbox, HTTP support lookup, Fluent Bit, and VictoriaLogs  
-Delivery rule: implement four independently reviewable increments; production hardening remains technical debt
+Plan ID: `024`
+Status: Canonical Phase 11 supporting plan; scheduling and status are owned by the roadmap
+Canonical increments: `P11-I1` through `P11-I5`
+Primary outcome: know which sync failed, when it failed, where it failed, and why
+Scope: Java Platform, Python workers, Kafka, jobs, scheduler outbox, HTTP support lookup, Fluent Bit, and VictoriaLogs
+Delivery rule: implement the five canonical increments sequentially after `P4-I3` and `P8-I5` complete; production hardening remains technical debt
+
+Canonical status, dependencies, execution order, and readiness are owned by
+[`plans/roadmap/implementation-increments.md`](../../plans/roadmap/implementation-increments.md)
+and
+[`plans/roadmap/phase-11-cross-service-observability.md`](../../plans/roadmap/phase-11-cross-service-observability.md).
+This document supplies implementation detail and must not define a competing schedule.
 
 Selected stack:
 
@@ -168,7 +175,7 @@ Web    -> apps/omni-console HTTP client helper
 
 Do not add correlation fields to every Protobuf payload. Headers carry transport context; jobs/outboxes carry durable context.
 
-### Contract Impact
+## Contract Impact
 
 | Surface                  | MVP impact                                                   |
 | ------------------------ | ------------------------------------------------------------ |
@@ -420,9 +427,13 @@ Failure investigation:
 
 ## Implementation Increments
 
-### 024-I1 — Context, schema, and lifecycle events
+The canonical roadmap owns all statuses and dependencies. At the time of this plan
+revision, all five increments are `pending`; that statement is descriptive only and
+must not be used to bypass roadmap readiness checks.
 
-Status: pending; not roadmap-scheduled.
+### P11-I1 — Correlation contract and structured logging
+
+Canonical dependencies: `P4-I3` and `P8-I5`.
 
 - Add observability JSON schemas and field glossary.
 - Implement Java MDC and Python `ContextVar` scopes.
@@ -433,43 +444,54 @@ Status: pending; not roadmap-scheduled.
 
 Exit: representative Java/Python `sync.started`, `sync.completed`, and `sync.failed` events validate against one schema with no context leakage.
 
-### 024-I2 — HTTP, Kafka, job, and outbox correlation
+### P11-I2 — HTTP and Console correlation propagation
 
-Status: pending.  
-Depends on: 024-I1.
+Canonical dependency: `P11-I1`.
 
 - Add HTTP request filter/middleware and response headers.
-- Add minimal console header propagation/support display.
-- Update all shared Java/Python Kafka produce/consume boundaries.
-- Add nullable job/outbox columns and populate new rows.
-- Preserve context through retries, status messages, and process restart.
-- Keep legacy headerless records and historical null rows compatible.
+- Add minimal Console header propagation and support-ID display.
+- Configure CORS to allow canonical request headers and expose canonical response headers.
+- Reuse active identifiers in mapped error responses.
+- Add missing, valid, invalid, duplicate, and concurrent identifier coverage.
 
-Exit: Java -> Kafka -> Python -> Kafka -> Java keeps one correlation ID, and outbox retry after restart uses the stored IDs.
+Exit: a Console request can be located in Platform or Query Service logs by its returned correlation and request IDs without leaking context to another request.
 
-### 024-I3 — Sync failure diagnostics
+### P11-I3 — Durable job and outbox correlation
 
-Status: pending.  
-Depends on: 024-I1 and 024-I2.
+Canonical dependency: `P11-I2`.
 
-- Instrument sync entry/exit/failure boundaries in Platform, Ingestor, and Analyzer.
+- Add nullable job-execution and scheduler-outbox correlation/request columns.
+- Populate new root rows and inherit correlation for child executions.
+- Snapshot durable identifiers when new outbox rows are created.
+- Make dispatch and retry use the stored snapshot rather than ambient MDC.
+- Preserve process-restart and retry behavior while keeping historical null rows compatible.
+
+Exit: delayed dispatch and retry after restart retain the original stored identifiers.
+
+### P11-I4 — Kafka correlation propagation and sync diagnostics
+
+Canonical dependency: `P11-I3`.
+
+- Update all shared Java/Python Kafka producer and consumer boundaries.
+- Preserve identifiers through status, retry, and derived-event publication.
+- Keep legacy headerless records compatible and clear context after every record.
+- Instrument sync entry, completion, retry, blocking, and failure boundaries in Platform, Ingestor, and Analyzer.
 - Map provider, Kafka, database, storage, validation, and dependency failures.
-- Record stage, attempt, retryable, duration, work identity, and Kafka coordinates.
+- Record stage, attempt, retryability, duration, work identity, and Kafka coordinates.
 - Ensure exactly one canonical `sync.failed` per work-item attempt.
-- Add integration tests for provider 429/timeout/bad response, validation, storage, Kafka, and unknown exception paths.
+- Add integration coverage for provider 429/timeout/bad response, validation, storage, Kafka, and unknown exception paths.
 
-Exit: every tested failure answers which sync, when, where, why, retryability, and correlation trail.
+Exit: Java -> Kafka -> Python -> Kafka -> Java keeps one correlation ID, and every tested failure answers which sync, when, where, why, retryability, and correlation trail.
 
-### 024-I4 — Central search and debug runbook
+### P11-I5 — Fluent Bit and VictoriaLogs deployment
 
-Status: pending.  
-Depends on: 024-I1 through 024-I3.
+Canonical dependency: `P11-I4`.
 
-- Add optional Compose profile with pinned Fluent Bit and VictoriaLogs images.
-- Add bounded Fluent Bit filesystem buffer and persistent VictoriaLogs volume.
+- Add an optional Compose profile with pinned Fluent Bit and VictoriaLogs images.
+- Add bounded Fluent Bit filesystem buffering and a persistent VictoriaLogs volume.
 - Add local/home-lab retention and private binding.
 - Add saved/example LogsQL queries and the failure runbook.
-- Test collector/backend unavailable and restart behavior without failing sync processing.
+- Test collector/backend unavailability and restart behavior without failing sync processing.
 
 Exit: an operator finds a failed sync in VictoriaLogs and reconstructs the Java/Python/Kafka flow from one correlation ID.
 
@@ -583,7 +605,9 @@ CLAUDE.md
 .roo/rules/
 ```
 
-This documentation-only revision updates the plan, registries, and post-MVP technical-debt owner. Runtime/canonical flow/data docs change when implementation begins.
+This documentation-only revision reconciles this supporting plan with the existing
+canonical Phase 11 schedule. Runtime, canonical flow/data documentation, and
+repository guidance change when implementation begins.
 
 ## Non-Goals
 

@@ -43,6 +43,25 @@ return unavailable semantics rather than zero-valued market metrics.
 
 The service must remain private or sit behind identity-aware access. It accepts
 only read-only SQL over logical aliases declared in each query request.
+`POST /v1/queries` commits a `QUEUED` record to SQLite before returning `202`.
+Bounded background workers use leased, token-fenced claims; expired `RUNNING`
+claims are recovered after restart. Status, cancellation, and bounded terminal
+result payloads therefore survive process restarts. SQLite runs in WAL mode.
+
+Durable query settings use the standard settings environment-name conversion:
+
+- `QUERY_DB_PATH` (default `data/query-service.sqlite3`)
+- `QUERY_CLAIM_LEASE_SECONDS` (default `60`)
+- `QUERY_POLL_INTERVAL_SECONDS` (default `0.25`)
+- `QUERY_MAX_RESULT_BYTES` (default `16777216`)
+
+The service rejects configurations where the claim lease does not exceed the
+query timeout, preventing healthy work from being reclaimed while executing.
+Results larger than the durable payload limit finish as `FAILED` rather than
+creating an unbounded database record. Production deployments must place
+`QUERY_DB_PATH` on a persistent volume; the current Compose files do not yet
+include Query Service, so that mount must be added when the service is deployed.
+
 `POST /v1/queries` and dashboard endpoints require the trusted upstream identity
 header `X-Omni-User`; anonymous or blank identities are rejected instead of being
 recorded under a shared fallback actor. The identity-aware proxy must replace,

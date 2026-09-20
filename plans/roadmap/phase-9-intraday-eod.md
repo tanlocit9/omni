@@ -17,7 +17,7 @@ Owner reactivation decision (2026-09-10): P9-I1 alone is reactivated for a bound
 | status                  | verification_pending                                      |
 | priority                | medium                                                    |
 | depends_on              | []                                                        |
-| blocks                  | [P9-I2, P9-I4, P9-I5]                                     |
+| blocks                  | [P9-I2, P9-I4]                                            |
 | owned_modules           | [contracts, apps/core, apps/ingestor, libs/py-common]     |
 | execution_mode          | autonomous                                                |
 | requires_owner_decision | false                                                     |
@@ -160,16 +160,16 @@ Supporting detail and the verification checklist are in [`docs/plans/021-intrada
 
 ## Increment P9-I5 — VCI health metrics and basic visibility
 
-Owner priority decision (2026-09-14): measure the existing bounded VCI processing path before implementing P8-I5 Notification Outbox, then assess VCI capacity and consider multi-provider ingestion only as later, separately approved work.
+Owner deferral decision (2026-09-19): move VCI health metrics and basic visibility to post-MVP technical debt. P9-I5 no longer blocks P8-I5 Notification Outbox. Reactivation requires a separate owner decision and refreshed acceptance and scheduling metadata.
 
 | Field                   | Value                                                                            |
 | ----------------------- | -------------------------------------------------------------------------------- |
 | id                      | P9-I5                                                                            |
 | title                   | VCI health metrics and basic visibility                                          |
-| status                  | pending                                                                          |
+| status                  | superseded                                                                       |
 | priority                | critical                                                                         |
 | depends_on              | [P9-I1]                                                                          |
-| blocks                  | [P8-I5]                                                                          |
+| blocks                  | []                                                                               |
 | owned_modules           | [apps/ingestor, apps/core, apps/query-service, apps/omni-console, configs, docs] |
 | execution_mode          | autonomous                                                                       |
 | requires_owner_decision | false                                                                            |

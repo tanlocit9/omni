@@ -20,7 +20,7 @@ public class ManualLatestSignalNotificationService {
         this.analyzerRestClient = analyzerRestClient;
     }
 
-    public LatestSignalNotificationResult sendLatest(String symbolKey) {
+    public LatestSignalResult findLatest(String symbolKey) {
         String normalized = normalize(symbolKey);
         try {
             return analyzerRestClient.post()
@@ -33,12 +33,12 @@ public class ManualLatestSignalNotificationService {
                         throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Malformed symbolKey");
                     })
                     .onStatus(status -> status.value() == 503, (request, response) -> {
-                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Analyzer publisher unavailable");
+                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Analyzer latest signal unavailable");
                     })
                     .onStatus(status -> status.is5xxServerError(), (request, response) -> {
                         throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Analyzer request failed");
                     })
-                    .body(LatestSignalNotificationResult.class);
+                    .body(LatestSignalResult.class);
         } catch (ResponseStatusException exc) {
             throw exc;
         } catch (ResourceAccessException exc) {
@@ -71,12 +71,18 @@ public class ManualLatestSignalNotificationService {
         return value == null || value.isBlank() ? null : value.trim().toUpperCase();
     }
 
-    public record LatestSignalNotificationResult(
-            boolean accepted,
+    public record LatestSignalResult(
+            boolean completed,
             String status,
             String symbolKey,
+            String previousSignal,
             String newSignal,
+            Object price,
             String signalDate,
+            java.util.List<String> reasonCodes,
+            Object score,
+            String strategy,
+            String timeframe,
             String generatedAt) {
     }
 }

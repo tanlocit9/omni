@@ -165,6 +165,30 @@ TELEGRAM_SIGNAL_FILTER_ALLOWED_TIMEFRAMES=1d
 
 See [`.env.example`](../../.env.example) for complete environment variable documentation.
 
+## Durable notification delivery
+
+Immediate signal notifications are committed to
+`notification_outbox_messages` before the Kafka listener returns. Manual
+`POST /api/v1/notifications/manual/signal` requests also insert a durable row and
+return `202 ACCEPTED` with the delivery identity; they do not claim synchronous
+Telegram delivery. Manual latest-signal requests ask Analyzer to publish the existing
+Kafka notification and rely on the same Platform consumer for one durable enqueue.
+There is no direct async signal event listener; operational events remain on their
+existing incremental-migration path. A separate leased
+dispatcher resolves Telegram credentials and logical-channel destinations only in
+memory, enforces a database-coordinated provider rate gate, honors `Retry-After`, and
+moves permanent or exhausted failures to visible `DEAD` state. Parent signal digests
+are enqueued inside the guarded parent terminal transaction and use deterministic
+`<parentExecutionId>:<page>` deduplication keys; there is no parallel
+`AFTER_COMMIT` digest sender.
+
+Configure polling, claims, attempts, retry bounds, and provider pacing with the
+`NOTIFICATION_OUTBOX_*` and `TELEGRAM_RATE_LIMIT` variables in
+[`.env.example`](../../.env.example). Actuator exposes pending/dead current counts,
+oldest-pending age, sent/retry/dead/rate-limited counters, and delivery duration.
+Payloads, bot tokens, and concrete chat identifiers are not metric labels or logs.
+`DEAD` delivery is terminal; this increment intentionally provides no manual replay.
+
 ## Storage
 
 | Storage    | Purpose                                                                                                                                                       |

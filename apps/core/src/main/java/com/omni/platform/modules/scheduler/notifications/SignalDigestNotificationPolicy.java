@@ -1,5 +1,6 @@
 package com.omni.platform.modules.scheduler.notifications;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +39,13 @@ public class SignalDigestNotificationPolicy implements JobNotificationPolicy {
 
         List<SignalDigestItem> changedItems = context.children().stream()
                 .filter(child -> child.getStatus() == JobStatus.SUCCESS)
-                .filter(child -> isSignalChanged(child.getMetaJson()))
+                .filter(child -> isEligible(child.getMetaJson()))
                 .map(this::toSignalDigestItem)
+                .filter(item -> item.symbolKey() != null && !item.symbolKey().isBlank())
+                .filter(item -> !"NO_DECISION".equalsIgnoreCase(item.newSignal()))
+                .sorted(Comparator.comparing(SignalDigestItem::symbolKey)
+                        .thenComparing(item -> defaultText(item.strategy()))
+                        .thenComparing(item -> defaultText(item.timeframe())))
                 .toList();
         if (changedItems.isEmpty()) {
             return defaultPolicy.buildNotification(context);
@@ -77,11 +83,21 @@ public class SignalDigestNotificationPolicy implements JobNotificationPolicy {
                 parseReasonCodes(metadata.get("reasonCodes")));
     }
 
-    private boolean isSignalChanged(Map<String, Object> metadata) {
+    private boolean isEligible(Map<String, Object> metadata) {
         if (metadata == null) {
             return false;
         }
-        return Boolean.parseBoolean(stringValue(metadata.get("signalChanged")));
+        if (Boolean.parseBoolean(stringValue(metadata.get("signalChanged")))) {
+            return true;
+        }
+        return Boolean.parseBoolean(stringValue(metadata.get("newSignalDate")))
+                && "CONFIRMED_TREND_EQUALS".equalsIgnoreCase(stringValue(metadata.get("strategy")))
+                && "1d".equalsIgnoreCase(stringValue(metadata.get("timeframe")))
+                && Boolean.parseBoolean(stringValue(metadata.get("persisted")));
+    }
+
+    private String defaultText(String value) {
+        return value == null ? "" : value;
     }
 
     private List<String> parseReasonCodes(Object value) {

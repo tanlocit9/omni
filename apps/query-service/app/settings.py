@@ -1,7 +1,7 @@
 from typing import Literal
 
 from py_common.config import BaseAppSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 
 
 class QueryServiceSettings(BaseAppSettings):
@@ -15,6 +15,10 @@ class QueryServiceSettings(BaseAppSettings):
     query_max_concurrency: int = Field(default=2, ge=1, le=16)
     query_threads: int = Field(default=2, ge=1, le=16)
     query_cache_max_entries: int = Field(default=100, ge=0, le=1000)
+    query_db_path: str = Field(default="data/query-service.sqlite3", min_length=1)
+    query_claim_lease_seconds: float = Field(default=60.0, gt=0)
+    query_poll_interval_seconds: float = Field(default=0.25, gt=0, le=60)
+    query_max_result_bytes: int = Field(default=16 * 1024 * 1024, ge=1)
     dashboard_max_datasets: int = Field(default=100, ge=1, le=500)
     dashboard_max_partitions: int = Field(default=1000, ge=1, le=5000)
     dashboard_max_movers: int = Field(default=20, ge=1, le=100)
@@ -23,6 +27,12 @@ class QueryServiceSettings(BaseAppSettings):
     query_cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173"]
     )
+
+    @model_validator(mode="after")
+    def claim_lease_exceeds_timeout(self) -> QueryServiceSettings:
+        if self.query_claim_lease_seconds <= self.query_timeout_seconds:
+            raise ValueError("query claim lease must exceed query timeout")
+        return self
 
 
 settings = QueryServiceSettings()

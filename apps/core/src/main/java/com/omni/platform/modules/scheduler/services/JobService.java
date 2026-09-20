@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
+import com.omni.platform.modules.notifications.services.NotificationOutboxService;
+import com.omni.platform.modules.notifications.templates.SignalNotificationTemplate;
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
@@ -55,6 +58,8 @@ public class JobService {
     private final ApplicationEventPublisher eventPublisher;
     private final JobNotificationPolicyRegistry jobNotificationPolicyRegistry;
     private final SchedulerOutboxService schedulerOutboxService;
+    private final NotificationOutboxService notificationOutboxService;
+    private final SignalNotificationTemplate signalNotificationTemplate;
 
     @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
     private String schedulerZone;
@@ -698,6 +703,11 @@ public class JobService {
 
     private void publishNotification(JobNotificationContext context) {
         jobNotificationPolicyRegistry.buildNotification(context).ifPresent(event -> {
+            if (event instanceof SignalDigestNotificationEvent digest) {
+                signalNotificationTemplate.pages(digest).forEach(request ->
+                        notificationOutboxService.enqueue(request, Instant.now()));
+                return;
+            }
             try {
                 eventPublisher.publishEvent(event);
             } catch (Exception exc) {

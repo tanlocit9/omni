@@ -4,6 +4,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
 public record NotificationRequest(
         NotificationChannel channel,
         NotificationType type,
@@ -61,6 +64,11 @@ public record NotificationRequest(
         SIGNAL
     }
 
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "contentType")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = SignalChangedContent.class, name = "signalChanged"),
+            @JsonSubTypes.Type(value = SignalDigestContent.class, name = "signalDigest")
+    })
     public sealed interface StructuredContent permits SignalChangedContent, SignalDigestContent {
     }
 
@@ -82,7 +90,17 @@ public record NotificationRequest(
             String timeframe,
             int changedCount,
             List<SignalDigestEntry> items,
-            Instant createdAt) implements StructuredContent {
+            Instant createdAt,
+            int pageNumber,
+            int pageCount) implements StructuredContent {
+        public SignalDigestContent(
+                String strategy,
+                String timeframe,
+                int changedCount,
+                List<SignalDigestEntry> items,
+                Instant createdAt) {
+            this(strategy, timeframe, changedCount, items, createdAt, 1, 1);
+        }
     }
 
     public record SignalDigestEntry(

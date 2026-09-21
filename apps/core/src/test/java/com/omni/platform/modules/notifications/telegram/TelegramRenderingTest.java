@@ -195,12 +195,12 @@ class TelegramRenderingTest {
 
         assertThat(html).hasSizeLessThanOrEqualTo(TelegramRendering.MAX_MESSAGE_LENGTH)
                 .contains("📊 <b>150 signal changes · Momentum · 1D</b>")
-                .containsPattern("Showing \\d+ of 150 · \\d+ omitted · Updated 17:22 ICT")
+                .containsPattern("Page 1/1 · \\d+ on this page · 150 total · \\d+ on other pages · Updated 17:22 ICT")
                 .contains("Repeated notifications suppressed: 4")
                 .doesNotContain("<&>")
                 .doesNotEndWith("\uD83D");
-        int shown = Integer.parseInt(html.replaceFirst("(?s).*Showing (\\d+) of 150.*", "$1"));
-        int omitted = Integer.parseInt(html.replaceFirst("(?s).* of 150 · (\\d+) omitted.*", "$1"));
+        int shown = Integer.parseInt(html.replaceFirst("(?s).*Page 1/1 · (\\d+) on this page.*", "$1"));
+        int omitted = Integer.parseInt(html.replaceFirst("(?s).*150 total · (\\d+) on other pages.*", "$1"));
         assertThat(shown).isLessThanOrEqualTo(100);
         assertThat(shown + omitted).isEqualTo(150);
         assertThat(html.split("<b>Date:</b>", -1).length - 1).isEqualTo(shown);

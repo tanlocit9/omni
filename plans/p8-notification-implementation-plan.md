@@ -3,7 +3,7 @@
 **Status**: Planning  
 **Created**: 2026-09-15  
 **Owner**: Architect Mode  
-**Dependencies**: P8-I1 blocks P8-I2; both required before P8-I5
+**Dependencies**: P8-I1 blocks P8-I2; both remain completion gates for P8-I5
 
 ## Executive Summary
 
@@ -613,8 +613,12 @@ npx prettier --write <files>
 
 ### Future:
 
-1. P9-I5 (VCI health metrics) — blocks P8-I5
-2. P8-I5 (Notification Outbox) — requires P8-I1, P8-I2, P9-I5 completed
+1. P8-I5 (Notification Outbox) — requires completed P8-I1 and P8-I2;
+   owner-directed implementation may proceed, but neither prerequisite nor P8-I5
+   may be promoted without required verification and CI evidence.
+2. P9-I5 (VCI health metrics) — superseded into post-MVP technical debt by the
+   2026-09-19 owner decision; it no longer blocks P8-I5 and requires explicit
+   owner reactivation before scheduling.
 
 ## 8. Questions for Owner
 

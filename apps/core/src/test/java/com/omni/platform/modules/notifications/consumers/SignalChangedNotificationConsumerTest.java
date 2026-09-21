@@ -26,8 +26,10 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import com.omni.platform.modules.notifications.configs.TelegramNotificationProperties;
 import com.omni.platform.modules.notifications.configs.TelegramNotificationProperties.SignalFilterConfig;
+import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
-import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
+import com.omni.platform.modules.notifications.services.NotificationOutboxService;
+import com.omni.platform.modules.notifications.templates.SignalChangedNotificationTemplate;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -40,32 +42,40 @@ class SignalChangedNotificationConsumerTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private NotificationOutboxService outboxService;
+
     private final JsonMapper jsonMapper = JsonMapper.builder().findAndAddModules().build();
+    private final SignalChangedNotificationTemplate template = new SignalChangedNotificationTemplate();
 
     @Test
-    void handlePublishesSignalChangedEventForValidAnalyzerMessage() {
+    void handleDurablyEnqueuesValidAnalyzerMessageBeforeReturning() {
         SignalChangedNotificationConsumer consumer = consumer();
 
         consumer.handle(record(validPayload(), 1L));
 
-        ArgumentCaptor<SignalChangedNotificationEvent> captor =
-                ArgumentCaptor.forClass(SignalChangedNotificationEvent.class);
-        verify(eventPublisher).publishEvent(captor.capture());
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(outboxService).enqueue(captor.capture(), any(Instant.class));
         verify(eventPublisher, never()).publishEvent(any(OperationalNotificationEvent.class));
 
-        SignalChangedNotificationEvent event = captor.getValue();
-        assertThat(event.executionId()).isEqualTo(EXECUTION_ID);
-        assertThat(event.parentExecutionId()).isEqualTo(PARENT_EXECUTION_ID);
-        assertThat(event.symbolKey()).isEqualTo("SET:PTT");
-        assertThat(event.previousSignal()).isEqualTo("HOLD");
-        assertThat(event.newSignal()).isEqualTo("BUY");
-        assertThat(((Number) event.price()).doubleValue()).isEqualTo(34.75);
-        assertThat(event.signalDate()).isEqualTo("2026-08-29");
-        assertThat(event.reasonCodes()).containsExactly("RSI_OVERSOLD", "MACD_CROSS");
-        assertThat(event.strategy()).isEqualTo("momentum-v1");
-        assertThat(event.timeframe()).isEqualTo("1d");
-        assertThat(event.createdAt()).isEqualTo(Instant.parse("2026-08-29T08:30:00Z"));
-        assertThat(event.metadata()).containsEntry("source", "analyzer");
+        NotificationRequest request = captor.getValue();
+        assertThat(request.deduplicationKey())
+                .isEqualTo(EXECUTION_ID + ":SET:PTT:BUY:2026-08-29T08:30:00Z");
+        assertThat(request.structuredContent()).isInstanceOfSatisfying(
+                NotificationRequest.SignalChangedContent.class,
+                signal -> {
+                    assertThat(signal.symbolKey()).isEqualTo("SET:PTT");
+                    assertThat(signal.previousSignal()).isEqualTo("HOLD");
+                    assertThat(signal.newSignal()).isEqualTo("BUY");
+                    assertThat(((Number) signal.price()).doubleValue()).isEqualTo(34.75);
+                    assertThat(signal.signalDate()).isEqualTo("2026-08-29");
+                    assertThat(signal.reasonCodes()).containsExactly("RSI_OVERSOLD", "MACD_CROSS");
+                    assertThat(signal.strategy()).isEqualTo("momentum-v1");
+                    assertThat(signal.timeframe()).isEqualTo("1d");
+                    assertThat(signal.createdAt()).isEqualTo(Instant.parse("2026-08-29T08:30:00Z"));
+                });
+        assertThat(request.metadata()).containsEntry("source", "analyzer")
+                .containsEntry("parentExecutionId", PARENT_EXECUTION_ID);
     }
 
     @Test
@@ -73,11 +83,13 @@ class SignalChangedNotificationConsumerTest {
         SignalChangedNotificationConsumer consumer = consumerWithStrategies("CONFIRMED_TREND_EQUALS");
         String payload = validPayload()
                 .replace("\"strategy\":\"momentum-v1\"", "\"strategy\":\"CONFIRMED_TREND_EQUALS\"")
-                .replace("\"signalChanged\":true", "\"signalChanged\":false,\"newSignalDate\":true");
+                .replace("\"signalChanged\":true", "\"signalChanged\":false,\"newSignalDate\":true")
+                .replace("\"metadata\":{\"source\":\"analyzer\"}",
+                        "\"metadata\":{\"source\":\"analyzer\",\"persisted\":true}");
 
         consumer.handle(record(payload, 2L));
 
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
         verify(eventPublisher, never()).publishEvent(any(OperationalNotificationEvent.class));
     }
 
@@ -98,11 +110,11 @@ class SignalChangedNotificationConsumerTest {
 
         // Should pass: allowed symbol
         consumer.handle(record(validPayload().replace("SET:PTT", "HOSE-FPT"), 1L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should be filtered: not in allowed list
         consumer.handle(record(validPayload().replace("SET:PTT", "HOSE-HPG"), 2L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
     }
 
     @Test
@@ -113,15 +125,15 @@ class SignalChangedNotificationConsumerTest {
 
         // Should pass: matches HOSE-* pattern
         consumer.handle(record(validPayload().replace("SET:PTT", "HOSE-FPT"), 1L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should pass: matches HNX-A* pattern
         consumer.handle(record(validPayload().replace("SET:PTT", "HNX-ACB"), 2L));
-        verify(eventPublisher, times(2)).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService, times(2)).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should be filtered: doesn't match patterns
         consumer.handle(record(validPayload().replace("SET:PTT", "UPCOM-ABC"), 3L));
-        verify(eventPublisher, times(2)).publishEvent(any(SignalChangedNotificationEvent.class)); // still 2 calls
+        verify(outboxService, times(2)).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 2 calls
     }
 
     @Test
@@ -132,11 +144,11 @@ class SignalChangedNotificationConsumerTest {
 
         // Should pass: BUY signal
         consumer.handle(record(validPayload(), 1L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should be filtered: HOLD signal
         consumer.handle(record(validPayload().replace("\"newSignal\":\"BUY\"", "\"newSignal\":\"HOLD\""), 2L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
     }
 
     @Test
@@ -147,11 +159,11 @@ class SignalChangedNotificationConsumerTest {
 
         // Should pass: 1d timeframe
         consumer.handle(record(validPayload(), 1L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should be filtered: 4h timeframe
         consumer.handle(record(validPayload().replace("\"timeframe\":\"1d\"", "\"timeframe\":\"4h\""), 2L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
     }
 
     @Test
@@ -162,11 +174,11 @@ class SignalChangedNotificationConsumerTest {
 
         // Should pass: score 0.91 >= 0.7
         consumer.handle(record(validPayload(), 1L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should be filtered: score 0.5 < 0.7
         consumer.handle(record(validPayload().replace("\"score\":0.91", "\"score\":0.5"), 2L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
     }
 
     @Test
@@ -188,19 +200,19 @@ class SignalChangedNotificationConsumerTest {
                 .replace("\"timeframe\":\"1d\"", "\"timeframe\":\"1d\"")
                 .replace("\"score\":0.91", "\"score\":0.8");
         consumer.handle(record(validSignal, 1L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class));
 
         // Should be filtered: wrong symbol pattern
         consumer.handle(record(validSignal.replace("HOSE-FPT", "HNX-ACB"), 2L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
 
         // Should be filtered: wrong direction
         consumer.handle(record(validSignal.replace("\"newSignal\":\"BUY\"", "\"newSignal\":\"SELL\""), 3L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
 
         // Should be filtered: score too low
         consumer.handle(record(validSignal.replace("\"score\":0.8", "\"score\":0.6"), 4L));
-        verify(eventPublisher).publishEvent(any(SignalChangedNotificationEvent.class)); // still 1 call
+        verify(outboxService).enqueue(any(NotificationRequest.class), any(Instant.class)); // still 1 call
     }
 
     @Test
@@ -212,7 +224,7 @@ class SignalChangedNotificationConsumerTest {
                 .hasMessage("Failed to process signal notification");
 
         verify(eventPublisher).publishEvent(any(OperationalNotificationEvent.class));
-        verify(eventPublisher, never()).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService, never()).enqueue(any(), any());
     }
 
     @ParameterizedTest(name = "rejects {0}")
@@ -228,7 +240,7 @@ class SignalChangedNotificationConsumerTest {
                 .hasCauseInstanceOf(IllegalArgumentException.class);
 
         verify(eventPublisher).publishEvent(any(OperationalNotificationEvent.class));
-        verify(eventPublisher, never()).publishEvent(any(SignalChangedNotificationEvent.class));
+        verify(outboxService, never()).enqueue(any(), any());
     }
 
     private static Stream<Arguments> invalidContracts() {
@@ -260,7 +272,7 @@ class SignalChangedNotificationConsumerTest {
                 true, "token", "ops-chat", "signals-chat", "HTML",
                 "https://api.telegram.org", Duration.ofMinutes(5), 10000,
                 "Asia/Bangkok", true, filter);
-        return new SignalChangedNotificationConsumer(eventPublisher, jsonMapper, properties);
+        return new SignalChangedNotificationConsumer(eventPublisher, jsonMapper, properties, template, outboxService);
     }
 
     private ConsumerRecord<String, String> record(String payload, long offset) {

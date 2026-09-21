@@ -79,7 +79,7 @@ class NotificationTemplateTest {
         assertThat(request.metadata()).containsEntry("timeframe", "1d");
         assertThat(request.metadata()).containsEntry("totalChildren", 3);
         assertThat(request.metadata()).containsEntry("changedCount", 1);
-        assertThat(request.deduplicationKey()).isEqualTo(parentExecutionId.toString());
+        assertThat(request.deduplicationKey()).isEqualTo(parentExecutionId + ":1");
         assertThat(request.structuredContent()).isInstanceOfSatisfying(SignalDigestContent.class, content -> {
             assertThat(content.changedCount()).isEqualTo(1);
             assertThat(content.strategy()).isEqualTo("TREND_MOMENTUM_V1");

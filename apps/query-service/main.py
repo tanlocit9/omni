@@ -31,13 +31,18 @@ async def lifespan(app: FastAPI):
         executor=executor,
         settings=settings,
     )
-    app.state.query_manager = QueryManager(
+    query_manager = QueryManager(
         resolver=resolver,
         executor=executor,
         settings=settings,
         audit_sink=StructuredLogAuditSink(),
     )
-    yield
+    app.state.query_manager = query_manager
+    await query_manager.start()
+    try:
+        yield
+    finally:
+        await query_manager.stop()
 
 
 def create_app() -> FastAPI:

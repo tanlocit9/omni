@@ -1,5 +1,7 @@
 package com.omni.platform.modules.notifications.consumers;
 
+import java.time.Instant;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +14,8 @@ import com.omni.platform.modules.notifications.configs.TelegramNotificationPrope
 import com.omni.platform.modules.notifications.configs.TelegramNotificationProperties.SignalFilterConfig;
 import com.omni.platform.modules.notifications.dtos.SignalChangedNotificationMessage;
 import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
+import com.omni.platform.modules.notifications.services.NotificationOutboxService;
+import com.omni.platform.modules.notifications.templates.SignalChangedNotificationTemplate;
 import com.omni.platform.shared.infrastructure.kafka.AbstractConsumer;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -21,9 +25,10 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(SignalChangedNotificationConsumer.class);
 
-    private final ApplicationEventPublisher eventPublisher;
     private final JsonMapper jsonMapper;
     private final SignalFilterConfig signalFilter;
+    private final SignalChangedNotificationTemplate template;
+    private final NotificationOutboxService outboxService;
 
     @Value("${kafka.topics.topic-signal-notifications}")
     private String topic;
@@ -31,10 +36,13 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
     public SignalChangedNotificationConsumer(
             ApplicationEventPublisher eventPublisher,
             JsonMapper jsonMapper,
-            TelegramNotificationProperties telegramProperties) {
+            TelegramNotificationProperties telegramProperties,
+            SignalChangedNotificationTemplate template,
+            NotificationOutboxService outboxService) {
         super(eventPublisher);
-        this.eventPublisher = eventPublisher;
         this.jsonMapper = jsonMapper;
+        this.template = template;
+        this.outboxService = outboxService;
         this.signalFilter = telegramProperties.signalFilter() != null
                 ? telegramProperties.signalFilter()
                 : new SignalFilterConfig(null, null, null, null, null, null, null);
@@ -61,10 +69,11 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
                 return;
             }
             
-            eventPublisher.publishEvent(new SignalChangedNotificationEvent(
+            SignalChangedNotificationEvent event = new SignalChangedNotificationEvent(
                     message.executionId(), message.parentExecutionId(), message.symbolKey(), message.previousSignal(),
                     message.newSignal(), message.price(), message.signalDate(), message.reasonCodes(), message.score(),
-                    message.strategy(), message.timeframe(), message.createdAt(), message.metadata()));
+                    message.strategy(), message.timeframe(), message.createdAt(), message.metadata());
+            outboxService.enqueue(template.render(event), Instant.now());
         } catch (Exception exc) {
             publishMessageProcessingFailed(record, exc);
             throw new RuntimeException("Failed to process signal notification", exc);
@@ -102,11 +111,24 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
 
     private void validate(SignalChangedNotificationMessage message) {
         if (message == null || !"SIGNAL_CHANGED".equals(message.type())
-                || (!message.signalChanged() && !message.isNewSignalDate())
+                || !eligible(message)
                 || message.executionId() == null || message.parentExecutionId() == null
                 || isBlank(message.symbolKey()) || isBlank(message.newSignal()) || message.createdAt() == null) {
             throw new IllegalArgumentException("Invalid SIGNAL_CHANGED notification contract");
         }
+    }
+
+    private boolean eligible(SignalChangedNotificationMessage message) {
+        if ("NO_DECISION".equalsIgnoreCase(message.newSignal())) {
+            return false;
+        }
+        return message.signalChanged()
+                || (message.isNewSignalDate()
+                        && Boolean.TRUE.equals(signalFilter.enableNewSignalDate())
+                        && "CONFIRMED_TREND_EQUALS".equalsIgnoreCase(message.strategy())
+                        && "1d".equalsIgnoreCase(message.timeframe())
+                        && message.metadata() != null
+                        && Boolean.parseBoolean(String.valueOf(message.metadata().get("persisted"))));
     }
 
     private boolean isBlank(String value) {

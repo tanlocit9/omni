@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 
 import com.omni.platform.modules.scheduler.config.SchedulerProperties;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim;
-import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+import com.omni.platform.shared.outbox.ClaimableOutboxStore;
 
 class SchedulerOutboxDispatcherTest {
 
@@ -23,14 +23,15 @@ class SchedulerOutboxDispatcherTest {
 
     @Test
     void successfulPublishAcknowledgesTheExactOutboxClaim() {
-        SchedulerOutboxService outboxService = mock(SchedulerOutboxService.class);
+        @SuppressWarnings("unchecked")
+        ClaimableOutboxStore<SchedulerOutboxClaim> outboxStore = mock(ClaimableOutboxStore.class);
         KafkaPublisher kafkaPublisher = mock(KafkaPublisher.class);
         SchedulerProperties properties = properties();
         SchedulerOutboxClaim claim = claim();
-        when(outboxService.claimPending(NOW, "core-a", Duration.ofMinutes(2), 10))
+        when(outboxStore.claimPending(NOW, "core-a", Duration.ofMinutes(2), 10))
                 .thenReturn(List.of(claim));
         SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outboxService, kafkaPublisher, properties);
+                outboxStore, kafkaPublisher, properties);
 
         dispatcher.dispatchBatch(NOW);
 
@@ -39,10 +40,10 @@ class SchedulerOutboxDispatcherTest {
                 org.mockito.ArgumentMatchers.eq("ACB"),
                 org.mockito.ArgumentMatchers.eq("{\"executionId\":\"stable\"}"),
                 org.mockito.ArgumentMatchers.any(Duration.class));
-        verify(outboxService).markPublished(
+        verify(outboxStore).markDelivered(
                 org.mockito.ArgumentMatchers.same(claim),
                 org.mockito.ArgumentMatchers.any(Instant.class));
-        verify(outboxService, never()).markFailed(
+        verify(outboxStore, never()).scheduleRetry(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any());
@@ -50,10 +51,11 @@ class SchedulerOutboxDispatcherTest {
 
     @Test
     void publishFailureKeepsTheSameMessageRecoverable() {
-        SchedulerOutboxService outboxService = mock(SchedulerOutboxService.class);
+        @SuppressWarnings("unchecked")
+        ClaimableOutboxStore<SchedulerOutboxClaim> outboxStore = mock(ClaimableOutboxStore.class);
         KafkaPublisher kafkaPublisher = mock(KafkaPublisher.class);
         SchedulerOutboxClaim claim = claim();
-        when(outboxService.claimPending(NOW, "core-a", Duration.ofMinutes(2), 10))
+        when(outboxStore.claimPending(NOW, "core-a", Duration.ofMinutes(2), 10))
                 .thenReturn(List.of(claim));
         RuntimeException failure = new RuntimeException("broker unavailable");
         org.mockito.Mockito.doThrow(failure).when(kafkaPublisher).publishSerializedAndWait(
@@ -62,15 +64,15 @@ class SchedulerOutboxDispatcherTest {
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.any(Duration.class));
         SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outboxService, kafkaPublisher, properties());
+                outboxStore, kafkaPublisher, properties());
 
         dispatcher.dispatchBatch(NOW);
 
-        verify(outboxService).markFailed(
+        verify(outboxStore).scheduleRetry(
                 org.mockito.ArgumentMatchers.same(claim),
                 org.mockito.ArgumentMatchers.any(Instant.class),
-                org.mockito.ArgumentMatchers.same(failure));
-        verify(outboxService, never()).markPublished(
+                org.mockito.ArgumentMatchers.eq("broker unavailable"));
+        verify(outboxStore, never()).markDelivered(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any());
     }

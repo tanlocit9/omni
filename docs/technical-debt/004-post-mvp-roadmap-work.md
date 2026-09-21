@@ -2,7 +2,7 @@
 
 ## Decision
 
-On 2026-09-05, the owner narrowed the active MVP to the existing daily/EOD pipeline, usable Telegram operational and signal notifications, and basic operator controls. On 2026-09-14, the owner reactivated bounded VCI health visibility as P9-I5 and Notification Outbox durable delivery as P8-I5 in the canonical registry.
+On 2026-09-05, the owner narrowed the active MVP to the existing daily/EOD pipeline, usable Telegram operational and signal notifications, and basic operator controls. On 2026-09-14, the owner reactivated bounded VCI health visibility as P9-I5 and Notification Outbox durable delivery as P8-I5. On 2026-09-19, the owner superseded P9-I5 back into technical debt and removed it as a prerequisite for P8-I5.
 
 Work that primarily adds migration machinery, advanced metadata, deployment hardening, Console/query polish, out-of-scope notification operations, intraday features beyond active increments, or realtime processing remains deferred. It must not be selected by roadmap automation until the owner explicitly promotes it into the canonical increment registry.
 
@@ -17,7 +17,7 @@ This is prioritization debt, not a claim that the work has no long-term value. E
 | Portable deployment hardening   | P5-I1, P5-I2, P5-I3        | Image hardening, cloud/storage profiles, backup rehearsal, and immutable publication are deferred until an MVP deployment target is selected.                                                                                                                                                                                   |
 | Console and query polish        | P6-I1, P6-I2, P6-I3, P6-I4 | Dataset exploration, SQL tooling, Arrow workflows, and dashboard work are outside the basic operator-control MVP. Existing merged source is retained but is not an active completion priority.                                                                                                                                  |
 | Notification follow-ups         | Outside P8-I5              | P8-I5 now owns durable enqueue, distributed idempotency, bounded retries/backoff/jitter, `Retry-After`, `DEAD`, pagination, metrics, and operator status visibility. Audited manual replay of `DEAD`, broader notification-provider expansion, and optional operational tooling beyond status/count visibility remain deferred. |
-| Intraday EOD                    | P9-I1, P9-I2, P9-I3        | Higher-frequency post-close datasets and features are outside the daily/EOD MVP.                                                                                                                                                                                                                                                |
+| Intraday EOD                    | P9-I1, P9-I2, P9-I3, P9-I5 | Higher-frequency post-close datasets, features, and VCI health visibility are outside the daily/EOD MVP. P9-I5 requires explicit owner reactivation before scheduling.                                                                                                                                                          |
 | Realtime per tick               | Historical deferral lifted | On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. The canonical registry now owns their blocked status and gates; this document retains the prior deferral as history only.                                                                                                                |
 
 ## Deferred Supporting Plans
@@ -46,8 +46,7 @@ The active MVP keeps:
 - Phase 7 basic job catalog, safe trigger, and execution visibility;
 - P8-I1 operational/generic Telegram formats;
 - P8-I2 immediate/digest signal formats;
-- P9-I5 VCI health metrics and basic visibility after P9-I1 completes;
-- P8-I5 Notification Outbox and Durable Delivery after its P9-I5 dependency completes.
+- P8-I5 Notification Outbox and Durable Delivery after P8-I1 and P8-I2 complete.
 
 Completed increments remain completed. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because their implementations directly support the retained MVP. P8-I3 remains a superseded historical increment; it does not own the active P8-I5 scope. Deferred increments must not block those MVP evidence gates solely because of historical dependency links.
 
@@ -69,9 +68,9 @@ Reassess deferred work when one of these becomes true:
 
 Reactivation requires an owner decision, refreshed dependencies and acceptance criteria, and a new or restored canonical roadmap increment. Do not treat this document as authorization to implement deferred work autonomously.
 
-## Deferred VCI Capacity and Provider Expansion
+## Deferred VCI Health, Capacity, and Provider Expansion
 
-P9-I5 measures the current VCI path but does not decide capacity policy. After P9-I5 and P8-I5, a separate owner review may assess measured latency, throughput, backlog, failures, HTTP 429 frequency, availability, and data coverage. No capacity conclusion or implementation schedule is created here.
+P9-I5 VCI health metrics and basic visibility is superseded technical debt. A future owner reactivation may measure latency, throughput, backlog, failures, HTTP 429 frequency, availability, and data coverage through a refreshed canonical increment. No capacity conclusion or implementation schedule is created here, and this work does not block P8-I5.
 
 Multi-provider ingestion, provider rotation/fallback, IP rotation, source mixing, and concurrency intended to evade upstream limits remain deferred. Any future provider increment must receive owner approval, preserve provider lineage, avoid silently mixing sources in one logical partition, and remain separate from blocked P10-I0/P10-I3 realtime design.
 
@@ -183,6 +182,296 @@ Dashboard lists existing enabled named combinations and their available versions
 
 Telegram configuration references stable combination names or an explicit approved list. Delivery resolves each name to its active READY `combinationId`. Disabled combinations send nothing. Deduplication identity includes combination ID, symbol, signal date, and result so version changes cannot collapse distinct decisions.
 
-### Deferred Verification
+### Deferred Deployment Work
+
+Deployment debt is split into three independent tracks. Completing one track does not imply the later tracks are complete.
+
+| Track                  | Runtime model                                                               | Priority                | Reactivation trigger                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Local developer setup  | Infrastructure in Docker; applications run from Nx on the developer machine | Medium                  | Setup is repeated on a new machine, shared with another developer, or becomes a recurring source of failure |
+| Full Docker stack      | Every Omni service runs in containers on one local/home-lab host            | Medium                  | A portable full-stack handoff or repeatable home-lab runtime is required                                    |
+| Infrastructure / cloud | Immutable images and externalized state deployed to a persistent host       | Deferred owner decision | A target provider, cost ceiling, exposure model, and recovery expectation are approved                      |
+
+The Plan 024 Fluent Bit + VictoriaLogs debugging profile may add its two optional containers without completing the full Docker or infrastructure tracks. It must remain private/local and must not be represented as production deployment evidence.
+
+### Track A — Local Developer Setup
+
+Target boundary:
+
+```mermaid
+flowchart LR
+    Dev["Developer machine: Nx applications"] --> PG[(PostgreSQL)]
+    Dev --> Kafka[(Kafka)]
+    Dev --> MinIO[(MinIO)]
+    Dev -. optional .-> PgAdmin[pgAdmin]
+```
+
+#### Bootstrap CLI requirement
+
+Detailed Omni adoption is owned by [Plan 025 — Polycheck Adoption for Omni](../plans/025-polycheck-adoption.md).
+
+Use Polycheck as the generic repository-readiness CLI, Nx as the first workspace adapter, and [mise](https://mise.jdx.dev/) as the version/bootstrap engine instead of implementing another language-version manager. Commit Omni requirements in `polycheck.toml`, keep runtime pins in `mise.toml`, and keep Nx as the application task orchestrator after prerequisites are available.
+
+Target user experience after the external packages are published and adopted:
+
+```text
+npx polycheck doctor
+npx polycheck doctor --json
+mise install
+npx nx run omni:local-infra
+npx nx run omni:local-dev
+```
+
+Polycheck must remain generic and delegate runtime installation to mise. Omni-specific aliases may wrap these commands, but they must not duplicate check, version-management, or installation logic.
+
+Pinned tool baseline:
+
+| Tool                               | Required version/source                                 | Installation owner                 |
+| ---------------------------------- | ------------------------------------------------------- | ---------------------------------- |
+| Node.js                            | 22, exact supported minor/patch recorded in `mise.toml` | mise                               |
+| Java                               | Temurin/OpenJDK 21                                      | mise                               |
+| Python                             | 3.14.5, consistent with `.python-version` and CI        | mise                               |
+| `uv`                               | Exact repo-supported version                            | mise                               |
+| npm                                | Version bundled with the pinned Node runtime            | Node installation                  |
+| Gradle                             | Repository wrapper; no global Gradle installation       | `apps/core/gradlew`                |
+| Nx                                 | Workspace dependency; no global Nx installation         | `npm ci` and `npx nx`              |
+| Git                                | Supported system installation                           | Detect; opt-in system install only |
+| Docker Engine/Desktop + Compose v2 | Supported system installation                           | Detect; opt-in system install only |
+
+`doctor` is read-only and must report:
+
+- operating system, architecture, shell, PATH resolution, and whether Windows is using the supported native/WSL2 mode;
+- resolved executable path and version for Git, Docker, Compose, Node, npm, Java, Python, `uv`, and the Gradle wrapper;
+- `JAVA_HOME` value, resolved `java` path, JDK major version, and whether they disagree;
+- Python executable selected by mise/uv, `.python-version`, project virtual-environment state, and workspace lock consistency;
+- Docker daemon availability, Linux-container mode, Compose v2, available memory/disk, and WSL2 resource warning where applicable;
+- required root/service env files and required variable names without printing secret values;
+- submodule initialization state;
+- port conflicts for `5432`, `9092`, `9000`, `9001`, `5050`, `8080`, `8000`, `8001`, `8002`, and `5173`;
+- static Compose configuration validity;
+- a final machine-readable and human-readable result.
+
+Exit contract:
+
+| Exit code | Meaning                                          |
+| --------: | ------------------------------------------------ |
+|       `0` | Ready for the selected local mode                |
+|       `1` | Supported machine but action is required         |
+|       `2` | Invalid configuration or unsupported environment |
+|       `3` | Doctor itself failed unexpectedly                |
+
+Support `--json` for CI/editor integration and redact values whose names match the repository secret classification.
+
+`setup` is mutating and must:
+
+1. show a plan/dry-run before installation;
+2. install pinned user-space runtimes through mise;
+3. run `npm ci`;
+4. synchronize `py-common`, Analyzer, Ingestor, and Query Service with locked `uv` environments;
+5. initialize Git submodules;
+6. create root/service env files from examples only when missing;
+7. never overwrite an existing env file or secret;
+8. rerun `doctor` and stop before starting infrastructure if prerequisites remain invalid.
+
+Installation policy:
+
+- `mise run setup` may install user-space Node, Java, Python, and `uv` without changing unrelated global installations.
+- Prefer mise-managed `JAVA_HOME`/PATH for repo commands; warn about a conflicting global `JAVA_HOME`, but do not rewrite the user's global environment silently.
+- Docker Desktop/Engine, Git, WSL2 features, OS packages, firewall rules, and system services require an explicit `--install-system` or equivalent confirmation.
+- System installation must print the exact `winget`, `brew`, `apt`, or `dnf` action before execution and must report when logout/restart is required.
+- `setup` must be idempotent: a second run makes no destructive change and does not reinstall matching versions.
+- Infrastructure startup remains a separate explicit command; installing tools must not start Kafka, PostgreSQL, MinIO, or applications.
+
+Security and diagnostics rules:
+
+- never print complete environment files, tokens, passwords, signed URLs, or credentials;
+- never download tools from ad-hoc URLs when mise/official package metadata is available;
+- pin versions and verify supported checksums/signatures through the selected installer path;
+- record actions taken, skipped, and failed without collecting user telemetry;
+- provide a manual remediation command for every check that cannot be safely automated.
+
+Current gaps:
+
+- `omni:init` starts the complete Compose stack, while `omni:dev` starts the same application ports on the host; following both commands can create port conflicts.
+- README copies only the root `.env`, while Compose references service-level env files.
+- Query Service dependency synchronization is absent from the quick-start sequence.
+- Prerequisite versions and checks for Node, Java, Python, `uv`, Docker, and Linux-container mode are not automated.
+- There is no single clean command that starts infrastructure, synchronizes application dependencies, and runs the five development applications without also starting duplicate containers.
+- A clean-machine local smoke result has not been recorded.
+
+Deferred work:
+
+- create an infrastructure-only target such as `omni:local-infra`;
+- create a host-application target such as `omni:local-dev`;
+- optionally expose one wrapper such as `omni:local` that runs preflight, infrastructure, dependency sync, and applications in the correct order;
+- add non-secret env bootstrap/validation for root and service-level files;
+- include Platform, Analyzer, Ingestor, Query Service, Omni Console, and `py-common` setup;
+- document Windows/WSL2 and Linux differences only where commands actually differ;
+- add a bounded readiness/smoke script that reports which dependency or service failed.
+
+Acceptance criteria:
+
+- a clean supported machine follows one documented command sequence;
+- local application processes do not conflict with Compose application ports;
+- missing prerequisite or configuration fails early with an actionable message;
+- every application reaches its documented health/readiness boundary;
+- stopping the local workflow leaves no unexpected application container/process running;
+- evidence records supported versions and the exact clean-machine procedure.
+
+This track does not require production images, a registry, R2, Cloudflare, backups, or Kubernetes.
+
+### Track B — Full Docker Stack
+
+Target boundary:
+
+```text
+Docker Compose on one host
+  -> Platform
+  -> Analyzer
+  -> Ingestor
+  -> Query Service
+  -> Omni Console
+  -> PostgreSQL
+  -> Kafka
+  -> MinIO for local/home-lab storage
+  -> optional Fluent Bit + VictoriaLogs profile
+```
+
+Current gaps:
+
+- Compose does not include Query Service or Omni Console.
+- Query Service and Omni Console have no Dockerfiles.
+- Python images do not package the workspace root and `libs/py-common` consistently even though services declare `omni-py-common` as a workspace dependency.
+- Analyzer runs Uvicorn with `--reload`.
+- Python images do not declare a non-root runtime user.
+- Platform expects filesystem Flyway migrations and shared topic configuration that are not clearly packaged in its runtime image.
+- Platform defaults to the development profile.
+- service source bind mounts and runtime builds make the current Compose stack development-oriented;
+- Kafka has no durable volume;
+- infrastructure images are not all pinned, including MinIO `latest`;
+- health/readiness checks, graceful shutdown, resource limits, and container smoke evidence are incomplete.
+
+Deferred work:
+
+- add Dockerfiles and Compose services for Query Service and Omni Console;
+- make every build context workspace-aware and package `py-common`, migrations, and shared configuration;
+- separate development/HMR images from runtime images;
+- remove production `--reload` and development profile defaults;
+- use non-root runtime users and pinned base/runtime image versions;
+- remove source bind mounts from the portable stack;
+- add durable local Kafka/PostgreSQL/MinIO volumes with explicit lifecycle behavior;
+- add health/readiness checks and dependency conditions based on readiness rather than container start;
+- add optional `observability` profile without making application readiness depend on it;
+- validate the effective Compose configuration and run a clean-volume full-stack smoke test.
+
+Acceptance criteria:
+
+- `docker compose up` or one explicitly named profile starts every required application and dependency from a clean checkout;
+- no host-installed Java, Python, or `uv` is required for the full Docker path;
+- Query Service and Console work through documented routes;
+- application images contain all runtime code/configuration and do not depend on source bind mounts;
+- restart preserves the explicitly durable local state;
+- collector/backend absence does not stop business services;
+- a clean build, startup, health, basic sync, query, Console, restart, and shutdown smoke result is recorded.
+
+This track is portable single-host Docker, not public cloud security, HA, or disaster recovery.
+
+### Track C — Infrastructure / Cloud Deployment
+
+Target boundary:
+
+```mermaid
+flowchart TD
+    CF["Cloudflare Access / Tunnel"] --> VPS["Private VPS Compose"]
+    GHCR["GHCR immutable images"] --> VPS
+    VPS --> Apps["Platform / workers / Query"]
+    VPS --> State["Kafka / PostgreSQL"]
+    Apps --> R2[(Cloudflare R2)]
+    VPS -. optional .-> Logs["Fluent Bit / VictoriaLogs"]
+```
+
+Current gaps:
+
+- no implemented `cloudflare-vps`, `home-lab`, backup, or restore deployment profile;
+- current Compose publishes internal ports and carries development/default credentials;
+- Platform exposes Actuator environment values and defaults to the development profile;
+- no identity-aware proxy configuration protects Console, Platform, or Query Service;
+- no implemented rule strips untrusted client identity headers before injecting verified identity;
+- images are built on the host instead of pulled by immutable digest/tag;
+- secrets, resource limits, network policy, log bounds, and upgrade/rollback procedures are not finalized;
+- Kafka/PostgreSQL durability and R2 compatibility/recovery evidence are incomplete;
+- backup/restore, RPO/RTO, HA, Kubernetes, and production SLOs remain separate post-MVP debt.
+
+Deferred work:
+
+- select and approve `home-lab` or `cloudflare-vps` with a cost ceiling;
+- publish pinned multi-architecture images to GHCR and deploy by immutable version;
+- keep Kafka, PostgreSQL, VictoriaLogs, object storage, and raw application ports private;
+- expose only approved routes through Cloudflare Tunnel and Access;
+- remove client-supplied identity headers at the trusted proxy and inject verified identity;
+- use external R2-compatible object storage for shared datasets; omit MinIO and pgAdmin from the cloud profile;
+- provide secrets through the approved secret/configuration mechanism with no tracked production defaults;
+- add production profile, resource limits, bounded logs, upgrade, rollback, and state-migration procedures;
+- validate Java/Python R2 operations before changing storage endpoints;
+- add backup/restore only through its separately approved recovery increment.
+
+Acceptance criteria before calling a single-VPS profile deployable:
+
+- immutable images start on a clean target without source checkout or runtime builds;
+- only approved authenticated HTTP routes are externally reachable;
+- internal service ports and credentials are not public or committed;
+- datasets use the approved external object store and browser clients receive no storage credentials;
+- persistent state, resource limits, health checks, log bounds, upgrade, and rollback behavior are documented and smoke-tested;
+- the profile clearly states that one VPS and one VictoriaLogs instance are single failure domains;
+- no claim of production readiness, HA, backup, or recovery is made without the corresponding evidence.
+
+This track does not imply Kubernetes. Kubernetes/Helm, multi-node Kafka, VictoriaLogs HA/`VLCluster`, and multi-zone failover remain separate future decisions.
+
+### Dependency and Promotion Rules
+
+```mermaid
+flowchart LR
+    Local["Track A: Local"] --> Docker["Track B: Docker"]
+    Docker --> Infra["Track C: Infrastructure"]
+```
+
+- Track A validates configuration and the developer workflow.
+- Track B packages the complete single-host runtime and may reuse Track A configuration contracts.
+- Track C deploys immutable Track B images and adds external access, secrets, external storage, and operational boundaries.
+
+Rules:
+
+1. Track B must not use successful host-local execution as container verification.
+2. Track C must not use successful local Compose startup as cloud security or recovery evidence.
+3. Track A may be promoted independently without selecting a cloud provider.
+4. Plan 024 MVP may add its local observability profile independently, provided it does not broaden into Track B/C work.
+5. Every promoted track requires a canonical roadmap increment, owner, acceptance evidence, and explicit non-goals.
+6. Existing `docs/plans/007-portable-docker-deployment.md` and `docs/deployment/002-cloudflare-low-cost-deployment.md` remain supporting design sources; this technical-debt record owns deferral and reactivation status.
+
+## Deferred Production Logging Hardening
+
+Plan 024 now owns a bounded debugging MVP: identify which sync failed, when and where it failed, why it failed, whether it is retryable, and reconstruct its Java/Kafka/Python flow by `correlationId`.
+
+The following production-hardening work is explicitly deferred and must not block Plan 024 MVP completion:
+
+- Kubernetes/Helm deployment and cluster lifecycle;
+- VictoriaLogs HA, replication, or `VLCluster`;
+- production authentication proxy, multitenancy, `vmauth`, and mTLS;
+- snapshot backup/restore, disaster recovery, RPO, and RTO;
+- formal SLOs and production capacity/load certification;
+- long collector/backend outage and disk-exhaustion testing;
+- Grafana dashboards and a dedicated alerting subsystem;
+- raw S3/R2/MinIO log archive;
+- OpenTelemetry tracing with `traceId`/`spanId`;
+- advanced sampling and stream-cardinality governance;
+- historical correlation backfill and database `NOT NULL` enforcement;
+- automated privacy deletion workflow;
+- future Node/Pino/`AsyncLocalStorage` runtime support.
+
+This debt may be promoted only when a real deployment, scale, availability, compliance, or multi-user access requirement exists. Promotion must define its own roadmap increment, acceptance criteria, security boundary, verification evidence, and rollback/recovery plan.
+
+The MVP may still use a private/localhost Compose profile with one Fluent Bit and one VictoriaLogs instance for centralized debugging. That profile is a single failure domain and must not be represented as HA or fully production-ready.
+
+## Deferred Verification
 
 Before reactivation, add coverage for canonical identity, weight normalization, enablement, validation, immutable version creation, precompute failure, atomic activation, rollback, concurrent updates, stale components, READY publication, outcome evaluation, Dashboard selection, Telegram selection, and audit history.

@@ -6,13 +6,13 @@ import json
 import logging
 import uuid
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from contextlib import suppress
 
 from app.audit import AuditSink, QueryAuditEvent
 from app.executor import DuckDBExecutor, QueryPayload
 from app.models import QueryRequest, QueryState, QueryStatusResponse
-from app.security import SqlRejectedError, ValidatedSql, validate_read_only_sql
+from app.query_store import QueryStore, StoredQuery
+from app.security import SqlRejectedError, validate_read_only_sql
 from app.settings import QueryServiceSettings
 from app.storage import DatasetResolver
 
@@ -27,28 +27,6 @@ class QueryNotReadyError(RuntimeError):
     pass
 
 
-@dataclass
-class QueryRecord:
-    query_id: str
-    actor: str
-    request: QueryRequest
-    validated_sql: ValidatedSql
-    state: QueryState = QueryState.QUEUED
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-    payload: QueryPayload | None = None
-    data_versions: dict[str, str] = field(default_factory=dict)
-    error: str | None = None
-    task: asyncio.Task[None] | None = None
-
-    @property
-    def duration_ms(self) -> int | None:
-        if self.started_at is None or self.completed_at is None:
-            return None
-        return int((self.completed_at - self.started_at).total_seconds() * 1000)
-
-
 class QueryManager:
     def __init__(
         self,
@@ -61,31 +39,48 @@ class QueryManager:
         self._executor = executor
         self._settings = settings
         self._audit_sink = audit_sink
-        self._records: dict[str, QueryRecord] = {}
-        self._semaphore = asyncio.Semaphore(settings.query_max_concurrency)
+        self._store = QueryStore(settings.query_db_path)
+        self._store.initialize()
+        self._worker_id = str(uuid.uuid4())
+        self._workers: list[asyncio.Task[None]] = []
+        self._stopping = asyncio.Event()
         self._cache: OrderedDict[str, QueryPayload] = OrderedDict()
 
-    async def submit(self, request: QueryRequest, actor: str) -> QueryRecord:
+    async def start(self) -> None:
+        if self._workers:
+            return
+        self._stopping.clear()
+        self._workers = [
+            asyncio.create_task(self._worker_loop(), name=f"query-worker-{index}")
+            for index in range(self._settings.query_max_concurrency)
+        ]
+
+    async def stop(self) -> None:
+        self._stopping.set()
+        for worker in self._workers:
+            worker.cancel()
+        if self._workers:
+            await asyncio.gather(*self._workers, return_exceptions=True)
+        self._workers.clear()
+
+    async def submit(self, request: QueryRequest, actor: str) -> StoredQuery:
         validated = validate_read_only_sql(
             request.sql,
             {item.view_name for item in request.datasets},
         )
-        query_id = str(uuid.uuid4())
-        record = QueryRecord(
-            query_id=query_id,
-            actor=actor,
-            request=request,
-            validated_sql=validated,
+        return await asyncio.to_thread(
+            self._store.enqueue,
+            str(uuid.uuid4()),
+            actor,
+            request,
+            validated,
         )
-        self._records[query_id] = record
-        record.task = asyncio.create_task(self._run(record))
-        return record
 
-    def get(self, query_id: str) -> QueryRecord:
-        try:
-            return self._records[query_id]
-        except KeyError as exc:
-            raise QueryNotFoundError(query_id) from exc
+    def get(self, query_id: str) -> StoredQuery:
+        record = self._store.get(query_id)
+        if record is None:
+            raise QueryNotFoundError(query_id)
+        return record
 
     def status(self, query_id: str) -> QueryStatusResponse:
         record = self.get(query_id)
@@ -102,56 +97,66 @@ class QueryManager:
             error=record.error,
         )
 
-    def result(self, query_id: str) -> tuple[QueryRecord, QueryPayload]:
+    def result(self, query_id: str) -> tuple[StoredQuery, QueryPayload]:
         record = self.get(query_id)
         if record.state != QueryState.SUCCEEDED or record.payload is None:
             raise QueryNotReadyError(record.state)
         return record, record.payload
 
-    async def cancel(self, query_id: str) -> QueryRecord:
-        record = self.get(query_id)
-        if record.state in {
+    async def cancel(self, query_id: str) -> StoredQuery:
+        current = self.get(query_id)
+        if current.state in {
             QueryState.SUCCEEDED,
             QueryState.FAILED,
             QueryState.CANCELLED,
             QueryState.TIMED_OUT,
         }:
-            return record
+            return current
+        record = await asyncio.to_thread(self._store.cancel, query_id)
+        if record is None:
+            raise QueryNotFoundError(query_id)
         self._executor.cancel(query_id)
-        if record.task:
-            record.task.cancel()
-        record.state = QueryState.CANCELLED
-        record.completed_at = datetime.now(UTC)
         self._write_audit(record)
         return record
 
-    async def _run(self, record: QueryRecord) -> None:
+    async def _worker_loop(self) -> None:
+        while not self._stopping.is_set():
+            record = await asyncio.to_thread(
+                self._store.claim,
+                self._worker_id,
+                self._settings.query_claim_lease_seconds,
+            )
+            if record is None:
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(
+                        self._stopping.wait(),
+                        timeout=self._settings.query_poll_interval_seconds,
+                    )
+                continue
+            await self._run_claim(record)
+
+    async def _run_claim(self, record: StoredQuery) -> None:
+        state = QueryState.FAILED
+        payload = None
+        data_versions: dict[str, str] = {}
+        error: str | None = None
         try:
-            async with self._semaphore:
-                if record.state == QueryState.CANCELLED:
-                    return
-                record.state = QueryState.RUNNING
-                record.started_at = datetime.now(UTC)
-                datasets = await self._resolver.resolve_many(record.request.datasets)
-                scan_bytes = sum(item.manifest.totalBytes for item in datasets)
-                if scan_bytes > self._settings.query_max_scan_bytes:
-                    raise ValueError("Query exceeds the configured scan limit")
-                record.data_versions = {
-                    item.view_name: item.manifest.dataVersion for item in datasets
-                }
-                row_limit = min(
-                    record.request.row_limit or self._settings.query_default_row_limit,
-                    self._settings.query_max_row_limit,
-                )
-                cache_key = self._cache_key(record, row_limit)
-                cached = self._cache.get(cache_key)
-                if cached is not None:
-                    self._cache.move_to_end(cache_key)
-                    record.payload = cached
-                    record.state = QueryState.SUCCEEDED
-                    return
+            datasets = await self._resolver.resolve_many(record.request.datasets)
+            scan_bytes = sum(item.manifest.totalBytes for item in datasets)
+            if scan_bytes > self._settings.query_max_scan_bytes:
+                raise ValueError("Query exceeds the configured scan limit")
+            data_versions = {
+                item.view_name: item.manifest.dataVersion for item in datasets
+            }
+            row_limit = min(
+                record.request.row_limit or self._settings.query_default_row_limit,
+                self._settings.query_max_row_limit,
+            )
+            cache_key = self._cache_key(record, row_limit, data_versions)
+            payload = self._cache.get(cache_key)
+            if payload is None:
                 try:
-                    record.payload = await asyncio.wait_for(
+                    payload = await asyncio.wait_for(
                         self._executor.execute(
                             record.query_id,
                             record.validated_sql,
@@ -163,26 +168,38 @@ class QueryManager:
                     )
                 except TimeoutError:
                     self._executor.cancel(record.query_id)
-                    record.state = QueryState.TIMED_OUT
-                    record.error = "Query exceeded the configured timeout"
-                    return
-                record.state = QueryState.SUCCEEDED
-                self._store_cache(cache_key, record.payload)
+                    state = QueryState.TIMED_OUT
+                    error = "Query exceeded the configured timeout"
+                else:
+                    state = QueryState.SUCCEEDED
+                    self._store_cache(cache_key, payload)
+            else:
+                self._cache.move_to_end(cache_key)
+                state = QueryState.SUCCEEDED
         except asyncio.CancelledError:
-            record.state = QueryState.CANCELLED
+            self._executor.cancel(record.query_id)
+            raise
         except (SqlRejectedError, ValueError) as exc:
-            record.state = QueryState.FAILED
-            record.error = str(exc)
+            error = str(exc)
         except Exception:
             logger.exception("Query %s failed", record.query_id)
-            record.state = QueryState.FAILED
-            record.error = "Query execution failed"
-        finally:
-            if record.completed_at is None:
-                record.completed_at = datetime.now(UTC)
-                self._write_audit(record)
+            error = "Query execution failed"
+        if record.claim_token is None:
+            return
+        completed = await asyncio.to_thread(
+            self._store.complete,
+            record.query_id,
+            record.claim_token,
+            state,
+            payload=payload,
+            data_versions=data_versions,
+            error=error,
+            max_payload_bytes=self._settings.query_max_result_bytes,
+        )
+        if completed:
+            self._write_audit(self.get(record.query_id))
 
-    def _write_audit(self, record: QueryRecord) -> None:
+    def _write_audit(self, record: StoredQuery) -> None:
         self._audit_sink.write(
             QueryAuditEvent(
                 query_id=record.query_id,
@@ -198,19 +215,22 @@ class QueryManager:
             )
         )
 
-    def _cache_key(self, record: QueryRecord, row_limit: int) -> str:
+    @staticmethod
+    def _cache_key(
+        record: StoredQuery, row_limit: int, data_versions: dict[str, str]
+    ) -> str:
         identity = {
             "sql": record.validated_sql.sql,
             "parameters": record.request.parameters,
             "rowLimit": row_limit,
-            "dataVersions": record.data_versions,
+            "dataVersions": data_versions,
         }
         return hashlib.sha256(
             json.dumps(identity, sort_keys=True, default=str).encode()
         ).hexdigest()
 
-    def _store_cache(self, key: str, payload: QueryPayload | None) -> None:
-        if payload is None or self._settings.query_cache_max_entries == 0:
+    def _store_cache(self, key: str, payload: QueryPayload) -> None:
+        if self._settings.query_cache_max_entries == 0:
             return
         self._cache[key] = payload
         self._cache.move_to_end(key)

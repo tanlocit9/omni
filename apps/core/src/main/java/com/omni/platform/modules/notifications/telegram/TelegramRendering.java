@@ -275,7 +275,8 @@ public final class TelegramRendering {
                 }
                 String block = digestItem(item);
                 int proposedShown = shown + 1;
-                String footer = digestFooter(proposedShown, total, digest.createdAt(), displayZone);
+                String footer = digestFooter(
+                        proposedShown, total, digest.createdAt(), displayZone, digest.pageNumber(), digest.pageCount());
                 int length = joinedLength(header, blocks, block, footer, suppression);
                 if (length > MAX_MESSAGE_LENGTH) {
                     break;
@@ -283,7 +284,8 @@ public final class TelegramRendering {
                 blocks.add(block);
                 shown = proposedShown;
             }
-            String footer = digestFooter(shown, total, digest.createdAt(), displayZone);
+            String footer = digestFooter(
+                    shown, total, digest.createdAt(), displayZone, digest.pageNumber(), digest.pageCount());
             Builder builder = new Builder();
             builder.required(header);
             blocks.forEach(builder::optional);
@@ -516,9 +518,12 @@ public final class TelegramRendering {
         return block.toString();
     }
 
-    private static String digestFooter(int shown, int total, Instant instant, ZoneId zone) {
+    private static String digestFooter(
+            int shown, int total, Instant instant, ZoneId zone, int pageNumber, int pageCount) {
         int omitted = Math.max(0, total - shown);
-        String count = "Showing " + shown + " of " + total + " · " + omitted + " omitted";
+        String count = "Page " + Math.max(1, pageNumber) + "/" + Math.max(1, pageCount)
+                + " · " + shown + " on this page · " + total + " total"
+                + (omitted == 0 ? "" : " · " + omitted + " on other pages");
         String time = instant == null ? null
                 : DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH).withZone(zone).format(instant);
         return "<i>" + count + (time == null ? "" : " · Updated " + time) + "</i>";

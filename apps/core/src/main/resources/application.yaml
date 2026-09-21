@@ -55,6 +55,15 @@ app:
   notifications:
     signal-consumer-group: ${SIGNAL_NOTIFICATIONS_CONSUMER_GROUP:platform-signal-notifications-v1}
     signal-strategy: ${TELEGRAM_SIGNAL_STRATEGY:CONFIRMED_TREND_EQUALS}
+    outbox:
+      fixed-delay: ${NOTIFICATION_OUTBOX_FIXED_DELAY:PT5S}
+      claim:
+        lease-duration: ${NOTIFICATION_OUTBOX_CLAIM_LEASE_DURATION:PT2M}
+        batch-size: ${NOTIFICATION_OUTBOX_CLAIM_BATCH_SIZE:10}
+      max-attempts: ${NOTIFICATION_OUTBOX_MAX_ATTEMPTS:8}
+      retry:
+        initial-delay: ${NOTIFICATION_OUTBOX_RETRY_INITIAL_DELAY:PT5S}
+        max-delay: ${NOTIFICATION_OUTBOX_RETRY_MAX_DELAY:PT15M}
     telegram:
       enabled: ${TELEGRAM_NOTIFICATIONS_ENABLED:false}
       bot-token: ${TELEGRAM_BOT_TOKEN:}
@@ -66,6 +75,7 @@ app:
       deduplication-max-cache-size: ${TELEGRAM_DEDUPLICATION_MAX_CACHE_SIZE:10000}
       display-time-zone: ${TELEGRAM_DISPLAY_TIME_ZONE:Asia/Bangkok}
       audible-operational-errors: ${TELEGRAM_AUDIBLE_OPERATIONAL_ERRORS:true}
+      rate-limit: ${TELEGRAM_RATE_LIMIT:PT0.05S}
       signal-filter:
         # Allowed strategies (comma-separated, defaults to CONFIRMED_TREND_EQUALS)
         # Example: CONFIRMED_TREND_EQUALS,TREND_MOMENTUM_V1,ICHIMOKU_V1
@@ -107,7 +117,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: 'env'
+        include: 'env,health,metrics,prometheus'
   endpoint:
     env:
       show-values: 'always'

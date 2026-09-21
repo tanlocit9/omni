@@ -1,9 +1,8 @@
 package com.omni.platform.modules.scheduler.entities;
 
 import java.time.Instant;
-import java.util.UUID;
 
-import com.omni.platform.shared.entities.AuditableEntity;
+import com.omni.platform.shared.entities.AbstractClaimableOutboxMessage;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,7 +22,7 @@ import lombok.Setter;
         columnNames = { "execution_id", "message_index" }))
 @Getter
 @Setter
-public class SchedulerOutboxMessage extends AuditableEntity {
+public class SchedulerOutboxMessage extends AbstractClaimableOutboxMessage {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "execution_id", nullable = false, updatable = false)
@@ -45,26 +44,8 @@ public class SchedulerOutboxMessage extends AuditableEntity {
     @Column(nullable = false)
     private Status status = Status.PENDING;
 
-    @Column(nullable = false)
-    private Integer attempts = 0;
-
-    @Column(name = "available_at", nullable = false)
-    private Instant availableAt;
-
-    @Column(name = "claim_token")
-    private UUID claimToken;
-
-    @Column(name = "claimed_by")
-    private String claimedBy;
-
-    @Column(name = "claim_until")
-    private Instant claimUntil;
-
     @Column(name = "published_at")
     private Instant publishedAt;
-
-    @Column(name = "last_error", columnDefinition = "text")
-    private String lastError;
 
     public enum Status {
         PENDING, PUBLISHED

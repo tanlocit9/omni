@@ -3,6 +3,7 @@ package com.omni.platform.modules.notifications.controllers;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,9 +16,11 @@ import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationKind;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationType;
+import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
 import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService;
-import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService.LatestSignalNotificationResult;
-import com.omni.platform.modules.notifications.services.NotificationService;
+import com.omni.platform.modules.notifications.services.ManualLatestSignalNotificationService.LatestSignalResult;
+import com.omni.platform.modules.notifications.services.NotificationOutboxService;
+import com.omni.platform.modules.notifications.templates.SignalChangedNotificationTemplate;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,15 +29,41 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ManualNotificationController {
 
-    private final NotificationService notificationService;
+    private final NotificationOutboxService notificationOutboxService;
     private final ManualLatestSignalNotificationService latestSignalNotificationService;
+    private final SignalChangedNotificationTemplate signalChangedNotificationTemplate;
 
     @PostMapping("/signal/latest")
-    public ResponseEntity<LatestSignalNotificationResult> sendLatestSignalNotification(
+    public ResponseEntity<ManualLatestSignalNotificationResponse> sendLatestSignalNotification(
             @RequestParam(required = false) String symbolKey) {
         String normalizedSymbol = symbolKey == null || symbolKey.isBlank() ? null : symbolKey.trim();
-        return ResponseEntity.accepted()
-                .body(latestSignalNotificationService.sendLatest(normalizedSymbol));
+        LatestSignalResult latest = latestSignalNotificationService.findLatest(normalizedSymbol);
+        UUID requestIdentity = UUID.randomUUID();
+        String deliveryIdentity = "manual-latest:" + requestIdentity;
+        Instant acceptedAt = Instant.now();
+        SignalChangedNotificationEvent event = new SignalChangedNotificationEvent(
+                requestIdentity,
+                requestIdentity,
+                latest.symbolKey(),
+                latest.previousSignal(),
+                latest.newSignal(),
+                latest.price(),
+                latest.signalDate(),
+                latest.reasonCodes(),
+                latest.score(),
+                latest.strategy(),
+                latest.timeframe(),
+                acceptedAt,
+                Map.of("manual", true, "generatedAt", latest.generatedAt()),
+                deliveryIdentity);
+        notificationOutboxService.enqueue(signalChangedNotificationTemplate.render(event), acceptedAt);
+        return ResponseEntity.accepted().body(new ManualLatestSignalNotificationResponse(
+                "ACCEPTED",
+                latest.symbolKey(),
+                latest.newSignal(),
+                latest.signalDate(),
+                latest.generatedAt(),
+                deliveryIdentity));
     }
 
     @PostMapping("/signal")
@@ -43,6 +72,7 @@ public class ManualNotificationController {
         ManualSignalNotificationRequest resolved = request == null
                 ? ManualSignalNotificationRequest.defaults().withDefaults()
                 : request.withDefaults();
+        String deliveryIdentity = "manual:" + UUID.randomUUID();
         NotificationRequest notification = new NotificationRequest(
                 com.omni.platform.modules.notifications.dtos.NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
@@ -51,13 +81,14 @@ public class ManualNotificationController {
                 resolved.title(),
                 resolved.message(),
                 resolved.metadata(),
-                null);
+                deliveryIdentity);
 
-        notificationService.send(notification);
-        return ResponseEntity.ok(new ManualSignalNotificationResponse(
-                "SENT",
+        notificationOutboxService.enqueue(notification, Instant.now());
+        return ResponseEntity.accepted().body(new ManualSignalNotificationResponse(
+                "ACCEPTED",
                 resolved.title(),
-                resolved.metadata()));
+                resolved.metadata(),
+                deliveryIdentity));
     }
 
     public record ManualSignalNotificationRequest(
@@ -131,9 +162,19 @@ public class ManualNotificationController {
         }
     }
 
+    public record ManualLatestSignalNotificationResponse(
+            String status,
+            String symbolKey,
+            String newSignal,
+            String signalDate,
+            String generatedAt,
+            String deliveryIdentity) {
+    }
+
     public record ManualSignalNotificationResponse(
             String status,
             String title,
-            Map<String, Object> metadata) {
+            Map<String, Object> metadata,
+            String deliveryIdentity) {
     }
 }

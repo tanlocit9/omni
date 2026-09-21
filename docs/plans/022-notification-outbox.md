@@ -29,11 +29,20 @@ results. Oversized digests become deterministic complete Telegram pages.
 
 ## Canonical Priority and Provider Scope
 
-The canonical registry schedules P9-I5 VCI health metrics before P8-I5 through a real dependency edge: P8-I5 depends on completed P8-I1, P8-I2, and P9-I5, while P9-I5 explicitly blocks P8-I5. This supporting plan does not duplicate or override that schedule.
+Owner decision (2026-09-19): P9-I5 VCI health metrics is superseded into
+post-MVP technical debt and is not a P8-I5 prerequisite. P8-I5 depends on
+completed P8-I1 and P8-I2. The owner's direction authorizes implementation but
+does not authorize promoting either prerequisite or marking P8-I5 complete
+without the registry's required verification and CI evidence.
 
-P8-I5 implements only the notification outbox and durable Telegram delivery path. VCI capacity assessment follows measured P9-I5 evidence and remains deferred until separately scheduled. Multi-provider ingestion requires a separate owner decision and remains deferred after capacity assessment.
+P8-I5 implements only the notification outbox and durable Telegram delivery
+path. VCI capacity assessment and multi-provider ingestion remain deferred and
+require separate owner reactivation and approval.
 
-VCI remains the primary provider. P8-I5 must not add provider rotation, IP rotation, automatic fallback, source mixing, or concurrency intended to bypass an upstream limit. P9-I5 health evidence is a prioritization input only; it does not establish realtime provider capability or unblock P10-I0/P10-I3.
+VCI remains the primary provider. P8-I5 must not add provider rotation, IP
+rotation, automatic fallback, source mixing, or concurrency intended to bypass
+an upstream limit. Deferred P9-I5 work does not establish realtime provider
+capability or unblock P10-I0/P10-I3.
 
 ## Architectural Decision
 
@@ -79,13 +88,20 @@ Extract only the fencing-sensitive processing shape:
 public interface ClaimableOutboxStore<C> {
     List<C> claimPending(Instant now, String instanceId, Duration lease, int batchSize);
     boolean markDelivered(C claim, Instant deliveredAt);
-    boolean markFailed(C claim, Instant retryAt, String sanitizedError);
+    boolean scheduleRetry(C claim, Instant retryAt, String sanitizedError);
 }
 ```
 
+`SchedulerOutboxService` implements this contract by mapping delivered to
+`PUBLISHED` and retry to its existing stable Kafka publication retry. A
+notification-specific extension adds payload decoding, terminal `DEAD`, and the
+provider permit; `NotificationOutboxService` implements that extension and maps
+shared delivery/retry operations to `SENT` and retryable `PENDING`.
+
 Keep SQL repositories and dispatchers separate. Shared helpers may sanitize bounded
 errors and validate leases; provider-specific failure classification remains in the
-notification dispatcher.
+notification dispatcher. Do not introduce a generic dispatcher: Kafka and Telegram
+retain separate acknowledgement, timeout, rate-limit, and terminal-state behavior.
 
 ## Notification Persistence Model
 
@@ -132,8 +148,18 @@ idempotent. Do not acknowledge the input merely because an @Async task was sched
 Enqueue the digest in the same transaction as the guarded parent terminal transition.
 Do not rely on an in-memory AFTER_COMMIT event as the only durable handoff.
 
-Other notification types may migrate incrementally. Once a producer uses the
-notification outbox, it must not also call Telegram directly.
+The manual `/api/v1/notifications/manual/signal` endpoint also accepts by inserting a
+notification outbox row and returns `202 ACCEPTED` with its delivery identity; the
+scheduled dispatcher performs provider delivery. For
+`/api/v1/notifications/manual/signal/latest`, Analyzer synchronously reads and returns
+the authoritative latest signal with `200 OK` and does not publish Kafka. Platform
+converts that result to the canonical typed `SIGNAL_CHANGED` request, assigns a stable
+per-request delivery identity, commits it through the notification outbox, and only
+then returns `202 ACCEPTED`. The automatic Kafka signal path remains unchanged.
+
+Operational notifications may migrate incrementally. Once a producer uses the
+notification outbox, it must not also call Telegram directly. The legacy async signal
+event listener is removed so automatic and manual signals cannot bypass durability.
 
 ## Signal Eligibility Correction
 
@@ -224,8 +250,10 @@ and cover serialization with tests.
 4. Route immediate signal notifications through durable enqueue.
 5. Correct digest eligibility and enqueue digests transactionally.
 6. Add deterministic digest pagination.
-7. Migrate operational/manual notifications only after signal delivery is stable.
+7. Migrate manual signal acceptance to durable enqueue; make latest-signal lookup a
+   synchronous Analyzer read followed by one Platform-owned outbox handoff.
 8. Remove direct signal transport calls after proving no dual-send path remains.
+9. Migrate operational notifications only after signal delivery is stable.
 
 Deploy the schema before writer code. Rollback disables the dispatcher and may restore
 direct delivery while retaining the table and pending rows. Never drop pending rows.
@@ -297,15 +325,20 @@ Mocked HTTP acknowledgement is not live Telegram rollout evidence.
 
 - Scheduler and notification messages use separate tables and dispatchers.
 - Both entities share only claim/retry/audit fields through a mapped superclass.
+- Both outbox services implement the shared claim/deliver/retry protocol; notification-only decode, provider-permit, and `DEAD` operations remain in its extension contract.
 - Scheduler schema and Kafka retry behavior remain backward compatible.
-- Accepted signal notifications commit before asynchronous provider delivery.
+- Accepted automatic and manual signal notifications commit before asynchronous provider delivery.
+- Manual signal HTTP acceptance returns `202 ACCEPTED` plus a stable row identity and never claims synchronous `SENT`.
+- No async signal event listener can bypass the notification outbox; operational events remain on their existing incremental-migration path.
 - Enqueue is idempotent under replay and concurrent attempts are fenced.
 - Transient failures retry; exhausted/permanent failures become visible DEAD records.
 - Credentials and concrete destination identifiers are not persisted or logged.
 - Immediate and digest eligibility includes qualified newSignalDate results.
 - Pagination sends every eligible complete item with deterministic page identities.
-- Canonical P9-I5 health evidence precedes P8-I5 implementation through the declared roadmap dependency.
-- Capacity assessment and multi-provider ingestion remain outside P8-I5 and deferred until separately scheduled/approved.
+- P8-I1 and P8-I2 completion evidence remains required; implementation direction
+  does not promote either prerequisite or waive P8-I5 verification/CI gates.
+- Capacity assessment, superseded P9-I5 work, and multi-provider ingestion remain
+  outside P8-I5 and deferred until separately reactivated and approved.
 - This increment introduces no automatic market-data provider fallback or rate-limit-bypass concurrency.
 - Metrics, operator visibility, docs, and approved verification evidence are complete.
 

@@ -20,8 +20,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
+import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 import com.omni.platform.modules.notifications.dtos.NotificationRequest.NotificationSeverity;
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
+import com.omni.platform.modules.notifications.services.NotificationOutboxService;
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
@@ -31,6 +33,7 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
 import com.omni.platform.modules.notifications.templates.JobNotificationTemplate;
+import com.omni.platform.modules.notifications.templates.SignalNotificationTemplate;
 import com.omni.platform.modules.scheduler.notifications.DefaultJobNotificationPolicy;
 import com.omni.platform.modules.scheduler.notifications.JobNotificationPolicyRegistry;
 import com.omni.platform.modules.scheduler.notifications.SignalDigestNotificationPolicy;
@@ -56,6 +59,9 @@ class JobServiceTest {
     @Mock
     private SchedulerOutboxService schedulerOutboxService;
 
+    @Mock
+    private NotificationOutboxService notificationOutboxService;
+
     private JobService service;
 
     @BeforeEach
@@ -70,7 +76,9 @@ class JobServiceTest {
                 historyRepository,
                 eventPublisher,
                 policyRegistry,
-                schedulerOutboxService);
+                schedulerOutboxService,
+                notificationOutboxService,
+                new SignalNotificationTemplate());
     }
 
     @Test
@@ -338,24 +346,12 @@ class JobServiceTest {
 
         service.aggregateParentExecution(parentId);
 
-        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-        verify(eventPublisher).publishEvent(captor.capture());
-        assertThat(captor.getValue()).isInstanceOf(SignalDigestNotificationEvent.class);
-        assertThat(captor.getAllValues()).noneMatch(OperationalNotificationEvent.class::isInstance);
-        assertThat(captor.getAllValues()).anySatisfy(event -> {
-            assertThat(event).isInstanceOf(SignalDigestNotificationEvent.class);
-            SignalDigestNotificationEvent digest = (SignalDigestNotificationEvent) event;
-            assertThat(digest.parentExecutionId()).isEqualTo(parentId);
-            assertThat(digest.jobTitle()).isEqualTo("Sync market signals - daily BANKS");
-            assertThat(digest.strategy()).isEqualTo("TREND_MOMENTUM_V1");
-            assertThat(digest.timeframe()).isEqualTo("1d");
-            assertThat(digest.changedCount()).isEqualTo(1);
-            assertThat(digest.items()).singleElement().satisfies(item -> {
-                assertThat(item.symbolKey()).isEqualTo("HOSE-HPG");
-                assertThat(item.previousSignal()).isEqualTo("NEUTRAL");
-                assertThat(item.newSignal()).isEqualTo("BULLISH");
-            });
-        });
+        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationOutboxService).enqueue(captor.capture(), any(Instant.class));
+        verify(eventPublisher, never()).publishEvent(any(SignalDigestNotificationEvent.class));
+        NotificationRequest request = captor.getValue();
+        assertThat(request.deduplicationKey()).isEqualTo(parentId + ":1");
+        assertThat(request.metadata()).containsEntry("parentExecutionId", parentId);
     }
 
     @Test

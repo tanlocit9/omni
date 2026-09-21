@@ -24,7 +24,8 @@ sequenceDiagram
   participant Storage as MinIO / Parquet
   participant Status as Platform Status Consumer
   participant PolicyRegistry as JobNotificationPolicyRegistry
-  participant Notification as Notification Event
+  participant NotificationOutbox as notification_outbox_messages
+  participant Provider as Telegram
 
   Scheduler->>DB: Claim due JobDefinition with SKIP LOCKED
   Scheduler->>ProducerRegistry: Resolve producer by JobType
@@ -43,7 +44,12 @@ sequenceDiagram
   Status->>DB: Aggregate parent execution
   Status->>PolicyRegistry: Resolve notification policy by JobType
   PolicyRegistry-->>Status: Default or custom notification event
-  Status->>Notification: Publish event for delivery
+  alt signal digest
+    Status->>NotificationOutbox: Insert typed deterministic page(s) in terminal transaction
+    NotificationOutbox-->>Provider: Leased, fenced, rate-limited delivery
+  else operational notification
+    Status->>Provider: Existing immediate event/template delivery
+  end
 ```
 
 ## Compact Flow
@@ -59,9 +65,10 @@ JobScheduler
  → JobStatusMessage
  → JobService
  → JobNotificationPolicyRegistry
- → NotificationEvent
- → NotificationTemplate
- → TelegramNotificationService
+ → SignalNotificationTemplate
+ → notification_outbox_messages
+ → NotificationOutboxDispatcher
+ → Telegram
 ```
 
 ## Responsibilities
@@ -132,19 +139,20 @@ optional complete `partition`. Scheduled execution defaults to full synchronizat
 The worker never recomputes, deletes, or rewrites Parquet; data producers do not
 write metadata. Query Service remains read-only.
 
-| Step                  | Owner                | Responsibility                                                              |
-| --------------------- | -------------------- | --------------------------------------------------------------------------- |
-| Schedule selection    | Platform             | Atomically claim enabled jobs due for execution.                            |
-| Producer resolution   | Platform             | Resolve `JobType` to a registered `JobProducer`; fail fast if none exists.  |
-| Job definition        | Platform/PostgreSQL  | Store job type, schedule, and job-specific config.                          |
-| Parent execution      | Platform/PostgreSQL  | Track an execution batch across child tasks.                                |
-| Child execution       | Platform/PostgreSQL  | Track one executable work unit sent to a worker.                            |
-| Kafka command         | Platform             | Persist then asynchronously publish a worker-specific job payload.          |
-| Worker processing     | Ingestor or Analyzer | Execute data-plane work.                                                    |
-| Status event          | Worker               | Publish `topic-sync-job-status` with execution identity, metrics, and meta. |
-| Aggregation           | Platform             | Update child status and roll up parent status when applicable.              |
-| Notification policy   | Platform             | Resolve custom policy by job type, or use the default generic policy.       |
-| Notification delivery | Platform             | Publish a notification event for template rendering and Telegram delivery.  |
+| Step                 | Owner                | Responsibility                                                                                |
+| -------------------- | -------------------- | --------------------------------------------------------------------------------------------- |
+| Schedule selection   | Platform             | Atomically claim enabled jobs due for execution.                                              |
+| Producer resolution  | Platform             | Resolve `JobType` to a registered `JobProducer`; fail fast if none exists.                    |
+| Job definition       | Platform/PostgreSQL  | Store job type, schedule, and job-specific config.                                            |
+| Parent execution     | Platform/PostgreSQL  | Track an execution batch across child tasks.                                                  |
+| Child execution      | Platform/PostgreSQL  | Track one executable work unit sent to a worker.                                              |
+| Kafka command        | Platform             | Persist then asynchronously publish a worker-specific job payload.                            |
+| Worker processing    | Ingestor or Analyzer | Execute data-plane work.                                                                      |
+| Status event         | Worker               | Publish `topic-sync-job-status` with execution identity, metrics, and meta.                   |
+| Aggregation          | Platform             | Update child status and roll up parent status when applicable.                                |
+| Notification policy  | Platform             | Resolve custom policy by job type, or use the default generic policy.                         |
+| Signal delivery      | Platform             | Commit typed immediate/digest requests, then deliver with the notification outbox dispatcher. |
+| Operational delivery | Platform             | Retain the existing immediate event/template path until separately migrated.                  |
 
 ## Scheduler Claim and Transactional Outbox
 
@@ -287,7 +295,13 @@ updating state; symbol offsets query `workType=SYMBOL` plus `workKey` only.
 Parent aggregation in `JobService` is the single terminal notification owner.
 Workers publish status, not operational notification decisions. The Signal
 Digest policy translates a canonical symbol `workKey` back into the domain
-`SignalDigestItem.symbolKey` only when rendering the notification event.
+`SignalDigestItem.symbolKey` only when building the notification request. Each
+complete deterministic digest page is inserted into `notification_outbox_messages`
+in the same guarded terminal transaction. Immediate Analyzer signal notifications
+also commit a typed request before the Kafka listener returns. The notification
+outbox dispatcher resolves the configured chat destination at delivery time,
+uses leased fenced claims, and records `SENT`, retryable `PENDING`, or terminal
+`DEAD`; credentials and concrete chat identifiers are never persisted.
 
 The V9 migration requires a drained scheduler outbox and empty execution history,
 then installs canonical work-identity indexes. It never deletes or rewrites

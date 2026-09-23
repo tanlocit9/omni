@@ -100,9 +100,12 @@ The current execution status model has no terminal `BLOCKED` value.
 - P4-I2 supplies the enforced manifest dependency semantics to migrate without
   weakening READY or exact `dataVersion` checks.
 - P7-I2 supplies the audited manual-trigger and execution-status boundary.
-- All dependencies are completed. P4-I3 remains `pending` while active work overlaps
-  `apps/core`; normal readiness propagation may promote it after ownership conflicts
-  are reconciled.
+- All dependencies are completed. Under the owner-approved 2026-09-21 active MVP
+  order, P4-I3 follows P8-I1, P8-I2, P8-I4, P8-I5, P9-I1, and P9-I4 closure because
+  those active increments overlap `apps/core`. P4-I3 remains `pending`; normal
+  readiness propagation may promote it only after those ownership conflicts are
+  reconciled. This scheduling order adds no dependency edge and does not weaken the
+  critical-correctness priority of P4-I3.
 
 ### In scope
 

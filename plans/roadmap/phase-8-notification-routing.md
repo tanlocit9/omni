@@ -6,6 +6,15 @@ Modernize Telegram operational and signal notifications with typed classificatio
 
 Owner-approved execution exception (2026-09-04): execute P8-I1, P8-I2, and P8-I3 ahead of P2-I2/P2-I3. Existing internal Java notification events and `NotificationRequest` remain the boundary for Phase 8; this phase must not change Kafka or Proto3 contracts. If a renderer requires a semantic field unavailable at that boundary, stop and return the contract change to Phase 2 rather than parsing display text or expanding the exception.
 
+## Active Phase 8 priority
+
+The owner-approved 2026-09-21 MVP order is P8-I1 evidence, P8-I2 evidence, P8-I4 completion, then P8-I5 evidence. Close each earlier gate before completing the next increment. This ordering does not change current statuses, relax P8-I4's dependency exception, combine increment ownership, or reactivate superseded P8-I3.
+
+- P8-I1 closes increment-owned commit, PR, exact-head CI, and remaining Definition of Done evidence.
+- P8-I2 follows P8-I1 and additionally verifies the `newSignalDate` extension before completion.
+- P8-I4 follows completed P8-I2 and closes the existing Analyzer, Platform, Query Service, and Console evidence.
+- P8-I5 follows P8-I4 in the serial MVP queue, but its declared dependency remains only completed P8-I1 and P8-I2; it closes migration-runtime, commit/PR, CI, and durable-delivery evidence without combining the two outboxes.
+
 ## Increment P8-I1 — Operational and generic Telegram notification formats
 
 | Field                   | Value                                                 |
@@ -34,6 +43,8 @@ Stop conditions: stop if implementation needs a Kafka/Proto3 field, requires tit
 
 Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and explicitly scoped Prettier formatting of P8-I1 documentation/configuration files. Focused coverage includes renderer classification, HTML safety, Unicode boundaries, metadata filtering, timezone and sound policies, routing, deduplication, listener behavior, and mocked HTTP payloads. Platform defines no lint or Java format Nx target. No live Telegram verification, PR, or CI evidence exists; status therefore remains `verification_pending` rather than completed.
 
+Fresh local verification (2026-09-22): `nx run platform:test` and `nx run platform:build` both passed. No source repair was required. Increment-owned commit/PR, exact-head CI, and live Telegram rollout evidence remain unresolved, so the status stays `verification_pending`.
+
 ## Increment P8-I2 — Immediate and digest signal notification formats
 
 | Field                   | Value                                            |
@@ -60,7 +71,9 @@ Required tests/checks: signal template/classification tests; hard-cutover reject
 
 Stop conditions: stop if a required semantic value is absent from the current Java event/request boundary, if implementation would parse pre-rendered prose, alter Analyzer calculations, change Kafka/Proto3 contracts, or introduce delivery retry/provider behavior owned by P8-I3.
 
-Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and scoped Prettier checking of the three P8-I2 documentation files. Coverage includes typed signal-change/digest content, purpose-specific renderers, deterministic formatting, digest budgeting, hard-cutover rejection, templates, listeners, HTTP payloads, and deduplication regressions. The 2026-09-09 daily confirmed-result extension changes the Analyzer/Platform JSON Kafka contract additively and has focused tests in source, but those tests and project verification commands have not been run. Status remains `verification_pending`; no commit, PR, CI, or live automatic-signal evidence is claimed.
+Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I2 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and scoped Prettier checking of the three P8-I2 documentation files. Coverage includes typed signal-change/digest content, purpose-specific renderers, deterministic formatting, digest budgeting, hard-cutover rejection, templates, listeners, HTTP payloads, and deduplication regressions. The 2026-09-09 daily confirmed-result extension changes the Analyzer/Platform JSON Kafka contract additively and has focused tests in source.
+
+Fresh local verification (2026-09-22): `nx run platform:test`, `nx run platform:build`, and the complete Analyzer lint/test/build sequence passed; Analyzer reported 131 passing tests. This covers the additive `newSignalDate` producer state plus Platform immediate/digest eligibility regressions. Increment-owned commit/PR, exact-head CI, and live automatic-signal evidence remain unresolved; status remains `verification_pending`.
 
 ## Increment P8-I4 — Equal-vote confirmed trend, symbol query, and notification choice
 
@@ -88,7 +101,9 @@ Acceptance criteria: the decision matrix is deterministic; component histories r
 
 Required tests/checks: decision matrix and invalid-component tests; persistence, ordering, and outcome-evaluation regressions; Platform configuration and notification-selection tests; Query Service strategy/READY/symbol tests; Console selector tests; Telegram component rendering tests; and relevant Analyzer, Platform, Query Service, and Console Nx checks.
 
-Local implementation evidence (2026-09-06): PASS for Analyzer tests (113), Query Service tests (38), focused Platform scheduler/notification tests, Console tests (31), Console typecheck, and Analyzer/Query Service/Console lint. Coverage includes stale and missing component rejection, persisted component evidence, combined outcome evaluation, post-component schedule order, indicator-gate bypass for the persisted-signal combiner, strategy validation, component API response, exact-symbol submission, Telegram filtering, and bilingual version-free rendering. P8-I4 remains `in_progress` because P8-I2 is still `verification_pending` and no verified P8-I4 commit, PR, or CI evidence exists.
+Local implementation evidence (2026-09-06): PASS for Analyzer tests (113), Query Service tests (38), focused Platform scheduler/notification tests, Console tests (31), Console typecheck, and Analyzer/Query Service/Console lint. Coverage includes stale and missing component rejection, persisted component evidence, combined outcome evaluation, post-component schedule order, indicator-gate bypass for the persisted-signal combiner, strategy validation, component API response, exact-symbol submission, Telegram filtering, and bilingual version-free rendering.
+
+Fresh completion review (2026-09-22): no missing source acceptance criterion was found. `nx run platform:test` and `platform:build`; Analyzer lint, 131 tests, and build; Query Service lint, 40 tests, and build; and Console lint, 31 tests, typecheck, and build all passed. The source and tests cover the full nine-row equal-vote matrix, invalid/stale components, deterministic component/model evidence, persistence and outcome evaluation, post-component scheduling, selected-strategy READY reads, exact-symbol filtering, component display, and bounded Telegram strategy selection. P8-I4 remains `in_progress` because P8-I2 is still `verification_pending` and P8-I4 has no verified increment commit, PR, or exact-head CI evidence.
 
 Stop conditions: stop if implementation expands into arbitrary combinations, weights, component flags, operator CRUD, immutable activation/versioning, Query Service calculation, Kafka/Proto3 migration, or automated trading advice. Those extensions remain post-MVP technical debt.
 
@@ -165,8 +180,10 @@ P8-I2 remain `verification_pending`; they are not promoted by this work.
 
 Verification: local Platform tests and build passed. Focused coverage includes typed
 payload round-trip, durable enqueue identity, immediate/digest handoff, pagination,
-configuration binding, scheduler regressions, and `Retry-After`. Dedicated migration
-runtime, live Telegram/provider, PR/commit, CI, and prerequisite evidence remain
-unresolved and are required before completion.
+configuration binding, scheduler regressions, and `Retry-After`. Fresh local
+verification on 2026-09-22 again passed `nx run platform:test` and
+`nx run platform:build` without source repair. Dedicated migration runtime, live
+Telegram/provider, PR/commit, exact-head CI, and completed P8-I1/P8-I2 prerequisite
+evidence remain unresolved and are required before completion.
 
 Stop conditions: do not combine outbox tables or dispatchers, persist credentials/chat IDs, change Kafka/Proto3 contracts, automatically replay `DEAD`, add market-data provider fallback, or silently mix provider lineage.

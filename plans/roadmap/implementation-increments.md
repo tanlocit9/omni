@@ -58,11 +58,28 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P11-I4 | Kafka correlation propagation                                      | pending              | high     | [P11-I3]              | [P11-I5]                            | [apps/core, libs/py-common, apps/analyzer, apps/ingestor, configs, docs/data, docs/flows]           | autonomous        | false                   | null                                      | null                                     |
 | P11-I5 | Fluent Bit and VictoriaLogs deployment                             | pending              | medium   | [P11-I4]              | []                                  | [docker-compose, configs, docs/deployment, docs/architecture]                                       | autonomous        | false                   | null                                      | null                                     |
 
+## Active MVP priority order
+
+Owner-approved ordering (2026-09-21) applies only to unfinished active MVP increments. It does not reactivate or change any `superseded`, `blocked`, or deferred increment, and it does not bypass declared dependencies, status gates, branch ownership, or module-conflict checks.
+
+| Order | Increment | Current status         | Exit condition before advancing                                                                                                                                                           |
+| ----- | --------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | P8-I1     | `verification_pending` | Record an increment-owned commit/PR, exact-head CI, and all remaining Definition of Done evidence before marking `completed`.                                                             |
+| 2     | P8-I2     | `verification_pending` | After P8-I1 completes, verify the additive `newSignalDate` behavior and record increment-owned commit/PR/CI evidence.                                                                     |
+| 3     | P8-I4     | `in_progress`          | After P8-I2 completes, finish the bounded confirmed-trend slice and record Analyzer, Platform, Query Service, Console, commit/PR, and CI evidence.                                        |
+| 4     | P8-I5     | `verification_pending` | After P8-I1 and P8-I2 complete, close migration-runtime, commit/PR, exact-head CI, and remaining durable-delivery evidence while preserving separate scheduler and notification outboxes. |
+| 5     | P9-I1     | `verification_pending` | Record the required runtime/object-storage/provider, deployment allow-list, republishing, commit/PR, and CI evidence within the bounded completed-session scope.                          |
+| 6     | P9-I4     | `in_progress`          | After P9-I1 evidence is complete, close exact-date runtime, notification-runtime, commit/PR, and CI evidence without reactivating P9-I2 or P9-I3.                                         |
+| 7     | P4-I3     | `pending`              | Promote to `ready` only after the preceding active `apps/core` ownership conflicts are closed; then implement and verify dependency-aware outbox dispatch.                                |
+| 8     | P1-I3     | `verification_pending` | Reconcile increment-specific PR/CI evidence last; its former active downstream P9-I3 is superseded, so it does not block the current MVP chain.                                           |
+
+This is a serial priority queue, not permission to leave an active increment half-finished in order to start the next one. If a stop condition or external evidence requirement prevents progress, preserve the current truthful status and apply the normal selection rules rather than silently skipping a dependency.
+
 ## First eligible increment
 
-The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls. P8-I1 and P8-I2 remain evidence-reconciliation work, and P8-I4 remains active for the bounded `CONFIRMED_TREND_EQUALS` capability. P9-I5 is superseded into post-MVP technical debt by the 2026-09-19 owner decision and no longer blocks Notification Outbox delivery.
+The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls. P8-I1 is the first priority because it is the evidence gate for P8-I2 and P8-I5. P8-I2 follows and gates completion of both P8-I4 and P8-I5. P9-I5 is superseded into post-MVP technical debt by the 2026-09-19 owner decision and no longer blocks Notification Outbox delivery.
 
-P4-I3 is admitted as critical correctness work with completed prerequisites, but remains `pending` because active `in_progress` and `verification_pending` increments overlap its `apps/core` ownership. Promote it to `ready` only after those ownership conflicts are reconciled under the normal readiness rules; do not bypass active branch or draft-PR ownership.
+P4-I3 is admitted as critical correctness work with completed prerequisites, but remains `pending` because higher-priority active `in_progress` and `verification_pending` increments overlap its `apps/core` ownership. Promote it to `ready` only after those ownership conflicts are reconciled under the normal readiness rules; do not bypass active branch or draft-PR ownership.
 
 Owner-approved dependency order (revised 2026-09-19): P8-I5 depends on completed P8-I1 and P8-I2. P9-I5 VCI health metrics is superseded into post-MVP technical debt and no longer blocks Notification Outbox. Any later capacity assessment or multi-provider ingestion requires separate owner reactivation and approval. P8-I5 adds no WebSocket runtime, Kafka tick transport, always-on collector, rate-limit-bypass concurrency, provider rotation, or fallback.
 

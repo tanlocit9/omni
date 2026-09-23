@@ -158,6 +158,8 @@ PASS on 2026-08-25:
 - refreshed code-review graph and `detect_changes`: risk 0.60, no affected flows; graph-reported test gaps are false negatives for package-private seed functions covered through `JobDefinitionConfigTest`;
 - [CI run #154](https://github.com/tanlocit9/omni/actions/runs/32870691112) passed for exact branch head `ab2cc3cb0044c87d2b61a6736652c6fd4cfb2124`.
 
+Fresh local verification on 2026-09-22 also passed `nx run platform:test`, `nx run platform:build`, and the complete Analyzer sync/lint/test/build sequence with 131 passing tests. No source repair was required.
+
 The implementation is committed and CI-verified on draft PR #16, but the PR is owned by P3-I4 rather than being increment-specific. P1-I3 therefore remains `verification_pending`, and no dependent is promoted.
 
 ### Acceptance Criteria

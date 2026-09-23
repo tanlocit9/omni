@@ -130,19 +130,20 @@ Acceptance criteria:
 - targeted Nx checks and CI remain required before completion.
 
 Local verification passed again on 2026-09-13 after deterministic retry selection
-was added:
+was added, and fresh verification passed on 2026-09-22:
 
 ```text
+nx run py-common:sync
 nx run py-common:lint
 nx run py-common:test  # 127 passed, 8 existing deprecation warnings
 nx run py-common:build
 ```
 
-The focused suite now proves that same-identity retries with different
-`receivedAt` values retain the earliest observation regardless of input order and
-therefore produce identical Parquet bytes. Earlier attributable formatting and
-canonical-Parquet issues remain resolved. CI/PR evidence is still required before
-`completed`.
+The focused suite proves that same-identity retries with different `receivedAt`
+values retain the earliest observation regardless of input order and therefore
+produce identical Parquet bytes. Earlier attributable formatting and
+canonical-Parquet issues remain resolved. No source repair was required on
+2026-09-22. CI/PR evidence is still required before `completed`.
 
 Stop conditions: stop if the canonical model starts encoding an unverified provider guarantee, if a second transport model/alias is proposed, or if storage publication would bypass immutable-version-before-READY semantics.
 
@@ -168,7 +169,7 @@ Implemented source includes canonical tick DataFrame/Parquet representation, bou
 
 Acceptance criteria: deterministic bytes/order under reordered input; no per-tick write API; duplicate-safe reruns; version-before-READY and prior READY preservation; finite rebuild rejects absent, empty, mixed, or conflicting parts; bars use UTC event time; reconciliation requires exact source/exchange/symbol/date and compares counts, volume, value, open, and close; no provider semantics or runtime is introduced.
 
-Verification: owner-authorized local checks passed again on 2026-09-13: `nx run py-common:lint`, `nx run py-common:test` (127 passed, 8 existing deprecation warnings), and `nx run py-common:build`. The added retry-order archive regression passed. CI/PR and configured object-storage evidence remain absent, so status is `verification_pending`.
+Verification: owner-authorized local checks passed again on 2026-09-13 and fresh 2026-09-22 verification passed `py-common:sync`, lint, 127 tests with 8 existing deprecation warnings, and build. The retry-order archive, immutable publication, path, bar, and reconciliation regressions passed without source repair. CI/PR and configured object-storage evidence remain absent, so status is `verification_pending`.
 
 ## Increment P10-I3 — Provider adapter, Kafka/WebSocket, and live runtime
 
@@ -234,11 +235,11 @@ Reviewed `AGENTS.md`, `CLAUDE.md`, and `.roo/rules`. No guidance update is requi
 
 ## Verification
 
-Owner-authorized P10-I1/P10-I2 local verification passed on 2026-09-13:
-py-common lint, 127 tests, and build. CI, PR/commit evidence, configured
-object-storage integration, and production verification remain unresolved for the
-active foundations. P10-I0 package/repository source inspection is recorded above,
-but no provider call, credential access, live-session observation, or external
+Owner-authorized P10-I1/P10-I2 local verification passed on 2026-09-13 and again
+on 2026-09-22: py-common sync, lint, 127 tests, and build. CI, PR/commit evidence,
+configured object-storage integration, and production verification remain unresolved
+for the active foundations. P10-I0 package/repository source inspection is recorded
+above, but no provider call, credential access, live-session observation, or external
 capability verification occurred. P10-I0/P10-I3 therefore remain blocked.
 
 ## Acceptance Criteria

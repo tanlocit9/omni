@@ -158,18 +158,38 @@ def test_reconciliation_requires_exact_eod_trading_date(
 
 
 @pytest.mark.anyio
-async def test_intraday_adapter_fetches_complete_session_in_one_call() -> None:
-    calls: list[dict[str, str]] = []
+async def test_intraday_adapter_calls_vci_provider_without_page_argument() -> None:
+    provider_calls: list[dict[str, int]] = []
+    factory_calls: list[dict[str, str]] = []
     expected = pd.DataFrame([{"time": "2026-09-09T09:15:00+07:00"}])
 
-    class Quote:
+    class Provider:
         def intraday(self, **kwargs):
-            calls.append(kwargs)
+            provider_calls.append(kwargs)
             return expected
 
-    adapter = VCIIntradayQuoteAdapter(lambda **kwargs: Quote())
+    class Quote:
+        _provider = Provider()
+
+        def intraday(self, **kwargs):
+            raise AssertionError("public vnstock facade must not be called")
+
+    def quote_factory(**kwargs):
+        factory_calls.append(kwargs)
+        return Quote()
+
+    adapter = VCIIntradayQuoteAdapter(quote_factory)
 
     result = await adapter.fetch_session("HPG", date(2026, 9, 9))
 
-    assert calls == [{"start": "2026-09-09", "end": "2026-09-09"}]
+    assert factory_calls == [{"symbol": "HPG", "source": "VCI"}]
+    assert provider_calls == [{"page_size": 30_000}]
     pd.testing.assert_frame_equal(result, expected)
+
+
+@pytest.mark.anyio
+async def test_intraday_adapter_rejects_missing_provider_api() -> None:
+    adapter = VCIIntradayQuoteAdapter(lambda **kwargs: object())
+
+    with pytest.raises(RuntimeError, match="provider intraday API is unavailable"):
+        await adapter.fetch_session("HPG", date(2026, 9, 9))

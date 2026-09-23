@@ -78,6 +78,11 @@ out
 **/.coverage.*
 **/htmlcov/
 
+# Local SQLite runtime databases and WAL sidecars
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
 reports
 
 # Local agent verification artifacts and raw command logs

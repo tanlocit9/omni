@@ -43,7 +43,9 @@ Stop conditions: stop if implementation needs a Kafka/Proto3 field, requires tit
 
 Verification evidence (2026-09-05): local recorder conclusion is `PASS P8-I1 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code` for `nx run platform:test`, `nx run platform:build`, and explicitly scoped Prettier formatting of P8-I1 documentation/configuration files. Focused coverage includes renderer classification, HTML safety, Unicode boundaries, metadata filtering, timezone and sound policies, routing, deduplication, listener behavior, and mocked HTTP payloads. Platform defines no lint or Java format Nx target. No live Telegram verification, PR, or CI evidence exists; status therefore remains `verification_pending` rather than completed.
 
-Fresh local verification (2026-09-22): `nx run platform:test` and `nx run platform:build` both passed. No source repair was required. Increment-owned commit/PR, exact-head CI, and live Telegram rollout evidence remain unresolved, so the status stays `verification_pending`.
+Fresh local verification (2026-09-22): `nx run platform:test` and `nx run platform:build` both passed. No source repair was required.
+
+Increment-scoped local verification (2026-09-25): the check recorder concluded `PASS P8-I1 required=2 pass=2 fail=0 unknown=0 missing=0 sources=exit_code` for owner-approved `nx run platform:test` and `nx run platform:build`. Existing Hikari/Modulith shutdown warnings remained non-failing. No source repair or formatting was performed. Increment-owned PR, exact-head CI, and live Telegram rollout evidence remain unresolved, so the status stays `verification_pending`.
 
 ## Increment P8-I2 — Immediate and digest signal notification formats
 

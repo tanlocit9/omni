@@ -72,6 +72,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Telegram Notification Deduplication Technical Debt](technical-debt/002-telegram-notification-deduplication.md) — retained cooldown-specific follow-ups; active durable delivery is P8-I5.
 - [Temporary System Operator UUID Technical Debt](technical-debt/003-system-operator-uuid.md)
 - [Post-MVP Roadmap Work](technical-debt/004-post-mvp-roadmap-work.md) — deferred scope that must not block the active MVP, including production logging hardening.
+- [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) — proposed bounded-concurrency, explicit-offset, restart-safety, and backlog-observability follow-up for Ingestor and Analyzer workers.
 - [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md)
 
 ## Canonical Documents

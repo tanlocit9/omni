@@ -2,7 +2,7 @@
 
 ## MVP Status
 
-The 2026-09-05 full deferral is historical. Active P8-I5 in the [canonical increment registry](../../plans/roadmap/implementation-increments.md) now owns durable enqueue/delivery identity, bounded retries, terminal `DEAD`, and operator visibility through the separate notification outbox described in [`docs/plans/022-notification-outbox.md`](../plans/022-notification-outbox.md). This record retains cooldown-specific limitations and out-of-scope follow-ups; it is not a competing schedule.
+The 2026-09-05 full deferral is historical. P8-I5 in the [canonical increment registry](../../plans/roadmap/implementation-increments.md) owns durable enqueue/delivery identity, bounded retries, terminal `DEAD`, and operator visibility through the separate notification outbox described in [`docs/plans/022-notification-outbox.md`](../plans/022-notification-outbox.md). Relevant source is present, but P8-I5 remains `verification_pending`; this record does not claim completion. It retains cooldown-specific limitations and out-of-scope follow-ups and is not a competing schedule.
 
 ## Current Decision
 
@@ -31,6 +31,33 @@ Silent delivery only suppresses client-side notification sound. It does not redu
 - the keys, lifetimes, and ownership boundaries differ.
 
 The two layers can therefore both apply without representing the same policy. The consumer guard remains lossy and process-local and should be revisited independently if its global-clear behavior becomes operationally significant.
+
+## Current Source Assessment
+
+- **Current:** cooldown state and suppression counts are process-local and volatile.
+- **Current:** cooldown admission occurs before Telegram delivery, so a failed retained
+  request still consumes local admission state.
+- **Current:** title normalization can collapse distinct incidents, and all notification
+  types share the cooldown mechanism.
+- **Current:** Kafka source-record failure suppression is a separate process-local guard
+  with a different identity and lifetime.
+- **Source present, verification pending:** notification-outbox retries and terminal
+  `DEAD` handling exist in source but must not be described as completed P8-I5 evidence.
+- **Evidence-dependent:** whether cooldown loss, false-positive suppression, or Telegram
+  429 responses are operationally material requires runtime evidence.
+
+## Recommended Actions
+
+1. Keep durable accepted-notification delivery under P8-I5 and keep cooldown admission
+   as a separate best-effort volume control.
+2. Revisit distributed cooldown counters only when multiple replicas or exact suppression
+   auditability becomes an approved requirement.
+3. Narrow or type-scope normalization before changing it globally; add fixtures proving
+   distinct incidents are not accidentally collapsed.
+4. Reassess the source-record suppression guard separately if its process-local/global-
+   clear behavior causes repeated operational notifications.
+5. Preserve `verification_pending` wording until approved checks and exact-head CI are
+   recorded for P8-I5.
 
 ## Retained Follow-up Triggers
 

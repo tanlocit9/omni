@@ -2,11 +2,12 @@
 
 ## Summary
 
-P3-I5 automatic EOD metadata reconciliation is implemented but remains
-`verification_pending`. The scheduler definition, Platform producer, Analyzer Kafka
-consumer, and deterministic READY-last metadata reconstruction path exist. The
-remaining gaps are bounded correctness, integration-test, configuration-documentation,
-and plan-cleanup work.
+P3-I5 automatic metadata reconciliation has source present but is canonically
+`superseded`, not `verification_pending`. The scheduler definition, Platform producer,
+Analyzer Kafka consumer, and deterministic global metadata reconstruction path exist.
+The remaining gaps are status-contract correctness, expected-object classification,
+manual-trigger configuration documentation, integration evidence, and removal of
+claims tied to the superseded per-partition READY-pointer design.
 
 This debt does not block P1-I4 verification. P3-I5 declares no downstream increments
 in its `blocks` field, and P1-I4 does not depend on P3-I5. P1-I4 verification may
@@ -57,19 +58,21 @@ Required follow-up:
    integration coverage for this exact definition.
 3. Keep scheduler execution independent from manual-trigger configuration.
 
-### READY Read Safety
+### Global Metadata Publication Safety
 
-The synchronizer currently treats every `ManifestError` while reading an existing
-READY pointer as if the pointer were absent. A corrupt manifest or transient storage
-failure can therefore be masked before replacement is attempted.
+The current implementation rebuilds and replaces one global metadata discovery
+document. The earlier per-partition READY-pointer concern no longer describes this
+code path. Publication still requires explicit failure-preservation evidence so a
+read, validation, or replacement failure cannot publish a partial discovery document.
 
 Required follow-up:
 
-1. Treat only `ManifestNotFoundError` as an absent READY pointer.
-2. Preserve and report corrupt, invalid, or unreadable READY state without replacing
-   that partition.
-3. Add tests for corrupt READY content, storage read failure, and previous-pointer
-   preservation.
+1. Test read, validation, and replacement failures against the current global metadata
+   publication boundary.
+2. Prove a failed synchronization does not replace the previous complete discovery
+   document with partial state.
+3. Keep READY-last requirements scoped to datasets that use immutable publication;
+   do not reintroduce the obsolete per-partition reconciliation design.
 
 ### Expected Object Classification
 
@@ -86,20 +89,19 @@ Required follow-up:
 3. Add tests covering internal prefixes, empty canonical objects, corrupt canonical
    objects, and mixed valid/error runs.
 
-### Superseded Console Proposal
+### Manual Trigger Scope Reconciliation
 
-The Phase 3 plan still contains the earlier `REBUILD_DATASET_METADATA` exact-partition
-Dataset Explorer proposal, while the implemented P3-I5 scope is the parameterless
-bulk `SYNC_METADATA` definition exposed through the existing Jobs tab.
+The earlier Dataset Explorer proposal remains superseded, but current Platform source
+supports typed `SYNC_METADATA` targets for all datasets, one dataset, or one exact
+partition through the existing operator API. Therefore the old claim that the job is
+parameterless is also stale.
 
 Required follow-up:
 
-1. Move the exact-partition proposal to a separately identified future increment or
-   archive it as superseded design history.
-2. Update Omni Console and roadmap documentation to describe the implemented Jobs-tab
-   trigger accurately.
-3. Do not add runtime parameters or a Dataset Explorer action under P3-I5 without a
-   new approved increment.
+1. Keep Dataset Explorer UI scope archived as superseded design history.
+2. Document the implemented Jobs/API trigger and its supported typed targets.
+3. Do not add a Dataset Explorer action or broaden target semantics without a new
+   approved increment.
 
 ## Contract Impact
 
@@ -128,18 +130,48 @@ This technical debt is isolated from P1-I4 verification:
 If P1-I4 verification reveals a shared status-contract regression caused by P3-I5,
 record that result explicitly rather than expanding P1-I4 scope.
 
+## Current Source Assessment
+
+- **Current:** Analyzer can emit `PARTIAL_SUCCESS`, while Platform has no matching
+  persisted terminal status.
+- **Current:** noncanonical objects are counted as skipped and can affect run outcome.
+- **Current:** deployment examples do not show the exact
+  `SYNC_METADATA:ANALYZER` allow-list value.
+- **Stale:** P3-I5 is no longer `verification_pending`; the canonical registry marks it
+  `superseded`.
+- **Stale:** per-partition READY-pointer reconciliation and parameterless-only trigger
+  claims do not match the current global metadata and typed-target implementation.
+- **Evidence-dependent:** integration, failure-preservation, and exact-head CI results
+  are not established by static source presence.
+
+## Recommended Actions
+
+1. Decide and document how `PARTIAL_SUCCESS` maps to Platform terminal state before
+   reactivating this work.
+2. Update reconciliation severity so expected internal objects are classified
+   separately from malformed canonical candidates.
+3. Add the exact manual-trigger allow-list example and typed-target documentation.
+4. Replace obsolete per-partition READY tests with global-document atomicity and
+   previous-document preservation tests.
+5. Keep the record superseded until a canonical increment is explicitly reactivated;
+   source presence alone is not completion evidence.
+
 ## Removal Criteria
 
 This debt is resolved only when:
 
 1. Platform handles Analyzer partial outcomes as a documented terminal result.
 2. End-to-end Platform/Analyzer tests cover success, partial, and error status flows.
-3. READY read failures cannot silently replace corrupt or unreadable metadata.
+3. Global metadata publication failures preserve the previous complete discovery
+   document.
 4. Expected internal objects do not degrade otherwise healthy recurring runs.
-5. The Phase 7 allow-list key and opt-in deployment behavior are documented and tested.
-6. Superseded Dataset Explorer scope is removed from active P3-I5 requirements.
+5. The Phase 7 allow-list key, typed targets, and opt-in deployment behavior are
+   documented and tested.
+6. Superseded Dataset Explorer and per-partition reconciliation claims are removed
+   from active requirements.
 7. Targeted and affected Nx checks, formatting, builds, and exact-head CI pass.
-8. Roadmap verification evidence is recorded before P3-I5 is marked `completed`.
+8. A new canonical increment is approved before this superseded debt is scheduled or
+   represented as completed.
 
 ## Verification Status
 

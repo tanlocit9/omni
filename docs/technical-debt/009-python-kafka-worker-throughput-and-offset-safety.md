@@ -1,6 +1,6 @@
 # Python Kafka Worker Throughput and Offset Safety
 
-Status: Proposed technical debt; not roadmap-scheduled and not an active MVP prerequisite
+Status: Scheduled as pending P12-I1 through P12-I4 after P11-I5; not an active MVP prerequisite
 
 ## Goal
 
@@ -8,7 +8,7 @@ Harden the Python Kafka worker execution boundary so large fan-out daily/EOD job
 
 ## Outcome
 
-After owner-approved implementation, Ingestor and Analyzer workers use bounded concurrency appropriate to each workload and explicit offset-commit semantics tied to successful processing and terminal-status publication. Operators can distinguish scheduler dispatch completion, downstream consumer backlog, active processing, terminal-status publication, and permanently stranded executions without rewriting execution history manually.
+After the pending Phase 12 implementation, Ingestor and Analyzer workers use bounded concurrency appropriate to each workload and explicit offset commits tied either to successful output plus terminal-status publication or to an acknowledged durable write-intent handoff to the independent Python writer. Operators can distinguish scheduler dispatch completion, downstream consumer backlog, active processing, terminal-status publication, and permanently stranded executions without rewriting execution history manually.
 
 ## Observed Evidence
 
@@ -148,6 +148,55 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 - Capacity must be measured separately for provider-bound ingestion and CPU/storage-bound analysis.
 - Provider limits and dataset writer exclusivity override throughput goals.
 
+## Current Source Assessment
+
+- **Current:** Ingestor and shared Analyzer consumers process one record at a time and
+  await the full workflow.
+- **Current:** the shared aiokafka factory does not explicitly disable auto-commit or
+  define manual commit ownership.
+- **Current:** Platform applies one child status and aggregates its parent per consumed
+  status record.
+- **Planned, not implemented:** bounded concurrency, two-boundary offset ownership,
+  bulk Platform status application, and the standalone writer service.
+- **Historical owner-supplied evidence:** the observed cohort and drain calculation are
+  not a current benchmark and cannot be reproduced from source inspection alone.
+- **Deferred separately:** a repository-wide poison-record/DLT and audited replay policy
+  belongs to
+  [`010-kafka-poison-record-and-dead-letter-policy.md`](010-kafka-poison-record-and-dead-letter-policy.md),
+  not to the Python worker offset-safety core.
+
+## Recommended Actions
+
+1. Implement P12-I1 first: inventory every affected consumer, disable implicit
+   auto-commit, and prove contiguous-prefix commit, restart, revoke, and shutdown safety
+   before adding concurrency.
+2. Treat the recorded production cohort as directional history only; capture a fresh,
+   complete, comparable baseline by topic, group, partition, job type, and stage.
+3. Pilot bounded concurrency only on independent logical outputs and retain a default
+   of one until provider/storage budgets are measured.
+4. Preserve single-writer ownership for shared signal history until the independent
+   writer cutover is complete and verified.
+5. Keep P12-I3 focused on bounded status application, malformed-record isolation and
+   explicit failure reporting; do not make durable DLT infrastructure a Phase 12 gate.
+6. Require deterministic write-intent idempotency separate from Phase 11 diagnostic
+   `correlationId` and `requestId`.
+7. Keep every Phase 12 capability labelled planned until approved tests, load evidence,
+   exact-head CI, and synchronized contract/flow documentation are recorded.
+
+## Owner-Selected Standalone Writer Direction (2026-09-25)
+
+The current deployment uses one Ingestor instance and one Analyzer instance. Phase 12 plans one additional independent Python dataset-writer service instance built on `py-common`. Ingestor/Analyzer may process independent commands concurrently within each instance. For selected shared outputs, Analyzer publishes durable Kafka write intents; the writer groups compatible operations by the resolved logical `writeKey` and batches a bounded number or bounded wait time into one read/merge/write operation. Its two purposes are to avoid competing writes to one MinIO object and to let upstream workers progress concurrently. A child reaches terminal `SUCCESS` only after its output is durably written and its status is published.
+
+Only outputs with compatible batch semantics use this path. Independent per-symbol objects may be written concurrently without waiting for a shared batch. A batch can contain children from different parents; `parentExecutionId` is for aggregation, not writer exclusion or batch identity. Do not infer one scheduler outbox row for every execution created downstream of a command (for example, per-symbol projection executions created while consuming a sync-symbols batch). Compare dispatch-created children and downstream-created executions separately.
+
+Resolve stable `writeMode` (`BATCH` or `SINGLE`) and the `writeKey` derivation by job type in code, alongside the planned dependency policy but without conflating dependency readiness with writer ownership. Keep mutable job parameters in `configJson`; snapshot the resolved routing fields in commands so delayed records retain their intended handling. A writer validates the operation and output identity; equal keys alone do not make two operations batch-compatible. The existing signal transition and notification semantics must remain correct under batching; defer a change to `signalChanged` only with an explicit consumer/notification decision, never silently substitute `false`.
+
+The standalone writer uses a bounded in-memory per-key batch only as working state; a dedicated Kafka write-intent topic is the durable cross-service handoff. No Redis or additional persistent buffer is needed while writer replicas remain at one. A source command offset can advance after acknowledged durable intent publication (or authoritative failure status). The writer intent offset advances only after output and terminal status are published, with contiguous-prefix commits per partition. Retries must be idempotent, and shutdown/rebalance must not commit unfinished work. See [Plan 027](../plans/027-concurrent-workers-and-writer-batching.md) for the two offset boundaries and staged rollout.
+
+The Platform status consumer also needs bounded bulk application before writer rollout. Its current single-record `JobStatusConsumer` calls `JobService.applyStatus` per child; each call saves one row and scans children while locking the parent for aggregation. P12-I3 will retain individual child status messages, validate and apply each child, group changed rows by persisted parent, and aggregate a parent once per batch. Preserve standalone statuses, duplicate/replay safety, one terminal transition and notification, and acknowledgment only after durable database application. Failed or malformed records must be identified, reported, and isolated from valid records rather than silently dropped. Durable DLT envelopes, retention, replay authorization, and cross-service retry policy are deferred to the separate poison-record technical debt.
+
+This is an approved, pending Phase 12 design, not implemented behavior or a capacity result. See [High Availability Notes](../deployment/003-high-availability-notes.md) for the deferred multi-instance boundary.
+
 ## Proposed Investigation and Delivery Sequence
 
 1. Capture at least one complete representative daily window of published messages, consumed messages, terminal statuses, Kafka lag, children-per-minute throughput, failure share, processing-duration p50/p95/p99, restart behavior, and dataset-write contention separately for representative Ingestor and Analyzer topics.
@@ -172,21 +221,21 @@ A future implementation must define and obtain approval for exact Nx commands af
 - same-logical-partition writer exclusion tests;
 - bounded in-flight and graceful-shutdown tests;
 - representative Kafka integration/load tests for Ingestor and Analyzer;
-- Platform status-consumer and parent-aggregation regression tests;
+- Platform bounded bulk status-consumer tests for cross-parent groups, duplicates, invalid-record isolation/reporting, replay, one aggregation per parent, and terminal notification idempotency;
 - post-edit graph impact and change detection;
 - applicable Nx lint, test, and build targets for `py-common`, `ingestor`, `analyzer`, and `platform`.
 
 ## Acceptance Criteria
 
 - Every affected consumer declares its offset-commit policy explicitly.
-- A successfully committed command has either a successfully published terminal status or an explicitly durable recovery record.
+- A successfully committed command has either a successfully published terminal status or an acknowledged durable successor write intent whose writer owns final output and terminal status.
 - Restart and rebalance tests prove unfinished work is replayed safely.
 - Concurrency is bounded, configurable, observable, and defaults to a safe value.
 - Same-partition or same-logical-dataset writes cannot race.
 - Provider-bound workloads respect configured provider limits and do not add bypass/fallback behavior.
 - Metrics distinguish published message volume, consumed message volume, consumer lag, in-flight work, terminal throughput per minute, success/failure share, processing-duration p50/p95/p99, status-publication failures, stale-running executions, and estimated drain time.
 - Before/after evidence uses the same representative job mix and reports absolute message counts, observation duration, throughput, lag, failures, and resource utilization; no concurrency improvement is accepted from an unbounded or non-comparable benchmark.
-- Parent aggregation remains driven by authoritative child terminal statuses.
+- Parent aggregation remains driven by authoritative child terminal statuses; Platform applies bounded status batches with one aggregation per affected parent and safe offset acknowledgment.
 - Kafka payload schemas, storage paths, dataset ownership, READY-last publication, and lineage contracts remain unchanged unless separately approved.
 - Canonical flow/data documentation and repository guidance are synchronized if implementation changes runtime workflow or configuration.
 - Required local checks and CI pass with evidence recorded before any future roadmap increment is completed.
@@ -206,7 +255,10 @@ This debt record adds no current implementation workflow, architecture decision,
 - [Scheduler Claim and Outbox Boundary](../adr/007-scheduler-claim-and-outbox-boundary.md)
 - [Async Dependency Evaluation](007-async-dependency-evaluation.md)
 - [Post-MVP Roadmap Work](004-post-mvp-roadmap-work.md)
+- [High Availability Notes](../deployment/003-high-availability-notes.md)
+- [Plan 027 — Concurrent Workers and Writer Batching](../plans/027-concurrent-workers-and-writer-batching.md)
+- [Phase 12](../../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)
 
 ## Reactivation
 
-This debt requires an explicit owner decision and a new or updated canonical roadmap increment before implementation. Reactivation should be considered when measured backlog misses the daily processing window, stale `RUNNING` executions are observed after worker restart, consumer lag becomes operationally material, or additional replicas are required.
+The owner scheduled this debt as pending P12-I1 through P12-I4 after P11-I5. Implementation may begin only when the prerequisite increments are completed and normal ownership/readiness checks pass. Multi-instance writer deployment remains outside Phase 12 and requires the separate High Availability promotion gate.

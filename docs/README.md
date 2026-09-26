@@ -22,6 +22,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 16. [P1-I4 execution identity hard cutover](deployment/001-p1-i4-hard-cutover.md) — coordinated drain, manual history cleanup, deploy, verification, and rollback procedure.
 
 17. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are reactivated but evidence-gated and blocked.
+18. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — pending Phase 12 plan after traceability, with an independent Python writer service.
 
 ## Planning Map
 

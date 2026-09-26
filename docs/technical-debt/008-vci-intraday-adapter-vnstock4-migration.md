@@ -1,124 +1,93 @@
 # VCI Intraday Adapter vnstock 4.x Migration
 
+## Status
+
+Original public-facade failure avoided in source; provider compatibility and complete-day
+coverage remain evidence-dependent.
+
 ## Context
 
-The ingestor service's [`VCIIntradayQuoteAdapter`](../../apps/ingestor/app/stocks/clients/vci_intraday.py) was failing with `TypeError: Quote.intraday() got an unexpected keyword argument 'page'` when processing P9-I1 intraday EOD jobs.
+The Ingestor [`VCIIntradayQuoteAdapter`](../../apps/ingestor/app/stocks/clients/vci_intraday.py)
+previously failed when the vnstock public `Quote.intraday()` facade received an
+unsupported `page` argument during P9-I1 intraday EOD processing.
 
-## Problem
+## Original Problem
 
-**Error Pattern**: `TypeError` during vnstock API call
+Observed error:
 
-**Stack Trace**:
-
-```python
-File "apps/ingestor/app/stocks/clients/vci_intraday.py", line 58, in _fetch_page
-    frame = quote.intraday(**kwargs)
-File ".venv/Lib/site-packages/vnai/beam/patching.py", line 296, in intraday_with_limit
-    df = original_intraday(*args, **kwargs)
+```text
 TypeError: Quote.intraday() got an unexpected keyword argument 'page'
 ```
 
-**Root Cause**: vnstock 4.x removed pagination support from the `Quote.intraday()` API
+The earlier adapter assumed public pagination/cursor behavior that vnstock 4.x no
+longer exposed through the same facade.
 
-The original adapter implementation attempted cursor-based pagination using:
+## Current Implementation
 
-- `page_size` parameter to control batch size
-- `last_time` cursor for pagination
-- Complex loop logic to detect cursor advancement
+Current source does not implement the previously documented single public-facade call
+with `start` and `end`. Instead it accesses the quote object's private provider and
+calls provider-level `intraday(page_size=30_000)`.
 
-However, vnstock 4.x API no longer accepts these parameters.
+Source tests verify that the unsupported public `page` argument is not used and that
+the provider-level page-size call is made. This avoids the original exception in the
+covered shape, but it creates a different compatibility boundary:
 
-**Impact**: All P9-I1 intraday EOD ingestion blocked for HOSE, HNX, and UPCOM exchanges.
+- `_provider` is a private vnstock implementation detail;
+- the 30,000-row cap may truncate an unusually active session unless completeness is
+  verified independently;
+- provider date/session selection behavior is not explicit in the adapter call;
+- source fixtures do not establish live provider completeness or production memory use.
 
-## Solution
+## Current Source Assessment
 
-Simplified [`VCIIntradayQuoteAdapter`](../../apps/ingestor/app/stocks/clients/vci_intraday.py) to fetch complete trading day data in a single API call, matching vnstock 4.x capabilities.
+- **Resolved in source:** the adapter no longer sends the unsupported public `page`
+  argument that caused the recorded `TypeError`.
+- **Stale documentation:** pagination parameters were not fully removed, and the current
+  adapter does not call public `Quote.intraday(start=..., end=...)` as previously stated.
+- **Current risk:** reliance on private `_provider` API can break across vnstock updates.
+- **Current risk:** a fixed 30,000-row request needs an explicit truncation/completeness
+  check.
+- **Evidence-dependent:** full-session date scoping, live HOSE/HNX/UPCOM behavior,
+  provider row limits, memory use, and P9-I1 end-to-end success.
 
-### Implementation Changes
+## Recommended Actions
 
-**Removed**:
+1. Prefer a supported public vnstock 4.x API when it can provide explicit session/date
+   semantics and complete results; otherwise document and pin the private provider
+   compatibility boundary.
+2. Detect or reject possible truncation at the 30,000-row cap instead of silently
+   treating a capped response as a complete trading day.
+3. Add provider-contract fixtures for date scoping, empty sessions, malformed responses,
+   timeout/error propagation, and cap-edge behavior.
+4. Record owner-run provider evidence for representative HOSE, HNX, and UPCOM symbols
+   before claiming complete-day coverage.
+5. Monitor response rows and memory for high-volume sessions; introduce chunking or a
+   supported streaming path only if measured data requires it.
+6. Keep P9-I1 at its canonical evidence state until approved project checks and exact-head
+   CI/provider evidence are recorded.
 
-- `page_size` constructor parameter
-- Pagination loop logic
-- Cursor tracking and advancement detection
-- `_cursor_from()` helper function
+## Contract Impact
 
-**Simplified to**:
+- Kafka/service-to-service protobuf: unchanged.
+- Object-storage JSON manifests: unchanged; publication still requires existing
+  validation and readiness semantics.
+- Storage paths/dataset ownership: unchanged.
+- Public Java/Python APIs: internal adapter/provider integration may change.
+- Configuration/environment: dependency pinning may change if private-provider
+  compatibility requires an exact vnstock version.
 
-```python
-def _fetch_session_sync(self, symbol: str, trading_date: date) -> pd.DataFrame:
-    quote = self._quote_factory(symbol=symbol, source="VCI")
-    kwargs: dict[str, Any] = {
-        "start": trading_date.isoformat(),
-        "end": trading_date.isoformat(),
-    }
-    frame = quote.intraday(**kwargs)
-    return frame if isinstance(frame, pd.DataFrame) else pd.DataFrame(frame)
-```
+## Verification Required
 
-### Rationale
+- Adapter unit tests for supported call arguments and response normalization.
+- Provider-backed evidence for complete session coverage and date selection.
+- Reconciliation against EOD data for representative sessions.
+- Cap-edge and memory observations for high-volume symbols.
+- Approved Ingestor Nx checks and exact-head CI.
 
-**Why single-call is acceptable**:
-
-1. **Scope**: Fetching a single trading day's worth of intraday trades
-2. **Volume**: Even active symbols rarely exceed 10,000 trades per day
-3. **Memory**: Complete day's trades fit comfortably in memory (~1-5MB per symbol)
-4. **Simplicity**: Eliminates complex pagination state management
-5. **API Contract**: Matches vnstock 4.x design (provider removed pagination for a reason)
-
-**Performance characteristics**:
-
-- Single HTTP request vs. multiple paginated requests
-- Reduced error surface area (no cursor advancement failures)
-- Faster execution for typical trading days
-- Async execution in thread pool preserves non-blocking behavior
-
-### Testing Considerations
-
-1. **Functional Correctness**:
-
-   - Verify all trades for a complete trading day are returned
-   - Confirm [`normalize_intraday_trades()`](../../apps/ingestor/app/handlers/intraday_eod.py:108) receives complete data
-   - Check reconciliation against EOD data passes
-
-2. **Memory Usage**:
-
-   - Monitor memory consumption during high-volume trading days
-   - Typical expectation: 1-10MB per symbol session
-
-3. **Error Handling**:
-   - vnstock API errors propagate correctly
-   - Empty DataFrames handled (no trades for the day)
-   - Network timeouts caught and reported
-
-## Alternative Solutions Considered
-
-### Option 1: Pin vnstock to 3.x (Rejected)
-
-- **Pro**: Preserves pagination logic
-- **Con**: Blocks security updates, bug fixes, and feature improvements
-- **Con**: vnstock 3.x may be unmaintained
-
-### Option 2: Implement client-side chunking (Rejected)
-
-- **Pro**: Limits memory per batch
-- **Con**: Complex logic for splitting date ranges
-- **Con**: No API support for time-based pagination
-- **Con**: Over-engineering for typical use case
-
-### Option 3: Stream processing (Future Enhancement)
-
-- If trading days with >100k trades become common, consider streaming
-- Implement chunked processing of DataFrame rows
-- Likely unnecessary for Vietnam market trading volumes
+No executable verification was run for this documentation update.
 
 ## Related Work
 
 - [Intraday EOD Flow](../flows/005-intraday-eod.md)
 - [P9 Intraday EOD Implementation Plan](../plans/013-intraday-eod.md)
 - [`intraday_eod.py` handler](../../apps/ingestor/app/handlers/intraday_eod.py)
-
-## Status
-
-**Implemented**: 2026-09-15  
-**Verification**: Requires testing with actual P9-I1 intraday EOD job execution

@@ -63,19 +63,13 @@ Refactored [`DefaultJobDependencyGuard`](../../apps/core/src/main/java/com/omni/
    - Blocking wait is acceptable since we're already on a virtual thread (scheduler runs on virtual threads)
    - Guarantees all dependency checks complete before proceeding
 
-### Performance Impact
+### Expected Performance Impact
 
-**Before**:
-
-- 10 dependencies × 200ms latency each = 2000ms total
-- Sequential bottleneck on single-threaded evaluation
-- OkHttp queue exhaustion under load
-
-**After**:
-
-- 10 dependencies evaluated in parallel ≈ 200ms total (10x improvement)
-- No OkHttp queue pressure since requests complete faster
-- Scales horizontally with virtual threads
+Parallel evaluation can reduce dependency-check wall-clock time when independent
+MinIO reads dominate latency. The earlier 10-dependency/200ms example is illustrative,
+not measured repository evidence. Current source also configures complementary MinIO
+HTTP dispatcher limits, but static inspection does not prove queue exhaustion is gone
+under representative load.
 
 ## Testing Considerations
 
@@ -127,7 +121,35 @@ OkHttpClient httpClient = new OkHttpClient.Builder()
 - [Job Execution Flow](../flows/001-job-execution.md)
 - [Phase 4: Job Dependency Guard](../../plans/roadmap/phase-4-job-dependency-guard.md)
 
+## Current Source Assessment
+
+- **Source present:** dependency checks use `CompletableFuture` with a virtual-thread
+  executor.
+- **Source present:** the MinIO client configures complementary HTTP dispatcher limits.
+- **Current risk:** the executor is effectively unbounded and its lifecycle/closure is
+  not explicit in the guard.
+- **Evidence present only as source coverage:** unit tests exercise dependency outcomes,
+  but static inspection does not establish representative parallel/load behavior.
+- **Evidence-dependent:** latency improvement, queue-pressure removal, resource bounds,
+  and production stability remain unverified.
+
+## Recommended Actions
+
+1. Replace illustrative performance claims with a controlled multi-dependency benchmark
+   before treating the implementation as a capacity result.
+2. Add concurrency tests for mixed success, blocked, timeout, and exception outcomes
+   while preserving deterministic aggregate semantics.
+3. Define ownership and shutdown of the virtual-thread executor, or inject a managed
+   executor with an explicit lifecycle.
+4. Bound or gate concurrent MinIO requests based on measured dispatcher/storage capacity;
+   virtual threads do not remove downstream connection limits.
+5. Capture queue wait, request latency, dependency count, and scheduler dispatch latency
+   without high-cardinality metrics.
+6. Keep cached metadata as a separate future decision; do not add a second readiness
+   authority unless measured I/O remains a bottleneck.
+
 ## Status
 
-**Implemented**: 2026-09-15  
-**Verification**: Requires integration testing with multi-dependency jobs under load
+**Implementation source present:** 2026-09-15
+**Verification:** integration/load evidence for representative multi-dependency jobs is
+not recorded; executable checks were not run for this documentation update.

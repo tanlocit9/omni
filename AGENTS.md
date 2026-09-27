@@ -71,6 +71,17 @@ owner-supplied evidence, `INCOMPLETE` remains `verification_pending`, and `FAIL`
 must not be recorded as completed. Inspect raw logs only when the user explicitly
 requests diagnosis. Read only the minimum roadmap sections needed for the update.
 
+When the owner explicitly wants to attest that they reviewed a passing gate, use the
+`verify-by` skill. Owner attestation is allowed only after the complete gate passes and
+attributable code coverage proves the increment's changed features, acceptance
+criteria, and safety-critical paths were exercised. Require an explicit
+feature/source/test coverage matrix and include an available coverage target/report in
+the recorded gate; broad suite success or test-file presence alone is insufficient.
+The attestation must be bound to the exact summary and required-check manifest through
+`tools/check_result.py attest`. It records `owner_verified`; it never substitutes for
+missing checks, CI, merge, deployment, provider, runtime, dependency, documentation,
+or acceptance evidence and cannot alone mark an increment completed.
+
 ## Contract and data guardrails
 
 - Canonical migrated service/Kafka schemas live in
@@ -111,6 +122,24 @@ Implementation plans follow
 When architecture, contracts, workflow, or tooling changes, synchronize applicable
 canonical docs and agent guidance. Keep agent files concise and link to canonical
 sources rather than copying architecture prose.
+
+Before finalizing any increment, agents must run the documentation-synchronization
+workflow even when source implementation is already complete:
+
+1. load the `update-implementation-plans` skill;
+2. review the increment's phase file, canonical registry, execution log, supporting
+   plan, and affected architecture, ADR, flow, data, deployment, development, service,
+   index, and repository-guidance documents;
+3. update every applicable document in the same change, or record an explicit
+   no-update reason for each reviewed documentation area;
+4. run `code-review-graph` change detection after documentation edits; and
+5. use the `verify-document-consistency` skill for a static consistency audit before
+   claiming documentation synchronization or increment completion.
+
+Documentation synchronization and static consistency analysis do not authorize or
+replace build, test, lint, format, CI, deployment, or runtime verification. A missing,
+inconclusive, or failed documentation audit keeps the increment unresolved and must
+not be reported as completed.
 
 For documentation-only changes, use static link/path inspection by default. Any
 executable documentation checker remains subject to the verification approval gate.

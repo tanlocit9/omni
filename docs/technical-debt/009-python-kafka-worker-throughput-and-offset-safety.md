@@ -176,8 +176,9 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
    of one until provider/storage budgets are measured.
 4. Preserve single-writer ownership for shared signal history until the independent
    writer cutover is complete and verified.
-5. Keep P12-I3 focused on bounded status application, malformed-record isolation and
-   explicit failure reporting; do not make durable DLT infrastructure a Phase 12 gate.
+5. Keep P12-I3 focused on partition-scoped bounded status application, typed malformed-
+   record failure, affected-partition pause, and authenticated audited recovery; do not
+   make durable DLT infrastructure a Phase 12 gate.
 6. Require deterministic write-intent idempotency separate from Phase 11 diagnostic
    `correlationId` and `requestId`.
 7. Keep every Phase 12 capability labelled planned until approved tests, load evidence,
@@ -193,7 +194,7 @@ Resolve stable `writeMode` (`BATCH` or `SINGLE`) and the `writeKey` derivation b
 
 The standalone writer uses a bounded in-memory per-key batch only as working state; a dedicated Kafka write-intent topic is the durable cross-service handoff. No Redis or additional persistent buffer is needed while writer replicas remain at one. A source command offset can advance after acknowledged durable intent publication (or authoritative failure status). The writer intent offset advances only after output and terminal status are published, with contiguous-prefix commits per partition. Retries must be idempotent, and shutdown/rebalance must not commit unfinished work. See [Plan 027](../plans/027-concurrent-workers-and-writer-batching.md) for the two offset boundaries and staged rollout.
 
-The Platform status consumer also needs bounded bulk application before writer rollout. Its current single-record `JobStatusConsumer` calls `JobService.applyStatus` per child; each call saves one row and scans children while locking the parent for aggregation. P12-I3 will retain individual child status messages, validate and apply each child, group changed rows by persisted parent, and aggregate a parent once per batch. Preserve standalone statuses, duplicate/replay safety, one terminal transition and notification, and acknowledgment only after durable database application. Failed or malformed records must be identified, reported, and isolated from valid records rather than silently dropped. Durable DLT envelopes, retention, replay authorization, and cross-service retry policy are deferred to the separate poison-record technical debt.
+The Platform status consumer also needs bounded bulk application before writer rollout. Its current single-record `JobStatusConsumer` calls `JobService.applyStatus` per child; each call saves one row and scans children while locking the parent for aggregation. P12-I3 will retain individual child status messages, split polls into ordered partition sub-batches, apply each sub-batch in one database transaction, group changed rows by persisted parent, and aggregate a parent once per sub-batch. Preserve standalone statuses, duplicate-terminal idempotency, one terminal transition and notification, and acknowledgment only for each partition's contiguous committed prefix. A typed malformed or contract-invalid record rolls back and pauses only its partition; unrelated partitions continue. Recovery either corrects compatibility/data and retries or records an authenticated, audited decision before discarding exactly the reviewed failing offset. Durable DLT envelopes, payload retention, generalized replay authorization, and cross-service retry policy are deferred to the separate poison-record technical debt.
 
 This is an approved, pending Phase 12 design, not implemented behavior or a capacity result. See [High Availability Notes](../deployment/003-high-availability-notes.md) for the deferred multi-instance boundary.
 

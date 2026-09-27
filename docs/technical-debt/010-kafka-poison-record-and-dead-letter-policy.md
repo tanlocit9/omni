@@ -11,9 +11,16 @@ consumers can report and retry failures, but a durable dead-letter topic, redact
 envelope, retention policy, replay authorization, and operator workflow are not owned
 by an approved roadmap increment.
 
-P12-I3 still must identify, report, and isolate malformed job-status records so valid
-records in a bounded batch are not silently discarded. It does not need to create the
-repository-wide DLT and replay platform described here.
+P12-I3 still must identify and report malformed job-status records without silently
+acknowledging them. Its narrow fallback is partition-local: roll back the affected
+partition sub-batch, stop admission at the failing offset, pause that partition, and
+raise a deduplicated operator alert. No later offset from that partition is processed or
+committed while unrelated partitions continue. Recovery either corrects compatibility or
+data and retries, or uses authenticated, audited break-glass discard of exactly the
+reviewed immutable record; source coordinates, safe error code, actor, reason, and
+timestamp are recorded before committing its next offset and resuming. This procedure
+does not retain the rejected payload and therefore does not create the repository-wide
+durable quarantine, DLT, retention, or payload-preserving replay platform described here.
 
 ## Current Source Assessment
 
@@ -47,8 +54,13 @@ A future owner-approved increment may define:
 
 ## Recommended Actions
 
-1. Keep P12-I3's immediate contract narrow: malformed records are identified, reported,
-   isolated from valid records, and never silently acknowledged as successfully applied.
+1. Keep P12-I3's immediate contract narrow: typed non-retryable records roll back their
+   partition sub-batch, stop admission at the failing offset, pause only that partition,
+   and raise a deduplicated alert. Never process or acknowledge a later offset from the
+   affected partition; allow unrelated partitions to continue independently. Recovery
+   either corrects compatibility/data and retries or records an authenticated, audited
+   decision before discarding exactly one reviewed failing offset; never skip a range or
+   retain the payload under the narrow Phase 12 procedure.
 2. Collect evidence of repeated poison records, retry exhaustion, or partition stalls
    before promoting durable DLT infrastructure.
 3. When promoted, design the policy across Java and Python consumers rather than adding
@@ -75,8 +87,8 @@ A future owner-approved increment may define:
 
 ## Non-Goals
 
-- Do not make a DLT a substitute for manual commits, contiguous-prefix safety, or
-  idempotent processing.
+- Do not make a DLT a substitute for manual commits, partition-scoped transactions,
+  contiguous-prefix safety, or idempotent processing.
 - Do not copy arbitrary raw payloads or secrets into a dead-letter record.
 - Do not silently skip malformed records.
 - Do not automatically replay historical records.

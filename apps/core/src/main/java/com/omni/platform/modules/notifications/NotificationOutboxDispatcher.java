@@ -56,7 +56,7 @@ public class NotificationOutboxDispatcher {
         List<NotificationOutboxClaim> claims = outboxStore.claimPending(
                 now, instanceId, claim.resolvedLeaseDuration(), claim.resolvedBatchSize());
         for (NotificationOutboxClaim message : claims) {
-            dispatchOne(message, Instant.now());
+            dispatchOne(message, now);
         }
     }
 

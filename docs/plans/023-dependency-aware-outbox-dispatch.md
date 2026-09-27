@@ -1,6 +1,6 @@
 # Dependency-Aware Outbox Dispatch
 
-Canonical status and schedule owner: [P4-I3 in implementation increments](../../plans/roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule. P4-I3 is `pending` until overlapping active `apps/core` ownership is reconciled under the roadmap readiness rules.
+Canonical status and schedule owner: [P4-I3 in implementation increments](../../plans/roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule. P4-I3 source implementation is present locally, but verification commands and CI have not run, so the increment remains `verification_pending`.
 
 ## Goal
 
@@ -10,9 +10,8 @@ Prevent overdue scheduled jobs from starting nearly simultaneously after a servi
 
 - Scheduled and accepted manual work create executions and PENDING outbox messages without blocking on dependencies.
 - `SchedulerOutboxDispatcher` is the one dependency gate for scheduled and manual work before claim/publish.
-- A dedicated Spring Modulith module exports only the `DependencyRegistry` contract and the minimum immutable request/result types.
-- The module follows the existing notification-policy registration pattern: one public registry, private policies discovered as Spring beans, and fail-fast duplicate registration.
-- The registry selects a dependency policy by domain, so future VN/US/Crypto policies can be added without changing Scheduler or Outbox.
+- The scheduler-owned dependency package exposes a small `DependencyRegistry` boundary and immutable request/result types to the dispatcher while keeping evaluators and manifest readers internal to the same orchestration owner.
+- Do not create a facade-only application module that imports its implementation back from Scheduler; a future independent module requires a neutral request contract with no `JobDefinition` or scheduler-repository dependency.
 - V1 uses static definitions; no dependency repository or dependency table is introduced.
 - Dispatch is scoped to the same logical run and work item so an older success cannot unlock a new run.
 - Metadata jobs use a global barrier and cannot race upstream sync/manifest updates after evening startup.
@@ -22,11 +21,11 @@ Prevent overdue scheduled jobs from starting nearly simultaneously after a servi
 
 The scheduler currently checks dependencies before enqueue, while the outbox claims PENDING messages FIFO without dependency awareness. After downtime, multiple overdue jobs can be enqueued or become runnable together, causing concurrent database, Kafka, MinIO, and metadata activity. The metadata job currently has no effective dependency barrier, which allows metadata updates to overlap incomplete upstream work.
 
-## Proposed Module Boundary
+## Proposed Package Boundary
 
-Create a dedicated `dependency` application module.
+Keep dependency evaluation under `modules.scheduler.dependencies`, its established owner. The scheduler dispatcher depends on the registry interface rather than concrete evaluators.
 
-Exported API:
+Internal API:
 
 ```java
 public interface DependencyRegistry {
@@ -35,9 +34,9 @@ public interface DependencyRegistry {
 }
 ```
 
-The minimum exported immutable types are `DependencyDomain`, `DependencyKey`, `DependencySpec`, `DependencyRequest`, and `DependencyDecision`. Policy interfaces and implementations stay private.
+The minimum dispatcher-facing immutable types are `DependencyRequest` and `DependencyDecision`. Manifest readers, condition evaluators, and context construction stay in the scheduler dependency package.
 
-Use the same registration pattern as `JobNotificationPolicyRegistry`:
+A future domain-policy registry may use the same registration pattern as `JobNotificationPolicyRegistry` once a neutral cross-module request contract exists:
 
 ```text
 DependencyRegistry
@@ -47,15 +46,11 @@ DependencyRegistry
        -> future CryptoDependencyPolicy
 ```
 
-- `DependencyPolicy`: private internal policy contract exposing `domain()`, `specs()`, and `evaluate(request)`.
-- `VNDependencyPolicy`: V1 Spring component that owns the immutable VN dependency catalog and evaluation rules.
-- `StaticDependencyRegistry`: receives `List<DependencyPolicy>`, indexes policies by `DependencyDomain`, and delegates `specs(domain)` and `evaluate(request)`.
-- This mirrors notification: `DependencyRegistry` corresponds to `JobNotificationPolicyRegistry`; `DependencyPolicy` corresponds to `JobNotificationPolicy`; VN/US/Crypto policies correspond to concrete notification policies.
-- Scheduler and Outbox inject only `DependencyRegistry`; they never request or cast to `VNDependencyPolicy`.
-- Duplicate domain registration fails during startup. Unlike notification, dependency dispatch has no permissive default policy: an unsupported domain fails closed with a diagnosable decision.
-- `DependencyEvaluator`: treats manifests as the hard data-readiness source and uses execution/outbox state only for exact same-run/work matching and global barriers.
-- `DependencySpecCodec`: converts definitions to/from neutral column/JSON maps for future persistence or SQL binding; it does not generate raw SQL.
-- No factory layer, repository, dependency table, or runtime write API in V1.
+- `PlatformDependencyRegistry` adapts the established manifest guard into dispatcher decisions.
+- Scheduler outbox injects only `DependencyRegistry`; it never calls concrete condition evaluators.
+- Unsupported or incompatible dependency evidence fails closed with a diagnosable decision.
+- The existing guard treats manifests as the hard data-readiness source and uses execution/outbox state only for exact same-run/work matching and global barriers.
+- No separate application-module facade, factory layer, dependency repository/table, or runtime write API is introduced in V1.
 
 ## Runtime Flow
 
@@ -87,7 +82,7 @@ Eligibility is evaluated before the atomic claim without holding a transaction a
 
 ## Implementation Increments
 
-1. Add the `dependency` module and exported registry contract, plus private `DependencyPolicy`, `VNDependencyPolicy`, evaluator, and codec using the notification registry pattern.
+1. Add the registry request/decision boundary to the scheduler dependency package and adapt the existing manifest guard without introducing a facade-only module.
 2. Migrate existing scheduler dependency definitions into the registry without changing manifest READY or `dataVersion` semantics.
 3. Remove dependency blocking from both `JobScheduler` and the audited manual-trigger acceptance path; always enqueue accepted work transactionally.
 4. Add the registry gate to outbox candidate selection/claim and prevent head-of-line blocking.
@@ -95,7 +90,7 @@ Eligibility is evaluated before the atomic claim without holding a transaction a
 6. Define aggregation, status API, notification, and operator visibility semantics for `BLOCKED`.
 7. Add terminal upstream-failure propagation and metadata global-barrier rules.
 8. Remove the old scheduler blocked-job retry path only after equivalent outbox retry and visibility behavior is covered.
-9. Add module-boundary, scheduler, manual-trigger, dispatcher, migration, concurrency, and run/work-scope tests.
+9. Add package-boundary, scheduler, manual-trigger, dispatcher, migration, concurrency, and run/work-scope tests.
 10. Update canonical job-flow, database, architecture, developer-navigation, and relevant service documentation.
 
 ## Dataset Outputs
@@ -121,7 +116,7 @@ No new algorithm. Existing price, indicator, signal, intraday-confirmation, and 
 | Kafka/service-to-service protobuf | Unchanged in V1; dispatch uses existing execution and work identity.                                                                                                                                                                                                                           |
 | Object-storage JSON manifest      | Unchanged; dependency evaluation reads existing readiness/version evidence.                                                                                                                                                                                                                    |
 | Storage path/dataset ownership    | Unchanged.                                                                                                                                                                                                                                                                                     |
-| Public Java/Python API            | Add one Java module contract for in-process consumers and extend existing execution-status responses with terminal `BLOCKED`; no new service endpoint is added.                                                                                                                                |
+| Public Java/Python API            | Add an internal Java registry boundary in the scheduler dependency package and extend existing execution-status responses with terminal `BLOCKED`; no cross-service or Python API and no new service endpoint are added.                                                                       |
 | Configuration/environment         | No new environment variable in V1; VN definitions are static.                                                                                                                                                                                                                                  |
 | Database                          | No dependency repository/table. Add an additive migration for terminal execution `BLOCKED`, a bounded structured dependency reason, and a terminal outbox disposition/status. Deploy schema and compatible readers before writers; preserve existing PENDING/PUBLISHED rows and audit history. |
 
@@ -139,12 +134,14 @@ Implementation must review and update, where behavior changes:
 
 ## Verification
 
-Not run for this documentation-only roadmap admission.
+Not run for this implementation. The owner explicitly withheld test, build, lint,
+and format approval. Static source reasoning and post-edit graph analysis do not
+replace executable verification.
 
 Required implementation evidence:
 
-- Spring Modulith boundary test proves only the dependency contract package is exported.
-- Policy-registry tests prove VN selection, rejection of duplicate domains, and fail-closed behavior for an unsupported domain.
+- Package-boundary tests prove scheduler outbox depends on the registry boundary rather than concrete evaluators.
+- Registry tests prove READY/WAITING/BLOCKED adaptation and fail-closed behavior for incompatible evidence.
 - Scheduler and manual-trigger tests prove unmet dependencies do not prevent accepted work from creating execution and PENDING outbox identities.
 - Dispatcher tests cover `READY`, `WAITING`, `BLOCKED`, no attempt increment while waiting, and no blocked-row starvation.
 - Scope tests prove exact run/trading-date and work-key matching.
@@ -152,7 +149,7 @@ Required implementation evidence:
 - Execution aggregation, status API, notification, and sanitization tests cover terminal `BLOCKED` without treating it as worker `FAILED`.
 - Migration tests cover old PENDING/PUBLISHED rows, schema-first rollout, terminal outbox exclusion, and non-destructive rollback.
 - PostgreSQL integration tests prove concurrent eligibility/claim/publish remains duplicate-safe and terminal rows cannot be reclaimed.
-- After approval under the verification gate, run `nx run platform:test` and `nx run platform:build` from the workspace root; record formatting and exact-head CI separately before completion.
+- After separate approval under the verification gate, run `nx run platform:test` and `nx run platform:build` from the workspace root; record exact-head CI separately before completion. Platform defines no lint or format target.
 
 ## Acceptance Criteria
 
@@ -165,8 +162,8 @@ Required implementation evidence:
 - Blocked candidates cannot starve unrelated ready work.
 - Dependency resolution is exact to the same run and work item.
 - Metadata dispatch waits for the complete upstream run barrier.
-- Only the registry contract is visible outside the dependency module.
-- A new VN/US/Crypto policy can be registered without changing Scheduler, Outbox, or the exported registry contract.
+- Dispatcher code uses only the registry request/decision boundary; concrete manifest evaluators remain isolated in the scheduler dependency package.
+- A future independent VN/US/Crypto module must first define a neutral request contract and may not import scheduler entities or repositories back into that module.
 - V1 has no dependency repository and no Kafka, manifest, or storage-path contract change.
 - Migration/rollback preserves pending work, terminal records, and existing audit history.
 - Canonical flow, database, architecture, developer-navigation, service, and applicable repository guidance are synchronized.
@@ -178,3 +175,22 @@ Required implementation evidence:
 - Persisted dependency definitions in V1.
 - Kafka payload redesign.
 - New Query Service or Console features; existing Platform execution-status responses may expose terminal `BLOCKED`.
+
+## Implementation Evidence
+
+Implemented locally:
+
+- scheduled and manual preparation no longer evaluate dependencies before enqueue;
+- execution plus PENDING scheduler-outbox identity commits first;
+- the dispatcher over-fetches unclaimed candidates, evaluates Platform-local
+  dependency decisions, and claims only READY work with the existing lease/fence;
+- WAITING defers without consuming attempts; terminal BLOCKED atomically closes the
+  outbox and execution with a bounded structured reason;
+- additive V11 schema and focused scheduler/manual/dispatcher coverage are present;
+- reusable safe-write guidance is mechanics-only and does not share dependency logic;
+- Kafka/Proto3, manifest JSON, storage paths, dataset ownership, and environment
+  contracts remain unchanged.
+
+No guidance update was required in `AGENTS.md`, `CLAUDE.md`, or `.roo/rules`: their
+existing Platform-local dependency, logical-path, claim-fencing, verification-gate,
+and READY-last rules already describe the required repository workflow.

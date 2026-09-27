@@ -2,243 +2,69 @@ package com.omni.platform.modules.scheduler;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyContextFactory;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard.GuardResult;
-import com.omni.platform.modules.scheduler.dependencies.JobExecutionContext;
-import com.omni.platform.modules.scheduler.entities.BlockedJob;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
-import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
-import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.producers.JobProducer;
 import com.omni.platform.modules.scheduler.producers.JobProducerRegistry;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
-import com.omni.platform.modules.scheduler.services.BlockedJobTracker;
 import com.omni.platform.modules.scheduler.services.SchedulerClaimService;
 
 class JobSchedulerTest {
 
-    private JobDefinitionRepository repository;
-    private JobProducerRegistry registry;
-    private SchedulerClaimService claimService;
-    private JobDependencyGuard dependencyGuard;
-    private JobDependencyContextFactory dependencyContextFactory;
-    private BlockedJobTracker blockedJobTracker;
-    private JobScheduler scheduler;
-
-    @BeforeEach
-    void setUp() {
-        repository = mock(JobDefinitionRepository.class);
-        registry = mock(JobProducerRegistry.class);
-        claimService = mock(SchedulerClaimService.class);
-        dependencyGuard = mock(JobDependencyGuard.class);
-        dependencyContextFactory = mock(JobDependencyContextFactory.class);
-        blockedJobTracker = mock(BlockedJobTracker.class);
-        scheduler = new JobScheduler(
-                repository,
-                registry,
-                claimService,
-                dependencyGuard,
-                dependencyContextFactory,
-                blockedJobTracker);
-
-        // Default: no blocked jobs ready for retry
-        when(blockedJobTracker.findJobsReadyForRetry(any(Instant.class))).thenReturn(List.of());
-    }
-
     @Test
-    void scanDispatchesDueJobsThroughRegistry() {
+    void dueJobIsPreparedWithoutPreEnqueueDependencyEvaluation() {
+        JobDefinitionRepository definitions = mock(JobDefinitionRepository.class);
+        JobProducerRegistry producers = mock(JobProducerRegistry.class);
+        SchedulerClaimService claims = mock(SchedulerClaimService.class);
         JobProducer producer = mock(JobProducer.class);
-        JobDefinition job = job(JobType.SYNC_STOCK_PRICE);
+        JobDefinition job = job();
         SchedulerClaim claim = claim(job);
+        when(claims.claimDueJobs(any())).thenReturn(List.of(claim));
+        when(definitions.findById(job.getId())).thenReturn(Optional.of(job));
+        when(producers.getProducer(job.getJobType())).thenReturn(producer);
 
-        when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
-        when(repository.findById(job.getId())).thenReturn(Optional.of(job));
-        stubContext(job);
-        when(registry.getProducer(JobType.SYNC_STOCK_PRICE)).thenReturn(producer);
-        // Guard returns READY
-        when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
-                .thenReturn(GuardResult.ready());
-        when(blockedJobTracker.isBlocked(job)).thenReturn(false);
+        new JobScheduler(definitions, producers, claims).scan();
 
-        scheduler.scan();
-
-        verify(registry).getProducer(JobType.SYNC_STOCK_PRICE);
-        ArgumentCaptor<Instant> timestamp = ArgumentCaptor.forClass(Instant.class);
-        verify(producer).prepareDispatch(
-                org.mockito.ArgumentMatchers.same(job),
-                org.mockito.ArgumentMatchers.same(claim),
-                timestamp.capture(),
-                org.mockito.ArgumentMatchers.eq(Map.of()));
+        verify(producer).prepareDispatch(org.mockito.ArgumentMatchers.same(job),
+                org.mockito.ArgumentMatchers.same(claim), any(Instant.class));
     }
 
     @Test
-    void scanDoesNotDispatchWhenNoJobsAreDue() {
-        when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of());
+    void noDueJobDoesNotResolveProducer() {
+        JobDefinitionRepository definitions = mock(JobDefinitionRepository.class);
+        JobProducerRegistry producers = mock(JobProducerRegistry.class);
+        SchedulerClaimService claims = mock(SchedulerClaimService.class);
+        when(claims.claimDueJobs(any())).thenReturn(List.of());
 
-        scheduler.scan();
+        new JobScheduler(definitions, producers, claims).scan();
 
-        verifyNoInteractions(registry);
+        verifyNoInteractions(producers);
     }
 
-    @Test
-    void scanBlocksJobWhenDependencyGuardBlocks() {
-        JobDefinition job = job(JobType.SYNC_INDICATORS);
-        SchedulerClaim claim = claim(job);
-
-        when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
-        when(repository.findById(job.getId())).thenReturn(Optional.of(job));
-        stubContext(job);
-        when(blockedJobTracker.isBlocked(job)).thenReturn(false);
-        when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
-                .thenReturn(GuardResult.blocked(List.of(), "eod dataset not READY"));
-
-        scheduler.scan();
-
-        verifyNoInteractions(registry);
-        verify(blockedJobTracker).recordBlocked(
-                org.mockito.ArgumentMatchers.same(job),
-                any(GuardResult.class),
-                any(String.class));
-        verify(claimService).releaseClaim(
-                claim.jobDefinitionId(),
-                claim.claimToken(),
-                claim.claimedBy());
-    }
-
-    @Test
-    void scanSkipsJobAlreadyInBlockedState() {
-        JobDefinition job = job(JobType.SYNC_INDICATORS);
-        SchedulerClaim claim = claim(job);
-
-        when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
-        when(repository.findById(job.getId())).thenReturn(Optional.of(job));
-        when(blockedJobTracker.isBlocked(job)).thenReturn(true);
-
-        scheduler.scan();
-
-        verifyNoInteractions(registry);
-        verify(dependencyGuard, never()).checkDependencies(any());
-        verify(claimService).releaseClaim(
-                claim.jobDefinitionId(),
-                claim.claimToken(),
-                claim.claimedBy());
-    }
-
-    @Test
-    void scanRetriesBlockedJobWhenDependenciesResolved() {
-        JobDefinition job = job(JobType.SYNC_INDICATORS);
-        SchedulerClaim claim = claim(job);
-        BlockedJob blockedJob = blockedJobStub(job);
-
-        DatasetRef eodRef = DatasetRef.of(
-                "eod", Map.of("exchange", "hose", "code", "hpg"));
-        Map<DatasetRef, String> approved = Map.of(eodRef, "sha256:eod-hpg");
-        when(blockedJobTracker.findJobsReadyForRetry(any(Instant.class))).thenReturn(List.of(blockedJob));
-        when(repository.findAll()).thenReturn(List.of(job));
-        when(repository.findById(job.getId())).thenReturn(Optional.of(job));
-        stubContext(job);
-        when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
-                .thenReturn(GuardResult.ready(approved));
-        // Re-claim succeeds
-        when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of(claim));
-        JobProducer producer = mock(JobProducer.class);
-        when(registry.getProducer(JobType.SYNC_INDICATORS)).thenReturn(producer);
-
-        scheduler.scan();
-
-        verify(claimService, times(2)).claimDueJobs(any(Instant.class));
-        verify(blockedJobTracker).markResolved(job);
-        verify(producer, times(2)).prepareDispatch(
-                org.mockito.ArgumentMatchers.same(job),
-                org.mockito.ArgumentMatchers.same(claim),
-                any(Instant.class),
-                org.mockito.ArgumentMatchers.eq(approved));
-    }
-
-    @Test
-    void scanUpdatesBlockedJobWhenStillBlocked() {
-        JobDefinition job = job(JobType.SYNC_INDICATORS);
-        BlockedJob blockedJob = blockedJobStub(job);
-
-        when(blockedJobTracker.findJobsReadyForRetry(any(Instant.class))).thenReturn(List.of(blockedJob));
-        when(repository.findAll()).thenReturn(List.of(job));
-        stubContext(job);
-        when(dependencyGuard.checkDependencies(any(JobExecutionContext.class)))
-                .thenReturn(GuardResult.blocked(List.of(), "eod still missing"));
-        // No new claims in pass 2
-        when(claimService.claimDueJobs(any(Instant.class))).thenReturn(List.of());
-
-        scheduler.scan();
-
-        verify(blockedJobTracker, never()).markResolved(any());
-        verify(blockedJobTracker).recordBlocked(
-                org.mockito.ArgumentMatchers.same(job),
-                any(GuardResult.class),
-                any(String.class));
-    }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
-    private void stubContext(JobDefinition job) {
-        when(dependencyContextFactory.create(job)).thenReturn(
-                new JobExecutionContext(job, "test-execution", Map.of()));
-    }
-
-    private JobDefinition job(JobType jobType) {
+    private JobDefinition job() {
         JobDefinition job = new JobDefinition();
         job.setId(UUID.randomUUID());
-        job.setJobType(jobType);
-        job.setSource(DataSource.VND);
-        job.setTitle("Test job");
-        job.setIsActive(true);
+        job.setJobType(JobDefinition.JobType.SYNC_INDICATORS);
+        job.setSource(JobDefinition.DataSource.ANALYZER);
         return job;
     }
 
     private SchedulerClaim claim(JobDefinition job) {
-        Instant claimedAt = Instant.parse("2026-08-13T00:00:00Z");
+        Instant now = Instant.parse("2026-08-13T00:00:00Z");
         UUID token = UUID.randomUUID();
         job.setClaimToken(token);
         job.setClaimedBy("core-a");
-        job.setClaimedAt(claimedAt);
-        job.setClaimUntil(claimedAt.plusSeconds(120));
-        return new SchedulerClaim(
-                job.getId(), token, "core-a", claimedAt, claimedAt.plusSeconds(120), claimedAt);
-    }
-
-    private BlockedJob blockedJobStub(JobDefinition job) {
-        String jobName = job.getJobType().name() + "_" + job.getSource().name();
-        BlockedJob blocked = new BlockedJob();
-        blocked.setJobName(jobName);
-        blocked.setJobType(job.getJobType().name());
-        blocked.setExecutionId(UUID.randomUUID().toString());
-        blocked.setBlockReason("eod not ready");
-        blocked.setFirstBlockedAt(Instant.now().minusSeconds(60));
-        blocked.setNextRetryAt(Instant.now().minusSeconds(5));
-        blocked.setRetryCount(1);
-        blocked.setMaxRetries(20);
-        blocked.setResolved(false);
-        return blocked;
+        return new SchedulerClaim(job.getId(), token, "core-a", now, now.plusSeconds(120), now);
     }
 }

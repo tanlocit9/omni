@@ -148,12 +148,22 @@ format effects with the cached baseline and intended scope. Stop without staging
 committing if formatting changes any unrelated or out-of-scope file; do not restore
 or rewrite that file without owner direction.
 
-### 5. Update minimum roadmap evidence after PASS
+### 5. Synchronize documentation and update roadmap evidence after PASS
 
-Only after `PASS`, read and update the smallest relevant sections of the selected
-phase document, [`implementation-increments.md`](../../../plans/roadmap/implementation-increments.md),
-and [`execution-log.md`](../../../plans/roadmap/execution-log.md), following
-[`automation-rules.md`](../../../plans/roadmap/automation-rules.md).
+Only after `PASS`, load the `update-implementation-plans` skill and follow its
+synchronization workflow. Review the selected phase document,
+[`implementation-increments.md`](../../../plans/roadmap/implementation-increments.md),
+[`execution-log.md`](../../../plans/roadmap/execution-log.md), the supporting plan,
+and every affected architecture, ADR, flow, data, deployment, development, service,
+index, and repository-guidance document. Update applicable documents in the same
+change; record an explicit no-update reason for each reviewed area that does not
+apply.
+
+After documentation edits, run code-review-graph change detection. Then load the
+`verify-document-consistency` skill and complete its static audit. Do not continue to
+commit or claim documentation synchronization/increment completion when the audit is
+missing, inconclusive, or reports unresolved blocking findings. These documentation
+steps do not authorize build, test, lint, format, CI, deployment, or runtime checks.
 
 Record only evidence actually present. An agent-run local `PASS` is local check
 evidence; it is not CI, manual, deployed, or live-environment evidence. Never claim
@@ -196,6 +206,8 @@ Stop, preserve the worktree, and report the blocker when any of these occurs:
 
 - required inputs or exact command authorization are missing;
 - `check_result` concludes `FAIL`, `INCOMPLETE`, or `INVALID`;
+- documentation synchronization, post-edit graph change detection, or the
+  `verify-document-consistency` audit is missing or unresolved;
 - an Nx target is absent and no explicitly approved alternative exists;
 - formatting touches a file outside the intended scope;
 - unexpected or ambiguously owned changes appear;

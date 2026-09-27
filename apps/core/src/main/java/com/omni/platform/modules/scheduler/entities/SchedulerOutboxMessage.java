@@ -47,8 +47,11 @@ public class SchedulerOutboxMessage extends AbstractClaimableOutboxMessage {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    @Column(name = "dependency_reason", length = 500)
+    private String dependencyReason;
+
     public enum Status {
-        PENDING, PUBLISHED
+        PENDING, PUBLISHED, BLOCKED
     }
 }
 

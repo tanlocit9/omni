@@ -55,6 +55,7 @@ public abstract class JobProducer {
         /**
          * Template method.
          */
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
         public UUID prepareDispatch(
                         JobDefinition job,
                         SchedulerClaim claim,

@@ -3,8 +3,10 @@
 Platform owns job orchestration. Workers execute data-plane tasks and report status back through Kafka.
 
 The private Console may request an operator-triggered run through Platform's
-`/api/v1/jobs` API. This is a second entry point into the same claim, dependency
-guard, producer, and transactional-outbox boundary; it is not a second scheduler.
+`/api/v1/jobs` API. This is a second entry point into the same claim, producer,
+and transactional-outbox preparation boundary; it is not a second scheduler.
+Dependency evaluation remains Platform-local and occurs only when the scheduler
+outbox considers the durable work for dispatch.
 Catalog and status responses expose logical identities only. Operational errors
 are normalized, bounded, and redact secrets plus object-storage or host paths
 before leaving Platform.
@@ -31,9 +33,11 @@ sequenceDiagram
   Scheduler->>ProducerRegistry: Resolve producer by JobType
   ProducerRegistry-->>Scheduler: JobProducer
   Scheduler->>Producer: prepareDispatch(job, claim, now)
-  Producer->>DB: Atomically create execution(s), outbox, advance nextRun, release claim
+  Producer->>DB: Atomically create execution(s), PENDING outbox, advance nextRun, release claim
   DB-->>Scheduler: Commit stable execution/message identities
-  Scheduler->>DB: Claim pending outbox messages
+  Scheduler->>DB: Over-fetch unclaimed PENDING candidates
+  Scheduler->>Scheduler: Evaluate manifests and exact run/work barriers
+  Scheduler->>DB: Atomically claim READY candidate with lease/fence
   Scheduler->>Kafka: Publish serialized outbox payload(s)
   Scheduler->>DB: Mark exact outbox claim published or retryable
   Kafka->>Worker: Deliver job by topic
@@ -81,22 +85,25 @@ sequenceDiagram
   participant Proxy as Trusted private proxy
   participant API as Platform Jobs API
   participant DB as PostgreSQL
-  participant Guard as JobDependencyGuard
   participant Producer as Existing JobProducer
+  participant Outbox as SchedulerOutboxDispatcher
 
   Console->>Proxy: definition + idempotency key + reason
   Proxy->>API: replace/inject X-Omni-User
   API->>DB: persist audited manual request
   API->>DB: claim exact active definition with fencing token
-  API->>Guard: evaluate dependencies
-  alt blocked
-    API->>DB: release claim; record BLOCKED without fake execution
+  API->>Producer: prepareManualDispatch
+  Producer->>DB: create execution + PENDING outbox; release claim
+  Note over Producer,DB: cron nextRun is preserved
+  API-->>Console: stable request/execution identity and accepted state
+  Outbox->>DB: evaluate durable candidate at dispatch boundary
+  alt waiting
+    Outbox->>DB: retain PENDING; defer without consuming a delivery attempt
+  else terminal dependency failure
+    Outbox->>DB: mark outbox and execution BLOCKED
   else ready
-    API->>Producer: prepareManualDispatch with approved versions
-    Producer->>DB: create execution + outbox; release claim
-    Note over Producer,DB: cron nextRun is preserved
+    Outbox->>DB: atomically claim using lease and fencing token
   end
-  API-->>Console: stable request/execution identity and state
 ```
 
 Manual triggering is secure by default: `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST`
@@ -185,7 +192,7 @@ Claim candidates use the Phase 0 due semantics: active jobs where `nextRun <= no
 
 ## Dependency Tree Metadata
 
-Seeded job definitions carry dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). `dependsOnJobs` remains operational/traceability metadata. Dataset dependencies declared as `ENFORCED` are checked immediately before scheduled or manual dispatch; an unmet dependency is blocked without creating a false failed execution. `DOCUMENTATION_ONLY` dependencies remain advisory.
+Seeded job definitions carry dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). `dependsOnJobs` remains operational/traceability metadata. Scheduled and accepted manual work first commit stable execution and PENDING outbox identities. Dataset dependencies declared as `ENFORCED` are then checked at the scheduler-outbox dispatch boundary. READY manifests and exact `dataVersion` lineage remain authoritative; execution state is scoped to the exact run/work item and the metadata workflow uses a complete-run barrier where supported. WAITING remains PENDING without consuming delivery attempts, while terminal incompatibility produces `BLOCKED`, not a worker `FAILED` result. `DOCUMENTATION_ONLY` dependencies remain advisory.
 
 ```mermaid
 flowchart TD
@@ -226,18 +233,18 @@ flowchart TD
 
 ## Core Contracts
 
-| Contract               | Canonical doc/source                                                                                                                                                                                                                                 |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status topic           | [`topic-sync-job-status`](../data/001-kafka-contracts.md#topic-sync-job-status)                                                                                                                                                                      |
-| Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql) |
-| Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                         |
-| Scheduler outbox       | [`database/migrations/V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql)                                                                                                                                   |
-| Manual trigger audit   | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                                                                             |
-| Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                                                               |
-| Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                                                               |
-| Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java)                                             |
-| Notification policies  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications)                                                                                       |
-| Java status consumer   | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java)                                                 |
+| Contract               | Canonical doc/source                                                                                                                                                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status topic           | [`topic-sync-job-status`](../data/001-kafka-contracts.md#topic-sync-job-status)                                                                                                                                                                              |
+| Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql)         |
+| Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                                 |
+| Scheduler outbox       | [`database/migrations/V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql), [`database/migrations/V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql) |
+| Manual trigger audit   | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                                                                                     |
+| Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                                                                       |
+| Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                                                                       |
+| Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java)                                                     |
+| Notification policies  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications)                                                                                               |
+| Java status consumer   | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java)                                                         |
 
 ## Parent/Child Execution Model
 
@@ -322,7 +329,7 @@ P1-I4 `verification_pending`; no production database was modified.
 - Status events must include `executionId`, optional `parentExecutionId`, required `workType`/`workKey`, final status, duration, metrics, error details, and relevant `metaJson` context.
 - Workers should preserve domain metadata on failures instead of replacing metadata with only `recordsProcessed = 0`.
 - Platform should update the child execution by execution identity, not by symbol alone.
-- Parent aggregation should wait for all child executions to reach terminal states.
+- Parent aggregation should wait for all child executions to reach terminal states; dependency `BLOCKED` is terminal but distinct from worker `FAILED`.
 - Error details must not include credentials, object-store secrets, or provider tokens.
 
 ## Related Flows

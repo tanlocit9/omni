@@ -215,10 +215,14 @@ class JobSchedulerDependencyPostgresTest {
         scheduler.scan();
         manifestReader.put(readyRef, readyManifest(readyRef, "sha256:eod-vnm"));
 
-        assertThat(outboxRepository.findAll()).allSatisfy(message -> {
-            assertThat(message.getExecution().getParentLogId()).isNotNull();
-            assertThat(message.getExecution().getMetaJson()).containsKeys("workType", "workKey");
-        });
+        assertThat(outboxService.findCandidates(Instant.now().plusSeconds(1), 10))
+                .hasSize(2)
+                .allSatisfy(candidate -> {
+                    assertThat(candidate.parentExecutionId()).isNotNull();
+                    assertThat(candidate.workType()).isEqualTo("SYMBOL");
+                })
+                .extracting(candidate -> candidate.workKey())
+                .containsExactlyInAnyOrder("HOSE-HPG", "HOSE-VNM");
 
         outboxDispatcher.dispatchBatch(Instant.now());
 

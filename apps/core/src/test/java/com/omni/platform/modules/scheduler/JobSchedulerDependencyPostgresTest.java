@@ -152,6 +152,10 @@ class JobSchedulerDependencyPostgresTest {
 
         assertThat(executionRepository.count()).isEqualTo(3);
         assertThat(outboxRepository.count()).isEqualTo(2);
+        UUID parentExecutionId = executionRepository.findAll().stream()
+                .filter(execution -> execution.getParentLogId() == null)
+                .findFirst().orElseThrow().getId();
+        assertThat(outboxService.findByExecution(parentExecutionId)).hasSize(2);
         assertThat(outboxRepository.findAll()).allSatisfy(message -> {
             assertThat(message.getStatus()).isEqualTo(
                     com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage.Status.PENDING);
@@ -176,14 +180,15 @@ class JobSchedulerDependencyPostgresTest {
         outboxDispatcher.dispatchBatch(Instant.now());
 
         List<JobExecutionHistory> executions = executionRepository.findAll();
-        List<JobExecutionHistory> parents = executions.stream()
-                .filter(execution -> execution.getParentLogId() == null)
+        List<JobExecutionHistory> children = executions.stream()
+                .filter(execution -> execution.getParentLogId() != null)
                 .toList();
-        assertThat(parents).singleElement().satisfies(parent -> {
-            assertThat(parent.getMetaJson()).containsKey("approvedInputs");
-            assertThat(parent.getMetaJson().toString())
-                    .contains("eod", "hose", "hpg", "vnm")
-                    .contains("sha256:eod-hpg", "sha256:eod-vnm")
+        assertThat(children).hasSize(2).allSatisfy(child -> {
+            assertThat(child.getMetaJson()).containsKey("approvedInputs");
+            String workKey = (String) child.getMetaJson().get("workKey");
+            String code = workKey.substring(workKey.indexOf('-') + 1).toLowerCase(java.util.Locale.ROOT);
+            assertThat(child.getMetaJson().toString())
+                    .contains("eod", "hose", code, "sha256:eod-" + code)
                     .doesNotContain("path", "s3://", "r2://");
         });
         assertThat(outboxRepository.findAll()).allSatisfy(message -> {
@@ -209,6 +214,11 @@ class JobSchedulerDependencyPostgresTest {
         saveDueIndicatorsJob();
         scheduler.scan();
         manifestReader.put(readyRef, readyManifest(readyRef, "sha256:eod-vnm"));
+
+        assertThat(outboxRepository.findAll()).allSatisfy(message -> {
+            assertThat(message.getExecution().getParentLogId()).isNotNull();
+            assertThat(message.getExecution().getMetaJson()).containsKeys("workType", "workKey");
+        });
 
         outboxDispatcher.dispatchBatch(Instant.now());
 

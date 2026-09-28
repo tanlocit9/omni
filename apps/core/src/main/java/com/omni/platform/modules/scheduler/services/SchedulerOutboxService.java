@@ -13,10 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage;
+import com.omni.platform.modules.scheduler.messaging.JobMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxCandidate;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxRepository;
+import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 import com.omni.platform.shared.outbox.ClaimableOutboxStore;
 
@@ -27,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOutboxClaim> {
 
     private final SchedulerOutboxRepository repository;
+    private final JobExecutionHistoryRepository executionRepository;
     private final KafkaPublisher kafkaPublisher;
 
     @Transactional
@@ -37,8 +40,21 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
             Instant now) {
         for (int index = 0; index < messages.size(); index++) {
             KafkaMessage message = messages.get(index);
+            JobExecutionHistory messageExecution = execution;
+            if (message.payload() instanceof JobMessage jobMessage
+                    && !jobMessage.executionId().equals(execution.getId())) {
+                if (!execution.getId().equals(jobMessage.parentExecutionId())) {
+                    throw new IllegalArgumentException("Outbox message belongs to another parent execution");
+                }
+                messageExecution = executionRepository.findById(jobMessage.executionId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Outbox child execution not found: " + jobMessage.executionId()));
+                if (!execution.getId().equals(messageExecution.getParentLogId())) {
+                    throw new IllegalArgumentException("Outbox child execution belongs to another parent");
+                }
+            }
             SchedulerOutboxMessage outbox = new SchedulerOutboxMessage();
-            outbox.setExecution(execution);
+            outbox.setExecution(messageExecution);
             outbox.setMessageIndex(index);
             outbox.setTopic(topic);
             outbox.setMessageKey(message.key());
@@ -155,6 +171,6 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     }
 
     public List<SchedulerOutboxMessage> findByExecution(UUID executionId) {
-        return repository.findAllByExecution_IdOrderByMessageIndex(executionId);
+        return repository.findAllForExecution(executionId);
     }
 }

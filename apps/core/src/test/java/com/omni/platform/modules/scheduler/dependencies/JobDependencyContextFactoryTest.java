@@ -91,8 +91,9 @@ class JobDependencyContextFactoryTest {
     @Test
     void globalIndicatorWorkRetainsFullSelectedSymbolExpansion() {
         SymbolRepository symbolRepository = mock(SymbolRepository.class);
+        var symbols = List.of(symbol("HPG", "HOSE"), symbol("VNM", "HOSE"));
         when(symbolRepository.findBySectorCodesAndLevel(null, 1))
-                .thenReturn(List.of(symbol("HPG", "HOSE"), symbol("VNM", "HOSE")));
+                .thenReturn(symbols);
         JobDefinition job = new JobDefinition();
         job.setJobType(JobType.SYNC_INDICATORS);
         job.setConfigJson(Map.of());

@@ -70,7 +70,7 @@ Stop conditions: stop if enforcement target lacks READY manifests or shadow data
 | ----------------------- | ------------------------------------------------------ |
 | id                      | P4-I3                                                  |
 | title                   | Dependency-aware outbox dispatch and terminal blocking |
-| status                  | verification_pending                                   |
+| status                  | pending                                                |
 | priority                | critical                                               |
 | depends_on              | [P1-I4, P4-I2, P7-I2]                                  |
 | blocks                  | [P11-I1]                                               |
@@ -89,12 +89,10 @@ restart catch-up is serialized by exact run and work identity instead of cron ti
 
 ### Current verified baseline
 
-P4-I3 source is present and locally verified. Scheduled and accepted manual work now
-commit stable execution and PENDING-outbox identities before dependency evaluation.
-The scheduler outbox dispatcher evaluates READY/WAITING/BLOCKED decisions, preserves
-approved input lineage before eligible claim, and uses fenced publication/retry
-transitions. The increment remains `verification_pending` because increment-owned
-commit/PR, exact-head CI, and remaining completion evidence are not recorded.
+P4-I2 enforces dataset dependencies before scheduled execution and outbox creation.
+The manual trigger path uses the same pre-enqueue guard. The outbox dispatcher claims
+eligible PENDING rows by availability and publishes them without dependency awareness.
+The current execution status model has no terminal `BLOCKED` value.
 
 ### Dependencies and eligibility conditions
 
@@ -102,16 +100,17 @@ commit/PR, exact-head CI, and remaining completion evidence are not recorded.
 - P4-I2 supplies the enforced manifest dependency semantics to migrate without
   weakening READY or exact `dataVersion` checks.
 - P7-I2 supplies the audited manual-trigger and execution-status boundary.
-- All declared dependencies are completed. The owner explicitly requested P4-I3
-  implementation on 2026-09-26 despite the prior serial-priority ownership note.
-  Source is now present and the truthful status is `verification_pending`; this does
-  not complete or promote P8-I5, P9-I1, P9-I4, or any downstream increment.
+- All dependencies are completed. Under the owner-approved 2026-09-21 active MVP
+  order, P4-I3 follows P8-I1, P8-I2, P8-I4, P8-I5, P9-I1, and P9-I4 closure because
+  those active increments overlap `apps/core`. P4-I3 remains `pending`; normal
+  readiness propagation may promote it only after those ownership conflicts are
+  reconciled. This scheduling order adds no dependency edge and does not weaken the
+  critical-correctness priority of P4-I3.
 
 ### In scope
 
-- Keep dependency evaluation in the scheduler-owned dependency package, with one
-  registry boundary used by scheduler-outbox dispatch. Do not create a facade-only
-  application module that imports its implementation back from Scheduler.
+- Add a dedicated dependency application module with one exported registry contract
+  and private domain policies, including a static VN policy for V1.
 - Make both scheduled and manual entry points create execution plus PENDING outbox
   work before dependency evaluation.
 - Use manifests as the hard data-readiness source. Use execution/outbox state only
@@ -136,8 +135,8 @@ commit/PR, exact-head CI, and remaining completion evidence are not recorded.
 
 ### Expected implementation approach
 
-1. Introduce the registry request/decision boundary in the scheduler dependency package
-   and adapt the existing manifest guard without a facade-only module.
+1. Introduce the registry, immutable request/result types, static VN policy, evaluator,
+   and neutral codec behind a Spring Modulith boundary.
 2. Migrate existing scheduler definitions without changing their hard manifest
    meaning, exact `dataVersion` lineage, or logical dataset references.
 3. Change scheduled and manual preparation to commit execution and outbox records
@@ -154,7 +153,7 @@ commit/PR, exact-head CI, and remaining completion evidence are not recorded.
 
 ### Files or modules likely to be touched
 
-- `apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/`;
+- `apps/core/src/main/java/com/omni/platform/modules/dependency/`;
 - scheduler, outbox, manual-trigger, execution aggregation, status API, and notification
   code under `apps/core`;
 - Platform unit and PostgreSQL/Testcontainers integration tests;
@@ -174,16 +173,16 @@ commit/PR, exact-head CI, and remaining completion evidence are not recorded.
   structured dependency reason; it never fabricates a worker `FAILED` result.
 - Terminally blocked outbox rows cannot be reclaimed or published.
 - Concurrent dispatchers remain duplicate-safe when eligibility changes around claim.
-- Scheduler outbox depends on the dependency registry boundary rather than concrete
-  evaluators; unsupported decisions fail closed without a facade-only module cycle.
+- Only the dependency registry contract is exported; duplicate policy domains fail
+  startup and unsupported domains fail closed.
 - Migration and rollback preserve pending work and existing audit history.
 - Canonical flow, database, architecture, navigation, service, and applicable agent
   guidance are synchronized.
 
 ### Required unit tests
 
-- Registry READY/WAITING/BLOCKED adaptation, incompatible-evidence fail-closed behavior,
-  and package-boundary tests.
+- Registry selection, duplicate domain rejection, unsupported-domain failure, and
+  module-boundary tests.
 - Scheduler and manual-trigger tests proving enqueue is independent of readiness.
 - Dispatcher `READY`, `WAITING`, `BLOCKED`, no-attempt-increment, and no-starvation tests.
 - Exact run/trading-date/work-key and metadata global-barrier tests.
@@ -210,14 +209,8 @@ nx run platform:build
 ```
 
 The Platform test target owns the focused unit and PostgreSQL/Testcontainers migration
-coverage. Shared local verification on 2026-09-27 concluded
-`PASS P4-I3-P8-I5 required=2 pass=2 fail=0 unknown=0 missing=0 sources=exit_code`
-for owner-approved `nx run platform:test` and `nx run platform:build`. The build included
-the Platform test lifecycle. Initial test failures exposed a stale P4-I2 integration
-expectation, a missing transaction on the scheduled producer overload, and a mocked
-serializer returning null; all attributable defects were repaired before the complete
-passing rerun. Existing Hikari/Modulith shutdown warnings remained non-failing. Format,
-CI, commit/PR, deployment, and production checks were not run.
+coverage. Record formatting and exact-head CI evidence before completion. No executable
+verification has been run for this planning update.
 
 ### Data migration or backward-compatibility considerations
 
@@ -246,14 +239,8 @@ as a worker failure.
 
 ### Completion and rollback notes
 
-Local source implementation and Platform test/build evidence are present: durable
-execution/PENDING-outbox preparation, Platform-local READY/WAITING/BLOCKED dispatch
-decisions, approved `dataVersion` lineage persistence, over-fetch/no-starvation, fenced
-eligible claims, terminal outbox/execution blocking, additive V11 persistence, focused
-PostgreSQL coverage, mechanics-only safe-write invariants, and canonical docs.
-Completion still requires increment-owned commit/PR, exact-head CI, and remaining
-operational/completion evidence. Lint and format were not run because Platform defines
-no corresponding targets and formatting was not authorized.
+Completion requires implementation, approved Platform checks, exact-head CI evidence,
+migration compatibility, observability, and synchronized canonical documentation.
 Rollback disables the new dispatcher gate and preserves every pending or terminal row;
 it does not restore the old pre-enqueue path until schema/read compatibility is proven.
 Supporting implementation detail is maintained in

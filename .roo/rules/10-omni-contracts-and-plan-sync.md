@@ -14,11 +14,6 @@ for plan requirements.
 - When implementation changes architecture, contracts, workflow, or tooling,
   synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
   applicable rules, and canonical docs before marking work done.
-- Increment finalization must invoke `update-implementation-plans`, explicitly review
-  applicable architecture/ADR/flow/data/deployment/development/service/index docs,
-  run post-edit code-review-graph change detection, and invoke
-  `verify-document-consistency`; missing or unresolved documentation evidence blocks
-  a completion claim.
 - Keep rules short and link to canonical documentation instead of copying it.
 - Required build, test, lint, format, or contract checks remain subject to the
   verification approval gate in [`AGENTS.md`](../../AGENTS.md).

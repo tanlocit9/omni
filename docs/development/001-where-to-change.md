@@ -14,7 +14,6 @@ Use this guide after reading [System overview](../architecture/001-system-overvi
 | Sector Wave model               | [`apps/analyzer/app/sector_wave`](../../apps/analyzer/app/sector_wave)                                                                                                     | [Sector wave flow](../flows/004-sector-wave.md), [`features/symbol`](../data/002-data-lake.md#symbol-features), [`features/sector`](../data/002-data-lake.md#sector-features)                                                                                                                                       |
 | Sector Transition research      | [`apps/analyzer/app/sector_transition`](../../apps/analyzer/app/sector_transition)                                                                                         | [Sector wave deferred research](../flows/004-sector-wave.md#deferred-research-sector-transition-and-recommendation), [`topic-sector-transition-analyze`](../data/001-kafka-contracts.md#topic-sector-transition-analyze), [`sector-transition-predictions`](../data/002-data-lake.md#sector-transition-predictions) |
 | Scheduler or job orchestration  | [`apps/core/src/main/java/com/omni/platform/modules/scheduler`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler)                                         | [Job execution flow](../flows/001-job-execution.md), [`JobProducerRegistry`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java), [Database](../data/003-database.md)                                                                                             |
-| Dependency dispatch policy      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies)               | Scheduler outbox candidate/claim code, manifest guard, exact run/work identity, metadata barrier, [job flow](../flows/001-job-execution.md)                                                                                                                                                                         |
 | Kafka topic or payload contract | Producer + consumer + [`libs/py-common/py_common/messaging`](../../libs/py-common/py_common/messaging) + [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)  | [Kafka contracts](../data/001-kafka-contracts.md), status metadata preservation, tests on both sides                                                                                                                                                                                                                |
 | Notification policy             | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/notifications)             | [Job execution flow](../flows/001-job-execution.md), notification templates, job service tests, policy registry tests                                                                                                                                                                                               |
 | Notification delivery/outbox    | [`apps/core/src/main/java/com/omni/platform/modules/notifications`](../../apps/core/src/main/java/com/omni/platform/modules/notifications)                                 | [`database/migrations`](../../database/migrations), [Notification Outbox plan](../plans/022-notification-outbox.md), [Database](../data/003-database.md), transport/claim/retry/configuration tests                                                                                                                 |
@@ -60,16 +59,6 @@ flowchart TD
 3. Do not edit `JobScheduler` dispatch for the new type; `JobProducerRegistry` resolves the registered producer.
 4. Add producer and registry tests, plus worker consumer tests for the Kafka payload.
 5. Update [Job execution flow](../flows/001-job-execution.md) and [Kafka contracts](../data/001-kafka-contracts.md) when payload semantics change.
-6. Keep dependency decisions in Platform's dependency registry and scheduler-outbox dispatch; workers and future writers must not duplicate policy.
-
-## Safe-write mechanics
-
-Reusable writer mechanics may share immutable intent identity, fenced lease/claim,
-atomic conditional transitions, bounded retry, idempotent completion, and the rule
-that input is not acknowledged before output is durable. These mechanics do not
-include dependency eligibility. Future Python writer adoption remains separate
-roadmap work; do not create a generic dispatcher or move manifest dependency policy
-into a writer while reusing safe-write primitives.
 
 ## Adding a Notification Policy
 

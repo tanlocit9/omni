@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULT_ROOT = ROOT / ".agent" / "check-results"
 VALID_KINDS = {"test", "lint", "build", "format", "integration", "other"}
 SAFE_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-OWNER_CONFIRMATION = "I-VERIFIED"
 EXIT_INCOMPLETE = 2
 EXIT_FAILED = 3
 EXIT_INVALID = 4
@@ -90,19 +89,6 @@ def read_records(directory: Path) -> list[dict[str, Any]]:
 
 def file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def summary_hash(summary: dict[str, Any]) -> str:
-    bound = {
-        "schema_version": summary["schema_version"],
-        "increment": summary["increment"],
-        "conclusion": summary["conclusion"],
-        "counts": summary["counts"],
-        "checks": summary["checks"],
-        "required_sha256": summary["required_sha256"],
-    }
-    encoded = json.dumps(bound, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def command_init(args: argparse.Namespace) -> int:
@@ -332,62 +318,6 @@ def command_conclusion(args: argparse.Namespace) -> int:
     return status_exit(summary["conclusion"])
 
 
-def command_attest(args: argparse.Namespace) -> int:
-    verifier = validate_value(args.verified_by, "verified-by")
-    if args.confirm != OWNER_CONFIRMATION:
-        raise CheckResultError("owner confirmation must be I-VERIFIED")
-    directory = result_dir(args.increment)
-    summary = build_summary(args.increment)
-    if summary["conclusion"] != "pass":
-        raise CheckResultError("owner attestation requires a passing conclusion")
-    summary_path = directory / "summary.json"
-    atomic_json(summary_path, summary)
-    attestation = {
-        "schema_version": 1,
-        "increment": args.increment,
-        "status": "owner_verified",
-        "verified_by": verifier,
-        "verified_at": now_iso(),
-        "summary_sha256": summary_hash(summary),
-        "required_sha256": summary["required_sha256"],
-        "statement": "Owner reviewed the passing verification gate.",
-    }
-    atomic_json(directory / "attestation.json", attestation)
-    print(
-        f"OWNER_VERIFIED {args.increment} verified_by={verifier} "
-        f"summary_sha256={attestation['summary_sha256']}"
-    )
-    return 0
-
-
-def command_attestation(args: argparse.Namespace) -> int:
-    directory = result_dir(args.increment)
-    path = directory / "attestation.json"
-    attestation = load_json(path)
-    if (
-        not isinstance(attestation, dict)
-        or attestation.get("schema_version") != 1
-        or attestation.get("increment") != args.increment
-        or attestation.get("status") != "owner_verified"
-    ):
-        raise CheckResultError("invalid attestation.json")
-    verifier = validate_value(attestation.get("verified_by", ""), "verified-by")
-    summary = build_summary(args.increment)
-    if summary["conclusion"] != "pass":
-        raise CheckResultError("attested verification no longer passes")
-    summary_path = directory / "summary.json"
-    atomic_json(summary_path, summary)
-    if summary_hash(summary) != attestation.get("summary_sha256"):
-        raise CheckResultError("attested summary has changed")
-    if summary["required_sha256"] != attestation.get("required_sha256"):
-        raise CheckResultError("attested requirements have changed")
-    print(
-        f"OWNER_VERIFIED {args.increment} verified_by={verifier} "
-        f"verified_at={attestation.get('verified_at')}"
-    )
-    return 0
-
-
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="action", required=True)
@@ -420,16 +350,6 @@ def parser() -> argparse.ArgumentParser:
     conclusion = commands.add_parser("conclusion", help="print one agent-facing conclusion line")
     conclusion.add_argument("--increment", required=True)
     conclusion.set_defaults(handler=command_conclusion)
-
-    attest = commands.add_parser("attest", help="record owner verification of a passing gate")
-    attest.add_argument("--increment", required=True)
-    attest.add_argument("--verified-by", required=True)
-    attest.add_argument("--confirm", required=True, metavar="I-VERIFIED")
-    attest.set_defaults(handler=command_attest)
-
-    attestation = commands.add_parser("attestation", help="validate and print owner attestation")
-    attestation.add_argument("--increment", required=True)
-    attestation.set_defaults(handler=command_attestation)
     return result
 
 

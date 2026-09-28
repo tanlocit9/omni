@@ -4,7 +4,7 @@ Platform is the Java/Spring Boot control-plane service for Omni. Its Nx project 
 
 ## Responsibility
 
-Platform owns API boundaries, scheduler orchestration, Platform-local dependency evaluation, job definitions, execution/outbox history, Platform PostgreSQL state, Kafka job production, and Kafka status/upsert consumption.
+Platform owns API boundaries, scheduler orchestration, job definitions, execution history, Platform PostgreSQL state, Kafka job production, and Kafka status/upsert consumption.
 
 ## Owns
 
@@ -56,20 +56,19 @@ must not manufacture this header.
 
 Manual execution is disabled unless
 `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST` explicitly lists a definition UUID or
-`JOB_TYPE:SOURCE`. Accepted requests reuse scheduler claims, registered producers,
-and the transactional outbox. They commit stable execution and PENDING outbox
-identity before the dispatcher evaluates dependencies. They preserve the cron
+`JOB_TYPE:SOURCE`. Accepted requests reuse scheduler claims, dependency checks,
+registered producers, and the transactional outbox. They preserve the cron
 `nextRun`. Runtime parameters, force/bypass, cancellation, direct Kafka access,
 secrets, and physical paths are not part of this contract.
 
 ## Main Modules
 
-| Module                                                                                                           | Purpose                                                                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`src/main/java/com/omni/platform/modules/scheduler`](src/main/java/com/omni/platform/modules/scheduler)         | Job definitions, dependency evaluation and READY/WAITING/BLOCKED outbox policy, execution/outbox history, Kafka producers/consumers, symbols, sectors. |
-| [`src/main/java/com/omni/platform/modules/notifications`](src/main/java/com/omni/platform/modules/notifications) | Notification handling.                                                                                                                                 |
-| [`src/main/java/com/omni/platform/modules/storages`](src/main/java/com/omni/platform/modules/storages)           | Platform storage integration.                                                                                                                          |
-| [`src/main/java/com/omni/platform/shared`](src/main/java/com/omni/platform/shared)                               | Shared Java entities, ports, repositories, utilities.                                                                                                  |
+| Module                                                                                                           | Purpose                                                                          |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`src/main/java/com/omni/platform/modules/scheduler`](src/main/java/com/omni/platform/modules/scheduler)         | Job definitions, execution history, Kafka producers/consumers, symbols, sectors. |
+| [`src/main/java/com/omni/platform/modules/notifications`](src/main/java/com/omni/platform/modules/notifications) | Notification handling.                                                           |
+| [`src/main/java/com/omni/platform/modules/storages`](src/main/java/com/omni/platform/modules/storages)           | Platform storage integration.                                                    |
+| [`src/main/java/com/omni/platform/shared`](src/main/java/com/omni/platform/shared)                               | Shared Java entities, ports, repositories, utilities.                            |
 
 ## Consumes
 

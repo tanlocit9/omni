@@ -71,13 +71,13 @@ erDiagram
 
 ### Job execution history
 
-| Field          | Value                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql) |
-| Owner          | Platform scheduler module                                                                                                                                                                                                                                                                                                                                        |
-| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                                                                                                                                          |
-| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                                                                                                                                           |
-| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                                                                                                                                                   |
+| Field          | Value                                                                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql) |
+| Owner          | Platform scheduler module                                                                                                                                                                                                                  |
+| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                    |
+| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                     |
+| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                             |
 
 Child rows store canonical execution identity in `meta_json.workType` and
 `meta_json.workKey`. V9 is a schema-only cutover: it never deletes or rewrites
@@ -85,26 +85,7 @@ operational records, refuses to run while pending scheduler outbox work exists,
 and requires operators to clear all execution history manually before deployment.
 After those preconditions pass, it replaces symbol-key indexes with canonical
 work-identity/offset indexes. Domain payloads may still contain `symbolKey`; it is
-not used for execution lookup. V11 adds terminal `BLOCKED` execution semantics for
-terminal dependency decisions. `BLOCKED` is not a worker failure and must not be
-rewritten to `FAILED`.
-
-### Scheduler outbox
-
-| Field      | Value                                                                                                                                                                                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Migrations | [`V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql) |
-| Owner      | Platform scheduler module                                                                                                                                                                                            |
-| Purpose    | Commits immutable execution/message intent before dependency evaluation, then supports fenced READY claims, retryable WAITING, and terminal BLOCKED disposition.                                                     |
-
-`PENDING` rows are over-fetched as unclaimed candidates. Manifest and exact
-run/work eligibility is evaluated without holding a database transaction. Only a
-still-PENDING row can then be atomically claimed; this transition increments the
-delivery attempt and installs a lease/fencing token. WAITING updates bounded
-`dependency_reason` and `available_at` without incrementing attempts. BLOCKED is
-terminal, clears claim fields, transitions the execution to terminal `BLOCKED`,
-and is excluded from all pending candidate and claim predicates. Existing
-PENDING/PUBLISHED rows and audit history are preserved by the additive migration.
+not used for execution lookup.
 
 The reproducible disposable-database harness is
 [`database/tests/p1_i4_work_identity_migration.sql`](../../database/tests/p1_i4_work_identity_migration.sql).
@@ -137,7 +118,7 @@ instances. `DEAD` rows are visible terminal records and are not replayed automat
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Migration      | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                         |
 | Owner          | Platform scheduler/job-operations module                                                                                                                                                         |
-| Purpose        | Durable operator audit and idempotency ledger; accepted work has a stable execution/outbox identity before its later dependency decision.                                                        |
+| Purpose        | Durable operator audit and idempotency ledger; a blocked request intentionally has no execution row.                                                                                             |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java) |
 | Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                   |
 

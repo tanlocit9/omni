@@ -45,6 +45,30 @@ client-visible UUID/header is not authentication and must not be treated as an
 authorization boundary. This mechanism is unsuitable for production operation
 with individual users.
 
+## Current Source Assessment
+
+- **Current:** Platform still uses one configured UUID as the unauthenticated auditor
+  fallback.
+- **Current:** Omni Console still embeds and sends the same value as `X-Omni-User`.
+- **Current:** the local development proxy strips the browser-supplied value and injects
+  its configured value, but this is not authenticated per-user identity.
+- **Current:** deployment examples still expose the shared configuration value.
+- **Evidence-dependent:** no static source evidence proves a trusted reverse proxy now
+  supplies authenticated per-user UUIDs in deployed environments.
+
+## Recommended Actions
+
+1. Keep the current value explicitly development/internal-only and never describe the
+   header as authentication or authorization.
+2. Introduce trusted proxy identity only with a documented deployment boundary that
+   strips client values and injects an authenticated operator UUID.
+3. Remove `SYSTEM_OPERATOR_UUID` from the browser build after trusted identity exists;
+   retain a separately named system auditor for background writes if required.
+4. Add security/audit coverage that distinguishes user actions from system actions
+   before removing this debt.
+5. Do not broaden the temporary UUID into Kafka messages or use it as an idempotency,
+   ownership, or traceability identity.
+
 ## Removal Criteria
 
 1. A trusted identity layer supplies a per-user UUID to the reverse proxy.

@@ -133,26 +133,35 @@ Or should job status provide direct signal of output completeness?
 - Notification policies and digest generation.
 - Dashboard and operator visibility.
 
-## Recommended Follow-Up
+## Current Source Assessment
 
-1. **Document current semantics** in [`docs/flows/001-job-execution.md`](../../docs/flows/001-job-execution.md):
+- **Current:** stock-price and indicator workers can report `SUCCESS` with zero output.
+- **Current:** signal workers report one processed record even when `NO_DECISION` is not
+  persisted.
+- **Current:** parent aggregation uses terminal/failure states and does not interpret
+  dataset completeness.
+- **Current:** dependency readiness is manifest/version based and should not infer
+  completeness solely from worker status.
+- **Evidence-dependent:** the operational frequency and user impact of zero-output
+  success require representative execution evidence.
 
-   - Clarify that `SUCCESS` = no exception, not dataset completeness.
-   - Require operators to inspect `recordsProcessed` and metadata for actual completeness.
+## Recommended Actions
 
-2. **Add diagnostic logging** to `applyStatus()` and aggregation:
-
-   - Log when child has `recordsProcessed <= 0` or metadata reason codes indicating `NO_DECISION`.
-   - Log parent status decision with child summary: `(X success, 0 failed, Y with zero records)`.
-
-3. **Extend job dependency guard**:
-
-   - Add a new check: manifest `completeness` or dataset row count.
-   - Distinguish `BLOCKED` (missing upstream data) from `SUCCESS` (empty output).
-
-4. **Consider `PARTIAL_SUCCESS`**:
-   - Align with P3-I5 technical debt on `PARTIAL_SUCCESS` handling.
-   - Define when output is "usable but incomplete" vs. "empty/invalid."
+1. Define status semantics per job family before introducing a new shared status:
+   distinguish valid empty result, unavailable upstream input, usable-but-incomplete
+   output, and invalid output.
+2. Align any `PARTIAL_SUCCESS` decision with
+   [`001-p3-i5-metadata-reconciliation.md`](001-p3-i5-metadata-reconciliation.md) so
+   Platform persistence, aggregation, APIs, and notifications use one contract.
+3. Correct signal accounting so `recordsProcessed`, `persisted`, reason codes, and
+   terminal status do not imply a written row when the result is `NO_DECISION`.
+4. Keep dependency decisions manifest/readiness and exact-`dataVersion` based; add a
+   completeness field only through an approved manifest-contract change, not an ad hoc
+   row-count read.
+5. Add operator-visible zero-output/incomplete counts and regression fixtures before
+   changing parent aggregation semantics.
+6. Update [`docs/flows/001-job-execution.md`](../flows/001-job-execution.md) with the
+   approved distinction between execution success and dataset completeness.
 
 ## Historical Reference
 

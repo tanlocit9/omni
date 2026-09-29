@@ -17,7 +17,7 @@ This is prioritization debt, not a claim that the work has no long-term value. E
 | Portable deployment hardening   | P5-I1, P5-I2, P5-I3        | Image hardening, cloud/storage profiles, backup rehearsal, and immutable publication are deferred until an MVP deployment target is selected.                                                                                                                                                                                   |
 | Console and query polish        | P6-I1, P6-I2, P6-I3, P6-I4 | Dataset exploration, SQL tooling, Arrow workflows, and dashboard work are outside the basic operator-control MVP. Existing merged source is retained but is not an active completion priority.                                                                                                                                  |
 | Notification follow-ups         | Outside P8-I5              | P8-I5 now owns durable enqueue, distributed idempotency, bounded retries/backoff/jitter, `Retry-After`, `DEAD`, pagination, metrics, and operator status visibility. Audited manual replay of `DEAD`, broader notification-provider expansion, and optional operational tooling beyond status/count visibility remain deferred. |
-| Intraday EOD                    | P9-I1, P9-I2, P9-I3, P9-I5 | Higher-frequency post-close datasets, features, and VCI health visibility are outside the daily/EOD MVP. P9-I5 requires explicit owner reactivation before scheduling.                                                                                                                                                          |
+| Intraday EOD follow-ups         | P9-I2, P9-I3, P9-I5        | P9-I1 is reactivated and remains `verification_pending`; later bars/features and VCI health visibility remain deferred or superseded. P9-I5 requires explicit owner reactivation before scheduling.                                                                                                                             |
 | Realtime per tick               | Historical deferral lifted | On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. The canonical registry now owns their blocked status and gates; this document retains the prior deferral as history only.                                                                                                                |
 
 ## Deferred Supporting Plans
@@ -49,6 +49,33 @@ The active MVP keeps:
 - P8-I5 Notification Outbox and Durable Delivery after P8-I1 and P8-I2 complete.
 
 Completed increments remain completed. P1-I3, P8-I1, and P8-I2 may finish evidence reconciliation because their implementations directly support the retained MVP. P8-I3 remains a superseded historical increment; it does not own the active P8-I5 scope. Deferred increments must not block those MVP evidence gates solely because of historical dependency links.
+
+## Current Source and Roadmap Assessment
+
+- **Current:** superseded and deferred increments remain ineligible for automation
+  without owner reactivation.
+- **Current:** P3-I5 and P9-I5 remain deferred/superseded despite retained source.
+- **Corrected:** P9-I1 is reactivated and `verification_pending`; it is not part of the
+  deferred intraday group.
+- **Current:** active MVP safety defects involving correctness, data loss, credentials,
+  or unsafe operation must not be hidden as post-MVP polish.
+- **Partially stale:** some historical supporting-plan references may no longer own
+  scheduling; canonical phase and increment records take precedence.
+- **Evidence-dependent:** source presence and historical checks do not prove current
+  CI, deployment, provider, or production readiness.
+
+## Recommended Actions
+
+1. Use the canonical increment registry and phase files for every current status,
+   dependency, and next-action decision; keep this document as a classification record.
+2. Keep P9-I1 outside deferred work while it remains reactivated; retain only P9-I2,
+   P9-I3, and P9-I5 in the intraday follow-up debt group.
+3. Replace or remove stale supporting-plan links when the named file no longer exists,
+   linking the current canonical owner instead of recreating historical documents.
+4. Split large reactivated proposals into focused technical-debt records before
+   promotion so one owner decision does not implicitly activate unrelated work.
+5. Promote only a concrete, measurable slice with refreshed acceptance criteria and
+   contract impact; never reactivate this entire document as one increment.
 
 ## Existing Safety Baseline
 

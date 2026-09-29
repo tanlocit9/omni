@@ -183,9 +183,13 @@ P8-I2 remain `verification_pending`; they are not promoted by this work.
 Verification: local Platform tests and build passed. Focused coverage includes typed
 payload round-trip, durable enqueue identity, immediate/digest handoff, pagination,
 configuration binding, scheduler regressions, and `Retry-After`. Fresh local
-verification on 2026-09-22 again passed `nx run platform:test` and
-`nx run platform:build` without source repair. Dedicated migration runtime, live
-Telegram/provider, PR/commit, exact-head CI, and completed P8-I1/P8-I2 prerequisite
-evidence remain unresolved and are required before completion.
+verification on 2026-09-22 passed `nx run platform:test` and `nx run platform:build`.
+Shared exact-worktree verification on 2026-09-27 concluded
+`PASS P4-I3-P8-I5 required=2 pass=2 fail=0 unknown=0 missing=0 sources=exit_code`
+for owner-approved `nx run platform:test` and `nx run platform:build`; the build
+included the Platform test lifecycle. Existing Hikari/Modulith shutdown warnings were
+non-failing. Dedicated notification migration/restart/runtime evidence, live
+Telegram/provider evidence, increment-owned PR/commit, exact-head CI, and completed
+P8-I1/P8-I2 prerequisites remain unresolved and are required before completion.
 
 Stop conditions: do not combine outbox tables or dispatchers, persist credentials/chat IDs, change Kafka/Proto3 contracts, automatically replay `DEAD`, add market-data provider fallback, or silently mix provider lineage.

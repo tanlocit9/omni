@@ -35,9 +35,21 @@ public class JobDependencyContextFactory {
         return create(job, UUID.randomUUID().toString());
     }
 
-    JobExecutionContext create(JobDefinition job, String executionId) {
+    public JobExecutionContext create(JobDefinition job, String executionId) {
+        return create(job, executionId, null, null);
+    }
+
+    public JobExecutionContext create(
+            JobDefinition job, String executionId, String workType, String workKey) {
         if (job.getJobType() != JobType.SYNC_INDICATORS) {
             return new JobExecutionContext(job, executionId, Map.of());
+        }
+        if ("SYMBOL".equalsIgnoreCase(workType)) {
+            return new JobExecutionContext(
+                    job,
+                    executionId,
+                    Map.of(),
+                    List.of(eodDependency(workKey)));
         }
 
         Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
@@ -54,11 +66,26 @@ public class JobDependencyContextFactory {
     }
 
     private static Map<String, Object> eodDependency(SymbolKeyProjection symbol) {
+        return eodDependency(normalize(symbol.getExchange()), normalize(symbol.getCode()));
+    }
+
+    private static Map<String, Object> eodDependency(String workKey) {
+        if (workKey == null) {
+            throw new IllegalArgumentException("SYMBOL work key is required");
+        }
+        int separator = workKey.indexOf('-');
+        if (separator <= 0 || separator == workKey.length() - 1) {
+            throw new IllegalArgumentException("SYMBOL work key must use EXCHANGE-CODE");
+        }
+        return eodDependency(
+                normalize(workKey.substring(0, separator)),
+                normalize(workKey.substring(separator + 1)));
+    }
+
+    private static Map<String, Object> eodDependency(String exchange, String code) {
         return Map.of(
                 "dataset", EOD_DATASET,
-                "partition", Map.of(
-                        "exchange", normalize(symbol.getExchange()),
-                        "code", normalize(symbol.getCode())),
+                "partition", Map.of("exchange", exchange, "code", code),
                 "conditions", List.of("EXISTS", "READY"),
                 "mode", "ENFORCED");
     }

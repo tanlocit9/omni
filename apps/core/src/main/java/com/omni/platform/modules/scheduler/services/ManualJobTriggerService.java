@@ -15,8 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.omni.platform.modules.scheduler.config.ManualTriggerProperties;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyContextFactory;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.ExecutionSummary;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.ManualTriggerRequest;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.ManualTriggerResponse;
@@ -46,8 +44,6 @@ public class ManualJobTriggerService {
     private final JobExecutionHistoryRepository executionRepository;
     private final ManualJobTriggerRepository triggerRepository;
     private final SchedulerClaimService claimService;
-    private final JobDependencyContextFactory dependencyContextFactory;
-    private final JobDependencyGuard dependencyGuard;
     private final JobProducerRegistry producerRegistry;
     private final ManualTriggerProperties triggerProperties;
 
@@ -102,18 +98,11 @@ public class ManualJobTriggerService {
 
         try {
             JobDefinition claimed = findDefinition(definitionId);
-            var guardResult = dependencyGuard.checkDependencies(dependencyContextFactory.create(claimed));
-            if (!guardResult.canExecute()) {
-                claimService.releaseClaim(claim.jobDefinitionId(), claim.claimToken(), claim.claimedBy());
-                return resolve(audit, ManualTriggerState.BLOCKED,
-                        JobOperationsCatalogService.sanitize(guardResult.blockReason()), null);
-            }
-
             UUID executionId = producerRegistry.getProducer(claimed.getJobType()).prepareManualDispatch(
                     claimed,
                     claim,
                     Instant.now(),
-                    guardResult.approvedInputVersions(),
+                    Map.of(),
                     Map.of(
                             "trigger", Map.of(
                                     "kind", "MANUAL",

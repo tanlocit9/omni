@@ -24,14 +24,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.omni.platform.modules.scheduler.config.ManualTriggerProperties;
 import com.omni.platform.modules.scheduler.config.SchedulerProperties;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyContextFactory;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard;
-import com.omni.platform.modules.scheduler.dependencies.JobDependencyGuard.GuardResult;
-import com.omni.platform.modules.scheduler.dependencies.JobExecutionContext;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.ManualTriggerRequest;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.ManualJobTrigger;
 import com.omni.platform.modules.scheduler.producers.JobProducer;
 import com.omni.platform.modules.scheduler.producers.JobProducerRegistry;
@@ -46,8 +43,6 @@ class ManualJobTriggerServiceTest {
     @Mock private JobExecutionHistoryRepository executions;
     @Mock private ManualJobTriggerRepository triggers;
     @Mock private SchedulerClaimService claims;
-    @Mock private JobDependencyContextFactory contexts;
-    @Mock private JobDependencyGuard guard;
     @Mock private JobProducerRegistry producers;
     @Mock private JobProducer producer;
 
@@ -57,23 +52,20 @@ class ManualJobTriggerServiceTest {
     @BeforeEach
     void setUp() {
         definition = definition(true);
-        service = new ManualJobTriggerService(definitions, executions, triggers, claims, contexts, guard, producers,
+        service = new ManualJobTriggerService(definitions, executions, triggers, claims, producers,
                 new ManualTriggerProperties(java.util.List.of("SYNC_INDICATORS:ANALYZER")));
         lenient().when(triggers.saveAndFlush(any())).thenAnswer(invocation -> persisted(invocation.getArgument(0)));
         lenient().when(triggers.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
-    void acceptedTriggerUsesExactClaimDependencyGuardProducerAndAuditMetadata() {
+    void acceptedTriggerCommitsExecutionAndOutboxBeforeDependencyEvaluation() {
         UUID executionId = UUID.randomUUID();
         SchedulerClaim claim = claim();
-        JobExecutionContext context = new JobExecutionContext(definition, "check", Map.of());
         when(triggers.findByActorAndIdempotencyKey("alice", "request-1")).thenReturn(Optional.empty());
         when(definitions.findById(definition.getId())).thenReturn(Optional.of(definition));
         when(claims.claimJobDefinition(eq(definition.getId()), any(Instant.class), eq("alice")))
                 .thenReturn(Optional.of(claim));
-        when(contexts.create(definition)).thenReturn(context);
-        when(guard.checkDependencies(context)).thenReturn(GuardResult.ready());
         when(producers.getProducer(JobType.SYNC_INDICATORS)).thenReturn(producer);
         when(producer.prepareManualDispatch(eq(definition), eq(claim), any(), eq(Map.of()), any()))
                 .thenReturn(executionId);
@@ -104,25 +96,6 @@ class ManualJobTriggerServiceTest {
     }
 
     @Test
-    void blockedDependencyReleasesOnlyOwnedClaimAndDoesNotDispatch() {
-        SchedulerClaim claim = claim();
-        JobExecutionContext context = new JobExecutionContext(definition, "check", Map.of());
-        when(triggers.findByActorAndIdempotencyKey("alice", "blocked-1")).thenReturn(Optional.empty());
-        when(definitions.findById(definition.getId())).thenReturn(Optional.of(definition));
-        when(claims.claimJobDefinition(eq(definition.getId()), any(), eq("alice"))).thenReturn(Optional.of(claim));
-        when(contexts.create(definition)).thenReturn(context);
-        when(guard.checkDependencies(context)).thenReturn(GuardResult.blocked(java.util.List.of(),
-                "missing s3://private-bucket/eod/token password=hunter2"));
-
-        var result = service.trigger(definition.getId(), "alice", request("blocked-1"));
-
-        assertThat(result.state()).isEqualTo("BLOCKED");
-        assertThat(result.blockReason()).doesNotContain("private-bucket", "hunter2");
-        verify(claims).releaseClaim(claim.jobDefinitionId(), claim.claimToken(), claim.claimedBy());
-        verify(producers, never()).getProducer(any());
-    }
-
-    @Test
     void inactiveOrNotAllowListedDefinitionCannotAcquireClaim() {
         definition.setIsActive(false);
         when(triggers.findByActorAndIdempotencyKey("alice", "inactive-1")).thenReturn(Optional.empty());
@@ -144,6 +117,35 @@ class ManualJobTriggerServiceTest {
         assertThatThrownBy(() -> service.trigger(definition.getId(), "alice",
                 new ManualTriggerRequest("valid-key", "reason", Map.of("force", true))))
                 .isInstanceOf(JobOperationException.class).hasMessageContaining("does not accept");
+    }
+
+    @Test
+    void acceptedManualTriggerStatusExposesWaitingThenTerminalBlockedExecutionLifecycle() {
+        UUID executionId = UUID.randomUUID();
+        ManualJobTrigger existing = audit("alice", "lifecycle-1", definition);
+        existing.setState(ManualJobTrigger.ManualTriggerState.ACCEPTED);
+        existing.setExecutionId(executionId);
+        JobExecutionHistory execution = new JobExecutionHistory();
+        execution.setId(executionId);
+        execution.setJob(definition);
+        execution.setUsedSource(definition.getSource());
+        execution.setTriggeredAt(Instant.now());
+        execution.setStatus(JobExecutionHistory.JobStatus.PENDING);
+        when(triggers.findById(existing.getId())).thenReturn(Optional.of(existing));
+        when(executions.findById(executionId)).thenReturn(Optional.of(execution));
+
+        var waiting = service.triggerStatus(existing.getId(), "alice");
+
+        assertThat(waiting.trigger().state()).isEqualTo("ACCEPTED");
+        assertThat(waiting.execution().status()).isEqualTo("PENDING");
+
+        execution.setStatus(JobExecutionHistory.JobStatus.BLOCKED);
+        execution.setError("{\"code\":\"DEPENDENCY_INCOMPATIBLE\"}");
+        var blocked = service.triggerStatus(existing.getId(), "alice");
+
+        assertThat(blocked.trigger().state()).isEqualTo("ACCEPTED");
+        assertThat(blocked.execution().status()).isEqualTo("BLOCKED");
+        assertThat(blocked.execution().error()).contains("DEPENDENCY_INCOMPATIBLE");
     }
 
     @Test

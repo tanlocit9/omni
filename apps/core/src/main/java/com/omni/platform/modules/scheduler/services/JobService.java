@@ -469,6 +469,9 @@ public class JobService {
                 .filter(child -> child.getStatus() == JobStatus.FAILED
                         || child.getStatus() == JobStatus.ERROR)
                 .count();
+        long blockedCount = children.stream()
+                .filter(child -> child.getStatus() == JobStatus.BLOCKED)
+                .count();
         long pendingCount = children.stream()
                 .filter(child -> child.getStatus() == JobStatus.PENDING)
                 .count();
@@ -482,6 +485,8 @@ public class JobService {
             parentStatus = JobStatus.RUNNING;
         } else if (failedCount > 0) {
             parentStatus = JobStatus.FAILED;
+        } else if (blockedCount > 0) {
+            parentStatus = JobStatus.BLOCKED;
         } else {
             parentStatus = JobStatus.SUCCESS;
         }
@@ -512,13 +517,16 @@ public class JobService {
         parent.setNewOffset(null);
         parent.setError(parentStatus == JobStatus.FAILED
                 ? failedCount + "/" + children.size() + " tasks failed"
-                : null);
+                : parentStatus == JobStatus.BLOCKED
+                        ? blockedCount + "/" + children.size() + " tasks blocked by dependencies"
+                        : null);
 
         Map<String, Object> meta = new LinkedHashMap<>();
         putAllAsStrings(meta, parent.getMetaJson());
         MetadataUtils.putIfPresent(meta, "childCount", children.size());
         MetadataUtils.putIfPresent(meta, "successCount", successCount);
         MetadataUtils.putIfPresent(meta, "failedCount", failedCount);
+        MetadataUtils.putIfPresent(meta, "blockedCount", blockedCount);
         MetadataUtils.putIfPresent(meta, "pendingCount", pendingCount);
         MetadataUtils.putIfPresent(meta, "runningCount", runningCount);
         parent.setMetaJson(meta);
@@ -680,7 +688,8 @@ public class JobService {
     private boolean isTerminal(JobStatus status) {
         return status == JobStatus.SUCCESS
                 || status == JobStatus.FAILED
-                || status == JobStatus.ERROR;
+                || status == JobStatus.ERROR
+                || status == JobStatus.BLOCKED;
     }
 
     private void validateMessageParentExecutionId(

@@ -470,10 +470,10 @@ Prove the complete slice and remove contradictory guidance.
 
 Review/update:
 
-- `plans/roadmap/README.md`
-- `plans/roadmap/implementation-increments.md`
-- `plans/roadmap/phase-3-dataset-manifests.md`
-- `plans/roadmap/phase-6-omni-console.md`
+- `docs/plans/roadmap/README.md`
+- `docs/plans/roadmap/implementation-increments.md`
+- `docs/plans/roadmap/phase-3-dataset-manifests.md`
+- `docs/plans/roadmap/phase-6-omni-console.md`
 - `plans/019-consolidated-numbered-implementation-phases.md`
 - `plans/006-job-dependency-guard-progress.md`
 - `docs/plans/003-dataset-metadata-manifest.md`

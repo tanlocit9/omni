@@ -92,11 +92,11 @@ for diagnosis. If diagnosis is requested, read only the named failing check's lo
 Read only the relevant entries in:
 
 - the selected phase document;
-- [`plans/roadmap/implementation-increments.md`](../../../plans/roadmap/implementation-increments.md);
-- [`plans/roadmap/execution-log.md`](../../../plans/roadmap/execution-log.md);
+- [`docs/plans/roadmap/implementation-increments.md`](../../../docs/plans/roadmap/implementation-increments.md);
+- [`docs/plans/roadmap/execution-log.md`](../../../docs/plans/roadmap/execution-log.md);
 - directly affected supporting documents or dependent statuses.
 
-Follow [`plans/roadmap/automation-rules.md`](../../../plans/roadmap/automation-rules.md)
+Follow [`docs/plans/roadmap/automation-rules.md`](../../../docs/plans/roadmap/automation-rules.md)
 and do not weaken acceptance criteria or overstate evidence.
 
 Record compact evidence such as:

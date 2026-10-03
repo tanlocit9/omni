@@ -1,7 +1,7 @@
 # Cross-Service Observability Correlation Implementation Plan
 
 Status: Superseded historical design; do not implement or schedule from this document.
-Canonical replacement: [`024-polyglot-correlation-structured-logging.md`](024-polyglot-correlation-structured-logging.md), scheduled as P11-I1 through P11-I5 in the [canonical increment registry](../../plans/roadmap/implementation-increments.md).
+Canonical replacement: [`024-polyglot-correlation-structured-logging.md`](024-polyglot-correlation-structured-logging.md), scheduled as P11-I1 through P11-I5 in the [canonical increment registry](roadmap/implementation-increments.md).
 Supersession decision: on 2026-09-17 the owner selected durable business `correlationId`, existing-or-generated `requestId`, separate `executionId`, structured JSON, Fluent Bit, and VictoriaLogs. Earlier W3C/OpenTelemetry-first and backend-neutral choices below are retained only as historical context.
 
 ## Goal

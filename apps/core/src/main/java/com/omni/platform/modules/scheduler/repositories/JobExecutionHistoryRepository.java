@@ -38,6 +38,9 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
     @Query("select history from JobExecutionHistory history where history.id = :id")
     Optional<JobExecutionHistory> findByIdForUpdate(@Param("id") UUID id);
 
+    @Query("select history from JobExecutionHistory history join fetch history.job where history.id = :id")
+    Optional<JobExecutionHistory> findByIdWithJob(@Param("id") UUID id);
+
     @Query(value = """
             SELECT new_offset FROM job_execution_histories
             WHERE job_id = :jobId

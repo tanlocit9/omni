@@ -258,7 +258,7 @@ This debt record adds no current implementation workflow, architecture decision,
 - [Post-MVP Roadmap Work](004-post-mvp-roadmap-work.md)
 - [High Availability Notes](../deployment/003-high-availability-notes.md)
 - [Plan 027 — Concurrent Workers and Writer Batching](../plans/027-concurrent-workers-and-writer-batching.md)
-- [Phase 12](../../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)
+- [Phase 12](../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)
 
 ## Reactivation
 

@@ -252,7 +252,7 @@ Platform project checks passed; external and runtime checks remain unresolved.
 
 ## Evidence inspected
 
-- `plans/roadmap/phase-9-intraday-eod.md`: P9-I1 is `verification_pending`; all verification checks remain `NOT RUN`.
+- `docs/plans/roadmap/phase-9-intraday-eod.md`: P9-I1 is `verification_pending`; all verification checks remain `NOT RUN`.
 - `apps/analyzer/app/signals/strategy.py`: current confirmed strategy is a two-component equal vote with stale/mismatch/NO_DECISION guards.
 - `apps/analyzer/app/signals/handler.py`: current confirmed handler reads persisted component histories plus latest canonical EOD date and persists through the existing signal repository.
 - `docs/data/002-data-lake.md`: Analyzer owns derived features/signals; Ingestor owns normalized intraday trades.

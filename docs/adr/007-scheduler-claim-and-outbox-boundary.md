@@ -53,5 +53,5 @@ Phase 4 extends this boundary because checking dataset dependencies before execu
 - [Job execution flow](../flows/001-job-execution.md)
 - [Dependency-aware outbox dispatch](../plans/023-dependency-aware-outbox-dispatch.md)
 - [Concurrent workers and writer batching](../plans/027-concurrent-workers-and-writer-batching.md)
-- [Phase 1 backend/core stabilization roadmap](../../plans/roadmap/phase-1-backend-core-stabilization.md)
-- [Phase 4 job dependency guard roadmap](../../plans/roadmap/phase-4-job-dependency-guard.md)
+- [Phase 1 backend/core stabilization roadmap](../plans/roadmap/phase-1-backend-core-stabilization.md)
+- [Phase 4 job dependency guard roadmap](../plans/roadmap/phase-4-job-dependency-guard.md)

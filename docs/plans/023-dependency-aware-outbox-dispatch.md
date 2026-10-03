@@ -1,6 +1,6 @@
 # Dependency-Aware Outbox Dispatch
 
-Canonical status and schedule owner: [P4-I3 in implementation increments](../../plans/roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule. P4-I3 source implementation is present locally, but verification commands and CI have not run, so the increment remains `verification_pending`.
+Canonical status and schedule owner: [P4-I3 in implementation increments](roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule. P4-I3 source implementation is present locally, but verification commands and CI have not run, so the increment remains `verification_pending`.
 
 ## Goal
 

@@ -1,6 +1,6 @@
 # Omni — Next Phase Implementation Plan
 
-> **Status: Superseded compatibility document.** Use the [canonical roadmap](../../plans/roadmap/README.md) for phase order, increment status, dependencies, and execution evidence. This file preserves historical context only and must not be used to schedule or report work.
+> **Status: Superseded compatibility document.** Use the [canonical roadmap](roadmap/README.md) for phase order, increment status, dependencies, and execution evidence. This file preserves historical context only and must not be used to schedule or report work.
 
 ## Direction
 

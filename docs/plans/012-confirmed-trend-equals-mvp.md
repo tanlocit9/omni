@@ -1,7 +1,7 @@
 # Confirmed Trend Equals MVP Implementation Plan
 
 Status: Scheduled supporting detail for P8-I4
-Canonical status owner: [`plans/roadmap/implementation-increments.md`](../../plans/roadmap/implementation-increments.md)
+Canonical status owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 
 ## Goal
 

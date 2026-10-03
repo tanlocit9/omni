@@ -119,7 +119,7 @@ OkHttpClient httpClient = new OkHttpClient.Builder()
 
 - [ADR-007: Scheduler Claim and Outbox Boundary](../adr/007-scheduler-claim-and-outbox-boundary.md)
 - [Job Execution Flow](../flows/001-job-execution.md)
-- [Phase 4: Job Dependency Guard](../../plans/roadmap/phase-4-job-dependency-guard.md)
+- [Phase 4: Job Dependency Guard](../plans/roadmap/phase-4-job-dependency-guard.md)
 
 ## Current Source Assessment
 

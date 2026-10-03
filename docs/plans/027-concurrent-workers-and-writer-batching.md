@@ -1,6 +1,6 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
-Status: Supporting implementation plan. Canonical schedule and statuses belong to [Phase 12](../../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md) and the [increment registry](../../plans/roadmap/implementation-increments.md). Implementation starts only after P11-I5 is completed. This plan does not claim runtime changes.
+Status: Supporting implementation plan. Canonical schedule and statuses belong to [Phase 12](roadmap/phase-12-worker-throughput-and-writer-batching.md) and the [increment registry](roadmap/implementation-increments.md). Implementation starts only after P11-I5 is completed. This plan does not claim runtime changes.
 
 ## Goal
 

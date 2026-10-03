@@ -1,6 +1,6 @@
 # Notification Outbox and Durable Delivery Plan
 
-Canonical status and schedule owner: [P8-I5 in implementation increments](../../plans/roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule.
+Canonical status and schedule owner: [P8-I5 in implementation increments](roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule.
 
 ## Goal
 

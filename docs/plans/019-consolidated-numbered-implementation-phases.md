@@ -1,6 +1,6 @@
 # Consolidated Numbered Implementation Phases
 
-This file is a compatibility index. The canonical autonomous-delivery roadmap starts at [`plans/roadmap/README.md`](roadmap/README.md), the inherited platform is recorded in the [`pre-roadmap capability baseline`](roadmap/pre-roadmap-capability-baseline.md), and the dependency-ordered increment registry is [`plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md).
+This file is a compatibility index. The canonical autonomous-delivery roadmap starts at [`docs/plans/roadmap/README.md`](roadmap/README.md), the inherited platform is recorded in the [`pre-roadmap capability baseline`](roadmap/pre-roadmap-capability-baseline.md), and the dependency-ordered increment registry is [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md).
 
 > Status reconciliation: before executing or updating an increment on `feature/parquet-date-normalization`, apply [`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md) where older roadmap text conflicts with the latest verified source/evidence. P1-I4 now requires a backfill-first coordinated cutover with no generic execution/status compatibility window.
 

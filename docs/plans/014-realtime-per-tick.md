@@ -1,6 +1,6 @@
 # Realtime Per-Tick Market Data Implementation Plan
 
-Status: P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. P10-I0 remains `blocked` pending genuine realtime provider evidence; P10-I3 remains `blocked` pending completed P10-I0/P10-I2 and owner approval of evidence-derived contracts. Canonical schedule lives in [`plans/roadmap/phase-10-realtime-per-tick.md`](../../plans/roadmap/phase-10-realtime-per-tick.md).
+Status: P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. P10-I0 remains `blocked` pending genuine realtime provider evidence; P10-I3 remains `blocked` pending completed P10-I0/P10-I2 and owner approval of evidence-derived contracts. Canonical schedule lives in [`docs/plans/roadmap/phase-10-realtime-per-tick.md`](roadmap/phase-10-realtime-per-tick.md).
 
 ## Goal
 

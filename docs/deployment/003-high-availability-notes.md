@@ -27,4 +27,4 @@ Per-thread or per-key in-process workers are an implementation choice for local 
 - [Job Execution Flow](../flows/001-job-execution.md)
 - [Kafka Contracts](../data/001-kafka-contracts.md)
 - [Data Lake](../data/002-data-lake.md)
-- [Phase 12 Worker and Writer Plan](../../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)
+- [Phase 12 Worker and Writer Plan](../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)

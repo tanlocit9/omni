@@ -1,7 +1,7 @@
 # Telegram Notification Format Modernization Implementation Plan
 
 Status: Scheduled supporting detail for P8-I1 and P8-I2; durable delivery is active as P8-I5 while P8-I3 remains historical
-Canonical status owner: [`plans/roadmap/implementation-increments.md`](../../plans/roadmap/implementation-increments.md)
+Canonical status owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 Relationship: integrated into Phase 8; P8-I1 owns shared infrastructure plus operational/generic formats, P8-I2 owns immediate/digest signal formats, and [`docs/plans/022-notification-outbox.md`](022-notification-outbox.md) supplies supporting detail for active P8-I5 durable delivery. P8-I3 remains a superseded historical increment.
 
 ## Goal

@@ -224,8 +224,8 @@ agent rule is required.
 8. In Phase 4, verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
 
 P1-I4 local evidence is recorded canonically in the
-[Phase 1 roadmap increment](../../plans/roadmap/phase-1-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
-and [`execution-log.md`](../../plans/roadmap/execution-log.md). It remains
+[Phase 1 roadmap increment](roadmap/phase-1-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
+and [`execution-log.md`](roadmap/execution-log.md). It remains
 `verification_pending` until the final pushed head has successful exact-head CI and
 all repository gates are green.
 

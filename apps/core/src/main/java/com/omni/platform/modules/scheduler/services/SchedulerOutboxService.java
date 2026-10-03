@@ -15,14 +15,16 @@ import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage;
 import com.omni.platform.modules.scheduler.messaging.JobMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
+import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxCandidate;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxRepository;
-import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 import com.omni.platform.shared.outbox.ClaimableOutboxStore;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +33,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     private final SchedulerOutboxRepository repository;
     private final JobExecutionHistoryRepository executionRepository;
     private final KafkaPublisher kafkaPublisher;
+    private final JsonMapper jsonMapper;
 
     @Transactional
     public void enqueue(
@@ -69,19 +72,89 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         return repository.findPendingCandidateIds(now, limit).stream()
                 .map(repository::findById)
                 .flatMap(java.util.Optional::stream)
-                .map(message -> {
-                    JobExecutionHistory execution = message.getExecution();
-                    var metadata = execution.getMetaJson() == null ? java.util.Map.<String, Object>of()
-                            : execution.getMetaJson();
-                    return new SchedulerOutboxCandidate(
-                            message.getId(), execution.getId(), execution.getParentLogId(), execution.getJob(),
-                            value(metadata, "workType", execution.getJob().getJobType().name()),
-                            value(metadata, "workKey", execution.getJob().getJobType().name()
-                                    + ":" + execution.getJob().getSource().name()),
-                            value(metadata, "runKey", execution.getTriggeredAt().toString()),
-                            metadata, message.getAvailableAt());
-                })
+                .map(this::toCandidate)
                 .toList();
+    }
+
+    private SchedulerOutboxCandidate toCandidate(SchedulerOutboxMessage message) {
+        JsonNode payload = parseCandidatePayload(message);
+        UUID persistedExecutionId = message.getExecution().getId();
+        UUID workExecutionId = optionalUuid(payload, "executionId", message.getId(), persistedExecutionId);
+        JobExecutionHistory workExecution = executionRepository.findByIdWithJob(workExecutionId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Outbox payload execution not found messageId=" + message.getId()
+                                + " executionId=" + workExecutionId));
+        if (hasText(payload, "executionId")) {
+            verifyPayloadParent(message, payload, workExecution);
+        }
+
+        Map<String, Object> metadata = workExecution.getMetaJson() == null
+                ? Map.of()
+                : workExecution.getMetaJson();
+        String workType = optionalText(payload, "workType", value(metadata, "workType", null));
+        String workKey = optionalText(payload, "workKey", value(metadata, "workKey", null));
+        if (workType == null || workKey == null) {
+            throw new IllegalStateException(
+                    "Missing scheduler outbox work identity messageId=" + message.getId());
+        }
+        return new SchedulerOutboxCandidate(
+                message.getId(), workExecution.getId(), workExecution.getParentLogId(), workExecution.getJob(),
+                workType, workKey,
+                value(metadata, "runKey", workExecution.getTriggeredAt().toString()),
+                metadata, message.getAvailableAt());
+    }
+
+    private JsonNode parseCandidatePayload(SchedulerOutboxMessage message) {
+        try {
+            return jsonMapper.readTree(message.getPayload());
+        } catch (Exception exception) {
+            throw new IllegalStateException(
+                    "Invalid scheduler outbox payload messageId=" + message.getId(), exception);
+        }
+    }
+
+    private static UUID optionalUuid(
+            JsonNode payload, String field, UUID messageId, UUID fallback) {
+        String value = optionalText(payload, field, null);
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException(
+                    "Invalid scheduler outbox " + field + " messageId=" + messageId, exception);
+        }
+    }
+
+    private static String optionalText(JsonNode payload, String field, String fallback) {
+        JsonNode value = payload.get(field);
+        if (value == null || value.isNull()) {
+            return fallback;
+        }
+        String text = value.asText();
+        return text == null || text.isBlank() ? fallback : text;
+    }
+
+    private static boolean hasText(JsonNode payload, String field) {
+        return optionalText(payload, field, null) != null;
+    }
+
+    private static void verifyPayloadParent(
+            SchedulerOutboxMessage message, JsonNode payload, JobExecutionHistory workExecution) {
+        String parentValue = optionalText(payload, "parentExecutionId", null);
+        UUID expectedParent = workExecution.getParentLogId();
+        if (expectedParent == null) {
+            if (parentValue != null && !parentValue.isBlank()) {
+                throw new IllegalStateException(
+                        "Unexpected scheduler outbox parentExecutionId messageId=" + message.getId());
+            }
+            return;
+        }
+        if (!expectedParent.toString().equals(parentValue)) {
+            throw new IllegalStateException(
+                    "Scheduler outbox parentExecutionId mismatch messageId=" + message.getId());
+        }
     }
 
     @Transactional
@@ -122,12 +195,8 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     @Override
     @Transactional
     public boolean markDelivered(SchedulerOutboxClaim claim, Instant deliveredAt) {
-        return markPublished(claim, deliveredAt);
-    }
-
-    @Transactional
-    public boolean markPublished(SchedulerOutboxClaim claim, Instant publishedAt) {
-        return repository.markPublished(claim.messageId(), claim.claimToken(), claim.claimedBy(), publishedAt);
+        return repository.markPublished(
+                claim.messageId(), claim.claimToken(), claim.claimedBy(), deliveredAt);
     }
 
     @Override
@@ -135,11 +204,6 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     public boolean scheduleRetry(SchedulerOutboxClaim claim, Instant retryAt, String sanitizedError) {
         return repository.markFailed(
                 claim.messageId(), claim.claimToken(), claim.claimedBy(), retryAt, sanitize(sanitizedError));
-    }
-
-    @Transactional
-    public boolean markFailed(SchedulerOutboxClaim claim, Instant availableAt, Throwable error) {
-        return scheduleRetry(claim, availableAt, error == null ? null : error.getMessage());
     }
 
     private static void persistApprovedInputs(
@@ -160,7 +224,8 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         execution.setMetaJson(metadata);
     }
 
-    private static String value(java.util.Map<String, Object> metadata, String key, String fallback) {
+    private static String value(Map<String, Object> metadata, String key, String fallback) {
+
         Object value = metadata.get(key);
         return value == null || String.valueOf(value).isBlank() ? fallback : String.valueOf(value);
     }

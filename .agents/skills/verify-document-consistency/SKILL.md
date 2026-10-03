@@ -19,10 +19,10 @@ Apply these sources in precedence order:
 
 1. [`AGENTS.md`](../../../AGENTS.md) for repository workflow and verification gates;
 2. [`docs/governance/001-implementation-plan-standard.md`](../../../docs/governance/001-implementation-plan-standard.md) for required plan sections and definition of done;
-3. [`plans/roadmap/README.md`](../../../plans/roadmap/README.md) for canonical phase scheduling;
-4. [`plans/roadmap/implementation-increments.md`](../../../plans/roadmap/implementation-increments.md) for canonical increment metadata;
-5. [`plans/roadmap/automation-rules.md`](../../../plans/roadmap/automation-rules.md) for statuses, readiness, evidence, and authority;
-6. [`plans/roadmap/cross-phase-rules.md`](../../../plans/roadmap/cross-phase-rules.md) for cross-phase gates;
+3. [`docs/plans/roadmap/README.md`](../../../docs/plans/roadmap/README.md) for canonical phase scheduling;
+4. [`docs/plans/roadmap/implementation-increments.md`](../../../docs/plans/roadmap/implementation-increments.md) for canonical increment metadata;
+5. [`docs/plans/roadmap/automation-rules.md`](../../../docs/plans/roadmap/automation-rules.md) for statuses, readiness, evidence, and authority;
+6. [`docs/plans/roadmap/cross-phase-rules.md`](../../../docs/plans/roadmap/cross-phase-rules.md) for cross-phase gates;
 7. canonical architecture, data, flow, deployment, development, and service documents;
 8. supporting plans and historical records.
 

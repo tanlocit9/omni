@@ -6,6 +6,14 @@ rules belong in [`docs`](docs); do not duplicate them in agent files.
 ## Required workflow
 
 - Use `code-review-graph` before manually scanning unfamiliar implementations.
+- Every feature plan must include a concrete cross-service blast-radius assessment.
+  Start with graph impact analysis, then reconcile its result against the canonical
+  architecture, flow, Kafka, data-lake, database, deployment, service, and ownership
+  documents indexed by [`docs/README.md`](docs/README.md). Graph hops are not proof
+  that Kafka consumers, Python workers, shared libraries, generated contracts,
+  storage writers/readers, migrations, configuration, tests, or operations are
+  unaffected; list each applicable service/module explicitly with impact or a
+  documented no-impact reason.
 - Run graph impact analysis before changing shared contracts, public APIs, Kafka
   messages, storage paths, dataset ownership, or shared configuration.
 - Run graph change detection after edits; this is analysis, not a build/test/lint/

@@ -8,9 +8,9 @@ Scope: Java Platform, Python workers, Kafka, jobs, scheduler outbox, HTTP suppor
 Delivery rule: implement the five canonical increments sequentially after `P4-I3` and `P8-I5` complete; production hardening remains technical debt
 
 Canonical status, dependencies, execution order, and readiness are owned by
-[`plans/roadmap/implementation-increments.md`](../../plans/roadmap/implementation-increments.md)
+[`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 and
-[`plans/roadmap/phase-11-cross-service-observability.md`](../../plans/roadmap/phase-11-cross-service-observability.md).
+[`docs/plans/roadmap/phase-11-cross-service-observability.md`](roadmap/phase-11-cross-service-observability.md).
 This document supplies implementation detail and must not define a competing schedule.
 
 Selected stack:
@@ -175,18 +175,51 @@ Web    -> apps/omni-console HTTP client helper
 
 Do not add correlation fields to every Protobuf payload. Headers carry transport context; jobs/outboxes carry durable context.
 
+## Cross-Service Blast Radius
+
+Code-review-graph analysis over representative Platform Kafka/persistence boundaries,
+Python Kafka/runtime boundaries, Analyzer and Ingestor consumers, Query Service HTTP,
+and Console source reports a high-risk radius with 43 directly selected nodes, 47
+impacted nodes, and 33 additional files within two hops. This bounded result is only a
+starting point: it does not prove safety across Kafka, HTTP, Compose, generated-contract,
+or log-collection boundaries. The following reconciliation against
+[`docs/README.md`](../README.md), the system overview, Kafka contracts, database,
+deployment, ownership, and flow documents is authoritative for planning.
+
+| Area                       | Impact decision and reason                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform / Core            | **Impacted.** Add Java correlation context, scoped MDC, HTTP filter, Kafka header injection/extraction, structured lifecycle events, durable job/outbox snapshots, migrations, error mapping, and tests. Review scheduler, manual trigger, producer registry, status/upsert/signal consumers, scheduler outbox, notification outbox, exception mapping, Logback, and application configuration.                                   |
+| Analyzer                   | **Impacted.** Every Analyzer Kafka consumer and status/derived-event publisher must install, propagate, and reset context; indicator, signal, evaluation, sector-wave, and sector-transition worker entry/failure boundaries require lifecycle/error instrumentation and isolation tests. Analytical calculations and feature meaning are unchanged.                                                                              |
+| Ingestor                   | **Impacted.** Stock-price, symbol, intraday-EOD, metadata, provider, storage, status, and upsert paths require Kafka context propagation, lifecycle/error instrumentation, provider taxonomy mapping, cleanup, and tests. Provider fetching and normalization semantics remain unchanged.                                                                                                                                         |
+| Query Service              | **Impacted for HTTP only.** Add ASGI correlation middleware, response headers, structured JSON logs, mapped-error reuse, CORS behavior, concurrent-request isolation, and tests. DuckDB query semantics, READY resolution, dataset paths, and storage ownership are unchanged.                                                                                                                                                    |
+| Omni Console               | **Impacted minimally.** Its shared HTTP client sends canonical headers, reads returned IDs, and displays a support ID. There is no browser log shipping, Node logging runtime, Kafka participation, direct storage access, or persistence change.                                                                                                                                                                                 |
+| `libs/py-common`           | **Impacted.** Own shared `ContextVar`, JSON formatter/filter, ASGI middleware where reusable, aiokafka header helpers, lifecycle/failure helpers, validation, sanitization, and concurrency/cancellation tests used by all Python services. Service-specific stage/error mapping remains in each app.                                                                                                                             |
+| `libs/contracts`           | **Impacted, but not through Protobuf payload fields.** Add language-neutral observability JSON schemas and fixtures under `libs/contracts/observability`; review contract packaging/tests. Existing Proto3 business messages and generated files remain unchanged because transport context uses headers.                                                                                                                         |
+| Kafka topics/configuration | **Semantically impacted, literal topic names unchanged.** Every active Java/Python producer and consumer boundary must support additive canonical headers and legacy headerless records. `configs/shared/topics.yaml` needs review but no topic addition or rename is planned. Producer, consumer, retry, status, derived-event, tests, and [`docs/data/001-kafka-contracts.md`](../data/001-kafka-contracts.md) change together. |
+| PostgreSQL/persistence     | **Impacted.** Add nullable correlation/request columns and indexes as justified for job execution and scheduler outbox; include notification-outbox snapshot semantics if it exists at implementation time. Existing rows remain nullable and no destructive history backfill is planned. Migrations and repository/integration tests are required.                                                                               |
+| Object storage/manifests   | **No contract impact.** Correlation does not alter DatasetManifest JSON, READY-last publication, `dataVersion` lineage, Parquet schemas, logical dataset references, or `configs/shared/s3-paths.yaml`. Storage failures are logged with identifiers, but credentials, bucket names, physical paths, and payload bodies remain prohibited.                                                                                        |
+| Dataset writers/readers    | **Instrumentation impact only.** Ingestor/Analyzer writers and Query Service readers emit correlated lifecycle/failure logs around existing ports. Writer ownership, validation, immutable publication, and reader query behavior do not change.                                                                                                                                                                                  |
+| Deployment/operations      | **Impacted in P11-I5.** Compose gains optional pinned Fluent Bit/VictoriaLogs services, private binding, bounded filesystem buffering, persistent volume, retention, health/restart behavior, example queries, and runbook updates. Applications continue through collector/backend failure. No Kubernetes, HA, production authentication, backup/RPO/RTO, or public binding is included.                                         |
+| Tests/CI                   | **Impacted across all participating projects.** Add schema fixtures, Java/Python context isolation, HTTP/CORS, Kafka propagation/legacy compatibility, persistence/restart, lifecycle ownership, redaction, Compose parsing/buffering, backend-unavailable, and end-to-end Java→Kafka→Python→Kafka→Java coverage. Use only confirmed project targets.                                                                             |
+| Documentation/guidance     | **Impacted.** Synchronize architecture, Kafka, database, deployment, job/stock/indicator/intraday flows, service READMEs, docs indexes, runbook, `AGENTS.md`, `CLAUDE.md`, and Zoo rules where implementation changes workflow or contracts.                                                                                                                                                                                      |
+
+Cross-language reconciliation must explicitly enumerate every active topic producer and
+consumer from [`docs/data/001-kafka-contracts.md`](../data/001-kafka-contracts.md), not
+sample only indicator and stock-price paths. Each increment records either its touched
+participants or a specific no-impact reason for deferred participants.
+
 ## Contract Impact
 
-| Surface                  | MVP impact                                                   |
-| ------------------------ | ------------------------------------------------------------ |
-| Kafka/service Protobuf   | No payload change; additive headers only                     |
-| Object-storage manifests | No change                                                    |
-| Dataset paths/ownership  | No change                                                    |
-| Java API                 | Internal observability helpers                               |
-| Python API               | Shared `py-common.observability` helpers                     |
-| HTTP                     | Additive request/response headers                            |
-| Database                 | Nullable correlation/request columns for new job/outbox rows |
-| Configuration            | JSON log mode plus optional collector/backend settings       |
+| Surface                  | MVP impact                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| Kafka/service Protobuf   | No payload change; additive headers only; generated Proto3 remains unchanged                |
+| Object-storage manifests | No change to JSON schema, READY, or lineage                                                 |
+| Dataset paths/ownership  | No change; only correlated instrumentation around readers/writers                           |
+| Java API                 | Internal observability helpers and transport boundary adapters                              |
+| Python API               | Shared `py-common.observability` helpers                                                    |
+| HTTP                     | Additive request/response headers in Platform and Query Service; Console client propagation |
+| Database                 | Nullable correlation/request columns for new job/outbox rows                                |
+| Configuration            | JSON log mode plus optional collector/backend settings; Kafka topic literals unchanged      |
 
 Consumers must continue accepting Kafka records without headers during rollout.
 
@@ -472,7 +505,7 @@ Exit: delayed dispatch and retry after restart retain the original stored identi
 
 Canonical dependency: `P11-I3`.
 
-- Update all shared Java/Python Kafka producer and consumer boundaries.
+- Inventory every active producer/consumer pair in `docs/data/001-kafka-contracts.md` and update all shared Java/Python Kafka boundaries; record explicit no-impact reasons for any deferred topic.
 - Preserve identifiers through status, retry, and derived-event publication.
 - Keep legacy headerless records compatible and clear context after every record.
 - Instrument sync entry, completion, retry, blocking, and failure boundaries in Platform, Ingestor, and Analyzer.
@@ -596,14 +629,26 @@ MVP implementation must review and update where applicable:
 ```text
 docs/INDEX.md
 docs/README.md
+docs/architecture/001-system-overview.md
 docs/data/001-kafka-contracts.md
+docs/data/002-data-lake.md
 docs/data/003-database.md
+docs/deployment/ and applicable Compose documentation
 docs/flows/001-job-execution.md
-apps/core and Python service READMEs
+docs/flows/002-stock-sync.md
+docs/flows/003-indicator-signal.md
+docs/flows/005-intraday-eod.md
+docs/development/001-where-to-change.md
+apps/core, Analyzer, Ingestor, Query Service, Console, and py-common READMEs
 AGENTS.md
 CLAUDE.md
 .roo/rules/
 ```
+
+For each reviewed canonical area, the implementing increment updates it or records a
+specific no-update reason. A graph-hop result alone is not acceptable evidence that a
+Python worker, Kafka participant, storage boundary, migration, configuration surface,
+or operational document is unaffected.
 
 This documentation-only revision reconciles this supporting plan with the existing
 canonical Phase 11 schedule. Runtime, canonical flow/data documentation, and

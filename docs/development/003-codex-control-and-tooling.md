@@ -16,7 +16,7 @@ Omni already has a strong control foundation:
 
 - Nx is the canonical entry point for project operations.
 - AGENTS.md and CLAUDE.md define repository-wide agent behavior.
-- plans/roadmap/automation-rules.md defines selection, branch, draft-PR, verification, and stop rules.
+- docs/plans/roadmap/automation-rules.md defines selection, branch, draft-PR, verification, and stop rules.
 - Java/Spring Platform, Python data services, Kafka, PostgreSQL, and MinIO/S3-compatible storage have explicit ownership boundaries.
 - The connected GitHub integration can inspect repositories, pull requests, reviews, and GitHub Actions state.
 
@@ -113,7 +113,7 @@ The skill should activate when the owner asks Codex to continue, implement, reco
 
 Required workflow:
 
-1. Read plans/roadmap/README.md, implementation-increments.md, automation-rules.md, cross-phase-rules.md, and the selected phase file.
+1. Read docs/plans/roadmap/README.md, implementation-increments.md, automation-rules.md, cross-phase-rules.md, and the selected phase file.
 2. Reconcile main, existing branches, open pull requests, and CI before selecting work.
 3. Continue in-progress or verification-pending work before selecting a new increment.
 4. Refuse blocked, approval-required, manual, superseded, dependency-incomplete, or conflicting work.
@@ -254,8 +254,8 @@ The tooling rollout is complete when:
 ## References
 
 - [Agent and Development Rules](../../AGENTS.md)
-- [Roadmap Automation Rules](../../plans/roadmap/automation-rules.md)
-- [Roadmap](../../plans/roadmap/README.md)
+- [Roadmap Automation Rules](../plans/roadmap/automation-rules.md)
+- [Roadmap](../plans/roadmap/README.md)
 - [Draft PR #9](https://github.com/tanlocit9/omni/pull/9)
 - [OpenAI Codex skills](https://developers.openai.com/codex/skills)
 - [OpenAI Codex MCP](https://developers.openai.com/codex/mcp)

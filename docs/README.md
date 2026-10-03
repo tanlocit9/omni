@@ -12,12 +12,12 @@ This directory is the documentation entry point for Omni. It is designed to help
 6. [Data lake](data/002-data-lake.md) — canonical Parquet dataset/path ownership.
 7. [Job execution](flows/001-job-execution.md) — scheduler/worker execution flow.
 8. [Implementation plan standard](governance/001-implementation-plan-standard.md) — mandatory plan/outcome/feature/contract/agent-guidance format.
-9. [Pre-roadmap capability baseline](../plans/roadmap/pre-roadmap-capability-baseline.md) — working platform capabilities inherited by Phase 0.
+9. [Pre-roadmap capability baseline](plans/roadmap/pre-roadmap-capability-baseline.md) — working platform capabilities inherited by Phase 0.
 10. [Metadata → Omni Console → Dashboard execution plan](plans/008-omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.
 11. [Codex control and tooling plan](development/003-codex-control-and-tooling.md) — proposed skills, MCP integrations, guardrails, and rollout order.
-12. [Canonical roadmap](../plans/roadmap/README.md) — capability groups, phase ordering, increment status, dependencies, and execution evidence.
-13. [Phase 7 Console job operations](../plans/roadmap/phase-7-console-job-operations.md) — Platform-owned job catalog/trigger/status contracts and the Omni Console Jobs tab.
-14. [Phase 3 dataset manifests](../plans/roadmap/phase-3-dataset-manifests.md) — canonical manifests and verification-pending automatic EOD metadata reconciliation.
+12. [Canonical roadmap](plans/roadmap/README.md) — capability groups, phase ordering, increment status, dependencies, and execution evidence.
+13. [Phase 7 Console job operations](plans/roadmap/phase-7-console-job-operations.md) — Platform-owned job catalog/trigger/status contracts and the Omni Console Jobs tab.
+14. [Phase 3 dataset manifests](plans/roadmap/phase-3-dataset-manifests.md) — canonical manifests and verification-pending automatic EOD metadata reconciliation.
 15. [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 16. [P1-I4 execution identity hard cutover](deployment/001-p1-i4-hard-cutover.md) — coordinated drain, manual history cleanup, deploy, verification, and rollback procedure.
 
@@ -28,7 +28,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 
 Use planning documents in this order:
 
-1. [Canonical roadmap](../plans/roadmap/README.md) for capability groups, global phase order, increment status, dependencies, and evidence; use its [pre-roadmap baseline](../plans/roadmap/pre-roadmap-capability-baseline.md) for inherited features.
+1. [Canonical roadmap](plans/roadmap/README.md) for capability groups, global phase order, increment status, dependencies, and evidence; use its [pre-roadmap baseline](plans/roadmap/pre-roadmap-capability-baseline.md) for inherited features.
 2. A focused or supporting execution plan under `docs/plans/` when the roadmap delegates a bounded delivery sequence.
 3. The numbered order in `docs/plans/` for phase-local design, implementation, progress, and verification detail; these plans do not override roadmap status or sequencing.
 4. A technical-debt document under `docs/technical-debt/` for a deferred, explicitly scoped follow-up; it is not independently scheduled unless linked from an active increment.
@@ -65,6 +65,8 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [MVP Polyglot Correlation and Sync Failure Logging](plans/024-polyglot-correlation-structured-logging.md) — proposed debugging MVP for locating when and why sync work fails; not roadmap-scheduled.
 - [Polycheck Adoption for Omni](plans/025-polycheck-adoption.md) — deferred generic repository-readiness CLI adoption with Nx as the first adapter.
 - [ContractKit Adoption for Omni](plans/026-contractkit-adoption.md) — deferred generic contract-lifecycle adoption with Buf as the Protobuf engine and Karapace optional.
+- [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md) — proposed reuse of existing job definitions, producers, dependency-aware outbox dispatch, and exact dated history/manifest checks; not roadmap-scheduled.
+- [P8 Notification Implementation Plan](plans/p8-notification-implementation-plan.md) — retained unnumbered Phase 8 execution/evidence document moved from the former root `plans/` directory; roadmap status remains canonical in the registry.
 
 ### References and Technical Debt
 

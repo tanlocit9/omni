@@ -41,22 +41,28 @@ public class JobStatusConsumer extends AbstractConsumer {
     @KafkaListener(topics = "${kafka.topics.topic-sync-job-status}", groupId = "${spring.kafka.consumer.group-id}")
     public void handleSyncStatus(ConsumerRecord<String, String> record) {
         try {
-            log.info("JobStatusConsumer received topic={} partition={} offset={} key={} timestamp={}",
+            log.info("[JOB_STATUS_TRACE] JobStatusConsumer received topic={} partition={} offset={} key={} timestamp={}",
                     record.topic(), record.partition(), record.offset(), record.key(), record.timestamp());
             JobStatusMessage response = jsonMapper.readValue(record.value(), JobStatusMessage.class);
             log.info(
-                    "JobStatusConsumer parsed status executionId={} parentExecutionId={} workType={} workKey={} status={} recordsProcessed={} durationMs={} metaKeys={}",
+                    "[JOB_STATUS_TRACE] JobStatusConsumer parsed status executionId={} parentExecutionId={} workType={} workKey={} status={} recordsProcessed={} durationMs={} metaKeys={}",
                     response.executionId(), response.parentExecutionId(), response.workType(), response.workKey(), response.status(),
                     response.recordsProcessed(), response.durationMs(),
                     response.metaJson() == null ? null : response.metaJson().keySet());
+            log.info(
+                    "[JOB_STATUS_TRACE] JobStatusConsumer applying topic={} partition={} offset={} key={} executionId={} parentExecutionId={} workType={} workKey={} status={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), response.executionId(),
+                    response.parentExecutionId(), response.workType(), response.workKey(), response.status());
             jobService.applyStatus(response);
-            log.info("JobStatusConsumer processed topic={} partition={} offset={} key={} executionId={}",
-                    record.topic(), record.partition(), record.offset(), record.key(), response.executionId());
+            log.info(
+                    "[JOB_STATUS_TRACE] JobStatusConsumer applied topic={} partition={} offset={} key={} executionId={} parentExecutionId={} workType={} workKey={} status={}",
+                    record.topic(), record.partition(), record.offset(), record.key(), response.executionId(),
+                    response.parentExecutionId(), response.workType(), response.workKey(), response.status());
         } catch (Exception e) {
             Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
             publishMessageProcessingFailed(record, e);
             log.error(
-                    "Failed to process stock-sync-status message topic={} partition={} offset={} key={} rootCauseClass={} rootCauseMessage={}: {}",
+                    "[JOB_STATUS_TRACE] Failed to process job-status message topic={} partition={} offset={} key={} rootCauseClass={} rootCauseMessage={}: {}",
                     record.topic(), record.partition(), record.offset(), record.key(), rootCause.getClass().getName(),
                     rootCause.getMessage(), e.getMessage(), e);
             throw new RuntimeException("Failed to process stock-sync-status message", e);

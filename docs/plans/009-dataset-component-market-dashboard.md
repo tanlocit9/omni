@@ -1,7 +1,7 @@
 # Dataset-Component Market Dashboard Implementation Plan
 
 Status: Deferred technical debt supporting plan for superseded P6-I4; not eligible for current MVP scheduling
-Canonical status owner: [`plans/roadmap/README.md`](../../plans/roadmap/README.md)  
+Canonical status owner: [`docs/plans/roadmap/README.md`](roadmap/README.md)  
 Target application: `apps/omni-console`  
 Read boundary: `apps/query-service`
 
@@ -482,8 +482,8 @@ Manual checks:
 Review during implementation:
 
 - `docs/README.md` - index this plan and dashboard ownership.
-- `plans/roadmap/README.md` - identify this plan as canonical supporting detail for P6-I4.
-- `plans/roadmap/phase-6-omni-console.md` - keep the fixed Market Dashboard scope and status synchronized.
+- `docs/plans/roadmap/README.md` - identify this plan as canonical supporting detail for P6-I4.
+- `docs/plans/roadmap/phase-6-omni-console.md` - keep the fixed Market Dashboard scope and status synchronized.
 - `plans/008-omni-metadata-console-dashboard-execution-plan.md` - update dashboard sequencing and gates.
 - `apps/omni-console/README.md` - document default page, component ownership, and navigation.
 - `apps/query-service/README.md` - document dashboard endpoints/query definitions when introduced.

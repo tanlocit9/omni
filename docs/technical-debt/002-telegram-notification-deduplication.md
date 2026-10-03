@@ -2,7 +2,7 @@
 
 ## MVP Status
 
-The 2026-09-05 full deferral is historical. P8-I5 in the [canonical increment registry](../../plans/roadmap/implementation-increments.md) owns durable enqueue/delivery identity, bounded retries, terminal `DEAD`, and operator visibility through the separate notification outbox described in [`docs/plans/022-notification-outbox.md`](../plans/022-notification-outbox.md). Relevant source is present, but P8-I5 remains `verification_pending`; this record does not claim completion. It retains cooldown-specific limitations and out-of-scope follow-ups and is not a competing schedule.
+The 2026-09-05 full deferral is historical. P8-I5 in the [canonical increment registry](../plans/roadmap/implementation-increments.md) owns durable enqueue/delivery identity, bounded retries, terminal `DEAD`, and operator visibility through the separate notification outbox described in [`docs/plans/022-notification-outbox.md`](../plans/022-notification-outbox.md). Relevant source is present, but P8-I5 remains `verification_pending`; this record does not claim completion. It retains cooldown-specific limitations and out-of-scope follow-ups and is not a competing schedule.
 
 ## Current Decision
 

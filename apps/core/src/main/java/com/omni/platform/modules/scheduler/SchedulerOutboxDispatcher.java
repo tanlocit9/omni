@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class SchedulerOutboxDispatcher {
 
+    private static final String TRACE_TAG = "[SCHEDULER_OUTBOX_TRACE]";
     private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration RETRY_DELAY = Duration.ofSeconds(30);
 
@@ -36,49 +37,105 @@ public class SchedulerOutboxDispatcher {
 
     @Scheduled(fixedDelayString = "${app.scheduler.outbox.fixed-delay:5000}")
     public void dispatch() {
-        dispatchBatch(Instant.now());
+        Instant now = Instant.now();
+        log.info("{} Dispatch tick started at={} instanceId={}",
+                TRACE_TAG, now, schedulerProperties.instanceId());
+        dispatchBatch(now);
     }
 
     void dispatchBatch(Instant now) {
+        long batchStartedAt = System.nanoTime();
         int batchSize = schedulerProperties.claim().batchSize();
+        int candidateLimit = batchSize * CANDIDATE_MULTIPLIER;
+        log.info("{} Loading candidates at={} batchSize={} candidateLimit={}",
+                TRACE_TAG, now, batchSize, candidateLimit);
+        var candidates = outboxService.findCandidates(now, candidateLimit);
+        log.info("{} Candidates loaded count={} elapsedMs={}",
+                TRACE_TAG, candidates.size(), elapsedMillis(batchStartedAt));
+
+        int waitingCount = 0;
+        int blockedCount = 0;
+        int readyCount = 0;
         List<SchedulerOutboxClaim> claims = new java.util.ArrayList<>(batchSize);
-        for (var candidate : outboxService.findCandidates(now, batchSize * CANDIDATE_MULTIPLIER)) {
+        for (var candidate : candidates) {
             if (claims.size() >= batchSize) {
                 break;
             }
+            long evaluationStartedAt = System.nanoTime();
+            log.info(
+                    "{} Evaluating candidate messageId={} executionId={} parentExecutionId={} workType={} workKey={} availableAt={}",
+                    TRACE_TAG, candidate.messageId(), candidate.executionId(), candidate.parentExecutionId(),
+                    candidate.workType(), candidate.workKey(), candidate.availableAt());
             DependencyDecision decision = dependencyRegistry.evaluate(new DependencyRequest(
                     candidate.messageId(), candidate.executionId(), candidate.parentExecutionId(),
                     candidate.jobDefinition(), candidate.workType(), candidate.workKey(), candidate.runKey(),
                     candidate.executionMetadata(), now));
+            log.info(
+                    "{} Dependency evaluated messageId={} executionId={} workType={} workKey={} state={} retryAt={} elapsedMs={}",
+                    TRACE_TAG, candidate.messageId(), candidate.executionId(), candidate.workType(),
+                    candidate.workKey(), decision.state(), decision.retryAt(), elapsedMillis(evaluationStartedAt));
             if (decision.state() == DependencyDecision.State.WAITING) {
-                outboxService.markWaiting(candidate.messageId(), decision.retryAt(), structuredReason(decision));
+                boolean updated = outboxService.markWaiting(
+                        candidate.messageId(), decision.retryAt(), structuredReason(decision));
+                waitingCount++;
+                log.info("{} Candidate waiting messageId={} retryAt={} persisted={}",
+                        TRACE_TAG, candidate.messageId(), decision.retryAt(), updated);
                 continue;
             }
             if (decision.state() == DependencyDecision.State.BLOCKED) {
-                outboxService.markBlocked(candidate.messageId(), now, structuredReason(decision));
+                boolean updated = outboxService.markBlocked(
+                        candidate.messageId(), now, structuredReason(decision));
+                blockedCount++;
+                log.info("{} Candidate blocked messageId={} persisted={}",
+                        TRACE_TAG, candidate.messageId(), updated);
                 continue;
             }
+            readyCount++;
             SchedulerOutboxClaim claim = outboxService.claimEligible(
                     candidate.messageId(), now, schedulerProperties.instanceId(),
                     schedulerProperties.claim().leaseDuration(), decision.approvedInputVersions());
+            log.info("{} Candidate ready messageId={} claimed={}",
+                    TRACE_TAG, candidate.messageId(), claim != null);
             if (claim != null) {
                 claims.add(claim);
             }
         }
+        log.info("{} Candidate phase completed candidates={} ready={} waiting={} blocked={} claims={} elapsedMs={}",
+                TRACE_TAG, candidates.size(), readyCount, waitingCount, blockedCount,
+                claims.size(), elapsedMillis(batchStartedAt));
+        int publishedCount = 0;
+        int retryCount = 0;
         for (SchedulerOutboxClaim claim : claims) {
+            long publishStartedAt = System.nanoTime();
             try {
+                log.info("{} Publishing claim messageId={} executionId={} attempt={} topic={} key={}",
+                        TRACE_TAG, claim.messageId(), claim.executionId(), claim.attempts(), claim.topic(), claim.key());
                 kafkaPublisher.publishSerializedAndWait(
                         claim.topic(), claim.key(), claim.payload(), PUBLISH_TIMEOUT);
-                if (!outboxService.markDelivered(claim, Instant.now())) {
+                boolean delivered = outboxService.markDelivered(claim, Instant.now());
+                log.info("{} Publish acknowledged messageId={} executionId={} persisted={} elapsedMs={}",
+                        TRACE_TAG, claim.messageId(), claim.executionId(), delivered, elapsedMillis(publishStartedAt));
+                if (!delivered) {
                     log.warn("Outbox claim was superseded before publish acknowledgement messageId={}", claim.messageId());
+                } else {
+                    publishedCount++;
                 }
             } catch (Exception exception) {
                 outboxService.scheduleRetry(
                         claim, Instant.now().plus(RETRY_DELAY), sanitizedError(exception));
-                log.error("Outbox publish failed messageId={} executionId={} attempt={}",
-                        claim.messageId(), claim.executionId(), claim.attempts(), exception);
+                retryCount++;
+                log.error("{} Outbox publish failed messageId={} executionId={} attempt={} elapsedMs={}",
+                        TRACE_TAG, claim.messageId(), claim.executionId(), claim.attempts(),
+                        elapsedMillis(publishStartedAt), exception);
             }
         }
+        log.info("{} Dispatch batch completed candidates={} claims={} published={} retries={} elapsedMs={}",
+                TRACE_TAG, candidates.size(), claims.size(), publishedCount, retryCount,
+                elapsedMillis(batchStartedAt));
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
     }
 
     private String structuredReason(DependencyDecision decision) {

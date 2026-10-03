@@ -152,8 +152,8 @@ or rewrite that file without owner direction.
 
 Only after `PASS`, load the `update-implementation-plans` skill and follow its
 synchronization workflow. Review the selected phase document,
-[`implementation-increments.md`](../../../plans/roadmap/implementation-increments.md),
-[`execution-log.md`](../../../plans/roadmap/execution-log.md), the supporting plan,
+[`implementation-increments.md`](../../../docs/plans/roadmap/implementation-increments.md),
+[`execution-log.md`](../../../docs/plans/roadmap/execution-log.md), the supporting plan,
 and every affected architecture, ADR, flow, data, deployment, development, service,
 index, and repository-guidance document. Update applicable documents in the same
 change; record an explicit no-update reason for each reviewed area that does not

@@ -31,7 +31,7 @@ This directory is the canonical numbered index for accepted Omni architecture de
 | Group C - Portable operations and product (Phases 5-8)  | 001, 003, 004, 007           |
 | Group D - Higher-frequency market data (Phases 9-10)    | 001, 003, 004, 006           |
 
-These mappings indicate architectural relevance, not strict phase dependencies. The [canonical roadmap](../../plans/roadmap/README.md) and its phase files remain authoritative for ordering and eligibility.
+These mappings indicate architectural relevance, not strict phase dependencies. The [canonical roadmap](../plans/roadmap/README.md) and its phase files remain authoritative for ordering and eligibility.
 
 ## Numbering Rules
 

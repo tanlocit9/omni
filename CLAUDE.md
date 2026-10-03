@@ -25,7 +25,7 @@ Canonical navigation:
 - [`docs/README.md`](docs/README.md) — documentation index
 - [`docs/development/001-where-to-change.md`](docs/development/001-where-to-change.md) — ownership
 - [`docs/governance/001-implementation-plan-standard.md`](docs/governance/001-implementation-plan-standard.md) — plan rules
-- [`plans/roadmap/automation-rules.md`](plans/roadmap/automation-rules.md) — roadmap automation
+- [`docs/plans/roadmap/automation-rules.md`](docs/plans/roadmap/automation-rules.md) — roadmap automation
 
 Do not execute build, test, lint, format, affected checks, or equivalent tools
 without the explicit request or command approval required by [`AGENTS.md`](AGENTS.md).

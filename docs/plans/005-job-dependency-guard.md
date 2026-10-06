@@ -1,5 +1,7 @@
 # Job Dependency Guard Implementation Plan
 
+Status: Core guard implemented. P4-I1 and P4-I2 are `completed`; P4-I3 dependency-aware outbox dispatch source and focused tests are present but the increment remains `verification_pending` pending its required verification, commit/PR, CI, and runtime-migration evidence. Canonical status is owned by the [increment registry](roadmap/implementation-increments.md) and P4-I3 detail by [Plan 023](023-dependency-aware-outbox-dispatch.md).
+
 ## Goal
 
 Turn existing job dependency metadata from documentation-only information into a lightweight runtime gate based primarily on object-storage dataset manifests.

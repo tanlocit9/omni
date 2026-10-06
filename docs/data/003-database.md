@@ -89,6 +89,14 @@ not used for execution lookup. V11 adds terminal `BLOCKED` execution semantics f
 terminal dependency decisions. `BLOCKED` is not a worker failure and must not be
 rewritten to `FAILED`.
 
+Phase 13 P13-I1 plans additive authoritative stage evidence so dispatch preparation,
+dependency wait, outbox publication, worker wait, processing start, terminal-status
+publication, and Platform application can be measured separately. Current child
+`RUNNING`/`started_at` values may originate during dispatch preparation and therefore
+must not be treated as proof of active processing. The future migration must preserve
+legacy rows as explicitly unknown where evidence is absent; this document does not
+claim that migration exists.
+
 ### Scheduler outbox
 
 | Field      | Value                                                                                                                                                                                                                |
@@ -105,6 +113,10 @@ delivery attempt and installs a lease/fencing token. WAITING updates bounded
 terminal, clears claim fields, transitions the execution to terminal `BLOCKED`,
 and is excluded from all pending candidate and claim predicates. Existing
 PENDING/PUBLISHED rows and audit history are preserved by the additive migration.
+Phase 13 P13-I2 plans read-only aggregate visibility over publishable, dependency-waiting,
+claimed, and future-retry backlog, including recent publish rate and a guarded drain
+estimate for the eligible snapshot. That estimate does not mutate outbox state and does
+not predict worker completion.
 
 The reproducible disposable-database harness is
 [`database/tests/p1_i4_work_identity_migration.sql`](../../database/tests/p1_i4_work_identity_migration.sql).
@@ -160,6 +172,15 @@ instances. `DEAD` rows are visible terminal records and are not replayed automat
 | Purpose        | Stores sector classification state used by symbol metadata and sector-wave jobs.                                                                                             |
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java) |
 | Upsert topic   | [`topic-upsert-sectors`](001-kafka-contracts.md#topic-upsert-sectors)                                                                                                        |
+
+## Planned Data Health persistence decision
+
+P13-I3 plans manual bounded EOD Parquet scans, but durable scan-request/result ownership
+is unresolved. Platform/PostgreSQL ownership and Query Service-owned durable persistence
+are alternatives requiring owner approval. No migration, table, retention policy, or
+multi-instance guarantee is implied until that decision defines audit identity,
+idempotency, pagination, restart behavior, schema migration, and deletion policy.
+Analytical EOD rows must not be copied into PostgreSQL merely to implement scan history.
 
 ## Boundary Rules
 

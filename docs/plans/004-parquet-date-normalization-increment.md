@@ -97,8 +97,9 @@ immutable manifest as READY.
 PR #16 is already targeted to `main`; no further Phase 7 retarget step is required.
 Do not merge automatically.
 
-For status/semantic drift in older roadmap files, see
-[`roadmap/status-reconciliation-2026-08-25.md`](roadmap/status-reconciliation-2026-08-25.md).
+Historical status reconciliation and delivery evidence are retained in the root
+[`ReleaseNotes.md`](../../ReleaseNotes.md). Current status remains canonical in the
+roadmap increment registry.
 
 ## Follow-on: P3-I5 automatic EOD metadata reconciliation
 

@@ -1,6 +1,6 @@
 # Confirmed Trend Equals MVP Implementation Plan
 
-Status: Scheduled supporting detail for P8-I4
+Status: Implemented source capability / roadmap in progress. Analyzer equal-vote confirmed-trend calculation, persisted component metadata, Query Service symbol history, and related tests are present. P8-I4 remains `in_progress` because P8-I2 and the required cross-project commit/PR/CI evidence are not complete.
 Canonical status owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 
 ## Goal

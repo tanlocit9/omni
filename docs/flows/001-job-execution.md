@@ -13,6 +13,22 @@ before leaving Platform.
 
 The repository now contains versioned `JobCommand` and `JobStatusEvent` Proto3 schemas in [`libs/contracts/proto`](../../libs/contracts/proto). They are a generated contract foundation only: the production flow described below remains on the existing JSON wire format until compatible consumers and adapters are delivered in later Phase 2 increments.
 
+## Planned Phase 13 stage semantics
+
+[Plan 029](../plans/029-operator-trust-console.md) owns the pending truthful-stage model.
+Current source creates fan-out child rows as `RUNNING` and sets `startedAt` during
+dispatch preparation, so those fields do **not** prove active worker processing. Until
+P13-I1 is implemented and verified, operator views must treat this ambiguity explicitly.
+
+P13-I1 plans authoritative evidence for prepared, dependency-waiting, dispatch-waiting,
+worker-waiting, processing, terminal-status-published, Platform-applied, completed, and
+unknown stages. Historical rows without evidence remain unknown rather than being
+inferred from creation or update timestamps. P13-I2 then owns daily jobs/minute,
+jobs/hour, jobs/day, duration percentiles, outstanding counts, scheduler-outbox lag,
+and a guarded publish-drain estimate for only the currently eligible backlog snapshot.
+This planned observability does not change dependency policy, commit offsets, replay
+messages, rewrite statuses, or implement Phase 12 concurrency.
+
 ## Flow
 
 ```mermaid

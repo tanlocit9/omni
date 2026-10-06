@@ -1,5 +1,7 @@
 # Notification Outbox and Durable Delivery Plan
 
+Status: Implemented source capability / verification pending. The separate notification outbox entity, repository, service, dispatcher, metrics, migration, and focused unit/PostgreSQL tests are present. P8-I5 remains `verification_pending` because its prerequisites and remaining migration-runtime, commit/PR, exact-head CI, and durable-delivery evidence are not complete.
+
 Canonical status and schedule owner: [P8-I5 in implementation increments](roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule.
 
 ## Goal

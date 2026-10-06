@@ -1,5 +1,7 @@
 # Cross-Service Proto3 Contracts Implementation Plan
 
+Status: Foundation implemented. P2-I1 is `completed`; the planned generated-adapter and pilot migration increments P2-I2/P2-I3 are `superseded`. Existing Proto3 schemas and Buf project infrastructure remain valid, but this document does not claim that active Kafka traffic has migrated to generated Protobuf types. Canonical status is owned by the [increment registry](roadmap/implementation-increments.md).
+
 ## Goal
 
 Introduce a language-neutral, versioned contract layer for communication between Platform, Analyzer, Ingestor and future realtime services.

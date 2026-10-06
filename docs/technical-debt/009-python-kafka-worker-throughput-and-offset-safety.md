@@ -1,6 +1,6 @@
 # Python Kafka Worker Throughput and Offset Safety
 
-Status: Scheduled as pending P12-I1 through P12-I4 after P11-I5; not an active MVP prerequisite
+Status: Scheduled as pending P12-I1 through P12-I4; P12-I1 begins only after P11-I5 and the completed P13-I1 truthful-stage measurement gate; not an active MVP prerequisite
 
 ## Goal
 
@@ -167,21 +167,25 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 
 ## Recommended Actions
 
-1. Implement P12-I1 first: inventory every affected consumer, disable implicit
-   auto-commit, and prove contiguous-prefix commit, restart, revoke, and shutdown safety
-   before adding concurrency.
-2. Treat the recorded production cohort as directional history only; capture a fresh,
-   complete, comparable baseline by topic, group, partition, job type, and stage.
-3. Pilot bounded concurrency only on independent logical outputs and retain a default
+1. Complete P13-I1 first so dispatch, worker wait, processing, status publication, and
+   Platform application have truthful evidence and a representative baseline; do not
+   use child creation-time `RUNNING` rows as active-processing measurements.
+2. Implement P12-I1 after P11-I5 and P13-I1: inventory every affected consumer, disable
+   implicit auto-commit, and prove contiguous-prefix commit, restart, revoke, and
+   shutdown safety before adding concurrency.
+3. Treat the recorded production cohort as directional history only; extend the P13-I1
+   baseline with a fresh, complete, comparable offset/capacity cohort by topic, group,
+   partition, job type, and stage.
+4. Pilot bounded concurrency only on independent logical outputs and retain a default
    of one until provider/storage budgets are measured.
-4. Preserve single-writer ownership for shared signal history until the independent
+5. Preserve single-writer ownership for shared signal history until the independent
    writer cutover is complete and verified.
-5. Keep P12-I3 focused on partition-scoped bounded status application, typed malformed-
+6. Keep P12-I3 focused on partition-scoped bounded status application, typed malformed-
    record failure, affected-partition pause, and authenticated audited recovery; do not
    make durable DLT infrastructure a Phase 12 gate.
-6. Require deterministic write-intent idempotency separate from Phase 11 diagnostic
+7. Require deterministic write-intent idempotency separate from Phase 11 diagnostic
    `correlationId` and `requestId`.
-7. Keep every Phase 12 capability labelled planned until approved tests, load evidence,
+8. Keep every Phase 12 capability labelled planned until approved tests, load evidence,
    exact-head CI, and synchronized contract/flow documentation are recorded.
 
 ## Owner-Selected Standalone Writer Direction (2026-09-25)
@@ -258,8 +262,8 @@ This debt record adds no current implementation workflow, architecture decision,
 - [Post-MVP Roadmap Work](004-post-mvp-roadmap-work.md)
 - [High Availability Notes](../deployment/003-high-availability-notes.md)
 - [Plan 027 — Concurrent Workers and Writer Batching](../plans/027-concurrent-workers-and-writer-batching.md)
-- [Phase 12](../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)
+- [Phase 12](../plans/027-concurrent-workers-and-writer-batching.md)
 
 ## Reactivation
 
-The owner scheduled this debt as pending P12-I1 through P12-I4 after P11-I5. Implementation may begin only when the prerequisite increments are completed and normal ownership/readiness checks pass. Multi-instance writer deployment remains outside Phase 12 and requires the separate High Availability promotion gate.
+The owner scheduled this debt as pending P12-I1 through P12-I4. P12-I1 now depends on both P11-I5 and completed P13-I1; implementation may begin only when those prerequisites and normal ownership/readiness checks pass. Multi-instance writer deployment remains outside Phase 12 and requires the separate High Availability promotion gate.

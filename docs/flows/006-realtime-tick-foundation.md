@@ -80,5 +80,5 @@ Phase 10 introduces no alias fields, fallback topic/path, dual-read DTO, permiss
 | Shared archive/rebuild/bars/reconciliation | [`libs/py-common/py_common/market_tick_archive.py`](../../libs/py-common/py_common/market_tick_archive.py) |
 | Shared path builder                        | [`libs/py-common/py_common/config/paths.py`](../../libs/py-common/py_common/config/paths.py)               |
 | Shared path config                         | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml)                                       |
-| Phase roadmap                              | [`docs/plans/roadmap/phase-10-realtime-per-tick.md`](../plans/roadmap/phase-10-realtime-per-tick.md)       |
+| Phase roadmap                              | [`docs/plans/014-realtime-per-tick.md`](../plans/014-realtime-per-tick.md)                                 |
 | Supporting plan                            | [`docs/plans/014-realtime-per-tick.md`](../plans/014-realtime-per-tick.md)                                 |

@@ -175,6 +175,8 @@ This debt is resolved only when:
 
 ## Verification Status
 
-Static source and roadmap inspection identified this debt. Existing local Python
-checks are recorded in the Phase 3 roadmap and execution log. Platform integration,
-workspace formatting, final affected checks, and exact-head CI remain required.
+Static source and roadmap inspection identified this debt. Existing historical local
+Python checks are recorded in the root [`ReleaseNotes.md`](../../ReleaseNotes.md), while
+current status is owned by the canonical increment registry. Platform integration,
+workspace formatting, final affected checks, and exact-head CI remain required where
+an approved reactivation plan declares them.

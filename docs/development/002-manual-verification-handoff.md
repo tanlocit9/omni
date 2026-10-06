@@ -75,7 +75,7 @@ becomes unknown.
 Raw logs should be inspected only for explicit failure diagnosis. Roadmap evidence
 must describe a passing result as owner-supplied rather than agent-verified.
 
-## Record owner verification with `verify-by`
+## Verify an increment and record owner verification with `verify-increment`
 
 After the complete gate returns `PASS`, the owner may explicitly attest that they
 reviewed it only when increment-specific code coverage proves the changed behavior was
@@ -105,10 +105,11 @@ verifier, timestamp, required-manifest hash, and exact summary hash. The second 
 revalidates those bindings before an agent consumes the attestation. Do not edit
 `attestation.json` manually.
 
-Owner attestation is blocked when the feature/source/test coverage matrix is missing or
+Owner attestation is blocked when the impact/source/test coverage matrix is missing or
 incomplete. It is invalid when the latest gate stops passing, the required-check
 manifest changes, the summary changes, or the identity/confirmation is malformed. It
-never substitutes for missing checks, acceptance criteria, dependency completion,
-documentation synchronization, increment-owned commit/PR, CI, migration, deployment,
-provider, live-runtime, or production evidence. Use the `verify-by` skill when asking
-an agent to record this evidence in roadmap documentation.
+never substitutes for missing blast-radius reconciliation, coverage, checks,
+acceptance criteria, dependency completion, documentation synchronization, migration,
+deployment, provider, live-runtime, or production evidence. Commit, PR, merge, and CI
+metadata remain traceability unless explicitly required by the increment. Use the
+`verify-increment` skill when asking an agent to verify or record this evidence.

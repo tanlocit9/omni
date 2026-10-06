@@ -13,7 +13,7 @@ No implementation should create `apps/internal-tools` or treat Parquet Viewer as
 Use these canonical plans:
 
 1. [`plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md) — milestone-gated delivery sequence and approved private-access boundary.
-2. [`docs/plans/roadmap/phase-6-omni-console.md`](roadmap/phase-6-omni-console.md) — roadmap increments for Omni Console.
+2. [`docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md) — roadmap increments for Omni Console.
 3. [`docs/plans/003-dataset-metadata-manifest.md`](003-dataset-metadata-manifest.md) — persisted JSON metadata contract.
 
 ## Dataset Outputs
@@ -71,4 +71,4 @@ Canonical direction:
 - Private access: Query Service resolves logical dataset/partition/version references from READY manifests; physical paths and credentials remain server-side
 - Query engine: native DuckDB in `apps/query-service`; the browser is a thin client and cannot submit arbitrary URLs or write SQL
 
-Execute [`plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md) from M0. Roadmap ownership remains in [`docs/plans/roadmap/phase-6-omni-console.md`](roadmap/phase-6-omni-console.md).
+Execute [`plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md) from M0. Roadmap ownership remains in [`docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`](008-omni-metadata-console-dashboard-execution-plan.md).

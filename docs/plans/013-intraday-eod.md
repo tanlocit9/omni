@@ -1,6 +1,6 @@
 # Intraday End-of-Day Sync — P9-I1
 
-Status: **implementation complete / pending owner verification**. Verification commands are intentionally not run by agent instruction. Canonical checklist and commit evidence live in [`docs/plans/roadmap/phase-9-intraday-eod.md`](roadmap/phase-9-intraday-eod.md).
+Status: **implementation complete / pending owner verification**. Verification commands are intentionally not run by agent instruction. Canonical checklist and commit evidence live in [`docs/plans/013-intraday-eod.md`](013-intraday-eod.md).
 
 ## Goal
 
@@ -158,7 +158,7 @@ Focused test source exists in:
 
 **NOT RUN.** Do not interpret source tests or commits as successful verification.
 
-Use the complete checklist in [`docs/plans/roadmap/phase-9-intraday-eod.md`](roadmap/phase-9-intraday-eod.md). It covers exchange/provider scope, single-date/range backfill, future-date rejection, deterministic reruns, completeness, reconciliation, duplicate/correction behavior, immutable READY preservation, partition identity, Kafka contracts, timestamp/date semantics, scheduler behavior, manual-trigger allow-list, and affected Nx/project checks.
+Use the complete checklist in [`docs/plans/013-intraday-eod.md`](013-intraday-eod.md). It covers exchange/provider scope, single-date/range backfill, future-date rejection, deterministic reruns, completeness, reconciliation, duplicate/correction behavior, immutable READY preservation, partition identity, Kafka contracts, timestamp/date semantics, scheduler behavior, manual-trigger allow-list, and affected Nx/project checks.
 
 P9-I1 must remain `verification_pending` and `last_verified_commit` must remain `null` until the owner runs and records the approved checks.
 

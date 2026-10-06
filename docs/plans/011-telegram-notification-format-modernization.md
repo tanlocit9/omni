@@ -1,6 +1,6 @@
 # Telegram Notification Format Modernization Implementation Plan
 
-Status: Scheduled supporting detail for P8-I1 and P8-I2; durable delivery is active as P8-I5 while P8-I3 remains historical
+Status: Implemented source capability / verification pending. Operational, generic, immediate-signal, and digest formatting source and tests are present, but P8-I1 and P8-I2 remain `verification_pending` until their canonical commit/PR, exact-head CI, and remaining runtime evidence gates close. Durable delivery is active as P8-I5 while P8-I3 remains historical.
 Canonical status owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 Relationship: integrated into Phase 8; P8-I1 owns shared infrastructure plus operational/generic formats, P8-I2 owns immediate/digest signal formats, and [`docs/plans/022-notification-outbox.md`](022-notification-outbox.md) supplies supporting detail for active P8-I5 durable delivery. P8-I3 remains a superseded historical increment.
 

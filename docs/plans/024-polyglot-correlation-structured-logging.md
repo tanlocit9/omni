@@ -10,7 +10,7 @@ Delivery rule: implement the five canonical increments sequentially after `P4-I3
 Canonical status, dependencies, execution order, and readiness are owned by
 [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 and
-[`docs/plans/roadmap/phase-11-cross-service-observability.md`](roadmap/phase-11-cross-service-observability.md).
+[`docs/plans/024-polyglot-correlation-structured-logging.md`](024-polyglot-correlation-structured-logging.md).
 This document supplies implementation detail and must not define a competing schedule.
 
 Selected stack:

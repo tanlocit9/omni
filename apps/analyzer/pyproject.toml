@@ -1,6 +1,6 @@
 [tool.coverage.run]
 branch = true
-source = ["analyzer"]
+source = ["app"]
 
 [tool.coverage.report]
 exclude_lines = ['if TYPE_CHECKING:']

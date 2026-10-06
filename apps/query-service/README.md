@@ -5,6 +5,20 @@ logical dataset references through canonical `READY` manifests and executes
 bounded SQL with native DuckDB. Object-storage credentials and physical paths
 never cross the HTTP boundary.
 
+## Planned Phase 13 Data Health role
+
+[Plan 029](../../docs/plans/029-operator-trust-console.md) plans for Query Service to
+execute operator-started, bounded, read-only EOD Parquet scans using the existing
+logical resolver and DuckDB boundary. Planned checks cover expected-date evidence,
+duplicates/conflicts, required fields, OHLCV validity, corruption, and schema mismatch,
+with exact dataset/partition/`dataVersion`/file/check/time provenance. Scans do not
+repair data, trigger backfill, or mutate manifests/READY.
+
+Durable scan-request/result ownership is intentionally unresolved. This README does
+not assign it to Query Service's current SQLite query queue or to Platform/PostgreSQL.
+Implementation must wait for the owner decision covering audit, idempotency, retention,
+restart, multi-instance behavior, migration, pagination, and deletion policy.
+
 ## API
 
 The fixed dashboard also exposes `GET /v1/dashboard/ichimoku-signals` with

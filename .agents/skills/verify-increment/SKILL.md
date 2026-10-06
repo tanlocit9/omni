@@ -1,9 +1,9 @@
 ---
-name: verify-by
-description: Record an explicit owner attestation for an Omni increment only after its complete tools/check_result.py gate passes and attributable code coverage proves the increment's changed features and code paths are exercised; bind the attestation to exact evidence without overstating CI, deployment, runtime, or completion.
+name: verify-increment
+description: Verify an Omni increment through cross-service blast-radius reconciliation, attributable executed-test coverage, and its complete tools/check_result.py gate; optionally record explicit owner attestation without overstating CI, deployment, runtime, or completion.
 ---
 
-# Verify By
+# Verify Increment
 
 Use this skill when the owner says they personally reviewed a passing verification
 gate and wants that ownership recorded as `owner_verified`.
@@ -21,9 +21,10 @@ Obtain:
 3. explicit owner confirmation that they reviewed the passing gate;
 4. target roadmap increment IDs when a shared verification ID covers multiple
    increments; and
-5. increment-specific coverage evidence mapping every changed feature, acceptance
-   criterion, and safety-critical branch to executed tests and the relevant source
-   files/symbols.
+5. increment-specific blast-radius evidence identifying changed and directly impacted
+   files/symbols across all applicable services and boundaries; and
+6. coverage evidence mapping every changed or directly impacted feature, acceptance
+   criterion, and safety-critical branch to executed tests and relevant source symbols.
 
 Do not infer verifier identity from Git configuration, environment variables, account
 names, or prior messages.
@@ -41,27 +42,37 @@ python tools/check_result.py conclusion --increment <ID>
 Continue only when it returns `PASS`. Stop on `FAIL`, `INCOMPLETE`, or `INVALID`.
 Do not remove or weaken required checks to make attestation possible.
 
-### 2. Prove increment-specific code coverage
+### 2. Prove blast radius and increment-specific code coverage
 
-Before requesting owner approval, inspect the increment scope, changed source, tests,
-and acceptance criteria. Build a concise coverage matrix containing:
+Before requesting owner approval:
+
+1. run code-review-graph impact analysis for the increment's implemented source files;
+2. reconcile the bounded graph result against canonical documentation for Platform,
+   Analyzer, Ingestor, Query Service, Console, shared contracts/libraries,
+   persistence, configuration, tests, and operations; and
+3. build a concise matrix containing:
 
 ```text
-feature/criterion -> source files or symbols -> executed test names -> passing check
+feature/criterion -> changed or impacted source files/symbols -> executed tests -> line/branch coverage -> passing check
 ```
 
 Approval is allowed only when this matrix demonstrates that the passing recorded gate
-actually executed tests covering all changed behavior owned by the increment,
-including success, failure, retry, boundary, compatibility, and concurrency paths when
-those paths are in scope.
+actually executed tests covering all changed and directly impacted behavior,
+including success, failure, retry, boundary, compatibility, concurrency, transaction,
+authorization, READY-last, lineage, and data-loss-prevention paths when those paths are
+in scope. A graph hop limit must not be used as proof that a cross-language Kafka,
+HTTP, storage, generated-contract, or persistence boundary has no impact.
 
 Source presence, test-file presence, test names, compilation, broad unrelated suite
-success, static graph reachability, or an unexecuted coverage report are not coverage
-evidence. When the project exposes a coverage target/report, it must be included in the
-required `check_result` gate and its increment-relevant report must pass the documented
-threshold. When no instrumentation target exists, executed focused tests may establish
-behavioral code coverage only if each changed source path and acceptance criterion is
-mapped explicitly; absence of this mapping blocks attestation.
+success, static graph reachability, commit/PR/merge/CI metadata, or an unexecuted
+coverage report are not coverage evidence. When the project exposes a coverage
+target/report, it must be included in the required `check_result` gate and each
+increment-relevant critical component must meet its documented threshold, defaulting
+to at least 80% line and 80% branch coverage. Aggregate project coverage is
+insufficient. When no instrumentation target exists, executed focused tests may
+establish behavioral coverage only if each changed and directly impacted source path
+and acceptance criterion is mapped explicitly; the instrumentation limitation remains
+recorded and absence of this mapping blocks attestation.
 
 For a shared verification ID, produce a separate coverage matrix for each target
 increment. A shared test/build pass cannot attest an increment whose owned changes are
@@ -127,14 +138,17 @@ Roadmap evidence must name or link the increment-specific coverage matrix; never
 Owner attestation may satisfy a documented owner-review requirement. It does not by
 itself satisfy or waive:
 
+- missing blast-radius reconciliation or attributable coverage;
 - missing required checks;
 - acceptance criteria;
 - dependency completion;
 - documentation synchronization;
-- increment-owned commit or PR;
-- exact-head CI;
 - migration, integration, deployment, provider, or live-runtime evidence; or
 - any manual production gate.
+
+Commit, PR, merge, and CI identifiers remain traceability evidence unless the
+increment explicitly declares them as delivery acceptance criteria. They never replace
+impact or coverage evidence.
 
 Do not mark an increment `completed` unless every remaining roadmap completion gate is
 independently satisfied.
@@ -150,8 +164,10 @@ canonical surfaces, run post-edit code-review-graph change detection, and invoke
 Stop when:
 
 - the gate is not `PASS`;
+- blast-radius analysis or cross-service reconciliation is missing or uses bounded
+  graph hops as proof of no cross-language impact;
 - increment-specific coverage evidence or its feature/source/test mapping is missing,
-  incomplete, not executed, or does not cover safety-critical branches;
+  incomplete, not executed, or does not cover changed, impacted, and safety-critical branches;
 - a coverage target exists but was omitted from the required gate or failed its
   documented threshold;
 - verifier identity or explicit confirmation is missing;

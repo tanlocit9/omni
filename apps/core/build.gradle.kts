@@ -1,5 +1,6 @@
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "4.0.1"
     id("io.spring.dependency-management") version "1.1.7"
     id("dev.nx.gradle.project-graph") version ("0.1.12")
@@ -79,6 +80,21 @@ dependencyManagement {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+    }
+}
+
+tasks.register("coverage") {
+    group = "verification"
+    description = "Runs the complete Platform test suite and generates project-wide JaCoCo reports."
+    dependsOn(tasks.jacocoTestReport)
 }
 
 allprojects {

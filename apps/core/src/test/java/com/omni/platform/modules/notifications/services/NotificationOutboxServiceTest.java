@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,7 +110,36 @@ class NotificationOutboxServiceTest {
     }
 
     @Test
+    void decodeRejectsInvalidJsonAndEitherEnvelopeMismatch() {
+        NotificationRequest request = request("signal:mismatch");
+        String payload = jsonMapper.writeValueAsString(request);
+
+        assertThatThrownBy(() -> service.decode(claim(
+                NotificationOutboxService.SCHEMA_VERSION,
+                "not-json",
+                NotificationKind.SIGNAL_CHANGED,
+                NotificationChannel.SIGNALS)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid persisted notification payload");
+        assertThatThrownBy(() -> service.decode(claim(
+                NotificationOutboxService.SCHEMA_VERSION,
+                payload,
+                NotificationKind.JOB_FAILED,
+                NotificationChannel.SIGNALS)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisted notification envelope does not match payload");
+    }
+
+    @Test
     void enqueueRejectsMissingOrOversizedDeliveryIdentity() {
+        assertThatThrownBy(() -> service.enqueue(null, NOW))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Notification request is required");
+        NotificationRequest missingChannel = mock(NotificationRequest.class);
+        when(missingChannel.channel()).thenReturn(null);
+        assertThatThrownBy(() -> service.enqueue(missingChannel, NOW))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Notification channel is required");
         assertThatThrownBy(() -> service.enqueue(request(" "), NOW))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Notification deduplication key is required");

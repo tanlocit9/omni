@@ -67,6 +67,17 @@ commands as **not run**, and do not treat missing execution evidence as a pass.
 This gate also applies to checks otherwise required by plans or documentation.
 After approval, use the matching Nx targets and run only the approved scope.
 
+## Blast-radius and coverage verification
+
+Increment verification is behavior-based, not commit-based:
+
+- Run code-review-graph impact analysis for the increment's implemented source files, then reconcile the bounded result against canonical cross-service documentation. Explicitly cover Platform, Analyzer, Ingestor, Query Service, Console, shared contracts/libraries, persistence, configuration, tests, and operations with impacts or concrete no-impact reasons.
+- Build an impact-to-test matrix mapping every changed or directly impacted production file/safety-critical symbol and acceptance criterion to executed tests.
+- Require attributable coverage for critical components, defaulting to at least 80% line and 80% branch coverage unless the plan declares a stricter threshold. Aggregate project coverage cannot hide uncovered impacted code.
+- Explicitly exercise applicable success, failure, retry, compatibility, concurrency, transaction, authorization, READY-last, lineage, and data-loss-prevention branches.
+- A branch, commit, pull request, merge, broad suite pass, or CI result is traceability evidence, not proof of behavioral coverage. CI is required only when the increment or delivery workflow explicitly declares it; it never replaces impact and coverage evidence.
+- If coverage instrumentation is unavailable, require executed focused tests plus an explicit feature/source/test matrix, record the limitation, and do not infer a numeric coverage pass.
+
 ## Manual verification result handoff
 
 When the user will run verification, ask them to record every required check with
@@ -79,16 +90,19 @@ owner-supplied evidence, `INCOMPLETE` remains `verification_pending`, and `FAIL`
 must not be recorded as completed. Inspect raw logs only when the user explicitly
 requests diagnosis. Read only the minimum roadmap sections needed for the update.
 
-When the owner explicitly wants to attest that they reviewed a passing gate, use the
-`verify-by` skill. Owner attestation is allowed only after the complete gate passes and
-attributable code coverage proves the increment's changed features, acceptance
-criteria, and safety-critical paths were exercised. Require an explicit
-feature/source/test coverage matrix and include an available coverage target/report in
-the recorded gate; broad suite success or test-file presence alone is insufficient.
+When verifying an increment or recording an owner-reviewed passing gate, use the
+`verify-increment` skill. Owner attestation is allowed only after the complete gate passes,
+blast-radius analysis is reconciled across services, and attributable code coverage
+proves the increment's changed and directly impacted features, acceptance criteria,
+and safety-critical paths were exercised. Require an explicit impact/source/test
+coverage matrix and include an available coverage target/report in the recorded gate;
+broad suite success or test-file presence alone is insufficient.
 The attestation must be bound to the exact summary and required-check manifest through
 `tools/check_result.py attest`. It records `owner_verified`; it never substitutes for
-missing checks, CI, merge, deployment, provider, runtime, dependency, documentation,
-or acceptance evidence and cannot alone mark an increment completed.
+missing impact reconciliation, coverage, checks, deployment, provider, runtime,
+dependency, documentation, or acceptance evidence and cannot alone mark an increment
+completed. Commit, PR, merge, and CI evidence remain optional traceability unless the
+increment explicitly requires those delivery gates.
 
 ## Contract and data guardrails
 
@@ -135,8 +149,8 @@ Before finalizing any increment, agents must run the documentation-synchronizati
 workflow even when source implementation is already complete:
 
 1. load the `update-implementation-plans` skill;
-2. review the increment's phase file, canonical registry, execution log, supporting
-   plan, and affected architecture, ADR, flow, data, deployment, development, service,
+2. review the canonical increment registry, numbered implementation plan, root release
+   notes, and affected architecture, ADR, flow, data, deployment, development, service,
    index, and repository-guidance documents;
 3. update every applicable document in the same change, or record an explicit
    no-update reason for each reviewed documentation area;

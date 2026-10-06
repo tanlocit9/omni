@@ -6,10 +6,17 @@
       "options": {
         "commands": [
           "prettier --write . --ignore-path .prettierignore --ignore-unknown",
-          "nx run-many -t lint-fix -p analyzer ingestor query-service py-common --parallel",
-          "nx run-many -t format -p analyzer ingestor query-service py-common --parallel"
+          "nx run-many -t lint-fix -p analyzer ingestor query-service py-common --parallel=1"
         ],
         "parallel": false
+      },
+      "outputs": []
+    },
+    "python-lint-fix": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "nx run-many -t lint-fix -p analyzer ingestor query-service py-common --parallel=1"
       },
       "outputs": []
     },

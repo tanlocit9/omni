@@ -15,7 +15,7 @@
       "cache": false,
       "executor": "nx:run-commands",
       "options": {
-        "command": "uv run ruff format py_common tests && uv run ruff check --fix py_common tests",
+        "command": "uv run ruff check --fix py_common tests && uv run ruff format py_common tests",
         "cwd": "{projectRoot}"
       },
       "outputs": []
@@ -33,6 +33,15 @@
         "command": "uv run pytest",
         "cwd": "libs/py-common"
       }
+    },
+    "coverage": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "libs/py-common"
+      },
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"]
     },
     "build": {
       "executor": "nx:run-commands",

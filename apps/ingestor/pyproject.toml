@@ -1,6 +1,6 @@
 [tool.coverage.run]
 branch = true
-source = ["ingestor"]
+source = ["app"]
 
 [tool.coverage.report]
 exclude_lines = ['if TYPE_CHECKING:']

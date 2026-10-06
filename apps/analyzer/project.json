@@ -70,7 +70,7 @@
       "cache": false,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run ruff format app tests && uv run ruff check --fix app tests",
+        "command": "uv run ruff check --fix app tests && uv run ruff format app tests",
         "cwd": "{projectRoot}"
       },
       "outputs": []
@@ -131,6 +131,15 @@
         "{workspaceRoot}/reports/{projectRoot}/unittests",
         "{workspaceRoot}/coverage/{projectRoot}"
       ]
+    },
+    "coverage": {
+      "cache": true,
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "uv run pytest tests/",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"]
     },
     "update": {
       "executor": "@nxlv/python:update",

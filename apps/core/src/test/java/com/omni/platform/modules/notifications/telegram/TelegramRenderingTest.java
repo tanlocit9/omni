@@ -207,6 +207,79 @@ class TelegramRenderingTest {
     }
 
     @Test
+    void operationalRenderingHandlesPartialCountsInvalidTimeAndSilentErrorPolicy() {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("recordsSkipped", 2);
+        metadata.put("failed", 1);
+        metadata.put("createdAt", "not-an-instant");
+        NotificationRequest request = request(
+                NotificationChannel.OPERATIONS,
+                NotificationType.OPERATIONAL,
+                NotificationKind.JOB_DIGEST_FAILED,
+                NotificationSeverity.ERROR,
+                "Digest failed",
+                null,
+                metadata);
+
+        var rendered = new Registry(properties(null, false)).render(request, 0);
+
+        assertThat(rendered.html())
+                .contains("<b>Records:</b> 0 synced - 2 skipped")
+                .contains("<b>Tasks:</b> 1/0 failed")
+                .doesNotContain("Updated");
+        assertThat(rendered.disableNotification()).isTrue();
+    }
+
+    @Test
+    void genericRenderingKeepsSupportedScalarTypesAndDropsComplexOrInternalValues() {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("number", 12);
+        metadata.put("flag", true);
+        metadata.put("severity", NotificationSeverity.INFO);
+        metadata.put("id", UUID.fromString("7dd9f8c2-1111-2222-3333-444444444444"));
+        metadata.put("complex", List.of("hidden"));
+        metadata.put("manual", "hidden");
+
+        String html = registry().render(request(
+                NotificationChannel.SIGNALS,
+                NotificationType.SIGNAL,
+                NotificationKind.MANUAL_GENERIC,
+                NotificationSeverity.INFO,
+                "Scalars",
+                null,
+                metadata), 0).html();
+
+        assertThat(html).contains("- flag: true", "- id: 7dd9f8c2-1111-2222-3333-444444444444",
+                "- number: 12", "- severity: INFO")
+                .doesNotContain("complex", "manual", "hidden");
+    }
+
+    @Test
+    void digestHandlesNullItemsSingularCountAndMissingOptionalFields() {
+        SignalDigestContent digest = new SignalDigestContent(
+                null, null, 1, null, null, 0, 0);
+
+        String html = registry().render(signalRequest(NotificationKind.SIGNAL_DIGEST, digest), 0).html();
+
+        assertThat(html).contains("📊 <b>1 signal change</b>")
+                .contains("Page 1/1 · 0 on this page · 1 total · 1 on other pages")
+                .doesNotContain("Updated");
+    }
+
+    @Test
+    void signalRenderingCoversMissingAndMalformedOptionalValues() {
+        SignalChangedContent signal = new SignalChangedContent(
+                null, null, null, "not-a-number", "not-a-date", "bad-score",
+                java.util.Arrays.asList(null, " ", "SCORE_-1.25", "A", "B", "C", "D", "E"),
+                null, null, null);
+
+        String html = registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED, signal), 0).html();
+
+        assertThat(html).contains("Unknown symbol", "<b>Price:</b> not-a-number", "<b>Score:</b> n/a",
+                "<b>Date:</b> not-a-date", "SCORE -1.25 — Điểm tín hiệu -1.25", "- ...");
+    }
+
+    @Test
     void rejectsCanonicalSignalKindsWithoutRequiredStructuredContent() {
         assertThatThrownBy(() -> request(NotificationChannel.SIGNALS, NotificationType.SIGNAL,
                 NotificationKind.SIGNAL_CHANGED, NotificationSeverity.INFO, "ignored", "ignored", Map.of()))

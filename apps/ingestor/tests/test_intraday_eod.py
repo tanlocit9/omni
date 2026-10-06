@@ -7,7 +7,13 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app.handlers.intraday_eod import normalize_intraday_trades, reconcile_against_eod
+from app.handlers.intraday_eod import (
+    _required_eod_value,
+    _validate_parquet,
+    normalize_intraday_trades,
+    process_intraday_eod_message,
+    reconcile_against_eod,
+)
 from app.messaging.messages import IntradayEodJobMessage
 from app.stocks.clients.vci_intraday import VCIIntradayQuoteAdapter
 
@@ -193,3 +199,105 @@ async def test_intraday_adapter_rejects_missing_provider_api() -> None:
 
     with pytest.raises(RuntimeError, match="provider intraday API is unavailable"):
         await adapter.fetch_session("HPG", date(2026, 9, 9))
+
+
+def test_normalization_empty_missing_fields_and_exact_duplicate(
+    message: IntradayEodJobMessage,
+) -> None:
+    assert normalize_intraday_trades(pd.DataFrame(), message).empty
+    with pytest.raises(ValueError, match="Missing required"):
+        normalize_intraday_trades(pd.DataFrame([{"time": "2026-09-09"}]), message)
+    duplicate = pd.DataFrame(
+        [
+            {
+                "time": "2026-09-09T09:15:00+07:00",
+                "price": 10,
+                "volume": 1,
+                "match_type": "LO",
+                "id": "same",
+            },
+            {
+                "time": "2026-09-09T09:15:00+07:00",
+                "price": 10,
+                "volume": 1,
+                "match_type": "LO",
+                "id": "same",
+            },
+        ]
+    )
+    assert len(normalize_intraday_trades(duplicate, message)) == 1
+
+
+def test_reconciliation_rejects_missing_ambiguous_and_incomplete_eod(
+    message: IntradayEodJobMessage,
+) -> None:
+    normalized = pd.DataFrame({"price": [10], "volume": [1], "trade_value": [10]})
+    with pytest.raises(ValueError, match="unavailable"):
+        reconcile_against_eod(normalized, None, message)
+    duplicate = pd.DataFrame(
+        [
+            {"date": "2026-09-09", "close": 10, "volume": 1, "value": 10},
+            {"date": "2026-09-09", "close": 10, "volume": 1, "value": 10},
+        ]
+    )
+    with pytest.raises(ValueError, match="ambiguous"):
+        reconcile_against_eod(normalized, duplicate, message)
+    with pytest.raises(ValueError, match="close unavailable"):
+        _required_eod_value(pd.Series({"close": None}), ("close",), "close")
+
+
+def test_parquet_validation_rejects_row_count_mismatch(
+    message: IntradayEodJobMessage,
+) -> None:
+    normalized = normalize_intraday_trades(
+        pd.DataFrame(
+            [
+                {
+                    "time": "2026-09-09T09:15:00+07:00",
+                    "price": 10,
+                    "volume": 1,
+                    "match_type": "LO",
+                    "id": "one",
+                }
+            ]
+        ),
+        message,
+    )
+    from py_common.storage.parquet import ParquetCodec
+
+    with pytest.raises(ValueError, match="row count"):
+        _validate_parquet(ParquetCodec.encode(normalized), 2)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("override", "error"),
+    [
+        ({"provider": "VND"}, "supports HOSE"),
+        ({"exchange": "HNX"}, "symbolKey exchange must match exchange"),
+    ],
+)
+async def test_handler_rejects_unsupported_routing_and_publishes_error(
+    message: IntradayEodJobMessage,
+    override: dict[str, str],
+    error: str,
+) -> None:
+    class StatusPublisher:
+        published = []
+
+        async def publish(self, status, key=None):
+            self.published.append((status, key))
+
+    class Unexpected:
+        def __getattr__(self, name):
+            raise AssertionError(f"unexpected dependency call: {name}")
+
+    status_publisher = StatusPublisher()
+    payload = message.model_dump(by_alias=True, mode="json") | override
+    status = await process_intraday_eod_message(
+        payload, status_publisher, Unexpected(), Unexpected(), Unexpected()
+    )
+
+    assert status.status.value == "ERROR"
+    assert error in status.error_message
+    assert status_publisher.published == [(status, "HOSE-HPG")]

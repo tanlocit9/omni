@@ -17,6 +17,15 @@
         "cwd": "{projectRoot}"
       }
     },
+    "coverage": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../../tools/run-gradle.cjs coverage",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": ["{projectRoot}/build/reports/jacoco/test"]
+    },
     "build-fast": {
       "executor": "nx:run-commands",
       "options": {

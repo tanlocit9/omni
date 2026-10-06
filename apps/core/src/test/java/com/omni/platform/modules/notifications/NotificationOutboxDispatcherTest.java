@@ -181,6 +181,56 @@ class NotificationOutboxDispatcherTest {
         verify(metrics, never()).dead(any());
     }
 
+    @Test
+    void staleRateLimitDecodeDeadPermanentDeadAndRetryTransitionsStayUnmeasured() {
+        NotificationOutboxClaim rateLimited = claim(1);
+        NotificationOutboxClaim decodeFailure = claim(1);
+        NotificationOutboxClaim permanent = claim(1);
+        NotificationOutboxClaim retryable = claim(1);
+        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10))
+                .thenReturn(List.of(rateLimited, decodeFailure, permanent, retryable));
+        when(store.acquireProviderPermit(any(), eq(NOW), eq(RATE_LIMIT)))
+                .thenReturn(false, true, true, true);
+        when(store.decode(decodeFailure)).thenThrow(new IllegalArgumentException("bad payload"));
+        when(store.decode(permanent)).thenReturn(request());
+        when(store.decode(retryable)).thenReturn(request());
+        when(transport.deliver(any())).thenReturn(
+                result(Outcome.PERMANENT_FAILURE, "telegram_http_400", Optional.empty()),
+                result(Outcome.RETRYABLE, "telegram_http_503", Optional.empty()));
+
+        dispatcher.dispatchBatch(NOW);
+
+        verify(store).scheduleRetry(rateLimited, NOW.plus(RATE_LIMIT), "provider_rate_limited");
+        verify(store).markDead(decodeFailure, NOW, "payload_decode_failure");
+        verify(store).markDead(permanent, NOW, "telegram_http_400");
+        verify(store).scheduleRetry(eq(retryable), any(Instant.class), eq("telegram_http_503"));
+        verify(metrics, never()).rateLimited(any());
+        verify(metrics, never()).dead(any());
+        verify(metrics, never()).retried(any());
+    }
+
+    @Test
+    void blankInstanceIdUsesGeneratedPlatformIdentity() {
+        dispatcher = new NotificationOutboxDispatcher(
+                store,
+                transport,
+                new NotificationOutboxProperties(
+                        Duration.ofSeconds(5),
+                        new NotificationOutboxProperties.Claim(Duration.ofMinutes(2), 10),
+                        3,
+                        new NotificationOutboxProperties.Retry(Duration.ofMillis(1), Duration.ofMillis(1))),
+                telegramProperties(),
+                metrics,
+                " ");
+        when(store.claimPending(eq(NOW), any(String.class), eq(Duration.ofMinutes(2)), eq(10)))
+                .thenReturn(List.of());
+
+        dispatcher.dispatchBatch(NOW);
+
+        verify(store).claimPending(eq(NOW), org.mockito.ArgumentMatchers.startsWith("platform-"),
+                eq(Duration.ofMinutes(2)), eq(10));
+    }
+
     private void prepareDelivery(NotificationOutboxClaim claim, DeliveryResult result) {
         NotificationRequest request = request();
         when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10)).thenReturn(List.of(claim));

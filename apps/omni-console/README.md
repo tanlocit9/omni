@@ -3,16 +3,28 @@
 Omni Console is the private React operations UI for dataset metadata, read-only
 queries, and Platform-owned job operations.
 
-## Market Dashboard
+## Planned Phase 13 order
 
-The Market Dashboard is the default section. Its fixed, code-owned composition
-follows the [dataset-component dashboard plan](../../docs/plans/009-dataset-component-market-dashboard.md)
+Current source still opens on the fixed Market Dashboard. Owner-approved
+[Plan 029](../../docs/plans/029-operator-trust-console.md) plans to replace that
+product order with **Job Operations → Data Health → small Market Review** after the
+owning increments are implemented and verified.
+
+Job Operations will show truthful stage counts, daily jobs/minute as the primary
+throughput unit, jobs/hour, jobs/day, duration percentiles, scheduler-outbox lag,
+outstanding work, and guarded publish-drain estimates. Data Health will provide
+manual bounded read-only EOD Parquet scans with exact provenance and no repair or
+backfill. Market Review will reuse the existing fixed code-owned widgets and bounded
+Query Service contracts. Dataset Explorer remains secondary; Raw SQL is de-emphasized
+and is not expanded by Phase 13.
+
+## Existing Market Dashboard source
+
+The current fixed, code-owned composition follows the historical
+[dataset-component dashboard plan](../../docs/plans/009-dataset-component-market-dashboard.md)
 and is organized around canonical datasets such as `eod`, `signals`, and
-`sector-features` rather than producer services.
-
-The initial shell presents honest unavailable states while bounded Query Service
-adapters are implemented. Dataset Explorer, SQL Console, and Jobs remain
-available as operator tools.
+`sector-features` rather than producer services. This source is retained for the
+future small Market Review; it does not override Plan 029's order.
 
 ## API configuration
 

@@ -66,7 +66,7 @@ flowchart LR
 
 Platform controls desired state and visibility, not provider connection lifetime. The independently deployed Ingestor collector applies generation-fenced idempotent commands, owns VCI authentication/subscriptions/reconnect/drain, and reports observed state. Disable stops new subscriptions and drains accepted ticks before acknowledging the applied generation. This flow remains unimplemented until P10-I0 and P10-I2 complete and the evidence-derived P10-I3 contract receives owner approval.
 
-P9-I1 is a completed-session contract reference only and remains `verification_pending`. P9-I4 remains `in_progress`; P9-I2 and P9-I3 remain `superseded`. Phase 10 does not reactivate them or mark Phase 9 complete.
+P9-I1 is a completed-session contract reference only and remains `verification_pending`. P9-I4 is paused at `pending` with source/evidence retained; P9-I2 and P9-I3 remain `superseded`. Phase 10 does not reactivate them or mark Phase 9 complete.
 
 ## No-Legacy Rule
 

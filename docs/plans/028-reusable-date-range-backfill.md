@@ -34,6 +34,12 @@ For each supported trading date, Platform will:
 
 Scheduled execution remains unchanged. Backfill is an execution mode of an existing definition, not a new definition category.
 
+## Relationship to Static Graph & DispatchPlanner
+
+[Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) is the active Milestone 1 epic promoted from [TD-012](../technical-debt/012-static-dag-dispatch-planner.md). P14-I1 provides the shared topology that this backfill plan may reuse to trace required dated work and enqueue missing items. P14-I2/P14-I3 select already-enqueued scheduler-outbox work and are not prerequisites for backfill tracing or preview. Both epics reuse one topology boundary; neither duplicates the job `DependencyGuard` input-readiness logic.
+
+Plan 028 remains proposed and not roadmap-scheduled. P14-I1 does not pre-approve this plan's persisted graph migration, stable persisted keys, dated identity, producer changes, or enqueue runtime. A future persisted-topology migration must establish parity and one authority before cutover; static and persisted graphs must not remain competing runtime authorities.
+
 ## Core Semantics
 
 ### Separate runtime time from business date
@@ -76,7 +82,9 @@ A scheduled claim must not be reused across a date loop. The current producer fl
 
 ### First-class job keys and dependency graph
 
-Job dependencies must move out of the untyped `configJson.dependsOnJobs` list into a first-class, independently persisted graph. Runtime configuration remains appropriate for producer parameters, filters, and dataset condition details, but it must no longer be the canonical owner of job-to-job topology.
+P14-I1 first introduces stable static logical node identity and one shared topology API without persistence. If Plan 028 is separately scheduled, its persisted graph migration must replace that static provider behind the same topology boundary after parity and cutover evidence; it must not create a second topology API or authority.
+
+Under that separately approved migration, job dependencies move out of the untyped `configJson.dependsOnJobs` list into a first-class, independently persisted graph. Runtime configuration remains appropriate for producer parameters, filters, and dataset condition details, but it must no longer be the canonical owner of job-to-job topology after cutover.
 
 Each existing job definition receives an immutable, unique, human-readable `jobKey` that is independent of its database UUID and stable across environments. A key identifies one logical definition, not merely a `JobType`; this is required because multiple definitions can share a type while differing by source, strategy, timeframe, sector, or provider. Example keys include:
 
@@ -376,16 +384,16 @@ Migration must generate and compare old-config and new-table edge sets before cu
 
 ## Implementation Increments
 
-This supporting plan proposes the following sequence. IDs are placeholders until the owner adds them to the canonical roadmap registry.
+This supporting plan proposes the following sequence. IDs are placeholders until the owner adds them to the canonical roadmap registry. P14-I1 is an external prerequisite only for the shared topology boundary used by graph tracing; P14-I2 and P14-I3 are not prerequisites.
 
-### Increment A — Stable job keys and first-class dependency graph
+### Increment A — Persisted job keys and topology-provider migration
 
-- Add immutable unique `jobKey` identity to every existing definition.
+- Reuse P14-I1's logical node identity, validation, traversal, and topology API instead of designing a parallel graph.
+- Add immutable unique persisted `jobKey` identity to every existing definition.
 - Add normalized dependency edges with deterministic `dependencyKey` and bidirectional indexes.
-- Migrate and compare existing `dependsOnJobs` metadata without retaining two runtime sources of truth.
-- Add direct upstream/downstream and transitive ancestor/descendant queries.
-- Add self-edge, duplicate-edge, dangling-node, cycle, depth, and graph-size guards.
-- Add deterministic Mermaid/export output generated from the persisted graph for documentation and diagnostics.
+- Migrate and compare existing static/`dependsOnJobs` edge sets, then cut over the one topology provider without retaining two runtime sources of truth.
+- Preserve direct upstream/downstream and transitive ancestor/descendant behavior through the shared API.
+- Preserve self-edge, duplicate-edge, dangling-node, cycle, depth, graph-size, and deterministic export validation.
 
 ### Increment B — Backfill identity, preview, and persistence
 
@@ -510,22 +518,23 @@ Current evidence: `platform:test` was executed after this plan update and expose
 3. Backfill carries separate actual runtime and historical business-date values.
 4. The planner validates a bounded range, trading dates, job support, and expansion limits before persistence.
 5. `dryRun` returns deterministic dependency/work classifications without creating execution or outbox rows.
-6. Every definition has a unique stable `jobKey`; every graph edge has a deterministic `dependencyKey` and valid upstream/downstream foreign keys.
-7. Job topology is no longer runtime-owned by `configJson.dependsOnJobs`; migration parity is proven before the normalized graph becomes the sole source of truth.
-8. Direct dependencies, direct dependents, complete ancestors, and complete descendants are traceable by key with deterministic paths and bounded cycle-safe traversal.
-9. Dependency graphs are deterministic, cycle-safe, exportable as Mermaid, and planned in topological order.
-10. Producers are resolved through the existing producer registry and reuse the normal execution/outbox path.
-11. No producer recursively dispatches another producer, and no scheduled claim is reused across a date loop.
-12. Duplicate/completeness checks use job definition, work identity, business date, and where required exact input version; they do not infer business date from `triggeredAt`.
-13. `ALREADY_COMPLETE` requires matching SUCCESS history plus valid exact output manifest and lineage.
-14. Concurrent requests cannot create duplicate active work for the same canonical dated identity.
-15. Downstream work waits for the exact dated/versioned dependency and never substitutes the latest unrelated READY input.
-16. Stock-price and intraday-EOD backfills preserve existing writer ownership, date semantics, validation, and READY-last publication.
-17. Indicator backfill remains blocked until exact-date/version input and unambiguous historical output semantics are implemented and tested.
-18. Parent/request progress distinguishes skipped, active-linked, waiting, blocked, failed, repaired, and successful partitions.
-19. Producer, consumer, persistence, migration, manifests, storage builders, tests, configuration, generated Mermaid, and canonical docs are updated together for each changed contract.
-20. Every critical Plan 028 component listed under Verification has independently measured line and branch coverage greater than 80%, with direct assertions for its safety-critical branches and no reliance on aggregate project coverage.
-21. Required targeted tests, Nx test/coverage/build checks, graph analysis, documentation consistency, exact-head CI, and runtime evidence pass and are recorded before the owning roadmap increment is completed.
+6. P14-I1's shared topology boundary and stable logical node identity are reused; Plan 028 does not introduce a competing topology API.
+7. Every definition has a unique persisted `jobKey`; every persisted graph edge has a deterministic `dependencyKey` and valid upstream/downstream foreign keys.
+8. Job topology is no longer runtime-owned by the static provider or `configJson.dependsOnJobs` after migration; parity is proven before the normalized graph becomes the sole source of truth.
+9. Direct dependencies, direct dependents, complete ancestors, and complete descendants remain traceable by key with deterministic paths and bounded cycle-safe traversal.
+10. Dependency graphs are deterministic, cycle-safe, exportable as Mermaid, and planned in topological order.
+11. Producers are resolved through the existing producer registry and reuse the normal execution/outbox path.
+12. No producer recursively dispatches another producer, and no scheduled claim is reused across a date loop.
+13. Duplicate/completeness checks use job definition, work identity, business date, and where required exact input version; they do not infer business date from `triggeredAt`.
+14. `ALREADY_COMPLETE` requires matching SUCCESS history plus valid exact output manifest and lineage.
+15. Concurrent requests cannot create duplicate active work for the same canonical dated identity.
+16. Downstream work waits for the exact dated/versioned dependency and never substitutes the latest unrelated READY input.
+17. Stock-price and intraday-EOD backfills preserve existing writer ownership, date semantics, validation, and READY-last publication.
+18. Indicator backfill remains blocked until exact-date/version input and unambiguous historical output semantics are implemented and tested.
+19. Parent/request progress distinguishes skipped, active-linked, waiting, blocked, failed, repaired, and successful partitions.
+20. Producer, consumer, persistence, migration, manifests, storage builders, tests, configuration, generated Mermaid, and canonical docs are updated together for each changed contract.
+21. Every critical Plan 028 component listed under Verification has independently measured line and branch coverage greater than 80%, with direct assertions for its safety-critical branches and no reliance on aggregate project coverage.
+22. Required targeted tests, Nx test/coverage/build checks, graph analysis, documentation consistency, exact-head CI, and runtime evidence pass and are recorded before the owning roadmap increment is completed.
 
 ## Risks and Mitigations
 
@@ -560,16 +569,15 @@ Stop implementation and request an owner decision if:
 - Revert additive API/producer behavior only after draining or explicitly blocking pending backfill outbox rows.
 - Keep scheduled execution operational throughout rollback.
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| Job graph identity | jobKey/job_key, dependencyKey/dependency_key, upstream/downstream foreign keys, dependency_kind/required | HIGH persisted topology ownership change; replaces legacy configJson.dependsOnJobs, requires independent migration/cycle/portability review. |
-| Dated execution | businessDate, executionMode, backfillRequestId, runKey; optional exact inputDataVersion, existing work/execution identity | HIGH identity/idempotency; triggeredAt stays audit time and cannot substitute for business date. |
-| Backfill request/preview | jobDefinitionId, fromDate, toDate, optional work filter, dryRun, requestedBy; classified counts/items/reasons and skipped/active references | MEDIUM read-only preview / HIGH bounded enqueue; exact DTO types/limits unresolved. Actor comes from authorized context, not trusted client text. |
-| Historical producer inputs | Approved business date/input lineage and provider-specific supported history behavior | HIGH algorithm/data contract; reuse producers only where historical semantics are supported. |
+| Surface                    | Field/DTO change                                                                                                                            | Impact and behavior                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job graph identity         | jobKey/job_key, dependencyKey/dependency_key, upstream/downstream foreign keys, dependency_kind/required                                    | HIGH persisted topology ownership change; replaces legacy configJson.dependsOnJobs, requires independent migration/cycle/portability review.      |
+| Dated execution            | businessDate, executionMode, backfillRequestId, runKey; optional exact inputDataVersion, existing work/execution identity                   | HIGH identity/idempotency; triggeredAt stays audit time and cannot substitute for business date.                                                  |
+| Backfill request/preview   | jobDefinitionId, fromDate, toDate, optional work filter, dryRun, requestedBy; classified counts/items/reasons and skipped/active references | MEDIUM read-only preview / HIGH bounded enqueue; exact DTO types/limits unresolved. Actor comes from authorized context, not trusted client text. |
+| Historical producer inputs | Approved business date/input lineage and provider-specific supported history behavior                                                       | HIGH algorithm/data contract; reuse producers only where historical semantics are supported.                                                      |
 
-Small tasks: stable-key/graph migration (separate prerequisite) → read-only classified preview → dated identity/persistence → bounded enqueue via existing dispatcher → one job-type rollout → progress/recovery. Do not bundle graph ownership rewrite, all historical producers and operator recovery into one release. Still proposed and not roadmap-scheduled.
+Small tasks: reuse P14-I1 topology → persisted-key/provider migration (separate Plan 028 story) → read-only classified preview → dated identity/persistence → bounded enqueue via existing dispatcher → one job-type rollout → progress/recovery. P14-I2/P14-I3 are not prerequisites for tracing/backfill delivery. Do not bundle graph ownership rewrite, all historical producers and operator recovery into one release. Plan 028 remains proposed and not roadmap-scheduled.

@@ -87,7 +87,7 @@ docker compose --env-file .env up -d
 | [ARCHITECTURE.md](ARCHITECTURE.md)                                                   | Compatibility index for architecture links. |
 | [AGENTS.md](AGENTS.md)                                                               | Development and agent workflow rules.       |
 
-Roadmap and debt navigation: [roadmap](docs/plans/roadmap/README.md), [roadmap Mermaid](docs/plans/roadmap/roadmap.mmd), [technical-debt index](docs/technical-debt/README.md), and [technical-debt priority Mermaid](docs/technical-debt/priority-order.mmd).
+Roadmap and debt navigation: [roadmap](docs/plans/roadmap/README.md), [roadmap diagram](docs/plans/roadmap/roadmap.md), [technical-debt index](docs/technical-debt/README.md), and [technical-debt priority diagram](docs/technical-debt/priority-order.md).
 
 ## Common Development Commands
 

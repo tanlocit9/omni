@@ -4,7 +4,6 @@
 
 This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.
 
-
 Plan ID: `024`
 Status: Deferred Phase 11 supporting design; evidence states remain owned by the roadmap
 Canonical increments: `P11-I1` through `P11-I5`
@@ -670,16 +669,15 @@ repository guidance change when implementation begins.
 - No production-ready or HA claim for the MVP Compose stack.
 - No blocking the MVP on deferred production-hardening work.
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| HTTP/Kafka context | correlationId/requestId via named headers; reuse executionId/parentExecutionId/triggerRequestId | MEDIUM additive propagation; preserve manual API requestId meaning, do not alias identifiers. |
-| Job/outbox persistence | Diagnostic correlationId and requestId where specified | HIGH additive DB and delayed-message compatibility; never ownership or dedup identity. |
+| Surface                     | Field/DTO change                                                                                                                                                                                                                 | Impact and behavior                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| HTTP/Kafka context          | correlationId/requestId via named headers; reuse executionId/parentExecutionId/triggerRequestId                                                                                                                                  | MEDIUM additive propagation; preserve manual API requestId meaning, do not alias identifiers.                                                    |
+| Job/outbox persistence      | Diagnostic correlationId and requestId where specified                                                                                                                                                                           | HIGH additive DB and delayed-message compatibility; never ownership or dedup identity.                                                           |
 | Structured failure envelope | schemaVersion/timestamp/level/service/environment/eventName/message, IDs, workType/workKey/stage/attempt, retryable/errorCategory/errorCode/exceptionType/exceptionMessage, durationMs and topic/partition/offset when available | MEDIUM logging contract; nullable/omitted optional evidence, sanitized messages, bounded cardinality. Exact types freeze before adapter rollout. |
-| Collector deployment | Existing application's structured output plus collector/backend settings | MEDIUM operations; collector failure must not fail business processing. |
+| Collector deployment        | Existing application's structured output plus collector/backend settings                                                                                                                                                         | MEDIUM operations; collector failure must not fail business processing.                                                                          |
 
 Small tasks: local shared logger/schema adapter → HTTP propagation → persistence/outbox context → Kafka propagation → collector deployment. Keep diagnostics distinct from P13 execution evidence: a log line alone is not an authoritative state transition. Scope remains deferred/owner-gated.

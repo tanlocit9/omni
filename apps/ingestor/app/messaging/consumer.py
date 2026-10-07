@@ -89,8 +89,8 @@ class IngestorKafkaRoutingService:
                 producer = KafkaClientFactory.create_producer(self._settings.kafka)
                 await consumer.start()
                 await producer.start()
-                # TODO(TD-009): Preserve startup batches; this call currently discards fetched records.
-                # Ref: docs/technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md
+                # TODO(TD-009): Preserve startup batches; this call currently
+                # discards fetched records. See the TD-009 technical-debt record.
                 await consumer.getmany(timeout_ms=1000)
                 return consumer, producer
             except Exception as exc:

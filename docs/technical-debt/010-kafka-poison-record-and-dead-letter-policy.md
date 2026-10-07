@@ -2,18 +2,17 @@
 
 ## Review — 2026-10-07
 
-| Field | Assessment |
-| --- | --- |
-| Type | correctness / recovery policy |
-| Status | OPEN / deferred durable DLT |
-| Priority | P1 if poison records strand work |
+| Field           | Assessment                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | correctness / recovery policy                                                                                                                          |
+| Status          | OPEN / deferred durable DLT                                                                                                                            |
+| Priority        | P1 if poison records strand work                                                                                                                       |
 | Static evidence | Status consumer rethrows exceptions; JobService can ignore invalid/unknown fields. Shared durable quarantine/replay is not implemented by this review. |
-| Activation | Observed poison-record stalls/loss; immediate narrow handling is separate from full DLT infrastructure. |
+| Activation      | Observed poison-record stalls/loss; immediate narrow handling is separate from full DLT infrastructure.                                                |
 
 Refs: [apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java), [apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java).
 
-Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
-
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
 
 Status: Deferred cross-service operational policy; not a P12-I3 completion gate and not
 an active MVP prerequisite.

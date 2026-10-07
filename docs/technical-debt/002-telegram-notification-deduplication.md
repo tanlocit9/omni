@@ -2,18 +2,17 @@
 
 ## Review — 2026-10-07
 
-| Field | Assessment |
-| --- | --- |
-| Type | operational hardening |
-| Status | OPEN / process-local limitation confirmed |
-| Priority | P3 conditional |
+| Field           | Assessment                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | operational hardening                                                                                                                                                          |
+| Status          | OPEN / process-local limitation confirmed                                                                                                                                      |
+| Priority        | P3 conditional                                                                                                                                                                 |
 | Static evidence | Cooldown state remains process-local and bounded. The current key includes channel/type/severity and uses explicit deduplicationKey when provided, otherwise normalized title. |
-| Activation | Multiple replicas, lost suppression counts, or measured false suppression. |
+| Activation      | Multiple replicas, lost suppression counts, or measured false suppression.                                                                                                     |
 
 Refs: [apps/core/src/main/java/com/omni/platform/modules/notifications/services/NotificationDeduplicator.java](../../apps/core/src/main/java/com/omni/platform/modules/notifications/services/NotificationDeduplicator.java).
 
-Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
-
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
 
 ## MVP Status
 

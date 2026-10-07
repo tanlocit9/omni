@@ -2,18 +2,17 @@
 
 ## Review — 2026-10-07
 
-| Field | Assessment |
-| --- | --- |
-| Type | deferred feature / umbrella |
-| Status | DEFERRED / classification record |
-| Priority | P3 conditional |
+| Field           | Assessment                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| Type            | deferred feature / umbrella                                                                           |
+| Status          | DEFERRED / classification record                                                                      |
+| Priority        | P3 conditional                                                                                        |
 | Static evidence | Design backlog remains; source presence and historical evidence are not current scheduling authority. |
-| Activation | Approved deployment, repeated setup friction, or concrete user demand; promote one bounded slice. |
+| Activation      | Approved deployment, repeated setup friction, or concrete user demand; promote one bounded slice.     |
 
 Refs: [docs/plans/028-reusable-date-range-backfill.md](../../docs/plans/028-reusable-date-range-backfill.md), [docs/plans/025-polycheck-adoption.md](../../docs/plans/025-polycheck-adoption.md).
 
-Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
-
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
 
 ## Decision
 
@@ -33,22 +32,22 @@ This is prioritization debt, not a claim that the work has no long-term value. E
 | Console and query polish        | P6-I1, P6-I2, P6-I3, P6-I4 | Arbitrary SQL expansion, Saved Queries, broad Explorer polish, customizable layouts, and broad market-dashboard growth remain deferred. The bounded Phase 13 Job Operations, manual EOD Data Health, and small fixed Market Review slice is no longer debt. Existing source is retained for reuse without reactivating P6 scheduling. |
 | Notification follow-ups         | Outside P8-I5              | P8-I5 now owns durable enqueue, distributed idempotency, bounded retries/backoff/jitter, `Retry-After`, `DEAD`, pagination, metrics, and operator status visibility. Audited manual replay of `DEAD`, broader notification-provider expansion, and optional operational tooling beyond status/count visibility remain deferred.       |
 | Intraday EOD follow-ups         | P9-I2, P9-I3, P9-I5        | P9-I1 is reactivated and remains `verification_pending`; later bars/features and VCI health visibility remain deferred or superseded. P9-I5 requires explicit owner reactivation before scheduling.                                                                                                                                   |
-| Realtime per tick               | Deferred again 2026-10-07 | On 2026-10-07 the owner moved realtime back to owner-gated debt. Existing evidence/blocked states are preserved; TD-011 owns current deferral.                                                                                                                      |
+| Realtime per tick               | Deferred again 2026-10-07  | On 2026-10-07 the owner moved realtime back to owner-gated debt. Existing evidence/blocked states are preserved; TD-011 owns current deferral.                                                                                                                                                                                        |
 
 ## Deferred Supporting Plans
 
 The following consolidated supporting plans are retained as design or historical records, but they are technical debt for current scheduling and must not create MVP prerequisites:
 
-| Plan                                                                                                                                 | Classification                  | MVP rule                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`docs/plans/006-job-dependency-guard-progress.md`](../plans/006-job-dependency-guard-progress.md)                                   | Historical Phase 4 progress     | Remaining tracking, cache, dashboard, alerting, and retry-polish checklist items are deferred; completed Phase 4 behavior remains part of the safety baseline.   |
-| [`docs/plans/007-portable-docker-deployment.md`](../plans/007-portable-docker-deployment.md)                                         | Deployment hardening debt       | Do not require cloud profiles, backup rehearsal, restore proof, or immutable image publication without an approved deployment target.                            |
-| [`docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`](../plans/008-omni-metadata-console-dashboard-execution-plan.md) | Historical Console/query detail | Explorer, Viewer, and Query foundations may be reused; Plan 029 owns the active operator-trust slice and landing order. Remaining expansion stays deferred.      |
-| [`docs/plans/009-dataset-component-market-dashboard.md`](../plans/009-dataset-component-market-dashboard.md)                         | Historical dashboard detail     | Existing fixed widgets may be reused only for Phase 13's small third-position Market Review. Broader market-first dashboard scope remains debt.                  |
-| [Plan 013](../plans/013-intraday-eod.md) | Active bounded P9-I1; later features deferred | Normalized-trade source/evidence remains active; bars/features/sectors require separate reactivation. |
-| [Plan 014](../plans/014-realtime-per-tick.md) | Deferred owner-gated Phase 10 design | Historical verification_pending/blocked evidence retained; fresh owner reactivation required under TD-011. |
-| [`docs/plans/015-cross-service-observability-correlation.md`](../plans/015-cross-service-observability-correlation.md)               | Superseded historical design    | On 2026-09-17 the owner replaced it with Plan 024 and scheduled Phase 11 after P4-I3 and P8-I5; do not reactivate or schedule Plan 015.                          |
-| [`docs/plans/016-shared-api-contract-and-unified-openapi.md`](../plans/016-shared-api-contract-and-unified-openapi.md)               | Developer-platform debt         | Generated clients, unified Swagger, and contract-diff CI are not prerequisites while current HTTP contracts remain usable.                                       |
+| Plan                                                                                                                                 | Classification                                | MVP rule                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`docs/plans/006-job-dependency-guard-progress.md`](../plans/006-job-dependency-guard-progress.md)                                   | Historical Phase 4 progress                   | Remaining tracking, cache, dashboard, alerting, and retry-polish checklist items are deferred; completed Phase 4 behavior remains part of the safety baseline. |
+| [`docs/plans/007-portable-docker-deployment.md`](../plans/007-portable-docker-deployment.md)                                         | Deployment hardening debt                     | Do not require cloud profiles, backup rehearsal, restore proof, or immutable image publication without an approved deployment target.                          |
+| [`docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`](../plans/008-omni-metadata-console-dashboard-execution-plan.md) | Historical Console/query detail               | Explorer, Viewer, and Query foundations may be reused; Plan 029 owns the active operator-trust slice and landing order. Remaining expansion stays deferred.    |
+| [`docs/plans/009-dataset-component-market-dashboard.md`](../plans/009-dataset-component-market-dashboard.md)                         | Historical dashboard detail                   | Existing fixed widgets may be reused only for Phase 13's small third-position Market Review. Broader market-first dashboard scope remains debt.                |
+| [Plan 013](../plans/013-intraday-eod.md)                                                                                             | Active bounded P9-I1; later features deferred | Normalized-trade source/evidence remains active; bars/features/sectors require separate reactivation.                                                          |
+| [Plan 014](../plans/014-realtime-per-tick.md)                                                                                        | Deferred owner-gated Phase 10 design          | Historical verification_pending/blocked evidence retained; fresh owner reactivation required under TD-011.                                                     |
+| [`docs/plans/015-cross-service-observability-correlation.md`](../plans/015-cross-service-observability-correlation.md)               | Superseded historical design                  | On 2026-09-17 the owner replaced it with Plan 024 and scheduled Phase 11 after P4-I3 and P8-I5; do not reactivate or schedule Plan 015.                        |
+| [`docs/plans/016-shared-api-contract-and-unified-openapi.md`](../plans/016-shared-api-contract-and-unified-openapi.md)               | Developer-platform debt                       | Generated clients, unified Swagger, and contract-diff CI are not prerequisites while current HTTP contracts remain usable.                                     |
 
 Compatibility and already-implemented historical documents remain references rather than executable work. A concrete correctness, security, data-loss, or unsafe-operation defect found inside a deferred area is still MVP work under the existing safety baseline.
 
@@ -520,4 +519,4 @@ Before reactivation, add coverage for canonical identity, weight normalization, 
 
 ## Current follow-up deferral — 2026-10-07
 
-P10 realtime, P11 cross-service logging rollout, and P12 throughput expansion are now owner-gated debt under [TD-011](011-deferred-observability-capacity-and-realtime.md). Earlier reactivation statements above are historical. The active Phase 13 bounded trust slice remains active; raw SQL/custom dashboards, extra providers, HA, tooling and backfill stay deferred. Current priorities: [index](README.md), [Mermaid source](priority-order.mmd).
+P10 realtime, P11 cross-service logging rollout, and P12 throughput expansion are now owner-gated debt under [TD-011](011-deferred-observability-capacity-and-realtime.md). Earlier reactivation statements above are historical. The active Phase 13 bounded trust slice remains active; raw SQL/custom dashboards, extra providers, HA, tooling and backfill stay deferred. Current priorities: [index](README.md), [Mermaid source](priority-order.md).

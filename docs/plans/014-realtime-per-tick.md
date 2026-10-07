@@ -4,7 +4,6 @@
 
 This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.
 
-
 Historical evidence status (retained; scheduling deferred): P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. P10-I0 remains `blocked` pending genuine realtime provider evidence; P10-I3 remains `blocked` pending completed P10-I0/P10-I2 and owner approval of evidence-derived contracts. Canonical schedule lives in [`docs/plans/014-realtime-per-tick.md`](014-realtime-per-tick.md).
 
 ## Goal
@@ -122,7 +121,7 @@ The approved planning sequence is:
 7. Report heartbeat and observed state to Platform, distinguishing desired from observed state and sanitizing errors/secrets.
 8. Add evidence-derived broker, control concurrency, restart/recovery, reconnect/gap/correction, configured storage, provider-session, deployment, and production checks.
 
-P9-I1 is only the locally verified completed-session batch reference. It remains `verification_pending`; P9-I4 remains `in_progress`; P9-I2 and P9-I3 stay `superseded`. No Phase 9 completion or reactivation is implied.
+P9-I1 is only the locally verified completed-session batch reference. It remains `verification_pending`; P9-I4 is paused at `pending` with source/evidence retained; P9-I2 and P9-I3 stay `superseded`. No Phase 9 completion or reactivation is implied.
 
 ## No-Legacy Policy
 
@@ -172,15 +171,14 @@ The expanded suite includes deterministic earliest-arrival selection and identic
 - Roadmap, supporting plan, canonical data/flow docs, and documentation indexes agree.
 - Required Nx checks and CI/PR evidence are recorded before P10-I1/P10-I2 completion; deferred provider/runtime evidence is required only after explicit reactivation of P10-I0/P10-I3.
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| MarketTick JSON | Existing canonical fields in this plan, including tradeId/eventId/receivedAt and provider-defined event identity/time/numeric values | HIGH cross-service/logical identity; use the exact canonical contract below, not an invented provider field. Missing guarantees stay evidence-gated. |
-| Archive/rebuild/reconciliation | Logical partition, exact version, bounded archive/replay and validation evidence | HIGH persisted ordering/dedup behavior; preserve strict schema and immutable publication. |
-| Live control/provider adapter | Provider-derived DTOs, authentication/subscription/reconnect fields | UNRESOLVED, HIGH; no shape or runtime authorization without provider evidence. |
+| Surface                        | Field/DTO change                                                                                                                     | Impact and behavior                                                                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MarketTick JSON                | Existing canonical fields in this plan, including tradeId/eventId/receivedAt and provider-defined event identity/time/numeric values | HIGH cross-service/logical identity; use the exact canonical contract below, not an invented provider field. Missing guarantees stay evidence-gated. |
+| Archive/rebuild/reconciliation | Logical partition, exact version, bounded archive/replay and validation evidence                                                     | HIGH persisted ordering/dedup behavior; preserve strict schema and immutable publication.                                                            |
+| Live control/provider adapter  | Provider-derived DTOs, authentication/subscription/reconnect fields                                                                  | UNRESOLVED, HIGH; no shape or runtime authorization without provider evidence.                                                                       |
 
 Small tasks after owner reactivation: provider evidence → strict contract/identity reconciliation → finite archive/replay → one bounded live-adapter/control slice → deployment/runtime verification. Live transport is separate from provider-independent source/evidence work.

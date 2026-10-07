@@ -29,6 +29,12 @@ and a guarded publish-drain estimate for only the currently eligible backlog sna
 This planned observability does not change dependency policy, commit offsets, replay
 messages, rewrite statuses, or implement Phase 12 concurrency.
 
+## Planned Static Graph and Dispatch Planning
+
+[Plan 030](../plans/030-static-graph-dispatch-planner.md) owns the active P14 sequence. P14-I1 is ready and adds one validated static topology boundary with stable logical node mapping. P14-I2 reads a bounded pending/dispatchable/in-flight snapshot and returns node/scope/quota selections by top-down traversal. P14-I3 integrates those selections before candidate payload loading and owns the final dependency-aware claim/fencing safety proof transferred from superseded P4-I3 through TD-014.
+
+This does not change the dependency authority shown below: every selected candidate still passes through `DependencyRegistry` and `DependencyGuard`, which alone evaluate required input readiness and exact versions. Snapshot counts and graph position are never READY evidence. The existing atomic claim, lease/fencing token, WAITING/BLOCKED handling, publish retry identity, and rollback to bounded FIFO selection remain required. Persisted topology, provider-policy expansion, and advanced fairness are deferred.
+
 ## Flow
 
 ```mermaid
@@ -51,8 +57,8 @@ sequenceDiagram
   Scheduler->>Producer: prepareDispatch(job, claim, now)
   Producer->>DB: Atomically create execution(s), PENDING outbox, advance nextRun, release claim
   DB-->>Scheduler: Commit stable execution/message identities
-  Scheduler->>DB: Over-fetch unclaimed PENDING candidates
-  Scheduler->>Scheduler: Evaluate manifests and exact run/work barriers
+  Scheduler->>DB: Load bounded candidates or planned node/scope candidates after P14-I3
+  Scheduler->>Scheduler: Evaluate manifests and exact run/work barriers through DependencyRegistry
   Scheduler->>DB: Atomically claim READY candidate with lease/fence
   Scheduler->>Kafka: Publish serialized outbox payload(s)
   Scheduler->>DB: Mark exact outbox claim published or retryable
@@ -208,7 +214,9 @@ Claim candidates use the Phase 0 due semantics: active jobs where `nextRun <= no
 
 ## Dependency Tree Metadata
 
-Seeded job definitions carry dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). `dependsOnJobs` remains operational/traceability metadata. Scheduled and accepted manual work first commit stable execution and PENDING outbox identities. Dataset dependencies declared as `ENFORCED` are then checked at the scheduler-outbox dispatch boundary. READY manifests and exact `dataVersion` lineage remain authoritative; execution state is scoped to the exact run/work item and the metadata workflow uses a complete-run barrier where supported. WAITING remains PENDING without consuming delivery attempts, while terminal incompatibility produces `BLOCKED`, not a worker `FAILED` result. `DOCUMENTATION_ONLY` dependencies remain advisory.
+Seeded job definitions carry dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). Today `dependsOnJobs` remains operational/traceability metadata. P14-I1 will adapt job-to-job relationships into one immutable validated static topology for shared traversal and definition mapping without adding persistence. Plan 028 may later replace the static provider with persisted topology only through parity and one-authority cutover evidence.
+
+Scheduled and accepted manual work first commit stable execution and PENDING outbox identities. Dataset dependencies declared as `ENFORCED` are then checked at the scheduler-outbox dispatch boundary. READY manifests and exact `dataVersion` lineage remain authoritative; execution state is scoped to the exact run/work item and the metadata workflow uses a complete-run barrier where supported. WAITING remains PENDING without consuming delivery attempts, while terminal incompatibility produces `BLOCKED`, not a worker `FAILED` result. `DOCUMENTATION_ONLY` dependencies remain advisory. Static topology and dataset readiness are related but non-interchangeable contracts.
 
 ```mermaid
 flowchart TD

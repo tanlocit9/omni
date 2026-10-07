@@ -12,7 +12,7 @@ Make Omni Console open with truthful answers to three operator questions, in thi
 2. Is EOD data sufficient and trustworthy for the expected trading dates?
 3. What small, fixed market review can be shown from existing trusted datasets?
 
-Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer.
+Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations, Data Health, and the fixed shell remain independently deliverable from [Plan 030](030-static-graph-dispatch-planner.md); only a graph-specific backlog/topology presentation waits for P14-I2.
 
 ## Outcome
 
@@ -30,12 +30,12 @@ After Phase 13 is implemented and verified:
 
 ## Verified Baseline and Conflicts
 
-| Area                | Existing source capability                                                                                                                                                              | Missing capability                                                                                                                                         | Conflict resolved by this plan                                                                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Job operations      | Platform exposes a job catalog, safe manual trigger, execution status, and recent parent history. Console has a Jobs panel. Scheduler outbox persists dependency and publication state. | Authoritative stage timestamps, stage counts, queue/processing/end-to-end/status lag, daily throughput, stall heuristics, and publish-drain estimates.     | Child executions are currently marked `RUNNING` and receive `startedAt` during dispatch preparation. That state cannot truthfully mean active worker processing. |
+| Area                | Existing source capability                                                                                                                                                              | Missing capability                                                                                                                                                                          | Conflict resolved by this plan                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job operations      | Platform exposes a job catalog, safe manual trigger, execution status, and recent parent history. Console has a Jobs panel. Scheduler outbox persists dependency and publication state. | Authoritative stage timestamps, stage counts, queue/processing/end-to-end/status lag, daily throughput, stall heuristics, and publish-drain estimates.                                      | Child executions are currently marked `RUNNING` and receive `startedAt` during dispatch preparation. That state cannot truthfully mean active worker processing. |
 | EOD inspection      | Query Service resolves logical READY identities and runs bounded DuckDB queries over Parquet. Existing dashboard endpoints expose selected EOD aggregates and manifest provenance.      | Manual row-level checks for expected dates, duplicates/conflicts, fields, OHLCV validity, corruption, and schema mismatch, with exact result provenance retained in a bounded memory cache. | Manifest readiness/freshness is not proof that every expected symbol/date row is present and valid.                                                              |
-| Console composition | A compile-time widget registry and fixed EOD/signal widgets exist. Market Dashboard is currently the default section.                                                                   | Operator-first composition and shared filters across operations, health, and a small market review.                                                        | The owner-approved product order supersedes the prior market-first default while retaining reusable widget/query source.                                         |
-| Capacity planning   | Phase 12 requires measurement before concurrency and batching.                                                                                                                          | A truthful operator-visible baseline whose stages and rates are comparable.                                                                                | P12-I1 must depend on P13-I1 so concurrency, bulk-status, and writer decisions do not rely on ambiguous `RUNNING` rows.                                          |
+| Console composition | A compile-time widget registry and fixed EOD/signal widgets exist. Market Dashboard is currently the default section.                                                                   | Operator-first composition and shared filters across operations, health, and a small market review.                                                                                         | The owner-approved product order supersedes the prior market-first default while retaining reusable widget/query source.                                         |
+| Capacity planning   | Phase 12 requires measurement before concurrency and batching.                                                                                                                          | A truthful operator-visible baseline whose stages and rates are comparable.                                                                                                                 | P12-I1 must depend on P13-I1 so concurrency, bulk-status, and writer decisions do not rely on ambiguous `RUNNING` rows.                                          |
 
 Source presence is baseline evidence only. It does not make a Phase 13 increment implemented, verified, or completed.
 
@@ -137,6 +137,8 @@ For a selected day or bounded date range, show:
 Provider-bound ingestion must not be averaged into CPU/storage-bound analysis without a visible breakdown. Missing stage evidence must reduce the sample count rather than invent a zero duration.
 
 ### Scheduler-outbox publish backlog and ETA
+
+The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I2 is completed, an optional graph-specific presentation may group or trace the same bounded backlog by accepted topology node/scope. The UI must not construct a topology independently, infer READY from graph position, or wait for P14-I3 merely to show accepted P14-I2 snapshot semantics.
 
 Scheduler-outbox visibility reports separately:
 
@@ -291,25 +293,25 @@ No new trading algorithm is unlocked. Phase 13 improves human confidence in exis
 | Kafka or service-to-service protobuf | Potential additive operational timing evidence in P13-I1. Exact transport is unresolved pending impact analysis. If changed, update Java producers/consumers, Python workers, schemas/fixtures, topic documentation, compatibility, and both-side tests together. No business payload may contain a physical storage path. |
 | Object-storage JSON manifests        | Unchanged. Scans consume exact logical identity/version and never mutate metadata or READY.                                                                                                                                                                                                                                |
 | Storage paths or dataset ownership   | Unchanged. Ingestor remains EOD producer; Query Service resolves trusted logical reads. No new browser-visible physical path.                                                                                                                                                                                              |
-| Public Java or Python APIs           | Additive Platform operational stage/aggregate API and bounded Query Service scan execution API are expected. Query Service owns bounded process-local scan caching; no durable result store is introduced.                                                                                                                                           |
-| Configuration or environment         | Add bounded metric windows, minimum ETA samples, idle/stall thresholds, scan row/byte/file/time limits, and cache TTL/entry/byte bounds and scan concurrency settings. Defaults fail conservatively.                                                                                                               |
-| PostgreSQL/persistence               | Additive stage evidence and aggregate-query support are expected. Data Health results stay in Query Service memory; no Data Health migration or table is added. No analytical EOD copy is added.                                                                                                                                               |
+| Public Java or Python APIs           | Additive Platform operational stage/aggregate API and bounded Query Service scan execution API are expected. Query Service owns bounded process-local scan caching; no durable result store is introduced.                                                                                                                 |
+| Configuration or environment         | Add bounded metric windows, minimum ETA samples, idle/stall thresholds, scan row/byte/file/time limits, and cache TTL/entry/byte bounds and scan concurrency settings. Defaults fail conservatively.                                                                                                                       |
+| PostgreSQL/persistence               | Additive stage evidence and aggregate-query support are expected. Data Health results stay in Query Service memory; no Data Health migration or table is added. No analytical EOD copy is added.                                                                                                                           |
 
 ## Service Impact Matrix
 
-| Surface          | Impact                                                                                                                                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Surface          | Impact                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Platform         | P13-I1/P13-I2 stage evidence, scheduler-outbox metrics, aggregate API, compatibility, migrations, and tests. It does not own scan-result persistence; existing operator access controls remain in scope.           |
-| Analyzer         | Emit authoritative worker receive/start/status-publication evidence for affected jobs; no concurrency, calculation, dataset, or writer change.                                                          |
-| Ingestor         | Emit equivalent authoritative timing evidence; retain sole EOD production and validation ownership; no provider concurrency or repair path.                                                             |
+| Analyzer         | Emit authoritative worker receive/start/status-publication evidence for affected jobs; no concurrency, calculation, dataset, or writer change.                                                                     |
+| Ingestor         | Emit equivalent authoritative timing evidence; retain sole EOD production and validation ownership; no provider concurrency or repair path.                                                                        |
 | Query Service    | Execute bounded read-only EOD scans using logical resolution and DuckDB; expose typed findings/provenance; own bounded in-memory result/in-flight caching. Reuse existing fixed dashboard reads for Market Review. |
-| Omni Console     | Make Job Operations the landing section, add operations and health states/filters/provenance, keep a small Market Review, and de-emphasize Raw SQL.                                                     |
-| `libs/py-common` | Add reusable timing/status helpers only if cross-worker behavior is genuinely shared; preserve storage and READY-last abstractions.                                                                     |
-| `libs/contracts` | Change only if P13-I1 selects a language-neutral transport contract. Never hand-edit generated output.                                                                                                  |
-| PostgreSQL       | Expected additive Platform operational-stage storage/indexes. No Data Health storage or migration. No analytical cache.                                                                                   |
-| Configuration    | Add bounded windows, thresholds, and scan limits with documented defaults and deployment impact.                                                                                                        |
-| Tests            | Platform migration/API/aggregation/ETA tests; worker timing compatibility tests; Query Service scan tests; Console state/filter/accessibility tests; cross-service impact-to-test matrix.               |
-| Operations       | Cardinality-safe metrics, cache sizing/TTL and restart behavior, threshold tuning from baseline, and explicit no-SLA estimate wording.                                                                                |
+| Omni Console     | Make Job Operations the landing section, add operations and health states/filters/provenance, keep a small Market Review, and de-emphasize Raw SQL.                                                                |
+| `libs/py-common` | Add reusable timing/status helpers only if cross-worker behavior is genuinely shared; preserve storage and READY-last abstractions.                                                                                |
+| `libs/contracts` | Change only if P13-I1 selects a language-neutral transport contract. Never hand-edit generated output.                                                                                                             |
+| PostgreSQL       | Expected additive Platform operational-stage storage/indexes. No Data Health storage or migration. No analytical cache.                                                                                            |
+| Configuration    | Add bounded windows, thresholds, and scan limits with documented defaults and deployment impact.                                                                                                                   |
+| Tests            | Platform migration/API/aggregation/ETA tests; worker timing compatibility tests; Query Service scan tests; Console state/filter/accessibility tests; cross-service impact-to-test matrix.                          |
+| Operations       | Cardinality-safe metrics, cache sizing/TTL and restart behavior, threshold tuning from baseline, and explicit no-SLA estimate wording.                                                                             |
 
 ## Implementation Increments
 
@@ -334,7 +336,7 @@ P13-I1 does not implement worker concurrency, bulk Platform status application, 
 
 ### P13-I2 — Job Operations dashboard and stall heuristics
 
-**Dependencies:** P13-I1.  
+**Dependencies:** P13-I1. Basic operations do not depend on Plan 030; a graph-specific presentation task depends on completed P14-I2.
 **Blocks:** P13-I4.
 
 Outcome:
@@ -343,7 +345,8 @@ Outcome:
 - provide jobs/minute, jobs/hour, total jobs/day, absolute outcomes, and p50/p95/p99 durations by day/job type/service;
 - show scheduler-outbox publishable, dependency-waiting, claimed, and retryable backlog separately;
 - calculate guarded publish-drain duration/timestamp for only the eligible snapshot;
-- classify idle, progressing backlog, suspected stall, and unknown without automatic remediation.
+- classify idle, progressing backlog, suspected stall, and unknown without automatic remediation;
+- keep graph grouping/tracing as a separable presentation task after P14-I2, without delaying the basic API/dashboard or requiring P14-I3.
 
 ### P13-I3 — Manual EOD Parquet Data Health scan
 
@@ -372,6 +375,15 @@ Outcome:
 - keep Dataset Explorer secondary and Raw SQL de-emphasized/deferred;
 - reuse existing widgets and Query Service contracts rather than introducing user-owned SQL or remote widget definitions.
 
+## Relationship to Plan 030
+
+- P13-I1 truthful stage evidence and baseline instrumentation do not depend on P14.
+- P13-I2 basic counts, rates, durations, publishable backlog, ETA, and warning states depend only on P13-I1 and existing scheduler-outbox evidence.
+- A graph-specific P13-I2 presentation slice depends on P14-I2's accepted topology/snapshot semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
+- P13-I3 Data Health is independent of P14.
+- P13-I4 shell/navigation is independent of P14 and renders graph views as unavailable until their dependency is complete.
+- No Plan 029 story requires P14-I3 unless a later approved scope explicitly needs planner-runtime outcomes rather than topology/snapshot presentation.
+
 ## Technical Debt Kept Separate
 
 Phase 13 excludes:
@@ -384,7 +396,8 @@ Phase 13 excludes:
 - new provider fallback/rotation or provider-limit bypass;
 - arbitrary Raw SQL expansion, Saved Queries, exports, persisted layouts, personalization, or plugin loading;
 - broad Market Dashboard growth, expensive hidden precomputation, and research/advice surfaces;
-- a new alerting platform, multi-instance workers/writers, distributed locks, or HA promotion.
+- a new alerting platform, multi-instance workers/writers, distributed locks, or HA promotion;
+- independently persisted scheduler topology, provider-aware dispatch policy, advanced planner fairness, or Console-owned graph reconstruction.
 
 Those items remain owned by Phase 12 or existing technical-debt records and require their own dependencies and approval.
 
@@ -442,6 +455,7 @@ Before implementation, inspect exact project targets and obtain approval for a c
 - [ ] Rate zero, sparse evidence, stale progress, and changing snapshots produce typed honest states rather than division-by-zero or fabricated ETA.
 - [ ] Every estimate exposes snapshot time, rate window, sample count, rate, estimated duration/time, and non-SLA wording.
 - [ ] Idle/stall classification is configurable, evidence-based, cardinality-safe, and warning-only.
+- [ ] Basic Job Operations ships without waiting for Plan 030; any graph-specific grouping/tracing uses the accepted P14-I2 projection and remains unavailable beforehand rather than inferred in Console.
 
 ### P13-I3
 
@@ -483,16 +497,15 @@ Resolved:
 - dashboard order is Job Operations, Data Health, then a small Market Review;
 - Raw SQL is de-emphasized/deferred;
 - Query Service owns bounded in-memory Data Health caching, with no durable scan store;
-- priority is P4-I3 verification, then P13-I1/P13-I2/P13-I4; calendar decisions do not block the shell.
+- the active Milestone 1 order prioritizes P14-I1/P14-I2/P14-I3; superseded P4-I3 evidence is retained in TD-014 and final dispatcher safety is proved by P14-I3; P13 follows P14-I3 while calendar decisions do not block the shell.
 
 Unresolved and blocking the applicable implementation decision:
 
 1. canonical exchange calendar, listing-date, and suspension/no-trade evidence for full classifications;
-3. initial stall, freshness, ETA sample, and recent-progress thresholds after P13-I1 baseline measurement;
-4. the exact additive cross-service mechanism for authoritative worker stage timestamps.
+2. initial stall, freshness, ETA sample, and recent-progress thresholds after P13-I1 baseline measurement;
+3. the exact additive cross-service mechanism for authoritative worker stage timestamps.
 
 Stop rather than guessing when any unresolved decision would change service ownership, persistence, compatibility, or classification truthfulness.
-
 
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
@@ -500,17 +513,17 @@ Design inventory, not a claim that fields are missing from source or already imp
 
 The detailed [Phase 13 register and small delivery slices](../reference/002-planned-field-dto-impact.md#phase-13-fielddto-register) distinguish reused IDs/outbox fields, additive timing evidence, candidate read/scan DTOs, and the HIGH-impact startedAt semantic cutover.
 
-| Boundary | Candidate fields / DTO | Impact and behavior |
-| --- | --- | --- |
-| P13-I1 timing | processingStartedAt/processingFinishedAt; statusReceivedAt/statusAppliedAt where existing evidence is insufficient | HIGH cross-service/storage; names and transport unresolved. Worker completion, status publication and Platform application are different facts. |
-| Existing timestamps | triggeredAt reused; publishedAt reused; startedAt meaning changes only in a coordinated cutover | HIGH semantic migration for startedAt; legacy values stay legacy/UNKNOWN. Do not rename/reinterpret silently. |
-| ExecutionStageView / JobOperationsSnapshot | stage, timestamps/durations, counts/ages/rates/percentiles, scope, samples/window/snapshot/evidence | MEDIUM read projections; these candidate DTO names do not imply new persisted status enums. |
-| PublishDrainEstimate | publishableBacklog/recentPublishRate/publishDrainDuration/publishDrainAt plus sampling/state | MEDIUM derived estimate; publication only, not processing-completion ETA. |
-| Idle observation proposal | classification, idleObservedSince/idleObservedDuration, observationStartedAt, completeness | MEDIUM, UNRESOLVED; first qualifying continuously observed empty snapshot, not exact idleSince. Polling can miss intervening activity; unknown/restart breaks the interval. |
-| DataHealthScanRequest/Result | Scope/checks/bounds/refresh; exact provenance/findings/state/completeness; scannedAt/expiresAt/cache hit/miss | MEDIUM candidate API; memory only, authorize every request; no new Data Health table or repair action. |
-| Dashboard shell | Existing read DTOs plus unavailable/UNKNOWN/stale presentation | LOW presentation change; preserve scanner owner gate. |
+| Boundary                                   | Candidate fields / DTO                                                                                             | Impact and behavior                                                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P13-I1 timing                              | processingStartedAt/processingFinishedAt; statusReceivedAt/statusAppliedAt where existing evidence is insufficient | HIGH cross-service/storage; names and transport unresolved. Worker completion, status publication and Platform application are different facts.                             |
+| Existing timestamps                        | triggeredAt reused; publishedAt reused; startedAt meaning changes only in a coordinated cutover                    | HIGH semantic migration for startedAt; legacy values stay legacy/UNKNOWN. Do not rename/reinterpret silently.                                                               |
+| ExecutionStageView / JobOperationsSnapshot | stage, timestamps/durations, counts/ages/rates/percentiles, scope, samples/window/snapshot/evidence                | MEDIUM read projections; these candidate DTO names do not imply new persisted status enums.                                                                                 |
+| PublishDrainEstimate                       | publishableBacklog/recentPublishRate/publishDrainDuration/publishDrainAt plus sampling/state                       | MEDIUM derived estimate; publication only, not processing-completion ETA.                                                                                                   |
+| Idle observation proposal                  | classification, idleObservedSince/idleObservedDuration, observationStartedAt, completeness                         | MEDIUM, UNRESOLVED; first qualifying continuously observed empty snapshot, not exact idleSince. Polling can miss intervening activity; unknown/restart breaks the interval. |
+| DataHealthScanRequest/Result               | Scope/checks/bounds/refresh; exact provenance/findings/state/completeness; scannedAt/expiresAt/cache hit/miss      | MEDIUM candidate API; memory only, authorize every request; no new Data Health table or repair action.                                                                      |
+| Dashboard shell                            | Existing read DTOs plus unavailable/UNKNOWN/stale presentation                                                     | LOW presentation change; preserve scanner owner gate.                                                                                                                       |
 
-Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
+Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract → .d optional graph presentation after P14-I2; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
 
 These task suffixes are review units under existing IDs, not new scheduled increments. Keep canonical dependencies and all original acceptance criteria. A shared producer/consumer compatibility slice is coherent; it must not be split into unsafe independent deployments.
 

@@ -1,6 +1,6 @@
 # Confirmed Trend Equals MVP Implementation Plan
 
-Status: Implemented source capability / roadmap in progress. Analyzer equal-vote confirmed-trend calculation, persisted component metadata, Query Service symbol history, and related tests are present. P8-I4 remains `in_progress` because P8-I2 and the required cross-project commit/PR/CI evidence are not complete.
+Status: Implemented source capability / roadmap `pending` after owner pause on 2026-10-10. Analyzer equal-vote confirmed-trend calculation, persisted component metadata, Query Service symbol history, and related tests remain present. P8-I4 is paused to release active `apps/core` ownership for P14-I1; P8-I2 and required cross-project impact/coverage/runtime evidence remain incomplete. No source, evidence, acceptance criterion, or rollback information is discarded.
 Canonical status owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md)
 
 ## Goal
@@ -163,16 +163,15 @@ Disable the combined job and set `TELEGRAM_SIGNAL_STRATEGY` to `TREND_MOMENTUM_V
 
 The full operator-managed weighted ensemble, immutable versioning, automatic historical precompute, atomic activation, rollback, and per-component enablement design is deliberately deferred and documented in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| Combined row metadata | modelVersion; components[].strategy, signal, mappedValue, score, signalDate, reasonCodes | HIGH business/model change; suggested metadata shape, exact types/null handling must be frozen. Inputs must share symbol/date/timeframe. |
-| Signal-history request/response | strategy filter; selected strategy and optional component details; existing exchange/symbol/limit | MEDIUM additive API plus default behavior change to CONFIRMED_TREND_EQUALS; no Query Service calculation. |
-| Notification configuration | TELEGRAM_SIGNAL_STRATEGY | MEDIUM behavior change for future messages only; never rewrites signal history. |
+| Surface                         | Field/DTO change                                                                                  | Impact and behavior                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Combined row metadata           | modelVersion; components[].strategy, signal, mappedValue, score, signalDate, reasonCodes          | HIGH business/model change; suggested metadata shape, exact types/null handling must be frozen. Inputs must share symbol/date/timeframe. |
+| Signal-history request/response | strategy filter; selected strategy and optional component details; existing exchange/symbol/limit | MEDIUM additive API plus default behavior change to CONFIRMED_TREND_EQUALS; no Query Service calculation.                                |
+| Notification configuration      | TELEGRAM_SIGNAL_STRATEGY                                                                          | MEDIUM behavior change for future messages only; never rewrites signal history.                                                          |
 
 Small tasks: pure combiner → versioned metadata/history persistence → READY-aware query DTO → selector UI → notification strategy policy. Keep algorithm/model change separately reviewable from dashboard defaults and delivery policy.
 
@@ -198,13 +197,13 @@ Existing forward outcome evaluation can evaluate combined history; no automatic 
 
 ## Contract Impact
 
-| Area | Decision |
-| --- | --- |
-| Kafka/protobuf | No migration or speculative envelope expansion in this MVP; reconcile existing Analyzer/Platform JSON consumers and selected-strategy semantics. |
-| Object-storage JSON manifest | Existing publication/identity model reused; preserve exact component lineage and READY-last. |
-| Storage ownership | Analyzer remains writer; Query Service/Console read persisted selected strategy. |
-| Public APIs | Add validated strategy selection and optional component metadata to existing signal-history contract; review default behavior explicitly. |
-| Configuration | Bounded TELEGRAM_SIGNAL_STRATEGY selection; affects future delivery only. |
+| Area                         | Decision                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Kafka/protobuf               | No migration or speculative envelope expansion in this MVP; reconcile existing Analyzer/Platform JSON consumers and selected-strategy semantics. |
+| Object-storage JSON manifest | Existing publication/identity model reused; preserve exact component lineage and READY-last.                                                     |
+| Storage ownership            | Analyzer remains writer; Query Service/Console read persisted selected strategy.                                                                 |
+| Public APIs                  | Add validated strategy selection and optional component metadata to existing signal-history contract; review default behavior explicitly.        |
+| Configuration                | Bounded TELEGRAM_SIGNAL_STRATEGY selection; affects future delivery only.                                                                        |
 
 Blast radius: Analyzer owns combiner/version/persistence; Platform owns schedule and notification selection; Query Service/Console own read/presentation. Ingestor/provider collection is unchanged. Kafka/storage consumers and fixtures need compatibility review; no new deployment service or arbitrary-ensemble database.
 

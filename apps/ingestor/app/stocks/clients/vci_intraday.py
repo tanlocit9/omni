@@ -40,8 +40,8 @@ class VCIIntradayQuoteAdapter:
     def _fetch_session_sync(self, symbol: str, trading_date: date) -> pd.DataFrame:
         """Synchronous fetch for execution in a thread pool."""
         quote = self._quote_factory(symbol=symbol, source="VCI")
-        # TODO(TD-008): Verify private API compatibility, date scope, and row-cap completeness.
-        # Ref: docs/technical-debt/008-vci-intraday-adapter-vnstock4-migration.md
+        # TODO(TD-008): Verify private API compatibility, date scope, and
+        # row-cap completeness. See the TD-008 technical-debt record.
         provider = getattr(quote, "_provider", None)
         if provider is None or not callable(getattr(provider, "intraday", None)):
             raise RuntimeError("vnstock VCI provider intraday API is unavailable")

@@ -742,15 +742,14 @@ all notification sources classified
 + configuration/docs/guidance synchronized
 ```
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| NotificationRequest | NotificationKind classification; optional structured content (exact shape unresolved) | MEDIUM internal API; templates/listeners choose renderer explicitly rather than infer from text. |
-| Existing notification identity | channel, type, severity, metadata remain inputs | REUSE; escape/filter/cap untrusted content; no business routing from rendered strings. |
-| Transport/delivery | HTML, block length and sound policy | MEDIUM presentation behavior; no new Kafka field assumed and no durable outbox migration in this format slice. |
+| Surface                        | Field/DTO change                                                                      | Impact and behavior                                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| NotificationRequest            | NotificationKind classification; optional structured content (exact shape unresolved) | MEDIUM internal API; templates/listeners choose renderer explicitly rather than infer from text.               |
+| Existing notification identity | channel, type, severity, metadata remain inputs                                       | REUSE; escape/filter/cap untrusted content; no business routing from rendered strings.                         |
+| Transport/delivery             | HTML, block length and sound policy                                                   | MEDIUM presentation behavior; no new Kafka field assumed and no durable outbox migration in this format slice. |
 
 Small tasks: classification/default compatibility → operational/generic rendering → immediate-signal/digest rendering → delivery binding/configuration. Keep golden rendering behavior separate from the P8-I5 durable acceptance/cutover. Exact optional-content schema must be frozen before coding.

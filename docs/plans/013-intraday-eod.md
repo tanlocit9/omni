@@ -174,17 +174,16 @@ P9-I1 must remain `verification_pending` and `last_verified_commit` must remain 
 
 P9-I2 may add deterministic 1m/5m/15m bars and reusable intraday features after P9-I1 is independently owner-verified and explicitly reactivated. P9-I3 may then add sector aggregation/lineage under its own gate. Neither is activated by this implementation.
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| IntradayEodJobMessage | symbol, exchange, tradingDate, provider plus existing execution/work identity | HIGH producer/consumer boundary; reuse source where present, freeze types/date timezone; one symbol/date per command. |
-| Manual runtime parameters | tradingDate OR startDate/endDate | MEDIUM API validation/fan-out; historical weekdays, bounded range, existing audited allow-list. |
-| Trade rows | trading_date, timestamp UTC, exchange, symbol, provider_id, price, volume, trade_value, match_type | HIGH persisted analytical contract; deterministic duplicates, conflicting provider IDs rejected. |
-| Manifest evidence | completeness, reconciliation.status/close/volume/value, sourceExecutionId, normalizationVersion, rowCount, objectCount, dataVersion, path | HIGH publication behavior; immutable per-symbol partition and READY-last; physical path remains storage metadata, not a routing field. |
+| Surface                   | Field/DTO change                                                                                                                          | Impact and behavior                                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| IntradayEodJobMessage     | symbol, exchange, tradingDate, provider plus existing execution/work identity                                                             | HIGH producer/consumer boundary; reuse source where present, freeze types/date timezone; one symbol/date per command.                  |
+| Manual runtime parameters | tradingDate OR startDate/endDate                                                                                                          | MEDIUM API validation/fan-out; historical weekdays, bounded range, existing audited allow-list.                                        |
+| Trade rows                | trading_date, timestamp UTC, exchange, symbol, provider_id, price, volume, trade_value, match_type                                        | HIGH persisted analytical contract; deterministic duplicates, conflicting provider IDs rejected.                                       |
+| Manifest evidence         | completeness, reconciliation.status/close/volume/value, sourceExecutionId, normalizationVersion, rowCount, objectCount, dataVersion, path | HIGH publication behavior; immutable per-symbol partition and READY-last; physical path remains storage metadata, not a routing field. |
 
 Small tasks: reconcile existing source/evidence → command/date validation → normalization → canonical EOD reconciliation → immutable publication. This is verification_pending capability, not permission to rebuild all tasks; retain already-present implementations. Bars/features and live realtime remain deferred.
 
@@ -210,13 +209,13 @@ Exact-date Analyzer intraday confirmation can consume verified READY trades. No 
 
 ## Contract Impact
 
-| Area | Decision |
-| --- | --- |
-| Kafka/protobuf | Reuse the declared IntradayEodJobMessage boundary; Java producer/Python consumer must agree on symbol/exchange/provider/tradingDate and execution identity. No Proto3 migration implied. |
-| Object-storage JSON manifest | Completeness, reconciliation and immutable per-symbol identity are part of the published contract. |
-| Storage ownership | Ingestor remains sole normalized-trade producer; per-symbol partition replaces former shared-date publication. No compatibility fallback is claimed. |
-| Public APIs | Existing audited manual trigger gains validated single-date/range parameters; no independent backfill pipeline. |
-| Configuration | Existing exchange/provider and manual-trigger allow-list boundary; no automatic widening of deployment permission. |
+| Area                         | Decision                                                                                                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kafka/protobuf               | Reuse the declared IntradayEodJobMessage boundary; Java producer/Python consumer must agree on symbol/exchange/provider/tradingDate and execution identity. No Proto3 migration implied. |
+| Object-storage JSON manifest | Completeness, reconciliation and immutable per-symbol identity are part of the published contract.                                                                                       |
+| Storage ownership            | Ingestor remains sole normalized-trade producer; per-symbol partition replaces former shared-date publication. No compatibility fallback is claimed.                                     |
+| Public APIs                  | Existing audited manual trigger gains validated single-date/range parameters; no independent backfill pipeline.                                                                          |
+| Configuration                | Existing exchange/provider and manual-trigger allow-list boundary; no automatic widening of deployment permission.                                                                       |
 
 Blast radius: Platform date fan-out/manual validation, Ingestor provider/normalization/reconciliation/publication, shared py-common storage/fixtures, Analyzer readiness/lineage consumers, and configuration are applicable. Query Service/Console have no new intraday UI in this bounded slice; operations must understand provider completeness failures. Reconcile exact source/test coverage before completion.
 

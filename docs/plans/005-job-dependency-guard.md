@@ -1,6 +1,6 @@
 # Job Dependency Guard Implementation Plan
 
-Status: Core guard implemented. P4-I1 and P4-I2 are `completed`; P4-I3 dependency-aware outbox dispatch source and focused tests are present but the increment remains `verification_pending` pending its required verification, commit/PR, CI, and runtime-migration evidence. Canonical status is owned by the [increment registry](roadmap/implementation-increments.md) and P4-I3 detail by [Plan 023](023-dependency-aware-outbox-dispatch.md).
+Status: Core guard implemented. P4-I1 and P4-I2 are `completed`; P4-I3 is `superseded` because Plan 030 P14-I3 now owns the final planner-integrated dispatcher delivery and safety proof. P4-I3 source/design remains documented by [Plan 023](023-dependency-aware-outbox-dispatch.md), while unclosed evidence is retained in [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md). Canonical status is owned by the [increment registry](roadmap/implementation-increments.md).
 
 ## Goal
 

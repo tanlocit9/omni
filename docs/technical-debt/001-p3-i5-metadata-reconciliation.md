@@ -2,18 +2,17 @@
 
 ## Review — 2026-10-07
 
-| Field | Assessment |
-| --- | --- |
-| Type | correctness |
-| Status | OPEN / source mismatch confirmed |
-| Priority | P1 |
-| Static evidence | Analyzer still emits PARTIAL_SUCCESS; Platform enum has no matching terminal state. |
-| Activation | Partial metadata status leaves executions non-terminal; approve a coordinated status mapping. |
+| Field           | Assessment                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| Type            | correctness                                                                                   |
+| Status          | OPEN / source mismatch confirmed                                                              |
+| Priority        | P1                                                                                            |
+| Static evidence | Analyzer still emits PARTIAL_SUCCESS; Platform enum has no matching terminal state.           |
+| Activation      | Partial metadata status leaves executions non-terminal; approve a coordinated status mapping. |
 
 Refs: [apps/analyzer/app/metadata/kafka.py](../../apps/analyzer/app/metadata/kafka.py), [apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java).
 
-Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
-
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
 
 ## Summary
 

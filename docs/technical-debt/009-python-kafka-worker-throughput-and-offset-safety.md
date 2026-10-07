@@ -2,18 +2,17 @@
 
 ## Review — 2026-10-07
 
-| Field | Assessment |
-| --- | --- |
-| Type | correctness + capacity (separate slices) |
-| Status | OPEN / static risks confirmed; throughput unmeasured |
-| Priority | P1 offset safety; P2 measured capacity |
+| Field           | Assessment                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | correctness + capacity (separate slices)                                                                                                                     |
+| Status          | OPEN / static risks confirmed; throughput unmeasured                                                                                                         |
+| Priority        | P1 offset safety; P2 measured capacity                                                                                                                       |
 | Static evidence | Factory leaves offset policy implicit; worker loops are sequential. Ingestor startup discards getmany() records. No runtime loss or current rate is claimed. |
-| Activation | Correctness evidence can justify an immediate narrow fix; concurrency/writer follow baseline and owner promotion. |
+| Activation      | Correctness evidence can justify an immediate narrow fix; concurrency/writer follow baseline and owner promotion.                                            |
 
 Refs: [libs/py-common/py_common/kafka/factory.py](../../libs/py-common/py_common/kafka/factory.py), [libs/py-common/py_common/kafka/job_status_service.py](../../libs/py-common/py_common/kafka/job_status_service.py), [apps/ingestor/app/messaging/consumer.py](../../apps/ingestor/app/messaging/consumer.py).
 
-Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
-
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
 
 Status: Scheduled as pending P12-I1 through P12-I4; P12-I1 begins only after P11-I5 and the completed P13-I1 truthful-stage measurement gate; not an active MVP prerequisite
 

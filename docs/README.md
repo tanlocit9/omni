@@ -24,6 +24,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 18. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are deferred and owner-gated; historical blocked states remain.
 19. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 design; owner reactivation and the Phase 13 measurement gate are required.
 20. [Operator Trust Console](plans/029-operator-trust-console.md) — owner-approved Phase 13 plan for truthful Job Operations, manual EOD Data Health, and the fixed Job Operations → Data Health → Market Review order.
+21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — active Milestone 1 epic for shared static topology, snapshot-based planning, and claim-safe dispatcher integration across P14-I1 through P14-I3.
 
 ## Planning Map
 
@@ -54,7 +55,8 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and historical live-collector proposal, now deferred under TD-011.
 - [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — deferred Phase 11 design; historical dependencies are retained, owner reactivation is required.
 - [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 detail; capacity work requires measured baseline and owner reactivation.
-- [Operator Trust Console](plans/029-operator-trust-console.md) — canonical Phase 13 supporting detail for P13-I1 through P13-I4.
+- [Operator Trust Console](plans/029-operator-trust-console.md) — canonical Phase 13 supporting detail for P13-I1 through P13-I4; only graph-specific presentation waits for P14-I2.
+- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — active Milestone 1 epic for P14-I1 topology/validation, P14-I2 pure snapshot planning, and P14-I3 dispatcher integration.
 
 ### Proposed, Historical, and Compatibility Plans
 
@@ -67,12 +69,11 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md) — active P8-I5 supporting detail for separate scheduler/notification outboxes and durable Telegram delivery; canonical scheduling remains in the roadmap registry.
 - [Polycheck Adoption for Omni](plans/025-polycheck-adoption.md) — deferred generic repository-readiness CLI adoption with Nx as the first adapter.
 - [ContractKit Adoption for Omni](plans/026-contractkit-adoption.md) — deferred generic contract-lifecycle adoption with Buf as the Protobuf engine and Karapace optional.
-- [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md) — proposed reuse of existing job definitions, producers, dependency-aware outbox dispatch, and exact dated history/manifest checks; not roadmap-scheduled.
+- [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md) — proposed reuse of P14-I1 topology plus existing job definitions, producers, dependency-aware outbox dispatch, and exact dated history/manifest checks; P14-I2/P14-I3 are not prerequisites and Plan 028 remains unscheduled.
 
 ### References and Technical Debt
 
 - [Planned Field and DTO Impact Inventory](reference/002-planned-field-dto-impact.md) — field/DTO ownership, impact, behavior changes and bounded delivery tasks; candidate names remain explicit.
-
 
 - [Algorithm Feature Catalog](reference/001-algorithm-feature-catalog.md)
 - [P3-I5 Metadata Reconciliation Technical Debt](technical-debt/001-p3-i5-metadata-reconciliation.md)
@@ -111,6 +112,6 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 
 ## Technical-debt priority and review
 
-[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.mmd) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral; source-local TODOs link to the existing debt record and do not change runtime behavior.
+[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.md) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral. [TD-012](technical-debt/012-static-dag-dispatch-planner.md) retains Plan 030 deferred extensions. [TD-013](technical-debt/013-legacy-dependency-guard-residue.md) keeps unused blocked-job tracking cleanup and optional missing guard evaluators outside P14. [TD-014](technical-debt/014-dependency-aware-dispatch-verification-residue.md) preserves superseded P4-I3 evidence while P14-I3 owns the final safety proof. Source-local TODOs link to existing debt records and do not change runtime behavior.
 
-Diagram sources share the roadmap's visual style: [roadmap.mmd](plans/roadmap/roadmap.mmd) and [priority-order.mmd](technical-debt/priority-order.mmd).
+Standalone Markdown diagrams share the roadmap's visual style: [roadmap.md](plans/roadmap/roadmap.md) and [priority-order.md](technical-debt/priority-order.md).

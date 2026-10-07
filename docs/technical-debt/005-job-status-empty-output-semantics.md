@@ -2,18 +2,17 @@
 
 ## Review — 2026-10-07
 
-| Field | Assessment |
-| --- | --- |
-| Type | correctness / output semantics |
-| Status | OPEN / source behavior confirmed |
-| Priority | P1 |
+| Field           | Assessment                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | correctness / output semantics                                                                                                                                           |
+| Status          | OPEN / source behavior confirmed                                                                                                                                         |
+| Priority        | P1                                                                                                                                                                       |
 | Static evidence | Stock and indicator workers can report SUCCESS for zero output; signal consumer counts one processed result; parent aggregation does not establish dataset completeness. |
-| Activation | Clarify valid-empty versus missing/invalid output before presenting execution success as data health. |
+| Activation      | Clarify valid-empty versus missing/invalid output before presenting execution success as data health.                                                                    |
 
 Refs: [apps/ingestor/app/handlers/stock_prices.py](../../apps/ingestor/app/handlers/stock_prices.py), [apps/analyzer/app/indicators/kafka.py](../../apps/analyzer/app/indicators/kafka.py), [apps/analyzer/app/signals/kafka.py](../../apps/analyzer/app/signals/kafka.py).
 
-Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
-
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
 
 ## Summary
 

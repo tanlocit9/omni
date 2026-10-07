@@ -40,8 +40,8 @@ class KafkaClientFactory:
             group_id,
             settings.bootstrap_servers,
         )
-        # TODO(TD-009): Make command commit ownership explicit after output/status success.
-        # Ref: docs/technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md
+        # TODO(TD-009): Make command commit ownership explicit after successful
+        # output/status publication. See the TD-009 technical-debt record.
         if isinstance(topics, list):
             return AIOKafkaConsumer(
                 *topics,

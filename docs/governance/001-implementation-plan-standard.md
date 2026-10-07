@@ -203,8 +203,8 @@ Commit, pull-request, merge, and CI identifiers improve traceability but are not
 
 Every new or touched delivery-bearing plan includes a Field/DTO Inventory and Bounded Delivery section. See the [reviewed inventory](../reference/002-planned-field-dto-impact.md). Preserve historical evidence and distinguish proposed schema from source presence.
 
-| Surface/owner | Field or DTO with type, nullability and units | Change kind | Impact | Behavior/compatibility | Delivery task |
-| --- | --- | --- | --- | --- | --- |
+| Surface/owner                            | Field or DTO with type, nullability and units             | Change kind                                   | Impact                          | Behavior/compatibility                                                                     | Delivery task    |
+| ---------------------------------------- | --------------------------------------------------------- | --------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------ | ---------------- |
 | Producer → consumer / persistence or API | Exact field or candidate name; mark unresolved explicitly | REUSE / ADD / SEMANTIC / DERIVED / UNRESOLVED | LOW / MEDIUM / HIGH with reason | Defaults, legacy handling, authorization, retries/identity, rollout/rollback as applicable | One bounded task |
 
 LOW is presentation/local read behavior; MEDIUM is bounded additive API/configuration behavior; HIGH includes persisted semantics, shared contracts, algorithm decisions, transaction/offset/identity or writer ownership. These levels describe blast radius, not priority.

@@ -4,7 +4,6 @@
 
 This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.
 
-
 Status: Deferred supporting design. Canonical schedule and statuses belong to [Phase 12](027-concurrent-workers-and-writer-batching.md) and the [increment registry](roadmap/implementation-increments.md). The proposed full P12 sequence retains P11-I5 and P13-I1 dependencies and additionally requires owner reactivation. A focused data-loss fix may be promoted separately. This plan does not claim runtime changes.
 
 ## Goal
@@ -96,16 +95,15 @@ Implementation verification must cover Platform batch listener and `applyStatuse
 
 At implementation, review and update `AGENTS.md`, `CLAUDE.md`, `.roo/rules/`, `docs/README.md`, `docs/flows/001-job-execution.md`, `docs/flows/003-indicator-signal.md`, `docs/data/001-kafka-contracts.md`, `docs/data/002-data-lake.md`, the new writer service README, and relevant existing service READMEs wherever their described workflow changes. This planning-only edit changes no active runtime workflow or coding rule.
 
-
 ## Field/DTO Inventory and Bounded Delivery — 2026-10-07
 
 Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
 
-| Surface | Field/DTO change | Impact and behavior |
-| --- | --- | --- |
-| Command routing | writeMode SINGLE/BATCH, logical writeKey snapshot; reuse configJson/executionId/parentExecutionId/work identity | HIGH Java/Python contract; write ownership is distinct from dependency readiness. Exact routing types/defaults remain a contract gate. |
-| Versioned write-intent DTO | intentId, operation, logical dataset/partition/output identity, candidate/reference, execution identity, schema/model version; diagnostics in headers | HIGH new durable handoff and sole-writer ownership; exact envelope/hash/version unresolved. No physical object routing path. |
-| Platform internal API | JobService.applyStatuses; bounded partition-scoped sub-batch and typed validation/recovery result (shape unresolved) | HIGH transaction/offset behavior; status wire remains one message per child. |
-| Commit/concurrency/batch policy | Explicit commit ownership, limits, drain deadlines, flush count/time/memory | HIGH runtime behavior; serial offset safety, parallel admission and writer cutover must not be combined. |
+| Surface                         | Field/DTO change                                                                                                                                      | Impact and behavior                                                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Command routing                 | writeMode SINGLE/BATCH, logical writeKey snapshot; reuse configJson/executionId/parentExecutionId/work identity                                       | HIGH Java/Python contract; write ownership is distinct from dependency readiness. Exact routing types/defaults remain a contract gate. |
+| Versioned write-intent DTO      | intentId, operation, logical dataset/partition/output identity, candidate/reference, execution identity, schema/model version; diagnostics in headers | HIGH new durable handoff and sole-writer ownership; exact envelope/hash/version unresolved. No physical object routing path.           |
+| Platform internal API           | JobService.applyStatuses; bounded partition-scoped sub-batch and typed validation/recovery result (shape unresolved)                                  | HIGH transaction/offset behavior; status wire remains one message per child.                                                           |
+| Commit/concurrency/batch policy | Explicit commit ownership, limits, drain deadlines, flush count/time/memory                                                                           | HIGH runtime behavior; serial offset safety, parallel admission and writer cutover must not be combined.                               |
 
 Small tasks after reactivation: serial offset ownership/failure/rebalance proof → comparable baseline → bounded independent-object pilot → bulk status transaction/pause/recovery → write-intent contract → one sole-writer cutover. Preserve two commit boundaries and single-writer invariants. A focused data-loss fix may be separately promoted without full P11/P12 rollout.

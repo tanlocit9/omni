@@ -28,6 +28,20 @@
 
 ## Expected implementation approach
 
+## Field/DTO and behavior inventory
+
+| Surface / owner / producer → consumer | Field or DTO | Type / nullability / units | REUSE / ADD / SEMANTIC / DERIVED / UNRESOLVED | Impact with reason | Behavior, compatibility and rollback | Task |
+| --- | --- | --- | --- | --- | --- | --- |
+
+List existing evidence before adding fields/tables. Candidate DTO names are not frozen wire contracts. Include config, persisted payload versions, defaults, identity and authorization where applicable.
+
+## Bounded delivery tasks
+
+| Task | One primary behavior change | Dependency / evidence gate | Acceptance and rollback boundary |
+| --- | --- | --- | --- |
+
+Keep producer/consumer migrations coherent. Task splitting preserves increment dependencies and full acceptance/coverage gates; task completion alone does not complete the increment.
+
 ## Files or modules likely to be touched
 
 ## Cross-service blast radius

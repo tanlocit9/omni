@@ -1,5 +1,10 @@
 # Omni Release Notes
 
+## 2026-10-07 — Field/DTO impact review and bounded tasks
+
+Reviewed delivery-bearing plans 011/012/013/014/021/022/023/024/027/028/029 against declared contracts and canonical scheduling. Added cross-plan field/DTO inventory, change-kind/impact/behavior tables and bounded task boundaries; candidate types/names/transport remain unresolved until source/contract reconciliation. Phase 13 task splitting preserves all IDs/dependencies/acceptance criteria and isolates startedAt semantic cutover from additive timing and read UI. Idle observed-duration remains a proposal, not an authoritative field contract. Corrected navigation classifications and stale reactivation wording. No runtime implementation, verification, status promotion or schema approval is claimed.
+
+
 This root-level record replaces the former roadmap execution ledger and the dated
 status-reconciliation note. It records durable delivery and verification milestones;
 current scheduling metadata remains canonical in

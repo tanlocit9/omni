@@ -198,3 +198,19 @@ implementation complete
 ```
 
 Commit, pull-request, merge, and CI identifiers improve traceability but are not semantic completion gates unless an increment explicitly requires delivery through that channel. They never replace impact or coverage evidence.
+
+## Field/DTO Inventory and Bounded Delivery
+
+Every new or touched delivery-bearing plan includes a Field/DTO Inventory and Bounded Delivery section. See the [reviewed inventory](../reference/002-planned-field-dto-impact.md). Preserve historical evidence and distinguish proposed schema from source presence.
+
+| Surface/owner | Field or DTO with type, nullability and units | Change kind | Impact | Behavior/compatibility | Delivery task |
+| --- | --- | --- | --- | --- | --- |
+| Producer → consumer / persistence or API | Exact field or candidate name; mark unresolved explicitly | REUSE / ADD / SEMANTIC / DERIVED / UNRESOLVED | LOW / MEDIUM / HIGH with reason | Defaults, legacy handling, authorization, retries/identity, rollout/rollback as applicable | One bounded task |
+
+LOW is presentation/local read behavior; MEDIUM is bounded additive API/configuration behavior; HIGH includes persisted semantics, shared contracts, algorithm decisions, transaction/offset/identity or writer ownership. These levels describe blast radius, not priority.
+
+A small number of plans does not imply small delivery. Break large increments into reviewable tasks with one primary behavior change and explicit acceptance/rollback boundaries. Keep a shared producer/consumer migration coherent; never split deployment in a way that breaks compatibility. Separate read projection from semantic migration, offset safety from concurrency, scanner from repair, and UI composition from new service ownership.
+
+Task suffixes do not create independently scheduled increments, change dependencies, or waive original acceptance/coverage gates. Add new canonical increments only through an explicit scheduling decision. Do not add all candidate fields as DB columns: first inventory existing evidence and decide which facts need persistence.
+
+Exact idle duration, unapproved transport DTOs, provider guarantees and calendar classifications must remain unavailable/UNRESOLVED until evidence and contract decisions are frozen. No invented timestamp or zero default may replace unknown evidence.

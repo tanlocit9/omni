@@ -21,6 +21,8 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | reference/001    | [Algorithm Feature Catalog](reference/001-algorithm-feature-catalog.md)        | Canonical analytical-feature index      | Pre-roadmap; Groups B-D                              | [Data Lake](data/002-data-lake.md), [Indicator and Signal Flow](flows/003-indicator-signal.md), [Sector Wave Flow](flows/004-sector-wave.md)                      |
 | governance/001   | [Implementation Plan Standard](governance/001-implementation-plan-standard.md) | Canonical planning policy               | Groups A-D                                           | [roadmap](plans/roadmap/README.md), [documentation registry](README.md)                                                                                           |
 
+| reference/002 | [Planned Field and DTO Impact Inventory](reference/002-planned-field-dto-impact.md) | Design impact reference; not a schedule | Active/deferred reviewed plans | [Plan standard](governance/001-implementation-plan-standard.md), [increment registry](plans/roadmap/implementation-increments.md) |
+
 ## Flow References
 
 | No.       | Document                                                   | Classification                                        | Roadmap mapping                                                            | Related documents                                                                                                                                         |
@@ -60,11 +62,11 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/010 | [Telegram Multi-Channel](plans/010-telegram-multi-channel.md)                                         | Supporting implementation plan           | Group C / Phase 8                  |
 | plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation        | Group C / Phase 8                  |
 | plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail              | Group C / Phase 8                  |
-| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Deferred owner-gated design       | Group D / Phase 9                  |
+| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Active bounded P9-I1; verification pending       | Group D / Phase 9                  |
 | plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred owner-gated design       | Group D / Phase 10                 |
 | plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan | Group E / Phase 11 / P11-I1-P11-I5 |
 | plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan | Group F / Phase 12 / P12-I1-P12-I4 |
-| plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Deferred owner-gated supporting plan | Group G / Phase 13 / P13-I1-P13-I4 |
+| plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Active Phase 13 supporting plan | Group G / Phase 13 / P13-I1-P13-I4 |
 
 ## Proposed, Historical, and Compatibility Plans
 
@@ -78,7 +80,6 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/020 | [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md)                             | Superseded compatibility document       | Historical Phases 1-10               |
 | plans/021 | [Intraday Confirmation for Confirmed Trend](plans/021-intraday-confirmed-rules.md)                        | Implementation-ready follow-up          | Phase 9 follow-up / Phase 8 signal   |
 | plans/022 | [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md)                              | Active P8-I5 supporting detail          | Group C / Phase 8 / P8-I5            |
-| plans/024 | [MVP Polyglot Correlation and Sync Failure Logging](plans/024-polyglot-correlation-structured-logging.md) | Proposed supporting plan                | Cross-cutting; not roadmap-scheduled |
 | plans/025 | [Polycheck Adoption for Omni](plans/025-polycheck-adoption.md)                                            | Deferred developer-tooling plan         | Cross-cutting; not roadmap-scheduled |
 | plans/026 | [ContractKit Adoption for Omni](plans/026-contractkit-adoption.md)                                        | Deferred developer-platform plan        | Cross-cutting; not roadmap-scheduled |
 | plans/028 | [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md)                             | Proposed supporting implementation plan | Not roadmap-scheduled                |
@@ -98,6 +99,8 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | technical-debt/009 | [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) | Open safety / deferred capacity debt           | Group F / P12-I1-P12-I4              | [Plan 027](plans/027-concurrent-workers-and-writer-batching.md), [High Availability Notes](deployment/003-high-availability-notes.md)                          |
 | technical-debt/010 | [Kafka Poison Record and Dead-Letter Policy](technical-debt/010-kafka-poison-record-and-dead-letter-policy.md)             | Deferred cross-service operational policy | Cross-cutting; not roadmap-scheduled | [Kafka Contracts](data/001-kafka-contracts.md), [Plan 027](plans/027-concurrent-workers-and-writer-batching.md)                                                |
 
+| technical-debt/011 | [Deferred Observability, Capacity and Realtime](technical-debt/011-deferred-observability-capacity-and-realtime.md) | Deferred owner-gated follow-ups | P10/P11/P12 | [Priority index](technical-debt/README.md), [impact inventory](reference/002-planned-field-dto-impact.md) |
+
 ## Roadmap View
 
 | Roadmap scope                              | Primary registry entries                                                                                              |
@@ -107,7 +110,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | Group B - Deterministic contracts and data | `data/001-003`; `plans/002-004`, `plans/023`; `technical-debt/001`                                                    |
 | Group C - Portable operations and product  | `flows/001`; `deployment/002`; `plans/005-007`, `plans/010`, `plans/012`, `plans/021-022`; `technical-debt/002-003`   |
 | Group D - Higher-frequency market data     | `data/001-002`; `reference/001`; `flows/002-003`; `plans/008-009`, `plans/021`                                        |
-| Cross-cutting governance and tooling       | `governance/001`; `development/001-003`; `plans/011`, `plans/024-026`; `technical-debt/005-007`, `technical-debt/010` |
+| Cross-cutting governance and tooling       | `governance/001`; `reference/002`; `development/001-003`; `plans/011`, `plans/024-026`; `technical-debt/005-007`, `technical-debt/010` |
 | Group F - Worker throughput and writer     | `deployment/003`; `plans/027`; `technical-debt/009-010`                                                               |
 | Group G - Operator trust                   | `architecture/001`; `data/003`; `flows/001`; `plans/029`; retained source from `plans/008-009`                        |
 | Historical compatibility                   | `plans/006`, `plans/013`                                                                                              |

@@ -194,3 +194,16 @@ Implemented locally:
 No guidance update was required in `AGENTS.md`, `CLAUDE.md`, or `.roo/rules`: their
 existing Platform-local dependency, logical-path, claim-fencing, verification-gate,
 and READY-last rules already describe the required repository workflow.
+
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface | Field/DTO change | Impact and behavior |
+| --- | --- | --- |
+| DependencyRequest | domain, jobDefinitionId, executionId, parentExecutionId, workType, workKey, runKey/trading date | MEDIUM internal interface; exact same-run/work matching, no broad latest-success fallback. |
+| DependencyDecision | READY/WAITING/BLOCKED, bounded reason, optional retryAt | HIGH dispatcher/status behavior; WAITING does not consume publish retries; BLOCKED cannot be reclaimed. |
+| Execution/outbox/API | Terminal BLOCKED and structured dependency disposition/reasons | HIGH schema/aggregation/compatibility; distinguish accepted/enqueued from publishable; no new dependency repository in V1. |
+
+Small tasks: adapt registry/request/decision boundary → transactionally enqueue scheduled/manual work → dispatcher gate/fencing/FIFO → terminal BLOCKED aggregation/API/migration → upstream-failure/global-barrier evidence. P4-I3 source is present; close verification gaps rather than assuming these tasks are new missing implementation.

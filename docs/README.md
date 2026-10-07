@@ -65,12 +65,14 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Consolidated Numbered Implementation Phases](plans/019-consolidated-numbered-implementation-phases.md) — compatibility roadmap index.
 - [Next Phase Implementation Plan](plans/020-next-phase-implementation-plan.md) — superseded compatibility document.
 - [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md) — active P8-I5 supporting detail for separate scheduler/notification outboxes and durable Telegram delivery; canonical scheduling remains in the roadmap registry.
-- [MVP Polyglot Correlation and Sync Failure Logging](plans/024-polyglot-correlation-structured-logging.md) — proposed debugging MVP for locating when and why sync work fails; not roadmap-scheduled.
 - [Polycheck Adoption for Omni](plans/025-polycheck-adoption.md) — deferred generic repository-readiness CLI adoption with Nx as the first adapter.
 - [ContractKit Adoption for Omni](plans/026-contractkit-adoption.md) — deferred generic contract-lifecycle adoption with Buf as the Protobuf engine and Karapace optional.
 - [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md) — proposed reuse of existing job definitions, producers, dependency-aware outbox dispatch, and exact dated history/manifest checks; not roadmap-scheduled.
 
 ### References and Technical Debt
+
+- [Planned Field and DTO Impact Inventory](reference/002-planned-field-dto-impact.md) — field/DTO ownership, impact, behavior changes and bounded delivery tasks; candidate names remain explicit.
+
 
 - [Algorithm Feature Catalog](reference/001-algorithm-feature-catalog.md)
 - [P3-I5 Metadata Reconciliation Technical Debt](technical-debt/001-p3-i5-metadata-reconciliation.md)

@@ -137,3 +137,8 @@ Each phase file must express its increments with the template in [`templates/inc
 | Plan 029  | P13-I1, P13-I2, P13-I3, P13-I4         | Split truthful stage/baseline work, Job Operations metrics, manual EOD Data Health scans, and the operator-first fixed dashboard into separate reviewable increments.                      |
 
 Do not combine a data contract migration, scheduler concurrency change, deployment authority change, or UI feature in one pull request.
+
+
+## Field/DTO impact and task boundaries — 2026-10-07
+
+[Cross-plan field/DTO inventory](../../reference/002-planned-field-dto-impact.md) records change kinds, LOW/MEDIUM/HIGH impact and candidate contract decisions. Plan 029 now separates contract inventory, additive timing, stage read projection, startedAt semantic cutover, baseline, operations API/ETA/heuristics, scanner checks/cache/calendar and fixed UI into bounded tasks. Existing canonical IDs, dependencies, statuses and owner gates remain unchanged; no task alone satisfies an increment's full acceptance criteria. Deferred P10/P11/P12 and proposed Plan 028 remain outside automatic selection.

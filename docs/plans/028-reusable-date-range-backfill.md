@@ -559,3 +559,17 @@ Stop implementation and request an owner decision if:
 - Do not delete published data as an orchestration rollback.
 - Revert additive API/producer behavior only after draining or explicitly blocking pending backfill outbox rows.
 - Keep scheduled execution operational throughout rollback.
+
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface | Field/DTO change | Impact and behavior |
+| --- | --- | --- |
+| Job graph identity | jobKey/job_key, dependencyKey/dependency_key, upstream/downstream foreign keys, dependency_kind/required | HIGH persisted topology ownership change; replaces legacy configJson.dependsOnJobs, requires independent migration/cycle/portability review. |
+| Dated execution | businessDate, executionMode, backfillRequestId, runKey; optional exact inputDataVersion, existing work/execution identity | HIGH identity/idempotency; triggeredAt stays audit time and cannot substitute for business date. |
+| Backfill request/preview | jobDefinitionId, fromDate, toDate, optional work filter, dryRun, requestedBy; classified counts/items/reasons and skipped/active references | MEDIUM read-only preview / HIGH bounded enqueue; exact DTO types/limits unresolved. Actor comes from authorized context, not trusted client text. |
+| Historical producer inputs | Approved business date/input lineage and provider-specific supported history behavior | HIGH algorithm/data contract; reuse producers only where historical semantics are supported. |
+
+Small tasks: stable-key/graph migration (separate prerequisite) → read-only classified preview → dated identity/persistence → bounded enqueue via existing dispatcher → one job-type rollout → progress/recovery. Do not bundle graph ownership rewrite, all historical producers and operator recovery into one release. Still proposed and not roadmap-scheduled.

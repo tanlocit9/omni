@@ -186,7 +186,7 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 
 ## Recommended Actions
 
-1. Complete P13-I1 first so dispatch, worker wait, processing, status publication, and
+1. For capacity expansion, complete P13-I1 first so dispatch, worker wait, processing, status publication, and
    Platform application have truthful evidence and a representative baseline; do not
    use child creation-time `RUNNING` rows as active-processing measurements.
 2. Reactivate the capacity scope only through a bounded increment; its retained Phase 12 dependencies are proposal context, not an active schedule. For offset safety, inventory every affected consumer, disable
@@ -285,4 +285,4 @@ This debt record adds no current implementation workflow, architecture decision,
 
 ## Reactivation
 
-The owner scheduled this debt as pending P12-I1 through P12-I4. P12-I1 now depends on both P11-I5 and completed P13-I1; implementation may begin only when those prerequisites and normal ownership/readiness checks pass. Multi-instance writer deployment remains outside Phase 12 and requires the separate High Availability promotion gate.
+Historical P12-I1 through P12-I4 design is now deferred under TD-011. Dependency completion does not authorize implementation: explicit owner reactivation of a bounded slice is required. The retained full sequence depends on P11-I5 and P13-I1; a confirmed offset/data-loss correctness fix can be separately promoted without full logging or capacity rollout. Multi-instance writer deployment requires the separate High Availability promotion gate.

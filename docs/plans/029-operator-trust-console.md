@@ -492,3 +492,28 @@ Unresolved and blocking the applicable implementation decision:
 4. the exact additive cross-service mechanism for authoritative worker stage timestamps.
 
 Stop rather than guessing when any unresolved decision would change service ownership, persistence, compatibility, or classification truthfulness.
+
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+The detailed [Phase 13 register and small delivery slices](../reference/002-planned-field-dto-impact.md#phase-13-fielddto-register) distinguish reused IDs/outbox fields, additive timing evidence, candidate read/scan DTOs, and the HIGH-impact startedAt semantic cutover.
+
+| Boundary | Candidate fields / DTO | Impact and behavior |
+| --- | --- | --- |
+| P13-I1 timing | processingStartedAt/processingFinishedAt; statusReceivedAt/statusAppliedAt where existing evidence is insufficient | HIGH cross-service/storage; names and transport unresolved. Worker completion, status publication and Platform application are different facts. |
+| Existing timestamps | triggeredAt reused; publishedAt reused; startedAt meaning changes only in a coordinated cutover | HIGH semantic migration for startedAt; legacy values stay legacy/UNKNOWN. Do not rename/reinterpret silently. |
+| ExecutionStageView / JobOperationsSnapshot | stage, timestamps/durations, counts/ages/rates/percentiles, scope, samples/window/snapshot/evidence | MEDIUM read projections; these candidate DTO names do not imply new persisted status enums. |
+| PublishDrainEstimate | publishableBacklog/recentPublishRate/publishDrainDuration/publishDrainAt plus sampling/state | MEDIUM derived estimate; publication only, not processing-completion ETA. |
+| Idle observation proposal | classification, idleObservedSince/idleObservedDuration, observationStartedAt, completeness | MEDIUM, UNRESOLVED; first qualifying continuously observed empty snapshot, not exact idleSince. Polling can miss intervening activity; unknown/restart breaks the interval. |
+| DataHealthScanRequest/Result | Scope/checks/bounds/refresh; exact provenance/findings/state/completeness; scannedAt/expiresAt/cache hit/miss | MEDIUM candidate API; memory only, authorize every request; no new Data Health table or repair action. |
+| Dashboard shell | Existing read DTOs plus unavailable/UNKNOWN/stale presentation | LOW presentation change; preserve scanner owner gate. |
+
+Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
+
+These task suffixes are review units under existing IDs, not new scheduled increments. Keep canonical dependencies and all original acceptance criteria. A shared producer/consumer compatibility slice is coherent; it must not be split into unsafe independent deployments.
+
+### Idle duration contract gap
+
+The original IDLE state does not define duration. This review proposes observed duration only: require a complete, fresh selected-scope snapshot with no queued/claimed/processing/status-application work; start at the first qualifying observation; end/invalidate on observed work or loss of evidence. A continuous polling interval is a lower-bound observation, not proof of uninterrupted historical idle. Do not derive it from lastJobCompletedAt or zero Kafka lag. Exact idleSince needs authoritative transition history and a separately frozen persistence/restart policy. Until the contract is approved, display duration as unavailable; do not invent a default.

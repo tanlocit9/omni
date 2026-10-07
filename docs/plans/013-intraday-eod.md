@@ -173,3 +173,61 @@ P9-I1 must remain `verification_pending` and `last_verified_commit` must remain 
 ## Later increments
 
 P9-I2 may add deterministic 1m/5m/15m bars and reusable intraday features after P9-I1 is independently owner-verified and explicitly reactivated. P9-I3 may then add sector aggregation/lineage under its own gate. Neither is activated by this implementation.
+
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface | Field/DTO change | Impact and behavior |
+| --- | --- | --- |
+| IntradayEodJobMessage | symbol, exchange, tradingDate, provider plus existing execution/work identity | HIGH producer/consumer boundary; reuse source where present, freeze types/date timezone; one symbol/date per command. |
+| Manual runtime parameters | tradingDate OR startDate/endDate | MEDIUM API validation/fan-out; historical weekdays, bounded range, existing audited allow-list. |
+| Trade rows | trading_date, timestamp UTC, exchange, symbol, provider_id, price, volume, trade_value, match_type | HIGH persisted analytical contract; deterministic duplicates, conflicting provider IDs rejected. |
+| Manifest evidence | completeness, reconciliation.status/close/volume/value, sourceExecutionId, normalizationVersion, rowCount, objectCount, dataVersion, path | HIGH publication behavior; immutable per-symbol partition and READY-last; physical path remains storage metadata, not a routing field. |
+
+Small tasks: reconcile existing source/evidence → command/date validation → normalization → canonical EOD reconciliation → immutable publication. This is verification_pending capability, not permission to rebuild all tasks; retain already-present implementations. Bars/features and live realtime remain deferred.
+
+## Outcome
+
+Completed-session normalized trades and exact reconciliation evidence are available through independently addressable symbol/date READY partitions, subject to canonical P9-I1 verification_pending gates.
+
+## Dataset Outputs
+
+Normalized trade Parquet per provider/exchange/trading_date/symbol, using the canonical field list and existing shared storage builder. No bars/features/sector dataset is added.
+
+## Metadata Outputs
+
+Immutable version manifest and per-symbol READY pointer with completeness/reconciliation evidence and content-derived dataVersion. Preserve prior READY on rejected/failed publication.
+
+## Algorithm Feature Outputs
+
+DIRECT canonical trade/time/price/volume/value/identity facts; later intraday features remain deferred.
+
+## Algorithms Unlocked
+
+Exact-date Analyzer intraday confirmation can consume verified READY trades. No live-provider runtime or bars implementation is activated.
+
+## Contract Impact
+
+| Area | Decision |
+| --- | --- |
+| Kafka/protobuf | Reuse the declared IntradayEodJobMessage boundary; Java producer/Python consumer must agree on symbol/exchange/provider/tradingDate and execution identity. No Proto3 migration implied. |
+| Object-storage JSON manifest | Completeness, reconciliation and immutable per-symbol identity are part of the published contract. |
+| Storage ownership | Ingestor remains sole normalized-trade producer; per-symbol partition replaces former shared-date publication. No compatibility fallback is claimed. |
+| Public APIs | Existing audited manual trigger gains validated single-date/range parameters; no independent backfill pipeline. |
+| Configuration | Existing exchange/provider and manual-trigger allow-list boundary; no automatic widening of deployment permission. |
+
+Blast radius: Platform date fan-out/manual validation, Ingestor provider/normalization/reconciliation/publication, shared py-common storage/fixtures, Analyzer readiness/lineage consumers, and configuration are applicable. Query Service/Console have no new intraday UI in this bounded slice; operations must understand provider completeness failures. Reconcile exact source/test coverage before completion.
+
+## Repository Guidance Updates
+
+At implementation synchronize Kafka/data-lake/job-flow/intraday-flow docs and Platform/Ingestor/shared-library READMEs; review AGENTS.md/CLAUDE.md/.roo/rules for changed workflow. This inventory adds no runtime agent/tool rule.
+
+## Verification
+
+The full Owner verification boundary remains NOT RUN for this review. Existing recorded historical evidence is unchanged. Reconcile producer/consumer, date/fan-out, provider completeness, duplicate/correction, canonical reconciliation, per-symbol identity, immutable publication failure and exact source/coverage checks; no new check result is inferred.
+
+## Acceptance Criteria
+
+All Approved decisions, execution validation, canonical normalization/reconciliation and Idempotency and failure semantics above remain mandatory. P9-I1 stays verification_pending until its canonical owner-required verification is complete. No relaxed criterion or later feature is introduced by task splitting.

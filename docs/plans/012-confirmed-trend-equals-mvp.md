@@ -162,3 +162,56 @@ Disable the combined job and set `TELEGRAM_SIGNAL_STRATEGY` to `TREND_MOMENTUM_V
 ## Post-MVP Extension
 
 The full operator-managed weighted ensemble, immutable versioning, automatic historical precompute, atomic activation, rollback, and per-component enablement design is deliberately deferred and documented in [`docs/technical-debt/004-post-mvp-roadmap-work.md`](../technical-debt/004-post-mvp-roadmap-work.md).
+
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface | Field/DTO change | Impact and behavior |
+| --- | --- | --- |
+| Combined row metadata | modelVersion; components[].strategy, signal, mappedValue, score, signalDate, reasonCodes | HIGH business/model change; suggested metadata shape, exact types/null handling must be frozen. Inputs must share symbol/date/timeframe. |
+| Signal-history request/response | strategy filter; selected strategy and optional component details; existing exchange/symbol/limit | MEDIUM additive API plus default behavior change to CONFIRMED_TREND_EQUALS; no Query Service calculation. |
+| Notification configuration | TELEGRAM_SIGNAL_STRATEGY | MEDIUM behavior change for future messages only; never rewrites signal history. |
+
+Small tasks: pure combiner → versioned metadata/history persistence → READY-aware query DTO → selector UI → notification strategy policy. Keep algorithm/model change separately reviewable from dashboard defaults and delivery policy.
+
+## Outcome
+
+A bounded, deterministic combined strategy is persisted and selectable through existing query/notification surfaces; no arbitrary ensemble management.
+
+## Dataset Outputs
+
+Combined signal history/current projection under the existing logical strategy/timeframe/exchange ownership. Reuse shared path builders; do not infer a new storage writer.
+
+## Metadata Outputs
+
+Preserve READY-last and exact input lineage for the selected combined partition; store modelVersion and reconstructable component details. Do not add a statistics database.
+
+## Algorithm Feature Outputs
+
+DIRECT combined signal/model/component explanation; DERIVED equal-vote result. Existing component algorithms remain unchanged.
+
+## Algorithms Unlocked
+
+Existing forward outcome evaluation can evaluate combined history; no automatic advisory/trading capability.
+
+## Contract Impact
+
+| Area | Decision |
+| --- | --- |
+| Kafka/protobuf | No migration or speculative envelope expansion in this MVP; reconcile existing Analyzer/Platform JSON consumers and selected-strategy semantics. |
+| Object-storage JSON manifest | Existing publication/identity model reused; preserve exact component lineage and READY-last. |
+| Storage ownership | Analyzer remains writer; Query Service/Console read persisted selected strategy. |
+| Public APIs | Add validated strategy selection and optional component metadata to existing signal-history contract; review default behavior explicitly. |
+| Configuration | Bounded TELEGRAM_SIGNAL_STRATEGY selection; affects future delivery only. |
+
+Blast radius: Analyzer owns combiner/version/persistence; Platform owns schedule and notification selection; Query Service/Console own read/presentation. Ingestor/provider collection is unchanged. Kafka/storage consumers and fixtures need compatibility review; no new deployment service or arbitrary-ensemble database.
+
+## Repository Guidance Updates
+
+Review docs/flows/003-indicator-signal.md, docs/data/002-data-lake.md, docs/README.md, docs/INDEX.md and affected service READMEs at implementation. Review AGENTS.md/CLAUDE.md/.roo/rules for changed workflow; no new agent/tool requirement from this documentation inventory.
+
+## Verification
+
+Existing Required Tests and Acceptance Criteria remain mandatory. Map changed algorithm, persistence, query, Console and Platform policy behavior to focused tests/coverage under the standard; no checks executed in this review. Source presence is not runtime evidence.

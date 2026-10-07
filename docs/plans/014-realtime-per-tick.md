@@ -171,3 +171,16 @@ The expanded suite includes deterministic earliest-arrival selection and identic
 - Phase 9 statuses and unrelated compatibility remain unchanged.
 - Roadmap, supporting plan, canonical data/flow docs, and documentation indexes agree.
 - Required Nx checks and CI/PR evidence are recorded before P10-I1/P10-I2 completion; deferred provider/runtime evidence is required only after explicit reactivation of P10-I0/P10-I3.
+
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface | Field/DTO change | Impact and behavior |
+| --- | --- | --- |
+| MarketTick JSON | Existing canonical fields in this plan, including tradeId/eventId/receivedAt and provider-defined event identity/time/numeric values | HIGH cross-service/logical identity; use the exact canonical contract below, not an invented provider field. Missing guarantees stay evidence-gated. |
+| Archive/rebuild/reconciliation | Logical partition, exact version, bounded archive/replay and validation evidence | HIGH persisted ordering/dedup behavior; preserve strict schema and immutable publication. |
+| Live control/provider adapter | Provider-derived DTOs, authentication/subscription/reconnect fields | UNRESOLVED, HIGH; no shape or runtime authorization without provider evidence. |
+
+Small tasks after owner reactivation: provider evidence → strict contract/identity reconciliation → finite archive/replay → one bounded live-adapter/control slice → deployment/runtime verification. Live transport is separate from provider-independent source/evidence work.

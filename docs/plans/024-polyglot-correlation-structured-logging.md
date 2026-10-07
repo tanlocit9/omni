@@ -1,7 +1,12 @@
 # Plan 024 — MVP Polyglot Correlation and Sync Failure Logging
 
+## Current scheduling override — 2026-10-07
+
+This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.
+
+
 Plan ID: `024`
-Status: Canonical Phase 11 supporting plan; scheduling and status are owned by the roadmap
+Status: Deferred Phase 11 supporting design; evidence states remain owned by the roadmap
 Canonical increments: `P11-I1` through `P11-I5`
 Primary outcome: know which sync failed, when it failed, where it failed, and why
 Scope: Java Platform, Python workers, Kafka, jobs, scheduler outbox, HTTP support lookup, Fluent Bit, and VictoriaLogs

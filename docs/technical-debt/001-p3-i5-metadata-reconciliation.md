@@ -1,5 +1,20 @@
 # P3-I5 Metadata Reconciliation Technical Debt
 
+## Review — 2026-10-07
+
+| Field | Assessment |
+| --- | --- |
+| Type | correctness |
+| Status | OPEN / source mismatch confirmed |
+| Priority | P1 |
+| Static evidence | Analyzer still emits PARTIAL_SUCCESS; Platform enum has no matching terminal state. |
+| Activation | Partial metadata status leaves executions non-terminal; approve a coordinated status mapping. |
+
+Refs: [apps/analyzer/app/metadata/kafka.py](../../apps/analyzer/app/metadata/kafka.py), [apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+
 ## Summary
 
 P3-I5 automatic metadata reconciliation has source present but is canonically
@@ -11,7 +26,7 @@ claims tied to the superseded per-partition READY-pointer design.
 
 This debt does not block P1-I4 verification. P3-I5 declares no downstream increments
 in its `blocks` field, and P1-I4 does not depend on P3-I5. P1-I4 verification may
-therefore proceed independently while P3-I5 remains `verification_pending`.
+therefore proceed independently while P3-I5 remains `superseded`.
 
 This classification does not mark P3-I5 complete and does not waive any roadmap
 completion gate.
@@ -21,10 +36,9 @@ completion gate.
 - Platform seeds one weekday 20:00 `SYNC_METADATA` definition for Analyzer.
 - Platform dispatches the definition through the existing scheduler claim/outbox and
   Kafka producer boundary.
-- Analyzer consumes `topic-sync-metadata` and invokes `EodMetadataSynchronizer`.
+- Analyzer consumes `topic-sync-metadata` and invokes `MetadataSynchronizer`.
 - The synchronizer discovers canonical EOD Parquet objects, calculates checksums and
-  deterministic `dataVersion` values from persisted bytes, publishes immutable
-  manifests before READY pointers, and publishes the catalog last.
+  deterministic `dataVersion` values from persisted bytes, rebuilds the canonical global discovery document. Immutable publication used by other datasets is a separate boundary.
 - The same definition can use Phase 7 manual triggering when deployment explicitly
   allow-lists `SYNC_METADATA:ANALYZER`.
 

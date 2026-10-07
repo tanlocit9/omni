@@ -189,6 +189,8 @@ class SignalKafkaService(JobStatusKafkaService):
             started_at=started_at,
             finished_at=finished_at,
             error_message=None,
+            # TODO(TD-005): Distinguish processed decisions from persisted signal rows.
+            # Ref: docs/technical-debt/005-job-status-empty-output-semantics.md
             records_processed=1,
             duration_ms=calculate_duration_ms(started_at, finished_at),
             meta_json=meta_json,

@@ -1,0 +1,19 @@
+flowchart TD
+    Gate["Check activation evidence"]
+    Gate --> Safety["P0/P1: safety and correctness"]
+    Gate --> Measured["P2: measured performance"]
+    Gate --> Later["P3: approved expansion"]
+
+    Safety --> Identity["TD-003: identity before exposure"]
+    Safety --> Data["TD-001/005/008: status and completeness"]
+    Safety --> Kafka["TD-009/010: offsets and recovery"]
+    Measured --> Resources["TD-007/009: resources and concurrency"]
+    Later --> Features["TD-002/004/011: operations and features"]
+
+    classDef done fill:#d5f5e3,stroke:#198754,color:#111;
+    classDef active fill:#fff3cd,stroke:#b58105,color:#111;
+    classDef pending fill:#e2e3e5,stroke:#6c757d,color:#111;
+    classDef blocked fill:#f8d7da,stroke:#b02a37,color:#111;
+    class Gate pending;
+    class Safety,Identity,Data,Kafka active;
+    class Measured,Resources,Later,Features pending;

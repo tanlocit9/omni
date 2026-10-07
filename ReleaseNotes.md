@@ -21,6 +21,10 @@ current scheduling metadata remains canonical in
 
 Owner requested P4-I3 verification then P13-I1/P13-I2/P13-I4 before the remaining MVP evidence queue. P13-I4 no longer waits for Data Health. P13-I3 caches bounded scan runs/results in Query Service memory only, with TTL, size limits, exact-version keys, refresh, and explicit cache-loss behavior. Calendar/lifecycle classifications retain an owner-decision gate. No runtime implementation, test pass, or completion-status promotion is claimed.
 
+## Debt review and follow-up deferral — 2026-10-07
+
+Owner moved P10/P11/P12 follow-ups into owner-gated technical debt; existing evidence statuses remain unchanged. Reviewed TD-001 through TD-010 against targeted source, kept TD-006 historical/closed as written, recorded partial resolution in TD-008, and added TD-011 for feature deferral. Added source-local TODO references only at confirmed current gaps and a priority index/Mermaid source. Startup Ingestor getmany() drops returned batches in source; potential runtime loss remains unverified. No executable checks or runtime behavior changes are claimed.
+
 ## Current delivery snapshot
 
 | Area                                     | Current state                                                 | Evidence boundary                                                                                                                    |
@@ -35,8 +39,8 @@ Owner requested P4-I3 verification then P13-I1/P13-I2/P13-I4 before the remainin
 | Notifications                            | P8-I1/P8-I2/P8-I5 `verification_pending`; P8-I4 `in_progress` | Platform and owning-service local checks exist; increment-specific impact/coverage and applicable runtime evidence remain incomplete |
 | Intraday EOD                             | P9-I1 `verification_pending`; P9-I4 `in_progress`             | Local owning-project checks exist; provider/storage/runtime evidence remains incomplete                                              |
 | Realtime foundation                      | P10-I1/P10-I2 `verification_pending`; P10-I0/P10-I3 blocked   | Provider-independent local checks exist; live VCI capability/runtime evidence is absent                                              |
-| Cross-service observability              | P11-I1–P11-I5 pending                                         | Starts after completed P4-I3 and P8-I5                                                                                               |
-| Worker throughput and writer batching    | P12-I1–P12-I4 pending                                         | P12-I1 starts after P11-I5 and completed P13-I1 truthful-stage baseline                                                              |
+| Cross-service observability              | P11-I1–P11-I5 pending                                         | Deferred, owner-gated under TD-011; historical dependencies retained                                                                                               |
+| Worker throughput and writer batching    | P12-I1–P12-I4 pending                                         | Deferred under TD-009/TD-011; preserve evidence and proposed dependencies                                                              |
 | Operator trust Console                   | P13-I1–P13-I4 pending                                         | Owner-approved scope; Query Service memory caching approved; calendar/lifecycle evidence or narrowed classifications remain unresolved                                |
 
 ## Release history

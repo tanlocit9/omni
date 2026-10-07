@@ -1,5 +1,20 @@
 # VCI Intraday Adapter vnstock 4.x Migration
 
+## Review — 2026-10-07
+
+| Field | Assessment |
+| --- | --- |
+| Type | correctness / provider compatibility |
+| Status | PARTIALLY RESOLVED / completeness open |
+| Priority | P1 when intraday is used |
+| Static evidence | Unsupported public page argument is absent; private _provider access and fixed 30000-row request remain, without date selection in the adapter call. |
+| Activation | Use of intraday results as complete-session data; collect provider/date/cap evidence. |
+
+Refs: [apps/ingestor/app/stocks/clients/vci_intraday.py](../../apps/ingestor/app/stocks/clients/vci_intraday.py).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+
 ## Status
 
 Original public-facade failure avoided in source; provider compatibility and complete-day

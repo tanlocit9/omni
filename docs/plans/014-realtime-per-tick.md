@@ -1,6 +1,11 @@
 # Realtime Per-Tick Market Data Implementation Plan
 
-Status: P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. P10-I0 remains `blocked` pending genuine realtime provider evidence; P10-I3 remains `blocked` pending completed P10-I0/P10-I2 and owner approval of evidence-derived contracts. Canonical schedule lives in [`docs/plans/014-realtime-per-tick.md`](014-realtime-per-tick.md).
+## Current scheduling override — 2026-10-07
+
+This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.
+
+
+Historical evidence status (retained; scheduling deferred): P10-I1 strict contract and P10-I2 provider-independent archive/rebuild are locally verified and `verification_pending`. On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. P10-I0 remains `blocked` pending genuine realtime provider evidence; P10-I3 remains `blocked` pending completed P10-I0/P10-I2 and owner approval of evidence-derived contracts. Canonical schedule lives in [`docs/plans/014-realtime-per-tick.md`](014-realtime-per-tick.md).
 
 ## Goal
 
@@ -72,7 +77,7 @@ Finite replay deduplicates by event identity, retains the earliest `receivedAt` 
 
 ## Provider Capability Gate
 
-P10-I0 is reactivated for VCI-first discovery but remains blocked. The Phase 9 vnstock completed-session/history endpoint is not evidence of live capability. Owner-reviewed documented or observed realtime evidence must answer:
+The 2026-09-13 reactivation is historical; P10-I0 retains its blocked evidence state and is now deferred pending a fresh owner decision. The Phase 9 vnstock completed-session/history endpoint is not evidence of live capability. Owner-reviewed documented or observed realtime evidence must answer:
 
 | Capability                         | Required evidence                                                                  |
 | ---------------------------------- | ---------------------------------------------------------------------------------- |
@@ -104,7 +109,7 @@ Canonical archive rows preserve exact decimal values as canonical strings, UTC m
 
 One-minute bars floor `marketTimestamp` in UTC and use deterministic event ordering for open/close. Completed-session reconciliation requires exact source/exchange/symbol/trading date and reuses existing intraday relative thresholds for counts, volume, value, open, and close. This is a finite comparison callable, not a provider correction or live completeness policy.
 
-## Reactivated Provider and Runtime Sequence
+## Historical Provider and Runtime Proposal
 
 The approved planning sequence is:
 
@@ -157,7 +162,7 @@ The expanded suite includes deterministic earliest-arrival selection and identic
 
 ## Acceptance Criteria
 
-- P10-I1 and P10-I2 are `verification_pending`; reactivated P10-I0 and P10-I3 are `blocked` and ineligible for implementation until their recorded gates are satisfied.
+- P10-I1 and P10-I2 are `verification_pending`; P10-I0 and P10-I3 retain `blocked` evidence states and are now deferred and ineligible for implementation until their recorded gates are satisfied.
 - P10-I2 local checks pass but it remains incomplete until CI/PR evidence exists.
 - One strict canonical JSON model rejects aliases, extras, coercion, invalid UTC timestamps, and identity tampering.
 - Identity and replay behavior are deterministic and duplicate-safe without inventing provider guarantees.

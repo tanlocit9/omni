@@ -229,3 +229,7 @@ Stop and request owner input instead of guessing when:
 - a plan depends on unavailable infrastructure or credentials;
 - preserving or dropping backward compatibility materially changes scope;
 - plan consolidation would require implementing product code to determine the answer.
+
+## Owner-gated follow-ups — 2026-10-07
+
+P10/P11/P12 are deferred under [TD-011](../../technical-debt/011-deferred-observability-capacity-and-realtime.md). Preserve statuses as evidence, but never select or promote these increments while execution_mode is approval_required or requires_owner_decision is true. Dependency completion alone is insufficient. Reactivate one bounded slice only after an explicit owner decision; concrete correctness/security fixes may receive a separate active increment.

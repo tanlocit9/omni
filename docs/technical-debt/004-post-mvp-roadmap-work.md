@@ -1,5 +1,20 @@
 # Post-MVP Roadmap Work
 
+## Review — 2026-10-07
+
+| Field | Assessment |
+| --- | --- |
+| Type | deferred feature / umbrella |
+| Status | DEFERRED / classification record |
+| Priority | P3 conditional |
+| Static evidence | Design backlog remains; source presence and historical evidence are not current scheduling authority. |
+| Activation | Approved deployment, repeated setup friction, or concrete user demand; promote one bounded slice. |
+
+Refs: [docs/plans/028-reusable-date-range-backfill.md](../../docs/plans/028-reusable-date-range-backfill.md), [docs/plans/025-polycheck-adoption.md](../../docs/plans/025-polycheck-adoption.md).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+
 ## Decision
 
 On 2026-09-05, the owner narrowed the active MVP to the existing daily/EOD pipeline, usable Telegram operational and signal notifications, and basic operator controls. On 2026-09-14, the owner reactivated bounded VCI health visibility as P9-I5 and Notification Outbox durable delivery as P8-I5. On 2026-09-19, the owner superseded P9-I5 back into technical debt and removed it as a prerequisite for P8-I5. On 2026-10-06, the owner promoted a bounded operator-trust slice into Phase 13: truthful Job Operations stages and daily throughput, manual read-only EOD Data Health, and a small fixed Market Review after those trust surfaces.
@@ -18,7 +33,7 @@ This is prioritization debt, not a claim that the work has no long-term value. E
 | Console and query polish        | P6-I1, P6-I2, P6-I3, P6-I4 | Arbitrary SQL expansion, Saved Queries, broad Explorer polish, customizable layouts, and broad market-dashboard growth remain deferred. The bounded Phase 13 Job Operations, manual EOD Data Health, and small fixed Market Review slice is no longer debt. Existing source is retained for reuse without reactivating P6 scheduling. |
 | Notification follow-ups         | Outside P8-I5              | P8-I5 now owns durable enqueue, distributed idempotency, bounded retries/backoff/jitter, `Retry-After`, `DEAD`, pagination, metrics, and operator status visibility. Audited manual replay of `DEAD`, broader notification-provider expansion, and optional operational tooling beyond status/count visibility remain deferred.       |
 | Intraday EOD follow-ups         | P9-I2, P9-I3, P9-I5        | P9-I1 is reactivated and remains `verification_pending`; later bars/features and VCI health visibility remain deferred or superseded. P9-I5 requires explicit owner reactivation before scheduling.                                                                                                                                   |
-| Realtime per tick               | Historical deferral lifted | On 2026-09-13 the owner reactivated P10-I0/P10-I3 for a VCI-first live collector plan. The canonical registry now owns their blocked status and gates; this document retains the prior deferral as history only.                                                                                                                      |
+| Realtime per tick               | Deferred again 2026-10-07 | On 2026-10-07 the owner moved realtime back to owner-gated debt. Existing evidence/blocked states are preserved; TD-011 owns current deferral.                                                                                                                      |
 
 ## Deferred Supporting Plans
 
@@ -502,3 +517,7 @@ The MVP may still use a private/localhost Compose profile with one Fluent Bit an
 ## Deferred Verification
 
 Before reactivation, add coverage for canonical identity, weight normalization, enablement, validation, immutable version creation, precompute failure, atomic activation, rollback, concurrent updates, stale components, READY publication, outcome evaluation, Dashboard selection, Telegram selection, and audit history.
+
+## Current follow-up deferral — 2026-10-07
+
+P10 realtime, P11 cross-service logging rollout, and P12 throughput expansion are now owner-gated debt under [TD-011](011-deferred-observability-capacity-and-realtime.md). Earlier reactivation statements above are historical. The active Phase 13 bounded trust slice remains active; raw SQL/custom dashboards, extra providers, HA, tooling and backfill stay deferred. Current priorities: [index](README.md), [Mermaid source](priority-order.mmd).

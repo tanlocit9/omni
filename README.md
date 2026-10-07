@@ -87,6 +87,8 @@ docker compose --env-file .env up -d
 | [ARCHITECTURE.md](ARCHITECTURE.md)                                                   | Compatibility index for architecture links. |
 | [AGENTS.md](AGENTS.md)                                                               | Development and agent workflow rules.       |
 
+Roadmap and debt navigation: [roadmap](docs/plans/roadmap/README.md), [roadmap Mermaid](docs/plans/roadmap/roadmap.mmd), [technical-debt index](docs/technical-debt/README.md), and [technical-debt priority Mermaid](docs/technical-debt/priority-order.mmd).
+
 ## Common Development Commands
 
 Nx is the canonical entry point for project operations. Inspect targets before running unfamiliar commands:

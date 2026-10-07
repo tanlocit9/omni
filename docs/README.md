@@ -21,8 +21,8 @@ This directory is the documentation entry point for Omni. It is designed to help
 15. [Phase 3 dataset manifests](plans/003-dataset-metadata-manifest.md) — canonical manifests and verification-pending automatic EOD metadata reconciliation.
 16. [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md) — zero-cost, demo, and minimal-VPS profiles with readiness blockers.
 17. [P1-I4 execution identity hard cutover](deployment/001-p1-i4-hard-cutover.md) — coordinated drain, manual history cleanup, deploy, verification, and rollback procedure.
-18. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are reactivated but evidence-gated and blocked.
-19. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — pending Phase 12 plan after traceability and the Phase 13 measurement gate, with an independent Python writer service.
+18. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are deferred and owner-gated; historical blocked states remain.
+19. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 design; owner reactivation and the Phase 13 measurement gate are required.
 20. [Operator Trust Console](plans/029-operator-trust-console.md) — owner-approved Phase 13 plan for truthful Job Operations, manual EOD Data Health, and the fixed Job Operations → Data Health → Market Review order.
 
 ## Planning Map
@@ -51,9 +51,9 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) — Phase 8 presentation detail.
 - [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md) — Phase 8 combined-signal detail.
 - [Intraday EOD](plans/013-intraday-eod.md) — active bounded P9-I1 VCI normalized-trade implementation for HOSE/HNX/UPCOM; later bars/features remain deferred.
-- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and approved live-collector sequence.
-- [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — canonical Phase 11 supporting plan; P11-I1 through P11-I5 run sequentially after completed P4-I3 and P8-I5.
-- [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — Phase 12 detail; P12-I1 also waits for the P13-I1 truthful-stage baseline.
+- [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and historical live-collector proposal, now deferred under TD-011.
+- [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — deferred Phase 11 design; historical dependencies are retained, owner reactivation is required.
+- [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 detail; capacity work requires measured baseline and owner reactivation.
 - [Operator Trust Console](plans/029-operator-trust-console.md) — canonical Phase 13 supporting detail for P13-I1 through P13-I4.
 
 ### Proposed, Historical, and Compatibility Plans
@@ -77,7 +77,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Telegram Notification Deduplication Technical Debt](technical-debt/002-telegram-notification-deduplication.md) — retained cooldown-specific follow-ups; active durable delivery is P8-I5.
 - [Temporary System Operator UUID Technical Debt](technical-debt/003-system-operator-uuid.md)
 - [Post-MVP Roadmap Work](technical-debt/004-post-mvp-roadmap-work.md) — deferred scope that must not block the active MVP, including production logging hardening.
-- [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) — scheduled Phase 12 bounded-concurrency and offset-safety work after the Phase 13 truthful-stage measurement gate.
+- [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) — open offset-safety debt plus deferred capacity work; confirmed correctness fixes can be promoted separately.
 - [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md)
 
 ## Canonical Documents
@@ -106,3 +106,9 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - Register every non-ADR content document under `docs/` in `INDEX.md`; keep architecture decisions in `adr/README.md`.
 - Restart numbering at `001` in each subject folder, match registry entries to their `NNN-` filename prefixes, and never reuse assigned numbers within a folder.
 - Architecture/contract/workflow changes must review `AGENTS.md`, `CLAUDE.md` and `.roo/rules/` so coding-agent guidance does not drift from the codebase.
+
+## Technical-debt priority and review
+
+[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.mmd) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral; source-local TODOs link to the existing debt record and do not change runtime behavior.
+
+Diagram sources share the roadmap's visual style: [roadmap.mmd](plans/roadmap/roadmap.mmd) and [priority-order.mmd](technical-debt/priority-order.mmd).

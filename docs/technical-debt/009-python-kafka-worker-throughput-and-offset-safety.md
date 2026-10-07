@@ -1,5 +1,20 @@
 # Python Kafka Worker Throughput and Offset Safety
 
+## Review — 2026-10-07
+
+| Field | Assessment |
+| --- | --- |
+| Type | correctness + capacity (separate slices) |
+| Status | OPEN / static risks confirmed; throughput unmeasured |
+| Priority | P1 offset safety; P2 measured capacity |
+| Static evidence | Factory leaves offset policy implicit; worker loops are sequential. Ingestor startup discards getmany() records. No runtime loss or current rate is claimed. |
+| Activation | Correctness evidence can justify an immediate narrow fix; concurrency/writer follow baseline and owner promotion. |
+
+Refs: [libs/py-common/py_common/kafka/factory.py](../../libs/py-common/py_common/kafka/factory.py), [libs/py-common/py_common/kafka/job_status_service.py](../../libs/py-common/py_common/kafka/job_status_service.py), [apps/ingestor/app/messaging/consumer.py](../../apps/ingestor/app/messaging/consumer.py).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+
 Status: Scheduled as pending P12-I1 through P12-I4; P12-I1 begins only after P11-I5 and the completed P13-I1 truthful-stage measurement gate; not an active MVP prerequisite
 
 ## Goal
@@ -56,6 +71,10 @@ The latest terminal update preceded the observation by approximately 22 minutes 
 A future capacity decision must use a complete representative cohort and separate measurements by topic, consumer group, job type, provider, partition, success/failure outcome, and processing-duration percentile.
 
 This evidence clears the Platform scheduler outbox as the immediate bottleneck. The active issue is downstream worker throughput or reachability, with an additional correctness risk around implicit Kafka offset commits during worker restart or failure.
+
+## Startup record-discard risk
+
+Ingestor `_start_kafka_clients()` awaits `consumer.getmany(timeout_ms=1000)` and discards the returned batches before entering its routing loop. Static source shows records may be fetched without handler/status publication; it does not prove production data loss. Verify startup with queued records and contiguous offset handling before choosing a fix. This correctness slice must not wait for concurrency, a writer service, or centralized logging deployment.
 
 ## Problem
 
@@ -170,7 +189,7 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 1. Complete P13-I1 first so dispatch, worker wait, processing, status publication, and
    Platform application have truthful evidence and a representative baseline; do not
    use child creation-time `RUNNING` rows as active-processing measurements.
-2. Implement P12-I1 after P11-I5 and P13-I1: inventory every affected consumer, disable
+2. Reactivate the capacity scope only through a bounded increment; its retained Phase 12 dependencies are proposal context, not an active schedule. For offset safety, inventory every affected consumer, disable
    implicit auto-commit, and prove contiguous-prefix commit, restart, revoke, and
    shutdown safety before adding concurrency.
 3. Treat the recorded production cohort as directional history only; extend the P13-I1

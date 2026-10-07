@@ -60,11 +60,11 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/010 | [Telegram Multi-Channel](plans/010-telegram-multi-channel.md)                                         | Supporting implementation plan           | Group C / Phase 8                  |
 | plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation        | Group C / Phase 8                  |
 | plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail              | Group C / Phase 8                  |
-| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Active bounded implementation plan       | Group D / Phase 9                  |
-| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Active bounded implementation plan       | Group D / Phase 10                 |
-| plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Canonical supporting implementation plan | Group E / Phase 11 / P11-I1-P11-I5 |
-| plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Supporting implementation plan           | Group F / Phase 12 / P12-I1-P12-I4 |
-| plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Canonical supporting implementation plan | Group G / Phase 13 / P13-I1-P13-I4 |
+| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Deferred owner-gated design       | Group D / Phase 9                  |
+| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred owner-gated design       | Group D / Phase 10                 |
+| plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan | Group E / Phase 11 / P11-I1-P11-I5 |
+| plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan | Group F / Phase 12 / P12-I1-P12-I4 |
+| plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Deferred owner-gated supporting plan | Group G / Phase 13 / P13-I1-P13-I4 |
 
 ## Proposed, Historical, and Compatibility Plans
 
@@ -95,7 +95,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | technical-debt/006 | [Job Status Transaction Silent Rollback](technical-debt/006-job-status-transaction-silent-rollback.md)                     | Resolved historical diagnosis             | Cross-cutting job execution          | [Job Execution Flow](flows/001-job-execution.md), [Notification Outbox plan](plans/022-notification-outbox.md)                                                 |
 | technical-debt/007 | [Async Dependency Evaluation](technical-debt/007-async-dependency-evaluation.md)                                           | Implemented; verification debt remains    | Group B / Phase 4                    | [Phase 4 roadmap](plans/005-job-dependency-guard.md), [Job Execution Flow](flows/001-job-execution.md)                                                         |
 | technical-debt/008 | [VCI Intraday Adapter vnstock 4.x Migration](technical-debt/008-vci-intraday-adapter-vnstock4-migration.md)                | Provider compatibility verification debt  | Group D / Phase 9 / P9-I1            | [Intraday EOD flow](flows/005-intraday-eod.md), [Plan 013](plans/013-intraday-eod.md)                                                                          |
-| technical-debt/009 | [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) | Scheduled pending Phase 12 debt           | Group F / P12-I1-P12-I4              | [Plan 027](plans/027-concurrent-workers-and-writer-batching.md), [High Availability Notes](deployment/003-high-availability-notes.md)                          |
+| technical-debt/009 | [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) | Open safety / deferred capacity debt           | Group F / P12-I1-P12-I4              | [Plan 027](plans/027-concurrent-workers-and-writer-batching.md), [High Availability Notes](deployment/003-high-availability-notes.md)                          |
 | technical-debt/010 | [Kafka Poison Record and Dead-Letter Policy](technical-debt/010-kafka-poison-record-and-dead-letter-policy.md)             | Deferred cross-service operational policy | Cross-cutting; not roadmap-scheduled | [Kafka Contracts](data/001-kafka-contracts.md), [Plan 027](plans/027-concurrent-workers-and-writer-batching.md)                                                |
 
 ## Roadmap View
@@ -122,3 +122,9 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 - Add each new non-ADR content document under `docs/` to one subject registry and the roadmap view; leave navigation indexes unnumbered.
 - Register architecture decisions in [`docs/adr/README.md`](adr/README.md), not here.
 - A registry mapping records relevance; it does not establish implementation status or completion evidence.
+
+## Technical-debt priority and review
+
+[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.mmd) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral; source-local TODOs link to the existing debt record and do not change runtime behavior.
+
+Standalone roadmap diagram: [roadmap.mmd](plans/roadmap/roadmap.mmd); debt priorities: [priority-order.mmd](technical-debt/priority-order.mmd).

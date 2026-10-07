@@ -24,6 +24,8 @@ final class NotificationDeduplicator {
     private final Duration cooldown;
     private final int maxCacheSize;
     private final Clock clock;
+    // TODO(TD-002): Revisit volatile cooldown counts when replica/audit requirements arise.
+    // Ref: docs/technical-debt/002-telegram-notification-deduplication.md
     private final ConcurrentHashMap<NotificationKey, Entry> entries = new ConcurrentHashMap<>();
 
     NotificationDeduplicator(Duration cooldown, int maxCacheSize, Clock clock) {

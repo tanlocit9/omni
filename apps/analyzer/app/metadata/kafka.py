@@ -51,6 +51,8 @@ class MetadataSyncKafkaService(JobStatusKafkaService):
                 work_type=message.work_type,
                 work_key=message.work_key,
                 status=(
+                    # TODO(TD-001): Align partial terminal outcomes with Platform.
+                    # Ref: docs/technical-debt/001-p3-i5-metadata-reconciliation.md
                     JobStatus.PARTIAL_SUCCESS
                     if result.is_partial
                     else JobStatus.SUCCESS

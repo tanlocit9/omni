@@ -1,5 +1,20 @@
 # Temporary System Operator UUID Technical Debt
 
+## Review — 2026-10-07
+
+| Field | Assessment |
+| --- | --- |
+| Type | security / identity |
+| Status | OPEN / temporary identity confirmed |
+| Priority | P0 before non-local or multi-user exposure |
+| Static evidence | Console still embeds/sends a shared X-Omni-User UUID; Platform uses a fallback auditor. |
+| Activation | Before non-local or multi-user deployment; not proof of a currently exposed service. |
+
+Refs: [apps/omni-console/src/api.ts](../../apps/omni-console/src/api.ts), [apps/core/src/main/java/com/omni/platform/shared/entities/JpaAuditConfig.java](../../apps/core/src/main/java/com/omni/platform/shared/entities/JpaAuditConfig.java).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+
 ## Summary
 
 `SYSTEM_OPERATOR_UUID` temporarily identifies unauthenticated system activity and

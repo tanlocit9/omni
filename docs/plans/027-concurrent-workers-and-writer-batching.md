@@ -1,6 +1,11 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
-Status: Supporting implementation plan. Canonical schedule and statuses belong to [Phase 12](027-concurrent-workers-and-writer-batching.md) and the [increment registry](roadmap/implementation-increments.md). P12-I1 starts only after P11-I5 and the completed P13-I1 truthful-stage measurement gate. This plan does not claim runtime changes.
+## Current scheduling override — 2026-10-07
+
+This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.
+
+
+Status: Deferred supporting design. Canonical schedule and statuses belong to [Phase 12](027-concurrent-workers-and-writer-batching.md) and the [increment registry](roadmap/implementation-increments.md). The proposed full P12 sequence retains P11-I5 and P13-I1 dependencies and additionally requires owner reactivation. A focused data-loss fix may be promoted separately. This plan does not claim runtime changes.
 
 ## Goal
 

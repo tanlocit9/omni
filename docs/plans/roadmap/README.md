@@ -63,24 +63,26 @@ This baseline describes capability presence only. It does not imply the later co
 
 The diagram is navigational. Increment-level status, dependencies, and ownership remain canonical in [`implementation-increments.md`](implementation-increments.md).
 
+Standalone sources: [roadmap.mmd](roadmap.mmd) and [technical-debt priority-order.mmd](../../technical-debt/priority-order.mmd). Both diagrams use the same top-down layout, quoted English labels and state palette. Color describes evidence state, not urgency; P0–P3 labels in the debt diagram describe risk priority.
+
 ```mermaid
-flowchart LR
-    P0["P0 Correctness ✅"] --> P1["P1 Core safety<br/>P1-I3 verification"]
-    P1 --> P2["P2 Contracts<br/>foundation complete"]
-    P1 --> P3["P3 Data contracts<br/>date normalization complete"]
-    P3 --> P4["P4 Dependency guard<br/>P4-I3 verification"]
-    P4 --> P5["P5 Deployment<br/>superseded/deferred"]
-    P5 --> P6["P6 Console expansion<br/>superseded/deferred"]
+flowchart TD
+    P0["P0 Correctness ✅"] --> P1["P1 Core safety — P1-I3 verification"]
+    P1 --> P2["P2 Contracts — foundation complete"]
+    P1 --> P3["P3 Data contracts — date normalization complete"]
+    P3 --> P4["P4 Dependency guard — P4-I3 verification"]
+    P4 --> P5["P5 Deployment — superseded/deferred"]
+    P5 --> P6["P6 Console expansion — superseded/deferred"]
     P4 --> P7["P7 Job operations ✅"]
-    P1 --> P8["P8 Notifications<br/>verification/in progress"]
-    P2 --> P9["P9 Intraday EOD<br/>verification/in progress"]
+    P1 --> P8["P8 Notifications — verification/in progress"]
+    P2 --> P9["P9 Intraday EOD — verification/in progress"]
     P3 --> P9
-    P9 --> P10["P10 Realtime<br/>foundation verification; live blocked"]
-    P4 --> P11["P11 Observability<br/>pending"]
+    P9 --> P10["P10 Realtime — deferred; evidence retained"]
+    P4 --> P11["P11 Observability — deferred debt"]
     P8 --> P11
-    P4 --> P13["P13 Operator trust<br/>pending"]
+    P4 --> P13["P13 Operator trust — pending"]
     P7 --> P13
-    P11 --> P12["P12 Worker throughput<br/>pending"]
+    P11 --> P12["P12 Worker throughput — deferred debt"]
     P13 -->|"P13-I1 baseline gate"| P12
 
     classDef done fill:#d5f5e3,stroke:#198754,color:#111;
@@ -96,9 +98,9 @@ flowchart LR
 | Active execution order                                        | Status summary                                                                                                                            |
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | P4-I3 → P13-I1 → P13-I2 → P13-I4; then P8-I1 → P8-I2 → P8-I4 → P8-I5 → P9-I1 → P9-I4 → P1-I3 | Revised owner priority (2026-10-07); preserve dependencies, truthful status, active-work handoffs, and module-conflict checks.                           |
-| P11-I1 → P11-I2 → P11-I3 → P11-I4 → P11-I5                    | Starts only after completed P4-I3 and P8-I5.                                                                                              |
+| P11 logging rollout | Deferred to TD-011; owner reactivation required. |
 | P13-I1 → P13-I2 → P13-I4; P13-I3 separately                          | Owner-approved operator-trust scope; P13-I1 requires completed P4-I3/P7-I3, while P13-I3 uses Query Service memory cache; calendar evidence or explicit classification narrowing remains an owner decision and does not block the shell. |
-| P12-I1 → P12-I2 → P12-I3 → P12-I4                             | Starts only after P11-I5 and the completed P13-I1 truthful-stage measurement gate.                                                        |
+| P12 throughput and writer expansion | Deferred to TD-009/TD-011; baseline and owner promotion required. |
 
 Proto3 owns cross-service messages; JSON owns persisted dataset manifests. Superseded, blocked, deferred, and approval-required work is not autonomously selectable.
 
@@ -141,13 +143,13 @@ P9-I5 provider health, arbitrary SQL expansion, broad Dataset Explorer polish, c
 | [`docs/plans/006-job-dependency-guard-progress.md`](../006-job-dependency-guard-progress.md)                                   | Historical progress record              | Phase 4 implementation history                                                        |
 | [`docs/plans/007-portable-docker-deployment.md`](../007-portable-docker-deployment.md)                                         | Deferred technical debt                 | Phase 5 increments                                                                    |
 | [`docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`](../008-omni-metadata-console-dashboard-execution-plan.md) | Deferred technical-debt record          | Phase 6 metadata, explorer, viewer, and dashboard sequence                            |
-| [`docs/plans/009-dataset-component-market-dashboard.md`](../009-dataset-component-market-dashboard.md)                         | Deferred technical debt                 | Canonical fixed Market Dashboard scope is scheduled as P6-I4                          |
+| [`docs/plans/009-dataset-component-market-dashboard.md`](../009-dataset-component-market-dashboard.md)                         | Deferred technical debt                 | P6-I4 superseded; bounded Market Review is P13 scope                          |
 | [`docs/plans/010-telegram-multi-channel.md`](../010-telegram-multi-channel.md)                                                 | Supporting detail                       | Phase 8 routing increments                                                            |
 | [`docs/plans/011-telegram-notification-format-modernization.md`](../011-telegram-notification-format-modernization.md)         | Scheduled Phase 8 detail                | P8-I1/P8-I2 formats; P8-I3 historical; P8-I5 durable delivery is detailed by plan 022 |
 | [`docs/plans/012-confirmed-trend-equals-mvp.md`](../012-confirmed-trend-equals-mvp.md)                                         | Scheduled P8-I4 MVP detail              | Equal-vote combined signal, symbol query, and Telegram strategy selection             |
 | [`docs/plans/013-intraday-eod.md`](../013-intraday-eod.md)                                                                     | Active bounded P9-I1 detail             | VCI normalized trades for HOSE/HNX/UPCOM; later bars/sector increments deferred       |
 | [`docs/plans/021-intraday-confirmed-rules.md`](../021-intraday-confirmed-rules.md)                                             | Active bounded P9-I4 detail             | Exact-date intraday confirmation/suppression for the existing confirmed daily signal  |
-| [`docs/plans/014-realtime-per-tick.md`](../014-realtime-per-tick.md)                                                           | Reactivated gated Phase 10 plan         | P10-I1/P10-I2 evidence plus blocked VCI discovery and live collector/control runtime  |
+| [`docs/plans/014-realtime-per-tick.md`](../014-realtime-per-tick.md)                                                           | Deferred Phase 10 design         | P10-I1/P10-I2 evidence plus blocked VCI discovery and live collector/control runtime  |
 | [`docs/plans/015-cross-service-observability-correlation.md`](../015-cross-service-observability-correlation.md)               | Superseded historical design            | Replaced by Plan 024 and Phase 11; do not schedule                                    |
 | [`docs/plans/016-shared-api-contract-and-unified-openapi.md`](../016-shared-api-contract-and-unified-openapi.md)               | Deferred technical debt                 | Not roadmap-scheduled                                                                 |
 | [`docs/plans/017-global-dataset-metadata-refactor.md`](../017-global-dataset-metadata-refactor.md)                             | Implemented historical plan             | Phase 3 metadata migration history                                                    |
@@ -156,10 +158,14 @@ P9-I5 provider health, arbitrary SQL expansion, broad Dataset Explorer polish, c
 | [`docs/plans/020-next-phase-implementation-plan.md`](../020-next-phase-implementation-plan.md)                                 | Superseded compatibility document       | This roadmap; do not update status or schedule from it                                |
 | [`docs/plans/022-notification-outbox.md`](../022-notification-outbox.md)                                                       | Active P8-I5 supporting detail          | Canonical registry owns status, dependencies, and execution order                     |
 | [`docs/plans/023-dependency-aware-outbox-dispatch.md`](../023-dependency-aware-outbox-dispatch.md)                             | Active P4-I3 supporting detail          | Canonical registry owns status, dependencies, readiness, and execution order          |
-| [`docs/plans/024-polyglot-correlation-structured-logging.md`](../024-polyglot-correlation-structured-logging.md)               | Canonical Phase 11 supporting plan      | P11-I1 through P11-I5; canonical registry owns status and execution order             |
-| [`docs/plans/027-concurrent-workers-and-writer-batching.md`](../027-concurrent-workers-and-writer-batching.md)                 | Phase 12 supporting implementation plan | P12-I1 through P12-I4; P12-I1 is pending after P11-I5 and P13-I1                      |
+| [`docs/plans/024-polyglot-correlation-structured-logging.md`](../024-polyglot-correlation-structured-logging.md)               | Deferred Phase 11 supporting plan      | P11-I1 through P11-I5; canonical registry owns status and execution order             |
+| [`docs/plans/027-concurrent-workers-and-writer-batching.md`](../027-concurrent-workers-and-writer-batching.md)                 | Deferred Phase 12 supporting plan | P12-I1 through P12-I4; owner reactivation and measured baseline required                      |
 | [`docs/plans/029-operator-trust-console.md`](../029-operator-trust-console.md)                                                 | Phase 13 supporting implementation plan | P13-I1 through P13-I4; canonical registry owns status, dependencies, and order        |
 | [`docs/reference/001-algorithm-feature-catalog.md`](../../reference/001-algorithm-feature-catalog.md)                          | Supporting reference                    | Phase 9 and Phase 10 feature naming                                                   |
+
+## Deferred follow-ups
+
+Owner decision (2026-10-07): P10/P11/P12 and wider Console/provider/deployment expansion are technical-debt backlog, not automatic next work. Retain historical IDs, evidence and design dependencies; reactivate only a bounded slice with a measured trigger. See [technical-debt priority index](../../technical-debt/README.md), [Mermaid priority source](../../technical-debt/priority-order.mmd), and [TD-011](../../technical-debt/011-deferred-observability-capacity-and-realtime.md). A confirmed correctness/security issue can be promoted ahead of feature expansion.
 
 ## Selection summary
 

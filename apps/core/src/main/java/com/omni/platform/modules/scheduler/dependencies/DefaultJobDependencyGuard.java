@@ -35,7 +35,8 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
         this.manifestReader = manifestReader;
         this.evaluators = registerEvaluators();
         // Virtual thread executor for I/O-bound manifest reads
-        // Unbounded pool since virtual threads are lightweight and block efficiently
+        // TODO(TD-007): Own executor shutdown and bound downstream manifest admission.
+        // Ref: docs/technical-debt/007-async-dependency-evaluation.md
         this.ioExecutor = Executors.newVirtualThreadPerTaskExecutor();
     }
     

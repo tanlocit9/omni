@@ -1,21 +1,36 @@
 # Technical Implementation: Async Dependency Evaluation
 
-## Context
+## Review — 2026-10-07
+
+| Field | Assessment |
+| --- | --- |
+| Type | performance / resource lifecycle |
+| Status | SOURCE PRESENT / load verification pending |
+| Priority | P2 conditional |
+| Static evidence | Guard creates an unbounded virtual-thread executor without explicit lifecycle closure. Existing dependency parallelism is not a load result. |
+| Activation | Measured MinIO pressure/latency or lifecycle leakage; preserve readiness semantics. |
+
+Refs: [apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/DefaultJobDependencyGuard.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/DefaultJobDependencyGuard.java).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.mmd). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+
+## Historical Context
 
 The Platform scheduler's dependency guard was experiencing OkHttp thread pool exhaustion when evaluating multiple dataset dependencies. Each dependency check makes blocking I/O calls to MinIO to read `_metadata/metadata.json`, and sequential evaluation caused virtual threads to pile up waiting for the limited OkHttp dispatcher capacity.
 
-## Problem
+## Historical Problem
 
 **Error Pattern**: `java.io.InterruptedIOException: executor rejected`
 
 **Flow**:
 
-1. [`JobScheduler.processClaimedJob()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/JobScheduler.java:186) evaluates dependencies **before** creating outbox messages
-2. [`DefaultJobDependencyGuard.checkDependencies()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/DefaultJobDependencyGuard.java:58) evaluated each dependency sequentially
-3. Each dependency made blocking MinIO calls via [`MinioManifestReader`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/MinioManifestReader.java:38)
+1. [`JobScheduler.processClaimedJob()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/JobScheduler.java) evaluates dependencies **before** creating outbox messages
+2. [`DefaultJobDependencyGuard.checkDependencies()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/DefaultJobDependencyGuard.java) evaluated each dependency sequentially
+3. Each dependency made blocking MinIO calls via [`MinioManifestReader`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/dependencies/MinioManifestReader.java)
 4. With jobs checking multiple partitions (e.g., EOD for hundreds of symbols), OkHttp dispatcher queue filled
 5. New requests threw `InterruptedIOException: executor rejected`
-6. Failed dependency checks prevented jobs from reaching [`prepareDispatch()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducer.java:90) and creating outbox messages
+6. Failed dependency checks prevented jobs from reaching [`prepareDispatch()`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducer.java) and creating outbox messages
 
 **Impact**: Cascading failure where jobs cannot be dispatched because dependencies cannot be evaluated, blocking the entire job execution flow.
 
@@ -36,7 +51,7 @@ Refactored [`DefaultJobDependencyGuard`](../../apps/core/src/main/java/com/omni/
 
    - Unbounded pool suitable for I/O-bound operations
    - Virtual threads block efficiently without consuming platform threads
-   - No thread pool size tuning required
+   - Downstream request admission and executor lifecycle still need explicit bounds
 
 2. **Parallel Dependency Evaluation** (line 73-82):
 
@@ -86,8 +101,8 @@ under representative load.
    - Evaluators are stateless and safe for concurrent use
 
 3. **Resource Usage**:
-   - Virtual threads have minimal memory overhead (~1KB per thread)
-   - No platform thread exhaustion risk
+   - Virtual-thread memory and downstream connection pressure still require measurement
+   - Virtual threads do not eliminate resource exhaustion
    - MinIO client still needs adequate OkHttp dispatcher limits (see Alternative Solutions)
 
 ## Alternative Solutions Considered

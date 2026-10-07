@@ -173,14 +173,11 @@ instances. `DEAD` rows are visible terminal records and are not replayed automat
 | Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/Sector.java) |
 | Upsert topic   | [`topic-upsert-sectors`](001-kafka-contracts.md#topic-upsert-sectors)                                                                                                        |
 
-## Planned Data Health persistence decision
+## Planned Data Health memory cache
 
-P13-I3 plans manual bounded EOD Parquet scans, but durable scan-request/result ownership
-is unresolved. Platform/PostgreSQL ownership and Query Service-owned durable persistence
-are alternatives requiring owner approval. No migration, table, retention policy, or
-multi-instance guarantee is implied until that decision defines audit identity,
-idempotency, pagination, restart behavior, schema migration, and deletion policy.
-Analytical EOD rows must not be copied into PostgreSQL merely to implement scan history.
+Owner decision (2026-10-07): Query Service owns a bounded process-local cache of manual EOD scan runs/results and provenance. Data Health adds no PostgreSQL table, SQLite store, Redis, disk persistence, or analytical EOD copy. Exact dataset/partition/dataVersion/scope/rule/evidence keys, TTL, entry/byte/finding limits, in-flight deduplication, explicit refresh, and restart behavior are defined in [Plan 029](../plans/029-operator-trust-console.md#data-health-in-memory-cache).
+
+Cache loss or restart requires another manual scan; it is not durable audit history and is not shared across processes or replicas. Platform operational-stage persistence remains separate. Calendar/lifecycle evidence still requires approval or explicit narrowing of classifications.
 
 ## Boundary Rules
 

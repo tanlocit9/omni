@@ -17,6 +17,10 @@ current scheduling metadata remains canonical in
 - Historical entries are not current scheduling metadata and do not override the
   canonical increment registry.
 
+## Planning revision — 2026-10-07
+
+Owner requested P4-I3 verification then P13-I1/P13-I2/P13-I4 before the remaining MVP evidence queue. P13-I4 no longer waits for Data Health. P13-I3 caches bounded scan runs/results in Query Service memory only, with TTL, size limits, exact-version keys, refresh, and explicit cache-loss behavior. Calendar/lifecycle classifications retain an owner-decision gate. No runtime implementation, test pass, or completion-status promotion is claimed.
+
 ## Current delivery snapshot
 
 | Area                                     | Current state                                                 | Evidence boundary                                                                                                                    |
@@ -33,7 +37,7 @@ current scheduling metadata remains canonical in
 | Realtime foundation                      | P10-I1/P10-I2 `verification_pending`; P10-I0/P10-I3 blocked   | Provider-independent local checks exist; live VCI capability/runtime evidence is absent                                              |
 | Cross-service observability              | P11-I1–P11-I5 pending                                         | Starts after completed P4-I3 and P8-I5                                                                                               |
 | Worker throughput and writer batching    | P12-I1–P12-I4 pending                                         | P12-I1 starts after P11-I5 and completed P13-I1 truthful-stage baseline                                                              |
-| Operator trust Console                   | P13-I1–P13-I4 pending                                         | Owner-approved scope; P13-I3 retains unresolved Data Health persistence and evidence-source decisions                                |
+| Operator trust Console                   | P13-I1–P13-I4 pending                                         | Owner-approved scope; Query Service memory caching approved; calendar/lifecycle evidence or narrowed classifications remain unresolved                                |
 
 ## Release history
 

@@ -337,7 +337,7 @@ are disabled and a failed run leaves the current view intact.
 The owner replaced this manual-only proposal with scheduled/manual automatic EOD
 reconciliation after runtime diagnosis. It is not part of the M4 completion gate.
 Canonical scope is in
-[`003-dataset-metadata-manifest.md`](003-dataset-metadata-manifest.md#increment-p3-i5--automatic-eod-metadata-reconciliation).
+[`003-dataset-metadata-manifest.md`](../technical-debt/001-p3-i5-metadata-reconciliation.md).
 
 ## M5 — Parquet Viewer and SQL Console
 

@@ -8,13 +8,13 @@ queries, and Platform-owned job operations.
 Current source still opens on the fixed Market Dashboard. Owner-approved
 [Plan 029](../../docs/plans/029-operator-trust-console.md) plans to replace that
 product order with **Job Operations → Data Health → small Market Review** after the
-owning increments are implemented and verified.
+owning increments are implemented and verified. The shell depends on P13-I2, not P13-I3; Data Health is explicitly unavailable until its API ships.
 
 Job Operations will show truthful stage counts, daily jobs/minute as the primary
 throughput unit, jobs/hour, jobs/day, duration percentiles, scheduler-outbox lag,
 outstanding work, and guarded publish-drain estimates. Data Health will provide
 manual bounded read-only EOD Parquet scans with exact provenance and no repair or
-backfill. Market Review will reuse the existing fixed code-owned widgets and bounded
+backfill. Scan results are cached in Query Service memory with visible scan/expiry times and exact provenance; eviction or restart is a cache miss, not proof of healthy data or durable scan history. Market Review will reuse the existing fixed code-owned widgets and bounded
 Query Service contracts. Dataset Explorer remains secondary; Raw SQL is de-emphasized
 and is not expanded by Phase 13.
 

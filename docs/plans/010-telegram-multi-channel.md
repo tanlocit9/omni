@@ -1,5 +1,7 @@
 # Telegram Multi-Channel Notification Implementation Plan
 
+Status: Implemented source capability. Platform has explicit `OPERATIONS` and `SIGNALS` channels and resolves separate configured destinations through the shared Telegram notification path. This supporting plan does not independently promote P8 roadmap increments; P8-I1/P8-I2/P8-I5 remain `verification_pending` in the [canonical registry](roadmap/implementation-increments.md) until their remaining evidence gates close.
+
 ## Goal
 
 Split Telegram notifications into separate destinations by purpose while keeping the current notification architecture simple and extensible.

@@ -136,7 +136,7 @@ This skill should activate when the owner asks to synchronize product notes, evi
 
 Required workflow:
 
-1. Read the latest default-branch commit, roadmap registry, execution log, merged pull requests, and successful CI evidence.
+1. Read the latest default-branch commit, roadmap registry, root [`ReleaseNotes.md`](../../ReleaseNotes.md), merged pull requests, and successful CI evidence.
 2. Compare those facts with the Omni product-vault Roadmap, Implementation Evidence, Milestones, and related summaries.
 3. Report drift before writing.
 4. Update only factual summaries and evidence links; do not move canonical technical decisions out of the repository.

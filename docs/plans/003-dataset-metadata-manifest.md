@@ -1,5 +1,7 @@
 # Dataset Metadata Manifest Implementation Plan
 
+Status: Implemented source capability with superseded roadmap rollout. Shared JSON manifest models, immutable version publication, READY-last pointers, deterministic `dataVersion`, lineage, and metadata synchronization are present. P3-I1/P3-I2/P3-I3/P3-I5 are `superseded`; P3-I4 date normalization is `completed`. This marker records implementation presence without reactivating superseded increments or claiming new runtime/CI evidence. Canonical status is owned by the [increment registry](roadmap/implementation-increments.md).
+
 ## Goal
 
 Store dataset statistics, readiness and version lineage in the same S3-compatible object storage as Omni analytical data.

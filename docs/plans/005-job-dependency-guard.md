@@ -1,5 +1,7 @@
 # Job Dependency Guard Implementation Plan
 
+Status: Core guard implemented. P4-I1 and P4-I2 are `completed`; P4-I3 is `superseded` because Plan 030 P14-I3 now owns the final planner-integrated dispatcher delivery and safety proof. P4-I3 source/design remains documented by [Plan 023](023-dependency-aware-outbox-dispatch.md), while unclosed evidence is retained in [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md). Canonical status is owned by the [increment registry](roadmap/implementation-increments.md).
+
 ## Goal
 
 Turn existing job dependency metadata from documentation-only information into a lightweight runtime gate based primarily on object-storage dataset manifests.

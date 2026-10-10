@@ -1,5 +1,19 @@
 # Job Status Empty Output Semantics
 
+## Review — 2026-10-07
+
+| Field           | Assessment                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | correctness / output semantics                                                                                                                                           |
+| Status          | OPEN / source behavior confirmed                                                                                                                                         |
+| Priority        | P1                                                                                                                                                                       |
+| Static evidence | Stock and indicator workers can report SUCCESS for zero output; signal consumer counts one processed result; parent aggregation does not establish dataset completeness. |
+| Activation      | Clarify valid-empty versus missing/invalid output before presenting execution success as data health.                                                                    |
+
+Refs: [apps/ingestor/app/handlers/stock_prices.py](../../apps/ingestor/app/handlers/stock_prices.py), [apps/analyzer/app/indicators/kafka.py](../../apps/analyzer/app/indicators/kafka.py), [apps/analyzer/app/signals/kafka.py](../../apps/analyzer/app/signals/kafka.py).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
 ## Summary
 
 Stock-price sync, indicator sync, and signal sync jobs currently report `SUCCESS` even when output is empty, missing, or non-persisted. The semantic gap between "no exception thrown" and "valid output produced" is not documented and causes operational confusion when many symbols have missing or `NO_DECISION` results but parent jobs report `SUCCESS`.
@@ -10,7 +24,7 @@ This debt affects diagnostics, job dependency guards, and operator visibility in
 
 ### Stock-Price Sync
 
-[`apps/ingestor/app/handlers/stock_prices.py:92-96`](../../apps/ingestor/app/handlers/stock_prices.py:92)
+[`apps/ingestor/app/handlers/stock_prices.py:92-96`](../../apps/ingestor/app/handlers/stock_prices.py)
 
 ```python
 status = build_status(
@@ -29,7 +43,7 @@ status = build_status(
 
 ### Indicator Sync
 
-[`apps/analyzer/app/indicators/kafka.py:64-70`](../../apps/analyzer/app/indicators/kafka.py:64)
+[`apps/analyzer/app/indicators/kafka.py:64-70`](../../apps/analyzer/app/indicators/kafka.py)
 
 ```python
 records_processed = await self._handler.handle(raw)
@@ -47,7 +61,7 @@ status = self._build_status(
 
 ### Signal Sync
 
-[`apps/analyzer/app/signals/kafka.py:182-189`](../../apps/analyzer/app/signals/kafka.py:182)
+[`apps/analyzer/app/signals/kafka.py:182-189`](../../apps/analyzer/app/signals/kafka.py)
 
 ```python
 meta_json["recordsProcessed"] = 1
@@ -67,7 +81,7 @@ return JobStatusMessage(
 
 ### Parent Aggregation
 
-[`apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java:476-482`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java:476)
+[`apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java:476-482`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java)
 
 ```java
 if (!allTerminal) {

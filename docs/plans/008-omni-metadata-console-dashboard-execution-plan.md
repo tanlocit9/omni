@@ -337,7 +337,7 @@ are disabled and a failed run leaves the current view intact.
 The owner replaced this manual-only proposal with scheduled/manual automatic EOD
 reconciliation after runtime diagnosis. It is not part of the M4 completion gate.
 Canonical scope is in
-[`roadmap/phase-3-dataset-manifests.md`](roadmap/phase-3-dataset-manifests.md#increment-p3-i5--automatic-eod-metadata-reconciliation).
+[`003-dataset-metadata-manifest.md`](../technical-debt/001-p3-i5-metadata-reconciliation.md).
 
 ## M5 — Parquet Viewer and SQL Console
 
@@ -364,6 +364,15 @@ cancellation/cleanup; JSON and Arrow contracts.
 
 A real READY dataset opens; query controls hold; no credentials or physical paths
 leak; schema drift is visible; production assets load.
+
+## Current Phase 13 ownership
+
+This document retains historical Dataset Explorer, Parquet Viewer, bounded Query Service,
+and fixed-widget design evidence. The owner-approved current Console landing order,
+truthful Job Operations stages/metrics, manual EOD Data Health scans, and small Market
+Review are owned by [Plan 029](029-operator-trust-console.md) and P13-I1 through
+P13-I4. The milestones below must not restore the former market-first landing order or
+be used as a competing schedule.
 
 ## M6 / P6-I4 — Fixed Market Dashboard
 
@@ -472,8 +481,8 @@ Review/update:
 
 - `docs/plans/roadmap/README.md`
 - `docs/plans/roadmap/implementation-increments.md`
-- `docs/plans/roadmap/phase-3-dataset-manifests.md`
-- `docs/plans/roadmap/phase-6-omni-console.md`
+- `docs/plans/003-dataset-metadata-manifest.md`
+- `docs/plans/008-omni-metadata-console-dashboard-execution-plan.md`
 - `plans/019-consolidated-numbered-implementation-phases.md`
 - `plans/006-job-dependency-guard-progress.md`
 - `docs/plans/003-dataset-metadata-manifest.md`

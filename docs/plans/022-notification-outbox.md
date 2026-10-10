@@ -1,5 +1,7 @@
 # Notification Outbox and Durable Delivery Plan
 
+Status: Implemented source capability / verification pending. The separate notification outbox entity, repository, service, dispatcher, metrics, migration, and focused unit/PostgreSQL tests are present. P8-I5 remains `verification_pending` because its prerequisites and remaining migration-runtime, commit/PR, exact-head CI, and durable-delivery evidence are not complete.
+
 Canonical status and schedule owner: [P8-I5 in implementation increments](roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule.
 
 ## Goal
@@ -354,3 +356,16 @@ Stop and request an owner decision if implementation would:
 - delete pending records during migration or rollback;
 - add automatic market-data provider routing or silently mix provider lineage;
 - change the NO_DECISION product policy.
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface                       | Field/DTO change                                                                                                                        | Impact and behavior                                                                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| notification_outbox_messages  | id/audit, provider, channel, notification_kind, schema_version, payload, deduplication_key, status, shared claim/retry columns, sent_at | HIGH DB/transaction boundary; exact inherited claim field mapping needs source/schema inventory before migration. Unique provider/channel/dedup key; payload is canonical request, not HTML. |
+| Persisted NotificationRequest | Typed payload with schema_version compatibility                                                                                         | HIGH persisted DTO; fail closed on unsupported version; never bypass via generic rendering.                                                                                                  |
+| Manual response               | Accepted delivery identity, HTTP 202; exact response DTO name/fields unresolved                                                         | HIGH externally visible behavior: durably accepted is not SENT. The latest-signal Analyzer lookup remains synchronous 200.                                                                   |
+| Digest page identity/config   | Stable digest/page key, bounded retry/claim/rate-limit settings                                                                         | HIGH idempotency/delivery plus MEDIUM configuration; logical digest complete only when every page SENT.                                                                                      |
+
+Small tasks: schema/codec/identity → transactional enqueue and input acknowledgment → fenced retry dispatcher → page identity/render integration → producer-by-producer direct-send cutover → status API. A producer cannot use both paths; schema alone is not durable-delivery completion. Preserve single-bot versus multi-instance rate-limit ownership gate.

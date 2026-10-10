@@ -40,6 +40,8 @@ class KafkaClientFactory:
             group_id,
             settings.bootstrap_servers,
         )
+        # TODO(TD-009): Make command commit ownership explicit after successful
+        # output/status publication. See the TD-009 technical-debt record.
         if isinstance(topics, list):
             return AIOKafkaConsumer(
                 *topics,

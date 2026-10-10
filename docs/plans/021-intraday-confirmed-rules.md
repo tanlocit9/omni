@@ -1,7 +1,7 @@
 # Intraday Confirmation for Confirmed Trend — Implementation Plan
 
-Status: implementation in progress / local project verification passed 2026-09-12
-Dependency: Phase 9 P9-I1 remains `verification_pending`. Owner instruction on 2026-09-11 authorizes this bounded implementation without promoting P9-I1.
+Status: implemented source capability / roadmap `pending` after owner pause on 2026-10-10. Historical local project checks passed on 2026-09-12 and remain recorded; runtime/external evidence is unresolved.
+Dependency: P9-I1 remains `verification_pending` and P8-I4 is `pending`. The pause releases active `apps/core` ownership for P14-I1 without discarding source, evidence, acceptance criteria, or historical authorization.
 Current implementation commit: not committed
 
 ## Goal
@@ -252,7 +252,7 @@ Platform project checks passed; external and runtime checks remain unresolved.
 
 ## Evidence inspected
 
-- `docs/plans/roadmap/phase-9-intraday-eod.md`: P9-I1 is `verification_pending`; all verification checks remain `NOT RUN`.
+- `docs/plans/013-intraday-eod.md`: P9-I1 is `verification_pending`; all verification checks remain `NOT RUN`.
 - `apps/analyzer/app/signals/strategy.py`: current confirmed strategy is a two-component equal vote with stale/mismatch/NO_DECISION guards.
 - `apps/analyzer/app/signals/handler.py`: current confirmed handler reads persisted component histories plus latest canonical EOD date and persists through the existing signal repository.
 - `docs/data/002-data-lake.md`: Analyzer owns derived features/signals; Ingestor owns normalized intraday trades.
@@ -326,3 +326,15 @@ not run and remain required where applicable.
 - no trading execution/advice;
 - no automatic V1 historical rewrite;
 - no percentage-threshold optimization before backtest evidence.
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface                   | Field/DTO change                                                                                                                                                                   | Impact and behavior                                                                                             |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| IntradayConfirmationFacts | Canonical input fields listed below: exact date/version/quality, session_return_pct, vwap, close_vs_vwap_pct, late_return_pct, late_volume_share, trade count, rule output/reasons | HIGH algorithm behavior; in-memory Analyzer facts, not a new persisted feature dataset.                         |
+| Combined signal metadata  | intradayConfirmation; inputDataVersions; modelVersion=CONFIRMED_TREND_EQUALS_V2_INTRADAY                                                                                           | HIGH versioned meaning/lineage change; incompatible data must not silently appear as V1.                        |
+| Consumers/presentation    | Existing signal vocabulary plus V2 explanation/quality facts                                                                                                                       | MEDIUM/HIGH consumer behavior; intraday can suppress or confirm direction, missing evidence yields NO_DECISION. |
+
+Small tasks: pure facts/rule derivation → versioned metadata persistence → exact-date readiness/dependency gate → query/Telegram explanation binding. Keep analytical V2 migration distinct from notification durability or generic ensembles.

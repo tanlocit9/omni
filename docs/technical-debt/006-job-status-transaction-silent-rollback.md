@@ -1,5 +1,19 @@
 # Job Status Transaction Silent Rollback
 
+## Review — 2026-10-07
+
+| Field           | Assessment                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Type            | historical diagnosis                                                                                                   |
+| Status          | RESOLVED AS WRITTEN / historical only                                                                                  |
+| Priority        | None                                                                                                                   |
+| Static evidence | Notification listener is async and catches delivery failures; no evidence of the historical synchronous callback path. |
+| Activation      | Reopen only with a new root exception and synchronous transaction path.                                                |
+
+Refs: [apps/core/src/main/java/com/omni/platform/modules/notifications/listeners/NotificationEventListener.java](../../apps/core/src/main/java/com/omni/platform/modules/notifications/listeners/NotificationEventListener.java), [apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
 ## Status
 
 Resolved as written; retained as historical evidence.

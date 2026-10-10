@@ -1,5 +1,7 @@
 # Backend/Core Stabilization Implementation Plan
 
+Status: Mixed implementation state. P0-I1, P0-I2, P1-I0, P1-I1, P1-I2, and P1-I4 are `completed`; P1-I3 has source and recorded CI evidence but remains `verification_pending` because increment-specific completion evidence is unresolved. Canonical status and evidence are owned by the [increment registry](roadmap/implementation-increments.md) and [Phase 1 roadmap](001-backend-core-stabilization.md).
+
 ## Goal
 
 Stabilize scheduler, job execution and sector-analysis correctness before expanding data frequency.
@@ -224,8 +226,9 @@ agent rule is required.
 8. In Phase 4, verify produced datasets publish valid READY manifests and dependent jobs reject stale/missing manifests.
 
 P1-I4 local evidence is recorded canonically in the
-[Phase 1 roadmap increment](roadmap/phase-1-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
-and [`execution-log.md`](roadmap/execution-log.md). It remains
+[Phase 1 roadmap increment](001-backend-core-stabilization.md#increment-p1-i4--worktypeworkkey-hard-cutover-and-notification-event-ownership)
+and the root [`ReleaseNotes.md`](../../ReleaseNotes.md). Historical evidence must not
+be used to override the current status in the canonical increment registry; it remains
 `verification_pending` until the final pushed head has successful exact-head CI and
 all repository gates are green.
 

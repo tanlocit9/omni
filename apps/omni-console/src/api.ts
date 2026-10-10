@@ -85,6 +85,8 @@ const API_BASE =
   import.meta.env.VITE_QUERY_SERVICE_URL ?? 'http://localhost:8002';
 const PLATFORM_API_BASE =
   import.meta.env.VITE_PLATFORM_API_URL ?? '/api/platform';
+// TODO(TD-003): Replace shared client identity before non-local or multi-user exposure.
+// Ref: docs/technical-debt/003-system-operator-uuid.md
 const SYSTEM_OPERATOR_UUID = import.meta.env.SYSTEM_OPERATOR_UUID;
 
 export class ApiError extends Error {

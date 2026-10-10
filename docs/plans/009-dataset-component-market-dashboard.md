@@ -1,8 +1,9 @@
 # Dataset-Component Market Dashboard Implementation Plan
 
-Status: Deferred technical debt supporting plan for superseded P6-I4; not eligible for current MVP scheduling
-Canonical status owner: [`docs/plans/roadmap/README.md`](roadmap/README.md)  
-Target application: `apps/omni-console`  
+Status: Historical/deferred market-dashboard detail. Existing widget and bounded-query source is reusable, but current product order is superseded by owner-approved Phase 13 Plan 029.
+Canonical status owner: [`docs/plans/roadmap/README.md`](roadmap/README.md)
+Current Console composition owner: [`docs/plans/029-operator-trust-console.md`](029-operator-trust-console.md)
+Target application: `apps/omni-console`
 Read boundary: `apps/query-service`
 
 ## Goal
@@ -193,9 +194,18 @@ The registry is code-owned and allowlisted. Persisted configuration must not inj
 
 Research-only Sector Transition widgets use a separate experimental registry, an explicit research label, and no BUY/SELL recommendation wording unless separately approved.
 
+## Superseded default order
+
+The market-first default below is retained as historical implementation evidence only.
+Plan 029 now owns the fixed order **Job Operations → Data Health → small Market
+Review**. Existing dataset-owned widgets, bounded Query Service endpoints, truthful
+availability states, and provenance behavior should be reused in that third section;
+they do not authorize restoring a dominant Market Dashboard, expanding Raw SQL, or
+creating a competing Phase 6 schedule.
+
 ## Default Page and Navigation
 
-The immediate navigation change is intentionally small:
+The historical navigation change was intentionally small:
 
 - initialize the current Console view to `dashboard` instead of `explorer`;
 - mark Dashboard active on first render;
@@ -483,7 +493,7 @@ Review during implementation:
 
 - `docs/README.md` - index this plan and dashboard ownership.
 - `docs/plans/roadmap/README.md` - identify this plan as canonical supporting detail for P6-I4.
-- `docs/plans/roadmap/phase-6-omni-console.md` - keep the fixed Market Dashboard scope and status synchronized.
+- `docs/plans/008-omni-metadata-console-dashboard-execution-plan.md` - keep the fixed Market Dashboard scope and status synchronized.
 - `plans/008-omni-metadata-console-dashboard-execution-plan.md` - update dashboard sequencing and gates.
 - `apps/omni-console/README.md` - document default page, component ownership, and navigation.
 - `apps/query-service/README.md` - document dashboard endpoints/query definitions when introduced.

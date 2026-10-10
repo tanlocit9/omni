@@ -14,10 +14,7 @@ duplicates/conflicts, required fields, OHLCV validity, corruption, and schema mi
 with exact dataset/partition/`dataVersion`/file/check/time provenance. Scans do not
 repair data, trigger backfill, or mutate manifests/READY.
 
-Durable scan-request/result ownership is intentionally unresolved. This README does
-not assign it to Query Service's current SQLite query queue or to Platform/PostgreSQL.
-Implementation must wait for the owner decision covering audit, idempotency, retention,
-restart, multi-instance behavior, migration, pagination, and deletion policy.
+Owner decision (2026-10-07): planned scan runs/results use a bounded Query Service process-local memory cache, independent of the existing SQLite query queue. Keys cover logical dataset/partition/dataVersion, requested scope/bounds, and rule/scanner/calendar-evidence versions. Enforce authorization, TTL, entry/byte/finding limits, in-flight deduplication and explicit refresh. Cache loss, eviction, expired IDs and service restart require a new manual scan. Initial scan deployment uses one process; no cross-process/replica continuity or durable history is promised. Do not cache incomplete scans as healthy or reuse findings after inspected objects change. See Plan 029 for the full cache contract. Calendar/lifecycle sources still require approval or explicit narrowing; this section describes planned behavior only.
 
 ## API
 

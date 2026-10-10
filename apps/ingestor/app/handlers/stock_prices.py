@@ -92,6 +92,8 @@ async def process_stock_price_message(
         status = build_status(
             payload,
             started_at,
+            # TODO(TD-005): Distinguish valid-empty work from missing/invalid output.
+            # Ref: docs/technical-debt/005-job-status-empty-output-semantics.md
             JobStatus.SUCCESS,
             records_inserted=len(new_df),
             total_records=len(combined),

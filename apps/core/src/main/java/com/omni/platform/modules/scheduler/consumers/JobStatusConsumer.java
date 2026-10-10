@@ -59,6 +59,8 @@ public class JobStatusConsumer extends AbstractConsumer {
                     record.topic(), record.partition(), record.offset(), record.key(), response.executionId(),
                     response.parentExecutionId(), response.workType(), response.workKey(), response.status());
         } catch (Exception e) {
+            // TODO(TD-010): Define bounded poison-record quarantine/recovery with offset safety.
+            // Ref: docs/technical-debt/010-kafka-poison-record-and-dead-letter-policy.md
             Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
             publishMessageProcessingFailed(record, e);
             log.error(

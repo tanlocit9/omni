@@ -66,6 +66,8 @@ class IndicatorKafkaService(JobStatusKafkaService):
                 message=message,
                 started_at=started_at,
                 finished_at=utc_now(),
+                # TODO(TD-005): Define zero-output success separately from completeness.
+                # Ref: docs/technical-debt/005-job-status-empty-output-semantics.md
                 status=JobStatus.SUCCESS,
                 records_processed=records_processed,
             )

@@ -1,12 +1,26 @@
 # Telegram Notification Deduplication Technical Debt
 
+## Review — 2026-10-07
+
+| Field           | Assessment                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | operational hardening                                                                                                                                                          |
+| Status          | OPEN / process-local limitation confirmed                                                                                                                                      |
+| Priority        | P3 conditional                                                                                                                                                                 |
+| Static evidence | Cooldown state remains process-local and bounded. The current key includes channel/type/severity and uses explicit deduplicationKey when provided, otherwise normalized title. |
+| Activation      | Multiple replicas, lost suppression counts, or measured false suppression.                                                                                                     |
+
+Refs: [apps/core/src/main/java/com/omni/platform/modules/notifications/services/NotificationDeduplicator.java](../../apps/core/src/main/java/com/omni/platform/modules/notifications/services/NotificationDeduplicator.java).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
 ## MVP Status
 
 The 2026-09-05 full deferral is historical. P8-I5 in the [canonical increment registry](../plans/roadmap/implementation-increments.md) owns durable enqueue/delivery identity, bounded retries, terminal `DEAD`, and operator visibility through the separate notification outbox described in [`docs/plans/022-notification-outbox.md`](../plans/022-notification-outbox.md). Relevant source is present, but P8-I5 remains `verification_pending`; this record does not claim completion. It retains cooldown-specific limitations and out-of-scope follow-ups and is not a competing schedule.
 
 ## Current Decision
 
-The platform applies an in-memory cooldown before Telegram delivery. The key combines notification type, severity, and a normalized title. Retained messages are sent with Telegram's `disable_notification=true`, and the next retained message reports how many repeats were suppressed during the previous cooldown interval.
+The platform applies an in-memory cooldown before Telegram delivery. The key combines channel, notification type, severity, and explicit deduplicationKey when supplied; normalized title is the fallback. Retained messages are sent with Telegram's `disable_notification=true`, and the next retained message reports how many repeats were suppressed during the previous cooldown interval.
 
 Silent delivery only suppresses client-side notification sound. It does not reduce Telegram Bot API request volume or prevent HTTP 429 responses; cooldown deduplication provides that request reduction.
 
@@ -37,8 +51,7 @@ The two layers can therefore both apply without representing the same policy. Th
 - **Current:** cooldown state and suppression counts are process-local and volatile.
 - **Current:** cooldown admission occurs before Telegram delivery, so a failed retained
   request still consumes local admission state.
-- **Current:** title normalization can collapse distinct incidents, and all notification
-  types share the cooldown mechanism.
+- **Current:** title normalization can collapse distinct incidents, and notifications use the shared cooldown mechanism, with explicit per-request identities when available.
 - **Current:** Kafka source-record failure suppression is a separate process-local guard
   with a different identity and lifetime.
 - **Source present, verification pending:** notification-outbox retries and terminal

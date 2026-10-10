@@ -97,6 +97,8 @@ class JobStatusKafkaService(ABC):
 
     async def _consume_loop(self) -> None:
         assert self._consumer is not None
+        # TODO(TD-009): Add bounded concurrency only after offset and capacity
+        # evidence. See the TD-009 technical-debt record.
         async for record in self._consumer:
             _logger.info(
                 "Received %s Kafka message topic=%s partition=%s offset=%s key=%s",

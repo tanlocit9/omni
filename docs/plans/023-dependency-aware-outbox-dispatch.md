@@ -1,6 +1,6 @@
 # Dependency-Aware Outbox Dispatch
 
-Canonical status and schedule owner: [P4-I3 in implementation increments](roadmap/implementation-increments.md). This document is supporting implementation detail only and must not define an independent execution schedule. P4-I3 source implementation is present locally, but verification commands and CI have not run, so the increment remains `verification_pending`.
+Canonical status and schedule owner: [the increment registry](roadmap/implementation-increments.md). P4-I3 is `superseded`; this document preserves the implemented dependency-aware dispatch baseline. [Plan 030 P14-I3](030-static-graph-dispatch-planner.md) owns the final planner-integrated dispatcher delivery, and [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md) retains unclosed evidence. This document must not define a competing schedule or imply that historical source is completed.
 
 ## Goal
 
@@ -79,6 +79,32 @@ Eligibility is evaluated before the atomic claim without holding a transaction a
   - signals depend on indicator readiness;
   - confirmed signals retain any exact-date intraday requirement defined by their algorithm plan;
   - metadata depends on the required upstream executions and dataset readiness for that run.
+
+## Static Graph & DispatchPlanner Promotion — 2026-10-08
+
+The 2026-10-07 design note was promoted into the active [Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) epic with stories P14-I1, P14-I2, and P14-I3. [TD-012](../technical-debt/012-static-dag-dispatch-planner.md) preserves deferred extensions. Owner priority on 2026-10-08 superseded P4-I3 rather than requiring completion of the old dispatcher path; all READY/WAITING/BLOCKED, no-starvation, claim/fencing, retry, compatibility, migration, fallback, and runtime evidence moves into P14-I3 acceptance through TD-014.
+
+- `DependencyGuard` serves job dependency semantics: required inputs, scope and exact version readiness. Its declarations remain valid; `DependencyRegistry` is the dispatcher-facing evaluation boundary.
+- `DispatchPlanner` serves scheduler dispatch after P14 implementation: group a bounded pending/dispatchable/in-flight snapshot by static graph node, traverse from independent roots, and select node/scope/quota for the next candidate query. It does not implement job readiness or create upstream work.
+- `SchedulerOutboxDispatcher` continues to execute selection, evaluate candidates through the existing registry/guard, atomically claim READY work, and publish with preserved fencing.
+- The static DAG is a shared view of job dependency topology, not a second source of truth or a DAG recreated at each publish. Empty upstream backlog does not establish READY.
+- [Plan 028 — Reusable Date-Range Job Backfill](028-reusable-date-range-backfill.md) may reuse this topology for tracing missing dated work; its graph persistence migration remains separately gated.
+
+```mermaid
+flowchart TD
+    Graph["Shared static job graph · P14-I1"] --> Planner["DispatchPlanner · P14-I2"]
+    Snapshot["Backlog by node"] --> Planner
+    Planner --> Query["Scoped candidate query"]
+    Outbox["Existing outbox"] --> Query
+    Query --> Registry["DependencyRegistry"]
+    Specs["Job input requirements"] --> Guard["DependencyGuard"]
+    Evidence["Manifest and version evidence"] --> Guard
+    Registry --> Guard
+    Guard --> Decision["READY / WAITING / BLOCKED"]
+    Decision --> Dispatch["Dispatcher · P14-I3 claim READY and publish"]
+```
+
+Planner selection is advisory scheduling; the guard remains the job readiness authority. Plan 030 freezes all-root reconciliation, in-flight/backoff behavior, baseline bounded fairness, and node-wide versus item-level selection across separate stories before activation. Persisted graphs, expanded provider policy, advanced fairness, Kafka changes, and runtime DAGs remain deferred. Existing item-level and no-starvation acceptance remains unchanged.
 
 ## Implementation Increments
 
@@ -194,3 +220,15 @@ Implemented locally:
 No guidance update was required in `AGENTS.md`, `CLAUDE.md`, or `.roo/rules`: their
 existing Platform-local dependency, logical-path, claim-fencing, verification-gate,
 and READY-last rules already describe the required repository workflow.
+
+## Field/DTO Inventory and Bounded Delivery — 2026-10-07
+
+Design inventory, not a claim that fields are missing from source or already implemented. [Cross-plan register](../reference/002-planned-field-dto-impact.md) defines ADD/REUSE/SEMANTIC/DERIVED/UNRESOLVED and LOW/MEDIUM/HIGH impact. Exact names/types/nullability/defaults/transport must be reconciled with source before code or migration. Existing statuses, dependencies and owner gates remain unchanged.
+
+| Surface              | Field/DTO change                                                                                | Impact and behavior                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| DependencyRequest    | domain, jobDefinitionId, executionId, parentExecutionId, workType, workKey, runKey/trading date | MEDIUM internal interface; exact same-run/work matching, no broad latest-success fallback.                                 |
+| DependencyDecision   | READY/WAITING/BLOCKED, bounded reason, optional retryAt                                         | HIGH dispatcher/status behavior; WAITING does not consume publish retries; BLOCKED cannot be reclaimed.                    |
+| Execution/outbox/API | Terminal BLOCKED and structured dependency disposition/reasons                                  | HIGH schema/aggregation/compatibility; distinguish accepted/enqueued from publishable; no new dependency repository in V1. |
+
+Historical small tasks: adapt registry/request/decision boundary → transactionally enqueue scheduled/manual work → dispatcher gate/fencing/FIFO → terminal BLOCKED aggregation/API/migration → upstream-failure/global-barrier evidence. Source is reusable baseline; TD-014 records unclosed evidence, and P14-I3 must prove the final integrated behavior rather than completing P4-I3 separately.

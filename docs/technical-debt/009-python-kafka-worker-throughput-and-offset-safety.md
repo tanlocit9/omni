@@ -1,6 +1,20 @@
 # Python Kafka Worker Throughput and Offset Safety
 
-Status: Scheduled as pending P12-I1 through P12-I4 after P11-I5; not an active MVP prerequisite
+## Review — 2026-10-07
+
+| Field           | Assessment                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Type            | correctness + capacity (separate slices)                                                                                                                     |
+| Status          | OPEN / static risks confirmed; throughput unmeasured                                                                                                         |
+| Priority        | P1 offset safety; P2 measured capacity                                                                                                                       |
+| Static evidence | Factory leaves offset policy implicit; worker loops are sequential. Ingestor startup discards getmany() records. No runtime loss or current rate is claimed. |
+| Activation      | Correctness evidence can justify an immediate narrow fix; concurrency/writer follow baseline and owner promotion.                                            |
+
+Refs: [libs/py-common/py_common/kafka/factory.py](../../libs/py-common/py_common/kafka/factory.py), [libs/py-common/py_common/kafka/job_status_service.py](../../libs/py-common/py_common/kafka/job_status_service.py), [apps/ingestor/app/messaging/consumer.py](../../apps/ingestor/app/messaging/consumer.py).
+
+Priority and review status: [technical-debt index](README.md). [Mermaid priority source](priority-order.md). This review adds no runtime verification or completion claim; preserved material below is historical unless reconciled here.
+
+Status: Scheduled as pending P12-I1 through P12-I4; P12-I1 begins only after P11-I5 and the completed P13-I1 truthful-stage measurement gate; not an active MVP prerequisite
 
 ## Goal
 
@@ -56,6 +70,10 @@ The latest terminal update preceded the observation by approximately 22 minutes 
 A future capacity decision must use a complete representative cohort and separate measurements by topic, consumer group, job type, provider, partition, success/failure outcome, and processing-duration percentile.
 
 This evidence clears the Platform scheduler outbox as the immediate bottleneck. The active issue is downstream worker throughput or reachability, with an additional correctness risk around implicit Kafka offset commits during worker restart or failure.
+
+## Startup record-discard risk
+
+Ingestor `_start_kafka_clients()` awaits `consumer.getmany(timeout_ms=1000)` and discards the returned batches before entering its routing loop. Static source shows records may be fetched without handler/status publication; it does not prove production data loss. Verify startup with queued records and contiguous offset handling before choosing a fix. This correctness slice must not wait for concurrency, a writer service, or centralized logging deployment.
 
 ## Problem
 
@@ -167,21 +185,25 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 
 ## Recommended Actions
 
-1. Implement P12-I1 first: inventory every affected consumer, disable implicit
-   auto-commit, and prove contiguous-prefix commit, restart, revoke, and shutdown safety
-   before adding concurrency.
-2. Treat the recorded production cohort as directional history only; capture a fresh,
-   complete, comparable baseline by topic, group, partition, job type, and stage.
-3. Pilot bounded concurrency only on independent logical outputs and retain a default
+1. For capacity expansion, complete P13-I1 first so dispatch, worker wait, processing, status publication, and
+   Platform application have truthful evidence and a representative baseline; do not
+   use child creation-time `RUNNING` rows as active-processing measurements.
+2. Reactivate the capacity scope only through a bounded increment; its retained Phase 12 dependencies are proposal context, not an active schedule. For offset safety, inventory every affected consumer, disable
+   implicit auto-commit, and prove contiguous-prefix commit, restart, revoke, and
+   shutdown safety before adding concurrency.
+3. Treat the recorded production cohort as directional history only; extend the P13-I1
+   baseline with a fresh, complete, comparable offset/capacity cohort by topic, group,
+   partition, job type, and stage.
+4. Pilot bounded concurrency only on independent logical outputs and retain a default
    of one until provider/storage budgets are measured.
-4. Preserve single-writer ownership for shared signal history until the independent
+5. Preserve single-writer ownership for shared signal history until the independent
    writer cutover is complete and verified.
-5. Keep P12-I3 focused on partition-scoped bounded status application, typed malformed-
+6. Keep P12-I3 focused on partition-scoped bounded status application, typed malformed-
    record failure, affected-partition pause, and authenticated audited recovery; do not
    make durable DLT infrastructure a Phase 12 gate.
-6. Require deterministic write-intent idempotency separate from Phase 11 diagnostic
+7. Require deterministic write-intent idempotency separate from Phase 11 diagnostic
    `correlationId` and `requestId`.
-7. Keep every Phase 12 capability labelled planned until approved tests, load evidence,
+8. Keep every Phase 12 capability labelled planned until approved tests, load evidence,
    exact-head CI, and synchronized contract/flow documentation are recorded.
 
 ## Owner-Selected Standalone Writer Direction (2026-09-25)
@@ -258,8 +280,8 @@ This debt record adds no current implementation workflow, architecture decision,
 - [Post-MVP Roadmap Work](004-post-mvp-roadmap-work.md)
 - [High Availability Notes](../deployment/003-high-availability-notes.md)
 - [Plan 027 — Concurrent Workers and Writer Batching](../plans/027-concurrent-workers-and-writer-batching.md)
-- [Phase 12](../plans/roadmap/phase-12-worker-throughput-and-writer-batching.md)
+- [Phase 12](../plans/027-concurrent-workers-and-writer-batching.md)
 
 ## Reactivation
 
-The owner scheduled this debt as pending P12-I1 through P12-I4 after P11-I5. Implementation may begin only when the prerequisite increments are completed and normal ownership/readiness checks pass. Multi-instance writer deployment remains outside Phase 12 and requires the separate High Availability promotion gate.
+Historical P12-I1 through P12-I4 design is now deferred under TD-011. Dependency completion does not authorize implementation: explicit owner reactivation of a bounded slice is required. The retained full sequence depends on P11-I5 and P13-I1; a confirmed offset/data-loss correctness fix can be separately promoted without full logging or capacity rollout. Multi-instance writer deployment requires the separate High Availability promotion gate.

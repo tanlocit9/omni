@@ -1,5 +1,13 @@
 # Omni Release Notes
 
+## 2026-10-11 — P14-I1 static topology verified
+
+P14-I1 completed its owner-approved local verification gate: `platform:test`, `platform:coverage`, and `platform:build` passed. Attributable JaCoCo evidence met the 80% line/branch threshold for every changed critical class; topology classes ranged from 93.3–100% line and 83.3–100% branch coverage, while seed/config synchronization classes reached 93.5–99.4% line and 91.3–100% branch coverage. Owner attestation `OWNER_VERIFIED P14-I1 verified_by=tanlocit9` is bound to summary SHA-256 `77c59cef1535dfda4cf3c84d581e6ca3a715ede604b2228e32b20ef6309a2ad4`. P14-I1 is `completed` and P14-I2 is `ready`. This is local verification only; no CI, commit, merge, deployment, provider, production, migration, load, or live-runtime evidence is claimed.
+
+## 2026-10-10 — P14-I1 static topology source implementation
+
+Implemented the Platform-local immutable static topology boundary from existing job-definition seed declarations. Stable kebab-case logical node keys map every `(source, jobType, cronExpr)` definition identity to its `JobType` node, including many definitions sharing one type. The topology validates unknown/unmapped/ambiguous definitions, duplicate/self edges, cycles and graph bounds; exposes deterministic roots, topological order, bounded ancestors/descendants in both directions, and Mermaid diagnostics. Focused unit tests were added but not executed. No Kafka/protobuf, manifest/readiness, dataset path, database, configuration, public API, planner, dispatcher, claim/fencing or worker behavior changed. P14-I1 moved from `ready` to `verification_pending`; P14-I2 remained pending until the approved verification gate completed.
+
 ## 2026-10-08 — Static Graph & DispatchPlanner epic planning
 
 Owner promoted the bounded static-graph dispatch design into active Milestone 1 Plan 030 with pending stories P14-I1 topology/validation, P14-I2 snapshot-based pure planning, and P14-I3 dispatcher integration. Source and code-graph review confirmed reusable Platform dependency-registry/guard, candidate-service/repository, atomic claim/fencing, and seed-declaration boundaries; no P14 runtime implementation is claimed. Plan 028 may reuse P14-I1 topology without waiting for P14-I2/P14-I3. Plan 029 basic operations remain independently deliverable; only graph-specific presentation waits for P14-I2. Persisted graph, expanded provider policy, and advanced fairness remain deferred. Existing statuses and historical evidence were preserved; no build, test, lint, format, runtime verification, or commit was performed.
@@ -52,7 +60,7 @@ Owner moved P10/P11/P12 follow-ups into owner-gated technical debt; existing evi
 | Cross-service observability              | P11-I1–P11-I5 pending                                       | Deferred, owner-gated under TD-011; historical dependencies retained                                                                     |
 | Worker throughput and writer batching    | P12-I1–P12-I4 pending                                       | Deferred under TD-009/TD-011; preserve evidence and proposed dependencies                                                                |
 | Operator trust Console                   | P13-I1–P13-I4 pending                                       | Follows completed P14-I3 for truthful final dispatcher stages; calendar/lifecycle evidence or narrowed classifications remain unresolved |
-| Static Graph & DispatchPlanner           | P14-I1 `ready`; P14-I2/P14-I3 pending                       | Current owner priority; P14-I3 absorbs the dependency-aware dispatcher safety/evidence contract from superseded P4-I3                    |
+| Static Graph & DispatchPlanner           | P14-I1 completed; P14-I2 `ready`; P14-I3 pending            | P14-I1 local gate/coverage/owner attestation passed; no CI/deployment/runtime claim; P14-I3 retains superseded P4-I3 safety evidence     |
 
 ## Release history
 
@@ -74,6 +82,8 @@ Owner moved P10/P11/P12 follow-ups into owner-gated technical debt; existing evi
 | 2026-09-21    | Active MVP ordering         | Owner-approved ordering                     | P8-I1 → P8-I2 → P8-I4 → P8-I5 → P9-I1 → P9-I4 → P4-I3 → P1-I3. No status was promoted by this ordering decision.                                                                                                                                                   |
 | 2026-10-06    | Phase 13 operator trust     | Owner-approved planning scope               | Added pending P13-I1–P13-I4 for truthful stages/daily throughput/outbox publish ETA, manual EOD Data Health, and fixed Console order. P13-I1 now gates P12-I1; no implementation or verification is claimed.                                                       |
 | 2026-10-08    | Plan 030 / P14-I1-P14-I3    | Owner-approved active epic                  | Promoted static topology, snapshot planning, and dispatcher integration into separate pending stories. Plan 028 waits only for P14-I1 when using topology; Plan 029 graph presentation waits for P14-I2. No status promotion or runtime implementation is claimed. |
+| 2026-10-10    | P14-I1 static topology      | Source present; `verification_pending`      | Added immutable topology, seed-derived mappings/edges, validation, traversal, diagnostics and focused tests. Executable checks and attributable coverage were not run; P14-I2 remained pending.                                                                    |
+| 2026-10-11    | P14-I1 verification         | Completed; P14-I2 promoted to `ready`       | Local Platform test/coverage/build passed; per-class coverage exceeded 80% line/branch; owner attestation recorded. No CI/deployment/runtime claim.                                                                                                                |
 
 ## Reconciled architecture decisions
 

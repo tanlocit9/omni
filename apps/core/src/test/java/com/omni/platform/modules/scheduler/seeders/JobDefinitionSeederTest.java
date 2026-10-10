@@ -86,6 +86,29 @@ class JobDefinitionSeederTest {
     }
 
     @Test
+    void synchronizesSeedOwnedFieldsWhilePreservingIdentityAndRuntimeFields() throws Exception {
+        JobDefinitionSeed seed = JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.getFirst();
+        JobDefinition existing = seed.toEntity();
+        Instant scheduled = Instant.parse("2030-01-02T03:04:05Z");
+        existing.setTitle("stale title");
+        existing.setConfigJson(Map.of("stale", true));
+        existing.setNextRun(scheduled);
+        existing.setIsActive(false);
+        existing.setFallbackSources(java.util.List.of(JobDefinition.DataSource.TCBS));
+        persistedJobs.put(key(existing.getSource(), existing.getJobType(), existing.getCronExpr()), existing);
+
+        seeder.run();
+
+        JobDefinition synchronizedJob = job(seed);
+        assertThat(synchronizedJob.getSource()).isEqualTo(seed.source());
+        assertThat(synchronizedJob.getTitle()).isEqualTo(seed.title());
+        assertThat(synchronizedJob.getFallbackSources()).isEqualTo(seed.fallbackSources());
+        assertThat(synchronizedJob.getConfigJson()).isEqualTo(seed.config());
+        assertThat(synchronizedJob.getNextRun()).isEqualTo(scheduled);
+        assertThat(synchronizedJob.getIsActive()).isFalse();
+    }
+
+    @Test
     void doesNotDeferRemainingJobsWhenEveryBootstrapJobHasNextRun() throws Exception {
         Instant scheduled = Instant.parse("2030-01-02T03:04:05Z");
         JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.forEach(seed -> {

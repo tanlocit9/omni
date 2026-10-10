@@ -59,10 +59,11 @@ flowchart TD
 1. Add or reuse a `JobDefinition.JobType` value in Platform.
 2. Add a `JobProducer` that returns the value from `getJobType()`.
 3. Do not edit `JobScheduler` dispatch for the new type; `JobProducerRegistry` resolves the registered producer.
-4. Add producer and registry tests, plus worker consumer tests for the Kafka payload.
-5. Update [Job execution flow](../flows/001-job-execution.md) and [Kafka contracts](../data/001-kafka-contracts.md) when payload semantics change.
-6. Keep dependency decisions in Platform's dependency registry and scheduler-outbox dispatch; workers and future writers must not duplicate policy.
-7. Map the job into the shared static topology when P14-I1 is implemented; do not add a producer-local graph or infer dataset readiness from topology position.
+4. Add the seed definition and its job-to-job `dependsOnJobs` declaration in `JobDefinitionConfig`. `StaticJobTopologyProvider` derives the process-local topology from this declaration and validates stable definition-to-node mappings at startup. Multiple seed definitions may intentionally map to one logical `JobType` node.
+5. Add producer and registry tests, worker consumer tests for the Kafka payload, and topology tests for new or changed edges/mappings.
+6. Update [Job execution flow](../flows/001-job-execution.md) and [Kafka contracts](../data/001-kafka-contracts.md) when payload semantics change.
+7. Keep dataset readiness decisions in Platform's dependency registry and scheduler-outbox dispatch; `dependsOnJobs` topology does not replace `dependsOnDatasets`, manifests, or exact-version checks.
+8. Do not add a producer-local graph, persisted graph table, or infer readiness from topology position.
 
 ## Safe-write mechanics
 

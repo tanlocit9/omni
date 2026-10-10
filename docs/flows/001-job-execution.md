@@ -29,11 +29,13 @@ and a guarded publish-drain estimate for only the currently eligible backlog sna
 This planned observability does not change dependency policy, commit offsets, replay
 messages, rewrite statuses, or implement Phase 12 concurrency.
 
-## Planned Static Graph and Dispatch Planning
+## Static Graph and Planned Dispatch Planning
 
-[Plan 030](../plans/030-static-graph-dispatch-planner.md) owns the active P14 sequence. P14-I1 is ready and adds one validated static topology boundary with stable logical node mapping. P14-I2 reads a bounded pending/dispatchable/in-flight snapshot and returns node/scope/quota selections by top-down traversal. P14-I3 integrates those selections before candidate payload loading and owns the final dependency-aware claim/fencing safety proof transferred from superseded P4-I3 through TD-014.
+[Plan 030](../plans/030-static-graph-dispatch-planner.md) owns the active P14 sequence. P14-I1 is completed: Platform constructs one immutable process-local topology from existing seed `dependsOnJobs` declarations, maps every `(source, jobType, cronExpr)` definition identity to a stable logical `JobType` node, validates the graph at startup, and exposes deterministic bounded traversal and Mermaid diagnostics. Multiple definitions sharing one `JobType` intentionally map to the same logical node. No persisted graph or runtime dispatch behavior is introduced.
 
-This does not change the dependency authority shown below: every selected candidate still passes through `DependencyRegistry` and `DependencyGuard`, which alone evaluate required input readiness and exact versions. Snapshot counts and graph position are never READY evidence. The existing atomic claim, lease/fencing token, WAITING/BLOCKED handling, publish retry identity, and rollback to bounded FIFO selection remain required. Persisted topology, provider-policy expansion, and advanced fairness are deferred.
+P14-I2 is ready and will read a bounded pending/dispatchable/in-flight snapshot and return node/scope/quota selections by top-down traversal. P14-I3 then integrates those selections before candidate payload loading and owns the final dependency-aware claim/fencing safety proof transferred from superseded P4-I3 through TD-014.
+
+The static topology does not change the dependency authority shown below: every future selected candidate still passes through `DependencyRegistry` and `DependencyGuard`, which alone evaluate required input readiness and exact versions. Seed `dependsOnJobs` edges describe logical orchestration topology; `dependsOnDatasets` and manifests describe data readiness. Graph position is never READY evidence. The existing atomic claim, lease/fencing token, WAITING/BLOCKED handling, publish retry identity, and rollback to bounded FIFO selection remain required. Persisted topology, provider-policy expansion, and advanced fairness are deferred.
 
 ## Flow
 

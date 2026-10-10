@@ -11,6 +11,21 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 
+/**
+ * Source-controlled job-definition seeds and their logical dependency metadata.
+ *
+ * <p>When {@code app.seed.job-definitions.enabled=true}, application startup upserts
+ * every seed by the stable database identity {@code (source, jobType, cronExpr)}.
+ * Existing rows receive the seed title, fallback sources, and {@code config_json};
+ * runtime-owned fields such as {@code nextRun}, activity, and claim state are
+ * preserved. Source remains an immutable part of the lookup identity rather than an
+ * updated field. Changing source, job type, or cron expression creates a new row, and
+ * seeds removed from this class do not automatically delete or disable stale rows.
+ *
+ * <p>The static job topology is also derived from {@link #JOB_DEFINITION_SEEDS} and
+ * each seed's {@code dependsOnJobs} metadata at startup. Dataset dependencies remain
+ * readiness metadata and are not interpreted as topology edges.
+ */
 public class JobDefinitionConfig {
 
         // ==========================================

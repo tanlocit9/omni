@@ -72,8 +72,8 @@ Classification meanings:
 
 ### Move-on decision
 
-- **P14-I1 is ready and may start after normal module-conflict reconciliation** because P4-I2 is completed and no unresolved old-plan item is a canonical dependency.
-- **P14-I2 may follow completed P14-I1** without waiting for historical P4-I3, TD-005, TD-007, optional evaluators, blocked-job cleanup, P1-I3, Plan 028, provider policy, or advanced fairness.
+- **P14-I1 is completed** after its approved local Platform test/coverage/build gate, attributable coverage reconciliation, and owner attestation. P4-I2 is completed and no unresolved old-plan item is a canonical dependency.
+- **P14-I2 is ready** without waiting for historical P4-I3, TD-005, TD-007, optional evaluators, blocked-job cleanup, P1-I3, Plan 028, provider policy, or advanced fairness.
 - **P14-I3 may follow completed P14-I2** and owns the final integrated dependency-aware dispatcher proof. TD-014 safety invariants are mandatory acceptance, while a separate P4-I3 completion is not required. Re-evaluate TD-007 only if measured integration/load evidence makes it relevant.
 - Moving residual work to technical debt means retaining explicit activation triggers and safety boundaries; it does not mean marking the work complete, deleting legacy state, or weakening P14/P4 acceptance criteria.
 
@@ -282,9 +282,49 @@ This planning update clarifies roadmap hierarchy and approved architecture but c
 
 ## Verification
 
-No build, test, lint, format, coverage, migration, load, deployment, or runtime command was run for this documentation-only planning change.
+P14-I1 source implementation is present in the Platform scheduler topology package:
 
-Implementation verification must inspect exact Nx targets and receive approval before execution. Required evidence includes:
+- `TopologyNodeKey` provides validated stable logical keys derived from `JobType`;
+- `JobDefinitionIdentity` maps the existing `(source, jobType, cronExpr)` database identity without a migration;
+- `StaticTopologyDeclaration` preserves raw nodes, edges, and mappings for validation;
+- `StaticJobTopology` provides immutable roots, direct/transitive traversal in both directions, deterministic topological order, bounds, mapping lookup, validation, and Mermaid diagnostics;
+- `StaticJobTopologyProvider` is the single active declaration boundary and derives job-to-job edges from existing seed `dependsOnJobs` metadata without reading manifest readiness;
+- `StaticJobTopologyTest` covers the canonical seed graph, multiple definitions sharing one type, traversal/export, invalid keys, unknown/duplicate/self edges, cycles, unmapped/ambiguous definitions, bounds, unknown lookups, traversal depth, and malformed dependency metadata.
+- `JobDefinitionSeederTest` covers seed-owned title/fallback/config synchronization while preserving source identity and runtime-owned scheduling fields.
+
+P14-I1 blast-radius reconciliation:
+
+- Platform: changed by additive topology classes/tests plus startup seed synchronization of title, fallback sources, and config for the existing `(source, jobType, cronExpr)` identity; scheduler dispatch, producers, claims, dependency guard, public controllers, runtime-owned scheduling fields, and stale-row policy are unchanged.
+- Analyzer and Ingestor: no runtime impact because Kafka payloads, worker handlers, and job execution contracts are unchanged.
+- Query Service and Console: no impact because no API or graph presentation endpoint is introduced.
+- Shared contracts/libraries: no impact because Proto3, py-common, topic configuration, and generated code are unchanged.
+- Persistence and configuration: no impact because the graph is process-local, derives from existing seeds, and adds no migration, table, index, property, or environment variable.
+- Dataset/storage contracts: no impact because manifests, readiness, lineage, logical paths, producers, and consumers are unchanged.
+- Operations: startup now constructs and validates the topology bean; it does not activate planning or dispatch changes.
+
+Code-review-graph impact analysis was performed before implementation and reconciled against Platform, Analyzer, Ingestor, Query Service, Console, shared contracts/libraries, persistence, configuration, tests, and operations. The owner approved and reviewed the complete local verification gate on 2026-10-11:
+
+- `nx run platform:test` — PASS;
+- `nx run platform:coverage` — PASS, with attributable JaCoCo evidence for every changed critical class;
+- `nx run platform:build` — PASS;
+- compact gate: `PASS P14-I1 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code`;
+- owner attestation: `OWNER_VERIFIED P14-I1 verified_by=tanlocit9`, bound to summary SHA-256 `77c59cef1535dfda4cf3c84d581e6ca3a715ede604b2228e32b20ef6309a2ad4`.
+
+The checks emitted shutdown-hook Hikari warnings after tests but completed successfully. No CI, deployment, provider, production, migration, load, or live-runtime verification is claimed or required by the bounded P14-I1 process-local topology scope.
+
+P14-I1 impact/source/test coverage matrix:
+
+| Feature / criterion                                                  | Source                      | Executed tests                                                                | Attributable coverage       |
+| -------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------- | --------------------------- |
+| Stable logical node key                                              | `TopologyNodeKey`           | `StaticJobTopologyTest`                                                       | 100.0% line / 100.0% branch |
+| Stable definition identity                                           | `JobDefinitionIdentity`     | `StaticJobTopologyTest`                                                       | 93.3% line / 83.3% branch   |
+| Immutable raw declaration                                            | `StaticTopologyDeclaration` | `StaticJobTopologyTest`                                                       | 100.0% line / no branches   |
+| Validation, roots, traversal, order, bounds, mapping, Mermaid export | `StaticJobTopology`         | `StaticJobTopologyTest`                                                       | 99.2% line / 94.8% branch   |
+| Seed-derived nodes/edges and malformed metadata diagnostics          | `StaticJobTopologyProvider` | `StaticJobTopologyTest`                                                       | 100.0% line / 100.0% branch |
+| Startup seed synchronization with runtime-field preservation         | `JobDefinitionSeeder`       | `JobDefinitionSeederTest`                                                     | 93.5% line / 100.0% branch  |
+| Canonical seed/dependency declaration                                | `JobDefinitionConfig`       | `JobDefinitionConfigTest`, `JobDefinitionSeederTest`, `StaticJobTopologyTest` | 99.4% line / 91.3% branch   |
+
+Implementation verification must use the confirmed Platform targets and receive approval before execution. Required evidence includes:
 
 - code-review-graph impact analysis before shared API/configuration/persistence changes and change detection after edits;
 - explicit reconciliation of Platform, Analyzer, Ingestor, Query Service, Console, shared contracts/libraries, persistence, configuration, tests, and operations;
@@ -303,12 +343,12 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I1
 
-- [ ] One immutable static topology boundary owns active job-to-job node relationships.
-- [ ] Every active topology node has a stable logical key and an explicit, unambiguous mapping to existing definitions, including multiple definitions sharing one `JobType`.
-- [ ] Direct and transitive traversal is deterministic, bounded, cycle-safe, and available in both directions.
-- [ ] Unknown/dangling mappings, duplicate/self edges, cycles, ambiguous definitions, and graph-bound violations fail with actionable diagnostics.
-- [ ] Topology and dataset readiness remain distinct; no manifest evaluation moves into the graph.
-- [ ] Deterministic diagnostic/export output is available without adding persistence or a public API.
+- [x] One immutable static topology boundary owns active job-to-job node relationships.
+- [x] Every active topology node has a stable logical key and an explicit, unambiguous mapping to existing definitions, including multiple definitions sharing one `JobType`.
+- [x] Direct and transitive traversal is deterministic, bounded, cycle-safe, and available in both directions.
+- [x] Unknown/dangling mappings, duplicate/self edges, cycles, ambiguous definitions, and graph-bound violations fail with actionable diagnostics.
+- [x] Topology and dataset readiness remain distinct; no manifest evaluation moves into the graph.
+- [x] Deterministic diagnostic/export output is available without adding persistence or a public API.
 
 ### P14-I2
 

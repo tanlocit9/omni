@@ -34,7 +34,7 @@ public class JobDefinitionSeeder implements CommandLineRunner {
             return;
         }
 
-        log.info("Starting two-phase job definition seeding (config_json override mode)...");
+        log.info("Starting two-phase job definition seeding (title/fallback/config synchronization mode)...");
 
         List<JobDefinition> bootstrapJobs = JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.stream()
                 .map(this::upsert)
@@ -65,9 +65,11 @@ public class JobDefinitionSeeder implements CommandLineRunner {
                 seed.source(),
                 seed.jobType(),
                 seed.cronExpr()).map(existing -> {
+                    existing.setTitle(seed.title());
+                    existing.setFallbackSources(seed.fallbackSources());
                     existing.setConfigJson(seed.config());
                     JobDefinition saved = jobDefinitionRepository.save(existing);
-                    log.info("Overrode config_json for job definition [{}/{}] with cron [{}]",
+                    log.info("Synchronized title/fallback_sources/config_json for job definition [{}/{}] with cron [{}]",
                             seed.source(), seed.jobType(), seed.cronExpr());
                     return saved;
                 }).orElseGet(() -> {

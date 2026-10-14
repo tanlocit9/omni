@@ -6,6 +6,19 @@ Historical design note — 2026-10-07; promoted by owner decision on 2026-10-08 
 
 This record preserves the original deferred design and activation cautions. Plan 030 owns active scope, acceptance, dependencies, and bounded delivery. [Plan 023 — Dependency-Aware Outbox Dispatch](../plans/023-dependency-aware-outbox-dispatch.md) preserves the implemented baseline; P4-I3 is superseded, and [TD-014](014-dependency-aware-dispatch-verification-residue.md) transfers its unclosed safety/evidence contract to P14-I3. Do not introduce a workflow engine or runtime execution DAG.
 
+## Owner revision — 2026-10-13
+
+The backlog-only selection and DTO proposals below are historical. [Plan 030](../plans/030-static-graph-dispatch-planner.md) now owns execution-centered parent/cohort summaries and completion ordering by business group/date/correlated run. BANKS and REAL_ESTATE remain independent inside the static job-type map; symbol grouping is a future TODO. This is a scoped execution-completion barrier, not a whole-node barrier or new execution DAG. Existing candidate guard retains dataset readiness/version authority; no new outbox processing status is approved. Earlier P14-I2 checks do not verify this revision.
+
+## Deferred generic static dependency snapshot
+
+- Status: DEFERRED; owner-requested follow-up on 2026-10-13, not a P14 blocker or implemented capability.
+- Current coupling: pending execution discovery groups persisted parent IDs, loads parent job definitions, resolves their dependency declarations and maps onto the definition-derived static topology. Execution progress remains a separate per-cohort summary.
+- Future goal: extract an immutable generic static dependency snapshot/provider boundary independent of JPA entities, job-definition configuration representation and runtime execution state. Reuse the existing topology boundary; do not introduce a second graph authority or an execution DAG.
+- Activation: a concrete additional consumer or material mapping/maintenance cost justifies the extraction, followed by owner-approved scope and graph impact analysis.
+- Safety: preserve stable nodes, definition mapping, edge validation, cohort isolation, guard ownership, exact-version semantics and claim/fencing. Static snapshot means topology/dependency declarations, not cached execution progress or a mutable global scheduler state.
+- Closure evidence: parity tests between old and extracted declarations/mappings, bounded validation/export, compatibility for planner and other approved consumers, one-provider cutover/rollback and synchronized canonical docs. No Kafka, manifest, storage or database change is authorized by this debt entry; declare any later contract change separately.
+
 ## Ownership and relationship
 
 | Component                                  | Serves              | Responsibility                                                                                                                                                |

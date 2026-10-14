@@ -72,9 +72,17 @@ atomic conditional transitions, bounded retry, idempotent completion, and the ru
 that input is not acknowledged before output is durable. These mechanics do not
 include dependency eligibility. Future Python writer adoption remains separate
 roadmap work; do not create a generic dispatcher or move manifest dependency policy
-into a writer while reusing safe-write primitives. `DispatchPlanner` may select
-node/scope/quota from a bounded backlog snapshot, but `DependencyGuard` remains the
-required-input readiness authority and atomic outbox claims remain the execution fence.
+into a writer while reusing safe-write primitives. The inactive P14-I2 source is
+backlog-only scaffolding. The owner-approved [Plan 030](../plans/030-static-graph-dispatch-planner.md)
+revision requires execution-centered summaries and parent membership grouped by
+business group/date/run, with closed-membership completion barriers before advancing.
+Do not infer completion from an empty outbox or correlate runs by trigger timestamps.
+The planner returns node/cohort/parent scope and quota without SQL or manifest reads;
+BANKS and REAL_ESTATE remain independent, and symbol-level grouping is deferred.
+Incomplete evidence fails closed; the cursor remains caller-owned, not persisted state.
+`DependencyGuard` remains the required-input readiness
+authority and atomic outbox claims remain the execution fence. Do not call the planner
+from runtime dispatch before P14-I3 supplies scoped candidate queries and fallback safety.
 
 ## Adding a Notification Policy
 

@@ -81,6 +81,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Temporary System Operator UUID Technical Debt](technical-debt/003-system-operator-uuid.md)
 - [Post-MVP Roadmap Work](technical-debt/004-post-mvp-roadmap-work.md) — deferred scope that must not block the active MVP, including production logging hardening.
 - [Python Kafka Worker Throughput and Offset Safety](technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md) — open offset-safety debt plus deferred capacity work; confirmed correctness fixes can be promoted separately.
+- [Java Static Analysis and Sonar Quality Gate](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) — confirmed Java warning inventory and missing repository-declared Sonar tooling; no Sonar pass is claimed.
 - [Cloudflare-first low-cost deployment decision](deployment/002-cloudflare-low-cost-deployment.md)
 
 ## Canonical Documents
@@ -112,6 +113,6 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 
 ## Technical-debt priority and review
 
-[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.md) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral. [TD-012](technical-debt/012-static-dag-dispatch-planner.md) retains Plan 030 deferred extensions. [TD-013](technical-debt/013-legacy-dependency-guard-residue.md) keeps unused blocked-job tracking cleanup and optional missing guard evaluators outside P14. [TD-014](technical-debt/014-dependency-aware-dispatch-verification-residue.md) preserves superseded P4-I3 evidence while P14-I3 owns the final safety proof. Source-local TODOs link to existing debt records and do not change runtime behavior.
+[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.md) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral. [TD-012](technical-debt/012-static-dag-dispatch-planner.md) retains Plan 030 deferred extensions. [TD-013](technical-debt/013-legacy-dependency-guard-residue.md) keeps unused blocked-job tracking cleanup and optional missing guard evaluators outside P14. [TD-014](technical-debt/014-dependency-aware-dispatch-verification-residue.md) preserves superseded P4-I3 evidence while P14-I3 owns the final safety proof. [TD-015](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) records Java type-safety/tooling warnings and the absence of a configured Sonar target. Source-local TODOs link to existing debt records and do not change runtime behavior.
 
 Standalone Markdown diagrams share the roadmap's visual style: [roadmap.md](plans/roadmap/roadmap.md) and [priority-order.md](technical-debt/priority-order.md).

@@ -18,6 +18,7 @@ flowchart TD
     Measured --> Planner["TD-012 to Plan 030: bounded graph dispatch"]
     Measured --> GuardResidue["TD-013: legacy guard residue"]
     Measured --> DispatchResidue["TD-014: dispatcher evidence transfer"]
+    Measured --> JavaQuality["TD-015: Java static analysis and Sonar gate"]
     Later --> Features["TD-002/004/011: operations and features"]
 
     classDef done fill:#d5f5e3,stroke:#198754,color:#111;
@@ -27,7 +28,7 @@ flowchart TD
     class Gate pending;
     class Safety,Identity,Data,Kafka active;
     class Planner active;
-    class Measured,Resources,GuardResidue,DispatchResidue,Later,Features pending;
+    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Later,Features pending;
 ```
 
 ## Reading the Diagram
@@ -37,4 +38,5 @@ flowchart TD
 - TD-013 keeps unused blocked-job tracking cleanup and optional missing dependency evaluators outside P14 unless an explicit activation trigger occurs.
 - TD-014 preserves unclosed P4-I3 evidence while P14-I3 owns the final dependency-aware dispatcher safety proof.
 - TD-009 contains independent offset-safety and measured-capacity slices; a correctness fix does not require the full capacity epic.
+- TD-015 records the missing Sonar/static-analysis target plus confirmed Java type-safety/tooling warnings; it is conditional quality debt, not evidence of a failed Sonar gate.
 - Closed TD-006 is intentionally excluded.

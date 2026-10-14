@@ -2,7 +2,15 @@
 
 Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). This planning document does not claim that the runtime implementation exists.
 
-Owner decision recorded: 2026-10-08.
+Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
+
+## Owner-approved execution-cohort revision — 2026-10-13
+
+This section supersedes the earlier backlog-only selection design, not the historical verification evidence below. The static DAG remains a map of job types; executions populate each node with independent business-group/run/business-date scopes. BANKS and REAL_ESTATE can progress independently inside the same logical node. No outbox processing-success status, execution dependency DAG, new manifest evaluator, or workflow engine is introduced.
+
+Completion ordering is based on persisted execution parent–child evidence for the matching cohort. Dataset readiness and exact input versions remain exclusively evaluated by the existing DependencyRegistry/DependencyGuard before each candidate claim. Execution SUCCESS is not dataset READY. JobScheduler prepares due execution/outbox intent; SchedulerOutboxDispatcher is the existing guard/claim/publish boundary.
+
+Current source is not yet compliant: DispatchScope groups by definition UUID; the outbox-only summary loses published-but-running work; the planner can descend past an upstream node with no dispatchable work even when its executions are unfinished. P14-I2 remains verification_pending with reimplementation required; P14-I3 remains pending. Earlier PASS/owner attestation is historical, not evidence for this revision. P14-I1 remains completed: reuse its verified static graph and validate the new runtime population mapping in P14-I2 rather than reopening historical topology verification.
 
 ## Goal
 
@@ -22,13 +30,15 @@ After the epic is implemented and verified:
 
 - Platform exposes one immutable, validated static topology with stable logical node identity and explicit mapping to existing job definitions;
 - topology consumers, including scheduler planning and proposed backfill tracing, reuse the same boundary rather than maintaining competing graphs;
-- scheduler planning consumes a bounded snapshot of pending, dispatchable, and in-flight work and traverses independent roots top down;
+- scheduler planning consumes a bounded execution-centered summary, augmented with outbox eligibility counts, and traverses independent cohort paths top down;
 - planning returns typed node/scope/quota selections and never reads manifests, declares data READY, creates upstream work, or returns raw SQL;
 - the dispatcher queries selected candidates, evaluates every candidate through the existing `DependencyRegistry`, and claims/publishes only READY work;
 - existing atomic claims, lease fencing, retry identity, WAITING behavior, terminal BLOCKED behavior, item-level readiness, and unrelated-ready-work guarantees remain intact;
 - persisted graph ownership, expanded provider policy, adaptive resource scheduling, and advanced fairness remain deferred.
 
 ## Verified Source Baseline and Gaps
+
+The following baseline/gap inventory records the initial 2026-10-08 design. Current source and revised gaps are described by the 2026-10-13 owner revision and P14-I2 section; do not interpret initial missing-topology claims as current implementation absence.
 
 Source inspection and code-review-graph analysis establish the following planning baseline. Source presence is not implementation or verification evidence for P14.
 
@@ -73,8 +83,8 @@ Classification meanings:
 ### Move-on decision
 
 - **P14-I1 is completed** after its approved local Platform test/coverage/build gate, attributable coverage reconciliation, and owner attestation. P4-I2 is completed and no unresolved old-plan item is a canonical dependency.
-- **P14-I2 is ready** without waiting for historical P4-I3, TD-005, TD-007, optional evaluators, blocked-job cleanup, P1-I3, Plan 028, provider policy, or advanced fairness.
-- **P14-I3 may follow completed P14-I2** and owns the final integrated dependency-aware dispatcher proof. TD-014 safety invariants are mandatory acceptance, while a separate P4-I3 completion is not required. Re-evaluate TD-007 only if measured integration/load evidence makes it relevant.
+- **P14-I2 is verification_pending** with execution-centered cohort reimplementation required by the 2026-10-13 owner decision; earlier checks and attestation apply only to historical source. Freeze authoritative group/date/run correlation and membership closure before implementing the revised projection and planner. The planner remains inactive.
+- **P14-I3 is pending** until corrected P14-I2 passes renewed verification. It owns the final integrated dependency-aware dispatcher proof. TD-014 safety invariants are mandatory acceptance, while a separate P4-I3 completion is not required. Re-evaluate TD-007 only if measured integration/load evidence makes it relevant.
 - Moving residual work to technical debt means retaining explicit activation triggers and safety boundaries; it does not mean marking the work complete, deleting legacy state, or weakening P14/P4 acceptance criteria.
 
 ## Architecture and Responsibility Boundaries
@@ -84,7 +94,8 @@ flowchart TD
     Definition[Static dependency declarations] --> Topology[Shared static topology]
     Topology --> Backfill[Plan 028 dependency and backfill trace]
     Topology --> Planner[DispatchPlanner]
-    Snapshot[Pending dispatchable in-flight snapshot] --> Planner
+    Executions[Executions and persisted parent membership] --> Snapshot[Execution cohort summary and outbox eligibility]
+    Snapshot --> Planner
     Planner --> Selection[Node scope quota selections]
     Selection --> Query[Scoped candidate query]
     Query --> Registry[DependencyRegistry]
@@ -104,7 +115,7 @@ flowchart TD
 | SchedulerOutboxDispatcher            | Orchestration of plan, scoped candidate fetch, guard decision, atomic claim, publish, and fenced outcome.                 | Duplicate topology or manifest policy.                                                             |
 | Repository/service                   | Parameterized snapshot and candidate projections plus existing atomic state transitions.                                  | Scheduling policy or raw-SQL output from the planner.                                              |
 
-An empty upstream backlog is not readiness evidence. A selected candidate can still be WAITING or BLOCKED. Snapshot values are advisory and stale by construction; the atomic claim must revalidate status, availability, lease, and fence identity.
+An empty upstream outbox backlog is neither execution-completion nor readiness evidence. A selected candidate can still be WAITING or BLOCKED. Snapshot values are advisory; the atomic claim must revalidate status, availability, lease, and fence identity. Parent relationships identify fan-out membership within a job step, not dependency edges across job steps. Match upstream and downstream parents through explicit cohort identity and the static topology, never by assuming their parent IDs are equal.
 
 ## Story Sequence
 
@@ -132,31 +143,55 @@ Bounded tasks:
 
 Rollback removes the topology consumer wiring and restores the previous static declaration reads. No execution, outbox, or dataset state is migrated.
 
-### P14-I2 — Planning from pending/dispatchable/in-flight snapshots
+### P14-I2 — Execution-centered cohort summary and dispatch planning
 
-**Dependencies:** P14-I1.  
+**Dependencies:** P14-I1.
 **Blocks:** P14-I3 and the graph-backed Job Operations presentation slice of Plan 029.
 
 Outcome:
 
-- add a bounded, timestamped, completeness-aware backlog projection grouped by node and explicit scope;
-- distinguish pending, currently dispatchable, retry-delayed, and in-flight work without interpreting leases or empty counts as completion/readiness;
-- traverse each independent root top down and choose the first occupied eligible node per path under baseline rules;
-- reconcile shared descendants once and allocate bounded quotas within one dispatch budget;
-- return typed node/scope/quota selections with deterministic ordering;
-- preserve item-level progress and unrelated-ready-work behavior through explicit WAITING/backoff and stale/incomplete snapshot rules.
+- keep one static topology initialized from approved job dependency declarations; do not create nodes or edges from execution IDs, run keys, sector names, or dates;
+- populate that map using persisted execution-to-definition-to-node mappings and parent–child membership, grouped by business group, business date, and correlated run identity;
+- read execution histories first, including published-but-PENDING/RUNNING work and terminal executions; join bounded outbox aggregates only for message dispatchability, retry delay, and lease information;
+- distinguish execution progress from message delivery. Outbox lease in-flight is not worker RUNNING; no remaining PENDING messages is not successful completion;
+- keep the earliest incomplete upstream node active for each cohort path: dispatch its remaining eligible messages while earlier batches are running, then wait if all are sent but required executions remain unfinished;
+- descend only after required upstream parents/work items in the same cohort have completed successfully with authoritative membership/closure evidence; a failed, missing, ambiguous, or incomplete upstream cohort never opens the barrier;
+- return only bounded typed node/cohort/parent scope, quota, and diagnostic reason/order. No manifest evaluation, SQL, claims, or publication belongs in the planner;
+- reconcile joins across all required upstream branches in the same cohort and deduplicate selections; allocate quota fairly across independent roots AND business-group cohorts.
 
-Baseline allocation is deliberately simple and bounded: independent roots receive deterministic allocation within the configured dispatch budget, unused quota can be reassigned in stable order, and no root with dispatchable work is starved indefinitely under repeated complete snapshots. Weighted fairness, aging algorithms, provider-aware budgets, adaptive concurrency, and persisted counters remain deferred.
+Identity and completion rules:
+
+1. Discover bounded PENDING executions, group them by persisted parent ID, load the parent execution and its job definition, resolve that definition's dependency declarations, and map the group back onto the existing definition-derived static graph. Parent ID belongs to execution history, not to job definition. Standalone execution uses its own definition through an explicit no-parent path. Use persisted relationships, not untrusted message parent IDs.
+   Discovery is not the completion summary: additionally load the relevant upstream parents and complete child membership across PENDING, RUNNING and terminal states for the matching cohort. A pending-only result must not lose published-but-running upstream work or successful predecessor evidence. Resolve groups and dependencies through bounded batched queries rather than per-child N+1 reads. Persisted definition declarations must agree with the initialized seed-derived topology; mismatches fail closed with diagnostics, never create a competing graph silently.
+2. Freeze the semantic cohort key: business group + business date + correlated run identity. BANKS and REAL_ESTATE must not block one another. Multiple definitions/parents of a required step need explicit membership; do not choose the newest successful parent heuristically.
+3. The existing candidate runKey may fall back to triggeredAt; this is not proof of cross-step run correlation. Establish where group/date/run facts are authoritatively stored or derived and validate actual producer metadata. Missing facts are UNKNOWN; do not infer business date from cron/wall-clock timezone or merge parents by temporal proximity.
+4. Prove fan-out membership is complete before trusting parent SUCCESS. Inspect producer transaction boundaries, dynamic child creation, empty-parent semantics, retries, duplicate/out-of-order status events and late children. If existing evidence cannot prove closure, stop for approval of a bounded identity/closure contract or persistence change; do not invent completeness from observed child counts.
+5. Parent IDs are membership references, not new dependency edges. Across job steps, the static DAG and matching cohort determine required predecessors. No persisted execution DAG is authorized.
+6. Execution completion is a planning barrier only. Existing candidate guard remains responsible for dataset READY and exact dataVersion lineage; no new metadata polling/barrier evaluator is added to planner.
+
+Example acceptance trace: A -> B -> C has 100 work items per step for one cohort and budget 75. First tick selects 75 A; second tick selects the remaining 25 A even while the first batch is running. Later ticks cannot select B until all required A executions succeed with closed membership; while waiting, unused quota goes to another cohort/path. Then select up to 75 B, still subject to candidate guard and atomic claim. Another run/date or REAL_ESTATE cohort does not extend the BANKS barrier.
+
+Each dispatch tick captures a fresh bounded summary. Preserve capture time, completeness, and explicit caller-time freshness validation already present; a default maximum age equal to configured dispatch fixed delay is proposed for P14-I3 integration, not a runtime configuration already implemented. This age check does not prove execution completion or replace claim revalidation. Comparing consecutive summary counts is optional observability only, never a skip-dispatch, completion, or DLQ rule.
+
+Existing inactive source is reusable scaffolding, not the revised implementation: definition-only DispatchScope, outbox-only BacklogSnapshotService/query, and first-dispatchable traversal must be adapted. Keep earlier tests/evidence as history; require fresh execution/cohort tests and attributable coverage. No P14-I1 status or historic evidence is rewritten.
+
+### Single-instance binding snapshot and startup recovery — 2026-10-14
+
+Owner direction is an immutable in-memory parent-binding snapshot for one Platform instance, without a new binding table now. Publish it atomically only after execution/outbox preparation commits; preserve older active cohorts and reconcile missed after-commit updates. This mapping snapshot and the fresh execution-progress summary are separate inputs to allocation, not a comparison of old/new backlog counts.
+
+Startup rebuild starts from retained outbox records and follows execution/parent/definition evidence into the static map. PENDING-only discovery is not proof that all relevant upstream evidence is available: retain and resolve published-but-running and completed predecessors required by remaining work. Complete deterministic rebuild, identity correlation and retention coverage must be demonstrated before activation; missing/ambiguous mappings fail closed. RAM loss does not itself delete database executions/messages. Volatile-state loss, crash gaps and deferred persistence hardening are tracked in [TD-016](../technical-debt/016-in-memory-dependency-binding-recovery.md). No restart recovery implementation or passing evidence is claimed by this decision.
 
 Bounded tasks:
 
-1. freeze snapshot scope and completeness semantics;
-2. add repository projection for pending/dispatchable/retry-delayed/in-flight counts;
-3. implement pure deterministic planner traversal and quota selection;
-4. cover multiple roots, joins, stale/incomplete snapshots, backoff, and bounded baseline fairness;
-5. add diagnostics without activating dispatcher behavior.
+1. Inventory actual producer/execution identity and parent membership for stock-price and indicators; freeze group/date/run mapping and closure evidence.
+2. Validate static graph initialization and execution population mapping, including unmatched definitions and incompatible upstream/downstream groups.
+3. Define the execution-centered summary, completeness and independent outbox-count contracts without fan-out join overcounting.
+4. Add bounded parameterized execution/parent projections, retaining terminal progress and matching outbox eligibility.
+5. Implement pure cohort-barrier traversal, join reconciliation and bounded root/cohort quota allocation.
+6. Cover the 75/25/wait/advance trace, cross-group/date/run isolation, missing/failed parents, late children, retry identity and duplicate/out-of-order status updates.
+7. TODO future: extend business grouping to symbolKey/workKey granularity behind the same scope boundary, with explicit mappings and compatibility tests. Symbol-level scheduling is not required in this revision.
 
-Rollback leaves the current FIFO candidate path active because this story does not integrate runtime dispatch.
+Rollback leaves the existing candidate path active because this story does not integrate runtime dispatch.
 
 ### P14-I3 — Dispatcher integration with claim/fencing preservation
 
@@ -165,11 +200,12 @@ Rollback leaves the current FIFO candidate path active because this story does n
 
 Outcome:
 
-- invoke the planner before payload materialization and query candidates only for selected node/scope quotas;
+- capture a fresh execution-centered summary each tick, populate the static map by cohort, invoke the planner before payload materialization, and query candidates only for selected node/cohort/parent scopes and quotas;
+- revalidate the matching cohort completion barrier before downstream admission; concurrent enqueue/retry changes must not silently invalidate a selection. Use explicit closure and bounded re-read/refill rather than mutable cached summaries;
 - evaluate every returned candidate through the existing `DependencyRegistry` and retain READY/WAITING/BLOCKED semantics;
 - preserve atomic `claimEligible`, lease/token/instance fencing, approved-input persistence, publish acknowledgement, retry identity, and terminal BLOCKED non-reclaimability;
 - preserve no-starvation behavior when selected candidates wait, block, disappear, or lose a concurrent claim;
-- add a configuration-controlled rollback path to the existing bounded FIFO candidate selection;
+- add a configuration-controlled candidate-order fallback. While cohort ordering is enabled, FIFO fallback must retain matching cohort admission barriers and the existing guard; it cannot silently bypass unfinished upstream executions. Fully disabling revised ordering restores historical behavior only through an explicit observable rollback decision;
 - expose bounded operational diagnostics for snapshot completeness, selections, selected-vs-claimed counts, and fallback use without high-cardinality labels.
 
 Bounded tasks:
@@ -204,7 +240,9 @@ The following remain deferred and are not acceptance criteria for P14:
 - provider-specific rate policy, provider rotation, or an expanded provider-policy framework;
 - weighted/aging/priority-class fairness, adaptive quotas, resource-aware placement, or automatic concurrency changes;
 - runtime-generated DAG edges, conditional branches, ANY/quorum dependencies, remaining-dependency counters, or a workflow engine;
-- backfill expansion, dated execution identity, producer historical-date contracts, or repair actions;
+- backfill expansion, new historical producer transport contracts, or repair actions; reading and validating business-date/run/group identity from existing executions is required by this revision;
+- TODO future: symbolKey-level cohort grouping and dedicated scheduler DLQ/replay policy. Neither snapshot equality nor quarantine opens a failed cohort barrier;
+- generic static dependency snapshot extraction from job-definition-specific resolution, tracked in [TD-012](../technical-debt/012-static-dag-dispatch-planner.md#deferred-generic-static-dependency-snapshot); current delivery reuses the existing definition-derived graph rather than introducing another abstraction;
 - Kafka, protobuf, manifest, dataset-path, dataset-writer, or worker-runtime changes.
 
 ## Dataset Outputs
@@ -240,31 +278,31 @@ No trading or research algorithm is introduced. The shared topology makes determ
 
 Candidate names are design labels until the owning story freezes exact Java types.
 
-| Surface                  | Candidate facts                                                                                               | Change / impact                 | Behavior and compatibility                                                              | Delivery story |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- | -------------- |
-| Static node              | nodeKey, display label, upstream/downstream keys, definition matcher, root marker                             | ADD internal, MEDIUM            | Immutable and deterministic; no UUID/`JobType` ambiguity and no persisted authority.    | P14-I1         |
-| Topology validation      | errors/warnings, paths, topological order, mapping cardinality, bounds                                        | ADD internal, MEDIUM            | Startup/test diagnostics fail closed for invalid active mappings.                       | P14-I1         |
-| NodeBacklogSnapshot      | nodeKey, scope, pendingCount, dispatchableCount, retryDelayedCount, inFlightCount, snapshotTime, completeness | DERIVED, MEDIUM                 | Missing/incomplete evidence is UNKNOWN, never zero; counts are hints, not reservations. | P14-I2         |
-| DispatchSelection        | nodeKey, scope, quota, deterministic reason/order                                                             | ADD internal + SEMANTIC, MEDIUM | Selects candidate-query scope only; does not imply readiness.                           | P14-I2         |
-| Scoped candidate request | selected node/scope/quota plus current eligibility time                                                       | ADD internal, HIGH              | Must remain parameterized, bounded, and compatible with atomic claim revalidation.      | P14-I3         |
-| Planner activation       | enabled/fallback/bounds                                                                                       | ADD configuration, HIGH         | Safe default and rapid fallback to existing FIFO path; no record deletion.              | P14-I3         |
+| Surface                  | Candidate facts                                                                                                                                 | Change / impact                 | Behavior and compatibility                                                                                   | Delivery story |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------- |
+| Static node              | nodeKey, display label, upstream/downstream keys, definition matcher, root marker                                                               | ADD internal, MEDIUM            | Immutable and deterministic; no UUID/`JobType` ambiguity and no persisted authority.                         | P14-I1         |
+| Topology validation      | errors/warnings, paths, topological order, mapping cardinality, bounds                                                                          | ADD internal, MEDIUM            | Startup/test diagnostics fail closed for invalid active mappings.                                            | P14-I1         |
+| Execution cohort summary | nodeKey, businessGroup, businessDate, correlated run, parent IDs, membership/closure, execution progress and separate outbox eligibility counts | DERIVED + SEMANTIC, HIGH        | Missing evidence is UNKNOWN; published is not processed; exact scope barriers do not block unrelated groups. | P14-I2         |
+| DispatchSelection        | nodeKey, scope, quota, deterministic reason/order                                                                                               | ADD internal + SEMANTIC, MEDIUM | Selects candidate-query scope only; does not imply readiness.                                                | P14-I2         |
+| Scoped candidate request | selected node/scope/quota plus current eligibility time                                                                                         | ADD internal, HIGH              | Must remain parameterized, bounded, and compatible with atomic claim revalidation.                           | P14-I3         |
+| Planner activation       | enabled/fallback/bounds                                                                                                                         | ADD configuration, HIGH         | Safe default and rapid fallback to existing FIFO path; no record deletion.                                   | P14-I3         |
 
 No new public DTO, transport schema, persisted count, dependency table, or status enum is approved by this epic.
 
 ## Cross-Service Blast Radius
 
-| Surface                    | Impact or no-impact reason                                                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Platform                   | Primary owner: static declarations/topology, snapshot projection, planner, scheduler outbox repository/service/dispatcher, configuration, diagnostics, and tests.        |
-| Analyzer                   | No runtime change: planner selection is Platform-local and worker payloads remain unchanged. Reconcile only if a later story changes transport, which this epic forbids. |
-| Ingestor                   | No runtime change for the same reason; provider behavior and ingestion concurrency remain deferred.                                                                      |
-| Query Service              | No runtime change. It does not own scheduler topology or dispatch planning.                                                                                              |
-| Omni Console               | No P14 runtime scope. A later Plan 029 graph visualization may consume an explicitly approved Platform read projection after P14-I2.                                     |
-| Shared contracts/libraries | No protobuf, Kafka, or shared Python change. Hand-written Java abstractions remain in Platform because current ownership is scheduler-local.                             |
-| Persistence                | Existing scheduler-outbox rows and claim columns are reused. Snapshot queries/indexes require bounded PostgreSQL review; no graph/count persistence.                     |
-| Configuration              | Additive Platform-local bounded settings in P14-I3; no provider credentials, regions, topics, or storage paths.                                                          |
-| Tests                      | Platform unit and PostgreSQL integration tests are directly impacted; producer/worker contract tests are no-impact while payloads remain unchanged.                      |
-| Operations                 | Add bounded planner diagnostics, fallback visibility, and query-cost evidence; no deployment topology, capacity, or provider-policy change.                              |
+| Surface                    | Impact or no-impact reason                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Platform                   | Primary owner: topology population mapping, execution/parent/cohort projection, producer metadata inventory, JobService aggregation safety, planner, scoped queries, dispatcher, configuration and tests. Graph impact analysis on JobService, snapshot service and dispatcher found 16 additional impacted files; bounded results were truncated and included 84 unresolved call sites, not proof of no further impact. |
+| Analyzer                   | No runtime change: planner selection is Platform-local and worker payloads remain unchanged. Reconcile only if a later story changes transport, which this epic forbids.                                                                                                                                                                                                                                                 |
+| Ingestor                   | No runtime change for the same reason; provider behavior and ingestion concurrency remain deferred.                                                                                                                                                                                                                                                                                                                      |
+| Query Service              | No runtime change. It does not own scheduler topology or dispatch planning.                                                                                                                                                                                                                                                                                                                                              |
+| Omni Console               | No P14 runtime scope. A later Plan 029 graph visualization may consume an explicitly approved Platform read projection after P14-I2.                                                                                                                                                                                                                                                                                     |
+| Shared contracts/libraries | No protobuf, Kafka, or shared Python change. Hand-written Java abstractions remain in Platform because current ownership is scheduler-local.                                                                                                                                                                                                                                                                             |
+| Persistence                | Execution histories, parent aggregation, metadata identity and outbox eligibility are jointly impacted. Review bounded joins/indexes, late-child closure and retry correlation; no graph/count persistence or outbox status is approved. Missing identity/closure evidence requires an explicit contract/migration decision before implementation.                                                                       |
+| Configuration              | Additive Platform-local bounded settings in P14-I3; no provider credentials, regions, topics, or storage paths.                                                                                                                                                                                                                                                                                                          |
+| Tests                      | Platform unit and PostgreSQL integration tests are directly impacted; producer/worker contract tests are no-impact while payloads remain unchanged.                                                                                                                                                                                                                                                                      |
+| Operations                 | Add bounded planner diagnostics, fallback visibility, and query-cost evidence; no deployment topology, capacity, or provider-policy change.                                                                                                                                                                                                                                                                              |
 
 ## Repository Guidance Updates
 
@@ -279,6 +317,10 @@ Implementation must review and update, where applicable:
 - Plans 023, 028, and 029 plus TD-012.
 
 This planning update clarifies roadmap hierarchy and approved architecture but changes no runtime coding rule. Existing repository guidance already requires Platform-local dependency policy, graph impact analysis, claim/fencing preservation, and explicit cross-service reconciliation; therefore no immediate `AGENTS.md`, `CLAUDE.md`, or `.roo/rules` edit is required.
+
+### Documentation disposition for the 2026-10-13 revision
+
+Architecture, execution flow, developer ownership guidance, field/DTO inventory, registry, roadmap selection, TD-012 and release notes have revision records. Documentation indexes retain their existing Plan 030 links; no new document is introduced. Plans 023/028/029 and TD-014 retain their original ownership and dependency relationships; no independent schedule, backfill rollout or UI contract is changed. Data-lake/Kafka contracts and deployment/service runtime instructions have no implementation change from this documentation-only revision. Database documentation must be revisited when identity/closure or projection/index design is frozen. No agent-rule change is proposed: existing guard ownership and verification gates remain applicable. These dispositions do not claim that every linked document or path has passed a complete static audit; remaining audit scope must close before documentation synchronization is marked complete.
 
 ## Verification
 
@@ -300,7 +342,8 @@ P14-I1 blast-radius reconciliation:
 - Shared contracts/libraries: no impact because Proto3, py-common, topic configuration, and generated code are unchanged.
 - Persistence and configuration: no impact because the graph is process-local, derives from existing seeds, and adds no migration, table, index, property, or environment variable.
 - Dataset/storage contracts: no impact because manifests, readiness, lineage, logical paths, producers, and consumers are unchanged.
-- Operations: startup now constructs and validates the topology bean; it does not activate planning or dispatch changes.
+- P14-I2 persistence/query impact: additive read-only PostgreSQL aggregation reuses existing outbox/execution/job-definition columns and indexes; no migration, status, write path, claim path, or payload materialization change is introduced.
+- Operations: startup constructs topology, snapshot service, and pure planner beans; no scheduler or dispatcher calls them, so runtime dispatch behavior remains unchanged.
 
 Code-review-graph impact analysis was performed before implementation and reconciled against Platform, Analyzer, Ingestor, Query Service, Console, shared contracts/libraries, persistence, configuration, tests, and operations. The owner approved and reviewed the complete local verification gate on 2026-10-11:
 
@@ -323,6 +366,33 @@ P14-I1 impact/source/test coverage matrix:
 | Seed-derived nodes/edges and malformed metadata diagnostics          | `StaticJobTopologyProvider` | `StaticJobTopologyTest`                                                       | 100.0% line / 100.0% branch |
 | Startup seed synchronization with runtime-field preservation         | `JobDefinitionSeeder`       | `JobDefinitionSeederTest`                                                     | 93.5% line / 100.0% branch  |
 | Canonical seed/dependency declaration                                | `JobDefinitionConfig`       | `JobDefinitionConfigTest`, `JobDefinitionSeederTest`, `StaticJobTopologyTest` | 99.4% line / 91.3% branch   |
+
+Historical evidence: the earlier P14-I2 source passed its owner-approved local verification gate on 2026-10-12. This evidence does not cover the subsequent per-path/freshness correction:
+
+- `nx run platform:test` — PASS after focused repair of Spring constructor selection and repository-proxy exception expectation;
+- `nx run platform:coverage` — PASS, with every P14-I2 critical component above the 80% line/branch threshold;
+- `nx run platform:build` — PASS;
+- compact gate: `PASS P14-I2 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code`;
+- owner attestation: `OWNER_VERIFIED P14-I2 verified_by=tanlocit9`, bound to summary SHA-256 `afacc8b02a7216de87631fbab178207dbe860bb869c3e560858a0478a2902255`.
+
+The suite emitted known shutdown-hook Hikari warnings, and compilation reported the native-JPA unchecked warning tracked by TD-015; neither failed the gate. No CI, commit, merge, deployment, production, load, or dispatcher-runtime activation is claimed.
+
+Historical source correction — 2026-10-12, superseded as the target design by the 2026-10-13 cohort revision: planner traversed nodes without dispatchable work, stopped occupied paths and deduplicated scopes. Explicit evaluation time and positive maximum snapshot age were added; tests were not run. This source does not enforce execution-cohort completion barriers. Earlier coverage below remains historical, not verification of the revised target.
+
+Historical reconciliation for the 2026-10-12 source correction: only planner/result APIs and focused tests changed, without runtime activation or transport/schema changes. This does not describe the 2026-10-13 revised implementation blast radius; use the Cross-Service Blast Radius and revised P14-I2 requirements above. The referenced execution-log.md is absent; existing canonical evidence records are used. SQL output limits do not prove bounded scan cost; query-load evidence remains unclaimed.
+
+Historical P14-I2 impact/source/test coverage matrix:
+
+| Feature / criterion                                         | Source                                              | Executed tests                                        | Attributable coverage       |
+| ----------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | --------------------------- |
+| Explicit persisted-definition scope                         | `DispatchScope`                                     | `DispatchPlannerTest`, `PlanningContractsTest`        | 100.0% line / 100.0% branch |
+| Mutually exclusive backlog count contract                   | `BacklogCounts`                                     | `PlanningContractsTest`, `BacklogSnapshotServiceTest` | 100.0% line / 85.7% branch  |
+| Timestamped bounded complete/incomplete snapshot            | `BacklogSnapshot`                                   | `BacklogSnapshotServiceTest`, `PlanningContractsTest` | 95.0% line / 83.3% branch   |
+| Typed bounded planner result                                | `DispatchPlan`                                      | `DispatchPlannerTest`, `PlanningContractsTest`        | 100.0% line / 100.0% branch |
+| Topology mapping, truncation, stale/duplicate scope failure | `BacklogSnapshotService`                            | `BacklogSnapshotServiceTest`                          | 100.0% line / 87.5% branch  |
+| Roots, joins, backoff isolation, quotas and cursor fairness | `DispatchPlanner`                                   | `DispatchPlannerTest`                                 | 98.1% line / 87.5% branch   |
+| Raw persisted aggregate identity/count contract             | `SchedulerBacklogGroup`                             | `PlanningContractsTest`, PostgreSQL repository test   | 100.0% line / 87.5% branch  |
+| Read-only PostgreSQL backlog classification/projection      | `SchedulerOutboxRepositoryImpl.findBacklogGroups()` | `JobDefinitionClaimRepositoryPostgresTest`            | 100.0% line / 100.0% branch |
 
 Implementation verification must use the confirmed Platform targets and receive approval before execution. Required evidence includes:
 
@@ -352,12 +422,15 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I2
 
-- [ ] A bounded snapshot distinguishes pending, dispatchable, retry-delayed, and in-flight work by node and explicit scope, with snapshot time and completeness.
-- [ ] Missing/incomplete evidence is not represented as zero or completion.
-- [ ] Planner traversal is deterministic from independent roots toward descendants and reconciles shared descendants once.
-- [ ] Selections contain only node, scope, quota, and bounded diagnostic reason/order; they do not declare readiness or return SQL.
-- [ ] Baseline quota allocation is bounded and prevents indefinite starvation of independent roots under repeated complete snapshots.
-- [ ] WAITING/backoff or unrelated scope at one node does not silently impose a whole-node barrier on ready work.
+- [ ] Static graph population maps executions to job nodes and persisted parent membership without adding execution-derived edges.
+- [ ] Bounded execution-centered summaries preserve published-but-unfinished work, terminal outcomes, membership completeness, and separate outbox eligibility counts.
+- [ ] Explicit business-group/business-date/run scopes correlate required upstream parents without timestamp heuristics; missing or ambiguous evidence fails closed.
+- [ ] The 100-item, 75/25/wait/advance trace is exercised; downstream cannot advance before required upstream executions succeed with closed membership.
+- [ ] BANKS and REAL_ESTATE, and different runs/dates in one node, remain independent; waiting cohorts yield budget to other cohorts.
+- [ ] All required upstream branches at a join must complete for the matching cohort; shared selections are deduplicated.
+- [ ] Selections contain only node/cohort/parent scope, quota and diagnostics; existing candidate guard remains the dataset readiness/version authority.
+- [ ] Retry, late child, empty parent, missing status, failure/BLOCKED, duplicate/out-of-order events, restart and incomplete summaries have explicit tests.
+- [ ] Fresh summaries are captured each tick; comparison with old counts is observability only; symbol-level grouping remains an explicit future TODO.
 
 ### P14-I3
 
@@ -365,7 +438,7 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 - [ ] Every selected candidate is evaluated through the existing `DependencyRegistry`; planner state never bypasses READY/WAITING/BLOCKED.
 - [ ] Atomic claim revalidation, lease/token/instance fencing, approved-input persistence, attempts, retries, and publish acknowledgement preserve P4-I3 semantics.
 - [ ] WAITING/BLOCKED/lost-claim candidates cannot starve unrelated selected work or consume a publish slot incorrectly.
-- [ ] A bounded, observable configuration fallback restores the previous candidate-selection path without deleting or rewriting execution/outbox history.
+- [ ] A bounded, observable fallback preserves cohort admission while enabled; explicit full rollback distinguishes historical semantics and never bypasses guard/claims or deletes execution/outbox history.
 - [ ] No Kafka/protobuf, manifest, dataset path/ownership, Python worker, provider policy, or persisted graph contract is introduced.
 
 ### Documentation and completion
@@ -380,7 +453,7 @@ Stop and request owner input if:
 
 - one stable static node cannot map unambiguously to current definitions without a persisted identity migration;
 - topology and dataset dependency declarations materially disagree and selecting an authority changes product semantics;
-- top-down traversal would require a whole-node barrier that weakens item-level progress or unrelated-ready-work guarantees;
+- the approved group/date/run barrier expands into a whole-node or cross-cohort barrier, or authoritative cohort membership/correlation cannot be established from existing execution evidence;
 - provider/resource quotas or advanced fairness become necessary for acceptable behavior;
 - a snapshot query requires unbounded scans or a material schema/index migration without measured evidence;
 - integration cannot preserve current claim/fencing, attempt, retry, BLOCKED, or legacy compatibility semantics;

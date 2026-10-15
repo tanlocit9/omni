@@ -189,9 +189,31 @@ Bounded tasks:
 4. Add bounded parameterized execution/parent projections, retaining terminal progress and matching outbox eligibility.
 5. Implement pure cohort-barrier traversal, join reconciliation and bounded root/cohort quota allocation.
 6. Cover the 75/25/wait/advance trace, cross-group/date/run isolation, missing/failed parents, late children, retry identity and duplicate/out-of-order status updates.
-7. TODO future: extend business grouping to symbolKey/workKey granularity behind the same scope boundary, with explicit mappings and compatibility tests. Symbol-level scheduling is not required in this revision.
+7. Deliver reproducible diagnostic SQL, query plans, database/connection-pool benchmarks, metric definitions and Plan 029 dashboard handoff under the measurable-evidence section below.
+8. TODO future: extend business grouping to symbolKey/workKey granularity behind the same scope boundary, with explicit mappings and compatibility tests. Symbol-level scheduling is not required in this revision.
 
 Rollback leaves the existing candidate path active because this story does not integrate runtime dispatch.
+
+### P14-I2 measurable evidence and future dashboard handoff — 2026-10-15
+
+P14-I2 must deliver a **reproducible PostgreSQL diagnostic SQL pack** and a recorded performance/correctness baseline, not merely runnable application code. Keep SQL scripts read-only and parameterized where possible; use a documented representative dataset and explicitly distinguish measured values from targets. Query instrumentation and contract descriptions must be reusable by Plan 029 (graph-backed Job Operations) without implementing a UI, public metrics API, or new persistent statistics table in P14-I2.
+
+Required deliverables:
+
+1. **SQL diagnostics** (versioned under a clearly named docs or tooling path): count active cohorts by business group/date/run and node; summarize parent/child totals by execution status; show closed vs unresolved membership; separate pending/eligible/retry-delayed/leased/published outbox evidence; detect missing/ambiguous correlation and definition mappings; identify failed or stalled upstream barriers; and identify duplicate join fan-out/overcounting. Each query documents parameters, interpretation, expected cardinality and safety on production-sized datasets.
+2. **Query-performance evidence:** supply parameterized representative snapshot queries and `EXPLAIN (ANALYZE, BUFFERS)` recipes for a controlled environment (or production only under explicitly approved conditions). Record rows scanned/returned, plan nodes, buffer hits/reads, execution time and relevant index usage for multiple backlog/cohort sizes. A result `LIMIT` does not prove bounded scan cost. Review indexes using evidence; no automatic migration is authorized.
+3. **Tick-level benchmarks:** measure snapshot capture duration (p50/p95/p99), planner computation duration (p50/p95/p99), database round trips and queries per tick, processed cohort count, result cardinality, incomplete/UNKNOWN scope count, plus Hikari active/idle/pending connections and acquisition wait where available. Record test environment, data volume, sampling window, configurable dispatch delay, and baseline versus revised behavior. Do not invent fixed latency/throughput success thresholds before measurements; derive acceptance thresholds from evidence and obtain owner approval.
+4. **Correctness and throughput counters:** specify derivation of pending, eligible, retry-delayed, leased, published-but-unfinished, RUNNING, SUCCESS, FAILED/BLOCKED, completion-barrier WAIT, selectable vs selected quota, and unused quota. Define unit, grouping dimension, time window, source query, cardinality limit and uncertainty for each. Published is not completed, outbox lease is not worker RUNNING, and UNKNOWN is not zero.
+5. **Dashboard handoff:** document a stable **logical metric/read-projection contract** for future Plan 029 screens (no premature API/schema commitment), including backlog by node/cohort, cohort completion %, blocked/unknown reasons, planner selection vs eventual claimed/published throughput, snapshot age/completeness, database query latency and connection-pool pressure. Identify which measures only become observable after P14-I3 is integrated; mark them `NOT_AVAILABLE_YET` rather than claiming runtime implementation.
+6. **Repeatable verification procedure:** provide exact SQL invocation steps, environment/preconditions, seed/test-data recipe, sampling approach, safe timeout, regression-comparison instructions, expected outputs and caveats. Verify indexes and lock behavior with PostgreSQL views such as `pg_stat_activity`, `pg_locks`, and `pg_stat_statements` only when the extension is installed/authorized; never assume it exists. Do not run unbounded `EXPLAIN ANALYZE` over production tables by default.
+
+The P14-I2 exit gate includes the diagnostic SQL pack, executed correctness checks, a reproducible benchmark report with measured baselines, and the Plan 029 metric mapping. Missing measurements remain `UNKNOWN`, not PASS. There is no requirement to implement dashboards, long-lived in-memory binding state, metrics storage, or a public API in this story.
+
+### P14-I2 data-source simplification — owner decision 2026-10-15
+
+Use PostgreSQL persisted execution/outbox evidence as the authoritative source for each fresh, bounded, read-only planning snapshot. The in-memory static topology and tick-local immutable DTOs remain; do not introduce a long-lived authoritative parent-binding cache, post-commit memory publication or startup binding reconstruction in P14-I2 unless measurements or proven missing persistence justify a new owner decision. TD-016 is conditional/deferred under this database-first choice, not an activation prerequisite by itself.
+
+Do not use `triggeredAt` as a fallback for missing cross-step run identity. Incomplete identity is scheduled last among eligible cohorts for consideration, but cannot bypass required predecessor correlation or the completion barrier; ambiguous dependent paths fail closed with explicit diagnostics. For fan-out, verify the stated invariant that each parent creates its fixed child set exactly once within the committed transaction; that commit establishes membership closure, not child completion. Audit retry, empty-set and late-child paths before treating this invariant as proven.
 
 ### P14-I3 — Dispatcher integration with claim/fencing preservation
 
@@ -431,6 +453,8 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 - [ ] Selections contain only node/cohort/parent scope, quota and diagnostics; existing candidate guard remains the dataset readiness/version authority.
 - [ ] Retry, late child, empty parent, missing status, failure/BLOCKED, duplicate/out-of-order events, restart and incomplete summaries have explicit tests.
 - [ ] Fresh summaries are captured each tick; comparison with old counts is observability only; symbol-level grouping remains an explicit future TODO.
+- [ ] Versioned read-only diagnostic SQL covers cohort/child status, outbox eligibility, ambiguous identity, and blocked barriers; repeatable EXPLAIN/buffer/index and pool-load evidence records measured p50/p95/p99 and documented dataset conditions.
+- [ ] A dimensioned metric/read-projection dictionary and reproducible baseline report are handed to Plan 029; metrics requiring P14-I3 runtime integration are identified as not yet available, not falsely marked implemented.
 
 ### P14-I3
 

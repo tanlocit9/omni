@@ -138,7 +138,7 @@ Provider-bound ingestion must not be averaged into CPU/storage-bound analysis wi
 
 ### Scheduler-outbox publish backlog and ETA
 
-The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I2 is completed, an optional graph-specific presentation may group or trace the same bounded backlog by accepted topology node/scope. The UI must not construct a topology independently, infer READY from graph position, or wait for P14-I3 merely to show accepted P14-I2 snapshot semantics.
+The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I2 is completed, an optional graph-specific presentation may group or trace the same bounded backlog by accepted topology node/scope. The UI must not construct a topology independently, infer READY from graph position, or wait for P14-I4 merely to show accepted P14-I2 snapshot semantics.
 
 Scheduler-outbox visibility reports separately:
 
@@ -346,7 +346,7 @@ Outcome:
 - show scheduler-outbox publishable, dependency-waiting, claimed, and retryable backlog separately;
 - calculate guarded publish-drain duration/timestamp for only the eligible snapshot;
 - classify idle, progressing backlog, suspected stall, and unknown without automatic remediation;
-- keep graph grouping/tracing as a separable presentation task after P14-I2, without delaying the basic API/dashboard or requiring P14-I3.
+- keep graph grouping/tracing as a separable presentation task after P14-I2, without delaying the basic API/dashboard or requiring P14-I4.
 
 ### P13-I3 — Manual EOD Parquet Data Health scan
 
@@ -375,6 +375,10 @@ Outcome:
 - keep Dataset Explorer secondary and Raw SQL de-emphasized/deferred;
 - reuse existing widgets and Query Service contracts rather than introducing user-owned SQL or remote widget definitions.
 
+## Plan 030 JobRun handoff revision — 2026-10-15
+
+Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introduces durable target-driven JobRun path creation with existing FIFO outbox; P14-I4 integrates JobRun-aware outbox admission; P14-I5 delivers SQL/metrics baselines; P14-I6 hands over bounded read projections for graph-specific Job Operations. **Basic** stage/throughput/Data Health/shell work in this plan does not wait for I5/I6. The **graph-specific** visualization consumes I5/I6 evidence, never infers actual worker RUNNING from preparation-time child RUNNING, and never treats outbox PUBLISHED as finished processing.
+
 ## Relationship to Plan 030
 
 - P13-I1 truthful stage evidence and baseline instrumentation do not depend on P14.
@@ -382,7 +386,7 @@ Outcome:
 - A graph-specific P13-I2 presentation slice depends on P14-I2's accepted topology/snapshot semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
 - P13-I3 Data Health is independent of P14.
 - P13-I4 shell/navigation is independent of P14 and renders graph views as unavailable until their dependency is complete.
-- No Plan 029 story requires P14-I3 unless a later approved scope explicitly needs planner-runtime outcomes rather than topology/snapshot presentation.
+- No Plan 029 story requires P14-I4 unless a later approved scope explicitly needs planner-runtime outcomes rather than topology/snapshot presentation.
 
 ## Technical Debt Kept Separate
 
@@ -497,7 +501,7 @@ Resolved:
 - dashboard order is Job Operations, Data Health, then a small Market Review;
 - Raw SQL is de-emphasized/deferred;
 - Query Service owns bounded in-memory Data Health caching, with no durable scan store;
-- the active Milestone 1 order prioritizes P14-I1/P14-I2/P14-I3; superseded P4-I3 evidence is retained in TD-014 and final dispatcher safety is proved by P14-I3; P13 follows P14-I3 while calendar decisions do not block the shell.
+- the active Milestone 1 order prioritizes P14-I1/P14-I2/P14-I4; superseded P4-I3 evidence is retained in TD-014 and final dispatcher safety is proved by P14-I4; P13 follows P14-I4 while calendar decisions do not block the shell.
 
 Unresolved and blocking the applicable implementation decision:
 

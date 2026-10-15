@@ -36,7 +36,7 @@ Scheduled execution remains unchanged. Backfill is an execution mode of an exist
 
 ## Relationship to Static Graph & DispatchPlanner
 
-[Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) is the active Milestone 1 epic promoted from [TD-012](../technical-debt/012-static-dag-dispatch-planner.md). P14-I1 provides the shared topology that this backfill plan may reuse to trace required dated work and enqueue missing items. P14-I2/P14-I3 select already-enqueued scheduler-outbox work and are not prerequisites for backfill tracing or preview. Both epics reuse one topology boundary; neither duplicates the job `DependencyGuard` input-readiness logic.
+[Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) is the active Milestone 1 epic promoted from [TD-012](../technical-debt/012-static-dag-dispatch-planner.md). P14-I1 provides the shared topology that this backfill plan may reuse to trace required dated work and enqueue missing items. P14-I2 finalizes static ancestor-path contracts; P14-I3 introduces reusable JobRun target preparation and P14-I4 selects already-enqueued work from JobRun snapshots. Plan 028 dated backfill activation remains separately scheduled and must reuse the accepted JobRun identity/path boundary rather than creating a parallel orchestrator. Both epics reuse one topology boundary; neither duplicates the job `DependencyGuard` input-readiness logic.
 
 Plan 028 remains proposed and not roadmap-scheduled. P14-I1 does not pre-approve this plan's persisted graph migration, stable persisted keys, dated identity, producer changes, or enqueue runtime. A future persisted-topology migration must establish parity and one authority before cutover; static and persisted graphs must not remain competing runtime authorities.
 
@@ -153,6 +153,10 @@ Dependency planning and dependency readiness remain separate concerns:
 planner: which dated work must exist?
 dispatch guard: may this exact outbox item publish now?
 ```
+
+### JobRun reuse and no duplicate workflow ownership — 2026-10-15
+
+Use Plan 030 P14-I3's `job_runs` plus frozen dependency path and P14-I4's guarded outbox admission as the target-run preparation foundation, not an independent backfill execution engine. Plan 028 continues to own historical date-range selection, preview, dedup/completeness, partition/version-aware contracts, and supported producer rollout. `backfillRequestId` may group multiple dated `jobRunId` values; neither ID replaces the other. A request for historical dates does not authorize disabling current scheduled targets or reusing timestamp-based identities.
 
 ### Relationship to Plan 030 jobRunId (2026-10-15)
 

@@ -20,6 +20,12 @@ Provide one validated static DAG that accepts a **target job definition** and re
 
 Current stories and statuses are defined solely by the [canonical I1–I6 story sequence](#canonical-revised-delivery-sequence--2026-10-15). Requirements elsewhere labeled historical must not override it. No runtime implementation, migration, benchmark or test execution is claimed by this documentation revision.
 
+## Outcome
+
+A reusable static definition-path handoff in I2, followed by durable JobRun preparation
+in I3 and guarded runtime admission in I4. Current I2 has approved local test, coverage
+and build evidence; no new owner attestation, deployment or increment completion is asserted.
+
 ## Historical Source Baseline and Gaps (pre-2026-10-15)
 
 The following baseline/gap inventory records the initial 2026-10-08 design. Current source and revised gaps are described by the 2026-10-13 owner revision and P14-I2 section; do not interpret initial missing-topology claims as current implementation absence.
@@ -105,23 +111,137 @@ An empty upstream outbox backlog is neither execution-completion nor readiness e
 
 **This section supersedes the earlier 2026-10-13 and prior P14-I2/P14-I3 target scopes and acceptance language elsewhere in this file. Historical verification remains historical evidence, not the current implementation target.** The new architecture is **target-driven JobRun → static-DAG preparation → existing durable outbox → JobRun-aware publish admission**. The goal is not to implement a general workflow engine.
 
-| Story | Status | Independently deployable output | Runtime boundary |
-| --- | --- | --- | --- |
-| **P14-I1** — Static topology | `completed` | Existing validated immutable static DAG | No dispatcher activation |
-| **P14-I2** — Static DAG dispatcher contract and handoff | `verification_pending` | Definitive topology-to-dispatch contracts, traversal/ancestor closure, mapping, validation, tests and handoff for I3 | **No JobRun schema, outbox changes, runtime activation or dashboard SQL requirement** |
-| **P14-I3** — Unified JobRun + target DAG preparation | `pending` | Durable `job_runs` and DAG path/membership; prepare dependencies then target, enqueue messages in stable dependency-first order | Existing FIFO outbox + existing DependencyRegistry guard/claims/publish behavior retained |
-| **P14-I4** — JobRun-aware outbox planner and admission | `pending` | Bounded execution-centered JobRun snapshot; cohort barriers, quota/fairness, scoped candidate reads and atomic admission revalidation | Planner activated with safe FIFO fallback, preserve fencing/retry and full TD-014 proof |
-| **P14-I5** — SQL diagnostics and performance evidence | `pending` | Versioned SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, measured snapshot/claim/dispatch latency and metrics read-projection dictionary | No dashboard UI or new statistics store |
-| **P14-I6** — Operations/read-model handoff | `pending` | Stable bounded JobRun/topology read contract and documentation/fixtures for Plan 029 graph-specific view | API/read model only if actually required and approved; Plan 029 still owns dashboard UI |
+| Story                                                   | Status                 | Independently deployable output                                                                                                          | Runtime boundary                                                                          |
+| ------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **P14-I1** — Static topology                            | `completed`            | Existing validated immutable static DAG                                                                                                  | No dispatcher activation                                                                  |
+| **P14-I2** — Static DAG dispatcher contract and handoff | `verification_pending` | Definitive topology-to-dispatch contracts, traversal/ancestor closure, mapping, validation, tests and handoff for I3                     | **No JobRun schema, outbox changes, runtime activation or dashboard SQL requirement**     |
+| **P14-I3** — Unified JobRun + target DAG preparation    | `pending`              | Durable `job_runs` and DAG path/membership; prepare dependencies then target, enqueue messages in stable dependency-first order          | Existing FIFO outbox + existing DependencyRegistry guard/claims/publish behavior retained |
+| **P14-I4** — JobRun-aware outbox planner and admission  | `pending`              | Bounded execution-centered JobRun snapshot; cohort barriers, quota/fairness, scoped candidate reads and atomic admission revalidation    | Planner activated with safe FIFO fallback, preserve fencing/retry and full TD-014 proof   |
+| **P14-I5** — SQL diagnostics and performance evidence   | `pending`              | Versioned SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, measured snapshot/claim/dispatch latency and metrics read-projection dictionary | No dashboard UI or new statistics store                                                   |
+| **P14-I6** — Operations/read-model handoff              | `pending`              | Stable bounded JobRun/topology read contract and documentation/fixtures for Plan 029 graph-specific view                                 | API/read model only if actually required and approved; Plan 029 still owns dashboard UI   |
 
 Dependencies are **I1 → I2 → I3 → I4 → I5 → I6** for new graph-specific capabilities. Basic Plan 029 operations/stage work remains separately scheduled. No current status is promoted by this documentation decision.
 
 ### P14-I2 — Finalize static DAG for dispatch use
 
-Outcome: finish *existing* P14-I2 (currently `verification_pending`) by narrowing it to a validated, reusable **static topology contract** for consumers including I3 and backfill. Reconcile existing P14-I1 graph source and WIP inactive planner scaffolding. Provide deterministic ancestor closure of a target, topological ordering, multiple roots/joins, stable definition mapping, and diagnostics. Define a versioned internal handoff interface such as `resolveRequiredPath(targetDefinition, scope)` returning **definition/node path only**, not runtime execution or message claims.
+Outcome: finish _existing_ P14-I2 (currently `verification_pending`) by narrowing it to a validated, reusable **static topology contract** for consumers including I3 and backfill. Reconcile existing P14-I1 graph source and WIP inactive planner scaffolding. Provide deterministic ancestor closure of a target, topological ordering, multiple roots/joins, stable definition mapping, and diagnostics. Define a versioned internal handoff interface such as `resolveRequiredPath(targetDefinition, scope)` returning **definition/node path only**, not runtime execution or message claims.
 
 - No new execution-centered cohort completion logic, `job_runs` persistence, Kafka publication, SQL performance baseline or dashboard metrics under I2. Existing unfinished snapshot/planner classes may remain unused, be adapted atomically, or be marked explicitly as **DEPRECATION CANDIDATE** with caller inventory; never break builds or the current dispatcher.
 - **Acceptance:** graph traversal/ordering tests, definition mapping with duplicate/missing/cycle detection, independent root paths, startup/build/regression verification, and an I3 integration contract; scheduler/outbox behavior unchanged. P14-I1 historical PASS remains valid, I2's earlier backlog-only PASS does not close this revised story.
+
+#### P14-I2 implementation handoff — 2026-10-15 (locally verified, verification pending)
+
+Owner approved definition-specific seed dependencies, I1 topology validation/order,
+explicit caller bindings for multi-definition upstream nodes (one or many selected
+definitions), and explicit scope capabilities/mappings. No runtime defaults are approved.
+
+[`RequiredPathResolver`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/topology/RequiredPathResolver.java)
+is a pure, non-bean internal API. Contract version 1 returns a target plus an immutable
+ordered list of definition identities, node keys, effective scopes and direct scoped
+predecessors. It reuses I1 validation and deterministic node order, but follows each
+selected definition's own seed dependencies, not the union of all definitions at a node.
+This prevents a non-confirmed signal target from inheriting confirmed-trend intraday work.
+Within a node, definition identity then scope type/key/date determines order.
+
+- Catalog and path are bounded at 1024 definitions/steps, graph at I1's 256 nodes/1024
+  edges, depth at 64. Exceeding requested depth/size fails rather than returning a partial
+  closure. Shared scoped predecessors deduplicate; longer join paths still enforce depth.
+- Missing multi-definition bindings fail `AMBIGUOUS_DEFINITION`; unknown, empty, duplicate
+  or wrong-node selections fail `INVALID_BINDING`. Single-definition nodes can resolve
+  without a binding. Target identity remains explicit, never expanded to sibling targets.
+- Version-1 scope is type (GLOBAL/EXCHANGE/SECTOR/SYMBOL), opaque exact key and businessDate.
+  Key syntax is only nonblank/trimmed/length-bounded; the caller owns canonical source
+  qualification and producer support evidence. These are not I3 durable RunScope fields.
+  Every scoped definition needs an exact capability, and every traversed dependent→upstream
+  pair needs an explicit effective-scope mapping, including identity mappings. Missing
+  evidence fails `UNSUPPORTED_SCOPE`. No automatic narrowing, widening or producer fan-out
+  changes; cross-date mappings are unsupported in v1. Capabilities are trusted approved
+  caller declarations, not producer capability discovery or an authorization boundary.
+- I3 must resolve the returned stable seed identities to current persisted UUIDs, validate
+  approved bindings/capabilities against producers, deduplicate/reuse shared work safely,
+  and persist the complete scoped membership with contract version. No execution, SQL,
+  READY verdict, claim, transport payload, JobRun persistence or runtime bean is returned.
+  No new target-driven route is activated; I4 admission remains separate.
+
+Approved local evidence: `npx nx run platform:test`, `npx nx run platform:coverage`
+and `npx nx run platform:build` all PASSED. Test and coverage were rerun after the
+focused test repair. The compact conclusion read through `tools/check_result.py` is
+`PASS P14-I2 required=3 pass=3 fail=0 unknown=0 missing=0 sources=exit_code`.
+Coverage and executed test XML were preserved before the clean build under ignored
+`.agent/check-results/P14-I2/coverage-preserved/` (JaCoCo report:
+`jacoco/jacocoTestReport.xml`). The resolver suite has 11 tests, zero skips/failures/errors.
+
+| Source / acceptance area                                                                                | Executed focused methods in RequiredPathResolverTest                                                                                                                          | Attributable evidence                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Definition-specific closure and immutable deterministic diamond order, unrelated exclusion              | `usesDefinitionSpecificDependenciesNotNodeUnion`, `resolvesDiamondDependencyFirstWithoutUnrelatedRootAndIsDeterministic`                                                      | PASS; resolver 83 covered / 0 missed lines, 46 covered / 2 missed branches (100% / 95.83%)                                                |
+| Multiple roots and join closure                                                                         | `supportsMultipleRootsAtJoin`                                                                                                                                                 | PASS; same resolver counters                                                                                                              |
+| Definition selection: ambiguous, empty, duplicate, unknown/wrong bindings and many selected definitions | `requiresExplicitMultipleDefinitionBindingAndAcceptsMany`                                                                                                                     | PASS; same resolver counters                                                                                                              |
+| Reused validation: duplicate/missing definitions and cycles                                             | `reusesTopologyValidationForDuplicatesMissingDefinitionsAndCycles`; existing `StaticJobTopologyTest`                                                                          | PASS; StaticJobTopology 129/1 lines, 55/3 branches (99.23% / 94.83%)                                                                      |
+| Explicit capabilities, mapped scopes, missing mappings and cross-date rejection                         | `supportsExplicitScopeMappingWithoutImplicitIdentityOrFanout`, `failsClosedOnMissingCapabilityMappingOrDateExpansion`                                                         | PASS; same resolver counters                                                                                                              |
+| Catalog, nested record/scope validation and traversal/closure boundaries, including longer join depth   | `rejectsInvalidContractScopeCatalogAndTraversalBoundaries`, `enforcesClosureBoundsRatherThanReturningTruncatedPath`, `longerJoinPathCannotHideDepthOverflowAfterShorterVisit` | PASS; RequiredPath 6/0 lines, 6/0 branches; Scope 7/0 lines, 6/0 branches (all 100%)                                                      |
+| Canonical seed strategy isolation                                                                       | `canonicalSignalStrategiesDoNotInheritConfirmedIntradayDependency`                                                                                                            | PASS; provider 43/0 lines, 12/0 branches (100%); JobDefinitionIdentity 14/1 lines, 5/1 branches; TopologyNodeKey 10/0 lines, 2/0 branches |
+| Immutable handoff value records                                                                         | Closure/scope/validation methods above                                                                                                                                        | Handoff 9/0, StepKey 4/0, ScopeEdge 4/0, Step 5/0, ScopeType 1/0 lines (100%, no branches)                                                |
+| Unchanged startup and scheduler/outbox FIFO/guard/claim/publish compatibility                           | Existing Platform startup/outbox suite in the approved test and clean-build gates                                                                                             | PASS as regression evidence, not new runtime activation or I3/I4 implementation proof                                                     |
+
+All changed/directly impacted critical classes meet the default 80% line/branch gate.
+Known Hikari shutdown and unchecked/deprecated compiler warnings were nonfailing.
+No CI, runtime, deployment, provider or new owner attestation is claimed. The earlier
+backlog-only owner attestation/hash remains historical and cannot attest this resolver.
+
+**Historical scaffolding disposition: DEPRECATION CANDIDATE**, not annotated or deleted.
+Static source caller inventory: `DispatchPlanner` has constructor/bean wiring and focused
+`DispatchPlannerTest` callers, but no scheduler/dispatcher invocation. `BacklogSnapshotService`
+has constructor/bean wiring and `BacklogSnapshotServiceTest` callers; its `capture` path
+alone calls `SchedulerOutboxRepositoryCustom.findBacklogGroups`, implemented by
+`SchedulerOutboxRepositoryImpl` and directly exercised by
+`JobDefinitionClaimRepositoryPostgresTest`. `DispatchScope`, `BacklogCounts`,
+`BacklogSnapshot`, `DispatchPlan` and `SchedulerBacklogGroup` support these historical
+classes and `PlanningContractsTest`; they are not replacements for the new path contract.
+Removal/adaptation gate: I4 defines the JobRun-backed replacement, re-inventory callers
+including Spring wiring and repository interface/implementation, change tests atomically,
+and obtain approved startup/build/regression evidence. No compatibility adapter or
+`@Deprecated` migration is needed now because no existing API is being replaced/removed.
+
+I2-specific cross-service reconciliation against the documentation index, system overview,
+execution flow, ADR 007, Kafka/data-lake/database, deployment and ownership references:
+
+| Surface                      | Revised I2 impact / explicit no-impact reason                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                     | Additive pure topology resolver and focused tests only; I1 source and enabled scheduler, manual, producer, guard and outbox paths untouched. Graph pre-analysis of topology/provider/historical planner found BacklogSnapshotService within two hops, with truncation and 47 unresolved sites; static caller inspection supplements it, not proof from graph bounds. |
+| Analyzer / Ingestor          | No worker, producer payload, Kafka handler, dataset writer or concurrency change; no runtime scope capability is asserted.                                                                                                                                                                                                                                           |
+| Query Service / Console      | No endpoint, SQL read model, UI or dataset discovery change.                                                                                                                                                                                                                                                                                                         |
+| Shared contracts / libraries | No protobuf/generated artifacts, Kafka schemas/topics, py-common or cross-service API change; new Java API is scheduler-local and has no runtime callers.                                                                                                                                                                                                            |
+| Persistence / storage        | No migration, JobRun, query, index, outbox/history mutation, path ownership, Parquet/manifest, READY-last or exact-lineage change. Existing guards retain all readiness authority.                                                                                                                                                                                   |
+| Configuration                | No environment/property/deployment setting or default bindings/capabilities added.                                                                                                                                                                                                                                                                                   |
+| Tests                        | New Platform unit source; existing topology/startup/outbox regression remains an unexecuted compatibility gate. Worker contract tests unaffected because transport is unchanged.                                                                                                                                                                                     |
+| Operations                   | No activation, watcher, diagnostics SQL, benchmark or capacity claim. Roll back additive resolver without touching runtime or data.                                                                                                                                                                                                                                  |
+
+Documentation disposition: Plan 030, increment registry and root release notes record this
+source-present evidence. Existing architecture/flow/ownership and index documents already
+describe inactive I2 handoff and I3/I4 ownership; no new endpoint, document, ADR decision,
+data/deployment/service workflow or repository coding rule requires changes there.
+AGENTS.md, CLAUDE.md and .roo guidance retain the existing verification/contract boundaries.
+Plans 023/028/029 and TD-012 retain their established ownership; no schedule is promoted.
+There is no execution-log or separate P14 phase file in the current roadmap directory;
+this supporting plan and registry are the evidence surfaces, not a newly invented log.
+
+P14-I2 remains `verification_pending`; I3 remains `pending`. Approved local checks and
+attributable coverage are now recorded above. No new owner attestation is recorded;
+local PASS alone does not promote completion or dependent readiness.
+
+Static consistency review: **INCOMPLETE**, not documentation-synchronization PASS.
+New source/evidence, I1→I2→I3 dependencies and unchanged statuses agree across the
+updated surfaces; new source links and the handoff heading were inspected statically.
+The plan now has an explicit Outcome section. Remaining medium findings outside this
+narrow evidence update: older general Verification bullets still assign backlog tests
+to I2 and dispatcher integration to I3 despite the canonical override; older release
+entries and roadmap summary prose retain superseded scopes. These need historical
+labels/reconciliation before claiming complete documentation synchronization, without
+rewriting historical PASS evidence. Executable documentation checks were NOT RUN.
+Graph change detection was invoked after edits with an explicit five-file scope, but
+reported zero symbols for the new untracked Java files; incremental indexing did not
+include them. This is a graph visibility limitation, not evidence of zero impact or
+zero test gaps. Source/caller inspection supplies the bounded local analysis above.
 
 ### P14-I3 — Unified JobRun and DAG preparation without outbox behavior change
 
@@ -130,7 +250,7 @@ One **`job_runs`** row is the durable logical request; `job_runs.id` is the auth
 - **Definition reduction means reduce independently scheduled entry targets, not delete dependency definitions required by producers.** Keep executable definitions/configuration for all path steps. Mark only user/scheduler-selected **target roots** as independently triggerable; their ancestors may become dependency-only with no independent cron. Audit existing cron definitions before disabling any, prevent duplicate target/ancestor work, and preserve explicit standalone/manual scheduling where still required.
 - Scheduled/manual requests both enter the JobRun creation boundary. Manual uses `job_runs` for request identity/audit/idempotency. **Drop `manual_job_triggers` and its V8-era runtime entity/repository usage after manual controllers/services have atomically cut over and integration tests pass; no historical-data migration is required or claimed by owner decision.** An already-applied Flyway V8 is never deleted/rewritten; add a forward migration that safely drops the obsolete table only when deployed app no longer reads it. Existing endpoint semantics/permissions remain compatible or receive explicit reviewed deprecation, not accidental 500s. Archive/drop audit data is an explicit intentional consequence.
 - Materialize all approved required dependency + target executions and outbox messages **in DAG topological order** (dependencies before dependents), preserving per-parent one-time fan-out membership closure and zero-child behavior. The **full planned path** must remain visible in `JobRun` even if outbox preparation is chunked/retired; do not claim closure merely from a partial batch. Use transactional idempotency keys such as (run, step, work identity, business date) and bounded transactions; no N+1 fan-out expansion or unbounded single transaction. Retry/restart must never duplicate a logical step. Existing dataset readiness and exact-version rules apply before work can be considered successful.
-- **I3 leaves `SchedulerOutboxDispatcher.findCandidates()`, FIFO selection, `DependencyRegistry`, WAITING/BLOCKED, atomic claim/fencing, retries and Kafka publish intact.** Dependency-first enqueue/FIFO is a *preference*, **not an execution completion guarantee**: an upstream may be PUBLISHED but not finished when downstream candidates are examined. If the existing guard cannot prove required execution completion for a new run path, **do not activate the new target-driven route in I3**; keep it behind a disabled-by-default feature flag or enforce a bounded guard-compatible safe admission rule. No silent correctness regression allowed before I4.
+- **I3 leaves `SchedulerOutboxDispatcher.findCandidates()`, FIFO selection, `DependencyRegistry`, WAITING/BLOCKED, atomic claim/fencing, retries and Kafka publish intact.** Dependency-first enqueue/FIFO is a _preference_, **not an execution completion guarantee**: an upstream may be PUBLISHED but not finished when downstream candidates are examined. If the existing guard cannot prove required execution completion for a new run path, **do not activate the new target-driven route in I3**; keep it behind a disabled-by-default feature flag or enforce a bounded guard-compatible safe admission rule. No silent correctness regression allowed before I4.
 - Independent rollback/verification: no schema removal before cutover; old scheduled/manual runtime works during staging, then new target-run creation may be separately enabled after compatibility checks. PostgreSQL tests for referential integrity, commit/rollback, retry/crash, duplicate runs, multiple definitions and multiple dates; manual API and legacy outbox regression PASS.
 
 ### P14-I4 — JobRun snapshot, DispatchPlanner and outbox integration
@@ -146,7 +266,7 @@ Outbox planning now reads the persisted **JobRun path and run-step membership as
 
 Deliver runnable **read-only SQL diagnostics** for active JobRun cohorts, path completeness, parent/child status, waiting/failing joins, published-but-unfinished steps, eligible/leased/retry-delayed outbox, unknown identity and overcount detection. Each query documents parameters, bounds, expected cardinality, sample-safe use and interpretation. Benchmark snapshot and claim SQL using controlled `EXPLAIN (ANALYZE, BUFFERS)`, rows scanned/returned, index scans/buffer reads, transaction duration, Hikari active/idle/pending/wait, round trips, per-tick snapshot/planner latency p50/p95/p99 and planned→selected→claimed→published→executed breakdown. **No made-up PASS thresholds**; baseline and regression comparison with dataset size, environment and sampling window. `pg_stat_statements` is optional, not presumed installed. Define a low-cardinality metrics/read-projection dictionary for Plan 029 (not a UI).
 
-I3/I4 require **targeted safety/query correctness diagnostics** before activation; moving the consolidated SQL *deliverable* to I5 does **not** defer necessary I3/I4 security, concurrency, fail-closed, lock/cost or regression checks.
+I3/I4 require **targeted safety/query correctness diagnostics** before activation; moving the consolidated SQL _deliverable_ to I5 does **not** defer necessary I3/I4 security, concurrency, fail-closed, lock/cost or regression checks.
 
 ### P14-I6 — Operator read-model handoff
 
@@ -154,7 +274,7 @@ Expose or specify bounded JobRun/path/step progress, queue backlog, completion/w
 
 ### Symbol-rooted JobRun extensibility — owner design guard 2026-10-15
 
-**Decision:** a JobRun represents one **target + explicitly scoped logical request**, *not* inherently a sector-sized batch or a `businessGroup`. The identity is still the immutable UUID `jobRunId=job_runs.id`; `businessGroup`, `businessDate`, and the optional target scope are **attributes/filters**, not a composite replacement for run identity. Distinguish graph target (usually a *sink* job in a DAG) from a *symbol* target scope. A run may select one symbol, an exchange, a sector/group, or a global dataset without changing the static job-type DAG.
+**Decision:** a JobRun represents one **target + explicitly scoped logical request**, _not_ inherently a sector-sized batch or a `businessGroup`. The identity is still the immutable UUID `jobRunId=job_runs.id`; `businessGroup`, `businessDate`, and the optional target scope are **attributes/filters**, not a composite replacement for run identity. Distinguish graph target (usually a _sink_ job in a DAG) from a _symbol_ target scope. A run may select one symbol, an exchange, a sector/group, or a global dataset without changing the static job-type DAG.
 
 I3 must define a small **typed, versioned `RunScope`** or equivalent durable normalized fields: `scopeType` (`SYMBOL`, `SECTOR`, `EXCHANGE`, `GLOBAL` / other approved values), `scopeKey` (canonical source-qualified value), `businessDate`, optional `businessGroup`; exact fields/type/nullability, validation and indexing are frozen in I3. **Do not assume `businessGroup` is mandatory for a symbol-level run.** Example: `target=SYNC_INDICATORS, scopeType=SYMBOL, scopeKey=HOSE:HPG, businessDate=2026-10-15`. The same `SYNC_INDICATORS` static target definition is reused for one symbol or a bounded group; it is not cloned into one JobDefinition per symbol.
 
@@ -168,7 +288,7 @@ The DAG defines **job-type/definition dependencies**, while each edge's **scope 
 
 ### Cross-cutting migration and deprecation
 
-At **every story boundary**, build/test must PASS and the pre-existing enabled scheduled/manual/FIFO behavior must remain correct. Schema change is expand → cut over all readers/writers → safe forward-only drop, never mutate old applied Flyway migrations. Deprecate still-used Java interfaces via `@Deprecated` **when a safe compatibility adapter is retained**; document replacement, callers and removal gate. For SQL/tables, endpoints, or hard removals without an annotation, document deliberate breaking-contract removal and the exact migration/rollback plan. Preserve existing `triggeredAt`, `executionId`, `parentLogId` and `runKey` semantics until their usages are reviewed; `jobRunId` replaces only *cross-step* correlation. No source is deprecated merely because cleanup might be useful.
+At **every story boundary**, build/test must PASS and the pre-existing enabled scheduled/manual/FIFO behavior must remain correct. Schema change is expand → cut over all readers/writers → safe forward-only drop, never mutate old applied Flyway migrations. Deprecate still-used Java interfaces via `@Deprecated` **when a safe compatibility adapter is retained**; document replacement, callers and removal gate. For SQL/tables, endpoints, or hard removals without an annotation, document deliberate breaking-contract removal and the exact migration/rollback plan. Preserve existing `triggeredAt`, `executionId`, `parentLogId` and `runKey` semantics until their usages are reviewed; `jobRunId` replaces only _cross-step_ correlation. No source is deprecated merely because cleanup might be useful.
 
 ## Relationship to Other Plans
 
@@ -176,7 +296,7 @@ At **every story boundary**, build/test must PASS and the pre-existing enabled s
 - **Plan 028:** reuse static DAG ancestor-path resolution from I2 and unified JobRun target-run preparation from I3; full date-range backfill, previews, date/version producer and writer adaptations remain independently proposed. Do not create a second DAG or orchestration authority.
 - **Plan 029:** basic Job Operations, Data Health and shell remain independent. JobRun/graph-specific read views consume I5 evidence and I6 bounded handoff; worker stage truthfulness remains P13-I1.
 - **Runtime cache/recovery:** not scheduled or tracked as a speculative technical-debt epic. PostgreSQL remains authoritative; only revisit from measured query/pool evidence or a concrete reliability requirement.
-- **TD-018:** a deferred redesign of dataset READY as an evidence-backed **scope + required date/date-range + immutable dataVersion/lineage** verdict, reconstructed from Parquet/manifests into PostgreSQL after parity validation. Each JobRun step may eventually ask whether its exact upstream input range is satisfied; a verified READY dataset may satisfy an explicitly approved dependency-data requirement **without fabricating a successful JobRun execution**. Do not bypass current DependencyGuard or I4 closed-execution barrier for actual in-flight runs. No active P14 prerequisite or cutover is authorized.
+- **TD-016:** a deferred redesign of dataset READY as an evidence-backed **scope + required date/date-range + immutable dataVersion/lineage** verdict, reconstructed from Parquet/manifests into PostgreSQL after parity validation. Each JobRun step may eventually ask whether its exact upstream input range is satisfied; a verified READY dataset may satisfy an explicitly approved dependency-data requirement **without fabricating a successful JobRun execution**. Do not bypass current DependencyGuard or I4 closed-execution barrier for actual in-flight runs. No active P14 prerequisite or cutover is authorized.
 
 ## Deferred Scope
 
@@ -211,15 +331,15 @@ No trading or research algorithm is introduced. The shared topology makes determ
 
 ## Contract Impact and Field/DTO Inventory — canonical 2026-10-15
 
-| Owner | Contract change | Required compatibility |
-| --- | --- | --- |
-| I2 | Static target→ancestors topological path, definition/node identity mapping, diagnostics | Additive internal API; no runtime activation |
-| I3 | **New `job_runs` and durable run-step membership**; `jobRunId` link to root/child execution; scheduled/manual/backfill mode; target/scope/request context | New forward Flyway migration; manual API cutover before dropping manual table; old rows/FIFO/guard remain safe; no modification of applied V8 |
-| I3 | Optional root-only autonomous cron scheduling | Dependency definitions/producer configs retained; no silent loss of independent required schedules; explicit opt-in |
-| I4 | Execution/outbox read projection, typed JobRun cohort/step/quota selection, scoped queries and enabled/fallback config | Read-only bounded snapshot, claim-time revalidation, guarded/fenced publishing and rollback |
-| I5 | Versioned diagnostic SQL, benchmark evidence, metric read dictionary | No metric storage/schema/public API required solely for measurement |
-| I6 | Bounded JobRun operations projection or approved API | No duplicate Plan 029 UI, explicit UNKNOWN and authorization |
-| Deferred | Optional runtime caching and full historical backfill (Plan 028) | Separate evidence and owner approval; no speculative cache epic |
+| Owner    | Contract change                                                                                                                                           | Required compatibility                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| I2       | Static target→ancestors topological path, definition/node identity mapping, diagnostics                                                                   | Additive internal API; no runtime activation                                                                                                  |
+| I3       | **New `job_runs` and durable run-step membership**; `jobRunId` link to root/child execution; scheduled/manual/backfill mode; target/scope/request context | New forward Flyway migration; manual API cutover before dropping manual table; old rows/FIFO/guard remain safe; no modification of applied V8 |
+| I3       | Optional root-only autonomous cron scheduling                                                                                                             | Dependency definitions/producer configs retained; no silent loss of independent required schedules; explicit opt-in                           |
+| I4       | Execution/outbox read projection, typed JobRun cohort/step/quota selection, scoped queries and enabled/fallback config                                    | Read-only bounded snapshot, claim-time revalidation, guarded/fenced publishing and rollback                                                   |
+| I5       | Versioned diagnostic SQL, benchmark evidence, metric read dictionary                                                                                      | No metric storage/schema/public API required solely for measurement                                                                           |
+| I6       | Bounded JobRun operations projection or approved API                                                                                                      | No duplicate Plan 029 UI, explicit UNKNOWN and authorization                                                                                  |
+| Deferred | Optional runtime caching and full historical backfill (Plan 028)                                                                                          | Separate evidence and owner approval; no speculative cache epic                                                                               |
 
 Kafka/protobuf, dataset manifests, storage object paths and Python worker transport stay unchanged **unless an I3 dependency-preparation implementation proves an additive producer/consumer contract is unavoidable**; if so stop, document blast radius and obtain a separately approved compatibility slice. Never conflate JobRun/step completion with outbox PUBLISHED or dataset READY. `triggeredAt` remains audit timestamp; legacy `runKey` remains compatible until cutover; `jobRunId` is run correlation, not child identity.
 
@@ -335,8 +455,9 @@ Implementation verification must use the confirmed Platform targets and receive 
 - an impact-to-test matrix for every changed/directly impacted production path and acceptance criterion;
 - independently attributable coverage of at least 80% line and 80% branch for topology validation/traversal, snapshot classification, planner selection, scoped candidate query, and integration/fallback components;
 - P14-I1 tests for deterministic identity/mapping, multiple definitions per type, roots, joins, ancestors/descendants, duplicate/self/unknown/dangling edges, cycles, graph bounds, and stable export;
-- P14-I2 tests for pending/dispatchable/retry-delayed/in-flight classification, multiple roots, joins, empty upstream nodes, shared descendants, incomplete/stale snapshots, deterministic quotas, underfilled budgets, WAITING/backoff isolation, and baseline no-starvation;
-- P14-I3 dispatcher and PostgreSQL tests for selected-scope querying, guard invocation for every candidate, READY/WAITING/BLOCKED, concurrent claim loss, lease expiry, token/instance fencing, attempt accounting, retry identity, publication acknowledgement, terminal non-reclaimability, underfill/refill, fallback, and legacy rows;
+- P14-I2 tests for definition-specific ancestor closure, deterministic order, roots/joins, mapping/validation, explicit bindings and scoped capabilities, fail-closed bounds, immutable handoff and unchanged startup/outbox regression;
+- P14-I3 tests for durable JobRun/scoped membership, dependency-first preparation, transaction/restart/idempotency, manual cutover and unchanged FIFO/guard behavior; no unsafe target route activation;
+- P14-I4 snapshot/planner and PostgreSQL dispatcher tests for classification, closed membership and completion barriers, quotas/fairness, selected-scope querying, guard invocation for every candidate, READY/WAITING/BLOCKED, concurrent claim loss, lease expiry, token/instance fencing, attempt accounting, retry identity, publication acknowledgement, terminal non-reclaimability, underfill/refill, fallback, and legacy rows;
 - bounded query-plan/load evidence before asserting a performance benefit;
 - static documentation-consistency audit after documentation synchronization;
 - approved targeted Platform test/coverage/build checks and applicable exact-head CI/runtime evidence before any story is marked completed.

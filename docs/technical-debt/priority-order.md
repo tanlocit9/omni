@@ -33,10 +33,10 @@ flowchart TD
 
 ## Reading the Diagram
 
-- TD-012 is a historical promoted-design record; active bounded work is owned by [Plan 030](../plans/030-static-graph-dispatch-planner.md) and P14-I1 through P14-I3.
+- TD-012 is a historical promoted-design record; active bounded work is owned by [Plan 030](../plans/030-static-graph-dispatch-planner.md) and P14-I1 through P14-I6.
 - Persisted topology, expanded provider policy, adaptive quotas, and advanced fairness remain deferred.
 - TD-013 keeps unused blocked-job tracking cleanup and optional missing dependency evaluators outside P14 unless an explicit activation trigger occurs.
-- TD-014 preserves unclosed P4-I3 evidence while P14-I3 owns the final dependency-aware dispatcher safety proof.
+- TD-014 preserves unclosed P4-I3 evidence while P14-I4 owns final JobRun-aware dispatcher safety proof; P14-I3 owns preparation.
 - TD-009 contains independent offset-safety and measured-capacity slices; a correctness fix does not require the full capacity epic.
 - TD-015 records the missing Sonar/static-analysis target plus confirmed Java type-safety/tooling warnings; it is conditional quality debt, not evidence of a failed Sonar gate.
 - Closed TD-006 is intentionally excluded.

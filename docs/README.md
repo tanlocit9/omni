@@ -55,8 +55,8 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and historical live-collector proposal, now deferred under TD-011.
 - [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — deferred Phase 11 design; historical dependencies are retained, owner reactivation is required.
 - [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 detail; capacity work requires measured baseline and owner reactivation.
-- [Operator Trust Console](plans/029-operator-trust-console.md) — canonical Phase 13 supporting detail for P13-I1 through P13-I4; only graph-specific presentation waits for P14-I2.
-- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — active Milestone 1 epic for P14-I1 topology/validation, P14-I2 pure snapshot planning, and P14-I3 dispatcher integration.
+- [Operator Trust Console](plans/029-operator-trust-console.md) — Phase 13 UI owner; JobRun-specific graph presentation consumes P14-I5/I6 evidence and read-model handoff.
+- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, I5 diagnostics and I6 operations handoff.
 
 ### Proposed, Historical, and Compatibility Plans
 
@@ -113,6 +113,6 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 
 ## Technical-debt priority and review
 
-[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.md) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral. [TD-012](technical-debt/012-static-dag-dispatch-planner.md) retains Plan 030 deferred extensions. [TD-013](technical-debt/013-legacy-dependency-guard-residue.md) keeps unused blocked-job tracking cleanup and optional missing guard evaluators outside P14. [TD-014](technical-debt/014-dependency-aware-dispatch-verification-residue.md) preserves superseded P4-I3 evidence while P14-I3 owns the final safety proof. [TD-015](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) records Java type-safety/tooling warnings and the absence of a configured Sonar target. Source-local TODOs link to existing debt records and do not change runtime behavior.
+[Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.md) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral. [TD-012](technical-debt/012-static-dag-dispatch-planner.md) retains Plan 030 deferred extensions. [TD-013](technical-debt/013-legacy-dependency-guard-residue.md) keeps optional guard cleanup outside P14. [TD-014](technical-debt/014-dependency-aware-dispatch-verification-residue.md) preserves superseded P4-I3 evidence; P14-I4 owns final integrated safety proof. [TD-015](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) records Java quality/tooling debt. Source-local TODOs do not change runtime behavior.
 
 Standalone Markdown diagrams share the roadmap's visual style: [roadmap.md](plans/roadmap/roadmap.md) and [priority-order.md](technical-debt/priority-order.md).

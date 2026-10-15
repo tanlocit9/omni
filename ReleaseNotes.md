@@ -1,8 +1,29 @@
 # Omni Release Notes
 
-## 2026-10-14 — In-memory dependency-binding recovery risk
+## 2026-10-15 - P14-I2 static definition-path handoff locally verified
 
-Recorded TD-016 for the owner-directed single-instance immutable RAM binding snapshot and startup recovery beginning with retained scheduler outbox records. Atomic memory replacement does not provide durability; restart loses scheduling context, not necessarily persisted executions/messages. Recovery must resolve related execution/parent/definition evidence, including required published predecessors, and fail closed on missing identity. No binding table, outbox status, recovery implementation or passing restart test is introduced. Plan 030 records the recovery boundary; durable hardening remains owner-gated.
+Added a pure, inactive version-1 `RequiredPathResolver` and focused tests. It follows
+individual seed definition dependencies using the verified I1 topology for validation
+and deterministic ordering; ambiguous upstream nodes require explicit caller bindings,
+including multiple selected definitions. Exact scoped capabilities and edge mappings
+are mandatory, with unsupported modes rejected rather than silently expanding fan-out.
+Bounded closure returns dependency-first scoped definition/node/predecessor paths only.
+No default runtime capability, Spring bean, JobRun/schema, FIFO outbox, guard, claim,
+Kafka, worker, manifest or storage change. Earlier backlog/planner scaffolding is retained
+as a documented DEPRECATION CANDIDATE with callers/removal gates in Plan 030. Revised
+P14-I2 remains `verification_pending`; I3 remains `pending`. Test, coverage and build are
+PASSED through the approved `npx nx run platform:test`, `npx nx run platform:coverage`
+and `npx nx run platform:build` gate. Compact conclusion: `PASS P14-I2 required=3
+pass=3 fail=0 unknown=0 missing=0 sources=exit_code`. All 11 resolver tests passed;
+attributable resolver coverage is 100% line / 95.83% branch, with coverage/test XML
+preserved before the clean build. Plan 030 records the focused matrix and static audit.
+No new owner attestation, CI, runtime or deployment is claimed. Historical backlog-only
+PASS/attestation does not attest this revision. Existing owner changes are preserved.
+
+The dated P14-I2/I3 scheduling and ownership statements in entries below are historical:
+the canonical 2026-10-15 sequence is I1 topology → I2 static handoff → I3 JobRun
+preparation → I4 guarded admission → I5 diagnostics → I6 operations handoff. Historical
+PASS results and attestations are preserved without being promoted to current evidence.
 
 ## 2026-10-13 — Parent-based dependency discovery and deferred extraction
 

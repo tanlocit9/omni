@@ -82,7 +82,9 @@ BANKS and REAL_ESTATE remain independent, and symbol-level grouping is deferred.
 Incomplete evidence fails closed; the cursor remains caller-owned, not persisted state.
 `DependencyGuard` remains the required-input readiness
 authority and atomic outbox claims remain the execution fence. Do not call the planner
-from runtime dispatch before P14-I3 supplies scoped candidate queries and fallback safety.
+from runtime dispatch before P14-I4 supplies scoped candidate queries and fallback safety.
+P14-I2 owns the static contract; P14-I3 persists JobRun and immutable scoped step membership.
+Use jobRunId for cross-step correlation; runtime state is PostgreSQL-first, not an authoritative RAM cache.
 
 ## Adding a Notification Policy
 

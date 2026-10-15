@@ -12,7 +12,7 @@ Make Omni Console open with truthful answers to three operator questions, in thi
 2. Is EOD data sufficient and trustworthy for the expected trading dates?
 3. What small, fixed market review can be shown from existing trusted datasets?
 
-Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations, Data Health, and the fixed shell remain independently deliverable from [Plan 030](030-static-graph-dispatch-planner.md); only a graph-specific backlog/topology presentation waits for P14-I2.
+Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations, Data Health, and the fixed shell remain independently deliverable from [Plan 030](030-static-graph-dispatch-planner.md); only a JobRun-specific graph view waits for P14-I5/I6.
 
 ## Outcome
 
@@ -138,7 +138,7 @@ Provider-bound ingestion must not be averaged into CPU/storage-bound analysis wi
 
 ### Scheduler-outbox publish backlog and ETA
 
-The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I2 is completed, an optional graph-specific presentation may group or trace the same bounded backlog by accepted topology node/scope. The UI must not construct a topology independently, infer READY from graph position, or wait for P14-I4 merely to show accepted P14-I2 snapshot semantics.
+The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I5/I6 deliver accepted JobRun metrics/read models, an optional graph-specific presentation may group or trace bounded backlog by run/step/topology. The UI must not construct topology or completion independently, infer READY from graph position, or delay basic Job Operations until I5/I6.
 
 Scheduler-outbox visibility reports separately:
 
@@ -383,7 +383,7 @@ Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introd
 
 - P13-I1 truthful stage evidence and baseline instrumentation do not depend on P14.
 - P13-I2 basic counts, rates, durations, publishable backlog, ETA, and warning states depend only on P13-I1 and existing scheduler-outbox evidence.
-- A graph-specific P13-I2 presentation slice depends on P14-I2's accepted topology/snapshot semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
+- A JobRun-specific P13-I2 presentation slice consumes P14-I5/I6's accepted snapshot/metric semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
 - P13-I3 Data Health is independent of P14.
 - P13-I4 shell/navigation is independent of P14 and renders graph views as unavailable until their dependency is complete.
 - No Plan 029 story requires P14-I4 unless a later approved scope explicitly needs planner-runtime outcomes rather than topology/snapshot presentation.

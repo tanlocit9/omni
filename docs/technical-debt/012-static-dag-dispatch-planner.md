@@ -12,7 +12,7 @@ The backlog-only selection and DTO proposals below are historical. [Plan 030](..
 
 ## Owner revision — 2026-10-15 (canonical Plan 030)
 
-Plan 030 P14-I2 now freezes the static DAG target→ancestor dispatch contract; P14-I3 persists unified JobRun with immutable required steps and prepares dependency-first outbox; P14-I4 uses JobRun execution snapshots to select/admit guarded messages; I5 and I6 deliver measured diagnostics and operations read-model. The 2026-10-13 backlog-only story mapping below is historical. Existing dependency job definitions/producers must remain even if they stop being independently scheduled. JobRun step membership is persisted instance evidence, **not** a second mutable topology authority. Cache/recovery lifecycle remains solely under TD-017.
+Plan 030 P14-I2 now freezes the static DAG target→ancestor dispatch contract; P14-I3 persists unified JobRun with immutable required steps and prepares dependency-first outbox; P14-I4 uses JobRun execution snapshots to select/admit guarded messages; I5 and I6 deliver measured diagnostics and operations read-model. The 2026-10-13 backlog-only story mapping below is historical. Existing dependency job definitions/producers must remain even if they stop being independently scheduled. JobRun step membership is persisted instance evidence, **not** a second mutable topology authority. Runtime cache is not in active scope; PostgreSQL-first run-step snapshots remain authoritative. Revisit caching only on measured need with a new owner-approved bounded plan.
 
 ## Deferred generic static dependency snapshot
 
@@ -22,10 +22,6 @@ Plan 030 P14-I2 now freezes the static DAG target→ancestor dispatch contract; 
 - Activation: a concrete additional consumer or material mapping/maintenance cost justifies the extraction, followed by owner-approved scope and graph impact analysis.
 - Safety: preserve stable nodes, definition mapping, edge validation, cohort isolation, guard ownership, exact-version semantics and claim/fencing. Static snapshot means topology/dependency declarations, not cached execution progress or a mutable global scheduler state.
 - Closure evidence: parity tests between old and extracted declarations/mappings, bounded validation/export, compatibility for planner and other approved consumers, one-provider cutover/rollback and synchronized canonical docs. No Kafka, manifest, storage or database change is authorized by this debt entry; declare any later contract change separately.
-
-## Boundary with deferred cache/recovery
-
-[TD-017 — Scheduler Snapshot Cache & Recovery](017-scheduler-cache-and-recovery-epic.md) exclusively owns any **future long-lived execution binding cache, cache publication, and restart-cache recovery**. This TD-012 record owns static topology and optional extraction of immutable dependency declarations only. The active PostgreSQL-first cohort reconstruction, identity, retention and fail-closed correctness contract remains in Plan 030. There is no automatic dependency from Plan 030 to TD-017.
 
 ## Ownership and relationship
 

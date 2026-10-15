@@ -34,6 +34,10 @@ For each supported trading date, Platform will:
 
 Scheduled execution remains unchanged. Backfill is an execution mode of an existing definition, not a new definition category.
 
+## Deferred readiness projection boundary — TD-018
+
+[TD-018](../technical-debt/018-parquet-readiness-reconciliation.md) may later reconstruct **verified dataset READY evidence** from Parquet and exact manifests into PostgreSQL, but it does **not** reconstruct successful historical JobRuns. Plan 028's current `ALREADY_COMPLETE` classification still requires approved exact data/version/lineage and relevant execution evidence; historical imports without jobs require a separately reviewed classification rather than fabricated SUCCESS. No active dependency or guard cutover is authorized by this link.
+
 ## Relationship to Static Graph & DispatchPlanner
 
 [Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) is the active Milestone 1 epic promoted from [TD-012](../technical-debt/012-static-dag-dispatch-planner.md). P14-I1 provides the shared topology that this backfill plan may reuse to trace required dated work and enqueue missing items. P14-I2 finalizes static ancestor-path contracts; P14-I3 introduces reusable JobRun target preparation and P14-I4 selects already-enqueued work from JobRun snapshots. Plan 028 dated backfill activation remains separately scheduled and must reuse the accepted JobRun identity/path boundary rather than creating a parallel orchestrator. Both epics reuse one topology boundary; neither duplicates the job `DependencyGuard` input-readiness logic.

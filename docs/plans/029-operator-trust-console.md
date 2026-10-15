@@ -377,7 +377,7 @@ Outcome:
 
 ## Plan 030 JobRun handoff revision — 2026-10-15
 
-Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introduces durable target-driven JobRun path creation with existing FIFO outbox; P14-I4 integrates JobRun-aware outbox admission; P14-I5 delivers SQL/metrics baselines; P14-I6 hands over bounded read projections for graph-specific Job Operations. **Basic** stage/throughput/Data Health/shell work in this plan does not wait for I5/I6. The **graph-specific** visualization consumes I5/I6 evidence, never infers actual worker RUNNING from preparation-time child RUNNING, and never treats outbox PUBLISHED as finished processing.
+Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introduces durable target-driven JobRun path creation with existing FIFO outbox; P14-I4 integrates JobRun-aware outbox admission; P14-I5 delivers SQL/metrics baselines; P14-I6 hands over bounded read projections for graph-specific Job Operations. **Basic** stage/throughput/Data Health/shell work in this plan does not wait for I5/I6. The **graph-specific** visualization consumes I5/I6 evidence; run scope may be per-symbol while metrics labels remain bounded, never infers actual worker RUNNING from preparation-time child RUNNING, and never treats outbox PUBLISHED as finished processing.
 
 ## Relationship to Plan 030
 

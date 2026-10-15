@@ -8,7 +8,7 @@ This record preserves the original deferred design and activation cautions. Plan
 
 ## Owner revision — 2026-10-13
 
-The backlog-only selection and DTO proposals below are historical. [Plan 030](../plans/030-static-graph-dispatch-planner.md) now owns execution-centered parent/cohort summaries and completion ordering by business group/date/correlated run. BANKS and REAL_ESTATE remain independent inside the static job-type map; symbol grouping is a future TODO. This is a scoped execution-completion barrier, not a whole-node barrier or new execution DAG. Existing candidate guard retains dataset readiness/version authority; no new outbox processing status is approved. Earlier P14-I2 checks do not verify this revision.
+The backlog-only selection and DTO proposals below are historical. [Plan 030](../plans/030-static-graph-dispatch-planner.md) now owns execution-centered parent/cohort summaries and completion ordering by businessGroup/businessDate/jobRunId. BANKS and REAL_ESTATE remain independent inside the static job-type map; symbol grouping is a future TODO. This is a scoped execution-completion barrier, not a whole-node barrier or new execution DAG. Existing candidate guard retains dataset readiness/version authority; no new outbox processing status is approved. Earlier P14-I2 checks do not verify this revision.
 
 ## Deferred generic static dependency snapshot
 

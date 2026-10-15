@@ -31,7 +31,7 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 
 ## Deferred Parquet-to-PostgreSQL readiness reconstruction — TD-018
 
-[TD-018 — Reconstruct Dataset Readiness from Parquet and Manifests](018-parquet-readiness-reconciliation.md) is a **separately owner-gated, nonblocking** proposal to reconcile verified immutable data/READY manifest evidence into a bounded PostgreSQL readiness projection for faster future dependency checks. **Do not synthesize historical `JobRun` SUCCESS** from Parquet existence. Exact `dataVersion`/lineage and READY-last semantics, source-of-truth parity, invalidation and safe fallback are required before any guard cutover. It is not a prerequisite of Plan 030, nor a replacement for Plan 029's process-local Data Health scan cache.
+[TD-018 — Date-Range Readiness Projection and Parquet Reconciliation](018-parquet-readiness-reconciliation.md) is a **separately owner-gated, nonblocking** proposal to reconcile verified immutable data/READY manifest evidence into a gap-aware, scoped and versioned **date-range READY** PostgreSQL projection for faster future dependency checks. **Do not synthesize historical `JobRun` SUCCESS** from Parquet existence. Trading-calendar expected dates, full required-range coverage, exact `dataVersion`/lineage and READY-last semantics, source-of-truth parity, invalidation and safe fallback are required before any guard cutover. It is not a prerequisite of Plan 030, nor a replacement for Plan 029's process-local Data Health scan cache.
 
 ## Priority diagram
 

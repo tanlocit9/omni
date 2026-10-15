@@ -6,6 +6,10 @@ Owner direction — 2026-10-14: target one Platform instance without a new durab
 
 Status: OPEN / recovery design and evidence pending. This is a planned risk record, not a report of observed production data loss or implemented recovery. [Plan 030](../plans/030-static-graph-dispatch-planner.md) owns implementation and activation. No new outbox processing status or execution DAG is authorized.
 
+## Owner scope update — 2026-10-15
+
+**Status: CONDITIONAL / DEFERRED under database-first P14-I2.** Supersedes the earlier in-memory binding implementation direction below as the immediate delivery plan. P14-I2 now reads authoritative execution/outbox evidence from PostgreSQL using bounded short-lived read-only snapshots; static topology and tick-local immutable summaries do not require a long-lived binding cache or startup reconstruction. Revisit this debt only if reproducible query/pool benchmarks show material cost, or persisted identity/membership cannot reconstruct the required binding and the owner explicitly approves a different authority. The recovery requirements below remain a design checklist **if** such a cache is later introduced, not P14-I2 acceptance tasks today. See the measurable SQL and dashboard handoff requirements in [Plan 030](../plans/030-static-graph-dispatch-planner.md).
+
 ## Risk and Lost State
 
 Process restart, crash, deployment or memory exhaustion discards runtime parent bindings, snapshot versions and advisory allocation cursors. Atomic memory updates prevent readers from seeing partial snapshots; they do not make state durable or atomic with PostgreSQL commits.

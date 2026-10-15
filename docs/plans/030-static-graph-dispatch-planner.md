@@ -175,24 +175,18 @@ Each dispatch tick captures a fresh bounded summary. Preserve capture time, comp
 
 Existing inactive source is reusable scaffolding, not the revised implementation: definition-only DispatchScope, outbox-only BacklogSnapshotService/query, and first-dispatchable traversal must be adapted. Keep earlier tests/evidence as history; require fresh execution/cohort tests and attributable coverage. No P14-I1 status or historic evidence is rewritten.
 
-### Single-instance binding snapshot and startup recovery — 2026-10-14
+### Authoritative persistence, bounded recovery and identity safety — 2026-10-15
 
-Owner direction is an immutable in-memory parent-binding snapshot for one Platform instance, without a new binding table now. Publish it atomically only after execution/outbox preparation commits; preserve older active cohorts and reconcile missed after-commit updates. This mapping snapshot and the fresh execution-progress summary are separate inputs to allocation, not a comparison of old/new backlog counts.
+Current decision supersedes the former 2026-10-14 runtime-binding proposal: **PostgreSQL is authoritative**, and P14-I2 reads bounded execution/parent/definition/outbox evidence on every planning tick. Keep only immutable static topology and tick-local derived snapshots in memory; do not implement long-lived cache, after-commit in-memory binding publication, or startup cache reconstruction.
 
-Startup rebuild starts from retained outbox records and follows execution/parent/definition evidence into the static map. PENDING-only discovery is not proof that all relevant upstream evidence is available: retain and resolve published-but-running and completed predecessors required by remaining work. Complete deterministic rebuild, identity correlation and retention coverage must be demonstrated before activation; missing/ambiguous mappings fail closed. RAM loss does not itself delete database executions/messages. Volatile-state loss, crash gaps and deferred persistence hardening are tracked in [TD-016](../technical-debt/016-in-memory-dependency-binding-recovery.md). No restart recovery implementation or passing evidence is claimed by this decision.
+Correctness requirements **remain in P14-I2**, regardless of caching:
+- Check explicit group/date/correlated-run identity using persisted producer metadata; no trigger-time or newest-success fallback. Missing identity sorts last for consideration but cannot bypass a required upstream correlation/barrier. An unknown or ambiguous predecessor is an explicit fail-closed diagnostic, not an empty/completed predecessor.
+- Validate the owner-stated **one-time child dispatch transaction** invariant in source and tests: one committed parent child-creation transaction fixes membership. Commit is not child SUCCESS. Audit zero children, duplicate/retried dispatch, late children and rollback; stop for a bounded persistence/identity contract decision if closure cannot be proven.
+- Capture complete parent-child progress across PENDING/RUNNING/terminal execution states, including PUBLISHED outbox messages with unfinished execution; outbox alone is not completion. Parent ID is fan-out membership only, never an inferred cross-step edge.
+- Prove retained persisted evidence is sufficient for normal restart and reconstruction **by requerying PostgreSQL**, including completion evidence needed by downstream active cohorts. Define safe retention/cleanup boundaries and verify missing/ambiguous source rows fail closed.
+- Use short-lived bounded read-only transactions and query-plan/pool measurements. Planner snapshot is advisory; P14-I3 performs admission-time barrier revalidation and preserves guard/claim fencing. No unmeasured performance improvement is claimed.
 
-Bounded tasks:
-
-1. Inventory actual producer/execution identity and parent membership for stock-price and indicators; freeze group/date/run mapping and closure evidence.
-2. Validate static graph initialization and execution population mapping, including unmatched definitions and incompatible upstream/downstream groups.
-3. Define the execution-centered summary, completeness and independent outbox-count contracts without fan-out join overcounting.
-4. Add bounded parameterized execution/parent projections, retaining terminal progress and matching outbox eligibility.
-5. Implement pure cohort-barrier traversal, join reconciliation and bounded root/cohort quota allocation.
-6. Cover the 75/25/wait/advance trace, cross-group/date/run isolation, missing/failed parents, late children, retry identity and duplicate/out-of-order status updates.
-7. Deliver reproducible diagnostic SQL, query plans, database/connection-pool benchmarks, metric definitions and Plan 029 dashboard handoff under the measurable-evidence section below.
-8. TODO future: extend business grouping to symbolKey/workKey granularity behind the same scope boundary, with explicit mappings and compatibility tests. Symbol-level scheduling is not required in this revision.
-
-Rollback leaves the existing candidate path active because this story does not integrate runtime dispatch.
+Any later **long-lived cache, cached-binding publication or startup-cache recovery** is a separately owner-gated deferred epic, [TD-017 — Scheduler Snapshot Cache & Recovery](../technical-debt/017-scheduler-cache-and-recovery-epic.md). It is not a prerequisite for P14-I2/P14-I3.
 
 ### P14-I2 measurable evidence and future dashboard handoff — 2026-10-15
 
@@ -211,7 +205,7 @@ The P14-I2 exit gate includes the diagnostic SQL pack, executed correctness chec
 
 ### P14-I2 data-source simplification — owner decision 2026-10-15
 
-Use PostgreSQL persisted execution/outbox evidence as the authoritative source for each fresh, bounded, read-only planning snapshot. The in-memory static topology and tick-local immutable DTOs remain; do not introduce a long-lived authoritative parent-binding cache, post-commit memory publication or startup binding reconstruction in P14-I2 unless measurements or proven missing persistence justify a new owner decision. TD-016 is conditional/deferred under this database-first choice, not an activation prerequisite by itself.
+Use PostgreSQL persisted execution/outbox evidence as the authoritative source for each fresh, bounded, read-only planning snapshot. The in-memory static topology and tick-local immutable DTOs remain; do not introduce a long-lived authoritative parent-binding cache, post-commit memory publication or startup binding reconstruction in P14-I2 unless measurements or proven missing persistence justify a new owner decision. Future cache and startup-cache recovery are deferred to [TD-017](../technical-debt/017-scheduler-cache-and-recovery-epic.md) and are not activation prerequisites.
 
 Do not use `triggeredAt` as a fallback for missing cross-step run identity. Incomplete identity is scheduled last among eligible cohorts for consideration, but cannot bypass required predecessor correlation or the completion barrier; ambiguous dependent paths fail closed with explicit diagnostics. For fan-out, verify the stated invariant that each parent creates its fixed child set exactly once within the committed transaction; that commit establishes membership closure, not child completion. Audit retry, empty-set and late-child paths before treating this invariant as proven.
 
@@ -451,7 +445,7 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 - [ ] BANKS and REAL_ESTATE, and different runs/dates in one node, remain independent; waiting cohorts yield budget to other cohorts.
 - [ ] All required upstream branches at a join must complete for the matching cohort; shared selections are deduplicated.
 - [ ] Selections contain only node/cohort/parent scope, quota and diagnostics; existing candidate guard remains the dataset readiness/version authority.
-- [ ] Retry, late child, empty parent, missing status, failure/BLOCKED, duplicate/out-of-order events, restart and incomplete summaries have explicit tests.
+- [ ] Retry, late child, empty parent, missing status, failure/BLOCKED, duplicate/out-of-order events, **database-backed restart**, safe evidence retention and incomplete summaries have explicit tests; no long-lived cache recovery is required.
 - [ ] Fresh summaries are captured each tick; comparison with old counts is observability only; symbol-level grouping remains an explicit future TODO.
 - [ ] Versioned read-only diagnostic SQL covers cohort/child status, outbox eligibility, ambiguous identity, and blocked barriers; repeatable EXPLAIN/buffer/index and pool-load evidence records measured p50/p95/p99 and documented dataset conditions.
 - [ ] A dimensioned metric/read-projection dictionary and reproducible baseline report are handed to Plan 029; metrics requiring P14-I3 runtime integration are identified as not yet available, not falsely marked implemented.

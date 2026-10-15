@@ -28,10 +28,6 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 | [TD-014](014-dependency-aware-dispatch-verification-residue.md)   | Superseded dispatcher evidence residue      | DEFERRED / safety transferred to P14-I3                       | Close through final P14-I3 evidence; do not complete the old P4-I3 path separately.                                                                                                                                                                                                                                         |
 | [TD-015](015-java-static-analysis-and-sonar-quality-gate.md)      | Java code quality / static-analysis tooling | OPEN / Sonar tooling unavailable; targeted warnings confirmed | P2 conditional: promote a bounded tooling/remediation slice for CI policy, warning growth, review friction, or a concrete correctness/security finding.                                                                                                                                                                     |
 
-## Deferred cache and recovery epic
-
-[TD-017 — Scheduler Snapshot Cache & Recovery](017-scheduler-cache-and-recovery-epic.md) is a **deferred, owner-gated technical-debt epic**, not an active implementation or P14 dependency. PostgreSQL-first bounded planning and persisted cohort/identity correctness remain in [Plan 030](../plans/030-static-graph-dispatch-planner.md). Promote a cache/recovery slice only after measured query/pool bottlenecks, unreconstructable persisted identity, or a concrete multi-instance/retention requirement; retain crash-gap/rebuild/atomicity requirements for that future cache design.
-
 ## Priority diagram
 
 Arrows show conditional priority lanes, not mandatory implementation dependencies. TD-009 has independent correctness and capacity slices. Closed TD-006 is excluded. Standalone Markdown diagram: [priority-order.md](priority-order.md). Compare the [roadmap diagram](../plans/roadmap/roadmap.md). Both use the same top-down layout, quoted English labels, and state palette. Color describes evidence state, while P0–P3 labels describe risk priority.

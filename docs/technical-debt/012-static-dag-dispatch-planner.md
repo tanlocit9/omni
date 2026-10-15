@@ -19,6 +19,10 @@ The backlog-only selection and DTO proposals below are historical. [Plan 030](..
 - Safety: preserve stable nodes, definition mapping, edge validation, cohort isolation, guard ownership, exact-version semantics and claim/fencing. Static snapshot means topology/dependency declarations, not cached execution progress or a mutable global scheduler state.
 - Closure evidence: parity tests between old and extracted declarations/mappings, bounded validation/export, compatibility for planner and other approved consumers, one-provider cutover/rollback and synchronized canonical docs. No Kafka, manifest, storage or database change is authorized by this debt entry; declare any later contract change separately.
 
+## Boundary with deferred cache/recovery
+
+[TD-017 — Scheduler Snapshot Cache & Recovery](017-scheduler-cache-and-recovery-epic.md) exclusively owns any **future long-lived execution binding cache, cache publication, and restart-cache recovery**. This TD-012 record owns static topology and optional extraction of immutable dependency declarations only. The active PostgreSQL-first cohort reconstruction, identity, retention and fail-closed correctness contract remains in Plan 030. There is no automatic dependency from Plan 030 to TD-017.
+
 ## Ownership and relationship
 
 | Component                                  | Serves              | Responsibility                                                                                                                                                |

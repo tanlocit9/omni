@@ -32,8 +32,6 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 
 [TD-017 — Scheduler Snapshot Cache & Recovery](017-scheduler-cache-and-recovery-epic.md) is a **deferred, owner-gated technical-debt epic**, not an active implementation or P14 dependency. PostgreSQL-first bounded planning and persisted cohort/identity correctness remain in [Plan 030](../plans/030-static-graph-dispatch-planner.md). Promote a cache/recovery slice only after measured query/pool bottlenecks, unreconstructable persisted identity, or a concrete multi-instance/retention requirement; retain crash-gap/rebuild/atomicity requirements for that future cache design.
 
-TD-016 was removed when its active in-memory binding premise was superseded by PostgreSQL-first planning. Its still-relevant correctness requirements are consolidated into Plan 030, while optional cache/recovery work is owned by TD-017.
-
 ## Priority diagram
 
 Arrows show conditional priority lanes, not mandatory implementation dependencies. TD-009 has independent correctness and capacity slices. Closed TD-006 is excluded. Standalone Markdown diagram: [priority-order.md](priority-order.md). Compare the [roadmap diagram](../plans/roadmap/roadmap.md). Both use the same top-down layout, quoted English labels, and state palette. Color describes evidence state, while P0–P3 labels describe risk priority.

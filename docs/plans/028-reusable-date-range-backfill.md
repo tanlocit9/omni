@@ -154,6 +154,10 @@ planner: which dated work must exist?
 dispatch guard: may this exact outbox item publish now?
 ```
 
+### Relationship to Plan 030 jobRunId (2026-10-15)
+
+Plan 030 names the shared logical workflow-run correlation identity `jobRunId`. It is distinct from existing `runKey` (legacy work/dedup convention), per-execution IDs, `triggeredAt` (audit), and this plan's `backfillRequestId` (one request spanning a date range). For each requested business date and business group, specify a unique, propagated `jobRunId` per independently retryable logical run; manual reruns or separate backfill attempts must not silently reuse an unrelated run identity. This does not schedule Plan 028, change its persisted graph ownership proposal, or authorize any producer/schema/transport migration until an independent compatibility review. Preserve legacy consumers via additive contracts and an explicit deprecation/migration path.
+
 ### Dated work identity
 
 History checks must not use only `JobType` or `triggeredAt`. `triggeredAt` is audit time and may be much later than the historical data date.

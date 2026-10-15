@@ -36,7 +36,7 @@ Scheduled execution remains unchanged. Backfill is an execution mode of an exist
 
 ## Deferred readiness projection boundary — TD-018
 
-[TD-018](../technical-debt/018-parquet-readiness-reconciliation.md) may later reconstruct **verified dataset READY evidence** from Parquet and exact manifests into PostgreSQL, but it does **not** reconstruct successful historical JobRuns. Plan 028's current `ALREADY_COMPLETE` classification still requires approved exact data/version/lineage and relevant execution evidence; historical imports without jobs require a separately reviewed classification rather than fabricated SUCCESS. No active dependency or guard cutover is authorized by this link.
+[TD-018](../technical-debt/018-parquet-readiness-reconciliation.md) may later reconstruct **calendar-aware, gap-safe date-range READY coverage** per dataset/partition/scope/exact dataVersion and lineage from Parquet and exact manifests into PostgreSQL, but it does **not** reconstruct successful historical JobRuns. A single latest READY flag cannot satisfy an arbitrary historical range. Plan 028's current `ALREADY_COMPLETE` classification still requires approved exact data/version/lineage and relevant execution evidence; historical imports without jobs require a separately reviewed classification rather than fabricated SUCCESS. No active dependency or guard cutover is authorized by this link.
 
 ## Relationship to Static Graph & DispatchPlanner
 

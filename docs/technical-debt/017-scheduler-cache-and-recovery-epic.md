@@ -4,7 +4,7 @@ Status: **DEFERRED EPIC / NOT IMPLEMENTED**. Owner scope decision: 2026-10-15.
 
 ## Why this exists
 
-Plan 030 P14-I2 is **PostgreSQL-first**. Persisted execution, parent/child membership, job-definition and outbox evidence remain authoritative; every dispatch tick uses short-lived bounded read-only projections and a tick-local immutable snapshot. Static topology remains in memory. There is no long-lived runtime parent-binding cache and **no startup binding reconstruction feature** in current scope.
+Plan 030 P14-I3/I4 are **PostgreSQL-first**. Persisted execution, parent/child membership, job-definition and outbox evidence remain authoritative; every dispatch tick uses short-lived bounded read-only projections and a tick-local immutable snapshot. Static topology remains in memory. There is no long-lived runtime parent-binding cache and **no startup binding reconstruction feature** in current scope.
 
 This epic groups *conditional future enhancements* to query/cache performance, resilient cached bindings, and startup reconstruction. It is **not a current correctness prerequisite or dependency** for P14-I2/P14-I3. Existing correctness, cohort identity, fail-closed admission and retention requirements belong to [Plan 030](../plans/030-static-graph-dispatch-planner.md).
 
@@ -29,8 +29,8 @@ These are candidate *subtasks of one technical-debt epic*, not new active roadma
 
 ## Boundaries and ownership
 
-- **Plan 030 P14-I2:** correctness of persisted cohort identity, one-time atomic fan-out membership, bounded execution-centered read projections, SQL diagnostics, performance baseline and metric contract.
-- **Plan 030 P14-I3:** admission-time revalidation, guarded claim/publish, rollback and runtime safety.
+- **Plan 030 P14-I3:** persisted JobRun and frozen run-step membership, atomic fan-out closure, scheduled/manual preparation with existing outbox semantics.
+- **Plan 030 P14-I4:** JobRun snapshot, admission-time revalidation, guarded claim/publish, rollback and runtime safety. **P14-I5:** SQL diagnostics and performance baseline.
 - **TD-012:** static topology and optional generic immutable dependency-declaration extraction. Do not create a second graph authority.
 - **TD-017:** optional **long-lived derived cache and recovery lifecycle**, only after evidence-triggered activation.
 - **Plan 029:** consumers of metrics and diagnostic projections, not cache ownership.

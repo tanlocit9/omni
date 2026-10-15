@@ -176,7 +176,7 @@ At **every story boundary**, build/test must PASS and the pre-existing enabled s
 - **Plan 028:** reuse static DAG ancestor-path resolution from I2 and unified JobRun target-run preparation from I3; full date-range backfill, previews, date/version producer and writer adaptations remain independently proposed. Do not create a second DAG or orchestration authority.
 - **Plan 029:** basic Job Operations, Data Health and shell remain independent. JobRun/graph-specific read views consume I5 evidence and I6 bounded handoff; worker stage truthfulness remains P13-I1.
 - **Runtime cache/recovery:** not scheduled or tracked as a speculative technical-debt epic. PostgreSQL remains authoritative; only revisit from measured query/pool evidence or a concrete reliability requirement.
-- **TD-018:** optional future reconciliation of verified Parquet/manifest READY evidence into a PostgreSQL dataset-readiness projection. Distinct from JobRun completion: no synthetic JobRun history, no changes to current DependencyRegistry authority or P14-I3/I4 admission, and no active P14 prerequisite.
+- **TD-018:** a deferred redesign of dataset READY as an evidence-backed **scope + required date/date-range + immutable dataVersion/lineage** verdict, reconstructed from Parquet/manifests into PostgreSQL after parity validation. Each JobRun step may eventually ask whether its exact upstream input range is satisfied; a verified READY dataset may satisfy an explicitly approved dependency-data requirement **without fabricating a successful JobRun execution**. Do not bypass current DependencyGuard or I4 closed-execution barrier for actual in-flight runs. No active P14 prerequisite or cutover is authorized.
 
 ## Deferred Scope
 

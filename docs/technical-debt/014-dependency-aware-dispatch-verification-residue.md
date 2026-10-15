@@ -5,10 +5,10 @@
 | Field                      | Assessment                                                                                                                                                                                       |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Type                       | Superseded implementation/evidence residue                                                                                                                                                       |
-| Status                     | DEFERRED / safety semantics absorbed by Plan 030 P14-I3                                                                                                                                          |
+| Status                     | DEFERRED / safety semantics absorbed by Plan 030 P14-I4                                                                                                                                          |
 | Former roadmap owner       | P4-I3 — Dependency-aware outbox dispatch and terminal blocking                                                                                                                                   |
-| Replacement delivery owner | P14-I3 — Dispatcher integration with preserved claim and fencing                                                                                                                                 |
-| Reason                     | Static Graph & DispatchPlanner now changes candidate selection and dispatcher integration. Completing the old dispatcher increment first would verify a path that P14-I3 will materially revise. |
+| Replacement delivery owner | P14-I4 — Dispatcher integration with preserved claim and fencing                                                                                                                                 |
+| Reason                     | Static Graph & DispatchPlanner now changes candidate selection and dispatcher integration. Completing the old dispatcher increment first would verify a path that P14-I4 will materially revise. |
 
 P4-I3 source and historical evidence remain valid baseline information, but P4-I3 is no longer an active completion prerequisite. Its unclosed verification package is deferred here rather than reported as completed.
 
@@ -40,9 +40,9 @@ The former increment did not record a complete package for:
 
 These gaps must not be copied forward as a passing result.
 
-## Transfer to P14-I3
+## Transfer to P14-I4
 
-P14-I3 must prove the final post-planner dispatcher behavior. The following are mandatory acceptance invariants, not optional technical debt:
+P14-I4 must prove the final post-planner dispatcher behavior. The following are mandatory acceptance invariants, not optional technical debt:
 
 1. every planner-selected candidate is evaluated through `DependencyRegistry`;
 2. planner/topology state never substitutes for manifest readiness or exact `dataVersion` approval;
@@ -53,9 +53,9 @@ P14-I3 must prove the final post-planner dispatcher behavior. The following are 
 7. publish retry preserves message/execution identity and requires the exact claim token/owner;
 8. legacy PENDING/PUBLISHED/BLOCKED rows remain compatible through rollout and rollback;
 9. the fallback path restores bounded FIFO selection without bypassing the guard or deleting state;
-10. migration, concurrency, compatibility, impact, coverage, and applicable runtime evidence are recorded against the final P14-I3 implementation.
+10. migration, concurrency, compatibility, impact, coverage, and applicable runtime evidence are recorded against the final P14-I4 implementation.
 
-P14-I3 may reuse or adapt existing P4-I3 source/tests, but completion is judged only against the final integrated path.
+P14-I4 may reuse or adapt existing P4-I3 source/tests, but completion is judged only against the final integrated path.
 
 ## Deferred Follow-ups That Remain Separate
 
@@ -71,16 +71,16 @@ This record does not activate:
 
 | Contract area                     | Decision                                                                                                           |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Kafka/service-to-service protobuf | Unchanged by deferral. Existing command/status transport remains as-is unless P14-I3 separately declares a change. |
+| Kafka/service-to-service protobuf | Unchanged by deferral. Existing command/status transport remains as-is unless P14-I4 separately declares a change. |
 | Object-storage JSON manifests     | Unchanged; manifest READY and exact `dataVersion` remain the readiness authority.                                  |
 | Storage paths/dataset ownership   | Unchanged.                                                                                                         |
-| Public Java/Python API            | No new public API from this debt move. Internal dispatcher/registry APIs may be refactored by P14-I3.              |
-| Configuration/environment         | No immediate change. P14-I3 owns planner activation/fallback configuration.                                        |
+| Public Java/Python API            | No new public API from this debt move. Internal dispatcher/registry APIs may be refactored by P14-I4.              |
+| Configuration/environment         | No immediate change. P14-I4 owns planner activation/fallback configuration.                                        |
 | PostgreSQL                        | V11 and existing rows are retained. No rollback/deletion migration is authorized by this classification.           |
 
 ## Closure
 
-Close this debt when P14-I3 is completed with the transferred invariants and full attributable evidence, or when a later owner decision assigns a different final dispatcher owner. A separate P4-I3 completion is no longer required and must not be reconstructed merely to close historical metadata.
+Close this debt when P14-I4 is completed with the transferred invariants and full attributable evidence, or when a later owner decision assigns a different final dispatcher owner. A separate P4-I3 completion is no longer required and must not be reconstructed merely to close historical metadata.
 
 ## Verification Boundary
 

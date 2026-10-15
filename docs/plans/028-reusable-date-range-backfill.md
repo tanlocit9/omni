@@ -156,7 +156,7 @@ dispatch guard: may this exact outbox item publish now?
 
 ### JobRun reuse and no duplicate workflow ownership — 2026-10-15
 
-Use Plan 030 P14-I3's `job_runs` plus frozen dependency path and P14-I4's guarded outbox admission as the target-run preparation foundation, not an independent backfill execution engine. Plan 028 continues to own historical date-range selection, preview, dedup/completeness, partition/version-aware contracts, and supported producer rollout. `backfillRequestId` may group multiple dated `jobRunId` values; neither ID replaces the other. A request for historical dates does not authorize disabling current scheduled targets or reusing timestamp-based identities.
+Use Plan 030 P14-I3's `job_runs` plus frozen dependency path and P14-I4's guarded outbox admission as the target-run preparation foundation, not an independent backfill execution engine. Plan 028 continues to own historical date-range selection, preview, dedup/completeness, partition/version-aware contracts, and supported producer rollout. JobRun's typed target scope may be SYMBOL/SECTOR/EXCHANGE/GLOBAL, with each resolved upstream run-step preserving its own effective scope; never clone job definitions for individual symbols or rerun shared global upstream indiscriminately. `backfillRequestId` may group multiple dated `jobRunId` values; neither ID replaces the other. A request for historical dates does not authorize disabling current scheduled targets or reusing timestamp-based identities.
 
 ### Relationship to Plan 030 jobRunId (2026-10-15)
 

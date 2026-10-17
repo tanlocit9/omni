@@ -121,6 +121,53 @@ When changing storage layout:
 
 ## Verification
 
+### Formatting scope
+
+```bash
+# Changed files: staged + unstaged + untracked, relative to the current Git index
+nx run omni:format
+
+# All tracked files and untracked files not excluded by Git
+nx run omni:format --all
+```
+
+Both modes apply `.prettierignore`, skip deleted/non-regular files and leave the Git
+index untouched. Prettier formats supported files; Python files in each project's
+existing lint roots receive Ruff fixes and formatting through that project's
+`lint-fix --configuration=changed`. Unchanged files are not added to the default
+scope; a clean worktree is a no-op. Commit-range/branch comparisons are not implied.
+File contents are formatted as a whole, including unstaged content in partially
+staged files. Review and stage the resulting edits explicitly before committing.
+
+The root target uses [format-workspace.cjs](../../tools/format-workspace.cjs).
+`omni:format-test` covers Git selection and Python ownership. Direct Python
+`lint-fix` and `python-lint-fix` retain their existing full-project scope.
+Both full-project and changed-file Python fixes run `ruff check --fix-only`, then
+`ruff format`, then a strict `ruff check --no-fix --no-fix-only`. Leftover lint
+diagnostics cannot prevent the formatter from running merely because they are not
+auto-fixable. The final check still fails on remaining E501 or other violations.
+Ruff makes a best-effort attempt to wrap code at 88 columns; long prose comments
+and string literals may still require manual wrapping. No E501 suppression or
+line-length increase is configured. This pipeline change has not yet been executed.
+Java/protobuf formatters are not added; unknown Prettier file types are skipped.
+The `--all` mode uses Git inventory rather than recursively scanning ignored
+dependency, cache or external directories.
+
+This developer-tooling change affects the root formatter and the Analyzer,
+Ingestor, Query Service and py-common lint-fix configurations. Platform, Console
+and contracts retain their source behavior; supported changed text files there can
+receive Prettier formatting. Kafka, lake, database, shared runtime configuration,
+dataset ownership, persistence and operations have no behavioral impact. CI runs
+the selection regression tests. No roadmap increment status or runtime contract
+changes; canonical architecture, flow, data, deployment and agent policy need no
+updates for this command-scope change. Formatting tests and the new command have
+not yet been executed; the earlier CI-policy/integration results do not verify them.
+
+### Service checks
+
+For workflow selection, immutable contract baselines, locked Python environments
+and required-check semantics, see [CI Quality Gate](004-ci-quality-gate.md).
+
 Use Nx targets from the workspace root. Inspect a project before running unfamiliar operations:
 
 ```bash

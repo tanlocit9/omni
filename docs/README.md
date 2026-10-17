@@ -4,6 +4,9 @@ This directory is the documentation entry point for Omni. It is designed to help
 
 ## Start Here
 
+CI selection, dependency locking, integration/report scope and required-check
+semantics are documented in [CI Quality Gate](development/004-ci-quality-gate.md).
+
 1. [Numbered documentation registry](INDEX.md) — folder-local references and matching `NNN-` filename prefixes for every non-ADR content document under `docs/`.
 2. [Architecture decision registry](adr/README.md) — stable `ADR-NNN` references and roadmap mappings for architecture decisions.
 3. [System overview](architecture/001-system-overview.md) — service boundaries, infrastructure, and ownership.

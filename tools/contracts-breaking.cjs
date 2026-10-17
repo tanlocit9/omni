@@ -20,37 +20,44 @@ function run(command, args, options = {}) {
   });
 }
 
-function baselineExists(subdir) {
-  return (
-    spawnSync('git', ['cat-file', '-e', `origin/main:${subdir}/buf.yaml`], {
-      cwd: repositoryRoot,
-      stdio: 'ignore',
-    }).status === 0
-  );
-}
-
-const baselineSubdir = baselineExists('libs/contracts')
-  ? 'libs/contracts'
-  : baselineExists('contracts')
-  ? 'contracts'
-  : null;
-
-if (baselineSubdir !== null) {
-  if (baselineSubdir === 'contracts') {
-    console.log(
-      'Using the transitional origin/main:contracts baseline; post-merge checks will use origin/main:libs/contracts.'
-    );
+function resolveBaseline(baseline, git) {
+  // Only immutable SHAs are accepted; refs must be resolved by the caller.
+  if (!/^[a-f0-9]{40}$/.test(baseline || '') || /^0+$/.test(baseline)) {
+    throw new Error('CONTRACTS_BASE_SHA must be a nonzero full commit SHA.');
   }
-  process.exit(
-    run(buf, [
-      'breaking',
-      '--against',
-      `${repositoryRoot}/.git#branch=origin/main,subdir=${baselineSubdir}`,
-    ]).status ?? 1
+  if (git(['cat-file', '-e', `${baseline}^{commit}`]).status !== 0) {
+    throw new Error(`Contract baseline commit is unavailable: ${baseline}`);
+  }
+  for (const subdir of ['libs/contracts', 'contracts']) {
+    if (
+      git(['cat-file', '-e', `${baseline}:${subdir}/buf.yaml`]).status === 0
+    ) {
+      return subdir;
+    }
+  }
+  throw new Error(
+    `No contracts module at baseline ${baseline}; breaking check cannot run.`
   );
 }
 
-console.log(
-  'No contracts module exists on origin/main; validating the bootstrap schema instead.'
-);
-process.exit(run(buf, ['build']).status ?? 1);
+if (require.main === module) {
+  try {
+    const baseline = process.env.CONTRACTS_BASE_SHA;
+    const subdir = resolveBaseline(baseline, (args) =>
+      spawnSync('git', args, { cwd: repositoryRoot, stdio: 'ignore' })
+    );
+    console.log(`Checking contracts against ${baseline}:${subdir}`);
+    process.exit(
+      run(buf, [
+        'breaking',
+        '--against',
+        `${repositoryRoot}/.git#ref=${baseline},subdir=${subdir}`,
+      ]).status ?? 1
+    );
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
+module.exports = { resolveBaseline };

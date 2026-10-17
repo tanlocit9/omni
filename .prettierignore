@@ -62,12 +62,16 @@ reports/
 **/.pytest_cache
 **/.pytest_cache/**
 
+.agent
+.agents
 .claude
 .gemini
 .kiro
 .qoder
 .roo
 .vscode
+**/.agent/**
+**/.agents/**
 **/.claude/**
 **/.gemini/**
 **/.kiro/**

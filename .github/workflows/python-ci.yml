@@ -7,6 +7,11 @@ on:
         description: Nx Python project to verify
         required: true
         type: string
+      integration:
+        description: Run the Ingestor publication integration suite separately
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   actions: read
@@ -14,11 +19,13 @@ permissions:
 
 env:
   NX_DAEMON: false
+  UV_LOCKED: 'true'
 
 jobs:
   verify:
     name: Verify ${{ inputs.project }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -47,14 +54,38 @@ jobs:
       - name: Inspect Nx project targets
         run: npx nx show project ${{ inputs.project }}
 
+      - name: Validate integration project
+        if: inputs.integration
+        env:
+          PROJECT: ${{ inputs.project }}
+        run: test "$PROJECT" = ingestor
+
       - name: Sync Python dependencies
-        run: npx nx run ${{ inputs.project }}:sync
+        run: npx nx run ${{ inputs.project }}:sync-ci
 
       - name: Lint
+        if: ${{ !inputs.integration }}
         run: npx nx run ${{ inputs.project }}:lint
 
       - name: Test
+        if: ${{ !inputs.integration }}
         run: npx nx run ${{ inputs.project }}:test
 
       - name: Build
+        if: ${{ !inputs.integration }}
         run: npx nx run ${{ inputs.project }}:build
+
+      - name: Publication integration tests
+        if: inputs.integration
+        run: npx nx run ingestor:test-integration
+
+      - name: Preserve Python test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-${{ inputs.project }}-${{ inputs.integration && 'integration' || 'unit' }}-reports
+          path: |
+            reports/
+            coverage/
+          retention-days: 14
+          if-no-files-found: warn

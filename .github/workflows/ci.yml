@@ -2,6 +2,11 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      baseline:
+        description: Full previous commit SHA for contract compatibility comparison
+        required: true
+        type: string
   push:
     branches:
       - main
@@ -14,6 +19,10 @@ permissions:
   actions: read
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   NX_DAEMON: false
 
@@ -21,7 +30,9 @@ jobs:
   affected:
     name: Detect affected projects
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
+      contracts-base: ${{ steps.baseline.outputs.sha }}
       analyzer: ${{ steps.projects.outputs.analyzer }}
       contracts: ${{ steps.projects.outputs.contracts }}
       ingestor: ${{ steps.projects.outputs.ingestor }}
@@ -47,6 +58,37 @@ jobs:
       - name: Set Nx SHAs
         uses: nrwl/nx-set-shas@v5
 
+      - name: Select immutable contract baseline
+        id: baseline
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          MANUAL_BASE: ${{ inputs.baseline }}
+        run: |
+          case "$EVENT_NAME" in
+            pull_request) baseline="$PR_BASE" ;;
+            push) baseline="$PUSH_BEFORE" ;;
+            workflow_dispatch) baseline="$MANUAL_BASE" ;;
+            *) echo "Unsupported event: $EVENT_NAME" >&2; exit 1 ;;
+          esac
+          if [[ ! "$baseline" =~ ^[0-9a-f]{40}$ || "$baseline" =~ ^0+$ ]]; then
+            echo "A nonzero previous commit SHA is required; no implicit bootstrap." >&2
+            exit 1
+          fi
+          git cat-file -e "$baseline^{commit}"
+          if [[ "$baseline" == "$(git rev-parse HEAD)" ]]; then
+            echo "Contract baseline must differ from the checked-out commit." >&2
+            exit 1
+          fi
+          echo "sha=$baseline" >> "$GITHUB_OUTPUT"
+
+      - name: Test CI selection and gate policy
+        run: |
+          npx nx run omni:ci-policy-test
+          npx nx run omni:format-test
+
       - name: Validate Nx project graph
         run: npx nx show projects --verbose
 
@@ -57,28 +99,18 @@ jobs:
         id: projects
         shell: bash
         run: |
-          affected_json="$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --json)"
-          echo "Affected projects: $affected_json"
-
-          is_affected() {
-            jq -r --arg project "$1" \
-              'if index("omni") != null or index($project) != null then "true" else "false" end' \
-              <<< "$affected_json"
-          }
-
-          echo "analyzer=$(is_affected analyzer)" >> "$GITHUB_OUTPUT"
-          echo "contracts=$(is_affected contracts)" >> "$GITHUB_OUTPUT"
-          echo "ingestor=$(is_affected ingestor)" >> "$GITHUB_OUTPUT"
-          echo "java=$(is_affected platform)" >> "$GITHUB_OUTPUT"
-          echo "py-common=$(is_affected py-common)" >> "$GITHUB_OUTPUT"
-          echo "query-service=$(is_affected query-service)" >> "$GITHUB_OUTPUT"
-          echo "typescript=$(is_affected omni-console)" >> "$GITHUB_OUTPUT"
+          npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --json > "$RUNNER_TEMP/affected.json"
+          git diff --name-only --no-renames -z "$NX_BASE" "$NX_HEAD" > "$RUNNER_TEMP/changed-files"
+          node tools/ci-policy.cjs select "$RUNNER_TEMP/affected.json" "$RUNNER_TEMP/changed-files" "$GITHUB_OUTPUT" "$GITHUB_EVENT_NAME"
 
   contracts:
     name: Contracts / protobuf
     needs: affected
     if: needs.affected.outputs.contracts == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CONTRACTS_BASE_SHA: ${{ needs.affected.outputs.contracts-base }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -123,6 +155,15 @@ jobs:
     with:
       project: ingestor
 
+  ingestor-integration:
+    name: Python / ingestor integration
+    needs: affected
+    if: needs.affected.outputs.ingestor == 'true'
+    uses: ./.github/workflows/python-ci.yml
+    with:
+      project: ingestor
+      integration: true
+
   query-service:
     name: Python / query-service
     needs: affected
@@ -144,6 +185,7 @@ jobs:
     needs: affected
     if: needs.affected.outputs.typescript == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -209,3 +251,44 @@ jobs:
       # platform build target executes `clean build`.
       - name: Build and test
         run: npx nx run platform:build
+
+      - name: Preserve Java test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-reports
+          path: |
+            apps/core/build/test-results/
+            apps/core/build/reports/tests/
+            apps/core/build/reports/jacoco/
+          retention-days: 14
+          if-no-files-found: warn
+
+  quality-gate:
+    name: CI Quality Gate
+    if: always()
+    needs:
+      - affected
+      - contracts
+      - analyzer
+      - ingestor
+      - ingestor-integration
+      - query-service
+      - py-common
+      - typescript
+      - java
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Require success for every selected job
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: node tools/ci-policy.cjs gate

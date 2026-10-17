@@ -13,6 +13,14 @@
       "executor": "@nxlv/python:remove",
       "options": {}
     },
+    "sync-ci": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv sync --locked --package omni-query-service",
+        "cwd": "{projectRoot}"
+      }
+    },
     "sync": {
       "executor": "@nxlv/python:run-commands",
       "options": {
@@ -64,10 +72,16 @@
       "outputs": []
     },
     "lint-fix": {
+      "configurations": {
+        "changed": {
+          "command": "node ../../tools/format-workspace.cjs --python=query-service",
+          "forwardAllArgs": false
+        }
+      },
       "cache": false,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run ruff check --fix app tests main.py && uv run ruff format app tests main.py",
+        "command": "uv run ruff check --fix-only app tests main.py && uv run ruff format app tests main.py && uv run ruff check --no-fix --no-fix-only app tests main.py",
         "cwd": "{projectRoot}"
       },
       "outputs": []

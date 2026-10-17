@@ -1,5 +1,37 @@
 # Omni Release Notes
 
+## 2026-10-17 - Changed-file workspace formatting (verification pending)
+
+`nx run omni:format` now selects staged, unstaged and untracked files by default;
+`--all` selects the Git workspace inventory. Both modes honor `.prettierignore`
+and skip deleted/non-regular files. Prettier handles supported files; Python files
+use their owner's Nx lint-fix configuration with an explicit file list. No automatic
+staging. Added selection regression tests and their CI invocation; tests and the
+new formatter have not yet been executed. Existing CI verification evidence remains
+historical for its original scope. See [formatting scope](docs/development/001-where-to-change.md#formatting-scope).
+
+Python full-project and changed-file fix pipelines now apply `check --fix-only`,
+then format, then strict lint, so an unfixable E501 does not skip the formatter.
+Remaining violations still fail the final check. The 88-column policy is preserved;
+long comments/strings may require manual wrapping. This adjustment is not yet
+verified by an executed lint/format command.
+
+## 2026-10-17 - CI quality gate maintenance (verification pending)
+
+CI source now passes immutable event-specific contract baselines and fails when
+compatibility cannot be checked. Conservative cross-service selection supplements
+Nx for backend/shared/configuration/persistence/tooling changes. Added a separate
+Ingestor publication integration job, locked Python sync targets, an always-evaluated
+`CI Quality Gate`, report uploads, timeouts and cancellation of superseded runs.
+With explicit owner approval on 2026-10-17, the local `omni:ci-policy-test` target
+passed 7 tests and `ingestor:test-integration` passed 2 tests, with zero failures/skips.
+The policy rerun disabled unavailable Nx Cloud connectivity; integration used a
+workspace-local uv cache and `UV_LOCKED=true`, reporting a pytest cache-write warning
+and an Nx Cloud connectivity warning while exiting zero. No full verification or
+Actions run is claimed; branch protection has not been inspected or changed.
+Attributable coverage gating remains follow-up work. No roadmap increment status,
+runtime contract or deployment changes. See [CI policy](docs/development/004-ci-quality-gate.md).
+
 ## 2026-10-17 — P14-I2 evidence and documentation reconciliation
 
 Renewed local verification was executed on 2026-10-16 with explicit owner approval:

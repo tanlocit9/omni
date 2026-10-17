@@ -53,10 +53,16 @@
       "outputs": []
     },
     "lint-fix": {
+      "configurations": {
+        "changed": {
+          "command": "node ../../tools/format-workspace.cjs --python=ingestor",
+          "forwardAllArgs": false
+        }
+      },
       "cache": false,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run ruff check --fix app tests && uv run ruff format app tests",
+        "command": "uv run ruff check --fix-only app tests && uv run ruff format app tests && uv run ruff check --no-fix --no-fix-only app tests",
         "cwd": "{projectRoot}"
       },
       "outputs": []
@@ -95,6 +101,14 @@
         "command": "uv run uvicorn-hmr main:app --host 0.0.0.0",
         "cwd": "{projectRoot}",
         "forwardAllArgs": true
+      }
+    },
+    "sync-ci": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv sync --locked --package ingestor",
+        "cwd": "{projectRoot}"
       }
     },
     "sync": {

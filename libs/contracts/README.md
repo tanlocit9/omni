@@ -27,6 +27,13 @@ nx run contracts:generate-check
 
 `generate-check` performs two clean generations and fails if their output hashes differ. It compares generated trees directly without relying on a repository snapshot of derived output.
 
-`breaking` prefers the `origin/main:libs/contracts` baseline. During this relocation, it falls back to `origin/main:contracts` until the new path is merged; if neither baseline exists, it compiles the current module as a bootstrap validation.
+`breaking` requires `CONTRACTS_BASE_SHA` to contain a full, nonzero commit SHA.
+CI supplies the PR base SHA or the previous push SHA; manual dispatch requires an
+explicit baseline. For local use, resolve the intended previous revision first
+and set that environment variable before running the target. The check looks for
+`libs/contracts` and then the historical `contracts` directory at that exact SHA.
+A missing commit or module fails the check; schema compilation is never reported
+as compatibility validation. The target is uncached because the baseline changes
+independently of the working tree. See the [CI policy](../../docs/development/004-ci-quality-gate.md).
 
 This increment defines contracts only. Existing JSON Kafka producers and consumers are migrated through adapters and compatibility tests in later increments.

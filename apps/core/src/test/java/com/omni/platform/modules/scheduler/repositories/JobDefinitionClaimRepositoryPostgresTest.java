@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -316,6 +317,39 @@ class JobDefinitionClaimRepositoryPostgresTest {
     }
 
     @Test
+    @DisplayName("backlog projection classifies dispatchable delayed and in-flight rows without payload loading")
+    void backlogProjectionClassifiesBoundedGroups() {
+        JobDefinition firstJob = saveJob("backlog first", true, NOW.plusSeconds(3600));
+        JobExecutionHistory firstExecution = saveExecution(firstJob);
+        saveOutbox(firstExecution, 0, NOW.minusSeconds(10), null);
+        saveOutbox(firstExecution, 1, NOW.plusSeconds(10), null);
+        saveOutbox(firstExecution, 2, NOW.minusSeconds(10), NOW.plusSeconds(10));
+        saveOutbox(firstExecution, 3, NOW.minusSeconds(10), NOW.minusSeconds(1));
+
+        JobDefinition secondJob = saveJob("backlog second", true, NOW.plusSeconds(3600));
+        saveOutbox(saveExecution(secondJob), 0, NOW, null);
+
+        List<SchedulerBacklogGroup> all = outboxRepository.findBacklogGroups(NOW, 10);
+        List<SchedulerBacklogGroup> bounded = outboxRepository.findBacklogGroups(NOW, 1);
+
+        assertThat(all).hasSize(2);
+        assertThat(all).filteredOn(group -> group.jobDefinitionId().equals(firstJob.getId()))
+                .singleElement().satisfies(group -> {
+                    assertThat(group.pending()).isEqualTo(4);
+                    assertThat(group.dispatchable()).isEqualTo(2);
+                    assertThat(group.retryDelayed()).isEqualTo(1);
+                    assertThat(group.inFlight()).isEqualTo(1);
+                });
+        assertThat(bounded).hasSize(2);
+        assertThatThrownBy(() -> outboxRepository.findBacklogGroups(NOW, 0))
+                .isInstanceOf(InvalidDataAccessApiUsageException.class)
+                .hasMessageContaining("groupLimit");
+        assertThatThrownBy(() -> outboxRepository.findBacklogGroups(NOW, 10_001))
+                .isInstanceOf(InvalidDataAccessApiUsageException.class)
+                .hasMessageContaining("groupLimit");
+    }
+
+    @Test
     @DisplayName("claimed preparation commits one logical execution, outbox payload, nextRun, and exact release")
     void claimedPreparationIsAtomicAndIdempotentAtTheSchedulingBoundary() {
         JobDefinition job = new JobDefinition();
@@ -398,6 +432,34 @@ class JobDefinitionClaimRepositoryPostgresTest {
                     .executeUpdate();
             entityManager.flush();
         });
+    }
+
+    private JobExecutionHistory saveExecution(JobDefinition job) {
+        JobExecutionHistory execution = new JobExecutionHistory();
+        execution.setJob(job);
+        execution.setUsedSource(job.getSource());
+        execution.setStatus(JobStatus.PENDING);
+        return executionRepository.saveAndFlush(execution);
+    }
+
+    private SchedulerOutboxMessage saveOutbox(
+            JobExecutionHistory execution,
+            int messageIndex,
+            Instant availableAt,
+            Instant claimUntil) {
+        SchedulerOutboxMessage message = new SchedulerOutboxMessage();
+        message.setExecution(execution);
+        message.setMessageIndex(messageIndex);
+        message.setTopic("jobs");
+        message.setMessageKey("backlog-" + execution.getId() + "-" + messageIndex);
+        message.setPayload("{}");
+        message.setAvailableAt(availableAt);
+        if (claimUntil != null) {
+            message.setClaimToken(UUID.randomUUID());
+            message.setClaimedBy("backlog-test");
+            message.setClaimUntil(claimUntil);
+        }
+        return outboxRepository.saveAndFlush(message);
     }
 
     private JobDefinition saveJob(String title, boolean active, Instant nextRun) {

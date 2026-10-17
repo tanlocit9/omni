@@ -4,21 +4,24 @@ import java.time.Duration;
 
 import org.springframework.stereotype.Service;
 
-
-import lombok.RequiredArgsConstructor;
-
 /**
  * V1 Platform-local registry. It adapts the existing manifest guard without
  * exporting policy implementations or moving dependency logic into workers.
  */
 @Service
-@RequiredArgsConstructor
 public class PlatformDependencyRegistry implements DependencyRegistry {
 
     private static final Duration WAIT_RETRY = Duration.ofSeconds(30);
 
     private final JobDependencyGuard guard;
     private final JobDependencyContextFactory contextFactory;
+
+    public PlatformDependencyRegistry(
+            JobDependencyGuard guard,
+            JobDependencyContextFactory contextFactory) {
+        this.guard = guard;
+        this.contextFactory = contextFactory;
+    }
 
     @Override
     public DependencyDecision evaluate(DependencyRequest request) {

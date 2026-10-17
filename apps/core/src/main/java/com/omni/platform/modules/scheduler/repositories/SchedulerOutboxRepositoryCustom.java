@@ -7,6 +7,8 @@ import java.util.UUID;
 
 public interface SchedulerOutboxRepositoryCustom {
 
+    List<SchedulerBacklogGroup> findBacklogGroups(Instant snapshotAt, int groupLimit);
+
     List<UUID> findPendingCandidateIds(Instant now, int candidateLimit);
 
     SchedulerOutboxClaim claimEligible(

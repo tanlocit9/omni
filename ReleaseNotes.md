@@ -129,7 +129,7 @@ Owner moved P10/P11/P12 follow-ups into owner-gated technical debt; existing evi
 | Cross-service observability              | P11-I1–P11-I5 pending                                         | Deferred, owner-gated under TD-011; historical dependencies retained                                                                     |
 | Worker throughput and writer batching    | P12-I1–P12-I4 pending                                         | Deferred under TD-009/TD-011; preserve evidence and proposed dependencies                                                                |
 | Operator trust Console                   | P13-I1–P13-I4 pending                                         | Follows completed P14-I3 for truthful final dispatcher stages; calendar/lifecycle evidence or narrowed classifications remain unresolved |
-| Static Graph & DispatchPlanner           | P14-I1 completed; P14-I2 verification_pending; P14-I3 pending | Renewed static-handoff test/coverage/build PASS on 2026-10-16; docs reconciled 2026-10-17; no runtime activation/status promotion                           |
+| Static Graph & DispatchPlanner           | P14-I1 completed; P14-I2 verification_pending; P14-I3 pending | Renewed static-handoff test/coverage/build PASS on 2026-10-16; docs reconciled 2026-10-17; no runtime activation/status promotion        |
 
 ## Release history
 

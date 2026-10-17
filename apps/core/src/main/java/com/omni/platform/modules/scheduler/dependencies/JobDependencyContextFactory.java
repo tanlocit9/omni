@@ -14,8 +14,6 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
 
-import lombok.RequiredArgsConstructor;
-
 /**
  * Builds the dependency context evaluated immediately before scheduler dispatch.
  *
@@ -24,12 +22,15 @@ import lombok.RequiredArgsConstructor;
  * producer and Analyzer consumer. No physical object-storage paths are emitted.
  */
 @Component
-@RequiredArgsConstructor
 public class JobDependencyContextFactory {
 
     private static final String EOD_DATASET = "eod";
 
     private final SymbolRepository symbolRepository;
+
+    public JobDependencyContextFactory(SymbolRepository symbolRepository) {
+        this.symbolRepository = symbolRepository;
+    }
 
     public JobExecutionContext create(JobDefinition job) {
         return create(job, UUID.randomUUID().toString());

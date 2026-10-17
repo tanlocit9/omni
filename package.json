@@ -2,9 +2,6 @@
   "name": "omni",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {
-    "prepare": "husky"
-  },
   "private": true,
   "devDependencies": {
     "@bufbuild/buf": "1.72.0",
@@ -16,7 +13,6 @@
     "@swc/helpers": "0.5.18",
     "concurrently": "^9.2.1",
     "grpc-tools": "1.13.1",
-    "husky": "^9.1.7",
     "nx": "22.7.8",
     "prettier": "^2.6.2",
     "tslib": "^2.3.0",

@@ -1,2 +1,0 @@
-nx run format
-git add -u

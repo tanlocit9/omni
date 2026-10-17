@@ -14,7 +14,7 @@
 
 Move these legacy residues to technical debt so P14-I1 static topology and P14-I2 pure planning can proceed without reactivating the old pre-enqueue dependency design.
 
-This deferral does not authorize deleting schema/audit state, weakening fail-closed behavior, enabling unsupported conditions, or bypassing `DependencyRegistry`. P14-I3 follows P14-I2 and owns the transferred dependency-aware safety proof documented in TD-014; a separate P4-I3 completion is no longer required.
+This deferral does not authorize deleting schema/audit state, weakening fail-closed behavior, enabling unsupported conditions, or bypassing `DependencyRegistry`. Under the canonical 2026-10-15 sequence, P14-I3 prepares durable JobRuns and P14-I4 owns final planner-integrated dependency-aware safety evidence documented in TD-014; separate P4-I3 completion is not required.
 
 ## Residue A — Legacy Blocked-Job Tracking
 
@@ -85,8 +85,8 @@ Promote one evaluator as a bounded guard-contract story before:
 
 - P14-I1 may inventory these legacy declarations but must not absorb tracker cleanup or optional evaluator implementation.
 - P14-I2 treats dependency decisions as external readiness facts and must not interpret a missing evaluator, execution SUCCESS, or empty backlog as READY.
-- P14-I3 continues to call `DependencyRegistry`; fail-closed guard errors remain WAITING/BLOCKED according to the transferred TD-014 safety contract.
-- This debt record cannot substitute for P14-I3 blast-radius, coverage, migration, concurrency, claim/fencing, compatibility, fallback, or runtime evidence.
+- P14-I3 preserves the existing guarded FIFO path; P14-I4 integrates planner selection and continues to call `DependencyRegistry`. Fail-closed guard errors remain WAITING/BLOCKED according to TD-014.
+- This debt record cannot substitute for P14-I4 blast-radius, coverage, migration, concurrency, claim/fencing, compatibility, fallback, or runtime evidence.
 
 ## Contract Impact
 

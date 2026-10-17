@@ -2,9 +2,30 @@
 
 ## Decision
 
-Historical design note — 2026-10-07; promoted by owner decision on 2026-10-08 into the active [Plan 030 — Static Graph & DispatchPlanner](../plans/030-static-graph-dispatch-planner.md) epic and canonical stories P14-I1, P14-I2, and P14-I3. Status: ACTIVE EPIC REFERENCE / runtime not implemented by this documentation change.
+Historical design note — 2026-10-07; promoted by owner decision on 2026-10-08 into the active [Plan 030 — Static Graph & DispatchPlanner](../plans/030-static-graph-dispatch-planner.md) epic and canonical stories P14-I1 through P14-I6. Status: ACTIVE EPIC REFERENCE / runtime not implemented by this documentation change.
 
-This record preserves the original deferred design and activation cautions. Plan 030 owns active scope, acceptance, dependencies, and bounded delivery. [Plan 023 — Dependency-Aware Outbox Dispatch](../plans/023-dependency-aware-outbox-dispatch.md) preserves the implemented baseline; P4-I3 is superseded, and [TD-014](014-dependency-aware-dispatch-verification-residue.md) transfers its unclosed safety/evidence contract to P14-I3. Do not introduce a workflow engine or runtime execution DAG.
+This record preserves the original deferred design and activation cautions. Plan 030 owns active scope, acceptance, dependencies, and bounded delivery. [Plan 023 — Dependency-Aware Outbox Dispatch](../plans/023-dependency-aware-outbox-dispatch.md) preserves the implemented baseline; P4-I3 is superseded, and [TD-014](014-dependency-aware-dispatch-verification-residue.md) transfers its unclosed safety/evidence contract to P14-I4. Do not introduce a workflow engine or runtime execution DAG.
+
+## Owner revision — 2026-10-13
+
+The backlog-only selection and DTO proposals below are historical. [Plan 030](../plans/030-static-graph-dispatch-planner.md) now owns execution-centered parent/cohort summaries and completion ordering by businessGroup/businessDate/jobRunId. BANKS and REAL_ESTATE remain independent inside the static job-type map; symbol grouping is a future TODO. This is a scoped execution-completion barrier, not a whole-node barrier or new execution DAG. Existing candidate guard retains dataset readiness/version authority; no new outbox processing status is approved. Earlier P14-I2 checks do not verify this revision.
+
+## Owner revision — 2026-10-15 (canonical Plan 030)
+
+Plan 030 P14-I2 now freezes the static DAG target→ancestor dispatch contract; P14-I3 persists unified JobRun with immutable required steps and prepares dependency-first outbox; P14-I4 uses JobRun execution snapshots to select/admit guarded messages; I5 and I6 deliver measured diagnostics and operations read-model. The 2026-10-13 backlog-only story mapping below is historical. Existing dependency job definitions/producers must remain even if they stop being independently scheduled. JobRun step membership is persisted instance evidence, **not** a second mutable topology authority. Runtime cache is not in active scope; PostgreSQL-first run-step snapshots remain authoritative. Revisit caching only on measured need with a new owner-approved bounded plan.
+
+## Plan 030 static definition-edge ownership — 2026-10-16
+
+Plan 030 **P14-I3.a** owns the source-controlled extraction of `configJson.dependsOnJobs` to typed per-`JobDefinitionIdentity` static edges, using the existing single topology provider and I2 resolver. This is not a PostgreSQL graph migration. Plan 028's earlier persisted graph Increment A is **superseded as a delivery candidate** and Plan 028 is **REVIEW REQUIRED / ON HOLD** pending redesign. The older proposals below are historical only; neither a second registry nor a second topology runtime authority is approved. Symbol scope belongs to run-step scope mapping, not one definition per symbol.
+
+## Deferred generic static dependency snapshot
+
+- Status: DEFERRED; owner-requested follow-up on 2026-10-13, not a P14 blocker or implemented capability.
+- Current coupling: pending execution discovery groups persisted parent IDs, loads parent job definitions, resolves their dependency declarations and maps onto the definition-derived static topology. Execution progress remains a separate per-cohort summary.
+- Future goal: extract an immutable generic static dependency snapshot/provider boundary independent of JPA entities, job-definition configuration representation and runtime execution state. Reuse the existing topology boundary; do not introduce a second graph authority or an execution DAG.
+- Activation: a concrete additional consumer or material mapping/maintenance cost justifies the extraction, followed by owner-approved scope and graph impact analysis.
+- Safety: preserve stable nodes, definition mapping, edge validation, cohort isolation, guard ownership, exact-version semantics and claim/fencing. Static snapshot means topology/dependency declarations, not cached execution progress or a mutable global scheduler state.
+- Closure evidence: parity tests between old and extracted declarations/mappings, bounded validation/export, compatibility for planner and other approved consumers, one-provider cutover/rollback and synchronized canonical docs. No Kafka, manifest, storage or database change is authorized by this debt entry; declare any later contract change separately.
 
 ## Ownership and relationship
 
@@ -44,14 +65,15 @@ No public API, Kafka/protobuf, Python model, manifest, dataset path, environment
 
 ## Plan 028 reuse
 
-[Plan 028 — Reusable Date-Range Job Backfill](../plans/028-reusable-date-range-backfill.md) may depend on P14-I1 to reuse the shared topology for tracing and enqueueing missing dated work. It does not depend on P14-I2 or P14-I3: DispatchPlanner selects already-enqueued work and does not perform backfill expansion. Plan 028's proposed persisted job graph remains a separate ownership migration. If promoted, provide one topology boundary with parity/cutover evidence; do not keep static and persisted graphs as competing authorities.
+[Plan 028 — Reusable Date-Range Job Backfill](../plans/028-reusable-date-range-backfill.md) may depend on P14-I1 to reuse the shared topology for tracing and enqueueing missing dated work. It does not depend on P14-I2 or P14-I3: DispatchPlanner selects already-enqueued work and does not perform backfill expansion. Plan 028's former persisted job graph is superseded by Plan 030 I3.a; Plan 028 must be reviewed before promotion. If promoted, provide one topology boundary with parity/cutover evidence; do not keep static and persisted graphs as competing authorities.
 
-## Promoted story mapping and evidence
+## Canonical story mapping (2026-10-15)
 
-- P14-I1 owns node identity/mapping, one static topology boundary, validation, traversal, and diagnostics without a persisted graph.
-- P14-I2 owns the bounded pending/dispatchable/in-flight snapshot and pure deterministic top-down node/scope/quota planning without runtime activation.
-- P14-I3 owns scoped candidate queries and dispatcher integration while preserving the registry/guard and atomic claim boundary.
-- Multiple roots, joins, empty roots, WAITING/backoff, in-flight work, cycles, duplicate node mappings, stale/incomplete snapshots, baseline bounded fairness, and concurrent claims require attributable evidence before the owning story completes.
+- **P14-I1:** completed static topology and validation.
+- **P14-I2:** validated static graph ancestor path/definition mapping and I3 handoff.
+- **P14-I3:** JobRun persistence, immutable run-step path, dependency-first preparation and unchanged FIFO outbox/guard.
+- **P14-I4:** scoped candidate planning and guarded/fenced admission from bounded JobRun snapshot; transferred TD-014 safety proof.
+- **P14-I5/I6:** measured SQL/metrics and bounded operations read-model handoff, not dashboard UI.
 
 Persisted graph ownership, expanded provider policy, provider budgets, adaptive concurrency, advanced weighted/aging fairness, runtime DAG edges, conditional branches, ANY/quorum dependencies, and persisted remaining-dependency counters remain deferred and require concrete demand plus a separate owner decision. No placeholder source TODO is added for an unbuilt class.
 

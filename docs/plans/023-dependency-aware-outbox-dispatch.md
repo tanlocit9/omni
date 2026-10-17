@@ -1,6 +1,6 @@
 # Dependency-Aware Outbox Dispatch
 
-Canonical status and schedule owner: [the increment registry](roadmap/implementation-increments.md). P4-I3 is `superseded`; this document preserves the implemented dependency-aware dispatch baseline. [Plan 030 P14-I3](030-static-graph-dispatch-planner.md) owns the final planner-integrated dispatcher delivery, and [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md) retains unclosed evidence. This document must not define a competing schedule or imply that historical source is completed.
+Canonical status and schedule owner: [the increment registry](roadmap/implementation-increments.md). P4-I3 is `superseded`; this document preserves the implemented dependency-aware dispatch baseline. [Plan 030 P14-I4](030-static-graph-dispatch-planner.md#p14-i4--jobrun-snapshot-dispatchplanner-and-outbox-integration) owns final planner-integrated dispatcher delivery; P14-I3 owns durable JobRun preparation. [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md) retains unclosed evidence. This document must not define a competing schedule or imply that historical source is completed.
 
 ## Goal
 
@@ -231,4 +231,4 @@ Design inventory, not a claim that fields are missing from source or already imp
 | DependencyDecision   | READY/WAITING/BLOCKED, bounded reason, optional retryAt                                         | HIGH dispatcher/status behavior; WAITING does not consume publish retries; BLOCKED cannot be reclaimed.                    |
 | Execution/outbox/API | Terminal BLOCKED and structured dependency disposition/reasons                                  | HIGH schema/aggregation/compatibility; distinguish accepted/enqueued from publishable; no new dependency repository in V1. |
 
-Historical small tasks: adapt registry/request/decision boundary → transactionally enqueue scheduled/manual work → dispatcher gate/fencing/FIFO → terminal BLOCKED aggregation/API/migration → upstream-failure/global-barrier evidence. Source is reusable baseline; TD-014 records unclosed evidence, and P14-I3 must prove the final integrated behavior rather than completing P4-I3 separately.
+Historical small tasks: adapt registry/request/decision boundary → transactionally enqueue scheduled/manual work → dispatcher gate/fencing/FIFO → terminal BLOCKED aggregation/API/migration → upstream-failure/global-barrier evidence. Source is reusable baseline; TD-014 records unclosed evidence, and P14-I4 must prove final integrated behavior rather than completing P4-I3 separately.

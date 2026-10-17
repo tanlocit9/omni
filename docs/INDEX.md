@@ -67,7 +67,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan       | Group E / Phase 11 / P11-I1-P11-I5 |
 | plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan       | Group F / Phase 12 / P12-I1-P12-I4 |
 | plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Active Phase 13 supporting plan            | Group G / Phase 13 / P13-I1-P13-I4 |
-| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I3           |
+| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I6           |
 
 ## Proposed, Historical, and Compatibility Plans
 
@@ -101,9 +101,10 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | technical-debt/010 | [Kafka Poison Record and Dead-Letter Policy](technical-debt/010-kafka-poison-record-and-dead-letter-policy.md)             | Deferred cross-service operational policy | Cross-cutting; not roadmap-scheduled | [Kafka Contracts](data/001-kafka-contracts.md), [Plan 027](plans/027-concurrent-workers-and-writer-batching.md)                                                |
 
 | technical-debt/011 | [Deferred Observability, Capacity and Realtime](technical-debt/011-deferred-observability-capacity-and-realtime.md) | Deferred owner-gated follow-ups | P10/P11/P12 | [Priority index](technical-debt/README.md), [impact inventory](reference/002-planned-field-dto-impact.md) |
-| technical-debt/012 | [Static DAG Dispatch Planner](technical-debt/012-static-dag-dispatch-planner.md) | Historical promoted design; deferred extensions retained | Active scope moved to P14-I1-P14-I3 | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 023](plans/023-dependency-aware-outbox-dispatch.md), [Plan 028](plans/028-reusable-date-range-backfill.md) |
+| technical-debt/012 | [Static DAG Dispatch Planner](technical-debt/012-static-dag-dispatch-planner.md) | Historical promoted design; deferred extensions retained | Active scope moved to P14-I1-P14-I6 | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 023](plans/023-dependency-aware-outbox-dispatch.md), [Plan 028](plans/028-reusable-date-range-backfill.md) |
 | technical-debt/013 | [Legacy Dependency-Guard Residue](technical-debt/013-legacy-dependency-guard-residue.md) | Open cleanup / optional guard capability debt | Non-blocking P14; promote only from an activation trigger | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 006](plans/006-job-dependency-guard-progress.md), [TD-007](technical-debt/007-async-dependency-evaluation.md) |
-| technical-debt/014 | [Dependency-Aware Dispatch Verification Residue](technical-debt/014-dependency-aware-dispatch-verification-residue.md) | Superseded P4-I3 evidence residue | Safety/evidence transferred to P14-I3 | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 023](plans/023-dependency-aware-outbox-dispatch.md), [increment registry](plans/roadmap/implementation-increments.md) |
+| technical-debt/014 | [Dependency-Aware Dispatch Verification Residue](technical-debt/014-dependency-aware-dispatch-verification-residue.md) | Superseded P4-I3 evidence residue | Safety/evidence transferred to P14-I4 | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 023](plans/023-dependency-aware-outbox-dispatch.md), [increment registry](plans/roadmap/implementation-increments.md) |
+| technical-debt/015 | [Java Static Analysis and Sonar Quality Gate](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) | Open Java code-quality/tooling debt | P2 conditional; no configured Sonar gate | [Platform project targets](../apps/core/project.json), [Platform Gradle configuration](../apps/core/build.gradle.kts), [technical-debt index](technical-debt/README.md) |
 
 ## Roadmap View
 

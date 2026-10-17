@@ -1,8 +1,19 @@
 # Plan 028 — Reusable Date-Range Job Backfill
 
-Status: Proposed supporting implementation plan; not yet scheduled in the canonical roadmap.
+Status: **REVIEW REQUIRED / ON HOLD** (owner decision 2026-10-16). Proposed supporting plan, **not approved for implementation or scheduled**. Canonical source-controlled static dependency ownership moves to Plan 030 P14-I3.a; all persisted-edge migration proposals below are historical candidates pending redesign.
 
 Canonical scheduling owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md). Implementation requires a separately registered increment before autonomous execution.
+
+## Review required — 2026-10-16 (Plan 030 wins topology ownership)
+
+**Stop gate:** Plan 028 must be reviewed and rewritten before entering the canonical roadmap. Plan 030 I3.a now owns extraction of `configJson.dependsOnJobs` into **typed, source-controlled, per-JobDefinition static edges** while retaining a single shared topology API. **Do not implement this plan's former Increment A persisted job graph, `job_key`/`dependency_key` schema, SQL dependency edges, or replacement topology provider as currently proposed.** These passages are *historical proposed design*, not active acceptance, requirements or authorizations.
+
+Review checklist before reactivation:
+1. Remove/supersede the SQL persisted-graph design from **First-class job keys and dependency graph**, **Persistence and Migration**, **Increment A**, graph-specific acceptance, Field/DTO Inventory, and related rollout/rollback prose. Reuse Plan 030 typed declarations + I2 resolver and I3 persisted JobRun step membership; a historical backfill request is not a new graph authority.
+2. Preserve independent backfill product features: business-date range, calendar/lifecycle completeness, preview/dry-run, bounded missing-work creation, dataVersion/lineage pinning, retry, deduplication and producer/worker eligibility. Recheck whether extra persisted identities beyond `jobRunId`/`backfillRequestId` are actually needed.
+3. Coordinate with deferred [TD-016 readiness range projection](../technical-debt/016-parquet-readiness-reconciliation.md) without fabricating JobRun SUCCESS for existing Parquet; keep the present guard and manifest version checks until approved change.
+4. Explicitly assess SYMBOL-level vs shared EXCHANGE/GLOBAL input scope, existing producer support and range mapping. Do not clone job definitions per symbol or introduce a second dependency policy engine.
+5. Re-register only independently reviewed increments with actual dependencies on accepted Plan 030 I2/I3/I4 and tests. The old A–F list below is **not executable** until this review is closed.
 
 ## Goal
 
@@ -34,9 +45,13 @@ For each supported trading date, Platform will:
 
 Scheduled execution remains unchanged. Backfill is an execution mode of an existing definition, not a new definition category.
 
+## Deferred readiness projection boundary — TD-016
+
+[TD-016](../technical-debt/016-parquet-readiness-reconciliation.md) may later reconstruct **calendar-aware, gap-safe date-range READY coverage** per dataset/partition/scope/exact dataVersion and lineage from Parquet and exact manifests into PostgreSQL, but it does **not** reconstruct successful historical JobRuns. A single latest READY flag cannot satisfy an arbitrary historical range. Plan 028's current `ALREADY_COMPLETE` classification still requires approved exact data/version/lineage and relevant execution evidence; historical imports without jobs require a separately reviewed classification rather than fabricated SUCCESS. No active dependency or guard cutover is authorized by this link.
+
 ## Relationship to Static Graph & DispatchPlanner
 
-[Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) is the active Milestone 1 epic promoted from [TD-012](../technical-debt/012-static-dag-dispatch-planner.md). P14-I1 provides the shared topology that this backfill plan may reuse to trace required dated work and enqueue missing items. P14-I2/P14-I3 select already-enqueued scheduler-outbox work and are not prerequisites for backfill tracing or preview. Both epics reuse one topology boundary; neither duplicates the job `DependencyGuard` input-readiness logic.
+[Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) is the active Milestone 1 epic promoted from [TD-012](../technical-debt/012-static-dag-dispatch-planner.md). P14-I1 provides the shared topology that this backfill plan may reuse to trace required dated work and enqueue missing items. P14-I2 finalizes static ancestor-path contracts; P14-I3 introduces reusable JobRun target preparation and P14-I4 selects already-enqueued work from JobRun snapshots. Plan 028 dated backfill activation remains separately scheduled and must reuse the accepted JobRun identity/path boundary rather than creating a parallel orchestrator. Both epics reuse one topology boundary; neither duplicates the job `DependencyGuard` input-readiness logic.
 
 Plan 028 remains proposed and not roadmap-scheduled. P14-I1 does not pre-approve this plan's persisted graph migration, stable persisted keys, dated identity, producer changes, or enqueue runtime. A future persisted-topology migration must establish parity and one authority before cutover; static and persisted graphs must not remain competing runtime authorities.
 
@@ -80,7 +95,7 @@ Backfill support extends the producer template with an explicit dispatch context
 
 A scheduled claim must not be reused across a date loop. The current producer flow releases its claim after preparing one execution. Backfill therefore requires a request-level orchestration boundary and separate dated execution preparation that does not mutate the definition's scheduled `nextRunAt`.
 
-### First-class job keys and dependency graph
+### First-class job keys and dependency graph — HISTORICAL PROPOSAL / DO NOT IMPLEMENT
 
 P14-I1 first introduces stable static logical node identity and one shared topology API without persistence. If Plan 028 is separately scheduled, its persisted graph migration must replace that static provider behind the same topology boundary after parity and cutover evidence; it must not create a second topology API or authority.
 
@@ -153,6 +168,14 @@ Dependency planning and dependency readiness remain separate concerns:
 planner: which dated work must exist?
 dispatch guard: may this exact outbox item publish now?
 ```
+
+### JobRun reuse and no duplicate workflow ownership — 2026-10-15
+
+Use Plan 030 P14-I3's `job_runs` plus frozen dependency path and P14-I4's guarded outbox admission as the target-run preparation foundation, not an independent backfill execution engine. Plan 028 continues to own historical date-range selection, preview, dedup/completeness, partition/version-aware contracts, and supported producer rollout. JobRun's typed target scope may be SYMBOL/SECTOR/EXCHANGE/GLOBAL, with each resolved upstream run-step preserving its own effective scope; never clone job definitions for individual symbols or rerun shared global upstream indiscriminately. `backfillRequestId` may group multiple dated `jobRunId` values; neither ID replaces the other. A request for historical dates does not authorize disabling current scheduled targets or reusing timestamp-based identities.
+
+### Relationship to Plan 030 jobRunId (2026-10-15)
+
+Plan 030 names the shared logical workflow-run correlation identity `jobRunId`. It is distinct from existing `runKey` (legacy work/dedup convention), per-execution IDs, `triggeredAt` (audit), and this plan's `backfillRequestId` (one request spanning a date range). For each requested business date and business group, specify a unique, propagated `jobRunId` per independently retryable logical run; manual reruns or separate backfill attempts must not silently reuse an unrelated run identity. This does not schedule Plan 028, change its persisted graph ownership proposal, or authorize any producer/schema/transport migration until an independent compatibility review. Preserve legacy consumers via additive contracts and an explicit deprecation/migration path.
 
 ### Dated work identity
 
@@ -362,7 +385,7 @@ The existing scheduled producer API remains supported.
 
 Expected configuration includes maximum date span, maximum expanded work items, batch/chunk size, enabled job-type allow-list, and retry/concurrency limits. Defaults must fail closed for unsupported job types. No provider credentials, regions, or physical storage paths are added to request payloads.
 
-## Persistence and Migration
+## Persistence and Migration — HISTORICAL PROPOSAL / REVIEW REQUIRED
 
 A migration must provide an indexed, durable way to query dated logical work and the first-class dependency graph. The preferred model is explicit columns and normalized edges rather than date or dependency extraction from `meta_json`/`configJson`.
 
@@ -382,11 +405,11 @@ The migration must define:
 
 Migration must generate and compare old-config and new-table edge sets before cutover. Any ambiguous mapping—especially multiple definitions sharing one `JobType`—blocks automatic migration and requires an explicit stable-key mapping. Legacy execution records without a business date remain `UNKNOWN`, not silently inferred from `triggeredAt`.
 
-## Implementation Increments
+## Implementation Increments — HISTORICAL A–F / NOT SCHEDULED
 
 This supporting plan proposes the following sequence. IDs are placeholders until the owner adds them to the canonical roadmap registry. P14-I1 is an external prerequisite only for the shared topology boundary used by graph tracing; P14-I2 and P14-I3 are not prerequisites.
 
-### Increment A — Persisted job keys and topology-provider migration
+### Increment A — Persisted job keys and topology-provider migration — SUPERSEDED BY PLAN 030 I3.a; DO NOT IMPLEMENT
 
 - Reuse P14-I1's logical node identity, validation, traversal, and topology API instead of designing a parallel graph.
 - Add immutable unique persisted `jobKey` identity to every existing definition.
@@ -511,7 +534,7 @@ Before implementation verification, inspect the exact Nx targets declared by eac
 
 Current evidence: `platform:test` was executed after this plan update and exposed three attributable scheduler-outbox compatibility failures. Focused dispatcher tests passed. No Plan 028 implementation or Plan 028 coverage report exists yet, so the greater-than-80% requirement remains unresolved rather than passed.
 
-## Acceptance Criteria
+## Acceptance Criteria — HISTORICAL DRAFT; REVALIDATE AFTER REVIEW
 
 1. A request selects an existing job definition; no duplicate backfill definition or `BACKFILL_*` job type is introduced.
 2. Scheduled execution behavior and schedule advancement remain unchanged.
@@ -580,4 +603,4 @@ Design inventory, not a claim that fields are missing from source or already imp
 | Backfill request/preview   | jobDefinitionId, fromDate, toDate, optional work filter, dryRun, requestedBy; classified counts/items/reasons and skipped/active references | MEDIUM read-only preview / HIGH bounded enqueue; exact DTO types/limits unresolved. Actor comes from authorized context, not trusted client text. |
 | Historical producer inputs | Approved business date/input lineage and provider-specific supported history behavior                                                       | HIGH algorithm/data contract; reuse producers only where historical semantics are supported.                                                      |
 
-Small tasks: reuse P14-I1 topology → persisted-key/provider migration (separate Plan 028 story) → read-only classified preview → dated identity/persistence → bounded enqueue via existing dispatcher → one job-type rollout → progress/recovery. P14-I2/P14-I3 are not prerequisites for tracing/backfill delivery. Do not bundle graph ownership rewrite, all historical producers and operator recovery into one release. Plan 028 remains proposed and not roadmap-scheduled.
+Small tasks: reuse P14-I1 topology → persisted-key/provider migration (separate Plan 028 story) → read-only classified preview → dated identity/persistence → bounded enqueue via existing dispatcher → one job-type rollout → progress/recovery. P14-I2 supplies the graph-to-dispatch contract; P14-I3 provides the unified JobRun target-run preparation used for eventual backfill delivery, while Plan 028 preview/dated producer rollout remains separately approved. Do not bundle graph ownership rewrite, all historical producers and operator recovery into one release. Plan 028 remains proposed and not roadmap-scheduled.

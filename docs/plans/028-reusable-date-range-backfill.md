@@ -6,9 +6,10 @@ Canonical scheduling owner: [`docs/plans/roadmap/implementation-increments.md`](
 
 ## Review required — 2026-10-16 (Plan 030 wins topology ownership)
 
-**Stop gate:** Plan 028 must be reviewed and rewritten before entering the canonical roadmap. Plan 030 I3.a now owns extraction of `configJson.dependsOnJobs` into **typed, source-controlled, per-JobDefinition static edges** while retaining a single shared topology API. **Do not implement this plan's former Increment A persisted job graph, `job_key`/`dependency_key` schema, SQL dependency edges, or replacement topology provider as currently proposed.** These passages are *historical proposed design*, not active acceptance, requirements or authorizations.
+**Stop gate:** Plan 028 must be reviewed and rewritten before entering the canonical roadmap. Plan 030 I3.a now owns extraction of `configJson.dependsOnJobs` into **typed, source-controlled, per-JobDefinition static edges** while retaining a single shared topology API. **Do not implement this plan's former Increment A persisted job graph, `job_key`/`dependency_key` schema, SQL dependency edges, or replacement topology provider as currently proposed.** These passages are _historical proposed design_, not active acceptance, requirements or authorizations.
 
 Review checklist before reactivation:
+
 1. Remove/supersede the SQL persisted-graph design from **First-class job keys and dependency graph**, **Persistence and Migration**, **Increment A**, graph-specific acceptance, Field/DTO Inventory, and related rollout/rollback prose. Reuse Plan 030 typed declarations + I2 resolver and I3 persisted JobRun step membership; a historical backfill request is not a new graph authority.
 2. Preserve independent backfill product features: business-date range, calendar/lifecycle completeness, preview/dry-run, bounded missing-work creation, dataVersion/lineage pinning, retry, deduplication and producer/worker eligibility. Recheck whether extra persisted identities beyond `jobRunId`/`backfillRequestId` are actually needed.
 3. Coordinate with deferred [TD-016 readiness range projection](../technical-debt/016-parquet-readiness-reconciliation.md) without fabricating JobRun SUCCESS for existing Parquet; keep the present guard and manifest version checks until approved change.

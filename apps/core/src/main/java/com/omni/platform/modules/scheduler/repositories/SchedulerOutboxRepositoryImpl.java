@@ -11,8 +11,48 @@ import jakarta.persistence.PersistenceContext;
 
 public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryCustom {
 
+    private static final int MAX_BACKLOG_GROUPS = 10_000;
+
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Override
+    public List<SchedulerBacklogGroup> findBacklogGroups(Instant snapshotAt, int groupLimit) {
+        if (groupLimit <= 0 || groupLimit > MAX_BACKLOG_GROUPS) {
+            throw new IllegalArgumentException("groupLimit must be between 1 and " + MAX_BACKLOG_GROUPS);
+        }
+        List<?> rows = entityManager.createNativeQuery("""
+                SELECT j.id, j.source, j.job_type, j.cron_expr,
+                       COUNT(*) AS pending_count,
+                       COUNT(*) FILTER (WHERE o.available_at <= :snapshotAt
+                           AND (o.claim_until IS NULL OR o.claim_until <= :snapshotAt)) AS dispatchable_count,
+                       COUNT(*) FILTER (WHERE o.available_at > :snapshotAt
+                           AND (o.claim_until IS NULL OR o.claim_until <= :snapshotAt)) AS retry_delayed_count,
+                       COUNT(*) FILTER (WHERE o.claim_until > :snapshotAt) AS in_flight_count
+                FROM scheduler_outbox_messages o
+                JOIN job_execution_histories e ON e.id = o.execution_id
+                JOIN job_definitions j ON j.id = e.job_id
+                WHERE o.status = 'PENDING'
+                GROUP BY j.id, j.source, j.job_type, j.cron_expr
+                ORDER BY j.job_type ASC, j.source ASC, j.cron_expr ASC, j.id ASC
+                LIMIT :queryLimit
+                """)
+                .setParameter("snapshotAt", snapshotAt)
+                .setParameter("queryLimit", groupLimit + 1)
+                .getResultList();
+        return rows.stream().map(row -> {
+            Object[] columns = (Object[]) row;
+            return new SchedulerBacklogGroup(
+                    (UUID) columns[0],
+                    com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource.valueOf((String) columns[1]),
+                    com.omni.platform.modules.scheduler.entities.JobDefinition.JobType.valueOf((String) columns[2]),
+                    (String) columns[3],
+                    ((Number) columns[4]).longValue(),
+                    ((Number) columns[5]).longValue(),
+                    ((Number) columns[6]).longValue(),
+                    ((Number) columns[7]).longValue());
+        }).toList();
+    }
 
     @Override
     public List<UUID> findPendingCandidateIds(Instant now, int candidateLimit) {

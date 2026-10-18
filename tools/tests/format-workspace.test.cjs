@@ -4,7 +4,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { gitFiles, pythonFiles, regularFile } = require('../format-workspace.cjs');
+const {
+  gitFiles,
+  pythonFiles,
+  javaFiles,
+  routeJava,
+  regularFile,
+  formatPrettierFiles,
+} = require('../format-workspace.cjs');
 
 test('changed selection handles staged, unstaged, untracked and ignored files', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-format-'));
@@ -27,7 +34,11 @@ test('changed selection handles staged, unstaged, untracked and ignored files', 
   const selected = gitFiles(false, git).filter((file) =>
     regularFile(file, directory)
   );
-  assert.deepEqual(selected.sort(), ['.gitignore', '[new].js', 'staged file.js']);
+  assert.deepEqual(selected.sort(), [
+    '.gitignore',
+    '[new].js',
+    'staged file.js',
+  ]);
   assert.equal(selected.filter((file) => file === 'staged file.js').length, 1);
 });
 
@@ -51,8 +62,14 @@ test('changed mode never asks Git for all tracked files; all mode does', () => {
 
 test('NUL parsing preserves unusual names and removes duplicate paths', () => {
   const name = 'space and\nnewline.js';
-  assert.deepEqual(gitFiles(false, () => `${name}\0${name}\0`), [name]);
-  assert.deepEqual(gitFiles(false, () => ''), []);
+  assert.deepEqual(
+    gitFiles(false, () => `${name}\0${name}\0`),
+    [name]
+  );
+  assert.deepEqual(
+    gitFiles(false, () => ''),
+    []
+  );
 });
 
 test('Python routing preserves project ownership and existing lint roots', () => {
@@ -82,4 +99,77 @@ test('filesystem selection rejects deleted files, directories and outside paths'
   assert.equal(regularFile('deleted.js', directory), false);
   assert.equal(regularFile('.', directory), false);
   assert.equal(regularFile('../outside.js', directory), false);
+});
+
+test('Java routing limits formatting to canonical Platform source roots', () => {
+  const files = [
+    'apps/core/src/main/java/example/Main.java',
+    'apps/core/src/test/java/example/MainTest.java',
+    'libs/contracts/gen/java/Generated.java',
+    'apps/core/build/generated/Generated.java',
+    'apps/core/src/main/java/example/Main.kt',
+    'apps/core/src/main/java/../../../../external/Other.java',
+    'apps\\core\\src\\main\\java\\Other.java',
+    '/apps/core/src/main/java/Absolute.java',
+  ];
+  assert.deepEqual(javaFiles(files), files.slice(0, 2));
+});
+
+test('Java selection survives unknown Prettier parser and respects ignore rules', async () => {
+  const java = 'apps/core/src/main/java/example/Main.java';
+  const ignored = 'apps/core/src/test/java/example/Ignored.java';
+  const prettier = {
+    getFileInfo: async (file) => ({
+      ignored: file.endsWith('Ignored.java'),
+      inferredParser: null,
+    }),
+    format: () => assert.fail('Prettier must not try to format Java'),
+  };
+  const selected = await formatPrettierFiles(
+    [java, ignored, 'unknown.bin'],
+    prettier
+  );
+  assert.deepEqual(javaFiles(selected), [java]);
+});
+
+test('Java batches use only the Platform target and preserve filenames as data', () => {
+  const files = Array.from(
+    { length: 23 },
+    (_, i) => `apps/core/src/main/java/example/File ${i}.java`
+  );
+  files[0] = 'apps/core/src/main/java/example/quote"and\nnewline.java';
+  const calls = [];
+  routeJava([...files, 'docs/example.md'], (command, args, options) => {
+    calls.push({
+      command,
+      args,
+      files: JSON.parse(options.env.OMNI_FORMAT_FILES),
+    });
+  });
+  assert.equal(calls.length, 2);
+  assert.deepEqual(
+    calls.map((call) => call.files.length),
+    [20, 3]
+  );
+  assert.deepEqual(
+    calls.flatMap((call) => call.files),
+    files
+  );
+  for (const call of calls) {
+    assert.equal(call.command, 'nx');
+    assert.deepEqual(call.args, ['run', 'platform:format']);
+  }
+});
+
+test('Java routing is a no-op without Java and propagates formatter failures', () => {
+  routeJava(['docs/example.md'], () =>
+    assert.fail('Unexpected Java invocation')
+  );
+  assert.throws(
+    () =>
+      routeJava(['apps/core/src/main/java/Bad.java'], () => {
+        throw new Error('Java parse failed');
+      }),
+    /Java parse failed/
+  );
 });

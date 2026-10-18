@@ -15,6 +15,7 @@ function run(command, args, options = {}) {
     cwd: root,
     encoding: 'utf8',
     stdio: 'inherit',
+    windowsHide: true,
     ...options,
   });
   if (result.error) throw result.error;
@@ -28,7 +29,13 @@ function gitFiles(all, git = (args) => run('git', args, { stdio: 'pipe' })) {
   const lists = all
     ? [git(['ls-files', '--cached', '-z'])]
     : [
-        git(['diff', '--name-only', '--diff-filter=ACMRT', '--no-renames', '-z']),
+        git([
+          'diff',
+          '--name-only',
+          '--diff-filter=ACMRT',
+          '--no-renames',
+          '-z',
+        ]),
         git([
           'diff',
           '--cached',
@@ -39,14 +46,17 @@ function gitFiles(all, git = (args) => run('git', args, { stdio: 'pipe' })) {
         ]),
       ];
   lists.push(git(['ls-files', '--others', '--exclude-standard', '-z']));
-  return [...new Set(lists.flatMap((list) => list.split('\0').filter(Boolean)))];
+  return [
+    ...new Set(lists.flatMap((list) => list.split('\0').filter(Boolean))),
+  ];
 }
 
 function pythonFiles(files, project) {
   const projectRoot = pythonRoots[project];
   if (!projectRoot) throw new Error(`Unknown Python project: ${project}`);
   return files.filter((file) => {
-    if (path.posix.normalize(file) !== file || file.includes('\\')) return false;
+    if (path.posix.normalize(file) !== file || file.includes('\\'))
+      return false;
     if (!file.startsWith(`${projectRoot}/`)) return false;
     const relative = file.slice(projectRoot.length + 1);
     if (!/\.(py|pyi)$/.test(relative)) return false;
@@ -55,6 +65,29 @@ function pythonFiles(files, project) {
       : /^(app|tests)\//.test(relative) ||
           (project === 'query-service' && relative === 'main.py');
   });
+}
+
+function javaFiles(files) {
+  return files.filter(
+    (file) =>
+      path.posix.normalize(file) === file &&
+      !file.includes('\\') &&
+      /^apps\/core\/src\/(main|test)\/java\/[\s\S]+\.java$/.test(file)
+  );
+}
+
+function routeJava(files, execute = run) {
+  const selected = javaFiles(files);
+  for (let offset = 0; offset < selected.length; offset += 20) {
+    // File names stay in JSON, never in a Windows shell command or glob.
+    execute('nx', ['run', 'platform:format'], {
+      shell: process.platform === 'win32',
+      env: {
+        ...process.env,
+        OMNI_FORMAT_FILES: JSON.stringify(selected.slice(offset, offset + 20)),
+      },
+    });
+  }
 }
 
 function regularFile(file, workspace = root) {
@@ -85,7 +118,9 @@ function formatPython(project) {
   ) {
     throw new Error('OMNI_FORMAT_FILES must be an array of repository paths.');
   }
-  const files = pythonFiles(selected, project).filter((file) => regularFile(file));
+  const files = pythonFiles(selected, project).filter((file) =>
+    regularFile(file)
+  );
   if (!files.length) return;
   const cwd = path.join(root, pythonRoots[project]);
   // Explicit files respect Ruff excludes; argv avoids shell/glob interpretation.
@@ -98,11 +133,9 @@ function formatPython(project) {
       ['run', 'ruff', 'check', '--fix-only', '--force-exclude', '--', ...batch],
       { cwd }
     );
-    run(
-      'uv',
-      ['run', 'ruff', 'format', '--force-exclude', '--', ...batch],
-      { cwd }
-    );
+    run('uv', ['run', 'ruff', 'format', '--force-exclude', '--', ...batch], {
+      cwd,
+    });
     run(
       'uv',
       [
@@ -120,21 +153,40 @@ function formatPython(project) {
   }
 }
 
-async function main(args) {
-  if (args.length === 1 && args[0].startsWith('--python=')) {
-    formatPython(args[0].slice('--python='.length));
-    return;
-  }
-  if (args.some((arg) => !['--all', '--all=true', '--all=false'].includes(arg))) {
-    throw new Error('Usage: nx run omni:format [--all]');
-  }
-  const all = args.includes('--all') || args.includes('--all=true');
-  const candidates = gitFiles(all).filter((file) => regularFile(file));
-  if (!candidates.length) {
-    console.log('No files to format.');
-    return;
+async function formatJava() {
+  const selected = process.env.OMNI_FORMAT_FILES
+    ? JSON.parse(process.env.OMNI_FORMAT_FILES)
+    : gitFiles(false);
+  if (
+    !Array.isArray(selected) ||
+    !selected.every((file) => typeof file === 'string')
+  ) {
+    throw new Error('OMNI_FORMAT_FILES must be an array of repository paths.');
   }
   const prettier = require('prettier');
+  const files = [];
+  for (const file of javaFiles(selected)) {
+    if (!regularFile(file)) continue;
+    const info = await prettier.getFileInfo(path.join(root, file), {
+      ignorePath: path.join(root, '.prettierignore'),
+    });
+    if (!info.ignored) files.push(file);
+  }
+  if (!files.length) {
+    console.log('No selected Java files to format.');
+    return;
+  }
+  for (let offset = 0; offset < files.length; offset += 20) {
+    run(process.execPath, ['tools/run-gradle.cjs', 'formatJava'], {
+      env: {
+        ...process.env,
+        OMNI_FORMAT_FILES: JSON.stringify(files.slice(offset, offset + 20)),
+      },
+    });
+  }
+}
+
+async function formatPrettierFiles(candidates, prettier = require('prettier')) {
   const files = [];
   for (const file of candidates) {
     const absolute = path.join(root, file);
@@ -143,13 +195,44 @@ async function main(args) {
     });
     if (info.ignored) continue;
     files.push(file);
-    if (!info.inferredParser) continue;
-    const config = await prettier.resolveConfig(absolute, { editorconfig: true });
+    // Java is retained for its dedicated target even though Prettier has no parser.
+    if (!info.inferredParser || javaFiles([file]).length) continue;
+    const config = await prettier.resolveConfig(absolute, {
+      editorconfig: true,
+    });
     const before = fs.readFileSync(absolute, 'utf8');
-    const after = await prettier.format(before, { ...config, filepath: absolute });
+    const after = await prettier.format(before, {
+      ...config,
+      filepath: absolute,
+    });
     if (after !== before) fs.writeFileSync(absolute, after);
     console.log(file);
   }
+  return files;
+}
+
+async function main(args) {
+  if (args.length === 1 && args[0] === '--java') {
+    await formatJava();
+    return;
+  }
+  if (args.length === 1 && args[0].startsWith('--python=')) {
+    formatPython(args[0].slice('--python='.length));
+    return;
+  }
+  if (
+    args.some((arg) => !['--all', '--all=true', '--all=false'].includes(arg))
+  ) {
+    throw new Error('Usage: nx run omni:format [--all]');
+  }
+  const all = args.includes('--all') || args.includes('--all=true');
+  const candidates = gitFiles(all).filter((file) => regularFile(file));
+  if (!candidates.length) {
+    console.log('No files to format.');
+    return;
+  }
+  const files = await formatPrettierFiles(candidates);
+  routeJava(files);
   for (const project of Object.keys(pythonRoots)) {
     const selected = pythonFiles(files, project);
     if (!selected.length) continue;
@@ -168,4 +251,11 @@ if (require.main === module) {
   });
 }
 
-module.exports = { gitFiles, pythonFiles, regularFile };
+module.exports = {
+  gitFiles,
+  pythonFiles,
+  javaFiles,
+  routeJava,
+  regularFile,
+  formatPrettierFiles,
+};

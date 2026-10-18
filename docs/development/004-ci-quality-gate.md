@@ -11,6 +11,24 @@ explicit timeouts, including the job inside the reusable Python workflow.
 
 ## Selection and cross-service blast radius
 
+The affected-detection job sets up Python 3.14.5 and runs `omni:tools-test`,
+`omni:ci-policy-test` and `omni:format-test` before selecting stack jobs. The
+uncached Python tooling target uses standard-library unittest discovery; no Python
+project environment or package installation is needed. Local `omni:verify` records
+all three targets as required checks through `tools/check_result.py`, alongside
+its existing service and integration checks. The Windows console flags are
+platform-specific; the Ubuntu CI runner executes the portable runner tests.
+
+The local targets passed on 2026-10-18: 11 tooling tests, 7 CI-policy tests and
+9 formatter tests (`TOOLING-WORKFLOW-20261018`). This verifies the individual
+targets locally; the updated GitHub Actions job and full `omni:verify` orchestration
+have not been executed here.
+
+Java formatting is available locally through `omni:format` / `platform:format`;
+the existing `omni:format-test` CI step also covers Java routing regression cases.
+This addition does not enable whole-repository Java format enforcement or alter
+the root Prettier lint command. See [formatting scope](001-where-to-change.md#formatting-scope).
+
 [ci-policy.cjs](../../tools/ci-policy.cjs) supplements Nx affected selection.
 The graph currently does not index workflow/configuration files; its empty radius
 is not evidence of isolation. Reconciliation uses the canonical

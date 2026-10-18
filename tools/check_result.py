@@ -150,6 +150,7 @@ def command_run(args: argparse.Namespace) -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
         assert process.stdout is not None
         for line in process.stdout:

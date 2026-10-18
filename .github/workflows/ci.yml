@@ -84,8 +84,14 @@ jobs:
           fi
           echo "sha=$baseline" >> "$GITHUB_OUTPUT"
 
-      - name: Test CI selection and gate policy
+      - name: Setup Python for tooling tests
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14.5'
+
+      - name: Test repository tooling and CI policy
         run: |
+          npx nx run omni:tools-test
           npx nx run omni:ci-policy-test
           npx nx run omni:format-test
 

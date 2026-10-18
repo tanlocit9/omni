@@ -590,6 +590,127 @@ the focused startup/unit results above remain historical evidence.
 
 ### P14-I3 — Unified JobRun and DAG preparation without outbox behavior change
 
+#### I3.b persistence foundation — 2026-10-18
+
+The owner explicitly requested this bounded checkpoint on the existing branch.
+I2 remains `verification_pending` and I3 remains `pending`; this does not promote
+the outstanding I3.a gate or authorize I3.c/d activation. Source and tests are
+present. The local format/test/coverage/clean-build gate passed, with 310 tests
+rerun by clean build as recorded below. No I3.c/d activation is implied.
+
+`V12__create_job_runs_and_frozen_steps.sql` adds `job_runs`, `job_run_steps` and
+`job_run_step_predecessors`. These are immutable instances of caller-resolved
+static paths, not configurable topology tables. `FrozenJobRunPath` validates
+target-last ancestor closure, node identities, one business date, unique scoped
+steps, earlier predecessor membership, and bounds of 1024 steps / 8192 edges.
+A deterministic SHA-256 fingerprint includes ordered identities, effective scopes,
+dates and predecessor indices. Future callers must resolve approved bindings and
+producer scope capabilities through I2 before passing a path to storage; storage
+validation is not execution admission or a producer capability policy.
+
+`JobRunRepository.prepare` is a new inactive Platform-local storage boundary.
+No scheduler, controller, producer, dispatcher or manual service calls it. It
+resolves persisted definition UUIDs in one bounded query and writes header, steps
+and predecessors atomically. `PREPARING` is transaction-local: a deferred constraint
+rejects commits before sealing `PREPARED`. Sealing checks contiguous membership,
+target identity/scope/date, edge bounds and ancestor closure. Database triggers
+prevent changes/deletion/append to sealed membership and changes to request/path
+identity. Lifecycle state/failure reason remain separate mutable fields; this
+checkpoint does not drive lifecycle transitions from execution events.
+
+Requests retain mode, actor, idempotency key, reason, optional business group and
+bounded JSON-object parameters. `(mode, actor, idempotency_key)` is unique. Equal
+request/path retries reuse the original run; changed metadata or fingerprint fails
+with `JOB_RUN_IDEMPOTENCY_CONFLICT`. Unique insert conflict handling supports
+concurrent retries under the existing default READ COMMITTED transactions; writes
+join an existing caller transaction and roll back with it. BACKFILL is reserved
+and rejected by this storage API. SYMBOL scope can be persisted as groundwork;
+no symbol producer or shared-upstream execution is activated. I3.c must choose
+canonical work identities and reuse/admission rules before preparing executions.
+
+Execution history gains nullable `job_run_id` / `job_run_step_index`, mapped in
+`JobExecutionHistory`. Both are null for all legacy writers/rows. Composite foreign
+keys require a linked execution to match its run step's definition, and a linked
+child's parent to belong to the same run. `executionId`, `parentLogId`, `triggeredAt`
+and worker work identity are unchanged. No legacy row backfill, manual-table drop,
+outbox edit, cron change, transport change or Kafka correlation field is introduced.
+Snapshot reads reconstruct from stored identity/scope/predecessor rows and verify
+the fingerprint without consulting current seed/static declarations.
+
+Impact and required test matrix:
+
+| Source / criterion                              | Required evidence                                                                                                                                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FrozenJobRunPath                                | FrozenJobRunPathTest: canonical joins, immutability, invalid nodes/dates/duplicates/order/closure, edge bounds                                                                                          |
+| JobRunSnapshot request/membership               | FrozenJobRunPathTest: bounded fields, idempotency syntax, immutable UUID membership                                                                                                                     |
+| JobRunRepository                                | JobRunRepositoryPostgresTest: round-trip/restart, JSON-equivalent retry/conflict, concurrent duplicate requests, transaction rollback/retry, missing definitions, reserved mode, effective scopes/dates |
+| V12 integrity and immutability                  | JobRunRepositoryPostgresTest: sealing, immutable membership/header, incomplete transaction rejection, definition/parent/run foreign keys, legacy V11 rows and pending outbox preserved                  |
+| JobExecutionHistory additive fields and startup | PlatformStartupPostgresTest: real JPA transaction manager, JDBC snapshot persistence and execution-link save/reload; existing Platform scheduler/manual/outbox/PostgreSQL tests cover legacy behavior   |
+
+Cross-service reconciliation: graph impact started at execution history, manual
+trigger, JobService, resolver and V11; it reports 46 impacted nodes / 6 additional
+files with bounded/truncated edges, so it is not isolation proof. Platform changes
+only its new persistence boundary and optional history mapping; existing producer,
+status, manual, scheduler, guard, FIFO, claim and publish callers remain unchanged.
+Analyzer and Ingestor receive no new message or writer contract. Query Service and
+Console have no API/read-model or cache changes. Shared contracts, generated code,
+py-common, dataset paths/ownership, Parquet/metadata writers and exact lineage are
+unchanged. Production configuration is unchanged; Flyway must apply V12 before
+the updated entity mapping runs. Tests add an isolated PostgreSQL container with
+explicit transaction/connection lifetime and no cached Spring context. Operations
+must allow the migration's additive table/index/foreign-key DDL lock window.
+
+The final impact query on the five implemented production files reports 28 nodes
+within two hops and one additional file, including `createPendingLog`,
+`createChildExecution`, `prepareForExecution` and `prepareManualClaimedExecution`.
+It is truncated and the graph does not index the new untracked files. These
+existing execution-preparation paths are unchanged and covered by the full
+Platform regression; direct source/test attribution below covers the new boundary.
+
+Rollback is application-first with additive schema retained; do not edit applied
+V1–V11 or drop history to roll back code. Ordinary DML cannot delete JobRun history
+or referenced definitions; retention/purge is deliberately not implemented here.
+No production migration/deploy is run. The manual table and endpoints remain active.
+
+Documentation reviewed: registry/roadmap, this plan, release notes, database,
+architecture, execution flow, development ownership and Platform README receive
+source/evidence updates. Existing ADR, Kafka/data-lake contracts, deployment
+topology, docs indexes and repository guidance need no change: no new architecture
+authority, external contract, runtime configuration or documentation ID is added.
+Deployment migration ordering is documented here and in database/service docs.
+The source/test matrix does not claim execution. Required attribution is at least
+80% line and 80% branch for critical new components; tests, coverage, build and
+format checks are recorded through `tools/check_result.py` when authorized.
+
+Executed local evidence (`P14-I3b`): `nx run platform:test` passed **310 tests across
+52 suites, zero failures/errors/skips**. New checkpoint cases comprise 4 pure tests,
+12 PostgreSQL storage/migration tests and one additional real-application JPA
+mapping/transaction test. `PlatformStartupPostgresTest` now executes 2 tests.
+The final clean build took about 3m6s, including existing cached-context teardown
+PostgreSQL timeout warnings. The I3.b storage tests and programmatic startup
+contexts close their resources before their ephemeral database stops.
+
+| Source / executed behavior                                                                                                                                         | Tests                                                     | Line / branch coverage from this suite                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| FrozenJobRunPath: deterministic complete scoped path and rejection branches                                                                                        | FrozenJobRunPathTest; JobRunRepositoryPostgresTest        | 96.97% / 96.88%                                                                                                             |
+| JobRunSnapshot and Request: immutable membership and bounded request fields                                                                                        | FrozenJobRunPathTest; JobRunRepositoryPostgresTest        | 100% / 100%                                                                                                                 |
+| JobRunRepository: persistence, restart, idempotency/conflict, concurrency, rollback and mapping                                                                    | JobRunRepositoryPostgresTest; PlatformStartupPostgresTest | 98.73% / 89.29%                                                                                                             |
+| JobExecutionHistory optional mapping / legacy behavior                                                                                                             | PlatformStartupPostgresTest and existing Platform suite   | 100% instrumented lines; no instrumented branches; real JPA link save/reload is explicitly executed                         |
+| V12: valid sealing; incomplete/disconnected/wrong-scope/cross-date/oversized/backward-edge rejection; immutable rows; run/definition/parent integrity; V11 upgrade | JobRunRepositoryPostgresTest (12 cases)                   | SQL is not JaCoCo-instrumented; executed feature/test mapping is the available coverage evidence, with no numeric SQL claim |
+
+`nx run omni:format` passed after source changes. Required manifest entries remain
+`format/changed-files`, `test/platform`, `test/coverage`, `build/platform`.
+The dedicated `nx run platform:coverage` and `nx run platform:build` commands
+passed. Clean build compiled and packaged the application and reran all 310 tests;
+the final standalone test/coverage targets reused unchanged Gradle outputs.
+**Gate conclusion: PASS P14-I3b required=4 pass=4 fail=0 unknown=0 missing=0**.
+This is the bounded local checkpoint gate, not full I3 completion or owner
+attestation. The build log is preserved separately to avoid the recorder's shared
+`platform.log` name for test/build. Copied JUnit/JaCoCo, source hashes and a compact
+coverage summary are retained under ignored `.agent/check-results/P14-I3b/`.
+No CI, deployment, production migration, provider or runtime activation
+evidence is claimed. This source remains uncommitted until separately requested.
+
 Start with **I3.a static definition-edge extraction** above before adding JobRun persistence or enabling target-driven dispatch. All I3 acceptance gates also apply to the static declaration cutover.
 
 One **`job_runs`** row is the durable logical request; `job_runs.id` is the authoritative UUID `jobRunId`. Modes: `SCHEDULED`, `MANUAL`, reserved `BACKFILL`. Record target job definition, a typed request scope (GLOBAL/EXCHANGE/SECTOR/SYMBOL-capable with explicit support gating), businessDate and optional businessGroup, request metadata/idempotency, path topology version/fingerprint if needed, lifecycle and failure reason. **Persist complete resolved ancestor + target path/membership** in an explicit stable bounded representation (e.g. run-step rows), linking `job_execution_histories` root/child executions to their run. Persist enough to reconstruct completed/unfinished predecessors after restart even if static declarations change. Do not infer from `triggeredAt` or legacy `runKey`. Use an approved additive schema/migration, but **no persisted second topology authority or arbitrary execution DAG**: run steps are an immutable instance of the static graph at run creation.

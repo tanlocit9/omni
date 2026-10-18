@@ -118,6 +118,10 @@ flowchart LR
 | Indicator and signal | [../flows/indicator-signal.md](../flows/003-indicator-signal.md) | Analyzer reads EOD/indicator datasets, computes indicators/signals/evaluations, writes Parquet, and publishes status or signal notification events. |
 | Sector wave          | [../flows/sector-wave.md](../flows/004-sector-wave.md)           | Analyzer precomputes symbol features, sector aggregates, rankings, backtest outputs, and Sector Transition research datasets.                       |
 
+## Static topology declaration
+
+Platform owns one process-local topology API. I3.a pre-cutover source resolves source-controlled definition identities and typed predecessor sets in `StaticDefinitionDependencies`, exposed by `StaticJobTopologyProvider`. JSON `dependsOnJobs` remains compatibility/parity data pending verification and consumer removal; the provider does not read it. `RequiredPathResolver` accepts the same typed declaration without runtime admission or readiness authority. No database graph, JobRun schema, worker transport or dispatch policy is added by this checkpoint. Unused topology adapters have been removed and JSON baseline parsing is test-only. Focused startup and full Platform regression evidence, plus the remaining coverage/build gate, are recorded in Plan 030. See [Plan 030](../plans/030-static-graph-dispatch-planner.md#i3a-pre-cutover-source--2026-10-17).
+
 ## Source-of-truth Config
 
 | Contract                 | Source                                                                     |

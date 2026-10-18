@@ -24,11 +24,13 @@ import com.omni.platform.modules.scheduler.topology.RequiredPathResolver.StepKey
 
 class RequiredPathResolverTest {
 
-    private static final Scope SCOPE = new Scope(ScopeType.SECTOR, "VCI:BANKS", LocalDate.of(2026, 10, 15));
+    private static final Scope SCOPE =
+            new Scope(ScopeType.SECTOR, "VCI:BANKS", LocalDate.of(2026, 10, 15));
     private static final JobDefinitionSeed A = seed(JobType.SYNC_SYMBOLS, "a");
     private static final JobDefinitionSeed B = seed(JobType.SYNC_STOCK_PRICE, "b", A.jobType());
     private static final JobDefinitionSeed C = seed(JobType.SYNC_INDICATORS, "c", A.jobType());
-    private static final JobDefinitionSeed D = seed(JobType.SYNC_SIGNALS, "d", B.jobType(), C.jobType());
+    private static final JobDefinitionSeed D =
+            seed(JobType.SYNC_SIGNALS, "d", B.jobType(), C.jobType());
     private static final List<JobDefinitionSeed> DIAMOND = List.of(A, B, C, D);
 
     @Test
@@ -37,11 +39,14 @@ class RequiredPathResolverTest {
         List<JobDefinitionSeed> seeds = List.of(D, unrelated, C, B, A);
         var result = resolve(seeds, D, handoff(seeds), 64, 20);
         assertThat(result.contractVersion()).isEqualTo(1);
-        assertThat(result.steps()).extracting(step -> step.key().definition())
+        assertThat(result.steps())
+                .extracting(step -> step.key().definition())
                 .containsExactly(id(A), id(C), id(B), id(D));
         assertThat(result.steps().get(3).predecessors()).containsExactly(key(C), key(B));
-        assertThat(result).isEqualTo(resolve(List.of(A, B, C, D, unrelated), D, handoff(seeds), 64, 20));
-        assertThatThrownBy(() -> result.steps().clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThat(result)
+                .isEqualTo(resolve(List.of(A, B, C, D, unrelated), D, handoff(seeds), 64, 20));
+        assertThatThrownBy(() -> result.steps().clear())
+                .isInstanceOf(UnsupportedOperationException.class);
         assertThat(resolve(seeds, unrelated, handoff(seeds), 0, 1).steps()).hasSize(1);
     }
 
@@ -50,7 +55,8 @@ class RequiredPathResolverTest {
         JobDefinitionSeed alternate = seed(D.jobType(), "alternate", A.jobType());
         List<JobDefinitionSeed> seeds = List.of(A, B, C, D, alternate);
         assertThat(resolve(seeds, alternate, handoff(seeds), 64, 20).steps())
-                .extracting(step -> step.key().definition()).containsExactly(id(A), id(alternate));
+                .extracting(step -> step.key().definition())
+                .containsExactly(id(A), id(alternate));
     }
 
     @Test
@@ -66,14 +72,23 @@ class RequiredPathResolverTest {
         JobDefinitionSeed b2 = seed(B.jobType(), "b2", A.jobType());
         List<JobDefinitionSeed> seeds = List.of(A, B, b2, C, D);
         Handoff base = handoff(seeds);
-        assertThatThrownBy(() -> resolve(seeds, D, base, 64, 20)).hasMessageContaining("AMBIGUOUS_DEFINITION");
-        Handoff bound = new Handoff(Map.of(node(B), List.of(id(b2), id(B))), base.capabilities(), base.mappings());
+        assertThatThrownBy(() -> resolve(seeds, D, base, 64, 20))
+                .hasMessageContaining("AMBIGUOUS_DEFINITION");
+        Handoff bound =
+                new Handoff(
+                        Map.of(node(B), List.of(id(b2), id(B))),
+                        base.capabilities(),
+                        base.mappings());
         assertThat(resolve(seeds, D, bound, 64, 20).steps())
-                .extracting(step -> step.key().definition()).contains(id(B), id(b2)).hasSize(5);
-        for (List<JobDefinitionIdentity> invalid : List.of(List.<JobDefinitionIdentity>of(),
-                List.of(id(B), id(B)), List.of(id(A)))) {
-            Handoff bad = new Handoff(Map.of(node(B), invalid), base.capabilities(), base.mappings());
-            assertThatThrownBy(() -> resolve(seeds, D, bad, 64, 20)).hasMessageContaining("INVALID_BINDING");
+                .extracting(step -> step.key().definition())
+                .contains(id(B), id(b2))
+                .hasSize(5);
+        for (List<JobDefinitionIdentity> invalid :
+                List.of(List.<JobDefinitionIdentity>of(), List.of(id(B), id(B)), List.of(id(A)))) {
+            Handoff bad =
+                    new Handoff(Map.of(node(B), invalid), base.capabilities(), base.mappings());
+            assertThatThrownBy(() -> resolve(seeds, D, bad, 64, 20))
+                    .hasMessageContaining("INVALID_BINDING");
         }
     }
 
@@ -83,13 +98,27 @@ class RequiredPathResolverTest {
         Handoff noCapabilities = new Handoff(Map.of(), Map.of(), base.mappings());
         assertThatThrownBy(() -> resolve(DIAMOND, D, noCapabilities, 64, 20))
                 .hasMessageContaining("UNSUPPORTED_SCOPE");
-        assertThatThrownBy(() -> resolve(DIAMOND, D,
-                new Handoff(Map.of(), base.capabilities(), Map.of()), 64, 20))
+        assertThatThrownBy(
+                        () ->
+                                resolve(
+                                        DIAMOND,
+                                        D,
+                                        new Handoff(Map.of(), base.capabilities(), Map.of()),
+                                        64,
+                                        20))
                 .hasMessageContaining("UNSUPPORTED_SCOPE");
         Map<ScopeEdge, Scope> dates = new HashMap<>(base.mappings());
-        dates.replaceAll((edge, scope) -> new Scope(scope.type(), scope.key(), scope.businessDate().minusDays(1)));
-        assertThatThrownBy(() -> resolve(DIAMOND, D,
-                new Handoff(Map.of(), base.capabilities(), dates), 64, 20))
+        dates.replaceAll(
+                (edge, scope) ->
+                        new Scope(scope.type(), scope.key(), scope.businessDate().minusDays(1)));
+        assertThatThrownBy(
+                        () ->
+                                resolve(
+                                        DIAMOND,
+                                        D,
+                                        new Handoff(Map.of(), base.capabilities(), dates),
+                                        64,
+                                        20))
                 .hasMessageContaining("Cross-date");
     }
 
@@ -107,19 +136,40 @@ class RequiredPathResolverTest {
 
     @Test
     void reusesTopologyValidationForDuplicatesMissingDefinitionsAndCycles() {
-        assertThatThrownBy(() -> new RequiredPathResolver(List.of(A, A))).hasMessageContaining("Ambiguous");
-        assertThatThrownBy(() -> new RequiredPathResolver(List.of(B))).hasMessageContaining("Unknown");
+        assertThatThrownBy(
+                        () ->
+                                new RequiredPathResolver(
+                                        JsonSeedDependencyFixture.fromSeeds(List.of(A, A))))
+                .hasMessageContaining("Ambiguous");
+        assertThatThrownBy(
+                        () ->
+                                new RequiredPathResolver(
+                                        JsonSeedDependencyFixture.fromSeeds(List.of(B))))
+                .hasMessageContaining("Unknown");
         JobDefinitionSeed cycle = seed(A.jobType(), "a", B.jobType());
-        assertThatThrownBy(() -> new RequiredPathResolver(List.of(cycle, B))).hasMessageContaining("cycle");
-        assertThatThrownBy(() -> resolve(DIAMOND, seed(JobType.SYNC_METADATA, "unknown"),
-                handoff(DIAMOND), 64, 20)).hasMessageContaining("Unknown job definition");
+        assertThatThrownBy(
+                        () ->
+                                new RequiredPathResolver(
+                                        JsonSeedDependencyFixture.fromSeeds(List.of(cycle, B))))
+                .hasMessageContaining("cycle");
+        assertThatThrownBy(
+                        () ->
+                                resolve(
+                                        DIAMOND,
+                                        seed(JobType.SYNC_METADATA, "unknown"),
+                                        handoff(DIAMOND),
+                                        64,
+                                        20))
+                .hasMessageContaining("Unknown job definition");
     }
 
     @Test
     void supportsExplicitScopeMappingWithoutImplicitIdentityOrFanout() {
         Scope global = new Scope(ScopeType.GLOBAL, "VCI:ALL", SCOPE.businessDate());
-        Map<JobDefinitionIdentity, Set<Scope>> capabilities = Map.of(id(A), Set.of(global), id(B), Set.of(SCOPE));
-        Handoff handoff = new Handoff(Map.of(), capabilities, Map.of(new ScopeEdge(key(B), id(A)), global));
+        Map<JobDefinitionIdentity, Set<Scope>> capabilities =
+                Map.of(id(A), Set.of(global), id(B), Set.of(SCOPE));
+        Handoff handoff =
+                new Handoff(Map.of(), capabilities, Map.of(new ScopeEdge(key(B), id(A)), global));
         var result = resolve(List.of(A, B), B, handoff, 1, 2);
         assertThat(result.steps().getFirst().key().scope()).isEqualTo(global);
         assertThat(result.steps().getLast().key().scope()).isEqualTo(SCOPE);
@@ -139,10 +189,17 @@ class RequiredPathResolverTest {
         for (JobDefinitionSeed target : seeds) {
             if (target.jobType() == JobType.SYNC_SIGNALS) {
                 var path = resolve(seeds, target, explicit, 64, 1024);
-                boolean confirmed = target.config().get(JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY)
-                        .equals(JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
-                assertThat(path.steps().stream().anyMatch(step ->
-                        step.key().definition().jobType() == JobType.SYNC_INTRADAY_EOD)).isEqualTo(confirmed);
+                boolean confirmed =
+                        target.config()
+                                .get(JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY)
+                                .equals(JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
+                assertThat(
+                                path.steps().stream()
+                                        .anyMatch(
+                                                step ->
+                                                        step.key().definition().jobType()
+                                                                == JobType.SYNC_INTRADAY_EOD))
+                        .isEqualTo(confirmed);
             }
         }
     }
@@ -168,24 +225,39 @@ class RequiredPathResolverTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new RequiredPathResolver.RequiredPath(1, key(A), List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new RequiredPathResolver.RequiredPath(1, key(A),
-                java.util.Collections.nCopies(1025, path.steps().getFirst())))
+        assertThatThrownBy(
+                        () ->
+                                new RequiredPathResolver.RequiredPath(
+                                        1,
+                                        key(A),
+                                        java.util.Collections.nCopies(
+                                                1025, path.steps().getFirst())))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new RequiredPathResolver(java.util.Collections.nCopies(1025, A)))
+        assertThatThrownBy(
+                        () ->
+                                new RequiredPathResolver(
+                                        JsonSeedDependencyFixture.fromSeeds(
+                                                java.util.Collections.nCopies(1025, A))))
                 .hasMessageContaining("PATH_BOUND_EXCEEDED");
         assertThatThrownBy(() -> resolve(List.of(A), A, handoff(List.of(A)), -1, 1))
                 .hasMessageContaining("INVALID_BOUNDS");
         assertThatThrownBy(() -> resolve(List.of(A), A, handoff(List.of(A)), 0, 1025))
                 .hasMessageContaining("INVALID_BOUNDS");
         Handoff base = handoff(List.of(A));
-        Handoff unknown = new Handoff(Map.of(node(B), List.of(id(B))), base.capabilities(), base.mappings());
+        Handoff unknown =
+                new Handoff(Map.of(node(B), List.of(id(B))), base.capabilities(), base.mappings());
         assertThatThrownBy(() -> resolve(List.of(A), A, unknown, 0, 1))
                 .hasMessageContaining("INVALID_BINDING");
     }
 
-    private static RequiredPathResolver.RequiredPath resolve(List<JobDefinitionSeed> seeds,
-            JobDefinitionSeed target, Handoff handoff, int depth, int steps) {
-        return new RequiredPathResolver(seeds).resolveRequiredPath(id(target), SCOPE, handoff, depth, steps);
+    private static RequiredPathResolver.RequiredPath resolve(
+            List<JobDefinitionSeed> seeds,
+            JobDefinitionSeed target,
+            Handoff handoff,
+            int depth,
+            int steps) {
+        return new RequiredPathResolver(JsonSeedDependencyFixture.fromSeeds(seeds))
+                .resolveRequiredPath(id(target), SCOPE, handoff, depth, steps);
     }
 
     // Test fixtures assert support explicitly; these are not runtime capability defaults.
@@ -206,8 +278,14 @@ class RequiredPathResolverTest {
         for (JobType dependency : dependencies) {
             names.add(dependency.name());
         }
-        return new JobDefinitionSeed(DataSource.ANALYZER, List.of(), type, type.name(), cron,
-                Map.of(JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES,
+        return new JobDefinitionSeed(
+                DataSource.ANALYZER,
+                List.of(),
+                type,
+                type.name(),
+                cron,
+                Map.of(
+                        JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES,
                         Map.of(JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_JOBS, names)));
     }
 

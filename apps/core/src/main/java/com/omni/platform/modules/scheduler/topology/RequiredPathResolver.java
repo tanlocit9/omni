@@ -12,10 +12,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 
-import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
-import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig.JobDefinitionSeed;
-import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
-
 /**
  * Version 1 static definition-path handoff. Pure and deliberately not a runtime bean.
  * Bindings and exact scope capabilities/mappings must be supplied by an approved caller.
@@ -27,41 +23,36 @@ public final class RequiredPathResolver {
     public static final int MAX_STEPS = 1024;
 
     private final StaticJobTopology topology;
-    private final Map<JobDefinitionIdentity, List<TopologyNodeKey>> dependencies;
+    private final Map<JobDefinitionIdentity, List<JobDefinitionIdentity>> dependencies;
     private final Map<TopologyNodeKey, List<JobDefinitionIdentity>> definitions;
 
-    public RequiredPathResolver(List<JobDefinitionSeed> seeds) {
-        seeds = List.copyOf(Objects.requireNonNull(seeds, "seeds"));
-        if (seeds.size() > MAX_STEPS) {
-            throw failure("PATH_BOUND_EXCEEDED", "Maximum definition catalog: " + MAX_STEPS);
-        }
-        // Reuse I1 validation and ordering; retain definition-specific edges below.
-        topology = StaticJobTopology.create(StaticJobTopologyProvider.declare(seeds));
-        Map<JobDefinitionIdentity, List<TopologyNodeKey>> byDefinition = new TreeMap<>();
+    public RequiredPathResolver(StaticDefinitionDependencies declaration) {
+        Objects.requireNonNull(declaration, "declaration");
+        topology = declaration.topology();
+        dependencies = declaration.predecessors();
         Map<TopologyNodeKey, List<JobDefinitionIdentity>> byNode = new TreeMap<>();
-        for (JobDefinitionSeed seed : seeds) {
-            JobDefinitionIdentity identity = JobDefinitionIdentity.from(seed);
-            Map<?, ?> metadata = (Map<?, ?>) seed.config().get(JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES);
-            List<?> jobs = (List<?>) metadata.get(JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_JOBS);
-            List<TopologyNodeKey> upstream = jobs.stream()
-                    .map(value -> TopologyNodeKey.forJobType(JobType.valueOf((String) value)))
-                    .distinct().sorted().toList();
-            byDefinition.put(identity, upstream);
-            byNode.computeIfAbsent(topology.nodeFor(identity), ignored -> new ArrayList<>()).add(identity);
+        for (JobDefinitionIdentity identity : dependencies.keySet()) {
+            byNode.computeIfAbsent(topology.nodeFor(identity), ignored -> new ArrayList<>())
+                    .add(identity);
         }
-        dependencies = Map.copyOf(byDefinition);
         Map<TopologyNodeKey, List<JobDefinitionIdentity>> frozen = new TreeMap<>();
         byNode.forEach((node, values) -> frozen.put(node, values.stream().sorted().toList()));
         definitions = Map.copyOf(frozen);
     }
 
-    public RequiredPath resolveRequiredPath(JobDefinitionIdentity target, Scope scope, Handoff handoff,
-            int maxDepth, int maxSteps) {
+    public RequiredPath resolveRequiredPath(
+            JobDefinitionIdentity target,
+            Scope scope,
+            Handoff handoff,
+            int maxDepth,
+            int maxSteps) {
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(scope, "scope");
         Objects.requireNonNull(handoff, "handoff");
-        if (maxDepth < 0 || maxDepth > StaticJobTopology.DEFAULT_MAX_TRAVERSAL_DEPTH
-                || maxSteps <= 0 || maxSteps > MAX_STEPS) {
+        if (maxDepth < 0
+                || maxDepth > StaticJobTopology.DEFAULT_MAX_TRAVERSAL_DEPTH
+                || maxSteps <= 0
+                || maxSteps > MAX_STEPS) {
             throw failure("INVALID_BOUNDS", "Depth must be 0..64 and steps 1.." + MAX_STEPS);
         }
         topology.nodeFor(target);
@@ -72,18 +63,28 @@ public final class RequiredPathResolver {
         for (int i = 0; i < topology.topologicalOrder().size(); i++) {
             ranks.put(topology.topologicalOrder().get(i), i);
         }
-        List<Step> ordered = steps.values().stream().sorted(Comparator
-                .comparingInt((Step step) -> ranks.get(step.node()))
-                .thenComparing(step -> step.key().definition())
-                .thenComparing(step -> step.key().scope().type())
-                .thenComparing(step -> step.key().scope().key())
-                .thenComparing(step -> step.key().scope().businessDate())).toList();
+        List<Step> ordered =
+                steps.values().stream()
+                        .sorted(
+                                Comparator.comparingInt((Step step) -> ranks.get(step.node()))
+                                        .thenComparing(step -> step.key().definition())
+                                        .thenComparing(step -> step.key().scope().type())
+                                        .thenComparing(step -> step.key().scope().key())
+                                        .thenComparing(step -> step.key().scope().businessDate()))
+                        .toList();
         return new RequiredPath(CONTRACT_VERSION, new StepKey(target, scope), ordered);
     }
 
-    private void visit(StepKey key, Handoff handoff, int remainingDepth, int maxSteps,
-            Map<StepKey, Step> steps, Map<StepKey, Integer> visitedDepth) {
-        if (!handoff.capabilities().getOrDefault(key.definition(), Set.of()).contains(key.scope())) {
+    private void visit(
+            StepKey key,
+            Handoff handoff,
+            int remainingDepth,
+            int maxSteps,
+            Map<StepKey, Step> steps,
+            Map<StepKey, Integer> visitedDepth) {
+        if (!handoff.capabilities()
+                .getOrDefault(key.definition(), Set.of())
+                .contains(key.scope())) {
             throw failure("UNSUPPORTED_SCOPE", key.toString());
         }
         // Revisit on a tighter depth budget so joins cannot hide a longer path.
@@ -97,21 +98,35 @@ public final class RequiredPathResolver {
         }
         steps.putIfAbsent(key, new Step(key, topology.nodeFor(key.definition()), List.of()));
         Set<StepKey> predecessors = new LinkedHashSet<>();
-        for (TopologyNodeKey upstream : dependencies.get(key.definition())) {
+        List<JobDefinitionIdentity> allowed = dependencies.get(key.definition());
+        for (TopologyNodeKey upstream :
+                allowed.stream().map(topology::nodeFor).distinct().sorted().toList()) {
             if (remainingDepth == 0) {
-                throw failure("PATH_BOUND_EXCEEDED", "Ancestor depth exceeded at " + key.definition());
+                throw failure(
+                        "PATH_BOUND_EXCEEDED", "Ancestor depth exceeded at " + key.definition());
             }
             List<JobDefinitionIdentity> choices = handoff.bindings().get(upstream);
             if (choices == null) {
-                choices = definitions.get(upstream);
+                choices =
+                        allowed.stream()
+                                .filter(identity -> topology.nodeFor(identity).equals(upstream))
+                                .toList();
                 if (choices.size() != 1) {
-                    throw failure("AMBIGUOUS_DEFINITION", "Explicit binding required for " + upstream);
+                    throw failure(
+                            "AMBIGUOUS_DEFINITION", "Explicit binding required for " + upstream);
                 }
             }
             for (JobDefinitionIdentity definition : choices.stream().sorted().toList()) {
+                if (!allowed.contains(definition)) {
+                    throw failure(
+                            "INVALID_BINDING",
+                            "Definition is not a declared predecessor: " + definition);
+                }
                 Scope mapped = handoff.mappings().get(new ScopeEdge(key, definition));
                 if (mapped == null) {
-                    throw failure("UNSUPPORTED_SCOPE", "Missing edge scope mapping: " + key + " -> " + definition);
+                    throw failure(
+                            "UNSUPPORTED_SCOPE",
+                            "Missing edge scope mapping: " + key + " -> " + definition);
                 }
                 if (!mapped.businessDate().equals(key.scope().businessDate())) {
                     throw failure("UNSUPPORTED_SCOPE", "Cross-date scope mapping is not supported");
@@ -121,28 +136,39 @@ public final class RequiredPathResolver {
                 visit(predecessor, handoff, remainingDepth - 1, maxSteps, steps, visitedDepth);
             }
         }
-        steps.put(key, new Step(key, topology.nodeFor(key.definition()), List.copyOf(predecessors)));
+        steps.put(
+                key, new Step(key, topology.nodeFor(key.definition()), List.copyOf(predecessors)));
     }
 
     private void validateBindings(Map<TopologyNodeKey, List<JobDefinitionIdentity>> bindings) {
-        bindings.forEach((node, values) -> {
-            if (!definitions.containsKey(node) || values.isEmpty()
-                    || Set.copyOf(values).size() != values.size()) {
-                throw failure("INVALID_BINDING", "Unknown, empty or duplicate binding: " + node);
-            }
-            for (JobDefinitionIdentity definition : values) {
-                if (!definitions.get(node).contains(definition)) {
-                    throw failure("INVALID_BINDING", "Definition does not map to " + node + ": " + definition);
-                }
-            }
-        });
+        bindings.forEach(
+                (node, values) -> {
+                    if (!definitions.containsKey(node)
+                            || values.isEmpty()
+                            || Set.copyOf(values).size() != values.size()) {
+                        throw failure(
+                                "INVALID_BINDING", "Unknown, empty or duplicate binding: " + node);
+                    }
+                    for (JobDefinitionIdentity definition : values) {
+                        if (!definitions.get(node).contains(definition)) {
+                            throw failure(
+                                    "INVALID_BINDING",
+                                    "Definition does not map to " + node + ": " + definition);
+                        }
+                    }
+                });
     }
 
     private static IllegalArgumentException failure(String code, String detail) {
         return new IllegalArgumentException(code + ": " + detail);
     }
 
-    public enum ScopeType { GLOBAL, EXCHANGE, SECTOR, SYMBOL }
+    public enum ScopeType {
+        GLOBAL,
+        EXCHANGE,
+        SECTOR,
+        SYMBOL
+    }
 
     /** Exact source-qualified scope; no normalization or implicit fan-out expansion. */
     public record Scope(ScopeType type, String key, LocalDate businessDate) {
@@ -151,7 +177,8 @@ public final class RequiredPathResolver {
             Objects.requireNonNull(key, "key");
             Objects.requireNonNull(businessDate, "businessDate");
             if (key.isBlank() || !key.equals(key.trim()) || key.length() > 256) {
-                throw new IllegalArgumentException("Scope key must be nonblank, trimmed and at most 256 characters");
+                throw new IllegalArgumentException(
+                        "Scope key must be nonblank, trimmed and at most 256 characters");
             }
         }
     }
@@ -171,14 +198,17 @@ public final class RequiredPathResolver {
         }
     }
 
-    public record Handoff(Map<TopologyNodeKey, List<JobDefinitionIdentity>> bindings,
-            Map<JobDefinitionIdentity, Set<Scope>> capabilities, Map<ScopeEdge, Scope> mappings) {
+    public record Handoff(
+            Map<TopologyNodeKey, List<JobDefinitionIdentity>> bindings,
+            Map<JobDefinitionIdentity, Set<Scope>> capabilities,
+            Map<ScopeEdge, Scope> mappings) {
         public Handoff {
             Map<TopologyNodeKey, List<JobDefinitionIdentity>> bindingCopy = new HashMap<>();
             bindings.forEach((node, values) -> bindingCopy.put(node, List.copyOf(values)));
             bindings = Map.copyOf(bindingCopy);
             Map<JobDefinitionIdentity, Set<Scope>> capabilityCopy = new HashMap<>();
-            capabilities.forEach((definition, scopes) -> capabilityCopy.put(definition, Set.copyOf(scopes)));
+            capabilities.forEach(
+                    (definition, scopes) -> capabilityCopy.put(definition, Set.copyOf(scopes)));
             capabilities = Map.copyOf(capabilityCopy);
             mappings = Map.copyOf(mappings);
         }
@@ -197,7 +227,9 @@ public final class RequiredPathResolver {
         public RequiredPath {
             Objects.requireNonNull(target, "target");
             steps = List.copyOf(steps);
-            if (contractVersion != CONTRACT_VERSION || steps.isEmpty() || steps.size() > MAX_STEPS) {
+            if (contractVersion != CONTRACT_VERSION
+                    || steps.isEmpty()
+                    || steps.size() > MAX_STEPS) {
                 throw new IllegalArgumentException("Invalid required-path version or size");
             }
         }

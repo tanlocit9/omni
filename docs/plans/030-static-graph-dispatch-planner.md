@@ -312,6 +312,282 @@ or mandatory owner attestation inferred from this audit.
 - **Acceptance:** complete seed/definition/edge parity (including zero-edge nodes, multi-definition nodes, branch joins, sector configuration, symbol scope independence), startup seeding and resolver regression tests, no new persistence graph or schema, no change to runtime jobs/outbox/producer behavior, and documented caller/contract impact. If scope migration cannot pass unchanged runtime safety, keep the old path enabled and do not proceed to JobRun schema/activation.
 - **Story order within P14-I3:** checkpoint **I3.a static definition-edge extraction** → **I3.b JobRun schema + frozen scoped path** → **I3.c target-root schedule/manual preparation + dependency-first enqueue** → **I3.d compatible cutover/decommission manual triggers**. These are checkpoints under one registered I3, **not additional roadmap increments**. I2 remains `verification_pending` and its current locally reported PASS evidence is not reclassified.
 
+### I3.a pre-cutover source — 2026-10-17
+
+The owner explicitly requested this bounded checkpoint while I2 remains
+`verification_pending`. Initial source delivery was unverified; the 2026-10-18 full
+Platform regression below now passes. I3 remains `pending`.
+This is not readiness for I3.b, an I2 completion, or evidence that I3.a passed.
+Historical I1/I2 verification and attestation do not cover these provider/resolver edits.
+
+`StaticDefinitionDependencies` owns a frozen map from each `JobDefinitionIdentity`
+to its allowed predecessor identities, including explicit empty root sets. Its
+canonical factory reads seed identities only, never `configJson`; the confirmed
+signal strategy is identified by its stable source/type/cron identity. Unrecognized
+signal source/cron identities fail closed until explicitly declared; changing cron
+is already a definition-identity change and must update parity evidence. Upstream
+types expand to the current definition catalog as candidate identities. This does
+not select all candidates for execution: ambiguous choices still need explicit I2
+bindings and every scoped step still needs caller-supplied capability/edge mapping.
+The typed map projects into the existing validated `StaticJobTopology` API, not a
+second topology registry. `StaticJobTopologyProvider.definitionDependencies()`
+exposes that same declaration for the typed resolver constructor.
+Contract v1 output, deterministic ordering and traversal limits remain the target.
+Bindings outside a definition's declared predecessor set fail closed.
+
+Pre-cutover parity inventory (baseline exercised by the tests recorded below):
+
+| Definition family                                              | Required predecessor types; all edges stored by definition identity |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| SYNC_SYMBOLS; SYNC_METADATA                                    | Explicit empty set                                                  |
+| SYNC_STOCK_PRICE (each sector/cron identity)                   | SYNC_SYMBOLS                                                        |
+| SYNC_INDICATORS                                                | SYNC_STOCK_PRICE                                                    |
+| SYNC_SIGNALS (trend/Ichimoku identities)                       | SYNC_STOCK_PRICE, SYNC_INDICATORS                                   |
+| SYNC_SIGNALS (ANALYZER, `0 10 19 * * MON-FRI`, confirmed)      | SYNC_STOCK_PRICE, SYNC_INDICATORS, SYNC_INTRADAY_EOD                |
+| EVALUATE_SIGNALS                                               | SYNC_STOCK_PRICE, SYNC_SIGNALS                                      |
+| PRECOMPUTE_SYMBOL_FEATURES; SYNC_INTRADAY_EOD                  | SYNC_SYMBOLS, SYNC_STOCK_PRICE                                      |
+| PRECOMPUTE_SECTOR_FEATURES                                     | PRECOMPUTE_SYMBOL_FEATURES                                          |
+| SECTOR_ROTATION_BACKTEST                                       | PRECOMPUTE_SECTOR_FEATURES, SYNC_STOCK_PRICE                        |
+| SECTOR_TRANSITION_ANALYZE; SECTOR_TRANSITION_EVALUATE_OUTCOMES | PRECOMPUTE_SECTOR_FEATURES                                          |
+
+Caller inventory and removal gates:
+
+- Active provider uses the typed factory. Inactive backlog/planner source and its
+  tests retain the same `topology()` API; no runtime planner is activated.
+- After the owner-requested cleanup, `RequiredPathResolver` accepts only the typed
+  declaration. Its old list constructor, the provider list constructor and `declare`
+  helper, and `StaticDefinitionDependencies.legacy` were removed after repository
+  caller inventory found no active production entry point using them. All test callers
+  migrate in the same change. No compatibility facade remains just to serve tests.
+- `JsonSeedDependencyFixture` lives only under test source and independently reads
+  JSON baseline/custom fixtures into typed declarations. It preserves parity and
+  malformed-input regression coverage without a second production graph authority.
+- `JobDefinitionConfig` still emits unchanged nested `dataDependencies.dependsOnJobs`
+  JSON, and `JobDefinitionSeeder` still upserts unchanged config. Keep it until
+  verification and all consumer-removal gates pass. No seed/cron/UUID identity,
+  dataset metadata, producer parameters or scheduling fields are removed.
+- `JobOperationsCatalogService.dependencies()` reads a top-level legacy
+  `dependsOnJobs`; canonical seeds use the nested form. Its current behavior is
+  retained here. Before JSON removal, reconcile nested/top-level/custom-row catalog
+  compatibility with the typed authority and preserve the public DTO; do not silently
+  remove that reader or treat its current display as parity proof.
+- Dataset guard metadata, scheduler, outbox, manual trigger and producers are not
+  edited. Before any final JSON removal, repeat the reader inventory beyond this
+  bounded source search and execute the consumer/startup regressions.
+
+Impact/source/test matrix (the listed Platform tests execute in the 2026-10-18
+full-suite regression recorded below; build and full checkpoint acceptance remain open):
+
+| Impacted source / criterion                                                                                                                   | Tests / evidence required                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| StaticDefinitionDependencies: full seed/edge parity, immutable roots, multiple definitions, validation and bounds                             | StaticDefinitionDependenciesTest; malformed JSON compatibility in StaticJobTopologyTest                                               |
+| StaticJobTopologyProvider: canonical declaration, unchanged node graph/export and startup                                                     | StaticDefinitionDependenciesTest, StaticJobTopologyTest, PlatformStartupPostgresTest                                                  |
+| RequiredPathResolver: all target paths and four explicitly supported test scopes, strategy isolation, joins, bindings and fail-closed support | StaticDefinitionDependenciesTest, RequiredPathResolverTest                                                                            |
+| JobDefinitionConfig and seed identity/config/cron preservation                                                                                | JobDefinitionConfigTest, JobDefinitionSeederTest, PlatformStartupPostgresTest; unchanged seed JSON and canonical factory independence |
+| Inactive planner/backlog callers                                                                                                              | DispatchPlannerTest, BacklogSnapshotServiceTest                                                                                       |
+| Catalog/manual/scheduler/outbox compatibility                                                                                                 | Existing Platform catalog/manual/outbox regression suite; production behavior left unchanged                                          |
+
+Critical changed/directly impacted classes still require independently attributable
+80% line and 80% branch coverage; neither the new test files nor old I2 coverage
+prove this checkpoint. Required gate from workspace root:
+`nx run platform:test`, `nx run platform:coverage`, `nx run platform:build`.
+Record executed checks through `tools/check_result.py`. The full test target now
+passes and produces JaCoCo output; the separate coverage/build gate and complete
+checkpoint acceptance have not been closed by this source update.
+
+Checkpoint blast-radius reconciliation:
+
+- **Platform:** topology declaration/provider and typed resolver directly change; seed source Javadoc changes only. Catalog, producers,
+  seeder, FIFO dispatcher, guard/claims/retries/publish and manual API are retained.
+  Graph analysis before edits reported 11 additional impacted files with truncated
+  edges and 89 unresolved call sites: this is bounded analysis, not complete coverage.
+- **Analyzer/Ingestor:** unchanged Kafka payloads, handlers, producer work parameters
+  and concurrency; no worker activation or transport change.
+- **Query Service:** no scheduler topology owner, API, cache or query change.
+- **Console:** no UI/DTO change; legacy catalog summary is retained pending its
+  explicit removal gate. No graph UI is introduced.
+- **Shared contracts/libraries:** no protobuf/generated output, py-common, topics or
+  shared configuration change. Java additions are Platform-local internal APIs.
+- **Persistence:** no schema/migration, JobRun table, SQL graph or persisted-row
+  update. Seed config content is retained, so startup upsert input stays unchanged.
+- **Configuration:** no environment/property, cron, provider, credentials, storage
+  path or dataset-owner change; legacy JSON kept during this checkpoint.
+- **Tests:** new parity/path/scope/validation cases plus existing Platform startup,
+  seeding, inactive planner, catalog/manual/outbox regressions; execution pending.
+- **Operations:** startup constructs the typed provider; rollback restores the old
+  provider/resolver source. Retained seed JSON permits that rollback without a data
+  migration. No readiness/lineage authority, claim policy, deployment topology or
+  target-driven execution changes.
+
+Documentation disposition for this checkpoint:
+
+- Updated registry/roadmap, this plan, ReleaseNotes, architecture, execution flow,
+  developer ownership, Platform README and docs index description. I2/I3 status and
+  acceptance criteria are not promoted or weakened.
+- Reviewed ADR-007: no update; its durable outbox, guard, claim/fencing and attempt
+  rules are preserved. No new architecture decision beyond the approved I3.a scope.
+- Reviewed Kafka/data-lake/database docs: no update; no transport, manifests,
+  READY-last/version lineage, storage, schema, SQL or seed-config shape change.
+- Reviewed deployment docs: no update; no command/environment/resource changes.
+- Reviewed Plans 023/028/029 and TD-012/014: no runtime scope or scheduling change;
+  corrected docs/README backfill wording to current Plan 028 hold/reuse boundaries.
+- Reviewed docs/INDEX: existing Plan 030/flow/developer/service links suffice; no
+  new documentation file or ID. No execution-log file exists; ReleaseNotes and the
+  canonical registry carry the bounded source evidence.
+- Reviewed AGENTS.md, CLAUDE.md and .roo/rules: no update; they already require one
+  topology owner, preservation of readiness/fencing, doc sync and approved checks.
+  Scheduler implementation details remain in the linked canonical docs.
+
+Static documentation-consistency review for the edited I3.a scope: **CONSISTENT**.
+The P14 registry status/dependency chain, required plan sections, revised ownership,
+new checkpoint links/heading, contract declarations and bounded evidence wording
+were inspected with reads/searches/path existence checks. The earlier ReleaseNotes
+I3/I4 owner mismatch and backfill-index prerequisite wording are corrected; historical
+entries remain historical. This is a bounded document audit, not a repository-wide
+dependency/link audit or executable validation.
+
+Post-edit graph refresh/change detection was performed. Incremental refresh indexed
+the modified tracked source but did not list the new untracked declaration/test
+files; those files were reviewed directly. Graph test-gap output is a follow-up
+pointer, not executed-test or coverage evidence. The new files are intentionally
+unstaged, so no complete graph-index coverage is claimed. Runtime activation,
+remaining checkpoint gates, JSON removal and I3 completion remain unresolved.
+
+### I3.a Testcontainers startup regression — 2026-10-18
+
+Owner requested a PostgreSQL Testcontainers startup integration test.
+[`PlatformStartupPostgresTest`](../../apps/core/src/test/java/com/omni/platform/PlatformStartupPostgresTest.java)
+passed its owner-approved focused local run on 2026-10-18. It boots the actual `PlatformApplication` with an
+embedded HTTP server on a random loopback port, PostgreSQL 16 in an ephemeral Docker
+container, real Flyway migrations and job/sector seeding. It closes the first context
+and boots a second context against the same database. Assertions cover HTTP readiness,
+applied/pending migration state, all persisted seed identities/config, independent
+JSON-to-typed predecessor parity, stable UUIDs and nextRun, restored seed-owned fields,
+and preservation of activity/claim fields after restart. Docker absence fails the test;
+there is no disabled-without-Docker skip or dependency on the developer's database.
+
+Test-only isolation removes the explicit scheduled-annotation processor before bean
+initialization, disables the custom Kafka factory's listener auto-startup, and disables
+MinIO validation and Telegram delivery. It asserts registered listeners are stopped
+and execution/outbox tables remain empty. A test-component exclusion filter prevents
+other test configurations from entering the programmatic application scan. Both
+contexts, the HTTP client and the container have lifecycle cleanup; readiness requests
+have timeouts and the test method has a 180-second timeout.
+
+No production source/configuration, migrations, dependencies, Dockerfile, Compose or
+Nx targets change in this follow-up. The test joins the existing Platform test/build
+suite. The owner-approved focused command executed from workspace root was
+`nx run platform:test --args="--tests com.omni.platform.PlatformStartupPostgresTest"`.
+Executed through `tools/check_result.py` under the separate narrow verification ID
+`P14-I3a-startup-20261018`: **PASS required=1 pass=1 fail=0 unknown=0 missing=0
+sources=exit_code**. JUnit XML records **1 test, 0 failures, 0 errors, 0 skipped**;
+the test body took 17.528 seconds. Artifacts are under ignored
+`.agent/check-results/P14-I3a-startup-20261018/` and
+`apps/core/build/test-results/test/TEST-com.omni.platform.PlatformStartupPostgresTest.xml`.
+An initial attempt failed before compilation because the default `C:\.gradle` cache
+was not writable and Nx Cloud could not connect. The successful rerun used the
+existing user Gradle cache and `NX_NO_CLOUD=true`; no source repair was necessary.
+Deprecated/unchecked compile warnings were nonfailing. Gradle generated a JaCoCo
+report as a dependency of the approved target, but no full attributable coverage
+threshold or complete I3.a test/coverage/build gate is claimed. Startup
+with isolated outbound adapters does not prove live Kafka/MinIO/provider behavior,
+Docker image packaging, scheduler execution safety or attributable coverage.
+
+Blast radius: Platform tests and their documentation only. PlatformApplication,
+provider and seeder are exercised unchanged by this follow-up; graph impact analysis
+on these entry points found two additional files (inactive planner/backlog) and 22
+unresolved call sites. The new untracked test requires direct static inspection;
+graph completeness is not claimed. Analyzer, Ingestor, Query Service, Console,
+shared contracts/libraries, production persistence/configuration and operations have
+no changes because all lifecycle overrides and PostgreSQL data are test-local.
+
+Documentation disposition: this plan, registry, ReleaseNotes and Platform test
+instructions updated; roadmap ordering and I2/I3 statuses unchanged. Architecture,
+ADR-007, flow, Kafka/data-lake/database, deployment, development/index and agent
+guidance keep their existing contracts and require no additional edit for this
+test-only follow-up. Static consistency review is bounded to the new test reference,
+valid existing Nx target, evidence wording and unchanged status/dependency boundary;
+the focused startup evidence is passing, while the full I3.a gate remains unresolved.
+No I2/I3 status, owner attestation, CI, deployment or live-provider claim is promoted.
+
+### Unused compatibility adapter cleanup — 2026-10-18
+
+Owner requested cleanup of all five repository `@Deprecated` declarations found in
+Platform source. The four topology JSON/list adapters were used only by tests and
+each other, not active production entry points; they are removed rather than retained
+as production compatibility scaffolding. `RequiredPathResolver` accepts the typed
+declaration only. `JsonSeedDependencyFixture` in test source retains independent JSON
+baseline and malformed-fixture checks, and all resolver/parity tests use typed input.
+The obsolete 11-argument Telegram properties constructor is also removed; its three
+test callers now explicitly pass the same `null` rateLimit that the adapter supplied.
+The existing 12-argument caller and canonical Spring constructor binding are unchanged.
+
+This is an intentional source-level removal of internal Java constructors/helpers,
+authorized by the owner after repository caller inventory. No external Java API
+consumer is known or claimed verified. Public HTTP, Kafka/protobuf, manifests,
+dataset ownership/paths, database migrations, seed JSON, cron, environment properties,
+FIFO/guard/claim/retry/publish and Telegram rate-limit behavior are unchanged.
+Seed JSON is retained for the separate catalog/config consumer-removal gate.
+
+Blast radius reconciliation: Platform topology and notification configuration plus
+their test callers change directly. Inactive planner/backlog callers retain the
+same topology API; notification dispatcher/consumer/service use unchanged record
+accessors and canonical binding. Graph analysis reported seven additional impacted
+files, truncated edges and 84 unresolved call sites; direct source searches reconcile
+the removed constructor/helper callers rather than treating that graph as exhaustive.
+Analyzer, Ingestor, Query Service, Console and shared contracts/libraries have no
+change because no transport/HTTP/DTO/storage shape is modified. Persistence,
+configuration and operational dispatch retain the same inputs and behavior.
+
+Validation scope: the previously approved focused startup test passed again under
+the separate ID `P14-I3a-cleanup-20261018`: **required=1 pass=1 fail=0 unknown=0
+missing=0 sources=exit_code**. JUnit XML records **1 test, 0 failures/errors/skips**
+and 22.81 seconds for the test body. Artifacts are under ignored
+`.agent/check-results/P14-I3a-cleanup-20261018/`. That run compiles the migrated topology and
+Telegram test callers but does not execute their unit tests. Full Platform unit/
+coverage/build verification remains pending command approval; no I2/I3 promotion,
+owner attestation, CI, deployment or provider verification is implied. The previous
+startup PASS remains evidence for the source before this cleanup, not a substitute
+for the new result.
+
+Owner-requested affected unit run then passed on 2026-10-18 through
+`P14-I3a-unit-20261018`: **required=1 pass=1 fail=0 unknown=0 missing=0
+sources=exit_code**. JUnit XML confirms **109 tests in 13 classes, zero failures,
+errors or skips**; Gradle completed in 16 seconds. The exact Nx target was
+`platform:test`, filtered to topology and planning packages, JobDefinitionConfigTest,
+JobDefinitionSeederTest, Telegram test classes, SignalChangedNotificationConsumerTest
+and NotificationOutboxDispatcherTest. This executes the migrated unit callers and
+parity/validation/scope branches rather than merely compiling them. No source repair
+was necessary. Logs plus copied JUnit XML and a compact unit-results summary are
+preserved under ignored `.agent/check-results/P14-I3a-unit-20261018/`.
+The approved target generated JaCoCo output, but attributable line/branch thresholds
+and the full Platform regression/coverage/build gate have not been verified. This
+bounded unit PASS does not promote I2/I3, CI, deployment or provider evidence.
+
+Documentation disposition: caller inventory, this plan, canonical registry, root
+release notes, roadmap summary, execution flow, architecture and Platform README
+are reconciled. Existing ADR/notification plan/Kafka/data-lake/database/deployment/
+developer/index guidance needs no further change because the runtime contracts and
+documentation file inventory remain stable. No new generic deprecation policy is
+introduced by this cleanup. Static review checks zero remaining source annotations,
+no references to removed production helpers, typed constructor use, and consistent
+status/evidence wording; it is not executed unit/coverage evidence.
+
+### I3.a full Platform regression — 2026-10-18
+
+The owner-requested sequential launcher verification includes an unfiltered
+`nx run platform:test` under `WINDOWS-HIDDEN-CONSOLES-20261018`:
+**293 tests across 50 suites, zero failures/errors/skips**, including
+`PlatformStartupPostgresTest`. The four-check tooling/test/format manifest reports
+**PASS required=4 pass=4 fail=0 unknown=0 missing=0 sources=exit_code**.
+The suite also generates JaCoCo reports; it is not the separate
+`platform:coverage` or `platform:build` gate, and aggregate success does not prove
+complete checkpoint acceptance. I2 remains `verification_pending`, I3 `pending`.
+Three cached-context shutdowns encounter PostgreSQL connection timeouts of 30
+seconds after the database closes; this teardown issue is recorded, not fixed here.
+This later full-suite result supersedes earlier pending-regression statements;
+the focused startup/unit results above remain historical evidence.
+
 ### P14-I3 — Unified JobRun and DAG preparation without outbox behavior change
 
 Start with **I3.a static definition-edge extraction** above before adding JobRun persistence or enabling target-driven dispatch. All I3 acceptance gates also apply to the static declaration cutover.
@@ -421,7 +697,7 @@ Kafka/protobuf, dataset manifests, storage object paths and Python worker transp
 | Surface                    | Impact or no-impact reason                                                                                                                                                                                                                                                                                                                                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Platform                   | Primary owner: topology population mapping, execution/parent/cohort projection, producer metadata inventory, JobService aggregation safety, planner, scoped queries, dispatcher, configuration and tests. Graph impact analysis on JobService, snapshot service and dispatcher found 16 additional impacted files; bounded results were truncated and included 84 unresolved call sites, not proof of no further impact. |
-| Analyzer                   | No runtime change: planner selection is Platform-local and worker payloads remain unchanged. Reconcile only if a later story changes transport, which this epic forbids.                                                                                                                                                                                                                                                 |
+| Analyzer                   | No runtime change: planner selection is Platform-local and worker payloads remain unchanged. Transport remains unchanged in the approved scope; any unavoidable I3 change requires the separately approved compatibility slice described in Contract Impact.                                                                                                                                                             |
 | Ingestor                   | No runtime change for the same reason; provider behavior and ingestion concurrency remain deferred.                                                                                                                                                                                                                                                                                                                      |
 | Query Service              | No runtime change. It does not own scheduler topology or dispatch planning.                                                                                                                                                                                                                                                                                                                                              |
 | Omni Console               | No I2 runtime scope. Plan 029 graph-specific JobRun views consume I5 evidence and I6 handoff; basic operations remain independently scoped.                                                                                                                                                                                                                                                                              |

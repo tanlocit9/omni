@@ -53,6 +53,58 @@ Kafka/data-lake/database/deployment/index/agent guidance remain valid because no
 runtime contract or documentation file inventory changes. See
 [formatting scope](docs/development/001-where-to-change.md#formatting-scope).
 
+## 2026-10-18 - Unused topology and Telegram compatibility adapters removed
+
+Removed four topology JSON/list adapters and the old Telegram properties constructor
+after inventory found only test callers for those entry points. Topology tests now
+use typed declarations with JSON baseline parsing restricted to test source; the
+three affected Telegram tests pass rateLimit explicitly with unchanged null/default
+semantics. Active topology startup, canonical properties binding, transport, schemas,
+seed config and dispatch/notification behavior remain unchanged in the intended scope.
+The approved focused startup rerun passed (1 test, zero failures/errors/skips;
+`P14-I3a-cleanup-20261018` required=1/pass=1). It compiles all migrated test callers
+but does not itself execute those unit tests or close the full coverage/regression/build gate.
+The subsequent owner-requested affected unit run passed **109 tests in 13 classes**,
+zero failures/errors/skips, through `P14-I3a-unit-20261018` required=1/pass=1. It covers
+topology/resolver, planner/backlog, seeds and related Telegram/notification tests;
+no source repair was needed. Full regression/attributable coverage/build remain pending.
+I2 remains `verification_pending`, I3 `pending`. See
+[cleanup evidence](docs/plans/030-static-graph-dispatch-planner.md#unused-compatibility-adapter-cleanup--2026-10-18).
+
+## 2026-10-18 - I3.a PostgreSQL Testcontainers startup test locally passed
+
+Added `PlatformStartupPostgresTest` using the actual Platform application, real
+Flyway migrations, ephemeral PostgreSQL and two successive application contexts.
+It checks HTTP readiness, seeded identity/config/typed-edge parity, UUID stability,
+and preservation of scheduling/activity/claim fields during reseeding after restart.
+Scheduled jobs, Kafka listeners and outbound storage/notification work are isolated
+by test-only wiring. Existing Testcontainers dependencies and Platform Nx targets
+are reused; production code/configuration and Docker/Compose are unchanged.
+The owner-approved focused `platform:test` run passed: 1 test, zero failures/errors/
+skips, including both application boots. The separate narrow `check_result` gate
+`P14-I3a-startup-20261018` reports required=1/pass=1. Initial cache/Cloud failures were
+resolved by using the existing Gradle user cache and disabling Nx Cloud for the run;
+no source repair was needed. This is isolated local startup evidence, not full
+I3.a coverage/regression/build, CI, Docker-image or live-provider verification.
+I2 stays `verification_pending`, I3 stays `pending`. See
+[Plan 030](docs/plans/030-static-graph-dispatch-planner.md#i3a-testcontainers-startup-regression--2026-10-18).
+
+## 2026-10-17 - P14-I3.a typed static dependencies, pre-cutover source
+
+Owner requested documentation corrections and the bounded I3.a checkpoint.
+`StaticDefinitionDependencies` now owns immutable definition-level predecessors;
+`StaticJobTopologyProvider` constructs its existing topology API from this typed
+source and `RequiredPathResolver` has a typed input with unchanged v1 output.
+Legacy seed JSON and deprecated custom-catalog adapters remain for compatibility
+and parity until the documented caller/removal gates pass. Added whole-catalog
+edge/path parity, scope, strategy-isolation and invalid-declaration tests.
+Test/coverage/build have NOT RUN; earlier I1/I2 PASS and attestation do not verify
+these edits. I2 stays `verification_pending`, I3 stays `pending`; no I3.b schema,
+JobRun activation, scheduler/outbox behavior, transport or migration change.
+Corrected the current snapshot to I4 dispatcher safety / P13 dependency ownership
+and the backfill index to the current Plan 028 hold/reuse boundary.
+See [Plan 030](docs/plans/030-static-graph-dispatch-planner.md#i3a-pre-cutover-source--2026-10-17).
+
 ## 2026-10-17 - Changed-file workspace formatting (verification pending)
 
 `nx run omni:format` now selects staged, unstaged and untracked files by default;
@@ -199,22 +251,22 @@ Owner moved P10/P11/P12 follow-ups into owner-gated technical debt; existing evi
 
 ## Current delivery snapshot
 
-| Area                                     | Current state                                                 | Evidence boundary                                                                                                                        |
-| ---------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Scheduler claim and transactional outbox | Completed through P1-I2                                       | PostgreSQL concurrency and publish-recovery evidence recorded                                                                            |
-| Execution identity hard cutover          | P1-I4 completed                                               | Exact-head CI and migration harness were recorded; no production cutover claimed                                                         |
-| Canonical sector writer                  | P1-I3 `verification_pending`                                  | Source and earlier local/CI evidence exist; current impact-to-test and attributable coverage evidence is incomplete                      |
-| Proto contract foundation                | P2-I1 completed; later migration superseded                   | Initial schemas and Buf checks recorded; superseded work requires owner reactivation                                                     |
-| Dataset date normalization               | P3-I4 completed                                               | Local project checks and exact-head CI recorded                                                                                          |
-| Dependency guard                         | P4-I1/P4-I2 completed; P4-I3 `superseded`                     | Source baseline retained; TD-014 preserves unclosed evidence and P14-I3 owns final planner-integrated safety proof                       |
-| Console job operations                   | P7-I1–P7-I3 completed                                         | Platform/Console checks and CI recorded                                                                                                  |
-| Notifications                            | P8-I1/P8-I2/P8-I5 `verification_pending`; P8-I4 `pending`     | P8-I4 source/local evidence retained; paused to release active apps/core ownership for P14                                               |
-| Intraday EOD                             | P9-I1 `verification_pending`; P9-I4 `pending`                 | P9-I4 source/local evidence retained; paused until dependencies and post-P14 ownership permit resumption                                 |
-| Realtime foundation                      | P10-I1/P10-I2 `verification_pending`; P10-I0/P10-I3 blocked   | Provider-independent local checks exist; live VCI capability/runtime evidence is absent                                                  |
-| Cross-service observability              | P11-I1–P11-I5 pending                                         | Deferred, owner-gated under TD-011; historical dependencies retained                                                                     |
-| Worker throughput and writer batching    | P12-I1–P12-I4 pending                                         | Deferred under TD-009/TD-011; preserve evidence and proposed dependencies                                                                |
-| Operator trust Console                   | P13-I1–P13-I4 pending                                         | Follows completed P14-I3 for truthful final dispatcher stages; calendar/lifecycle evidence or narrowed classifications remain unresolved |
-| Static Graph & DispatchPlanner           | P14-I1 completed; P14-I2 verification_pending; P14-I3 pending | Renewed static-handoff test/coverage/build PASS on 2026-10-16; docs reconciled 2026-10-17; no runtime activation/status promotion        |
+| Area                                     | Current state                                                 | Evidence boundary                                                                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scheduler claim and transactional outbox | Completed through P1-I2                                       | PostgreSQL concurrency and publish-recovery evidence recorded                                                                                         |
+| Execution identity hard cutover          | P1-I4 completed                                               | Exact-head CI and migration harness were recorded; no production cutover claimed                                                                      |
+| Canonical sector writer                  | P1-I3 `verification_pending`                                  | Source and earlier local/CI evidence exist; current impact-to-test and attributable coverage evidence is incomplete                                   |
+| Proto contract foundation                | P2-I1 completed; later migration superseded                   | Initial schemas and Buf checks recorded; superseded work requires owner reactivation                                                                  |
+| Dataset date normalization               | P3-I4 completed                                               | Local project checks and exact-head CI recorded                                                                                                       |
+| Dependency guard                         | P4-I1/P4-I2 completed; P4-I3 `superseded`                     | Source baseline retained; TD-014 preserves unclosed evidence and P14-I4 owns final planner-integrated safety proof                                    |
+| Console job operations                   | P7-I1–P7-I3 completed                                         | Platform/Console checks and CI recorded                                                                                                               |
+| Notifications                            | P8-I1/P8-I2/P8-I5 `verification_pending`; P8-I4 `pending`     | P8-I4 source/local evidence retained; paused to release active apps/core ownership for P14                                                            |
+| Intraday EOD                             | P9-I1 `verification_pending`; P9-I4 `pending`                 | P9-I4 source/local evidence retained; paused until dependencies and post-P14 ownership permit resumption                                              |
+| Realtime foundation                      | P10-I1/P10-I2 `verification_pending`; P10-I0/P10-I3 blocked   | Provider-independent local checks exist; live VCI capability/runtime evidence is absent                                                               |
+| Cross-service observability              | P11-I1–P11-I5 pending                                         | Deferred, owner-gated under TD-011; historical dependencies retained                                                                                  |
+| Worker throughput and writer batching    | P12-I1–P12-I4 pending                                         | Deferred under TD-009/TD-011; preserve evidence and proposed dependencies                                                                             |
+| Operator trust Console                   | P13-I1–P13-I4 pending                                         | P13-I1 follows completed P14-I4/P7-I3 for truthful final dispatcher stages; calendar/lifecycle evidence or narrowed classifications remain unresolved |
+| Static Graph & DispatchPlanner           | P14-I1 completed; P14-I2 verification_pending; P14-I3 pending | Renewed static-handoff test/coverage/build PASS on 2026-10-16; docs reconciled 2026-10-17; no runtime activation/status promotion                     |
 
 ## Release history
 

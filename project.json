@@ -1,5 +1,12 @@
 {
   "targets": {
+    "tools-test": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m unittest discover -s tools/tests -p \"test_*.py\""
+      }
+    },
     "ci-policy-test": {
       "cache": false,
       "executor": "nx:run-commands",
@@ -42,8 +49,10 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "python tools/check_result.py init --increment {args.increment} --require test/tools-tests --require test/platform-tests --require test/analyzer-tests --require test/ingestor-tests --require test/query-service-tests --require test/omni-console-tests --require test/py-common-tests --require test/contracts-tests --require integration/ingestor-integration",
-          "python tools/check_result.py run --increment {args.increment} --kind test --name tools-tests -- python -m unittest discover -s tools/tests -p \"test_*.py\"",
+          "python tools/check_result.py init --increment {args.increment} --require test/tools-tests --require test/ci-policy-tests --require test/format-tests --require test/platform-tests --require test/analyzer-tests --require test/ingestor-tests --require test/query-service-tests --require test/omni-console-tests --require test/py-common-tests --require test/contracts-tests --require integration/ingestor-integration",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name tools-tests -- nx run omni:tools-test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name ci-policy-tests -- nx run omni:ci-policy-test",
+          "python tools/check_result.py run --increment {args.increment} --kind test --name format-tests -- nx run omni:format-test",
           "python tools/check_result.py run --increment {args.increment} --kind test --name platform-tests -- nx run platform:test",
           "python tools/check_result.py run --increment {args.increment} --kind test --name analyzer-tests -- nx run analyzer:test",
           "python tools/check_result.py run --increment {args.increment} --kind test --name ingestor-tests -- nx run ingestor:test",

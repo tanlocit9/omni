@@ -8,6 +8,7 @@ const wrapper = isWindows ? 'gradlew.bat' : './gradlew';
 const child = spawn(wrapper, process.argv.slice(2), {
   cwd: resolve(__dirname, '../apps/core'),
   shell: isWindows,
+  windowsHide: true,
   stdio: 'inherit',
 });
 

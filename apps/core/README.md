@@ -218,6 +218,21 @@ Run with the dev profile:
 nx run platform:serve
 ```
 
+## Format
+
+```bash
+# Changed Platform Java files only
+nx run platform:format
+# Changed files across the workspace, including Platform Java
+nx run omni:format
+```
+
+The Java target uses pinned google-java-format 1.29.0 with the existing JDK 21
+toolchain, AOSP 4-space indentation and an isolated build-tool configuration.
+Imports, string literals and Javadoc are preserved. It respects changed-file
+selection and ignore rules; no compilation, tests or runtime dependency is added.
+See [formatting scope](../../docs/development/001-where-to-change.md#formatting-scope).
+
 ## Test
 
 ```bash

@@ -123,6 +123,16 @@ When changing storage layout:
 
 ### Formatting scope
 
+Repository tooling regressions run through `nx run omni:tools-test`,
+`nx run omni:ci-policy-test` and `nx run omni:format-test`. CI runs all three
+before stack selection; local `omni:verify` includes them in its required manifest.
+
+On Windows, the formatter and Gradle launchers request hidden child consoles;
+`tools/check_result.py` uses `CREATE_NO_WINDOW` while preserving captured logs and
+exit codes. These options address console flashes from repository launchers, not
+external terminal hosts or test CPU/RAM consumption. Interactive console input is
+not supported through the check-result runner.
+
 ```bash
 # Changed files: staged + unstaged + untracked, relative to the current Git index
 nx run omni:format
@@ -140,7 +150,8 @@ File contents are formatted as a whole, including unstaged content in partially
 staged files. Review and stage the resulting edits explicitly before committing.
 
 The root target uses [format-workspace.cjs](../../tools/format-workspace.cjs).
-`omni:format-test` covers Git selection and Python ownership. Direct Python
+`omni:format-test` covers Git selection, Python ownership and Java routing, including
+unknown Prettier parser retention, ignore rules, safe batching and error propagation. Direct Python
 `lint-fix` and `python-lint-fix` retain their existing full-project scope.
 Both full-project and changed-file Python fixes run `ruff check --fix-only`, then
 `ruff format`, then a strict `ruff check --no-fix --no-fix-only`. Leftover lint
@@ -149,19 +160,38 @@ auto-fixable. The final check still fails on remaining E501 or other violations.
 Ruff makes a best-effort attempt to wrap code at 88 columns; long prose comments
 and string literals may still require manual wrapping. No E501 suppression or
 line-length increase is configured. This pipeline change has not yet been executed.
-Java/protobuf formatters are not added; unknown Prettier file types are skipped.
+Platform Java files under `apps/core/src/main/java` and `src/test/java` are routed
+through `nx run platform:format`. This uses the isolated Gradle `javaFormatter`
+configuration with pinned `google-java-format:1.29.0`, the existing JDK 21 toolchain
+and AOSP 4-space indentation. It does not reorder/remove imports, rewrite string
+literals or reformat Javadoc. Runtime/test classpaths and root Prettier are unchanged.
+Files remain in the selected Git inventory, respect `.prettierignore`, and are
+passed in bounded JSON batches rather than interpolated shell arguments. Gradle
+validates real paths against Platform Java source roots before writing. Generated
+Java outside these roots is excluded. Formatter syntax/download/toolchain failures
+fail the Nx command instead of silently reporting success. The first run may need
+Maven Central access to populate the isolated formatter dependency cache.
+
+`nx run platform:format` directly formats changed Platform Java files. Root
+`omni:format --all` includes all eligible Platform Java sources; direct invocation
+of the Gradle task without an explicit file inventory fails closed. No Java compile
+or test task is a dependency of formatting. Protobuf is not handled by this target;
+use its existing contract-specific targets. Other unknown Prettier types are skipped.
 The `--all` mode uses Git inventory rather than recursively scanning ignored
 dependency, cache or external directories.
 
-This developer-tooling change affects the root formatter and the Analyzer,
-Ingestor, Query Service and py-common lint-fix configurations. Platform, Console
-and contracts retain their source behavior; supported changed text files there can
-receive Prettier formatting. Kafka, lake, database, shared runtime configuration,
+This developer-tooling change affects root formatting and Platform's build-tool-only
+Java formatter target. Analyzer, Ingestor, Query Service and py-common retain their
+existing Ruff routing; Console and contracts retain their source behavior. Platform
+Java formatting changes layout in selected files, not application behavior or APIs.
+Kafka, lake, database, shared runtime configuration,
 dataset ownership, persistence and operations have no behavioral impact. CI runs
 the selection regression tests. No roadmap increment status or runtime contract
 changes; canonical architecture, flow, data, deployment and agent policy need no
-updates for this command-scope change. Formatting tests and the new command have
-not yet been executed; the earlier CI-policy/integration results do not verify them.
+updates for this command-scope change. The new Java route and regression tests are
+source-present; their current execution status is recorded in ReleaseNotes. The
+earlier Prettier-only PASS did not cover Java. This feature does not add Java
+format-check enforcement to CI or change the root Prettier lint target.
 
 ### Service checks
 

@@ -3,6 +3,15 @@
   "projectType": "application",
   "root": "apps/core",
   "targets": {
+    "format": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../../tools/format-workspace.cjs --java",
+        "cwd": "{projectRoot}"
+      },
+      "outputs": []
+    },
     "build": {
       "executor": "nx:run-commands",
       "options": {

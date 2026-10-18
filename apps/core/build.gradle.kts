@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.LinkOption
+
 plugins {
     java
     jacoco
@@ -26,6 +29,55 @@ configurations {
 
 repositories {
     mavenCentral()
+}
+
+// Build tooling only; never extends the application or test runtime classpath.
+val javaFormatter by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
+dependencies {
+    javaFormatter("com.google.googlejavaformat:google-java-format:1.29.0")
+}
+
+tasks.register<JavaExec>("formatJava") {
+    group = "formatting"
+    description = "Formats the explicit Java file selection supplied by the Nx formatter."
+    classpath = javaFormatter
+    mainClass.set("com.google.googlejavaformat.java.Main")
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    })
+    jvmArgs(listOf("api", "code", "file", "parser", "tree", "util").map {
+        "--add-exports=jdk.compiler/com.sun.tools.javac.$it=ALL-UNNAMED"
+    })
+    doFirst {
+        val raw = System.getenv("OMNI_FORMAT_FILES")
+            ?: throw GradleException("Use nx run platform:format or nx run omni:format.")
+        val selected = groovy.json.JsonSlurper().parseText(raw) as? List<*>
+            ?: throw GradleException("OMNI_FORMAT_FILES must be a JSON array.")
+        require(selected.isNotEmpty() && selected.size <= 20) { "Expected 1..20 selected Java files." }
+        val workspace = rootDir.toPath().resolve("../..").normalize().toRealPath()
+        val roots = listOf("main", "test").map { workspace.resolve("apps/core/src/$it/java") }
+        val files = selected.map { entry ->
+            val relative = entry as? String ?: throw GradleException("Java paths must be strings.")
+            require(Regex("apps/core/src/(main|test)/java/[\\s\\S]+\\.java").matches(relative)) {
+                "Java file is outside Platform source roots: $relative"
+            }
+            val requested = workspace.resolve(relative).normalize()
+            require(Files.isRegularFile(requested, LinkOption.NOFOLLOW_LINKS)) {
+                "Selected Java file is not a regular file: $relative"
+            }
+            val real = requested.toRealPath()
+            require(roots.any { real.startsWith(it) }) { "Java path escapes source roots: $relative" }
+            real.toString()
+        }
+        setArgs(listOf("--aosp", "--replace", "--skip-sorting-imports",
+            "--skip-removing-unused-imports", "--skip-reflowing-long-strings", "--skip-javadoc-formatting") + files)
+        files.forEach { logger.lifecycle("Formatting Java: $it") }
+    }
 }
 
 extra["springModulithVersion"] = "2.0.1"

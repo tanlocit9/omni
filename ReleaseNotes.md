@@ -1,5 +1,58 @@
 # Omni Release Notes
 
+## 2026-10-18 - Align tooling tests in CI and local verification
+
+Added uncached `omni:tools-test` for Python tooling regression tests. CI sets up
+Python 3.14.5 and runs this target with the existing CI-policy and formatter tests
+before stack selection. Local `omni:verify` records all three tooling targets in
+its required-check manifest, preserving the existing service/integration checks.
+No Java format enforcement or production runtime behavior is introduced. Local
+Nx execution passed 11 tooling tests, 7 CI-policy tests and 9 formatter tests;
+format evidence is recorded under `TOOLING-WORKFLOW-20261018`. GitHub Actions
+execution and a full `omni:verify` run are not claimed. This workflow/tooling
+change is committed separately from I3.a.
+
+## 2026-10-18 - Hide Windows verification child consoles
+
+The check-result runner now requests `CREATE_NO_WINDOW` on Windows; the Gradle
+and changed-file formatter launchers set Node's `windowsHide` option. Commands,
+exit codes and log streaming remain unchanged. The runner regression expectation
+includes the platform-specific creation flag. This targets console flashes from
+these repository launchers; external launchers and CPU/RAM usage are unaffected.
+The owner-requested sequential verification passed under
+`WINDOWS-HIDDEN-CONSOLES-20261018` (required=4/pass=4): 11 Python tooling tests,
+9 formatter routing tests, changed-file formatting including 13 Java files, and
+293 Platform tests across 50 suites with zero failures/errors/skips. This includes
+the PostgreSQL startup Testcontainers test. Platform execution took about 2m50s;
+three cached-context shutdowns each waited for a 30-second PostgreSQL connection
+timeout after the database closed. That teardown issue remains unresolved.
+The owner subsequently reported no visible CMD flashes during this run. UI lag
+has not been measured independently. No runtime service, contract, persistence,
+deployment or roadmap status changes are introduced.
+
+## 2026-10-18 - Changed-file Java formatting support
+
+Root `omni:format` now routes selected Platform Java source/test files through the
+new uncached `platform:format` target. An isolated Gradle configuration pins
+google-java-format 1.29.0 with JDK 21 and AOSP 4-space formatting; it does not extend
+runtime/test classpaths or require a root Prettier upgrade. Import order, unused
+imports, string literals and Javadoc are preserved. Selection retains staged,
+unstaged/untracked, ignore/path boundaries and bounded JSON transport. New routing
+tests cover unknown-parser retention, ownership, ignores, batching and failures.
+The owner-requested root format run passed, including all 13 selected Java files
+through `platform:format`; no compile/test task was invoked by formatting. An initial
+run exposed a CLI flag spelling mismatch; it failed visibly and passed after using
+the pinned formatter's supported `--skip-removing-unused-imports` flag. Evidence is
+recorded under `OMNI-JAVA-FORMAT-20261018`. The subsequent owner-requested
+`WINDOWS-HIDDEN-CONSOLES-20261018` run passed all 9 routing regression tests and
+repeated changed-file formatting successfully. The earlier Prettier-only PASS
+covered text files only. No full increment verification, Java format CI gate or
+roadmap status promotion is claimed.
+Developer/Platform/CI docs are synchronized. Existing architecture, ADR, flow,
+Kafka/data-lake/database/deployment/index/agent guidance remain valid because no
+runtime contract or documentation file inventory changes. See
+[formatting scope](docs/development/001-where-to-change.md#formatting-scope).
+
 ## 2026-10-17 - Changed-file workspace formatting (verification pending)
 
 `nx run omni:format` now selects staged, unstaged and untracked files by default;

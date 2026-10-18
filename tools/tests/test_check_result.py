@@ -82,6 +82,11 @@ class CheckResultTests(unittest.TestCase):
             text=True,
             encoding="utf-8",
             errors="replace",
+            creationflags=(
+                check_result.subprocess.CREATE_NO_WINDOW
+                if check_result.sys.platform == "win32"
+                else 0
+            ),
         )
 
     def test_exit_code_results_produce_pass(self):

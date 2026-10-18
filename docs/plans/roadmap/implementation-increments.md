@@ -98,6 +98,8 @@ review disposition is recorded in Plan 030. CI/deployment/live runtime are not g
 for the inactive I2 handoff, and historical backlog-only attestation does not attest it.
 I3 remains `pending`; no product scope or dependency is changed by this evidence update.
 
+Owner-requested bounded I3.a pre-cutover source (2026-10-17): typed definition-level declaration/provider and resolver input plus parity/validation tests are present. Legacy seed JSON remains behind consumer-removal gates. The owner-requested cleanup removes unused topology adapters and migrates all repository test callers to typed input; JSON baseline parsing is test-only. The later full Platform regression passed 293 tests in 50 suites with zero failures/errors/skips (`WINDOWS-HIDDEN-CONSOLES-20261018`); the separate coverage/build gate remains open. Previous I2 PASS does not cover the modified provider/resolver. I2 remains `verification_pending`, I3 remains `pending` and is not autonomously ready for I3.b. No JobRun schema or scheduling/dispatcher activation. See [I3.a evidence and gates](../030-static-graph-dispatch-planner.md#i3a-pre-cutover-source--2026-10-17).
+
 - **P14-I3:** begin with checkpoint I3.a: move job-to-job `configJson.dependsOnJobs` into typed, source-controlled static edges keyed by `JobDefinitionIdentity`, preserving one topology provider and I2 resolver with parity/startup regression and no persisted graph. Then unified `job_runs` persisted logical-run and frozen ancestor→target paths; scheduled/manual modes and future backfill identity; decommission `manual_job_triggers` via new forward-only migration **after** all manual runtime readers/writers have cut over, without historical-data migration. Keep necessary dependency job definitions/producers, reduce only independently cron-scheduled entry targets. Prepare and enqueue dependency-first; keep legacy FIFO outbox, guard, claim, publish and retry behavior unchanged. Enqueue order is not upstream-completion proof: feature-gate target-driven admission if the old guard cannot safely enforce run-step predecessor completion.
 - **P14-I4:** execution-centered **JobRun path snapshot** drives outbox selection, cohort barrier, joins and fair quotas with admission/claim revalidation, fallback, fenced publish and TD-014 safety evidence.
 - **P14-I5:** runnable, versioned read-only SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, Hikari/DB/query/throughput measured baseline, and metric dictionary. Essential I3/I4 safety and query tests remain their own acceptance gates.
@@ -107,7 +109,27 @@ I3 remains `pending`; no product scope or dependency is changed by this evidence
 
 Canonical implementation/exit contracts are in [Plan 030](../030-static-graph-dispatch-planner.md). All earlier owner revisions, metrics-gate-at-I2 text and I3 dispatcher integration language were superseded by this revision; they are not current acceptance requirements.
 
+Owner-requested startup regression source (2026-10-18): `PlatformStartupPostgresTest`
+boots the real application twice over one ephemeral PostgreSQL Testcontainer with
+Flyway/seeding, HTTP readiness, typed-edge parity and persisted identity/runtime-field
+preservation assertions. Outbound work is isolated in test-only wiring. Owner-approved
+focused local execution passed: **1 test, 0 failures/errors/skips**; separate
+`check_result` ID `P14-I3a-startup-20261018` reports required=1/pass=1. This does not
+close the full I3.a coverage/regression/build gate or promote dependency/readiness/
+completion. See [startup test evidence](../030-static-graph-dispatch-planner.md#i3a-testcontainers-startup-regression--2026-10-18).
+
 ## Milestone 1 — Safe and explainable scheduler operations
+
+Owner-requested cleanup (2026-10-18): removed unused topology JSON/list adapters and
+the obsolete Telegram properties constructor; all repository test callers migrated
+in the same change. JSON baseline parsing is test-only, while seed JSON itself stays
+for catalog compatibility. Focused startup rerun passed: 1 test, zero failures/errors/
+skips (`P14-I3a-cleanup-20261018` required=1/pass=1); it compiles the migrated unit
+tests but does not execute them. A subsequent owner-requested affected unit run passed
+109 tests in 13 classes, zero failures/errors/skips (`P14-I3a-unit-20261018`
+required=1/pass=1). The later full regression passed 293 tests in 50 suites, zero failures/errors/skips (`WINDOWS-HIDDEN-CONSOLES-20261018`). The attributable coverage/build gate remains open; see the later full-suite evidence in Plan 030.
+I2/I3 status and dependencies are unchanged.
+See [cleanup scope/evidence](../030-static-graph-dispatch-planner.md#unused-compatibility-adapter-cleanup--2026-10-18).
 
 Milestone 1 groups the active scheduler-safety and operator-trust epics. Plan 030 is the priority epic with I1 static topology, I2 graph contract, I3 unified JobRun and DAG preparation, I4 JobRun-aware outbox integration, I5 measured diagnostics, and I6 operations read-model handoff. Plan 028 is **REVIEW REQUIRED / ON HOLD**: its old persisted dependency graph Increment A is superseded by Plan 030 I3.a static declaration ownership; any remaining backfill rollout must be redesigned and approved separately. Plan 029 basic operations remains independent; JobRun-specific presentation waits for accepted I5/I6 read evidence. No status is promoted by changing the schedule.
 

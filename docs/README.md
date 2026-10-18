@@ -72,7 +72,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Notification Outbox and Durable Delivery](plans/022-notification-outbox.md) — active P8-I5 supporting detail for separate scheduler/notification outboxes and durable Telegram delivery; canonical scheduling remains in the roadmap registry.
 - [Polycheck Adoption for Omni](plans/025-polycheck-adoption.md) — deferred generic repository-readiness CLI adoption with Nx as the first adapter.
 - [ContractKit Adoption for Omni](plans/026-contractkit-adoption.md) — deferred generic contract-lifecycle adoption with Buf as the Protobuf engine and Karapace optional.
-- [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md) — proposed reuse of P14-I1 topology plus existing job definitions, producers, dependency-aware outbox dispatch, and exact dated history/manifest checks; P14-I2/P14-I3 are not prerequisites and Plan 028 remains unscheduled.
+- [Reusable Date-Range Job Backfill](plans/028-reusable-date-range-backfill.md) — REVIEW REQUIRED / ON HOLD. Topology discovery can reuse P14-I1; future dated runtime preparation must reuse the accepted I2 path contract, I3 JobRun boundary and I4 guarded admission. No backfill rollout or persisted dependency graph is approved.
 
 ### References and Technical Debt
 

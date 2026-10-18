@@ -26,9 +26,10 @@ class StaticJobTopologyTest {
         StaticJobTopology topology = new StaticJobTopologyProvider().topology();
 
         assertThat(topology.nodes()).hasSize(JobType.values().length);
-        assertThat(topology.roots()).contains(
-                TopologyNodeKey.forJobType(JobType.SYNC_SYMBOLS),
-                TopologyNodeKey.forJobType(JobType.SYNC_METADATA));
+        assertThat(topology.roots())
+                .contains(
+                        TopologyNodeKey.forJobType(JobType.SYNC_SYMBOLS),
+                        TopologyNodeKey.forJobType(JobType.SYNC_METADATA));
         assertThat(topology.directUpstream(TopologyNodeKey.forJobType(JobType.SYNC_INDICATORS)))
                 .containsExactly(TopologyNodeKey.forJobType(JobType.SYNC_STOCK_PRICE));
         assertThat(topology.descendants(TopologyNodeKey.forJobType(JobType.SYNC_SYMBOLS), 2))
@@ -38,8 +39,12 @@ class StaticJobTopologyTest {
 
         JobDefinitionConfig.JOB_DEFINITION_SEEDS.stream()
                 .filter(seed -> seed.jobType() == JobType.SYNC_STOCK_PRICE)
-                .forEach(seed -> assertThat(topology.nodeFor(JobDefinitionIdentity.from(seed)))
-                        .isEqualTo(TopologyNodeKey.forJobType(JobType.SYNC_STOCK_PRICE)));
+                .forEach(
+                        seed ->
+                                assertThat(topology.nodeFor(JobDefinitionIdentity.from(seed)))
+                                        .isEqualTo(
+                                                TopologyNodeKey.forJobType(
+                                                        JobType.SYNC_STOCK_PRICE)));
     }
 
     @Test
@@ -53,7 +58,9 @@ class StaticJobTopologyTest {
         assertThat(topology.descendants(ROOT, 1)).containsExactly(MIDDLE);
         assertThat(topology.descendants(ROOT, 2)).containsExactly(MIDDLE, LEAF);
         assertThat(topology.ancestors(LEAF, 2)).containsExactly(MIDDLE, ROOT);
-        assertThat(topology.toMermaid()).isEqualTo("""
+        assertThat(topology.toMermaid())
+                .isEqualTo(
+                        """
                 flowchart TD
                     n_root[\"root\"]
                     n_middle[\"middle\"]
@@ -68,21 +75,39 @@ class StaticJobTopologyTest {
         assertThatThrownBy(() -> new TopologyNodeKey("NOT STABLE"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid topology node key");
-        assertThatThrownBy(() -> StaticJobTopology.create(declaration(
-                List.of(ROOT),
-                List.of(new Edge(ROOT, LEAF)),
-                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
+        assertThatThrownBy(
+                        () ->
+                                StaticJobTopology.create(
+                                        declaration(
+                                                List.of(ROOT),
+                                                List.of(new Edge(ROOT, LEAF)),
+                                                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
                 .hasMessageContaining("Unknown edge downstream");
-        assertThatThrownBy(() -> StaticJobTopology.create(declaration(
-                List.of(ROOT, ROOT), List.of(), List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
+        assertThatThrownBy(
+                        () ->
+                                StaticJobTopology.create(
+                                        declaration(
+                                                List.of(ROOT, ROOT),
+                                                List.of(),
+                                                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
                 .hasMessageContaining("Duplicate topology node");
-        assertThatThrownBy(() -> StaticJobTopology.create(declaration(
-                List.of(ROOT), List.of(new Edge(ROOT, ROOT)), List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
+        assertThatThrownBy(
+                        () ->
+                                StaticJobTopology.create(
+                                        declaration(
+                                                List.of(ROOT),
+                                                List.of(new Edge(ROOT, ROOT)),
+                                                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
                 .hasMessageContaining("Self edge");
-        assertThatThrownBy(() -> StaticJobTopology.create(declaration(
-                List.of(ROOT, LEAF),
-                List.of(new Edge(ROOT, LEAF), new Edge(LEAF, ROOT)),
-                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT), mapping(JobType.SYNC_METADATA, LEAF)))))
+        assertThatThrownBy(
+                        () ->
+                                StaticJobTopology.create(
+                                        declaration(
+                                                List.of(ROOT, LEAF),
+                                                List.of(new Edge(ROOT, LEAF), new Edge(LEAF, ROOT)),
+                                                List.of(
+                                                        mapping(JobType.SYNC_SYMBOLS, ROOT),
+                                                        mapping(JobType.SYNC_METADATA, LEAF)))))
                 .hasMessageContaining("cycle");
         assertThatThrownBy(() -> StaticJobTopology.create(chainDeclaration(), 2, 2))
                 .hasMessageContaining("node bound");
@@ -92,16 +117,24 @@ class StaticJobTopologyTest {
 
     @Test
     void rejectsUnmappedNodesAmbiguousDefinitionsUnknownLookupsAndDepthOverflow() {
-        assertThatThrownBy(() -> StaticJobTopology.create(declaration(
-                List.of(ROOT, LEAF),
-                List.of(new Edge(ROOT, LEAF)),
-                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
+        assertThatThrownBy(
+                        () ->
+                                StaticJobTopology.create(
+                                        declaration(
+                                                List.of(ROOT, LEAF),
+                                                List.of(new Edge(ROOT, LEAF)),
+                                                List.of(mapping(JobType.SYNC_SYMBOLS, ROOT)))))
                 .hasMessageContaining("without definition mappings")
                 .hasMessageContaining("leaf");
 
         DefinitionMapping duplicate = mapping(JobType.SYNC_SYMBOLS, ROOT);
-        assertThatThrownBy(() -> StaticJobTopology.create(declaration(
-                List.of(ROOT), List.of(), List.of(duplicate, duplicate))))
+        assertThatThrownBy(
+                        () ->
+                                StaticJobTopology.create(
+                                        declaration(
+                                                List.of(ROOT),
+                                                List.of(),
+                                                List.of(duplicate, duplicate))))
                 .hasMessageContaining("Ambiguous definition mapping");
 
         StaticJobTopology topology = chain();
@@ -109,25 +142,52 @@ class StaticJobTopologyTest {
                 .hasMessageContaining("Unknown topology node");
         assertThatThrownBy(() -> topology.nodeFor(identity(JobType.SYNC_SIGNALS)))
                 .hasMessageContaining("Unknown job definition mapping");
-        assertThatThrownBy(() -> topology.descendants(ROOT,
-                StaticJobTopology.DEFAULT_MAX_TRAVERSAL_DEPTH + 1))
+        assertThatThrownBy(
+                        () ->
+                                topology.descendants(
+                                        ROOT, StaticJobTopology.DEFAULT_MAX_TRAVERSAL_DEPTH + 1))
                 .hasMessageContaining("Traversal depth");
     }
 
     @Test
-    void rejectsMalformedSeedDependencyMetadata() {
-        assertThatThrownBy(() -> StaticJobTopologyProvider.declare(List.of(seed(Map.of()))))
+    void rejectsMalformedJsonBaselineFixtures() {
+        assertThatThrownBy(() -> JsonSeedDependencyFixture.fromSeeds(List.of(seed(Map.of()))))
                 .hasMessageContaining("Missing dataDependencies");
-        assertThatThrownBy(() -> StaticJobTopologyProvider.declare(List.of(seed(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES, Map.of())))))
+        assertThatThrownBy(
+                        () ->
+                                JsonSeedDependencyFixture.fromSeeds(
+                                        List.of(
+                                                seed(
+                                                        Map.of(
+                                                                JobDefinitionConfig
+                                                                        .CONFIG_KEY_DATA_DEPENDENCIES,
+                                                                Map.of())))))
                 .hasMessageContaining("Missing dependsOnJobs");
-        assertThatThrownBy(() -> StaticJobTopologyProvider.declare(List.of(seed(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES,
-                Map.of(JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_JOBS, List.of(42)))))))
+        assertThatThrownBy(
+                        () ->
+                                JsonSeedDependencyFixture.fromSeeds(
+                                        List.of(
+                                                seed(
+                                                        Map.of(
+                                                                JobDefinitionConfig
+                                                                        .CONFIG_KEY_DATA_DEPENDENCIES,
+                                                                Map.of(
+                                                                        JobDefinitionConfig
+                                                                                .CONFIG_KEY_DEPENDS_ON_JOBS,
+                                                                        List.of(42)))))))
                 .hasMessageContaining("Invalid job dependency");
-        assertThatThrownBy(() -> StaticJobTopologyProvider.declare(List.of(seed(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES,
-                Map.of(JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_JOBS, List.of("UNKNOWN_JOB")))))))
+        assertThatThrownBy(
+                        () ->
+                                JsonSeedDependencyFixture.fromSeeds(
+                                        List.of(
+                                                seed(
+                                                        Map.of(
+                                                                JobDefinitionConfig
+                                                                        .CONFIG_KEY_DATA_DEPENDENCIES,
+                                                                Map.of(
+                                                                        JobDefinitionConfig
+                                                                                .CONFIG_KEY_DEPENDS_ON_JOBS,
+                                                                        List.of("UNKNOWN_JOB")))))))
                 .hasMessageContaining("Unknown job dependency");
     }
 
@@ -156,9 +216,7 @@ class StaticJobTopologyTest {
     }
 
     private StaticTopologyDeclaration declaration(
-            List<TopologyNodeKey> nodes,
-            List<Edge> edges,
-            List<DefinitionMapping> mappings) {
+            List<TopologyNodeKey> nodes, List<Edge> edges, List<DefinitionMapping> mappings) {
         return new StaticTopologyDeclaration(nodes, edges, mappings);
     }
 

@@ -33,18 +33,21 @@ class TelegramRenderingTest {
         metadata.put("source", "SCHEDULER");
         metadata.put("recordsSynced", 12_450);
         metadata.put("jobType", "SYNC_SIGNALS");
-        NotificationRequest request = request(
-                NotificationChannel.OPERATIONS,
-                NotificationType.OPERATIONAL,
-                NotificationKind.JOB_FAILED,
-                NotificationSeverity.ERROR,
-                "Job failed",
-                "Analyzer request timed out",
-                metadata);
+        NotificationRequest request =
+                request(
+                        NotificationChannel.OPERATIONS,
+                        NotificationType.OPERATIONAL,
+                        NotificationKind.JOB_FAILED,
+                        NotificationSeverity.ERROR,
+                        "Job failed",
+                        "Analyzer request timed out",
+                        metadata);
 
         var rendered = registry().render(request, 0);
 
-        assertThat(rendered.html()).isEqualTo("""
+        assertThat(rendered.html())
+                .isEqualTo(
+                        """
                 🚨 <b>Job failed</b>
 
                 Analyzer request timed out
@@ -58,18 +61,29 @@ class TelegramRenderingTest {
 
     @Test
     void genericFallbackEscapesOnceFiltersSensitiveValuesAndSortsScalars() {
-        NotificationRequest request = request(
-                NotificationChannel.SIGNALS,
-                NotificationType.SIGNAL,
-                NotificationKind.MANUAL_GENERIC,
-                NotificationSeverity.WARNING,
-                "A & <B>",
-                "x & y > z",
-                Map.of("zeta", "last", "apiToken", "secret", "<alpha>", "<first> & last", "payload", "raw"));
+        NotificationRequest request =
+                request(
+                        NotificationChannel.SIGNALS,
+                        NotificationType.SIGNAL,
+                        NotificationKind.MANUAL_GENERIC,
+                        NotificationSeverity.WARNING,
+                        "A & <B>",
+                        "x & y > z",
+                        Map.of(
+                                "zeta",
+                                "last",
+                                "apiToken",
+                                "secret",
+                                "<alpha>",
+                                "<first> & last",
+                                "payload",
+                                "raw"));
 
         var rendered = registry().render(request, 0);
 
-        assertThat(rendered.html()).isEqualTo("""
+        assertThat(rendered.html())
+                .isEqualTo(
+                        """
                 ⚠️ <b>A \u0026amp; \u0026lt;B\u0026gt;</b>
 
                 x \u0026amp; y \u0026gt; z
@@ -83,14 +97,18 @@ class TelegramRenderingTest {
     @Test
     void boundsUnicodeContentWithoutSplittingSurrogatePairsOrHtmlBlocks() {
         String message = "<unsafe> & " + "😀".repeat(5_000);
-        var rendered = registry().render(request(
-                NotificationChannel.OPERATIONS,
-                NotificationType.OPERATIONAL,
-                NotificationKind.OPERATIONAL_GENERIC,
-                NotificationSeverity.INFO,
-                "Unicode",
-                message,
-                Map.of()), 3);
+        var rendered =
+                registry()
+                        .render(
+                                request(
+                                        NotificationChannel.OPERATIONS,
+                                        NotificationType.OPERATIONAL,
+                                        NotificationKind.OPERATIONAL_GENERIC,
+                                        NotificationSeverity.INFO,
+                                        "Unicode",
+                                        message,
+                                        Map.of()),
+                                3);
 
         assertThat(rendered.html()).hasSizeLessThanOrEqualTo(TelegramRendering.MAX_MESSAGE_LENGTH);
         assertThat(rendered.html()).doesNotContain("<unsafe>");
@@ -101,14 +119,15 @@ class TelegramRenderingTest {
 
     @Test
     void appliesBangkokTimezoneAndRejectsInvalidConfiguration() {
-        NotificationRequest request = request(
-                NotificationChannel.OPERATIONS,
-                NotificationType.OPERATIONAL,
-                NotificationKind.OPERATIONAL_GENERIC,
-                NotificationSeverity.INFO,
-                "Updated",
-                null,
-                Map.of("createdAt", "2026-09-04T10:22:00Z"));
+        NotificationRequest request =
+                request(
+                        NotificationChannel.OPERATIONS,
+                        NotificationType.OPERATIONAL,
+                        NotificationKind.OPERATIONAL_GENERIC,
+                        NotificationSeverity.INFO,
+                        "Updated",
+                        null,
+                        Map.of("createdAt", "2026-09-04T10:22:00Z"));
 
         assertThat(registry().render(request, 0).html()).contains("<i>Updated 17:22 ICT</i>");
         TelegramNotificationProperties invalid = properties("Mars/Olympus", null);
@@ -119,14 +138,26 @@ class TelegramRenderingTest {
 
     @Test
     void rendersExactBuySignalFromTypedContentAndEscapesOnce() {
-        NotificationRequest request = signalRequest(NotificationKind.SIGNAL_CHANGED, new SignalChangedContent(
-                "HOSE-<FPT>", "baseline", "buy", 126500.12567, "2026-08-31T00:00:00", 0.846,
-                List.of("PRICE_ABOVE_MA50", "MOMENTUM_&STRONG"), "Trend & Momentum", "1d",
-                Instant.parse("2026-08-31T10:22:00Z")));
+        NotificationRequest request =
+                signalRequest(
+                        NotificationKind.SIGNAL_CHANGED,
+                        new SignalChangedContent(
+                                "HOSE-<FPT>",
+                                "baseline",
+                                "buy",
+                                126500.12567,
+                                "2026-08-31T00:00:00",
+                                0.846,
+                                List.of("PRICE_ABOVE_MA50", "MOMENTUM_&STRONG"),
+                                "Trend & Momentum",
+                                "1d",
+                                Instant.parse("2026-08-31T10:22:00Z")));
 
         var rendered = registry().render(request, 0);
 
-        assertThat(rendered.html()).isEqualTo("""
+        assertThat(rendered.html())
+                .isEqualTo(
+                        """
                 🟢 <b>BUY (Mua) · HOSE-\u0026lt;FPT\u0026gt;</b>
 
                 Trend \u0026amp; Momentum · 1D
@@ -145,10 +176,20 @@ class TelegramRenderingTest {
 
     @Test
     void removesTrailingStrategyVersionFromDisplayOnly() {
-        NotificationRequest request = signalRequest(NotificationKind.SIGNAL_CHANGED, new SignalChangedContent(
-                "HOSE-HPG", "NEUTRAL", "BULLISH", 28000.0, "2026-09-06", 0.5,
-                List.of("TREND_MOMENTUM_V1_BULLISH"), "TREND_MOMENTUM_V1", "1d",
-                Instant.parse("2026-09-06T10:22:00Z")));
+        NotificationRequest request =
+                signalRequest(
+                        NotificationKind.SIGNAL_CHANGED,
+                        new SignalChangedContent(
+                                "HOSE-HPG",
+                                "NEUTRAL",
+                                "BULLISH",
+                                28000.0,
+                                "2026-09-06",
+                                0.5,
+                                List.of("TREND_MOMENTUM_V1_BULLISH"),
+                                "TREND_MOMENTUM_V1",
+                                "1d",
+                                Instant.parse("2026-09-06T10:22:00Z")));
 
         assertThat(registry().render(request, 0).html())
                 .contains("TREND_MOMENTUM · 1D")
@@ -157,10 +198,23 @@ class TelegramRenderingTest {
 
     @Test
     void rendersConfirmedTrendReasonsWithVietnameseDescriptions() {
-        NotificationRequest request = signalRequest(NotificationKind.SIGNAL_CHANGED, new SignalChangedContent(
-                "HOSE-HPG", "NEUTRAL", "BULLISH", 28000.0, "2026-09-06", 0.5,
-                List.of("TREND_MOMENTUM_V1_BULLISH", "ICHIMOKU_V1_NEUTRAL", "EQUAL_VOTE_SCORE_0.5"),
-                "CONFIRMED_TREND_EQUALS", "1d", Instant.parse("2026-09-06T10:22:00Z")));
+        NotificationRequest request =
+                signalRequest(
+                        NotificationKind.SIGNAL_CHANGED,
+                        new SignalChangedContent(
+                                "HOSE-HPG",
+                                "NEUTRAL",
+                                "BULLISH",
+                                28000.0,
+                                "2026-09-06",
+                                0.5,
+                                List.of(
+                                        "TREND_MOMENTUM_V1_BULLISH",
+                                        "ICHIMOKU_V1_NEUTRAL",
+                                        "EQUAL_VOTE_SCORE_0.5"),
+                                "CONFIRMED_TREND_EQUALS",
+                                "1d",
+                                Instant.parse("2026-09-06T10:22:00Z")));
 
         assertThat(registry().render(request, 0).html())
                 .contains("- TREND MOMENTUM BULLISH — Xu hướng và động lượng tăng giá")
@@ -171,12 +225,30 @@ class TelegramRenderingTest {
 
     @Test
     void mapsSellHoldAliasesAndKeepsUnknownValuesUntranslated() {
-        assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
-                signal("BEARISH")), 0).html()).startsWith("🔴 <b>BEARISH (Giảm giá)");
-        assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
-                signal("NEUTRAL")), 0).html()).startsWith("⚪ <b>NEUTRAL (Trung lập)");
-        assertThat(registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED,
-                signal("watch")), 0).html()).startsWith("⚪ <b>UNKNOWN")
+        assertThat(
+                        registry()
+                                .render(
+                                        signalRequest(
+                                                NotificationKind.SIGNAL_CHANGED, signal("BEARISH")),
+                                        0)
+                                .html())
+                .startsWith("🔴 <b>BEARISH (Giảm giá)");
+        assertThat(
+                        registry()
+                                .render(
+                                        signalRequest(
+                                                NotificationKind.SIGNAL_CHANGED, signal("NEUTRAL")),
+                                        0)
+                                .html())
+                .startsWith("⚪ <b>NEUTRAL (Trung lập)");
+        assertThat(
+                        registry()
+                                .render(
+                                        signalRequest(
+                                                NotificationKind.SIGNAL_CHANGED, signal("watch")),
+                                        0)
+                                .html())
+                .startsWith("⚪ <b>UNKNOWN")
                 .contains("BASELINE (Mốc cơ sở) → WATCH")
                 .doesNotContain("Chưa có mô tả");
     }
@@ -184,23 +256,46 @@ class TelegramRenderingTest {
     @Test
     void digestAdmitsOnlyCompleteBlocksReservesFooterAndReportsCounts() {
         String longReason = "😀<&>".repeat(100);
-        List<SignalDigestEntry> items = java.util.stream.IntStream.range(0, 150)
-                .mapToObj(index -> new SignalDigestEntry("SYM-" + index, "HOLD", "BUY", 12345.6789,
-                        "2026-08-31", 0.846, List.of(longReason), "Momentum", "1d"))
-                .toList();
-        NotificationRequest request = signalRequest(NotificationKind.SIGNAL_DIGEST,
-                new SignalDigestContent("Momentum", "1d", 150, items, Instant.parse("2026-08-31T10:22:00Z")));
+        List<SignalDigestEntry> items =
+                java.util.stream.IntStream.range(0, 150)
+                        .mapToObj(
+                                index ->
+                                        new SignalDigestEntry(
+                                                "SYM-" + index,
+                                                "HOLD",
+                                                "BUY",
+                                                12345.6789,
+                                                "2026-08-31",
+                                                0.846,
+                                                List.of(longReason),
+                                                "Momentum",
+                                                "1d"))
+                        .toList();
+        NotificationRequest request =
+                signalRequest(
+                        NotificationKind.SIGNAL_DIGEST,
+                        new SignalDigestContent(
+                                "Momentum",
+                                "1d",
+                                150,
+                                items,
+                                Instant.parse("2026-08-31T10:22:00Z")));
 
         String html = registry().render(request, 4).html();
 
-        assertThat(html).hasSizeLessThanOrEqualTo(TelegramRendering.MAX_MESSAGE_LENGTH)
+        assertThat(html)
+                .hasSizeLessThanOrEqualTo(TelegramRendering.MAX_MESSAGE_LENGTH)
                 .contains("📊 <b>150 signal changes · Momentum · 1D</b>")
-                .containsPattern("Page 1/1 · \\d+ on this page · 150 total · \\d+ on other pages · Updated 17:22 ICT")
+                .containsPattern(
+                        "Page 1/1 · \\d+ on this page · 150 total · \\d+ on other pages · Updated 17:22 ICT")
                 .contains("Repeated notifications suppressed: 4")
                 .doesNotContain("<&>")
                 .doesNotEndWith("\uD83D");
-        int shown = Integer.parseInt(html.replaceFirst("(?s).*Page 1/1 · (\\d+) on this page.*", "$1"));
-        int omitted = Integer.parseInt(html.replaceFirst("(?s).*150 total · (\\d+) on other pages.*", "$1"));
+        int shown =
+                Integer.parseInt(html.replaceFirst("(?s).*Page 1/1 · (\\d+) on this page.*", "$1"));
+        int omitted =
+                Integer.parseInt(
+                        html.replaceFirst("(?s).*150 total · (\\d+) on other pages.*", "$1"));
         assertThat(shown).isLessThanOrEqualTo(100);
         assertThat(shown + omitted).isEqualTo(150);
         assertThat(html.split("<b>Date:</b>", -1).length - 1).isEqualTo(shown);
@@ -212,14 +307,15 @@ class TelegramRenderingTest {
         metadata.put("recordsSkipped", 2);
         metadata.put("failed", 1);
         metadata.put("createdAt", "not-an-instant");
-        NotificationRequest request = request(
-                NotificationChannel.OPERATIONS,
-                NotificationType.OPERATIONAL,
-                NotificationKind.JOB_DIGEST_FAILED,
-                NotificationSeverity.ERROR,
-                "Digest failed",
-                null,
-                metadata);
+        NotificationRequest request =
+                request(
+                        NotificationChannel.OPERATIONS,
+                        NotificationType.OPERATIONAL,
+                        NotificationKind.JOB_DIGEST_FAILED,
+                        NotificationSeverity.ERROR,
+                        "Digest failed",
+                        null,
+                        metadata);
 
         var rendered = new Registry(properties(null, false)).render(request, 0);
 
@@ -240,53 +336,94 @@ class TelegramRenderingTest {
         metadata.put("complex", List.of("hidden"));
         metadata.put("manual", "hidden");
 
-        String html = registry().render(request(
-                NotificationChannel.SIGNALS,
-                NotificationType.SIGNAL,
-                NotificationKind.MANUAL_GENERIC,
-                NotificationSeverity.INFO,
-                "Scalars",
-                null,
-                metadata), 0).html();
+        String html =
+                registry()
+                        .render(
+                                request(
+                                        NotificationChannel.SIGNALS,
+                                        NotificationType.SIGNAL,
+                                        NotificationKind.MANUAL_GENERIC,
+                                        NotificationSeverity.INFO,
+                                        "Scalars",
+                                        null,
+                                        metadata),
+                                0)
+                        .html();
 
-        assertThat(html).contains("- flag: true", "- id: 7dd9f8c2-1111-2222-3333-444444444444",
-                "- number: 12", "- severity: INFO")
+        assertThat(html)
+                .contains(
+                        "- flag: true",
+                        "- id: 7dd9f8c2-1111-2222-3333-444444444444",
+                        "- number: 12",
+                        "- severity: INFO")
                 .doesNotContain("complex", "manual", "hidden");
     }
 
     @Test
     void digestHandlesNullItemsSingularCountAndMissingOptionalFields() {
-        SignalDigestContent digest = new SignalDigestContent(
-                null, null, 1, null, null, 0, 0);
+        SignalDigestContent digest = new SignalDigestContent(null, null, 1, null, null, 0, 0);
 
-        String html = registry().render(signalRequest(NotificationKind.SIGNAL_DIGEST, digest), 0).html();
+        String html =
+                registry().render(signalRequest(NotificationKind.SIGNAL_DIGEST, digest), 0).html();
 
-        assertThat(html).contains("📊 <b>1 signal change</b>")
+        assertThat(html)
+                .contains("📊 <b>1 signal change</b>")
                 .contains("Page 1/1 · 0 on this page · 1 total · 1 on other pages")
                 .doesNotContain("Updated");
     }
 
     @Test
     void signalRenderingCoversMissingAndMalformedOptionalValues() {
-        SignalChangedContent signal = new SignalChangedContent(
-                null, null, null, "not-a-number", "not-a-date", "bad-score",
-                java.util.Arrays.asList(null, " ", "SCORE_-1.25", "A", "B", "C", "D", "E"),
-                null, null, null);
+        SignalChangedContent signal =
+                new SignalChangedContent(
+                        null,
+                        null,
+                        null,
+                        "not-a-number",
+                        "not-a-date",
+                        "bad-score",
+                        java.util.Arrays.asList(null, " ", "SCORE_-1.25", "A", "B", "C", "D", "E"),
+                        null,
+                        null,
+                        null);
 
-        String html = registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED, signal), 0).html();
+        String html =
+                registry().render(signalRequest(NotificationKind.SIGNAL_CHANGED, signal), 0).html();
 
-        assertThat(html).contains("Unknown symbol", "<b>Price:</b> not-a-number", "<b>Score:</b> n/a",
-                "<b>Date:</b> not-a-date", "SCORE -1.25 — Điểm tín hiệu -1.25", "- ...");
+        assertThat(html)
+                .contains(
+                        "Unknown symbol",
+                        "<b>Price:</b> not-a-number",
+                        "<b>Score:</b> n/a",
+                        "<b>Date:</b> not-a-date",
+                        "SCORE -1.25 — Điểm tín hiệu -1.25",
+                        "- ...");
     }
 
     @Test
     void rejectsCanonicalSignalKindsWithoutRequiredStructuredContent() {
-        assertThatThrownBy(() -> request(NotificationChannel.SIGNALS, NotificationType.SIGNAL,
-                NotificationKind.SIGNAL_CHANGED, NotificationSeverity.INFO, "ignored", "ignored", Map.of()))
+        assertThatThrownBy(
+                        () ->
+                                request(
+                                        NotificationChannel.SIGNALS,
+                                        NotificationType.SIGNAL,
+                                        NotificationKind.SIGNAL_CHANGED,
+                                        NotificationSeverity.INFO,
+                                        "ignored",
+                                        "ignored",
+                                        Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("SIGNAL_CHANGED requires SignalChangedContent");
-        assertThatThrownBy(() -> request(NotificationChannel.SIGNALS, NotificationType.SIGNAL,
-                NotificationKind.SIGNAL_DIGEST, NotificationSeverity.INFO, "ignored", "ignored", Map.of()))
+        assertThatThrownBy(
+                        () ->
+                                request(
+                                        NotificationChannel.SIGNALS,
+                                        NotificationType.SIGNAL,
+                                        NotificationKind.SIGNAL_DIGEST,
+                                        NotificationSeverity.INFO,
+                                        "ignored",
+                                        "ignored",
+                                        Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("SIGNAL_DIGEST requires SignalDigestContent");
     }
@@ -294,7 +431,8 @@ class TelegramRenderingTest {
     @Test
     void rejectsMismatchedStructuredContentForCanonicalSignalKinds() {
         SignalChangedContent changed = signal("BUY");
-        SignalDigestContent digest = new SignalDigestContent("Momentum", "1d", 0, List.of(), Instant.EPOCH);
+        SignalDigestContent digest =
+                new SignalDigestContent("Momentum", "1d", 0, List.of(), Instant.EPOCH);
 
         assertThatThrownBy(() -> signalRequest(NotificationKind.SIGNAL_CHANGED, digest))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -313,31 +451,45 @@ class TelegramRenderingTest {
 
     @Test
     void doesNotExposeImplicitKindNotificationRequestConstructors() {
-        assertThatThrownBy(() -> NotificationRequest.class.getConstructor(
-                NotificationChannel.class,
-                NotificationType.class,
-                NotificationSeverity.class,
-                String.class,
-                String.class,
-                Map.class,
-                String.class))
+        assertThatThrownBy(
+                        () ->
+                                NotificationRequest.class.getConstructor(
+                                        NotificationChannel.class,
+                                        NotificationType.class,
+                                        NotificationSeverity.class,
+                                        String.class,
+                                        String.class,
+                                        Map.class,
+                                        String.class))
                 .isInstanceOf(NoSuchMethodException.class);
-        assertThatThrownBy(() -> NotificationRequest.class.getConstructor(
-                NotificationType.class,
-                NotificationSeverity.class,
-                String.class,
-                String.class,
-                Map.class))
+        assertThatThrownBy(
+                        () ->
+                                NotificationRequest.class.getConstructor(
+                                        NotificationType.class,
+                                        NotificationSeverity.class,
+                                        String.class,
+                                        String.class,
+                                        Map.class))
                 .isInstanceOf(NoSuchMethodException.class);
     }
 
     private SignalChangedContent signal(String newSignal) {
-        return new SignalChangedContent("SET:PTT", null, newSignal, null, null, null, null, null, null, null);
+        return new SignalChangedContent(
+                "SET:PTT", null, newSignal, null, null, null, null, null, null, null);
     }
 
-    private NotificationRequest signalRequest(NotificationKind kind, NotificationRequest.StructuredContent content) {
-        return new NotificationRequest(NotificationChannel.SIGNALS, NotificationType.SIGNAL, kind,
-                NotificationSeverity.INFO, "plain title", "plain fallback", Map.of(), "stable-key", content);
+    private NotificationRequest signalRequest(
+            NotificationKind kind, NotificationRequest.StructuredContent content) {
+        return new NotificationRequest(
+                NotificationChannel.SIGNALS,
+                NotificationType.SIGNAL,
+                kind,
+                NotificationSeverity.INFO,
+                "plain title",
+                "plain fallback",
+                Map.of(),
+                "stable-key",
+                content);
     }
 
     private Registry registry() {
@@ -346,8 +498,18 @@ class TelegramRenderingTest {
 
     private TelegramNotificationProperties properties(String zone, Boolean audibleErrors) {
         return new TelegramNotificationProperties(
-                true, "token", "operations", "signals", "Markdown", "https://api.telegram.org",
-                Duration.ofMinutes(5), 100, zone, audibleErrors, null);
+                true,
+                "token",
+                "operations",
+                "signals",
+                "Markdown",
+                "https://api.telegram.org",
+                Duration.ofMinutes(5),
+                100,
+                zone,
+                audibleErrors,
+                null,
+                null);
     }
 
     private NotificationRequest request(
@@ -358,6 +520,7 @@ class TelegramRenderingTest {
             String title,
             String message,
             Map<String, Object> metadata) {
-        return new NotificationRequest(channel, type, kind, severity, title, message, metadata, null);
+        return new NotificationRequest(
+                channel, type, kind, severity, title, message, metadata, null);
     }
 }

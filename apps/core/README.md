@@ -6,6 +6,8 @@ Platform is the Java/Spring Boot control-plane service for Omni. Its Nx project 
 
 Platform owns API boundaries, scheduler orchestration, Platform-local dependency evaluation, job definitions, execution/outbox history, Platform PostgreSQL state, Kafka job production, and Kafka status/upsert consumption.
 
+Static topology declaration is Platform-local: `StaticJobTopologyProvider` exposes typed definition-level dependencies from `StaticDefinitionDependencies`; `RequiredPathResolver` consumes the same declaration. I3.a pre-cutover retains seed JSON for catalog compatibility/parity, pending consumer-removal gates; unused topology adapters are removed and JSON baseline/custom-fixture parsing is test-only. This checkpoint adds no JobRun persistence or runtime planner admission. See [Plan 030](../../docs/plans/030-static-graph-dispatch-planner.md#i3a-pre-cutover-source--2026-10-17).
+
 ## Owns
 
 - Scheduler job definitions and execution history.
@@ -235,8 +237,35 @@ See [formatting scope](../../docs/development/001-where-to-change.md#formatting-
 
 ## Test
 
+Run the complete test suite or the build (which also runs tests):
+
 ```bash
+nx run platform:test
 nx run platform:build
 ```
 
-Use a dedicated test target if one is added to [`project.json`](project.json).
+The suite includes PostgreSQL Testcontainers tests and requires a working Docker
+runtime. For the isolated application startup/restart regression:
+
+```bash
+nx run platform:test --args="--tests com.omni.platform.PlatformStartupPostgresTest"
+```
+
+This test boots the actual application twice on an ephemeral PostgreSQL database,
+runs Flyway and seeding, checks HTTP readiness and typed dependency parity, and
+preserves definition IDs/runtime fields across restart. Scheduled work, Kafka
+listeners and external storage/notification calls are disabled in test-only wiring.
+It does not test the production Docker image or live broker/object-storage behavior.
+The owner-approved focused run passed on 2026-10-18: 1 test, zero failures/errors/skips.
+The same startup test passed again after removing unused adapters; see [cleanup evidence](../../docs/plans/030-static-graph-dispatch-planner.md#unused-compatibility-adapter-cleanup--2026-10-18).
+This does not close the full I3.a coverage/regression/build gate; see [Plan 030 evidence](../../docs/plans/030-static-graph-dispatch-planner.md#i3a-testcontainers-startup-regression--2026-10-18).
+Commands require the verification approval specified in the repository AGENTS.md.
+
+The affected topology/planning/seed and Telegram/notification unit tests also passed
+on 2026-10-18: 109 tests across 13 classes, zero failures/errors/skips. This was a
+filtered Platform test run, not the full suite or an attributable coverage/build pass.
+
+The later unfiltered `platform:test` run passed 293 tests across 50 suites with
+zero failures/errors/skips (`WINDOWS-HIDDEN-CONSOLES-20261018`). It generated
+JaCoCo reports but does not close the separate I3.a coverage/build gate. Three
+cached-context PostgreSQL shutdown timeouts remain a test-teardown follow-up.

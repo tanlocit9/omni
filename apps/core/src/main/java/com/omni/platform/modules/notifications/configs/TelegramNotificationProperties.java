@@ -27,27 +27,8 @@ public record TelegramNotificationProperties(
         Duration rateLimit,
         SignalFilterConfig signalFilter) {
 
-    @Deprecated(forRemoval = false)
-    public TelegramNotificationProperties(
-            boolean enabled,
-            String botToken,
-            String operationsChatId,
-            String signalsChatId,
-            String parseMode,
-            String apiBaseUrl,
-            Duration deduplicationCooldown,
-            int deduplicationMaxCacheSize,
-            String displayTimeZone,
-            Boolean audibleOperationalErrors,
-            SignalFilterConfig signalFilter) {
-        this(enabled, botToken, operationsChatId, signalsChatId, parseMode, apiBaseUrl,
-                deduplicationCooldown, deduplicationMaxCacheSize, displayTimeZone,
-                audibleOperationalErrors, null, signalFilter);
-    }
-
     @ConstructorBinding
-    public TelegramNotificationProperties {
-    }
+    public TelegramNotificationProperties {}
 
     private static final Duration DEFAULT_DEDUPLICATION_COOLDOWN = Duration.ofMinutes(5);
     private static final int DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE = 10_000;
@@ -65,21 +46,26 @@ public record TelegramNotificationProperties(
     }
 
     public Duration resolvedDeduplicationCooldown() {
-        if (deduplicationCooldown == null || deduplicationCooldown.isNegative() || deduplicationCooldown.isZero()) {
+        if (deduplicationCooldown == null
+                || deduplicationCooldown.isNegative()
+                || deduplicationCooldown.isZero()) {
             return DEFAULT_DEDUPLICATION_COOLDOWN;
         }
         return deduplicationCooldown;
     }
 
     public int resolvedDeduplicationMaxCacheSize() {
-        return deduplicationMaxCacheSize <= 0 ? DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE : deduplicationMaxCacheSize;
+        return deduplicationMaxCacheSize <= 0
+                ? DEFAULT_DEDUPLICATION_MAX_CACHE_SIZE
+                : deduplicationMaxCacheSize;
     }
 
     public ZoneId resolvedDisplayTimeZone() {
         try {
             return ZoneId.of(hasText(displayTimeZone) ? displayTimeZone : "Asia/Bangkok");
         } catch (DateTimeException exc) {
-            throw new IllegalArgumentException("Invalid Telegram display time zone: " + displayTimeZone, exc);
+            throw new IllegalArgumentException(
+                    "Invalid Telegram display time zone: " + displayTimeZone, exc);
         }
     }
 
@@ -128,15 +114,18 @@ public record TelegramNotificationProperties(
             }
 
             // Normalize to uppercase for case-insensitive matching
-            allowedStrategies = allowedStrategies.stream()
-                    .map(String::toUpperCase)
-                    .collect(Collectors.toList());
-            allowedDirections = allowedDirections.stream()
-                    .map(String::toUpperCase)
-                    .collect(Collectors.toList());
-            allowedTimeframes = allowedTimeframes.stream()
-                    .map(String::toLowerCase)
-                    .collect(Collectors.toList());
+            allowedStrategies =
+                    allowedStrategies.stream()
+                            .map(String::toUpperCase)
+                            .collect(Collectors.toList());
+            allowedDirections =
+                    allowedDirections.stream()
+                            .map(String::toUpperCase)
+                            .collect(Collectors.toList());
+            allowedTimeframes =
+                    allowedTimeframes.stream()
+                            .map(String::toLowerCase)
+                            .collect(Collectors.toList());
         }
 
         public boolean matchesStrategy(String strategy) {
@@ -217,8 +206,7 @@ public record TelegramNotificationProperties(
         private boolean matchesPattern(String value, String pattern) {
             // Simple glob: HOSE-* matches HOSE-FPT, HOSE-VNM, etc.
             // Convert glob pattern to regex
-            String regex = pattern.replace("*", ".*")
-                    .replace("?", ".");
+            String regex = pattern.replace("*", ".*").replace("?", ".");
             return value.matches(regex);
         }
     }

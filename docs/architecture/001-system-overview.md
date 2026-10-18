@@ -122,6 +122,12 @@ flowchart LR
 
 Platform owns one process-local topology API. I3.a pre-cutover source resolves source-controlled definition identities and typed predecessor sets in `StaticDefinitionDependencies`, exposed by `StaticJobTopologyProvider`. JSON `dependsOnJobs` remains compatibility/parity data pending verification and consumer removal; the provider does not read it. `RequiredPathResolver` accepts the same typed declaration without runtime admission or readiness authority. No database graph, JobRun schema, worker transport or dispatch policy is added by this checkpoint. Unused topology adapters have been removed and JSON baseline parsing is test-only. Focused startup and full Platform regression evidence, plus the remaining coverage/build gate, are recorded in Plan 030. See [Plan 030](../plans/030-static-graph-dispatch-planner.md#i3a-pre-cutover-source--2026-10-17).
 
+I3.b source adds a separate persisted **run instance**, not a topology authority:
+`job_runs` and immutable scoped steps/predecessors preserve the resolved path
+across restarts or later static-declaration changes. The new storage boundary is
+inactive; scheduler/manual preparation, Kafka payloads and FIFO dispatch stay on
+their existing paths. See [I3.b persistence](../plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+
 ## Source-of-truth Config
 
 | Contract                 | Source                                                                     |

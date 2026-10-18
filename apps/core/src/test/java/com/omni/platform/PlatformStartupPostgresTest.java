@@ -43,9 +43,14 @@ import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig.JobDefi
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
+import com.omni.platform.modules.scheduler.repositories.JobRunRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxRepository;
+import com.omni.platform.modules.scheduler.runs.JobRunSnapshot;
+import com.omni.platform.modules.scheduler.topology.RequiredPathResolver;
+import com.omni.platform.modules.scheduler.topology.TopologyNodeKey;
 import com.omni.platform.modules.scheduler.topology.JobDefinitionIdentity;
 import com.omni.platform.modules.scheduler.topology.StaticJobTopologyProvider;
 import com.omni.platform.shared.infrastructure.minio.adapters.MinioStorageAdapter;
@@ -134,6 +139,58 @@ class PlatformStartupPostgresTest {
             assertThat(retained.getClaimedBy()).isEqualTo("startup-test-owner");
             assertThat(retained.getClaimedAt()).isEqualTo(CLAIMED_AT);
             assertThat(retained.getClaimUntil()).isEqualTo(CLAIMED_AT.plusSeconds(120));
+        }
+    }
+
+    @Test
+    @Timeout(180)
+    void persistsOptionalExecutionLinksUsingTheRealJpaTransactionManager() throws Exception {
+        try (var context = startApplication()) {
+            assertReadyAndIsolated(context);
+            var definition = find(context.getBean(JobDefinitionRepository.class), SEEDS.getFirst());
+            var key =
+                    new RequiredPathResolver.StepKey(
+                            identity(definition),
+                            new RequiredPathResolver.Scope(
+                                    RequiredPathResolver.ScopeType.GLOBAL,
+                                    "VN",
+                                    java.time.LocalDate.of(2035, 1, 2)));
+            var path =
+                    new RequiredPathResolver.RequiredPath(
+                            1,
+                            key,
+                            List.of(
+                                    new RequiredPathResolver.Step(
+                                            key,
+                                            TopologyNodeKey.forJobType(definition.getJobType()),
+                                            List.of())));
+            var run =
+                    context.getBean(JobRunRepository.class)
+                            .prepare(
+                                    new JobRunSnapshot.Request(
+                                            JobRunSnapshot.Mode.MANUAL,
+                                            "startup-test",
+                                            "jpa-mapping",
+                                            "Verify persistence mapping",
+                                            null,
+                                            "{}"),
+                                    path);
+            var histories = context.getBean(JobExecutionHistoryRepository.class);
+            var execution = new JobExecutionHistory();
+            execution.setJob(definition);
+            execution.setUsedSource(definition.getSource());
+            execution.setStatus(JobExecutionHistory.JobStatus.PENDING);
+            execution.setJobRunId(run.id());
+            execution.setJobRunStepIndex(0);
+            UUID id = histories.saveAndFlush(execution).getId();
+            var reloaded = histories.findById(id).orElseThrow();
+            assertThat(reloaded.getJobRunId()).isEqualTo(run.id());
+            assertThat(reloaded.getJobRunStepIndex()).isZero();
+            assertThat(reloaded.getParentLogId()).isNull();
+            assertThat(context.getBean(JobRunRepository.class).findById(run.id())).contains(run);
+            histories.deleteById(id);
+            assertThat(histories.count()).isZero();
+            assertThat(context.getBean(SchedulerOutboxRepository.class).count()).isZero();
         }
     }
 

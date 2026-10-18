@@ -31,11 +31,18 @@ messages, rewrite statuses, or implement Phase 12 concurrency.
 
 ## Static Graph and Planned Dispatch Planning
 
+I3.b adds source for an inactive JobRun snapshot repository: a request, complete
+scoped ancestor-to-target membership, and nullable execution/run-step links. It
+does not insert execution or outbox rows, alter scheduled/manual entry points,
+or replace the current guard. I3.c owns preparation; I3.d owns manual cutover;
+I4 owns safe predecessor-completion admission. See
+[I3.b persistence scope/evidence](../plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+
 The canonical [Plan 030 delivery sequence](../plans/030-static-graph-dispatch-planner.md#canonical-revised-delivery-sequence--2026-10-15) is I2 static target-to-ancestor contract, I3 durable JobRun preparation, I4 guarded JobRun-aware admission, I5 measured diagnostics and I6 operations read-model handoff. Earlier parent-only discovery and RAM binding proposals are superseded. Runtime correlation comes from persisted JobRun and immutable scoped run-step membership, not timestamp heuristics or a process-local authoritative cache.
 
 [Plan 030](../plans/030-static-graph-dispatch-planner.md) owns the active P14 sequence. P14-I1 is completed: the original implementation constructed one immutable process-local topology from seed `dependsOnJobs` declarations, maps every `(source, jobType, cronExpr)` definition identity to a stable logical `JobType` node, validates the graph at startup, and exposes deterministic bounded traversal and Mermaid diagnostics. Multiple definitions sharing one `JobType` intentionally map to the same logical node. No persisted graph or runtime dispatch behavior is introduced.
 
-I3.a pre-cutover source now makes `StaticDefinitionDependencies` the provider declaration and adds a typed resolver constructor. Unused topology compatibility adapters have been removed; JSON baseline/custom-fixture reading now belongs only to test source. Seed JSON remains until the catalog/config consumer-removal gates in Plan 030 pass. The focused startup test passed again after adapter cleanup; full unit/coverage/build verification remains pending. Historical I1/I2 evidence does not verify the new source.
+I3.a pre-cutover source now makes `StaticDefinitionDependencies` the provider declaration and adds a typed resolver constructor. Unused topology compatibility adapters have been removed; JSON baseline/custom-fixture reading now belongs only to test source. Seed JSON remains until the catalog/config consumer-removal gates in Plan 030 pass. The focused startup test passed again after adapter cleanup; the I3.a full regression subsequently passed 293 tests, while its separate coverage/build gate remains open. Historical I1/I2 evidence does not verify the new source.
 
 P14-I3 will persist a target-driven JobRun and its required scoped ancestor-to-target steps, then prepare dependency-first execution/outbox intent while preserving the existing FIFO/guard/claim/publish pipeline. Enqueue order does not prove completion; the new route stays disabled unless safe admission is proven. P14-I4 will query persisted step membership, execution progress including published-but-unfinished work, and separate outbox eligibility. It waits for required predecessor SUCCESS and closed membership before advancing, preserves independent run/group/date scopes and joins, and revalidates barriers at admission. Typed scope supports future symbol rollout without cloning static nodes. Existing guard retains dataset readiness/version authority; no outbox processing-success status or arbitrary execution DAG is introduced.
 

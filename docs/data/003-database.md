@@ -10,6 +10,11 @@ Flyway migrations under [`database/migrations`](../../database/migrations) are t
 erDiagram
   JOB_DEFINITIONS ||--o{ JOB_EXECUTION_HISTORIES : creates
   JOB_DEFINITIONS ||--o{ MANUAL_JOB_TRIGGERS : receives
+  JOB_DEFINITIONS ||--o{ JOB_RUNS : targets
+  JOB_RUNS ||--|{ JOB_RUN_STEPS : freezes
+  JOB_RUN_STEPS ||--o{ JOB_RUN_STEP_PREDECESSORS : dependent
+  JOB_RUN_STEPS ||--o{ JOB_RUN_STEP_PREDECESSORS : upstream
+  JOB_RUN_STEPS |o--o{ JOB_EXECUTION_HISTORIES : optional_run_link
   JOB_EXECUTION_HISTORIES ||--o| MANUAL_JOB_TRIGGERS : dispatches
   JOB_EXECUTION_HISTORIES ||--o{ JOB_EXECUTION_HISTORIES : parent_child
   SECTORS ||--o{ SYMBOLS : classifies
@@ -41,6 +46,32 @@ erDiagram
     timestamptz requested_at
   }
 
+  JOB_RUNS {
+    uuid id
+    uuid target_definition_id
+    string mode
+    string state
+    string scope_type
+    string scope_key
+    date business_date
+    string path_fingerprint
+  }
+
+  JOB_RUN_STEPS {
+    uuid job_run_id
+    int step_index
+    uuid job_definition_id
+    string scope_type
+    string scope_key
+    date business_date
+  }
+
+  JOB_RUN_STEP_PREDECESSORS {
+    uuid job_run_id
+    int step_index
+    int predecessor_index
+  }
+
   SYMBOLS {
     uuid id
     string exchange
@@ -59,6 +90,34 @@ erDiagram
 
 ## Important Domains
 
+### JobRun persistence foundation (I3.b)
+
+[`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql)
+adds `job_runs` request/lifecycle identity, frozen `job_run_steps` and their
+`job_run_step_predecessors`. The snapshot is an immutable instance of the static
+path, including effective scope and business date for every step. It is not a
+mutable topology definition. The inactive `JobRunRepository` persists and reloads
+these instances without activating scheduler/manual preparation or dispatch.
+
+Creation atomically moves transaction-local PREPARING to PREPARED; incomplete
+transactions cannot commit. Request identity and sealed membership cannot be
+rewritten/deleted with ordinary DML. Lifecycle/failure reason are separate mutable
+fields. Referenced job definitions are protected from deletion; history retention
+and purge are not implemented. Idempotency is unique per mode/actor/key; changed
+metadata/path fails rather than reshaping an existing run. BACKFILL is reserved.
+
+Execution history adds nullable `job_run_id` and `job_run_step_index`. Existing
+rows/writers retain NULL links. Linked execution definitions and parent/child run
+ownership are enforced by composite foreign keys. Execution and parent IDs retain
+their current meanings. No legacy history rewrite or manual-table drop occurs.
+
+Apply V12 before running the updated history entity mapping; allow a normal DDL
+lock window for adding indexes/foreign keys. Roll back application code while
+retaining the additive schema. Do not modify applied migrations or delete run
+history as a rollback shortcut. No production deployment is claimed. Source/tests
+are present; current verification evidence belongs to
+[Plan 030](../plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+
 ### Job definitions
 
 | Field          | Value                                                                                                                                                                                      |
@@ -71,13 +130,13 @@ erDiagram
 
 ### Job execution history
 
-| Field          | Value                                                                                                                                                                                                                                                                                                                                                            |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql) |
-| Owner          | Platform scheduler module                                                                                                                                                                                                                                                                                                                                        |
-| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                                                                                                                                          |
-| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                                                                                                                                           |
-| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                                                                                                                                                   |
+| Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql), [`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql) |
+| Owner          | Platform scheduler module                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                                                                                                                                                                                                                                                               |
+| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 Child rows store canonical execution identity in `meta_json.workType` and
 `meta_json.workKey`. V9 is a schema-only cutover: it never deletes or rewrites

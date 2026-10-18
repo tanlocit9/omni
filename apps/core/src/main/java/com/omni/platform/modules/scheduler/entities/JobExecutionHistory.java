@@ -40,6 +40,12 @@ public class JobExecutionHistory extends AuditableEntity {
     @Column(name = "parent_log_id")
     private UUID parentLogId;
 
+    @Column(name = "job_run_id", updatable = false)
+    private UUID jobRunId;
+
+    @Column(name = "job_run_step_index", updatable = false)
+    private Integer jobRunStepIndex;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private JobStatus status;
@@ -70,6 +76,11 @@ public class JobExecutionHistory extends AuditableEntity {
     private Map<String, Object> metaJson;
 
     public enum JobStatus {
-        PENDING, RUNNING, SUCCESS, FAILED, ERROR, BLOCKED
+        PENDING,
+        RUNNING,
+        SUCCESS,
+        FAILED,
+        ERROR,
+        BLOCKED
     }
 }

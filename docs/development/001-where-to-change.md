@@ -67,6 +67,12 @@ flowchart TD
 
 ## Safe-write mechanics
 
+JobRun persistence starts in scheduler `runs/FrozenJobRunPath`, `runs/JobRunSnapshot`
+and `repositories/JobRunRepository`; V12 owns its frozen scoped instance schema.
+The boundary is inactive in I3.b. Future callers must use the approved I2 resolver
+and capability mappings; writing a snapshot does not authorize execution, change
+guard policy or publish messages. Preserve nullable legacy execution links.
+
 Reusable writer mechanics may share immutable intent identity, fenced lease/claim,
 atomic conditional transitions, bounded retry, idempotent completion, and the rule
 that input is not acknowledged before output is durable. These mechanics do not

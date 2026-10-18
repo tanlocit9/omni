@@ -1,5 +1,24 @@
 # Omni Release Notes
 
+## 2026-10-18 - I3.b JobRun persistence foundation (local gate passed)
+
+Added forward-only V12 for JobRun requests, frozen scoped steps/predecessors and
+nullable execution links, plus an inactive transactional snapshot repository.
+Creation is bounded and atomic, request retries are idempotent, and sealed path
+membership/request identity is protected from mutation. Snapshot reads use stored
+identity/scope/membership rather than current static declarations. Legacy writers
+retain NULL links; scheduled/manual, outbox, guard, Kafka and workers are unchanged.
+Manual-table removal and target-driven preparation remain I3.c/d work. New pure
+unit, PostgreSQL Testcontainers and real-application JPA mapping tests passed:
+310 tests across 52 suites, zero failures/errors/skips, including 17 new cases.
+Changed-file formatting and the dedicated Platform test, coverage and clean build
+targets passed (`P14-I3b`: four required checks). The JaCoCo report shows critical
+new Java components above 80% line/branch; SQL safety has explicit executed-case
+mapping rather than numeric coverage. Clean build reran all 310 tests and produced
+the application JAR. This is local evidence; no CI, deployment or owner attestation
+is claimed. I2/I3 statuses are unchanged. See
+[I3.b scope and gates](docs/plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+
 ## 2026-10-18 - Align tooling tests in CI and local verification
 
 Added uncached `omni:tools-test` for Python tooling regression tests. CI sets up

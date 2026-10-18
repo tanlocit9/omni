@@ -101,6 +101,20 @@ I3 remains `pending`; no product scope or dependency is changed by this evidence
 Owner-requested bounded I3.a pre-cutover source (2026-10-17): typed definition-level declaration/provider and resolver input plus parity/validation tests are present. Legacy seed JSON remains behind consumer-removal gates. The owner-requested cleanup removes unused topology adapters and migrates all repository test callers to typed input; JSON baseline parsing is test-only. The later full Platform regression passed 293 tests in 50 suites with zero failures/errors/skips (`WINDOWS-HIDDEN-CONSOLES-20261018`); the separate coverage/build gate remains open. Previous I2 PASS does not cover the modified provider/resolver. I2 remains `verification_pending`, I3 remains `pending` and is not autonomously ready for I3.b. No JobRun schema or scheduling/dispatcher activation. See [I3.a evidence and gates](../030-static-graph-dispatch-planner.md#i3a-pre-cutover-source--2026-10-17).
 
 - **P14-I3:** begin with checkpoint I3.a: move job-to-job `configJson.dependsOnJobs` into typed, source-controlled static edges keyed by `JobDefinitionIdentity`, preserving one topology provider and I2 resolver with parity/startup regression and no persisted graph. Then unified `job_runs` persisted logical-run and frozen ancestor→target paths; scheduled/manual modes and future backfill identity; decommission `manual_job_triggers` via new forward-only migration **after** all manual runtime readers/writers have cut over, without historical-data migration. Keep necessary dependency job definitions/producers, reduce only independently cron-scheduled entry targets. Prepare and enqueue dependency-first; keep legacy FIFO outbox, guard, claim, publish and retry behavior unchanged. Enqueue order is not upstream-completion proof: feature-gate target-driven admission if the old guard cannot safely enforce run-step predecessor completion.
+
+Owner-requested I3.b bounded source (2026-10-18): additive V12 JobRun/frozen-step
+schema, inactive transactional snapshot repository, immutable scoped membership,
+request idempotency and nullable execution links are present with new unit and
+PostgreSQL tests. Full local Platform regression passed 310 tests across 52 suites
+with zero failures/errors/skips (17 new cases), plus changed-file formatting.
+The dedicated coverage and clean build targets also passed (`P14-I3b`: four
+required checks PASS); clean build reran all 310 tests and produced the application
+JAR. Attributable JaCoCo coverage and the executed SQL case matrix are in Plan 030.
+This is local verification, without CI, deployment or owner attestation.
+No prior I3.a PASS substitutes for this new schema/source evidence. No scheduled/manual cutover, outbox activation or table removal.
+I2 remains `verification_pending`, I3 `pending`; this is not readiness/completion
+promotion. See [I3.b scope and gates](../030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+
 - **P14-I4:** execution-centered **JobRun path snapshot** drives outbox selection, cohort barrier, joins and fair quotas with admission/claim revalidation, fallback, fenced publish and TD-014 safety evidence.
 - **P14-I5:** runnable, versioned read-only SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, Hikari/DB/query/throughput measured baseline, and metric dictionary. Essential I3/I4 safety and query tests remain their own acceptance gates.
 - **P14-I6:** bounded read-model and dashboard handoff for Plan 029, without creating a second dashboard/UI implementation or unnecessary API.

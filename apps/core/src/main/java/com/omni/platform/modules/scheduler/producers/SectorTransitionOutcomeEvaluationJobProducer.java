@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,19 +53,35 @@ public class SectorTransitionOutcomeEvaluationJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+            Instant timestamps,
+            JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SectorTransitionConfig config = JobConfigMapper.toSectorTransitionConfig(jobConfig);
         List<String> configuredSectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
-        String[] sectorCodeFilter = configuredSectorCodes.isEmpty() ? null : configuredSectorCodes.toArray(new String[0]);
-        List<String> resolvedUniverse = symbolRepository.findDistinctSectorCodesByLevel(
-                sectorCodeFilter,
-                sectorLevel);
+        String[] sectorCodeFilter =
+                configuredSectorCodes.isEmpty()
+                        ? null
+                        : configuredSectorCodes.toArray(new String[0]);
+        List<String> resolvedUniverse =
+                context != null
+                        ? context.sectors(sectorCodeFilter, sectorLevel)
+                        : symbolRepository.findDistinctSectorCodesByLevel(
+                                sectorCodeFilter, sectorLevel);
         List<String> configuredFocusSectorCodes = config.focusSectorCodes();
-        List<String> resolvedFocus = configuredFocusSectorCodes.isEmpty() ? resolvedUniverse : configuredFocusSectorCodes;
+        List<String> resolvedFocus =
+                configuredFocusSectorCodes.isEmpty()
+                        ? resolvedUniverse
+                        : configuredFocusSectorCodes;
         validateFocusWithinUniverse(resolvedFocus, resolvedUniverse);
 
         Map<String, Object> metadata = new HashMap<>();
@@ -74,47 +91,62 @@ public class SectorTransitionOutcomeEvaluationJobProducer extends JobProducer {
         metadata.put("resolvedUniverse", resolvedUniverse);
         metadata.put("resolvedFocus", resolvedFocus);
         metadata.put("resolvedSectorCodes", resolvedUniverse);
-        JobExecutionHistory child = jobService.createChildExecution(
-                jobExecutionHistory.getId(),
-                WorkIdentity.of(WorkType.GLOBAL, config.strategy()),
-                metadata,
-                timestamps);
+        JobExecutionHistory child =
+                createChild(
+                        context,
+                        jobExecutionHistory,
+                        WorkIdentity.of(WorkType.GLOBAL, config.strategy()),
+                        metadata,
+                        timestamps);
 
-        log.info("Evaluating Sector Transition outcomes universe={} focus={} sectorLevel={} strategy={} timeframe={} evaluationDate={} horizons={} jobId={} executionId={}",
-                resolvedUniverse, resolvedFocus, sectorLevel, config.strategy(), config.timeframe(), config.evaluationDate(),
-                config.predictionHorizons(), job.getId(), child.getId());
-
-        return List.of(new KafkaMessage(
+        log.info(
+                "Evaluating Sector Transition outcomes universe={} focus={} sectorLevel={} strategy={} timeframe={} evaluationDate={} horizons={} jobId={} executionId={}",
+                resolvedUniverse,
+                resolvedFocus,
+                sectorLevel,
                 config.strategy(),
-                new SectorTransitionOutcomeEvaluationJobMessage(
-                        job.getId(),
-                        child.getId(),
-                        jobExecutionHistory.getId(),
-                        job.getSource().toString(),
-                        WorkType.GLOBAL,
+                config.timeframe(),
+                config.evaluationDate(),
+                config.predictionHorizons(),
+                job.getId(),
+                child.getId());
+
+        return List.of(
+                new KafkaMessage(
                         config.strategy(),
-                        config.evaluationDate(),
-                        resolvedUniverse,
-                        resolvedFocus,
-                        sectorLevel,
-                        config.timeframe(),
-                        config.strategy(),
-                        config.predictionHorizons(),
-                        metadata)));
+                        new SectorTransitionOutcomeEvaluationJobMessage(
+                                job.getId(),
+                                child.getId(),
+                                jobExecutionHistory.getId(),
+                                job.getSource().toString(),
+                                WorkType.GLOBAL,
+                                config.strategy(),
+                                config.evaluationDate(),
+                                resolvedUniverse,
+                                resolvedFocus,
+                                sectorLevel,
+                                config.timeframe(),
+                                config.strategy(),
+                                config.predictionHorizons(),
+                                metadata)));
     }
 
-    private void validateFocusWithinUniverse(List<String> resolvedFocus, List<String> resolvedUniverse) {
-        List<String> invalidFocus = resolvedFocus.stream()
-                .filter(focus -> !resolvedUniverse.contains(focus))
-                .toList();
+    private void validateFocusWithinUniverse(
+            List<String> resolvedFocus, List<String> resolvedUniverse) {
+        List<String> invalidFocus =
+                resolvedFocus.stream().filter(focus -> !resolvedUniverse.contains(focus)).toList();
         if (!invalidFocus.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Sector Transition focusSectorCodes must be within resolved sectorCodes universe: " + invalidFocus);
+                    "Sector Transition focusSectorCodes must be within resolved sectorCodes universe: "
+                            + invalidFocus);
         }
     }
 
     @Override
     protected void postPublish(JobDefinition job, Instant now) {
-        log.info("Published Sector Transition outcome job [{}] for source [{}]", job.getId(), job.getSource());
+        log.info(
+                "Published Sector Transition outcome job [{}] for source [{}]",
+                job.getId(),
+                job.getSource());
     }
 }

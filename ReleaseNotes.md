@@ -1,5 +1,41 @@
 # Omni Release Notes
 
+## 2026-10-20 - I3.c replay lock order (local gate passed)
+
+Visible-run replay now locks the target definition before the run, matching fresh
+preparation and preventing definition/run inversion during overlapping retries.
+The new PostgreSQL regression reproduced an actual deadlock on the old Java source;
+the repair passes both scheduled/manual variants with unchanged execution identity,
+membership, cadence and fenced lease release. The five-check local gate passed:
+29 focused PostgreSQL tests, 352 full Platform tests / 56 suites, no failures,
+errors or skips. Preparation service coverage is 99.35% line / 91.67% branch.
+A second static review found no additional issue within the changed replay path
+and its definition/run/claim callers. Docs are synchronized; preparation remains
+false and I2/I3 status is unchanged. No migration or activation is included.
+
+## 2026-10-20 - I3.c progress lock repair (local gate passed)
+
+V13 execution/outbox UPDATE guards now bypass membership locks when the complete
+protected identity is unchanged. Structural changes retain membership guards and
+sorted run locks. Added five PostgreSQL regressions, including real status/upsert
+interleaving. The exact old migration reproduced `deadlock detected`; its failing
+baseline is retained separately. The renewed five-check format/focused-test/full-test/
+coverage/clean-build gate passed: 28 focused PostgreSQL tests and 351 full Platform
+tests across 56 suites, zero failures/errors/skips. Directly impacted Java components
+exceed 80% line/branch coverage; SQL uses an executed criterion matrix in Plan 030.
+No Java service or aggregation lock changed. Preparation remains false, I2/I3 status
+is unchanged, and no production migration or activation is claimed.
+
+## 2026-10-19 - I3.c lock-safety repair plan (open finding)
+
+Static review identifies a possible parent/run lock cycle between symbol-upsert
+aggregation and child status handling. Plan 030 now scopes execution and outbox
+progress fast paths, retained membership guards, deterministic PostgreSQL lock
+tests and a renewed verification gate. Previous 346-test evidence does not cover
+this interleaving. Planning only: no SQL/Java change, test/build/lint/format run,
+activation or increment-status promotion.
+See [repair plan](docs/plans/030-static-graph-dispatch-planner.md#i3c-lock-safety-repair-plan--2026-10-19).
+
 ## 2026-10-19 - Windows tooling launch review (local checks passed)
 
 Contract launchers and formatter-test Git helpers now request hidden Windows
@@ -17,6 +53,32 @@ Recorder Windows child defaults now disable Cloud/native runner/TUI, preserving
 explicit overrides and leaving repo configuration/non-Windows CI unchanged.
 Three new tests cover environment defaults, overrides and non-Windows behavior.
 This does not claim every third-party tool or direct launch path is flash-free.
+
+## 2026-10-19 - I3.c symbol-upsert membership review fix (local gate passed)
+
+V13 now validates prepared parent ownership before the legacy NULL-run exemption,
+rejecting unlinked child inserts and legacy row rebinding. Symbol-upsert keeps
+writing symbol data but creates no new SYMBOL executions under prepared parents;
+the frozen EXCHANGE children retain worker-status ownership. Legacy/untracked
+upserts keep their existing behavior. Added SQL bypass, consumer retry, legacy,
+empty-batch and failure regression cases. Renewed local format/test/coverage/clean
+build passed: 346 tests across 56 suites, zero failures/errors/skips. Upsert behavior
+has 100% line / 95% branch coverage; the preparation lookup has 100% / 100%.
+No I3.d/I4 activation or status promotion. The preparation flag remains false.
+
+## 2026-10-18 - I3.c bounded JobRun preparation (local gate passed)
+
+Added gated target-path preparation, bounded producer fan-out and additive V13
+execution/message closure. Dependencies are enqueued before the target in one
+bounded transaction; retries reuse closed membership. The preparation flag remains
+false; current scheduler/manual/FIFO/guard behavior stays active. No cron reduction,
+manual-table removal, transport change or production activation is included.
+The four-check local format/test/coverage/clean-build gate passed: 341 tests across
+55 suites, zero failures/errors/skips, including 20 new PostgreSQL preparation
+cases. Every critical changed component exceeds 80% line/branch coverage; SQL uses
+an executed case matrix. I2/I3 statuses are unchanged. No CI/deployment or owner
+attestation is claimed.
+See [I3.c scope and gates](docs/plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
 
 ## 2026-10-18 - I3.b JobRun persistence foundation (local gate passed)
 

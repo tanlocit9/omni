@@ -34,10 +34,20 @@ class JobSchedulerTest {
         when(definitions.findById(job.getId())).thenReturn(Optional.of(job));
         when(producers.getProducer(job.getJobType())).thenReturn(producer);
 
-        new JobScheduler(definitions, producers, claims).scan();
+        new JobScheduler(
+                        definitions,
+                        producers,
+                        claims,
+                        mock(
+                                com.omni.platform.modules.scheduler.runs.JobRunPreparationService
+                                        .class))
+                .scan();
 
-        verify(producer).prepareDispatch(org.mockito.ArgumentMatchers.same(job),
-                org.mockito.ArgumentMatchers.same(claim), any(Instant.class));
+        verify(producer)
+                .prepareDispatch(
+                        org.mockito.ArgumentMatchers.same(job),
+                        org.mockito.ArgumentMatchers.same(claim),
+                        any(Instant.class));
     }
 
     @Test
@@ -47,9 +57,80 @@ class JobSchedulerTest {
         SchedulerClaimService claims = mock(SchedulerClaimService.class);
         when(claims.claimDueJobs(any())).thenReturn(List.of());
 
-        new JobScheduler(definitions, producers, claims).scan();
+        new JobScheduler(
+                        definitions,
+                        producers,
+                        claims,
+                        mock(
+                                com.omni.platform.modules.scheduler.runs.JobRunPreparationService
+                                        .class))
+                .scan();
 
         verifyNoInteractions(producers);
+    }
+
+    @Test
+    void gatedTargetUsesJobRunPreparationAndDisabledTargetRetainsLegacyDispatch() {
+        var definitions = mock(JobDefinitionRepository.class);
+        var producers = mock(JobProducerRegistry.class);
+        var claims = mock(SchedulerClaimService.class);
+        var preparation =
+                mock(com.omni.platform.modules.scheduler.runs.JobRunPreparationService.class);
+        var producer = mock(JobProducer.class);
+        var job = job();
+        var claim = claim(job);
+        when(claims.claimDueJobs(any())).thenReturn(List.of(claim));
+        when(definitions.findById(job.getId())).thenReturn(Optional.of(job));
+        var scheduler = new JobScheduler(definitions, producers, claims, preparation);
+        when(preparation.supports(job)).thenReturn(true);
+        scheduler.scan();
+        verify(preparation)
+                .prepareScheduled(
+                        org.mockito.ArgumentMatchers.same(job),
+                        org.mockito.ArgumentMatchers.same(claim),
+                        any());
+        verifyNoInteractions(producers);
+        when(preparation.supports(job)).thenReturn(false);
+        when(producers.getProducer(job.getJobType())).thenReturn(producer);
+        scheduler.scan();
+        verify(producer)
+                .prepareDispatch(
+                        org.mockito.ArgumentMatchers.same(job),
+                        org.mockito.ArgumentMatchers.same(claim),
+                        any());
+    }
+
+    @Test
+    void missingDefinitionsAndFailedPreparationDoNotPreventLaterClaimedJobs() {
+        var definitions = mock(JobDefinitionRepository.class);
+        var producers = mock(JobProducerRegistry.class);
+        var claims = mock(SchedulerClaimService.class);
+        var preparation =
+                mock(com.omni.platform.modules.scheduler.runs.JobRunPreparationService.class);
+        var producer = mock(JobProducer.class);
+        var missing = job();
+        var broken = job();
+        var good = job();
+        var missingClaim = claim(missing);
+        var brokenClaim = claim(broken);
+        var goodClaim = claim(good);
+        when(claims.claimDueJobs(any())).thenReturn(List.of(missingClaim, brokenClaim, goodClaim));
+        when(definitions.findById(missing.getId())).thenReturn(Optional.empty());
+        when(definitions.findById(broken.getId())).thenReturn(Optional.of(broken));
+        when(definitions.findById(good.getId())).thenReturn(Optional.of(good));
+        when(producers.getProducer(good.getJobType())).thenReturn(producer);
+        org.mockito.Mockito.doThrow(new IllegalStateException("Preparation failed"))
+                .when(producer)
+                .prepareDispatch(
+                        org.mockito.ArgumentMatchers.eq(broken),
+                        org.mockito.ArgumentMatchers.eq(brokenClaim),
+                        any());
+        new JobScheduler(definitions, producers, claims, preparation).scan();
+        verify(producer)
+                .prepareDispatch(
+                        org.mockito.ArgumentMatchers.eq(good),
+                        org.mockito.ArgumentMatchers.eq(goodClaim),
+                        any());
     }
 
     private JobDefinition job() {

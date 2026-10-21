@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,48 +54,73 @@ public class PrecomputeSymbolFeaturesJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+            Instant timestamps,
+            JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SectorWaveConfig config = JobConfigMapper.toSectorWaveConfig(jobConfig);
         List<String> sectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
 
-        List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
-                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
-                sectorLevel);
+        List<SymbolKeyProjection> symbols =
+                context != null
+                        ? context.symbols(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel)
+                        : symbolRepository.findBySectorCodesAndLevel(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel);
 
-        log.info("Precomputing symbol features for {} symbols sectorCodes={} sectorLevel={} timeframe={} jobId={} executionId={}",
-                symbols.size(), sectorCodes, sectorLevel, config.timeframe(), job.getId(), jobExecutionHistory.getId());
+        log.info(
+                "Precomputing symbol features for {} symbols sectorCodes={} sectorLevel={} timeframe={} jobId={} executionId={}",
+                symbols.size(),
+                sectorCodes,
+                sectorLevel,
+                config.timeframe(),
+                job.getId(),
+                jobExecutionHistory.getId());
 
         return symbols.stream()
-                .map(symbol -> {
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.putAll(jobConfig);
-                    JobExecutionHistory child = jobService.createChildExecution(
-                            jobExecutionHistory.getId(),
-                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
-                            metadata,
-                            timestamps);
-                    return new KafkaMessage(
-                            symbol.symbolKey(),
-                            new SectorWaveSymbolFeatureJobMessage(
-                                    job.getId(),
-                                    child.getId(),
-                                    jobExecutionHistory.getId(),
-                                    job.getSource().toString(),
-                                    WorkType.SYMBOL,
+                .map(
+                        symbol -> {
+                            Map<String, Object> metadata = new HashMap<>();
+                            metadata.putAll(jobConfig);
+                            JobExecutionHistory child =
+                                    createChild(
+                                            context,
+                                            jobExecutionHistory,
+                                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
+                                            metadata,
+                                            timestamps);
+                            return new KafkaMessage(
                                     symbol.symbolKey(),
-                                    symbol.symbolKey(),
-                                    config.timeframe(),
-                                    metadata));
-                })
+                                    new SectorWaveSymbolFeatureJobMessage(
+                                            job.getId(),
+                                            child.getId(),
+                                            jobExecutionHistory.getId(),
+                                            job.getSource().toString(),
+                                            WorkType.SYMBOL,
+                                            symbol.symbolKey(),
+                                            symbol.symbolKey(),
+                                            config.timeframe(),
+                                            metadata));
+                        })
                 .toList();
     }
 
     @Override
     protected void postPublish(JobDefinition job, Instant now) {
-        log.info("Published symbol feature precompute job [{}] for source [{}]", job.getId(), job.getSource());
+        log.info(
+                "Published symbol feature precompute job [{}] for source [{}]",
+                job.getId(),
+                job.getSource());
     }
 }

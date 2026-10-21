@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
@@ -63,61 +64,91 @@ public class SyncStockPriceJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
+            Instant timestamps,
+            JobRunWorkContext context) {
         SyncStockPriceConfig config = JobConfigMapper.toStockPriceConfig(job.getConfigJson());
         List<String> sectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
 
-        List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
-                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+        List<SymbolKeyProjection> symbols =
+                context != null
+                        ? context.symbols(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel)
+                        : symbolRepository.findBySectorCodesAndLevel(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel);
+
+        log.info(
+                "Syncing {} symbols with sectorCodes: {} at level {}",
+                symbols.size(),
+                sectorCodes,
                 sectorLevel);
-
-        log.info("Syncing {} symbols with sectorCodes: {} at level {}", symbols.size(), sectorCodes, sectorLevel);
+        Map<String, String> offsets = context == null ? Map.of() : context.offsets(symbols);
         return symbols.stream()
-                .map(symbol -> {
-                    Instant fromOffset = jobExecutionHistoryRepository
-                            .findLastOffset(job.getId(), symbol.symbolKey())
-                            .map(offset -> parseOffset(offset, symbol.symbolKey()))
-                            .orElse(null);
+                .map(
+                        symbol -> {
+                            Instant fromOffset =
+                                    context != null
+                                            ? java.util.Optional.ofNullable(
+                                                            offsets.get(symbol.symbolKey()))
+                                                    .map(
+                                                            offset ->
+                                                                    parseOffset(
+                                                                            offset,
+                                                                            symbol.symbolKey()))
+                                                    .orElse(null)
+                                            : jobExecutionHistoryRepository
+                                                    .findLastOffset(job.getId(), symbol.symbolKey())
+                                                    .map(
+                                                            offset ->
+                                                                    parseOffset(
+                                                                            offset,
+                                                                            symbol.symbolKey()))
+                                                    .orElse(null);
 
-                    Map<String, Object> metadata = new HashMap<>();
-                    if (job.getConfigJson() != null) {
-                        metadata.putAll(job.getConfigJson());
-                    }
+                            Map<String, Object> metadata = new HashMap<>();
+                            if (job.getConfigJson() != null) {
+                                metadata.putAll(job.getConfigJson());
+                            }
 
-                    JobExecutionHistory childJobExcutionHistory = jobService.createChildExecution(
-                            jobExecutionHistory.getId(),
-                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
-                            metadata,
-                            timestamps);
+                            JobExecutionHistory childJobExcutionHistory =
+                                    createChild(
+                                            context,
+                                            jobExecutionHistory,
+                                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
+                                            metadata,
+                                            timestamps);
 
-                    return new KafkaMessage(
-                            symbol.symbolKey(),
-                            new SymbolJobMessage(
-                                    job.getId(),
-                                    childJobExcutionHistory.getId(),
-                                    jobExecutionHistory.getId(),
-                                    job.getSource().toString(),
-                                    WorkType.SYMBOL,
+                            return new KafkaMessage(
                                     symbol.symbolKey(),
-                                    symbol.symbolKey(),
-                                    fromOffset,
-                                    timestamps.truncatedTo(ChronoUnit.SECONDS),
-                                    metadata));
-                })
+                                    new SymbolJobMessage(
+                                            job.getId(),
+                                            childJobExcutionHistory.getId(),
+                                            jobExecutionHistory.getId(),
+                                            job.getSource().toString(),
+                                            WorkType.SYMBOL,
+                                            symbol.symbolKey(),
+                                            symbol.symbolKey(),
+                                            fromOffset,
+                                            timestamps.truncatedTo(ChronoUnit.SECONDS),
+                                            metadata));
+                        })
                 .toList();
     }
 
     @Override
-    protected void postPublish(
-            JobDefinition job, Instant now) {
+    protected void postPublish(JobDefinition job, Instant now) {
 
-        log.info(
-                "Published sync job [{}] for source [{}]",
-                job.getId(),
-                job.getSource());
+        log.info("Published sync job [{}] for source [{}]", job.getId(), job.getSource());
     }
 
     private Instant parseOffset(String offset, String symbolKey) {
@@ -136,6 +167,4 @@ public class SyncStockPriceJobProducer extends JobProducer {
             }
         }
     }
-
-
 }

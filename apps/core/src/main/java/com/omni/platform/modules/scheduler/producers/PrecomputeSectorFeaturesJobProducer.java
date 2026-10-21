@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,49 +53,71 @@ public class PrecomputeSectorFeaturesJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+            Instant timestamps,
+            JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SectorWaveConfig config = JobConfigMapper.toSectorWaveConfig(jobConfig);
         List<String> sectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
-        String[] sectorCodeFilter = sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]);
-        List<String> resolvedSectorCodes = symbolRepository.findDistinctSectorCodesByLevel(
-                sectorCodeFilter,
-                sectorLevel);
+        String[] sectorCodeFilter =
+                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]);
+        List<String> resolvedSectorCodes =
+                context != null
+                        ? context.sectors(sectorCodeFilter, sectorLevel)
+                        : symbolRepository.findDistinctSectorCodesByLevel(
+                                sectorCodeFilter, sectorLevel);
 
-        log.info("Precomputing sector features for sectorCodes={} sectorLevel={} timeframe={} jobId={} executionId={}",
-                resolvedSectorCodes, sectorLevel, config.timeframe(), job.getId(), jobExecutionHistory.getId());
+        log.info(
+                "Precomputing sector features for sectorCodes={} sectorLevel={} timeframe={} jobId={} executionId={}",
+                resolvedSectorCodes,
+                sectorLevel,
+                config.timeframe(),
+                job.getId(),
+                jobExecutionHistory.getId());
 
         return resolvedSectorCodes.stream()
-                .map(sectorCode -> {
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.putAll(jobConfig);
-                    JobExecutionHistory child = jobService.createChildExecution(
-                            jobExecutionHistory.getId(),
-                            WorkIdentity.of(WorkType.SECTOR, sectorCode),
-                            metadata,
-                            timestamps);
-                    return new KafkaMessage(
-                            sectorCode,
-                            new SectorWaveSectorFeatureJobMessage(
-                                    job.getId(),
-                                    child.getId(),
-                                    jobExecutionHistory.getId(),
-                                    job.getSource().toString(),
-                                    WorkType.SECTOR,
+                .map(
+                        sectorCode -> {
+                            Map<String, Object> metadata = new HashMap<>();
+                            metadata.putAll(jobConfig);
+                            JobExecutionHistory child =
+                                    createChild(
+                                            context,
+                                            jobExecutionHistory,
+                                            WorkIdentity.of(WorkType.SECTOR, sectorCode),
+                                            metadata,
+                                            timestamps);
+                            return new KafkaMessage(
                                     sectorCode,
-                                    sectorCode,
-                                    sectorLevel,
-                                    config.timeframe(),
-                                    metadata));
-                })
+                                    new SectorWaveSectorFeatureJobMessage(
+                                            job.getId(),
+                                            child.getId(),
+                                            jobExecutionHistory.getId(),
+                                            job.getSource().toString(),
+                                            WorkType.SECTOR,
+                                            sectorCode,
+                                            sectorCode,
+                                            sectorLevel,
+                                            config.timeframe(),
+                                            metadata));
+                        })
                 .toList();
     }
 
     @Override
     protected void postPublish(JobDefinition job, Instant now) {
-        log.info("Published sector feature precompute job [{}] for source [{}]", job.getId(), job.getSource());
+        log.info(
+                "Published sector feature precompute job [{}] for source [{}]",
+                job.getId(),
+                job.getSource());
     }
 }

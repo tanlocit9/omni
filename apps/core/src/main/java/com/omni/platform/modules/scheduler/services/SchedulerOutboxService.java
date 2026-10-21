@@ -37,23 +37,27 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
 
     @Transactional
     public void enqueue(
-            JobExecutionHistory execution,
-            String topic,
-            List<KafkaMessage> messages,
-            Instant now) {
+            JobExecutionHistory execution, String topic, List<KafkaMessage> messages, Instant now) {
         for (int index = 0; index < messages.size(); index++) {
             KafkaMessage message = messages.get(index);
             JobExecutionHistory messageExecution = execution;
             if (message.payload() instanceof JobMessage jobMessage
                     && !jobMessage.executionId().equals(execution.getId())) {
                 if (!execution.getId().equals(jobMessage.parentExecutionId())) {
-                    throw new IllegalArgumentException("Outbox message belongs to another parent execution");
+                    throw new IllegalArgumentException(
+                            "Outbox message belongs to another parent execution");
                 }
-                messageExecution = executionRepository.findById(jobMessage.executionId())
-                        .orElseThrow(() -> new IllegalArgumentException(
-                                "Outbox child execution not found: " + jobMessage.executionId()));
+                messageExecution =
+                        executionRepository
+                                .findById(jobMessage.executionId())
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalArgumentException(
+                                                        "Outbox child execution not found: "
+                                                                + jobMessage.executionId()));
                 if (!execution.getId().equals(messageExecution.getParentLogId())) {
-                    throw new IllegalArgumentException("Outbox child execution belongs to another parent");
+                    throw new IllegalArgumentException(
+                            "Outbox child execution belongs to another parent");
                 }
             }
             SchedulerOutboxMessage outbox = new SchedulerOutboxMessage();
@@ -76,21 +80,88 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 .toList();
     }
 
+    /** All executions are already tracked by the caller; no per-message database lookup. */
+    @Transactional
+    public void enqueueRunStep(
+            JobExecutionHistory parent,
+            String topic,
+            List<KafkaMessage> messages,
+            Instant now,
+            List<JobExecutionHistory> children) {
+        if (messages.size() > 5000)
+            throw new IllegalArgumentException("JOB_RUN_WORK_BOUND_EXCEEDED");
+        Map<UUID, JobExecutionHistory> executions = new java.util.HashMap<>();
+        for (JobExecutionHistory child : children) {
+            if (!parent.getId().equals(child.getParentLogId())
+                    || !parent.getJobRunId().equals(child.getJobRunId())
+                    || !parent.getJobRunStepIndex().equals(child.getJobRunStepIndex())) {
+                throw new IllegalArgumentException("JobRun child ownership mismatch");
+            }
+            executions.put(child.getId(), child);
+        }
+        java.util.Set<UUID> seen = new java.util.HashSet<>();
+        List<SchedulerOutboxMessage> rows = new java.util.ArrayList<>();
+        for (int index = 0; index < messages.size(); index++) {
+            KafkaMessage message = messages.get(index);
+            if (!(message.payload() instanceof JobMessage work)
+                    || !parent.getJob().getId().equals(work.jobDefinitionId())
+                    || !seen.add(work.executionId())) {
+                throw new IllegalArgumentException("Invalid or duplicate JobRun message");
+            }
+            JobExecutionHistory execution = executions.get(work.executionId());
+            if (execution == null) {
+                if (!children.isEmpty()
+                        || !parent.getId().equals(work.executionId())
+                        || work.parentExecutionId() != null) {
+                    throw new IllegalArgumentException("JobRun message execution mismatch");
+                }
+                execution = parent;
+            } else if (!parent.getId().equals(work.parentExecutionId())) {
+                throw new IllegalArgumentException("JobRun message parent mismatch");
+            }
+            if (!execution.getUsedSource().name().equals(work.source())
+                    || work.workType() == null
+                    || !work.workType().name().equals(execution.getMetaJson().get("workType"))
+                    || !java.util.Objects.equals(
+                            work.workKey(), execution.getMetaJson().get("workKey"))) {
+                throw new IllegalArgumentException("JobRun message work identity mismatch");
+            }
+            SchedulerOutboxMessage row = new SchedulerOutboxMessage();
+            row.setExecution(execution);
+            row.setMessageIndex(index);
+            row.setTopic(topic);
+            row.setMessageKey(message.key());
+            row.setPayload(kafkaPublisher.serialize(message.payload()));
+            row.setAvailableAt(now);
+            rows.add(row);
+        }
+        if (!children.isEmpty() && !seen.equals(executions.keySet())) {
+            throw new IllegalArgumentException("Incomplete JobRun fan-out messages");
+        }
+        repository.saveAll(rows);
+    }
+
     private SchedulerOutboxCandidate toCandidate(SchedulerOutboxMessage message) {
         JsonNode payload = parseCandidatePayload(message);
         UUID persistedExecutionId = message.getExecution().getId();
-        UUID workExecutionId = optionalUuid(payload, "executionId", message.getId(), persistedExecutionId);
-        JobExecutionHistory workExecution = executionRepository.findByIdWithJob(workExecutionId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Outbox payload execution not found messageId=" + message.getId()
-                                + " executionId=" + workExecutionId));
+        UUID workExecutionId =
+                optionalUuid(payload, "executionId", message.getId(), persistedExecutionId);
+        JobExecutionHistory workExecution =
+                executionRepository
+                        .findByIdWithJob(workExecutionId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Outbox payload execution not found messageId="
+                                                        + message.getId()
+                                                        + " executionId="
+                                                        + workExecutionId));
         if (hasText(payload, "executionId")) {
             verifyPayloadParent(message, payload, workExecution);
         }
 
-        Map<String, Object> metadata = workExecution.getMetaJson() == null
-                ? Map.of()
-                : workExecution.getMetaJson();
+        Map<String, Object> metadata =
+                workExecution.getMetaJson() == null ? Map.of() : workExecution.getMetaJson();
         String workType = optionalText(payload, "workType", value(metadata, "workType", null));
         String workKey = optionalText(payload, "workKey", value(metadata, "workKey", null));
         if (workType == null || workKey == null) {
@@ -98,10 +169,15 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                     "Missing scheduler outbox work identity messageId=" + message.getId());
         }
         return new SchedulerOutboxCandidate(
-                message.getId(), workExecution.getId(), workExecution.getParentLogId(), workExecution.getJob(),
-                workType, workKey,
+                message.getId(),
+                workExecution.getId(),
+                workExecution.getParentLogId(),
+                workExecution.getJob(),
+                workType,
+                workKey,
                 value(metadata, "runKey", workExecution.getTriggeredAt().toString()),
-                metadata, message.getAvailableAt());
+                metadata,
+                message.getAvailableAt());
     }
 
     private JsonNode parseCandidatePayload(SchedulerOutboxMessage message) {
@@ -147,7 +223,8 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         if (expectedParent == null) {
             if (parentValue != null && !parentValue.isBlank()) {
                 throw new IllegalStateException(
-                        "Unexpected scheduler outbox parentExecutionId messageId=" + message.getId());
+                        "Unexpected scheduler outbox parentExecutionId messageId="
+                                + message.getId());
             }
             return;
         }
@@ -185,10 +262,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     @Override
     @Transactional
     public List<SchedulerOutboxClaim> claimPending(
-            Instant now,
-            String instanceId,
-            Duration leaseDuration,
-            int batchSize) {
+            Instant now, String instanceId, Duration leaseDuration, int batchSize) {
         return repository.claimPending(now, instanceId, leaseDuration, batchSize);
     }
 
@@ -201,9 +275,14 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
 
     @Override
     @Transactional
-    public boolean scheduleRetry(SchedulerOutboxClaim claim, Instant retryAt, String sanitizedError) {
+    public boolean scheduleRetry(
+            SchedulerOutboxClaim claim, Instant retryAt, String sanitizedError) {
         return repository.markFailed(
-                claim.messageId(), claim.claimToken(), claim.claimedBy(), retryAt, sanitize(sanitizedError));
+                claim.messageId(),
+                claim.claimToken(),
+                claim.claimedBy(),
+                retryAt,
+                sanitize(sanitizedError));
     }
 
     private static void persistApprovedInputs(
@@ -215,12 +294,16 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         if (execution.getMetaJson() != null) {
             metadata.putAll(execution.getMetaJson());
         }
-        metadata.put("approvedInputs", approvedInputVersions.entrySet().stream()
-                .map(entry -> Map.<String, Object>of(
-                        "dataset", entry.getKey().getDataset(),
-                        "partition", entry.getKey().getPartition(),
-                        "dataVersion", entry.getValue()))
-                .toList());
+        metadata.put(
+                "approvedInputs",
+                approvedInputVersions.entrySet().stream()
+                        .map(
+                                entry ->
+                                        Map.<String, Object>of(
+                                                "dataset", entry.getKey().getDataset(),
+                                                "partition", entry.getKey().getPartition(),
+                                                "dataVersion", entry.getValue()))
+                        .toList());
         execution.setMetaJson(metadata);
     }
 
@@ -231,7 +314,8 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     }
 
     private String sanitize(String error) {
-        String normalized = error == null ? "unknown" : error.replaceAll("[\\r\\n\\t]+", " ").trim();
+        String normalized =
+                error == null ? "unknown" : error.replaceAll("[\\r\\n\\t]+", " ").trim();
         return normalized.substring(0, Math.min(normalized.length(), 4000));
     }
 

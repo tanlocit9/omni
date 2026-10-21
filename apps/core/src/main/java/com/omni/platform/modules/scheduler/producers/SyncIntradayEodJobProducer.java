@@ -2,6 +2,7 @@ package com.omni.platform.modules.scheduler.producers;
 
 import java.time.DayOfWeek;
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -35,7 +36,9 @@ public class SyncIntradayEodJobProducer extends JobProducer {
     @Value("${kafka.topics.topic-sync-intraday-eod}")
     private String topic;
 
-    public SyncIntradayEodJobProducer(JobService jobService, KafkaPublisher kafkaPublisher,
+    public SyncIntradayEodJobProducer(
+            JobService jobService,
+            KafkaPublisher kafkaPublisher,
             SymbolRepository symbolRepository) {
         super(jobService, kafkaPublisher);
         this.symbolRepository = symbolRepository;
@@ -52,30 +55,72 @@ public class SyncIntradayEodJobProducer extends JobProducer {
     }
 
     @Override
-    protected List<KafkaMessage> buildMessages(JobDefinition job, JobExecutionHistory parent, Instant now) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+    protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory parent, Instant now) {
+        return buildRunMessages(job, parent, now, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
+            JobDefinition job, JobExecutionHistory parent, Instant now, JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         List<LocalDate> tradingDates = requestedTradingDates(parent, now);
 
         return configuredExchanges(jobConfig).stream()
-                .flatMap(exchange -> symbolRepository.findAllActiveSymbolKeysByExchange(exchange).stream())
-                .flatMap(symbol -> tradingDates.stream().map(tradingDate -> {
-                    String symbolKey = symbol.symbolKey();
-                    String projectionExchange = normalizeExchange(symbol.getExchange());
-                    Map<String, Object> metadata = new HashMap<>(jobConfig);
-                    metadata.put(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of(projectionExchange));
-                    metadata.put("tradingDate", tradingDate.toString());
-                    JobExecutionHistory child = jobService.createChildExecution(
-                            parent.getId(), WorkIdentity.of(WorkType.SYMBOL, symbolKey), metadata, now);
-                    return new KafkaMessage(symbolKey + ":" + tradingDate, new IntradayEodJobMessage(
-                            job.getId(), child.getId(), parent.getId(), job.getSource().name(),
-                            WorkType.SYMBOL, symbolKey, symbolKey, projectionExchange, tradingDate,
-                            "VCI", metadata));
-                }))
+                .flatMap(
+                        exchange ->
+                                (context == null
+                                                ? symbolRepository
+                                                        .findAllActiveSymbolKeysByExchange(exchange)
+                                                : context.symbolsByExchange(exchange))
+                                        .stream())
+                .flatMap(
+                        symbol ->
+                                tradingDates.stream()
+                                        .map(
+                                                tradingDate -> {
+                                                    String symbolKey = symbol.symbolKey();
+                                                    String projectionExchange =
+                                                            normalizeExchange(symbol.getExchange());
+                                                    Map<String, Object> metadata =
+                                                            new HashMap<>(jobConfig);
+                                                    metadata.put(
+                                                            JobDefinitionConfig
+                                                                    .CONFIG_KEY_EXCHANGES,
+                                                            List.of(projectionExchange));
+                                                    metadata.put(
+                                                            "tradingDate", tradingDate.toString());
+                                                    JobExecutionHistory child =
+                                                            createChild(
+                                                                    context,
+                                                                    parent,
+                                                                    WorkIdentity.of(
+                                                                            WorkType.SYMBOL,
+                                                                            symbolKey),
+                                                                    metadata,
+                                                                    now);
+                                                    return new KafkaMessage(
+                                                            symbolKey + ":" + tradingDate,
+                                                            new IntradayEodJobMessage(
+                                                                    job.getId(),
+                                                                    child.getId(),
+                                                                    parent.getId(),
+                                                                    job.getSource().name(),
+                                                                    WorkType.SYMBOL,
+                                                                    symbolKey,
+                                                                    symbolKey,
+                                                                    projectionExchange,
+                                                                    tradingDate,
+                                                                    "VCI",
+                                                                    metadata));
+                                                }))
                 .toList();
     }
 
     private static List<LocalDate> requestedTradingDates(JobExecutionHistory parent, Instant now) {
-        Map<String, Object> metadata = parent.getMetaJson() == null ? Map.of() : parent.getMetaJson();
+        Map<String, Object> metadata =
+                parent.getMetaJson() == null ? Map.of() : parent.getMetaJson();
         Object targetValue = metadata.get("metadataTarget");
         if (!(targetValue instanceof Map<?, ?> target)) {
             return List.of(latestCompletedWeekday(now.atZone(VIETNAM_ZONE).toLocalDate()));
@@ -93,7 +138,8 @@ public class SyncIntradayEodJobProducer extends JobProducer {
         LocalDate end = LocalDate.parse(endDate);
         List<LocalDate> dates = new ArrayList<>();
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
-            if (date.getDayOfWeek() != DayOfWeek.SATURDAY && date.getDayOfWeek() != DayOfWeek.SUNDAY) {
+            if (date.getDayOfWeek() != DayOfWeek.SATURDAY
+                    && date.getDayOfWeek() != DayOfWeek.SUNDAY) {
                 dates.add(date);
             }
         }
@@ -105,8 +151,8 @@ public class SyncIntradayEodJobProducer extends JobProducer {
     }
 
     private static List<String> configuredExchanges(Map<String, Object> config) {
-        List<String> exchanges = JobConfigMapper.readStringList(
-                config, JobDefinitionConfig.CONFIG_KEY_EXCHANGES);
+        List<String> exchanges =
+                JobConfigMapper.readStringList(config, JobDefinitionConfig.CONFIG_KEY_EXCHANGES);
         if (exchanges.isEmpty()) {
             exchanges = JobDefinitionConfig.VIETNAM_EXCHANGES;
         }

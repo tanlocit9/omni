@@ -72,9 +72,7 @@ public class JobService {
      * @param now scheduler timestamp used for next-run calculation
      * @return newly persisted pending execution log
      */
-    public JobExecutionHistory prepareForExecution(
-            JobDefinition job,
-            Instant now) {
+    public JobExecutionHistory prepareForExecution(JobDefinition job, Instant now) {
 
         JobExecutionHistory log = createPendingLog(job);
 
@@ -87,9 +85,7 @@ public class JobService {
     }
 
     public JobExecutionHistory prepareClaimedExecution(
-            JobDefinition job,
-            SchedulerClaim claim,
-            Instant now) {
+            JobDefinition job, SchedulerClaim claim, Instant now) {
         return prepareClaimedExecution(job, claim, now, Map.of());
     }
 
@@ -102,17 +98,20 @@ public class JobService {
 
         JobExecutionHistory execution = prepareForExecution(job, now);
         if (!approvedInputVersions.isEmpty()) {
-            execution.setMetaJson(Map.of(
-                    "approvedInputs",
-                    approvedInputVersions.entrySet().stream()
-                            .map(entry -> Map.<String, Object>of(
-                                    "dataset",
-                                    entry.getKey().getDataset(),
-                                    "partition",
-                                    entry.getKey().getPartition(),
-                                    "dataVersion",
-                                    entry.getValue()))
-                            .toList()));
+            execution.setMetaJson(
+                    Map.of(
+                            "approvedInputs",
+                            approvedInputVersions.entrySet().stream()
+                                    .map(
+                                            entry ->
+                                                    Map.<String, Object>of(
+                                                            "dataset",
+                                                            entry.getKey().getDataset(),
+                                                            "partition",
+                                                            entry.getKey().getPartition(),
+                                                            "dataVersion",
+                                                            entry.getValue()))
+                                    .toList()));
             jobExecutionHistoryRepository.save(execution);
         }
         return execution;
@@ -135,12 +134,16 @@ public class JobService {
         execution.setTriggeredAt(now);
         Map<String, Object> metadata = new LinkedHashMap<>();
         if (!approvedInputVersions.isEmpty()) {
-            metadata.put("approvedInputs", approvedInputVersions.entrySet().stream()
-                    .map(entry -> Map.<String, Object>of(
-                            "dataset", entry.getKey().getDataset(),
-                            "partition", entry.getKey().getPartition(),
-                            "dataVersion", entry.getValue()))
-                    .toList());
+            metadata.put(
+                    "approvedInputs",
+                    approvedInputVersions.entrySet().stream()
+                            .map(
+                                    entry ->
+                                            Map.<String, Object>of(
+                                                    "dataset", entry.getKey().getDataset(),
+                                                    "partition", entry.getKey().getPartition(),
+                                                    "dataVersion", entry.getValue()))
+                            .toList());
         }
         metadata.putAll(manualTriggerMetadata);
         execution.setMetaJson(metadata);
@@ -151,23 +154,51 @@ public class JobService {
         if (!job.getId().equals(claim.jobDefinitionId())
                 || !Objects.equals(job.getClaimToken(), claim.claimToken())
                 || !Objects.equals(job.getClaimedBy(), claim.claimedBy())) {
-            throw new IllegalStateException("Scheduler claim no longer owns job definition " + job.getId());
+            throw new IllegalStateException(
+                    "Scheduler claim no longer owns job definition " + job.getId());
         }
     }
 
     public void enqueueDispatch(
-            JobExecutionHistory execution,
-            String topic,
-            List<KafkaMessage> messages,
-            Instant now) {
+            JobExecutionHistory execution, String topic, List<KafkaMessage> messages, Instant now) {
         schedulerOutboxService.enqueue(execution, topic, messages, now);
     }
 
     public void releaseClaim(SchedulerClaim claim) {
         boolean released = jobDefinitionRepository.releaseClaim(claim);
         if (!released) {
-            throw new IllegalStateException("Scheduler claim was superseded for job " + claim.jobDefinitionId());
+            throw new IllegalStateException(
+                    "Scheduler claim was superseded for job " + claim.jobDefinitionId());
         }
+    }
+
+    public void enqueueRunDispatch(
+            JobExecutionHistory parent,
+            String topic,
+            List<KafkaMessage> messages,
+            Instant now,
+            List<JobExecutionHistory> children) {
+        schedulerOutboxService.enqueueRunStep(parent, topic, messages, now, children);
+    }
+
+    public void completeRunPreparation(
+            JobDefinition target, SchedulerClaim claim, Instant now, boolean manual) {
+        verifyClaimOwnership(target, claim);
+        if (!manual) {
+            updateNextRun(target, now);
+            jobDefinitionRepository.saveAndFlush(target);
+        }
+        releaseClaim(claim);
+    }
+
+    /** Identifies versioned preparation parents whose work was fixed before dispatch. */
+    public boolean isRunPreparedExecution(UUID executionId) {
+        return jobExecutionHistoryRepository
+                .findById(executionId)
+                .filter(execution -> execution.getJobRunId() != null)
+                .map(JobExecutionHistory::getMetaJson)
+                .map(meta -> "1".equals(meta.get("runPreparationVersion")))
+                .orElse(false);
     }
 
     /**
@@ -188,8 +219,13 @@ public class JobService {
             Map<String, Object> metadata,
             Instant now) {
 
-        JobExecutionHistory parent = jobExecutionHistoryRepository.findById(parentLogId)
-                .orElseThrow(() -> new IllegalArgumentException("Parent job execution not found: " + parentLogId));
+        JobExecutionHistory parent =
+                jobExecutionHistoryRepository
+                        .findById(parentLogId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Parent job execution not found: " + parentLogId));
 
         JobExecutionHistory child = createPendingLog(parent.getJob());
         child.setParentLogId(parent.getId());
@@ -218,13 +254,13 @@ public class JobService {
      * @param finishedAt timestamp to use for start and finish fields
      */
     @Transactional
-    public void markParentWithNoChildren(
-            JobExecutionHistory execution,
-            Instant finishedAt) {
+    public void markParentWithNoChildren(JobExecutionHistory execution, Instant finishedAt) {
 
         if (isTerminal(execution.getStatus())) {
-            log.debug("Ignoring zero-child transition for terminal parent execution {} with status {}",
-                    execution.getId(), execution.getStatus());
+            log.debug(
+                    "Ignoring zero-child transition for terminal parent execution {} with status {}",
+                    execution.getId(),
+                    execution.getStatus());
             return;
         }
 
@@ -268,8 +304,10 @@ public class JobService {
             Map<String, Object> metadata) {
 
         if (isTerminal(execution.getStatus())) {
-            log.debug("Ignoring success transition for terminal execution {} with status {}",
-                    execution.getId(), execution.getStatus());
+            log.debug(
+                    "Ignoring success transition for terminal execution {} with status {}",
+                    execution.getId(),
+                    execution.getStatus());
             return;
         }
 
@@ -302,8 +340,10 @@ public class JobService {
             Map<String, Object> metadata) {
 
         if (isTerminal(execution.getStatus())) {
-            log.debug("Ignoring failed transition for terminal execution {} with status {}",
-                    execution.getId(), execution.getStatus());
+            log.debug(
+                    "Ignoring failed transition for terminal execution {} with status {}",
+                    execution.getId(),
+                    execution.getStatus());
             return;
         }
 
@@ -335,7 +375,11 @@ public class JobService {
     public void applyStatus(JobStatusMessage response) {
         log.info(
                 "Applying job status executionId={} parentExecutionId={} workType={} workKey={} status={} txActive={} txName={} metaKeys={}",
-                response.executionId(), response.parentExecutionId(), response.workType(), response.workKey(), response.status(),
+                response.executionId(),
+                response.parentExecutionId(),
+                response.workType(),
+                response.workKey(),
+                response.status(),
                 TransactionSynchronizationManager.isActualTransactionActive(),
                 TransactionSynchronizationManager.getCurrentTransactionName(),
                 response.metaJson() == null ? null : response.metaJson().keySet());
@@ -346,37 +390,49 @@ public class JobService {
 
         JobStatus incomingStatus = resolveStatus(response.status());
         if (incomingStatus == null) {
-            log.warn("Ignoring job status message with invalid status for execution {}: status={}",
-                    executionId, response.status());
+            log.warn(
+                    "Ignoring job status message with invalid status for execution {}: status={}",
+                    executionId,
+                    response.status());
             return;
         }
 
         if (hasInvalidOptionalIntMetaValue(response, "recordsProcessed")
                 || hasInvalidOptionalIntMetaValue(response, "recordsInserted")) {
-            log.warn("Ignoring job status message with invalid numeric metadata for execution {}", executionId);
+            log.warn(
+                    "Ignoring job status message with invalid numeric metadata for execution {}",
+                    executionId);
             return;
         }
         int recordsProcessed = resolveRecordsProcessed(response);
 
         if (!isValidParentExecutionId(response)) {
-            log.warn("Ignoring job status message with invalid parentExecutionId for execution {}: parentExecutionId={}",
-                    executionId, response.parentExecutionId());
+            log.warn(
+                    "Ignoring job status message with invalid parentExecutionId for execution {}: parentExecutionId={}",
+                    executionId,
+                    response.parentExecutionId());
             return;
         }
 
-        JobExecutionHistory history = jobExecutionHistoryRepository.findById(executionId)
-                .orElse(null);
+        JobExecutionHistory history =
+                jobExecutionHistoryRepository.findById(executionId).orElse(null);
         if (history == null) {
             log.warn("Ignoring job status message for unknown execution: {}", executionId);
             return;
         }
 
-        if (response.workType() == null || response.workKey() == null || response.workKey().isBlank()) {
-            log.warn("Ignoring job status message with missing work identity for execution {}", executionId);
+        if (response.workType() == null
+                || response.workKey() == null
+                || response.workKey().isBlank()) {
+            log.warn(
+                    "Ignoring job status message with missing work identity for execution {}",
+                    executionId);
             return;
         }
         if (!matchesPersistedWorkIdentity(history, response)) {
-            log.warn("Ignoring job status message with mismatched work identity for execution {}", executionId);
+            log.warn(
+                    "Ignoring job status message with mismatched work identity for execution {}",
+                    executionId);
             return;
         }
 
@@ -386,11 +442,17 @@ public class JobService {
 
         if (wasTerminal) {
             if (incomingTerminal) {
-                log.debug("Ignoring duplicate terminal status for execution {}: previous={} incoming={}",
-                        executionId, previousStatus, incomingStatus);
+                log.debug(
+                        "Ignoring duplicate terminal status for execution {}: previous={} incoming={}",
+                        executionId,
+                        previousStatus,
+                        incomingStatus);
             } else {
-                log.warn("Ignoring non-terminal regression for execution {}: previous={} incoming={}",
-                        executionId, previousStatus, incomingStatus);
+                log.warn(
+                        "Ignoring non-terminal regression for execution {}: previous={} incoming={}",
+                        executionId,
+                        previousStatus,
+                        incomingStatus);
             }
             return;
         }
@@ -403,22 +465,32 @@ public class JobService {
         history.setNewOffset(response.newOffset());
         history.setMetaJson(buildMetaJson(history, response));
 
-        log.info("Saving job status child executionId={} previousStatus={} incomingStatus={} parentLogId={} metaKeys={}",
-                executionId, previousStatus, incomingStatus, history.getParentLogId(),
+        log.info(
+                "Saving job status child executionId={} previousStatus={} incomingStatus={} parentLogId={} metaKeys={}",
+                executionId,
+                previousStatus,
+                incomingStatus,
+                history.getParentLogId(),
                 history.getMetaJson() == null ? null : history.getMetaJson().keySet());
         jobExecutionHistoryRepository.saveAndFlush(history);
-        log.info("Saved job status child executionId={} txActive={}",
-                executionId, TransactionSynchronizationManager.isActualTransactionActive());
+        log.info(
+                "Saved job status child executionId={} txActive={}",
+                executionId,
+                TransactionSynchronizationManager.isActualTransactionActive());
 
         UUID persistedParentLogId = history.getParentLogId();
         validateMessageParentExecutionId(response, persistedParentLogId, executionId);
 
         if (persistedParentLogId != null) {
-            log.info("Aggregating parent execution parentLogId={} after child executionId={}",
-                    persistedParentLogId, executionId);
+            log.info(
+                    "Aggregating parent execution parentLogId={} after child executionId={}",
+                    persistedParentLogId,
+                    executionId);
             aggregateParentExecution(persistedParentLogId);
-            log.info("Aggregated parent execution parentLogId={} after child executionId={} txActive={}",
-                    persistedParentLogId, executionId,
+            log.info(
+                    "Aggregated parent execution parentLogId={} after child executionId={} txActive={}",
+                    persistedParentLogId,
+                    executionId,
                     TransactionSynchronizationManager.isActualTransactionActive());
             return;
         }
@@ -442,42 +514,51 @@ public class JobService {
      */
     @Transactional
     public void aggregateParentExecution(UUID parentLogId) {
-        log.info("Starting parent aggregation parentLogId={} txActive={} txName={}",
-                parentLogId, TransactionSynchronizationManager.isActualTransactionActive(),
+        log.info(
+                "Starting parent aggregation parentLogId={} txActive={} txName={}",
+                parentLogId,
+                TransactionSynchronizationManager.isActualTransactionActive(),
                 TransactionSynchronizationManager.getCurrentTransactionName());
-        JobExecutionHistory parent = jobExecutionHistoryRepository.findByIdForUpdate(parentLogId)
-                .orElseThrow(() -> new IllegalArgumentException("Parent job execution not found: " + parentLogId));
+        JobExecutionHistory parent =
+                jobExecutionHistoryRepository
+                        .findByIdForUpdate(parentLogId)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Parent job execution not found: " + parentLogId));
         JobStatus previousParentStatus = parent.getStatus();
         boolean wasTerminal = isTerminal(previousParentStatus);
 
         if (wasTerminal) {
-            log.debug("Ignoring aggregation for terminal parent execution {} with status {}",
-                    parentLogId, previousParentStatus);
+            log.debug(
+                    "Ignoring aggregation for terminal parent execution {} with status {}",
+                    parentLogId,
+                    previousParentStatus);
             return;
         }
 
-        List<JobExecutionHistory> children = jobExecutionHistoryRepository.findAllByParentLogId(parentLogId);
+        List<JobExecutionHistory> children =
+                jobExecutionHistoryRepository.findAllByParentLogId(parentLogId);
         if (children.isEmpty()) {
             markParentWithNoChildren(parent, Instant.now());
             return;
         }
 
-        long successCount = children.stream()
-                .filter(child -> child.getStatus() == JobStatus.SUCCESS)
-                .count();
-        long failedCount = children.stream()
-                .filter(child -> child.getStatus() == JobStatus.FAILED
-                        || child.getStatus() == JobStatus.ERROR)
-                .count();
-        long blockedCount = children.stream()
-                .filter(child -> child.getStatus() == JobStatus.BLOCKED)
-                .count();
-        long pendingCount = children.stream()
-                .filter(child -> child.getStatus() == JobStatus.PENDING)
-                .count();
-        long runningCount = children.stream()
-                .filter(child -> child.getStatus() == JobStatus.RUNNING)
-                .count();
+        long successCount =
+                children.stream().filter(child -> child.getStatus() == JobStatus.SUCCESS).count();
+        long failedCount =
+                children.stream()
+                        .filter(
+                                child ->
+                                        child.getStatus() == JobStatus.FAILED
+                                                || child.getStatus() == JobStatus.ERROR)
+                        .count();
+        long blockedCount =
+                children.stream().filter(child -> child.getStatus() == JobStatus.BLOCKED).count();
+        long pendingCount =
+                children.stream().filter(child -> child.getStatus() == JobStatus.PENDING).count();
+        long runningCount =
+                children.stream().filter(child -> child.getStatus() == JobStatus.RUNNING).count();
         boolean allTerminal = pendingCount == 0 && runningCount == 0;
 
         JobStatus parentStatus;
@@ -492,34 +573,42 @@ public class JobService {
         }
 
         parent.setStatus(parentStatus);
-        parent.setStartedAt(children.stream()
-                .map(JobExecutionHistory::getStartedAt)
-                .filter(startedAt -> startedAt != null)
-                .min(Instant::compareTo)
-                .orElse(parent.getStartedAt()));
-        parent.setFinishedAt(allTerminal
-                ? children.stream()
-                        .map(JobExecutionHistory::getFinishedAt)
-                        .filter(finishedAt -> finishedAt != null)
-                        .max(Instant::compareTo)
-                        .orElse(parent.getFinishedAt())
-                : null);
-        parent.setRecordsSynced(children.stream()
-                .map(JobExecutionHistory::getRecordsSynced)
-                .filter(records -> records != null)
-                .mapToInt(Integer::intValue)
-                .sum());
-        parent.setRecordsSkipped(children.stream()
-                .map(JobExecutionHistory::getRecordsSkipped)
-                .filter(records -> records != null)
-                .mapToInt(Integer::intValue)
-                .sum());
-        parent.setNewOffset(null);
-        parent.setError(parentStatus == JobStatus.FAILED
-                ? failedCount + "/" + children.size() + " tasks failed"
-                : parentStatus == JobStatus.BLOCKED
-                        ? blockedCount + "/" + children.size() + " tasks blocked by dependencies"
+        parent.setStartedAt(
+                children.stream()
+                        .map(JobExecutionHistory::getStartedAt)
+                        .filter(startedAt -> startedAt != null)
+                        .min(Instant::compareTo)
+                        .orElse(parent.getStartedAt()));
+        parent.setFinishedAt(
+                allTerminal
+                        ? children.stream()
+                                .map(JobExecutionHistory::getFinishedAt)
+                                .filter(finishedAt -> finishedAt != null)
+                                .max(Instant::compareTo)
+                                .orElse(parent.getFinishedAt())
                         : null);
+        parent.setRecordsSynced(
+                children.stream()
+                        .map(JobExecutionHistory::getRecordsSynced)
+                        .filter(records -> records != null)
+                        .mapToInt(Integer::intValue)
+                        .sum());
+        parent.setRecordsSkipped(
+                children.stream()
+                        .map(JobExecutionHistory::getRecordsSkipped)
+                        .filter(records -> records != null)
+                        .mapToInt(Integer::intValue)
+                        .sum());
+        parent.setNewOffset(null);
+        parent.setError(
+                parentStatus == JobStatus.FAILED
+                        ? failedCount + "/" + children.size() + " tasks failed"
+                        : parentStatus == JobStatus.BLOCKED
+                                ? blockedCount
+                                        + "/"
+                                        + children.size()
+                                        + " tasks blocked by dependencies"
+                                : null);
 
         Map<String, Object> meta = new LinkedHashMap<>();
         putAllAsStrings(meta, parent.getMetaJson());
@@ -533,14 +622,25 @@ public class JobService {
 
         log.info(
                 "Saving parent aggregation parentLogId={} previousStatus={} parentStatus={} allTerminal={} successCount={} failedCount={} pendingCount={} runningCount={} childCount={}",
-                parentLogId, previousParentStatus, parentStatus, allTerminal, successCount, failedCount, pendingCount,
-                runningCount, children.size());
+                parentLogId,
+                previousParentStatus,
+                parentStatus,
+                allTerminal,
+                successCount,
+                failedCount,
+                pendingCount,
+                runningCount,
+                children.size());
         jobExecutionHistoryRepository.saveAndFlush(parent);
-        log.info("Saved parent aggregation parentLogId={} txActive={}",
-                parentLogId, TransactionSynchronizationManager.isActualTransactionActive());
+        log.info(
+                "Saved parent aggregation parentLogId={} txActive={}",
+                parentLogId,
+                TransactionSynchronizationManager.isActualTransactionActive());
 
         if (allTerminal) {
-            publishNotification(new JobNotificationContext(parent, children, children.size(), successCount, failedCount));
+            publishNotification(
+                    new JobNotificationContext(
+                            parent, children, children.size(), successCount, failedCount));
         }
     }
 
@@ -566,7 +666,8 @@ public class JobService {
         execution.setMetaJson(meta);
     }
 
-    private Map<String, Object> buildMetaJson(JobExecutionHistory history, JobStatusMessage response) {
+    private Map<String, Object> buildMetaJson(
+            JobExecutionHistory history, JobStatusMessage response) {
         Map<String, Object> meta = new HashMap<>();
         putAllAsStrings(meta, history.getMetaJson());
         putAllAsStrings(meta, response.metaJson());
@@ -580,7 +681,8 @@ public class JobService {
         return meta;
     }
 
-    private boolean matchesPersistedWorkIdentity(JobExecutionHistory history, JobStatusMessage response) {
+    private boolean matchesPersistedWorkIdentity(
+            JobExecutionHistory history, JobStatusMessage response) {
         if (history.getParentLogId() == null) {
             return true;
         }
@@ -693,9 +795,7 @@ public class JobService {
     }
 
     private void validateMessageParentExecutionId(
-            JobStatusMessage response,
-            UUID persistedParentLogId,
-            UUID executionId) {
+            JobStatusMessage response, UUID persistedParentLogId, UUID executionId) {
         if (response.parentExecutionId() == null || response.parentExecutionId().isBlank()) {
             return;
         }
@@ -705,24 +805,37 @@ public class JobService {
             return;
         }
         if (persistedParentLogId != null && !persistedParentLogId.equals(messageParentLogId)) {
-            log.warn("Ignoring mismatched message parentExecutionId for execution {}: persisted={} message={}",
-                    executionId, persistedParentLogId, messageParentLogId);
+            log.warn(
+                    "Ignoring mismatched message parentExecutionId for execution {}: persisted={} message={}",
+                    executionId,
+                    persistedParentLogId,
+                    messageParentLogId);
         }
     }
 
     private void publishNotification(JobNotificationContext context) {
-        jobNotificationPolicyRegistry.buildNotification(context).ifPresent(event -> {
-            if (event instanceof SignalDigestNotificationEvent digest) {
-                signalNotificationTemplate.pages(digest).forEach(request ->
-                        notificationOutboxService.enqueue(request, Instant.now()));
-                return;
-            }
-            try {
-                eventPublisher.publishEvent(event);
-            } catch (Exception exc) {
-                log.warn("Failed to publish job notification event: {}", exc.getMessage(), exc);
-            }
-        });
+        jobNotificationPolicyRegistry
+                .buildNotification(context)
+                .ifPresent(
+                        event -> {
+                            if (event instanceof SignalDigestNotificationEvent digest) {
+                                signalNotificationTemplate
+                                        .pages(digest)
+                                        .forEach(
+                                                request ->
+                                                        notificationOutboxService.enqueue(
+                                                                request, Instant.now()));
+                                return;
+                            }
+                            try {
+                                eventPublisher.publishEvent(event);
+                            } catch (Exception exc) {
+                                log.warn(
+                                        "Failed to publish job notification event: {}",
+                                        exc.getMessage(),
+                                        exc);
+                            }
+                        });
     }
 
     private void putAllAsStrings(Map<String, Object> target, Map<String, Object> source) {
@@ -733,9 +846,7 @@ public class JobService {
         source.forEach((key, value) -> MetadataUtils.putIfPresent(target, key, value));
     }
 
-    private void updateNextRun(
-            JobDefinition job,
-            Instant now) {
+    private void updateNextRun(JobDefinition job, Instant now) {
 
         if (job.getCronExpr() == null) {
             return;
@@ -744,15 +855,10 @@ public class JobService {
         CronExpression cron = CronExpression.parse(job.getCronExpr());
         ZoneId zone = ZoneId.of(schedulerZone);
 
-        LocalDateTime nextRun = cron.next(
-                LocalDateTime.ofInstant(
-                        now,
-                        zone));
+        LocalDateTime nextRun = cron.next(LocalDateTime.ofInstant(now, zone));
 
         if (nextRun != null) {
-            job.setNextRun(
-                    nextRun.atZone(zone).toInstant());
+            job.setNextRun(nextRun.atZone(zone).toInstant());
         }
     }
-
 }

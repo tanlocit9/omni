@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -55,61 +56,73 @@ public class SyncSymbolsJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
+            Instant timestamps,
+            JobRunWorkContext context) {
 
         List<String> exchanges = extractExchanges(job.getConfigJson());
-        Map<String, Integer> symbolCountsByExchange = symbolRepository.countAllActiveSymbolsGroupedByExchange().stream()
-                .collect(Collectors.toMap(
-                        row -> (String) row[0],
-                        row -> ((Long) row[1]).intValue()));
+        Map<String, Integer> symbolCountsByExchange =
+                symbolRepository.countAllActiveSymbolsGroupedByExchange().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        row -> (String) row[0], row -> ((Long) row[1]).intValue()));
 
         return exchanges.stream()
-                .map(exchange -> {
-                    Integer symbolCount = symbolCountsByExchange.getOrDefault(exchange, 0);
-                    Map<String, Object> messageConfig = new java.util.HashMap<>(job.getConfigJson());
-                    messageConfig.put(JobDefinitionConfig.CONFIG_KEY_SYMBOL_COUNT, symbolCount);
-                    enrichSectorConfig(messageConfig);
+                .map(
+                        exchange -> {
+                            Integer symbolCount = symbolCountsByExchange.getOrDefault(exchange, 0);
+                            Map<String, Object> messageConfig =
+                                    new java.util.HashMap<>(job.getConfigJson());
+                            messageConfig.put(
+                                    JobDefinitionConfig.CONFIG_KEY_SYMBOL_COUNT, symbolCount);
+                            enrichSectorConfig(messageConfig);
 
-                    JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
-                            jobExecutionHistory.getId(),
-                            WorkIdentity.of(WorkType.EXCHANGE, exchange),
-                            messageConfig,
-                            timestamps);
+                            JobExecutionHistory childJobExecutionHistory =
+                                    createChild(
+                                            context,
+                                            jobExecutionHistory,
+                                            WorkIdentity.of(WorkType.EXCHANGE, exchange),
+                                            messageConfig,
+                                            timestamps);
 
-                    return new KafkaMessage(
-                            exchange,
-                            new SyncSymbolsJobMessage(
-                                    job.getId(),
-                                    childJobExecutionHistory.getId(),
-                                    jobExecutionHistory.getId(),
-                                    job.getSource().toString(),
-                                    WorkType.EXCHANGE,
+                            return new KafkaMessage(
                                     exchange,
-                                    exchange,
-                                    timestamps.truncatedTo(ChronoUnit.SECONDS),
-                                    messageConfig));
-                })
+                                    new SyncSymbolsJobMessage(
+                                            job.getId(),
+                                            childJobExecutionHistory.getId(),
+                                            jobExecutionHistory.getId(),
+                                            job.getSource().toString(),
+                                            WorkType.EXCHANGE,
+                                            exchange,
+                                            exchange,
+                                            timestamps.truncatedTo(ChronoUnit.SECONDS),
+                                            messageConfig));
+                        })
                 .toList();
     }
 
     @Override
-    protected void postPublish(
-            JobDefinition job, Instant now) {
+    protected void postPublish(JobDefinition job, Instant now) {
 
-        log.info(
-                "Published sync-symbols job [{}] for source [{}]",
-                job.getId(),
-                job.getSource());
+        log.info("Published sync-symbols job [{}] for source [{}]", job.getId(), job.getSource());
     }
 
     private void enrichSectorConfig(Map<String, Object> messageConfig) {
-        boolean includeSectorClassification = Boolean.TRUE.equals(
-                messageConfig.get(JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION));
+        boolean includeSectorClassification =
+                Boolean.TRUE.equals(
+                        messageConfig.get(
+                                JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION));
 
         if (!includeSectorClassification) {
-            messageConfig.putIfAbsent(JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, false);
+            messageConfig.putIfAbsent(
+                    JobDefinitionConfig.CONFIG_KEY_INCLUDE_SECTOR_CLASSIFICATION, false);
             return;
         }
     }
@@ -123,9 +136,6 @@ public class SyncSymbolsJobProducer extends JobProducer {
             log.warn("Job configJson has 'exchange' key but it's not a List: {}", raw);
             return DEFAULT_EXCHANGES;
         }
-        return list.stream()
-                .filter(Objects::nonNull)
-                .map(v -> v.toString().toUpperCase())
-                .toList();
+        return list.stream().filter(Objects::nonNull).map(v -> v.toString().toUpperCase()).toList();
     }
 }

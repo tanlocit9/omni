@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,48 +53,71 @@ public class SectorRotationBacktestJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+            Instant timestamps,
+            JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SectorWaveConfig config = JobConfigMapper.toSectorWaveConfig(jobConfig);
         List<String> sectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
-        String[] sectorCodeFilter = sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]);
-        List<String> resolvedSectorCodes = symbolRepository.findDistinctSectorCodesByLevel(
-                sectorCodeFilter,
-                sectorLevel);
+        String[] sectorCodeFilter =
+                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]);
+        List<String> resolvedSectorCodes =
+                context != null
+                        ? context.sectors(sectorCodeFilter, sectorLevel)
+                        : symbolRepository.findDistinctSectorCodesByLevel(
+                                sectorCodeFilter, sectorLevel);
 
         Map<String, Object> metadata = new HashMap<>();
         metadata.putAll(jobConfig);
         metadata.put("resolvedSectorCodes", resolvedSectorCodes);
-        JobExecutionHistory child = jobService.createChildExecution(
-                jobExecutionHistory.getId(),
-                WorkIdentity.of(WorkType.GLOBAL, config.strategy()),
-                metadata,
-                timestamps);
+        JobExecutionHistory child =
+                createChild(
+                        context,
+                        jobExecutionHistory,
+                        WorkIdentity.of(WorkType.GLOBAL, config.strategy()),
+                        metadata,
+                        timestamps);
 
-        log.info("Running sector rotation backtest sectorCodes={} sectorLevel={} strategy={} timeframe={} jobId={} executionId={}",
-                resolvedSectorCodes, sectorLevel, config.strategy(), config.timeframe(), job.getId(), child.getId());
-
-        return List.of(new KafkaMessage(
+        log.info(
+                "Running sector rotation backtest sectorCodes={} sectorLevel={} strategy={} timeframe={} jobId={} executionId={}",
+                resolvedSectorCodes,
+                sectorLevel,
                 config.strategy(),
-                new SectorRotationBacktestJobMessage(
-                        job.getId(),
-                        child.getId(),
-                        jobExecutionHistory.getId(),
-                        job.getSource().toString(),
-                        WorkType.GLOBAL,
+                config.timeframe(),
+                job.getId(),
+                child.getId());
+
+        return List.of(
+                new KafkaMessage(
                         config.strategy(),
-                        resolvedSectorCodes,
-                        sectorLevel,
-                        config.timeframe(),
-                        config.strategy(),
-                        metadata)));
+                        new SectorRotationBacktestJobMessage(
+                                job.getId(),
+                                child.getId(),
+                                jobExecutionHistory.getId(),
+                                job.getSource().toString(),
+                                WorkType.GLOBAL,
+                                config.strategy(),
+                                resolvedSectorCodes,
+                                sectorLevel,
+                                config.timeframe(),
+                                config.strategy(),
+                                metadata)));
     }
 
     @Override
     protected void postPublish(JobDefinition job, Instant now) {
-        log.info("Published sector rotation backtest job [{}] for source [{}]", job.getId(), job.getSource());
+        log.info(
+                "Published sector rotation backtest job [{}] for source [{}]",
+                job.getId(),
+                job.getSource());
     }
 }

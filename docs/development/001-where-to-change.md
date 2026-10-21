@@ -69,9 +69,16 @@ flowchart TD
 
 JobRun persistence starts in scheduler `runs/FrozenJobRunPath`, `runs/JobRunSnapshot`
 and `repositories/JobRunRepository`; V12 owns its frozen scoped instance schema.
-The boundary is inactive in I3.b. Future callers must use the approved I2 resolver
-and capability mappings; writing a snapshot does not authorize execution, change
-guard policy or publish messages. Preserve nullable legacy execution links.
+I3.c preparation lives in `runs/JobRunPreparationService` and `JobRunWorkContext`,
+the producer overloads and `SchedulerOutboxService.enqueueRunStep`. V13 owns closed
+execution/message membership. The route defaults off; preserve legacy entry points,
+nullable links, bounded expansion and the I2 resolver/capability boundary. Writing
+a snapshot or enqueuing before a target does not authorize completion admission;
+I4 must prove that before activation.
+
+When changing prepared SYNC_SYMBOLS membership, review `SymbolUpsertConsumer`
+together with `JobService.isRunPreparedExecution` and V13 parent guards. Result
+symbols must not append execution children to a closed EXCHANGE work set.
 
 Reusable writer mechanics may share immutable intent identity, fenced lease/claim,
 atomic conditional transitions, bounded retry, idempotent completion, and the rule

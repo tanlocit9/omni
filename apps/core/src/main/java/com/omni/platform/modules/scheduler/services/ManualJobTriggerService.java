@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import com.omni.platform.modules.scheduler.runs.JobRunPreparationService;
 
 import com.omni.platform.modules.scheduler.config.ManualTriggerProperties;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.ExecutionSummary;
@@ -46,8 +47,10 @@ public class ManualJobTriggerService {
     private final SchedulerClaimService claimService;
     private final JobProducerRegistry producerRegistry;
     private final ManualTriggerProperties triggerProperties;
+    private final JobRunPreparationService runPreparation;
 
-    public ManualTriggerResponse trigger(UUID definitionId, String actorValue, ManualTriggerRequest request) {
+    public ManualTriggerResponse trigger(
+            UUID definitionId, String actorValue, ManualTriggerRequest request) {
         String actor = required(actorValue, "operator identity", 200);
         if (request == null) {
             throw invalid("A trigger request body is required");
@@ -57,9 +60,11 @@ public class ManualJobTriggerService {
             throw invalid("idempotencyKey contains unsupported characters");
         }
         String reason = required(request.reason(), "reason", 500);
-        Map<String, Object> parameters = request.parameters() == null ? Map.of() : Map.copyOf(request.parameters());
+        Map<String, Object> parameters =
+                request.parameters() == null ? Map.of() : Map.copyOf(request.parameters());
 
-        Optional<ManualJobTrigger> duplicate = triggerRepository.findByActorAndIdempotencyKey(actor, key);
+        Optional<ManualJobTrigger> duplicate =
+                triggerRepository.findByActorAndIdempotencyKey(actor, key);
         if (duplicate.isPresent()) {
             return response(duplicate.get(), true);
         }
@@ -77,40 +82,71 @@ public class ManualJobTriggerService {
         try {
             audit = triggerRepository.saveAndFlush(audit);
         } catch (DataIntegrityViolationException race) {
-            return response(triggerRepository.findByActorAndIdempotencyKey(actor, key)
-                    .orElseThrow(() -> race), true);
+            return response(
+                    triggerRepository
+                            .findByActorAndIdempotencyKey(actor, key)
+                            .orElseThrow(() -> race),
+                    true);
         }
 
         if (!Boolean.TRUE.equals(initial.getIsActive())) {
             return resolve(audit, ManualTriggerState.CONFLICT, "Job definition is inactive", null);
         }
         if (!triggerProperties.allows(initial)) {
-            return resolve(audit, ManualTriggerState.CONFLICT,
-                    "Job definition is not in the manual-trigger allow-list", null);
+            return resolve(
+                    audit,
+                    ManualTriggerState.CONFLICT,
+                    "Job definition is not in the manual-trigger allow-list",
+                    null);
         }
 
-        SchedulerClaim claim = claimService.claimJobDefinition(definitionId, Instant.now(), actor)
-                .orElse(null);
+        SchedulerClaim claim =
+                claimService.claimJobDefinition(definitionId, Instant.now(), actor).orElse(null);
         if (claim == null) {
-            return resolve(audit, ManualTriggerState.CONFLICT,
-                    "Another scheduler or operator execution owns this job", null);
+            return resolve(
+                    audit,
+                    ManualTriggerState.CONFLICT,
+                    "Another scheduler or operator execution owns this job",
+                    null);
         }
 
         try {
             JobDefinition claimed = findDefinition(definitionId);
-            UUID executionId = producerRegistry.getProducer(claimed.getJobType()).prepareManualDispatch(
-                    claimed,
-                    claim,
-                    Instant.now(),
-                    Map.of(),
+            Map<String, Object> triggerMetadata =
                     Map.of(
-                            "trigger", Map.of(
-                                    "kind", "MANUAL",
-                                    "requestId", audit.getId().toString(),
-                                    "actor", actor,
-                                    "reason", reason,
-                                    "idempotencyKey", key),
-                            "metadataTarget", target));
+                            "trigger",
+                            Map.of(
+                                    "kind",
+                                    "MANUAL",
+                                    "requestId",
+                                    audit.getId().toString(),
+                                    "actor",
+                                    actor,
+                                    "reason",
+                                    reason,
+                                    "idempotencyKey",
+                                    key),
+                            "metadataTarget",
+                            target);
+            UUID executionId =
+                    runPreparation.supportsManual(claimed, parameters)
+                            ? runPreparation.prepareManual(
+                                    claimed,
+                                    claim,
+                                    Instant.now(),
+                                    actor,
+                                    key,
+                                    reason,
+                                    parameters,
+                                    triggerMetadata)
+                            : producerRegistry
+                                    .getProducer(claimed.getJobType())
+                                    .prepareManualDispatch(
+                                            claimed,
+                                            claim,
+                                            Instant.now(),
+                                            Map.of(),
+                                            triggerMetadata);
             audit.setExecutionId(executionId);
             return resolve(audit, ManualTriggerState.ACCEPTED, null, null);
         } catch (JobOperationException exception) {
@@ -118,31 +154,54 @@ public class ManualJobTriggerService {
             resolve(audit, ManualTriggerState.FAILED, null, exception.getMessage());
             throw exception;
         } catch (RuntimeException exception) {
-            log.error("Manual trigger dispatch failed: requestId={}, definitionId={}, jobType={}, actor={}",
-                    audit.getId(), definitionId, initial.getJobType(), actor, exception);
+            log.error(
+                    "Manual trigger dispatch failed: requestId={}, definitionId={}, jobType={}, actor={}",
+                    audit.getId(),
+                    definitionId,
+                    initial.getJobType(),
+                    actor,
+                    exception);
             releaseBestEffort(claim);
             resolve(audit, ManualTriggerState.FAILED, null, "Manual trigger dispatch failed");
-            throw new JobOperationException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "manual_trigger_failed", "Manual trigger dispatch failed");
+            throw new JobOperationException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "manual_trigger_failed",
+                    "Manual trigger dispatch failed");
         }
     }
 
     public TriggerStatusResponse triggerStatus(UUID requestId, String actorValue) {
         String actor = required(actorValue, "operator identity", 200);
-        ManualJobTrigger trigger = triggerRepository.findById(requestId)
-                .filter(value -> value.getActor().equals(actor))
-                .orElseThrow(() -> new JobOperationException(
-                        HttpStatus.NOT_FOUND, "manual_trigger_not_found", "Manual trigger was not found"));
-        ExecutionSummary execution = trigger.getExecutionId() == null ? null
-                : executionRepository.findById(trigger.getExecutionId())
-                        .map(JobOperationsCatalogService::execution).orElse(null);
+        ManualJobTrigger trigger =
+                triggerRepository
+                        .findById(requestId)
+                        .filter(value -> value.getActor().equals(actor))
+                        .orElseThrow(
+                                () ->
+                                        new JobOperationException(
+                                                HttpStatus.NOT_FOUND,
+                                                "manual_trigger_not_found",
+                                                "Manual trigger was not found"));
+        ExecutionSummary execution =
+                trigger.getExecutionId() == null
+                        ? null
+                        : executionRepository
+                                .findById(trigger.getExecutionId())
+                                .map(JobOperationsCatalogService::execution)
+                                .orElse(null);
         return new TriggerStatusResponse(response(trigger, false), execution);
     }
 
     public ExecutionSummary executionStatus(UUID executionId) {
-        JobExecutionHistory execution = executionRepository.findById(executionId)
-                .orElseThrow(() -> new JobOperationException(
-                        HttpStatus.NOT_FOUND, "job_execution_not_found", "Job execution was not found"));
+        JobExecutionHistory execution =
+                executionRepository
+                        .findById(executionId)
+                        .orElseThrow(
+                                () ->
+                                        new JobOperationException(
+                                                HttpStatus.NOT_FOUND,
+                                                "job_execution_not_found",
+                                                "Job execution was not found"));
         return JobOperationsCatalogService.execution(execution);
     }
 
@@ -157,24 +216,34 @@ public class ManualJobTriggerService {
 
     private void releaseBestEffort(SchedulerClaim claim) {
         try {
-            claimService.releaseClaim(claim.jobDefinitionId(), claim.claimToken(), claim.claimedBy());
+            claimService.releaseClaim(
+                    claim.jobDefinitionId(), claim.claimToken(), claim.claimedBy());
         } catch (RuntimeException ignored) {
         }
     }
 
     private JobDefinition findDefinition(UUID id) {
-        return jobDefinitionRepository.findById(id)
-                .orElseThrow(() -> new JobOperationException(
-                        HttpStatus.NOT_FOUND, "job_definition_not_found", "Job definition was not found"));
+        return jobDefinitionRepository
+                .findById(id)
+                .orElseThrow(
+                        () ->
+                                new JobOperationException(
+                                        HttpStatus.NOT_FOUND,
+                                        "job_definition_not_found",
+                                        "Job definition was not found"));
     }
 
     private static ManualTriggerResponse response(ManualJobTrigger trigger, boolean duplicate) {
         return new ManualTriggerResponse(
-                trigger.getId(), trigger.getJobDefinition().getId(), trigger.getExecutionId(),
-                trigger.getState().name(), duplicate,
+                trigger.getId(),
+                trigger.getJobDefinition().getId(),
+                trigger.getExecutionId(),
+                trigger.getState().name(),
+                duplicate,
                 JobOperationsCatalogService.sanitize(trigger.getBlockReason()),
                 JobOperationsCatalogService.sanitize(trigger.getError()),
-                trigger.getRequestedAt(), trigger.getResolvedAt());
+                trigger.getRequestedAt(),
+                trigger.getResolvedAt());
     }
 
     private static Map<String, Object> validateParameters(
@@ -191,16 +260,21 @@ public class ManualJobTriggerService {
         if (parameters.isEmpty()) {
             return Map.of();
         }
-        if (!parameters.keySet().equals(parameters.containsKey("partition")
-                ? java.util.Set.of("dataset", "partition")
-                : java.util.Set.of("dataset"))) {
+        if (!parameters
+                .keySet()
+                .equals(
+                        parameters.containsKey("partition")
+                                ? java.util.Set.of("dataset", "partition")
+                                : java.util.Set.of("dataset"))) {
             throw invalid("Metadata synchronization accepts only dataset and partition");
         }
-        String dataset = required(String.valueOf(parameters.get("dataset")), "dataset", 64).toLowerCase();
-        Map<String, java.util.Set<String>> keys = Map.of(
-                "eod", java.util.Set.of("exchange", "code"),
-                "indicators", java.util.Set.of("source", "timeframe", "exchange", "code"),
-                "signals", java.util.Set.of("strategy", "timeframe", "exchange"));
+        String dataset =
+                required(String.valueOf(parameters.get("dataset")), "dataset", 64).toLowerCase();
+        Map<String, java.util.Set<String>> keys =
+                Map.of(
+                        "eod", java.util.Set.of("exchange", "code"),
+                        "indicators", java.util.Set.of("source", "timeframe", "exchange", "code"),
+                        "signals", java.util.Set.of("strategy", "timeframe", "exchange"));
         if (!keys.containsKey(dataset)) {
             throw invalid("Unsupported metadata dataset");
         }
@@ -212,8 +286,12 @@ public class ManualJobTriggerService {
             throw invalid("Metadata partition keys are incomplete or unsupported");
         }
         Map<String, String> partition = new java.util.LinkedHashMap<>();
-        raw.forEach((key, value) -> partition.put(
-                String.valueOf(key), required(String.valueOf(value), "partition value", 256).toLowerCase()));
+        raw.forEach(
+                (key, value) ->
+                        partition.put(
+                                String.valueOf(key),
+                                required(String.valueOf(value), "partition value", 256)
+                                        .toLowerCase()));
         return Map.of("dataset", dataset, "partition", partition);
     }
 
@@ -273,6 +351,7 @@ public class ManualJobTriggerService {
     }
 
     private static JobOperationException invalid(String message) {
-        return new JobOperationException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_trigger_request", message);
+        return new JobOperationException(
+                HttpStatus.UNPROCESSABLE_ENTITY, "invalid_trigger_request", message);
     }
 }

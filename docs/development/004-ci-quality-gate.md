@@ -13,11 +13,31 @@ explicit timeouts, including the job inside the reusable Python workflow.
 
 The affected-detection job sets up Python 3.14.5 and runs `omni:tools-test`,
 `omni:ci-policy-test` and `omni:format-test` before selecting stack jobs. The
-uncached Python tooling target uses standard-library unittest discovery; no Python
-project environment or package installation is needed. Local `omni:verify` records
+uncached Python tooling target uses standard-library unittest discovery through
+`tools/run-python.cjs`. Windows requires the workspace `.venv/Scripts/python.exe`
+to bypass pyenv batch shims; other platforms prefer `.venv/bin/python` and fall
+back to `python3` from the CI setup. No service dependencies are installed by this
+launcher. Local `omni:verify` uses the same launcher and records
 all three targets as required checks through `tools/check_result.py`, alongside
 its existing service and integration checks. The Windows console flags are
 platform-specific; the Ubuntu CI runner executes the portable runner tests.
+
+The Python launcher uses `shell: false` and `windowsHide: true`. Contract generation,
+generation determinism, baseline Git queries and formatter-test Git helpers also
+request hidden Windows children. These are per-launch settings, not a guarantee
+that an outer terminal or third-party subprocess will stay hidden. The 2026-10-19
+launcher review passed its owner-approved local gate (`WINDOWS-TOOLING-20261019`):
+changed-file format, 14 tooling tests via the direct Python launcher, 7 CI-policy
+tests and 9 formatter tests. Contract generation/breaking commands and full verify
+orchestration were not executed; the corresponding flags are statically inspected.
+Controlled owner observation reproduced the flash with Nx Cloud enabled and found
+no flash with it disabled for the same lightweight target and runner settings.
+The recorder now supplies Windows-only child-environment defaults:
+`NX_NO_CLOUD=true`, `NX_NATIVE_COMMAND_RUNNER=false` and `NX_TUI=false`. Explicit
+caller values take precedence. Parent environment, repo cloud settings and
+non-Windows CI remain unchanged. Three regression tests exercise defaults,
+override preservation and unchanged non-Windows environment. This observation
+does not establish that every third-party tool or launch path is flash-free.
 
 The local targets passed on 2026-10-18: 11 tooling tests, 7 CI-policy tests and
 9 formatter tests (`TOOLING-WORKFLOW-20261018`). This verifies the individual

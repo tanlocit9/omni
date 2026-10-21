@@ -17,7 +17,11 @@ test('changed selection handles staged, unstaged, untracked and ignored files', 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-format-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const git = (args) => {
-    const result = spawnSync('git', args, { cwd: directory, encoding: 'utf8' });
+    const result = spawnSync('git', args, {
+      cwd: directory,
+      encoding: 'utf8',
+      windowsHide: true,
+    });
     assert.equal(result.status, 0, result.stderr);
     return result.stdout;
   };

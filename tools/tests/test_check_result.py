@@ -77,6 +77,7 @@ class CheckResultTests(unittest.TestCase):
         popen.assert_called_once_with(
             ["C:\\repo\\node_modules\\.bin\\nx.CMD", "run", "platform:test"],
             cwd=self.root,
+            env=check_result.command_environment(),
             stdout=check_result.subprocess.PIPE,
             stderr=check_result.subprocess.STDOUT,
             text=True,
@@ -88,6 +89,37 @@ class CheckResultTests(unittest.TestCase):
                 else 0
             ),
         )
+
+    def test_windows_check_environment_is_local_and_noninteractive(self):
+        with (
+            patch.object(check_result.sys, "platform", "win32"),
+            patch.dict(check_result.os.environ, {"PATH": "test-path"}, clear=True),
+        ):
+            environment = check_result.command_environment()
+            self.assertEqual(environment["NX_NO_CLOUD"], "true")
+            self.assertEqual(environment["NX_NATIVE_COMMAND_RUNNER"], "false")
+            self.assertEqual(environment["NX_TUI"], "false")
+            self.assertEqual(environment["PATH"], "test-path")
+            self.assertNotIn("NX_NO_CLOUD", check_result.os.environ)
+
+    def test_windows_check_environment_preserves_explicit_overrides(self):
+        requested = {
+            "NX_NO_CLOUD": "false",
+            "NX_NATIVE_COMMAND_RUNNER": "true",
+            "NX_TUI": "true",
+        }
+        with (
+            patch.object(check_result.sys, "platform", "win32"),
+            patch.dict(check_result.os.environ, requested, clear=True),
+        ):
+            self.assertEqual(check_result.command_environment(), requested)
+
+    def test_other_platform_check_environment_is_unchanged(self):
+        with (
+            patch.object(check_result.sys, "platform", "linux"),
+            patch.dict(check_result.os.environ, {"PATH": "test-path"}, clear=True),
+        ):
+            self.assertEqual(check_result.command_environment(), {"PATH": "test-path"})
 
     def test_exit_code_results_produce_pass(self):
         self.init()

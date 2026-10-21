@@ -71,6 +71,38 @@ The current gap is therefore not a new architectural proposal. It is an unavaila
 - Build the graph from the repository root and verify Java, Python, SQL, and configuration coverage relevant to Omni.
 - Ensure the server is available in the Codex environment that performs roadmap automation, not only in an editor-specific session.
 
+### Windows console diagnosis — 2026-10-19
+
+Prefer direct workspace `.venv/Scripts/python.exe -u` for agent-run Python scripts;
+`-u` controls buffering, not console visibility. Root tooling/verification targets
+use `tools/run-python.cjs` to avoid bare `python` resolving through pyenv `.bat`
+shims. Gradle, formatter and check-result launchers already hide their own Windows
+children; contract launchers now request the same behavior.
+
+The inspected installed code-review-graph runtime invokes Git through
+`subprocess.run` without a Windows creation flag. Its MCP launch command is also
+outside the repository tooling launchers. Hidden-parent settings do not establish
+that those subprocesses or the outer terminal stay hidden. Treat this as a remaining
+candidate until the visible window is attributed to a process; process-tree
+inspection currently returns Access denied. Do not claim the symptom fixed solely
+from flags in source. No third-party package or global MCP/Python configuration
+is modified by this repository review.
+
+Subsequent controlled owner observation found that direct PowerShell, Python and
+Node did not flash, while the lightweight Nx target did. Disabling Nx Cloud for
+that target removed the observed flash; a temporary diagnostic hook also recorded
+Cloud client Git/machine-info subprocesses without `windowsHide`. Hiding Node
+children alone had not removed the symptom. This identifies a reproducible Nx
+Cloud launch-path trigger, without claiming exact window PID attribution.
+
+Agent verification should use `tools/check_result.py` through direct workspace
+Python, with a non-profile shell where supported. Its Windows child environment
+defaults to `NX_NO_CLOUD=true`, `NX_NATIVE_COMMAND_RUNNER=false`, `NX_TUI=false`;
+explicit caller overrides are retained. These defaults are confined to recorded
+commands and descendants; they do not disable cloud in repository configuration
+or Ubuntu CI. Direct manual Nx/MCP commands outside the recorder retain their
+own launch behavior. Temporary hooks are diagnostic only, not a required runtime.
+
 ### Required verification
 
 The setup is accepted when Codex can:

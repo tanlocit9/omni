@@ -115,6 +115,33 @@ No prior I3.a PASS substitutes for this new schema/source evidence. No scheduled
 I2 remains `verification_pending`, I3 `pending`; this is not readiness/completion
 promotion. See [I3.b scope and gates](../030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
 
+Owner-approved I3.c staging (2026-10-18): bounded GLOBAL/VN preparation, adapted
+producer/enqueue boundaries and V13 immutable execution/message closure passed the
+four-check local format/test/coverage/clean-build gate, renewed after the 2026-10-19
+symbol-upsert membership fix: 346 tests across 56 suites,
+zero failures/errors/skips. Plan 030 records attributable coverage and the executed
+SQL matrix. The route is false by default; existing
+cron, manual audit/API, FIFO and guard remain active. No readiness/status promotion
+or I3.d/I4 activation. See [I3.c scope and gates](../030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
+
+I3.c lock repair (locally verified 2026-10-20): the real-service race reproduced
+`deadlock detected` against the exact old SQL. Narrowed execution/outbox progress
+guards passed a separate five-check local gate: format, 28 focused PostgreSQL
+tests, full test, coverage and clean build (351 tests / 56 suites, no failures,
+errors or skips). Attributable critical Java coverage exceeds 80% line/branch;
+SQL has an executed criterion matrix. The 346-test PASS above remains historical.
+Preparation stays false, with no status/readiness promotion or production activation. See the
+[lock-safety repair plan](../030-static-graph-dispatch-planner.md#i3c-lock-safety-repair-plan--2026-10-19).
+
+I3.c replay lock repair (2026-10-20): target definition now precedes run locking in
+visible replay, matching fresh preparation. Old Java reproduced a deadlock; both
+scheduled/manual replay variants pass with preserved identity/membership/cadence.
+The separate five-check local gate passed 29 focused and 352 full tests / 56 suites,
+no failures/errors/skips; preparation coverage 99.35% line / 91.67% branch. A second
+static review found no further issue in the changed lock/claim path. Plan 030 records
+the matrix, review limits and unchanged false flag/statuses. Earlier counts above
+remain historical checkpoints.
+
 - **P14-I4:** execution-centered **JobRun path snapshot** drives outbox selection, cohort barrier, joins and fair quotas with admission/claim revalidation, fallback, fenced publish and TD-014 safety evidence.
 - **P14-I5:** runnable, versioned read-only SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, Hikari/DB/query/throughput measured baseline, and metric dictionary. Essential I3/I4 safety and query tests remain their own acceptance gates.
 - **P14-I6:** bounded read-model and dashboard handoff for Plan 029, without creating a second dashboard/UI implementation or unnecessary API.

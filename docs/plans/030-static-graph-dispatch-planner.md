@@ -590,6 +590,471 @@ the focused startup/unit results above remain historical evidence.
 
 ### P14-I3 — Unified JobRun and DAG preparation without outbox behavior change
 
+#### I3.c bounded preparation — 2026-10-18
+
+Owner approved the additive closure schema and bounded GLOBAL/VN staging scope.
+Source is present; earlier four-check local gates passed. The later lock-safety
+finding has a separate five-check local repair PASS on 2026-10-20 below. I2 remains
+`verification_pending`, I3 remains `pending`; no I3.d or I4 completion is implied.
+
+`JobRunPreparationService` resolves canonical definition-specific ancestor closure
+through the I2 resolver, explicitly binds all declared same-type strategies, and
+persists the complete scoped path before preparing any execution. GLOBAL/VN is the
+current configured producer universe, including each definition's existing filters;
+it does not imply SYMBOL/SECTOR request capability. Each step retains its own
+definition/source identity. The initial implementation bounds one atomic transaction
+to 32 steps, 5000 work messages per step and 20000 per run. Larger requests fail and
+roll back completely; no partial membership, implicit truncation or chunk-resume
+claim is made. BACKFILL remains reserved. Business date is the preparation date in
+Asia/Ho_Chi_Minh; intraday preparation requires a weekday and an exact single date.
+Service-owned transactions have a 60-second timeout, below the default two-minute
+claim lease; an existing outer transaction retains its caller-owned deadline.
+
+V13 adds immutable `job_run_step_preparations` with root execution, child/message
+counts and closure time. Versioned root/work unique indexes are scoped to the new
+preparation path, leaving optional V12 links and legacy NULL-linked rows intact.
+Triggers validate closed counts, prevent appending/removing/rebinding closed
+execution/outbox membership, and require closure before committing versioned roots.
+Message validation uses indexed execution-ID counts, avoiding repeated broad
+outbox scans on fresh tables without statistics. The whole-run budget test must
+exercise rollback across multiple individually valid fan-outs on a fresh schema.
+Status, lease, dependency disposition and retry fields remain mutable. V1–V12 and
+existing manual history are untouched. Retention/purge is not implemented.
+
+New producer overloads retain existing message DTOs, topics, source-qualified work
+identity and serializers. Bounded, sorted symbol/sector queries run before expansion;
+stock offsets are loaded once per bounded symbol set. Child creation reuses the
+tracked parent, and enqueue validates the supplied child set without per-child reads.
+Signals retain every selected symbol in new frozen membership rather than dropping
+not-yet-READY partitions during preparation. Existing dataset guard/lineage policy
+remains the publish boundary; preparation is not readiness or worker completion.
+Legacy producer methods retain their existing selection/readiness behavior.
+
+The scheduler and manual adapters select the new service only behind
+`app.scheduler.job-run.preparation-enabled=false` (default). Custom definitions and
+historical/range intraday manual overrides retain their legacy route. Manual
+validation, allow-list, authentication/controller permissions, audit and response
+shape remain unchanged; I3.d owns audit cutover/removal and REQUESTED-audit recovery.
+Scheduled preparation advances only the target cadence; manual preparation changes
+no cadence. Ancestor definitions remain executable and no cron is reduced here.
+Retries load frozen closure without rebuilding from changed declarations/catalogs;
+request metadata/target conflicts fail, concurrent same-key attempts serialize, and
+outer rollback restores all preparation intent/cadence. Claims remain fenced.
+The target's fencing token is refreshed under its row lock before preparation;
+stale JPA state must never overwrite a newly acquired lease.
+Definition rows are locked in UUID order before inserting FK-backed frozen steps,
+avoiding KEY SHARE-to-UPDATE lock upgrades between independent runs with common
+ancestors. Each independent request retains its own closed execution membership.
+
+**Keep the route disabled outside isolated tests until I4 completion admission is
+proved.** Dependency-first insertion into the existing FIFO is not a SUCCESS barrier.
+Candidate selection, DependencyRegistry, WAITING/BLOCKED, claim/fencing, retries and
+Kafka publication code are unchanged. Enabling the flag is not authorized by this
+checkpoint. Independent target-root/cron policy and larger-run chunking remain
+explicit follow-up work before broader activation.
+
+Cross-service blast radius: initial bounded graph query covered JobProducer,
+JobService, scheduler/manual entry points and the persistence boundary (57 directly
+changed nodes, 37 impacted, three additional files; truncated/stale graph, not
+isolation proof). Platform owns the new service, bounded producer overloads, enqueue
+validation, closure SQL and disabled route selection. Analyzer/Ingestor consume the
+same payloads/topics and perform no new storage work while the flag is off. Query
+Service and Console have no API/DTO/cache change. Shared contracts/generated output,
+py-common, dataset paths/ownership, metadata writers, READY-last and exact lineage
+are unchanged. Configuration adds one Platform-local false flag. Operations must
+apply V13 before using preparation, allow additive DDL locks and retain schema on
+application rollback; default rollback disables preparation and preserves legacy
+FIFO/manual/scheduling. Existing closed run membership remains immutable after
+rollback. No production migration/deployment/provider execution is performed.
+
+The final impact query covered all 22 implemented production/configuration/SQL
+files: 233 directly changed nodes, 20 impacted within two hops and four additional
+files. Its 317 edges are truncated and 269 call sites unresolved; the index predates
+the current HEAD and excludes new untracked files. These limits require the
+source/test and canonical cross-service reconciliation above; they do not prove
+isolation or executed coverage.
+
+Required impact-to-test matrix (execution evidence is recorded separately below):
+
+| Feature/source                                                 | Required tests                                                                                                                                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| JobRunPreparationService; JobRunRepository.findByRequest       | Real producer path, joins/multiple definitions, independent requests/dates, retry/concurrency, stale claims, metadata conflict, atomic/outer rollback, target-only/manual cadence |
+| JobRunWorkContext; adapted producers                           | Bounded symbol/sector reads, batch offsets, every canonical producer, duplicate/oversized/zero-child membership, immutable scoped links, no premature READY filtering             |
+| JobProducer; JobService; SchedulerOutboxService.enqueueRunStep | Existing wire payloads, root/child ownership, exact message membership, zero/direct-root messages, no direct Kafka publish                                                        |
+| V13 closure/index/guards                                       | Count mismatch/unclosed commit rejection, append/delete/rebind protection, progress/retry updates, optional V12/legacy compatibility                                              |
+| JobScheduler; ManualJobTriggerService                          | Disabled/unsupported legacy branch, enabled target delegation, unchanged validation/allow-list/audit/API behavior                                                                 |
+
+Gate `P14-I3c` requires `nx run omni:format`, `nx run platform:test`,
+`nx run platform:coverage`, and `nx run platform:build`; record each through
+check_result using distinct `platform-test`, `platform-coverage`, `platform-build`
+names so test/build logs cannot collide. Critical changed behavior requires at
+least 80% line and branch attribution; SQL uses an explicit executed test matrix.
+No numeric SQL coverage, owner attestation, CI or runtime activation is inferred.
+
+Initial executed local evidence (2026-10-18, `P14-I3c`): the clean build compiled and packaged
+the application and executed **341 tests across 55 suites, zero failures/errors/
+skips**, including 20 `JobRunPreparationPostgresTest` cases. It took 4m32s,
+including existing cached-context PostgreSQL shutdown timeout warnings. The
+standalone test and coverage targets passed using the unchanged Gradle outputs.
+Changed-file formatting also passed. **Gate conclusion: PASS P14-I3c required=4
+pass=4 fail=0 unknown=0 missing=0 sources=exit_code**.
+
+Attribution below uses whole new classes and the base producer, plus changed
+method families and their generated lambdas in existing classes. It does not
+claim numeric coverage for unchanged private helpers, SQL or configuration.
+All 29 production/test source hashes match the executed clean build. Copied
+JUnit/JaCoCo, hashes and the detailed source/test matrix are retained under ignored
+`.agent/check-results/P14-I3c/`; no owner attestation is recorded.
+
+| Changed source / feature                                                                                          | Executed tests                                                                                                                                                                                                                                                                          | Line / branch coverage                                       |
+| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| JobRunPreparationService: complete paths, retry, fencing, independent/same-key concurrency, rollback and budgets  | JobRunPreparationPostgresTest (20 cases)                                                                                                                                                                                                                                                | 99.35% / 91.67%                                              |
+| JobRunWorkContext: bounded catalog/offset reads, child identity and limits                                        | JobRunWorkContextTest; JobRunPreparationPostgresTest                                                                                                                                                                                                                                    | 100% / 100%                                                  |
+| JobRunRepository.resolveDefinitions and findByRequest                                                             | JobRunPreparationPostgresTest; JobRunRepositoryPostgresTest                                                                                                                                                                                                                             | 100% / 100%; findByRequest has no instrumented branch        |
+| JobProducer: transactional run-step template and legacy compatibility                                             | JobProducerTest; JobRunPreparationPostgresTest                                                                                                                                                                                                                                          | 100% / 100%                                                  |
+| JobService.enqueueRunDispatch and completeRunPreparation: intent and target-only/manual cadence                   | JobRunPreparationPostgresTest                                                                                                                                                                                                                                                           | 100% / 100%; enqueueRunDispatch has no instrumented branch   |
+| SchedulerOutboxService.enqueueRunStep: exact root/child/message membership, rejection paths                       | SchedulerOutboxRunStepTest; JobRunPreparationPostgresTest                                                                                                                                                                                                                               | 100% / 92.50%                                                |
+| JobScheduler.scan: enabled/disabled selection, missing producer and failure continuation                          | JobSchedulerTest                                                                                                                                                                                                                                                                        | 100% / 100%                                                  |
+| ManualJobTriggerService.trigger: validation, audit, idempotency races, enabled/fallback route and failure cleanup | ManualJobTriggerServiceTest; existing controller/allow-list tests                                                                                                                                                                                                                       | 98.39% / 100%                                                |
+| SyncSymbolsJobProducer.buildRunMessages                                                                           | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / no instrumented branch                                |
+| SyncStockPriceJobProducer.buildRunMessages                                                                        | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 95.24% / 83.33%                                              |
+| SyncIndicatorsJobProducer.buildRunMessages                                                                        | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 87.50%                                                |
+| SyncSignalsJobProducer.buildRunMessages: frozen membership versus legacy READY filtering                          | JobRunPreparationPostgresTest; SyncSignalsJobProducerTest                                                                                                                                                                                                                               | 100% / 94.44%                                                |
+| SyncMetadataJobProducer.buildRunMessages                                                                          | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 87.50%                                                |
+| EvaluateSignalsJobProducer.buildRunMessages                                                                       | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 83.33%                                                |
+| SyncIntradayEodJobProducer.buildRunMessages                                                                       | JobRunPreparationPostgresTest; SyncIntradayEodJobProducerTest                                                                                                                                                                                                                           | 100% / 100%                                                  |
+| PrecomputeSymbolFeaturesJobProducer.buildRunMessages                                                              | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 87.50%                                                |
+| PrecomputeSectorFeaturesJobProducer.buildRunMessages                                                              | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 83.33%                                                |
+| SectorRotationBacktestJobProducer.buildRunMessages                                                                | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 83.33%                                                |
+| SectorTransitionAnalyzeJobProducer.buildRunMessages                                                               | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 87.50%                                                |
+| SectorTransitionOutcomeEvaluationJobProducer.buildRunMessages                                                     | JobRunPreparationPostgresTest; existing producer regression                                                                                                                                                                                                                             | 100% / 87.50%                                                |
+| V13: immutable membership/counts, deferred complete-path closure, legacy links and allowed progress               | JobRunPreparationPostgresTest: sealedMembershipRejectsAppendDeleteAndIdentityMutationButAllowsProgress; databaseRejectsUnclosedPartialPathsAndIncorrectClosureCounts; databaseRejectsMovingLegacyRowsIntoClosedMembershipAndCommittingOnlyPartOfAPath; rollback/retry/concurrency cases | Executed SQL mapping; no numeric coverage claim              |
+| application.yaml: disabled default and real application wiring                                                    | PlatformStartupPostgresTest (2 cases); JobSchedulerTest; ManualJobTriggerServiceTest                                                                                                                                                                                                    | Executed default/wiring assertions; no numeric YAML coverage |
+
+The whole-run budget case expands individually valid fan-outs beyond 20000 and
+verifies complete rollback on a freshly migrated database. The indexed closure
+query fix was also inspected with EXPLAIN on the isolated test database; this is
+not a production throughput benchmark or I5 performance acceptance. Dataset
+READY-last, exact lineage, authorization, FIFO retry and fenced publish remain
+covered by their existing Platform regression; this checkpoint does not execute
+Python workers or prove live provider/storage behavior.
+
+Documentation disposition: this plan, registry, roadmap, root release notes,
+architecture, execution flow, database, ownership and Platform README synchronize
+the staged boundary. Existing ADRs need no new architecture authority; Kafka and
+data-lake docs need no transport/storage/readiness change; deployment topology is
+unchanged and migration order/rollback are recorded here and in database/service
+docs. Documentation indexes add no ID/file. AGENTS.md, CLAUDE.md and .roo/rules retain
+their current workflow/contract guidance; no agent policy is introduced. The root
+release notes are the canonical historical evidence log, not a new execution log.
+
+##### I3.c review follow-up — 2026-10-19
+
+The NULL-run compatibility branch must not allow a legacy writer to append work
+under a prepared parent. I3.d owns manual/cron cutover and I4 owns completion
+admission; neither defers this I3.c membership invariant. V13 checks the referenced
+parent's versioned run/step before its NULL-run return, locks that run and requires
+matching child links for NULL-linked inserts/rebinding. Linked append/reparent
+checks use the indexed parent closure without repeating parent lookup/locking for
+each prepared child. This modifies the unreleased V13 migration;
+only isolated test databases have applied it, not a production deployment.
+
+`SymbolUpsertConsumer` checks preparation identity once per nonempty batch through
+`JobService.isRunPreparedExecution`. Prepared SYNC_SYMBOLS owns fixed EXCHANGE
+executions; incoming symbols remain result data and do not add SYMBOL executions.
+Existing worker status handling and parent aggregation own completion. Legacy
+parents retain SYMBOL child tracking; untracked batches still upsert data; empty
+batches still avoid mass deactivation. Payloads/topics are unchanged.
+
+Blast radius: Platform's consumer, JobService lookup and V13 guard are directly
+changed, with producer/aggregation/status compatibility exercised in PostgreSQL.
+The final query over the three implemented production files reports 40 changed /
+31 impacted nodes and 15 additional files, truncated with 212 unresolved call sites
+and a stale index. Its bounded result is not isolation proof.
+Ingestor's existing symbol-upsert payload stays unchanged; Analyzer, Query Service,
+Console, shared contracts/generated code, py-common, data-lake paths/writers,
+READY-last and exact lineage have no contract/code changes. Configuration remains
+false; operations retain the existing additive V13 rollout/rollback boundary.
+
+Executed matrix for the review follow-up (renewed local gate passed):
+
+| Source / invariant                                         | Regression evidence                                                                                                                                                                                                   |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V13 parent guard before NULL-link exemption                | JobRunPreparationPostgresTest.rejectsNullLinkedInsertsAndLegacyRebindingUnderPreparedParents: direct NULL-linked insert and reparenting rejected; prepared child count retained                                       |
+| SymbolUpsertConsumer and JobService.isRunPreparedExecution | JobRunPreparationPostgresTest.symbolUpsertPreservesPreparedExchangeMembershipAcrossRetries: real consumer/data writes and duplicate delivery preserve three closed EXCHANGE children and RUNNING completion semantics |
+| Legacy/untracked compatibility                             | JobRunPreparationPostgresTest.symbolUpsertRetainsLegacyChildTrackingAndUntrackedDataWrites: legacy SYMBOL child succeeds; untracked write creates no history                                                          |
+| Empty/failure branches                                     | SymbolUpsertConsumerTest: null/empty batches do not deactivate; failed legacy upsert marks child failed, aggregates and rejects batch                                                                                 |
+
+Docs: update this plan, release notes, registry/roadmap evidence, execution flow,
+database and ownership. Existing architecture/ADR/service documentation already
+states default-disabled preparation and unchanged status authority; no new
+architecture, API, deployment topology, transport or documentation ID is added.
+Kafka/data-lake, indexes, AGENTS.md/CLAUDE.md/.roo/rules require no policy change.
+The 2026-10-18 counts and coverage above are historical. The renewed clean build
+executed **346 tests across 56 suites, zero failures/errors/skips**, including 23
+PostgreSQL preparation cases and two new consumer unit cases. The standalone test
+and coverage targets reused unchanged outputs. Changed-file formatting passed.
+The recorded four-check gate is PASS; all 31 source/test hashes match execution.
+`SymbolUpsertConsumer.applyUpsert` has **100% line / 95% branch**,
+`handleSymbolUpsert` 100% line (no instrumented branch), and
+`JobService.isRunPreparedExecution` **100% line / 100% branch**. All other critical
+changed method families remain above 80% line/branch; SQL remains an executed
+case matrix without a numeric coverage claim. The whole-run budget regression
+passed in 43.969s with the existing 60-second transaction deadline retained.
+An initial timeout exposed redundant parent lookups/locks; that failed run remains
+recorded and was corrected without weakening the budget assertion. The final
+clean build passed in 3m59s, including existing context-shutdown warnings.
+JUnit/JaCoCo, source hashes and the updated source/test matrix remain under ignored
+`.agent/check-results/P14-I3c/`. No owner attestation, CI or activation is claimed.
+
+##### I3.c lock-safety repair plan — 2026-10-19
+
+**Repair design; implementation evidence follows below.** The earlier 346-test local PASS is
+historical evidence and does not exercise this newly identified interleaving.
+I2 remains `verification_pending`, I3 `pending`; preparation remains false.
+This repair belongs to I3.c, before I3.d cutover or I4 activation.
+
+Goal/outcome: retain immutable, complete execution/outbox membership while ordinary
+progress updates do not acquire a `job_runs` membership lock. No analytical dataset,
+dataset metadata or algorithm feature output; no transport, public Java/Python API,
+storage ownership, topology or configuration contract change is planned.
+
+**Cycle identified during planning; subsequently reproduced in the checkpoint below:**
+
+1. Symbol-upsert aggregation acquires the parent execution row, then its UPDATE
+   enters V13 and requests the run row.
+2. `JobService.applyStatus` flushes an EXCHANGE child UPDATE, whose V13 trigger
+   acquires the run row; the service then requests the same parent for aggregation.
+3. The two transactions can wait parent → run and run → parent. Outbox V13 also
+   acquires a run lock for progress-only lease/retry updates and needs the same audit.
+
+Do not claim that moving a lock earlier inside a BEFORE UPDATE trigger establishes
+run-before-execution ordering: PostgreSQL already locks the target execution row.
+Do not remove the parent aggregation lock, move work outside its transaction,
+increase timeouts, or hide the cycle behind retries.
+
+Implementation sequence:
+
+1. Add a deterministic PostgreSQL regression that fails against the current guard.
+   Use two independent real JPA/JDBC transactions on a prepared SYNC_SYMBOLS run.
+   Transaction A holds the parent row. Transaction B calls real `applyStatus` and
+   reaches its parent-lock wait after the child flush. Use latches plus bounded
+   `pg_blocking_pids` observation to prove that point; no timing-only sleeps.
+   Then A invokes real symbol-upsert/aggregation and commits; B must also commit.
+   Bound SQL/future waits and release resources on failure. No automatic retry may
+   turn deadlock SQLSTATE `40P01` or lock/statement timeout into a passing test.
+2. In `guard_prepared_job_run_execution`, classify UPDATE using NULL-safe comparison
+   of the complete protected identity tuple: `id`, `job_id`, `parent_log_id`,
+   `job_run_id`, `job_run_step_index`, and metadata `workType`, `workKey`,
+   `businessDate`, `runPreparationVersion`. If unchanged, return NEW **before any
+   run-row lock or parent membership lookup**. This allows status, timestamps,
+   counters, errors, offsets and non-identity progress metadata. Identity-changing
+   or mixed progress/identity UPDATE must continue through the membership guard.
+3. Apply the same distinction to `guard_prepared_job_run_outbox`, comparing `id`,
+   `execution_id`, `message_index`, `topic`, `message_key`, `payload`. An unchanged
+   intent tuple returns before run/owner lookups and locks; status, claim, attempt,
+   dependency disposition and retry scheduling remain mutable. Payload/topic/key
+   or execution rebinding must still be rejected after closure.
+4. Preserve structural-write checks: INSERT/DELETE and identity changes retain
+   run serialization, root/work uniqueness, exact counts, deferred all-step closure,
+   immutable closure rows and the NULL-linked-parent bypass fix. Audit paths that
+   need two run locks; acquire old/new run IDs deterministically where applicable.
+   Closed membership changes may fail closed; no newly accepted structural write
+   is introduced. Existing preparation lock order and 32/5000/20000 bounds remain.
+5. Keep Java status and aggregation semantics unless a separately demonstrated
+   issue needs a bounded adjustment. Inspect actual Hibernate flushes, inherited
+   repository locks and outbox SQL; do not rewrite these services merely to mask
+   the trigger's unnecessary progress lock. Renew coverage and the complete gate.
+
+Migration decision before implementation: verify whether V13 has been applied
+outside disposable Testcontainers databases. If still unreleased, update V13 in
+this checkpoint. If applied to a retained environment, preserve its checksum and
+use a forward migration replacing the two trigger functions, with upgrade tests.
+Audit existing closed counts and NULL-linked children before that upgrade; fail
+closed on inconsistent data rather than silently deleting or inventing membership.
+Staging or a local Git state alone is not deployment evidence. Do not rewrite V12
+or drop existing membership/history. Application rollback retains additive schema;
+the flag stays false throughout diagnosis and repair.
+
+Required impact/source/test matrix (planning requirements; executed evidence follows below):
+
+| Criterion / impacted source                                                              | Required executed proof                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Execution progress fast path; V13, JobService.applyStatus/aggregateParentExecution       | Holding the run row in transaction A must not block transaction B from committing a progress-only execution UPDATE; test root and child, including NULL metadata identity fields and JPA flush                                                                   |
+| Actual parent/run cycle; SymbolUpsertConsumer, JobExecutionHistoryRepository parent lock | The gated two-transaction scenario above completes without deadlock/retry; symbol rows persist, closed EXCHANGE membership stays fixed, final child/parent counts and terminal state are correct; terminal notification is emitted once where policy requires it |
+| Outbox progress fast path; SchedulerOutboxService/Dispatcher/repository                  | While another transaction holds the run row, real claim/lease/retry/dependency-progress updates complete; stale token rejection, retry identity and fenced completion remain unchanged                                                                           |
+| Membership safety; both V13 guards and preparation service                               | Late INSERT/DELETE, NULL-link append, parent/run/step rebinding, work/date/version changes and outbox payload/topic/key mutation still fail; mixed status-plus-identity UPDATE rolls back atomically                                                             |
+| Closure/compatibility/performance bounds                                                 | Existing incomplete-path/count rejection, zero/direct-root cases, same-key/independent-run concurrency, optional V12/legacy NULL links and rollback tests remain green; retain the 20000-work rollback test and 60-second preparation deadline                   |
+
+Test lock absence directly, rather than merely asserting eventual completion after
+the run lock is released. Assert lock/statement timeout or deadlock as failure;
+cleanup must never release a held lock early just to let the assertion pass.
+Keep independent-run progress independent. Preserve READY-last, exact lineage,
+authorization and FIFO/claim/fencing behavior; no worker or provider execution is
+claimed by PostgreSQL tests.
+
+Blast-radius reconciliation: initial bounded graph query over V13, JobService,
+SymbolUpsertConsumer, SchedulerOutboxService and SchedulerOutboxDispatcher reports
+137 direct nodes, 15 displayed impacted nodes out of 137, eight additional files,
+and truncated traversal. Its broad/unrelated matches and cached index are not
+evidence of isolation; reconcile explicitly as follows.
+
+| Surface                                       | Impact or no-impact reason                                                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                                      | Both trigger functions; preparation/closure, symbol-upsert, status flush, parent aggregation, outbox claim/retry and their real PostgreSQL tests are in scope                   |
+| Ingestor                                      | Existing symbol-upsert/status producer is the other side of the flow; payload, acknowledgement and ingestion code stay unchanged; Platform tests use its existing message shape |
+| Analyzer                                      | Existing status consumer contract stays unchanged; no worker/algorithm or writer changes                                                                                        |
+| Query Service / Console                       | No API, DTO, read-model or cache change; improved lock safety must preserve existing status interpretation                                                                      |
+| Shared contracts / generated code / py-common | No schema or reusable library change; do not regenerate or hand-edit contracts for this repair                                                                                  |
+| Persistence                                   | Narrow lock scope while preserving all V13/V12 membership invariants; migration path depends on actual application history                                                      |
+| Configuration / operations                    | Route remains false; no topology/provider/region/cloud setting change. Keep finite transactions, DDL rollout order and additive-schema rollback policy                          |
+| Tests / data lake                             | Add deterministic Platform PostgreSQL concurrency and migration cases; dataset paths, ownership, Parquet/metadata writers, READY-last and exact versions remain unchanged       |
+
+Acceptance: the old-code regression is reproducible; repaired execution and outbox
+progress complete while the run lock is held elsewhere; the actual competing
+service transactions both commit; every protected membership mutation still fails;
+legacy behavior and existing budgets remain green. SQL is not JaCoCo-instrumented:
+require an explicit executed source/criterion/test matrix. Any changed Java safety
+component must meet at least 80% line and branch attribution, including success,
+failure, retry, concurrency, transaction and compatibility branches.
+
+Proposed verification after source repair, subject to owner approval under AGENTS:
+`nx run omni:format`, focused
+`nx run platform:test --tests=*JobRunPreparationPostgresTest`, then
+`nx run platform:test`, `nx run platform:coverage` and `nx run platform:build`.
+Any subsequent formatting must preserve executed source hashes or trigger renewed
+checks for changed source. Record a separate complete required-check manifest through
+direct workspace Python and `tools/check_result.py`; earlier P14-I3c/tooling PASS
+cannot substitute. This planning edit runs none of those commands.
+
+Documentation disposition: this plan, registry, roadmap, root release notes,
+database and execution-flow docs record the unresolved finding and repair gate.
+After implementation, renew those evidence surfaces and review ownership/service
+docs. Architecture/ADR-007, Kafka/data-lake, deployment topology, docs indexes and
+AGENTS/CLAUDE/.roo guidance need no current change: membership and existing service
+authority are preserved, no canonical document ID or runtime policy is added.
+Run post-edit graph change detection and static document-consistency review;
+no completion/readiness promotion or owner attestation is implied.
+
+##### I3.c lock-safety source checkpoint — 2026-10-19
+
+Repair source is present; renewed local verification passed on 2026-10-20. The exact pre-fix
+V13 was replayed on an isolated PostgreSQL database for the new real-service race:
+one test failed with `ERROR: deadlock detected` while status handling waited for
+the parent. Its failing baseline record is retained separately, not converted to
+PASS. The repaired V13 was restored byte-for-byte before running the green suite.
+
+Both V13 UPDATE guards now return before run/parent membership lookups and locks
+when their entire protected identity/intent tuple is unchanged. NULL-safe tuple
+comparison permits status, counters, timestamps, non-identity metadata, offsets,
+lease/retry and dependency progress. Mixed progress-plus-identity changes remain
+on the guarded path. Structural updates involving two run IDs acquire those IDs
+in UUID order. Closure/unique indexes, deferred completeness checks and the earlier
+NULL-parent bypass protection remain in force. Production Java services and their
+parent-row lock are unchanged; this is not a claim that arbitrary structural DML
+can never deadlock.
+
+This workspace's V13 is an unreleased additive migration; verification in this
+session applies it only to isolated test databases. If a retained environment has
+already applied a prior copy, use the forward-migration procedure above instead
+of changing that environment's Flyway checksum. No production migration is run.
+
+| Source / acceptance criterion                                                                                                                   | New regression test in JobRunPreparationPostgresTest                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Execution root/child progress, NULL identity fields and fixed membership while run is locked elsewhere                                          | executionProgressCommitsWhileAnotherTransactionHoldsTheRunLock      |
+| Real outbox wait/claim/retry/publish, approvedInputs progress, stale fencing and missing/terminal claim rejection while run is locked elsewhere | outboxProgressAndFencingWorkWhileAnotherTransactionHoldsTheRunLock  |
+| Real symbol-upsert aggregation versus applyStatus, actual parent-lock wait, correct final membership/counts and terminal replay                 | statusAndSymbolUpsertCommitWhenTheParentIsLockedBeforeTheChildFlush |
+| Mixed progress plus execution work/date/version or outbox payload/topic/key/index mutation fails atomically                                     | progressFastPathsDoNotAllowMixedIdentityOrIntentMutation            |
+| Status validation still rejects missing workType and null/blank workKey, including null message metadata                                        | progressGuardDoesNotBypassStatusWorkIdentityValidation              |
+
+Each lock test holds the competing lock until the progress transaction has either
+committed or failed. Finite SQL/future timeouts are test cleanup bounds, not retry
+or success conditions. Parent-lock interleaving uses real `pg_blocking_pids`
+observation before the upsert proceeds. The saved red SQL, JUnit and source hashes
+are under ignored `.agent/check-results/P14-I3c-lock-safety/`; the expected-red
+gate is `P14-I3c-lock-safety-baseline`. The new green gate
+`P14-I3c-lock-safety` requires format, focused PostgreSQL tests, full Platform test,
+coverage and clean build. Older passing gates do not satisfy this repair.
+Executed local gate on 2026-10-20: `PASS required=5 pass=5 fail=0 unknown=0 missing=0`.
+All five owner-approved Nx commands above passed. Focused PostgreSQL execution ran
+28 tests; the final clean build ran 351 tests across 56 suites with zero failures,
+errors or skips in 4m12s. Separate full-test and coverage targets reused the unchanged
+clean-build outputs. Existing cached-context shutdown warnings remain; they did not
+fail the build. This closes the reported progress-lock cycle locally, without a
+claim about arbitrary structural-write interleavings.
+
+Attributable JaCoCo line/branch: `JobService.applyStatus` 100% / 90.62%,
+`aggregateParentExecution` 94.29% / 85.71%, and outbox `claimEligible` 100% / 100%.
+Every critical component in the renewed I3.c matrix meets 80% line and branch;
+unchanged private helpers are not inferred covered from public-method totals.
+SQL is not JaCoCo-instrumented: the five new cases above and existing membership,
+NULL-link, closure, compatibility, rollback, concurrency and budget cases provide
+explicit executed attribution rather than a numeric SQL percentage.
+
+The ignored gate folder contains `source-test-matrix.md`, `source-coverage-summary.json`,
+JUnit/JaCoCo copies, exact old/fixed SQL and SHA-256 hashes for 31 production/test
+files. Post-format source hashes match the executed inputs. The expected-red gate
+remains separately FAIL with one actual deadlock; it is not part of the green PASS.
+Final static documentation review is recorded in that folder's `documentation-audit.md`.
+No CI, owner attestation, retained-environment migration or activation is claimed.
+Default preparation remains false; I2/I3 status is unchanged.
+
+##### I3.c replay definition/run lock repair — 2026-10-20
+
+The later review identified a separate Java lock inversion: visible-run replay
+locked the run before `releaseReplayClaim` locked the target definition. A caller
+that initially missed an uncommitted run could already hold the definition before
+discovering the now-committed run. Their definition/run waits could deadlock.
+
+`JobRunPreparationService.prepare` now locks the target definition before the run
+in the visible-replay branch. Fresh preparation already locks all resolved
+definitions in UUID order before run creation/locking; the collision/alreadyClosed
+branch retains those locks. Replay needs only the target definition and acquires
+no other definition after locking the run. It still uses persisted closure without
+recomputing mutable topology/configuration/date and validates/releases the lease
+inside the same transaction. No retry mask, timeout increase or V13 change.
+
+Executed attribution: `scheduledAndManualReplayLockDefinitionBeforeRun` holds a
+definition in transaction A, observes real transaction B blocking through
+`pg_blocking_pids`, then invokes replay from A. This models the critical
+definition-held state of the missed-run race, not the full original three-caller
+visibility window. Old Java failed with PostgreSQL `deadlock detected` at the
+definition claim-token lock. Fixed scheduled and manual variants both commit,
+return the original execution, preserve run/execution/message counts and cadence,
+and release only the fresh lease. Existing stale-token, target/request-conflict,
+closure, frozen-replay, rollback and independent/shared-ancestor cases reran.
+
+Local gate `P14-I3c-replay-lock`: five required checks PASS (changed-file format,
+focused PostgreSQL, full test, coverage, clean build). Focused execution ran 29
+tests; clean build ran 352 tests / 56 suites, zero failures/errors/skips in 4m49s.
+Subsequent test/coverage targets reused those unchanged outputs. Whole preparation
+service coverage is 99.35% line / 91.67% branch; every critical I3.c matrix component
+still meets 80% line/branch. Existing context-shutdown warnings remain disclosed.
+The preceding 351-test SQL repair evidence is historical for that source snapshot.
+
+Ignored `.agent/check-results/P14-I3c-replay-lock/` retains the old Java snapshot,
+expected-red JUnit, focused/full JUnit and JaCoCo attribution, the 31-file executed
+source hashes, `source-test-matrix.md`, `review.md` and `documentation-audit.md`.
+The separate `P14-I3c-replay-lock-baseline` remains intentionally FAIL. A second
+static review of the changed path and directly related repository, scheduler/manual,
+claim-release and transaction boundaries found no additional actionable issue.
+This is scoped review and executed regression evidence, not general deadlock
+freedom or an independent reviewer-model run.
+
+Blast radius: cached graph query including preparation/run repository reports 66
+direct nodes, 15 displayed of 76 impacted, eight additional files, truncated broad
+matches. Canonical reconciliation: Platform definition/run/claim concurrency and
+its tests are impacted. Ingestor/Analyzer message shapes and worker/data writers,
+Query Service/Console APIs/read models, shared contracts/generated code/py-common,
+storage paths/ownership, READY-last and exact lineage are unchanged. Persistence
+schema/V13, configuration/deployment and operational rollout remain unchanged.
+Only flow, plan/registry/roadmap and release evidence need updates; database,
+architecture/ADR/service/ownership/development/index and AGENTS/CLAUDE/.roo guidance
+need no further edit because their authority, contracts and policies are preserved.
+No new document/ID or acceptance weakening. Preparation stays false, I2 remains
+`verification_pending`, I3 remains `pending`; no owner attestation, CI, migration,
+deployment or I3.d/I4 activation is claimed.
+
 #### I3.b persistence foundation — 2026-10-18
 
 The owner explicitly requested this bounded checkpoint on the existing branch.

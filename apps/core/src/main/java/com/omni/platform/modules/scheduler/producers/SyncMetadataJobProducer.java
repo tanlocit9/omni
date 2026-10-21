@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.List;
 import java.util.Map;
 
@@ -40,27 +41,39 @@ public class SyncMetadataJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
+            Instant timestamps,
+            JobRunWorkContext context) {
         Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         Map<String, Object> target = null;
         if (jobExecutionHistory.getMetaJson() != null
                 && jobExecutionHistory.getMetaJson().get("metadataTarget") instanceof Map<?, ?> raw
                 && !raw.isEmpty()) {
-            target = raw.entrySet().stream().collect(java.util.stream.Collectors.toMap(
-                    entry -> String.valueOf(entry.getKey()), Map.Entry::getValue));
+            target =
+                    raw.entrySet().stream()
+                            .collect(
+                                    java.util.stream.Collectors.toMap(
+                                            entry -> String.valueOf(entry.getKey()),
+                                            Map.Entry::getValue));
         }
 
-        SyncMetadataJobMessage message = new SyncMetadataJobMessage(
-                job.getId(),
-                jobExecutionHistory.getId(),
-                jobExecutionHistory.getParentLogId(),
-                job.getSource().toString(),
-                WorkType.GLOBAL,
-                job.getJobType().name(),
-                target,
-                config);
+        SyncMetadataJobMessage message =
+                new SyncMetadataJobMessage(
+                        job.getId(),
+                        jobExecutionHistory.getId(),
+                        jobExecutionHistory.getParentLogId(),
+                        job.getSource().toString(),
+                        WorkType.GLOBAL,
+                        job.getJobType().name(),
+                        target,
+                        config);
         return List.of(new KafkaMessage("metadata", message));
     }
 

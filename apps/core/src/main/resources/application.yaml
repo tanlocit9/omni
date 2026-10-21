@@ -38,6 +38,9 @@ app:
     bucket: ${MINIO_BUCKET:stock-data}
   scheduler:
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
+    job-run:
+      # Staged I3.c only. FIFO enqueue is not a predecessor-completion barrier; keep off until I4.
+      preparation-enabled: false
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}
     manual-trigger:
       # allow-list is injected directly from .env as the canonical property key

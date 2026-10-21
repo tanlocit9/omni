@@ -15,6 +15,8 @@ erDiagram
   JOB_RUN_STEPS ||--o{ JOB_RUN_STEP_PREDECESSORS : dependent
   JOB_RUN_STEPS ||--o{ JOB_RUN_STEP_PREDECESSORS : upstream
   JOB_RUN_STEPS |o--o{ JOB_EXECUTION_HISTORIES : optional_run_link
+  JOB_RUN_STEPS ||--o| JOB_RUN_STEP_PREPARATIONS : closes
+  JOB_EXECUTION_HISTORIES ||--o| JOB_RUN_STEP_PREPARATIONS : root_membership
   JOB_EXECUTION_HISTORIES ||--o| MANUAL_JOB_TRIGGERS : dispatches
   JOB_EXECUTION_HISTORIES ||--o{ JOB_EXECUTION_HISTORIES : parent_child
   SECTORS ||--o{ SYMBOLS : classifies
@@ -72,6 +74,15 @@ erDiagram
     int predecessor_index
   }
 
+  JOB_RUN_STEP_PREPARATIONS {
+    uuid job_run_id
+    int step_index
+    uuid parent_execution_id
+    int child_count
+    int message_count
+    timestamptz closed_at
+  }
+
   SYMBOLS {
     uuid id
     string exchange
@@ -96,8 +107,8 @@ erDiagram
 adds `job_runs` request/lifecycle identity, frozen `job_run_steps` and their
 `job_run_step_predecessors`. The snapshot is an immutable instance of the static
 path, including effective scope and business date for every step. It is not a
-mutable topology definition. The inactive `JobRunRepository` persists and reloads
-these instances without activating scheduler/manual preparation or dispatch.
+mutable topology definition. `JobRunRepository` persists and reloads these instances;
+its I3.c preparation caller is gated off by default.
 
 Creation atomically moves transaction-local PREPARING to PREPARED; incomplete
 transactions cannot commit. Request identity and sealed membership cannot be
@@ -118,6 +129,29 @@ history as a rollback shortcut. No production deployment is claimed. Source/test
 are present; current verification evidence belongs to
 [Plan 030](../plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
 
+I3.c adds [V13](../../database/migrations/V13__seal_job_run_execution_membership.sql):
+`job_run_step_preparations` records each closed root/child/message membership.
+Versioned root/work uniqueness, count validation and deferred closure checks protect
+atomic preparation. Closed execution/outbox membership cannot be appended, deleted
+or rebound; status/retry/claim progress stays mutable. Legacy NULL links and optional
+V12 links are retained. Apply V13 before enabling any preparation caller; retain
+the additive schema on rollback. The flag remains false until completion barriers
+are proved in I4. No manual table is removed. See
+[I3.c evidence](../plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
+
+The execution guard validates versioned parent run/step membership before allowing
+NULL-linked legacy rows: omitting a child's JobRun link cannot append or rebind it
+under a prepared parent. Independent legacy parents remain compatible.
+
+I3.c lock-safety repair source now bypasses run locks on progress-only UPDATEs in
+both execution and outbox guards, using complete NULL-safe identity comparison.
+Structural/mixed-identity changes retain membership checks and sorted run locks.
+[The repair plan](../plans/030-static-graph-dispatch-planner.md#i3c-lock-safety-repair-plan--2026-10-19)
+records an actual old-code deadlock reproduction and the repaired five-check local
+PASS on 2026-10-20, including 28 focused PostgreSQL tests. SQL coverage is an
+executed criterion matrix, not a numeric JaCoCo claim. Keep preparation disabled;
+no retained-environment migration was run.
+
 ### Job definitions
 
 | Field          | Value                                                                                                                                                                                      |
@@ -130,13 +164,13 @@ are present; current verification evidence belongs to
 
 ### Job execution history
 
-| Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql), [`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql) |
-| Owner          | Platform scheduler module                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                                                                                                                                                                                                                                                               |
-| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Field          | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migrations     | [`V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql), [`V9__backfill_execution_work_identity.sql`](../../database/migrations/V9__backfill_execution_work_identity.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql), [`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql), [`V13__seal_job_run_execution_membership.sql`](../../database/migrations/V13__seal_job_run_execution_membership.sql) |
+| Owner          | Platform scheduler module                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Purpose        | Tracks parent and child executions, worker status, metrics, and errors.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/JobExecutionHistory.java)                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 Child rows store canonical execution identity in `meta_json.workType` and
 `meta_json.workKey`. V9 is a schema-only cutover: it never deletes or rewrites
@@ -158,11 +192,11 @@ claim that migration exists.
 
 ### Scheduler outbox
 
-| Field      | Value                                                                                                                                                                                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Migrations | [`V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql) |
-| Owner      | Platform scheduler module                                                                                                                                                                                            |
-| Purpose    | Commits immutable execution/message intent before dependency evaluation, then supports fenced READY claims, retryable WAITING, and terminal BLOCKED disposition.                                                     |
+| Field      | Value                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Migrations | [`V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql), [`V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql), [`V13__seal_job_run_execution_membership.sql`](../../database/migrations/V13__seal_job_run_execution_membership.sql) |
+| Owner      | Platform scheduler module                                                                                                                                                                                                                                                                                                                  |
+| Purpose    | Commits immutable execution/message intent before dependency evaluation, then supports fenced READY claims, retryable WAITING, and terminal BLOCKED disposition.                                                                                                                                                                           |
 
 `PENDING` rows are over-fetched as unclaimed candidates. Manifest and exact
 run/work eligibility is evaluated without holding a database transaction. Only a

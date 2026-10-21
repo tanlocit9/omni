@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,10 +54,18 @@ public class SyncIndicatorsJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+            Instant timestamps,
+            JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SyncIndicatorsConfig config = JobConfigMapper.toIndicatorsConfig(jobConfig);
         List<String> sectorCodes = config.filters().sectorCodes();
         int sectorLevel = config.filters().sectorLevel();
@@ -64,39 +73,50 @@ public class SyncIndicatorsJobProducer extends JobProducer {
         List<String> indicators = config.indicators();
         String indicatorSource = config.indicatorSource();
 
-        List<SymbolKeyProjection> symbols = symbolRepository.findBySectorCodesAndLevel(
-                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+        List<SymbolKeyProjection> symbols =
+                context != null
+                        ? context.symbols(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel)
+                        : symbolRepository.findBySectorCodesAndLevel(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel);
+
+        log.info(
+                "Syncing indicators for {} symbols with sectorCodes: {} at level {}",
+                symbols.size(),
+                sectorCodes,
                 sectorLevel);
 
-        log.info("Syncing indicators for {} symbols with sectorCodes: {} at level {}",
-                symbols.size(), sectorCodes, sectorLevel);
-
         return symbols.stream()
-                .map(symbol -> {
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.putAll(jobConfig);
+                .map(
+                        symbol -> {
+                            Map<String, Object> metadata = new HashMap<>();
+                            metadata.putAll(jobConfig);
 
-                    JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
-                            jobExecutionHistory.getId(),
-                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
-                            metadata,
-                            timestamps);
+                            JobExecutionHistory childJobExecutionHistory =
+                                    createChild(
+                                            context,
+                                            jobExecutionHistory,
+                                            WorkIdentity.of(WorkType.SYMBOL, symbol.symbolKey()),
+                                            metadata,
+                                            timestamps);
 
-                    return new KafkaMessage(
-                            symbol.symbolKey(),
-                            new IndicatorJobMessage(
-                                    job.getId(),
-                                    childJobExecutionHistory.getId(),
-                                    jobExecutionHistory.getId(),
-                                    job.getSource().toString(),
-                                    WorkType.SYMBOL,
+                            return new KafkaMessage(
                                     symbol.symbolKey(),
-                                    symbol.symbolKey(),
-                                    timeframe,
-                                    indicatorSource,
-                                    indicators,
-                                    metadata));
-                })
+                                    new IndicatorJobMessage(
+                                            job.getId(),
+                                            childJobExecutionHistory.getId(),
+                                            jobExecutionHistory.getId(),
+                                            job.getSource().toString(),
+                                            WorkType.SYMBOL,
+                                            symbol.symbolKey(),
+                                            symbol.symbolKey(),
+                                            timeframe,
+                                            indicatorSource,
+                                            indicators,
+                                            metadata));
+                        })
                 .toList();
     }
 
@@ -104,5 +124,4 @@ public class SyncIndicatorsJobProducer extends JobProducer {
     protected void postPublish(JobDefinition job, Instant now) {
         log.info("Published indicator sync job [{}] for source [{}]", job.getId(), job.getSource());
     }
-
 }

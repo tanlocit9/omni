@@ -16,6 +16,13 @@ the updated entity mapping starts. Scheduler/manual entry points still use their
 existing paths; no execution/outbox intent is created by snapshot persistence.
 See [I3.b scope and evidence](../../docs/plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
 
+I3.c adds bounded target-path preparation and V13 closed execution/message
+membership. `app.scheduler.job-run.preparation-enabled` is **false** by default;
+keep it disabled until I4 proves predecessor-completion admission. Apply V13 before
+using the new service. The existing scheduler/manual routes, cron definitions and
+manual audit remain active; custom definitions and historical intraday overrides
+keep their legacy path. See [I3.c scope and gates](../../docs/plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
+
 - Scheduler job definitions and execution history.
 - Parent/child job aggregation.
 - Platform PostgreSQL migrations and entities.

@@ -34,7 +34,8 @@ class JobProducerTest {
         execution.setId(UUID.randomUUID());
         Instant now = Instant.parse("2026-08-13T00:00:00Z");
         when(jobService.prepareClaimedExecution(job, claim, now, Map.of())).thenReturn(execution);
-        KafkaMessage message = new KafkaMessage("stable-key", java.util.Map.of("executionId", execution.getId()));
+        KafkaMessage message =
+                new KafkaMessage("stable-key", java.util.Map.of("executionId", execution.getId()));
         JobProducer producer = producer(jobService, kafkaPublisher, message);
 
         UUID executionId = producer.prepareDispatch(job, claim, now);
@@ -46,7 +47,52 @@ class JobProducerTest {
         verifyNoInteractions(kafkaPublisher);
     }
 
-    private JobProducer producer(JobService jobService, KafkaPublisher kafkaPublisher, KafkaMessage message) {
+    @Test
+    void manualAndZeroChildPreparationRetainTheExistingClaimOutboxAndNoopBehavior() {
+        var jobs = mock(JobService.class);
+        var publisher = mock(KafkaPublisher.class);
+        var job = job();
+        var lease = claim(job);
+        var execution = new JobExecutionHistory();
+        execution.setId(UUID.randomUUID());
+        var now = Instant.EPOCH;
+        var metadata = Map.<String, Object>of("trigger", "manual");
+        when(jobs.prepareManualClaimedExecution(job, lease, now, Map.of(), metadata))
+                .thenReturn(execution);
+        var message = new KafkaMessage("key", Map.of());
+        producer(jobs, publisher, message)
+                .prepareManualDispatch(job, lease, now, Map.of(), metadata);
+        verify(jobs).enqueueDispatch(execution, "jobs", List.of(message), now);
+        when(jobs.prepareClaimedExecution(job, lease, now, Map.of())).thenReturn(execution);
+        JobProducer empty =
+                new JobProducer(jobs, publisher) {
+                    @Override
+                    public JobType getJobType() {
+                        return JobType.SYNC_STOCK_PRICE;
+                    }
+
+                    @Override
+                    protected String getTopic() {
+                        return "jobs";
+                    }
+
+                    @Override
+                    protected List<KafkaMessage> buildMessages(
+                            JobDefinition d, JobExecutionHistory h, Instant t) {
+                        return List.of();
+                    }
+                };
+        empty.prepareDispatch(job, lease, now);
+        verify(jobs).markParentWithNoChildren(execution, now);
+        verify(jobs, org.mockito.Mockito.times(2)).releaseClaim(lease);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> empty.prepareRunStep(job, execution, now, null))
+                .hasMessageContaining("UNSUPPORTED_PRODUCER");
+        verifyNoInteractions(publisher);
+    }
+
+    private JobProducer producer(
+            JobService jobService, KafkaPublisher kafkaPublisher, KafkaMessage message) {
         return new JobProducer(jobService, kafkaPublisher) {
             @Override
             public JobType getJobType() {
@@ -60,9 +106,7 @@ class JobProducerTest {
 
             @Override
             protected List<KafkaMessage> buildMessages(
-                    JobDefinition job,
-                    JobExecutionHistory log,
-                    Instant timestamps) {
+                    JobDefinition job, JobExecutionHistory log, Instant timestamps) {
                 return List.of(message);
             }
         };

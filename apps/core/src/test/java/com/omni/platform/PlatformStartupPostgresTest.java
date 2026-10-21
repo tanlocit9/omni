@@ -195,6 +195,11 @@ class PlatformStartupPostgresTest {
     }
 
     private ConfigurableApplicationContext startApplication() {
+        return startApplication(POSTGRES, false);
+    }
+
+    static ConfigurableApplicationContext startApplication(
+            PostgreSQLContainer<?> database, boolean preparationEnabled) {
         return new SpringApplicationBuilder(PlatformApplication.class, StartupIsolation.class)
                 .web(WebApplicationType.SERVLET)
                 .registerShutdownHook(false)
@@ -208,9 +213,10 @@ class PlatformStartupPostgresTest {
                         "--spring.profiles.active=startup-postgres",
                         "--server.address=127.0.0.1",
                         "--server.port=0",
-                        "--spring.datasource.url=" + POSTGRES.getJdbcUrl(),
-                        "--spring.datasource.username=" + POSTGRES.getUsername(),
-                        "--spring.datasource.password=" + POSTGRES.getPassword(),
+                        "--spring.datasource.url=" + database.getJdbcUrl(),
+                        "--spring.datasource.username=" + database.getUsername(),
+                        "--spring.datasource.password=" + database.getPassword(),
+                        "--app.scheduler.job-run.preparation-enabled=" + preparationEnabled,
                         "--spring.datasource.driver-class-name=org.postgresql.Driver",
                         "--spring.jpa.hibernate.ddl-auto=none",
                         "--spring.flyway.enabled=true",
@@ -254,6 +260,12 @@ class PlatformStartupPostgresTest {
                 .isEqualTo(ReadinessState.ACCEPTING_TRAFFIC);
         assertThat(context.containsBean(SCHEDULED_ANNOTATION_PROCESSOR_BEAN_NAME)).isFalse();
         assertThat(context.getBeansOfType(MinioStorageAdapter.class)).isEmpty();
+        assertThat(
+                        context.getBean(
+                                        com.omni.platform.modules.scheduler.runs
+                                                .JobRunPreparationService.class)
+                                .isEnabled())
+                .isFalse();
         assertThat(context.getBean(KafkaListenerEndpointRegistry.class).getListenerContainers())
                 .isNotEmpty()
                 .allSatisfy(container -> assertThat(container.isRunning()).isFalse());

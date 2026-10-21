@@ -56,15 +56,21 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         return upsertSymbolsTopic;
     }
 
-    @KafkaListener(topics = "${kafka.topics.topic-upsert-symbols}", groupId = "${spring.kafka.consumer.group-id}")
+    @KafkaListener(
+            topics = "${kafka.topics.topic-upsert-symbols}",
+            groupId = "${spring.kafka.consumer.group-id}")
     @Transactional
     public void handleSymbolUpsert(ConsumerRecord<String, String> record) {
         try {
-            SymbolUpsertMessage event = jsonMapper.readValue(record.value(), SymbolUpsertMessage.class);
+            SymbolUpsertMessage event =
+                    jsonMapper.readValue(record.value(), SymbolUpsertMessage.class);
             applyUpsert(event);
         } catch (Exception e) {
             publishMessageProcessingFailed(record, e);
-            log.error("Failed to process symbol-upsert message [{}]: {}", record.key(), e.getMessage());
+            log.error(
+                    "Failed to process symbol-upsert message [{}]: {}",
+                    record.key(),
+                    e.getMessage());
             throw new RuntimeException("Failed to process symbol-upsert message", e);
         }
     }
@@ -75,18 +81,30 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         if (symbols == null || symbols.isEmpty()) {
             log.warn(
                     "Received empty symbol upsert batch for [{}] (jobDefinitionId={}, executionId={}, parentExecutionId={}), skipping to avoid mass deactivation",
-                    event.exchange(), event.jobDefinitionId(), event.executionId(), event.parentExecutionId());
+                    event.exchange(),
+                    event.jobDefinitionId(),
+                    event.executionId(),
+                    event.parentExecutionId());
             return;
         }
 
-        log.info("Applying symbol upsert batch for [{}]: {} records (expected {})",
-                event.exchange(), event.actualCount(), event.expectedCount());
+        log.info(
+                "Applying symbol upsert batch for [{}]: {} records (expected {})",
+                event.exchange(),
+                event.actualCount(),
+                event.expectedCount());
 
         int successfulUpserts = 0;
         int failedUpserts = 0;
+        // Prepared SYNC_SYMBOLS already owns its closed EXCHANGE children. Symbol
+        // rows are result data, not additional execution membership for that run.
+        boolean trackSymbolChildren =
+                event.parentExecutionId() != null
+                        && !jobService.isRunPreparedExecution(event.parentExecutionId());
 
         for (SymbolRecord r : symbols) {
-            JobExecutionHistory childExecution = createChildExecutionIfTracked(event, r);
+            JobExecutionHistory childExecution =
+                    trackSymbolChildren ? createChildExecutionIfTracked(event, r) : null;
 
             try {
                 String metaJson = jsonMapper.writeValueAsString(toMeta(r));
@@ -95,11 +113,7 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
 
                 if (childExecution != null) {
                     jobService.markExecutionSuccess(
-                            childExecution,
-                            1,
-                            0,
-                            Instant.now(),
-                            toExecutionMeta(event, r));
+                            childExecution, 1, 0, Instant.now(), toExecutionMeta(event, r));
                 }
             } catch (Exception exc) {
                 failedUpserts++;
@@ -110,13 +124,15 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
                             Instant.now(),
                             toExecutionMeta(event, r));
                 }
-                log.error("Failed to upsert symbol [{}]: {}", symbolKey(event, r), exc.getMessage(), exc);
+                log.error(
+                        "Failed to upsert symbol [{}]: {}",
+                        symbolKey(event, r),
+                        exc.getMessage(),
+                        exc);
             }
         }
 
-        Set<String> incomingCodes = symbols.stream()
-                .map(r -> r.code())
-                .collect(Collectors.toSet());
+        Set<String> incomingCodes = symbols.stream().map(r -> r.code()).collect(Collectors.toSet());
         symbolRepository.deactivateMissing(event.exchange(), incomingCodes);
 
         UUID parentExecutionId = event.parentExecutionId();
@@ -126,15 +142,22 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
 
         log.info(
                 "Symbol upsert complete for [{}]: success={} failed={} deactivatedCheck against {} codes",
-                event.exchange(), successfulUpserts, failedUpserts, incomingCodes.size());
+                event.exchange(),
+                successfulUpserts,
+                failedUpserts,
+                incomingCodes.size());
 
         if (failedUpserts > 0) {
             throw new IllegalStateException(
-                    "Symbol upsert batch completed with " + failedUpserts + " failed records for " + event.exchange());
+                    "Symbol upsert batch completed with "
+                            + failedUpserts
+                            + " failed records for "
+                            + event.exchange());
         }
     }
 
-    private JobExecutionHistory createChildExecutionIfTracked(SymbolUpsertMessage event, SymbolRecord record) {
+    private JobExecutionHistory createChildExecutionIfTracked(
+            SymbolUpsertMessage event, SymbolRecord record) {
         UUID parentExecutionId = event.parentExecutionId();
         if (parentExecutionId == null) {
             return null;
@@ -157,7 +180,10 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         MetadataUtils.putIfPresent(meta, "jobDefinitionId", event.jobDefinitionId());
         MetadataUtils.putIfPresent(meta, "executionId", event.executionId());
         MetadataUtils.putIfPresent(meta, "parentExecutionId", event.parentExecutionId());
-        MetadataUtils.putIfPresent(meta, "exchange", !isBlank(record.exchange()) ? record.exchange() : event.exchange());
+        MetadataUtils.putIfPresent(
+                meta,
+                "exchange",
+                !isBlank(record.exchange()) ? record.exchange() : event.exchange());
         MetadataUtils.putIfPresent(meta, "code", record.code());
         MetadataUtils.putIfPresent(meta, "expectedCount", event.expectedCount());
         MetadataUtils.putIfPresent(meta, "actualCount", event.actualCount());
@@ -165,7 +191,8 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         MetadataUtils.putIfPresent(meta, "sectorTaxonomy", record.sectorTaxonomy());
         MetadataUtils.putIfPresent(meta, "sectorLevel", record.sectorLevel());
         MetadataUtils.putIfPresent(meta, "sourceSectorCode", record.sourceSectorCode());
-        MetadataUtils.putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        MetadataUtils.putIfPresent(
+                meta, "classificationUpdatedAt", record.classificationUpdatedAt());
         return meta;
     }
 
@@ -184,7 +211,8 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         MetadataUtils.putIfPresent(meta, "sectorLv2Code", record.sectorLv2Code());
         MetadataUtils.putIfPresent(meta, "sectorLv3Code", record.sectorLv3Code());
         MetadataUtils.putIfPresent(meta, "sectorLv4Code", record.sectorLv4Code());
-        MetadataUtils.putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        MetadataUtils.putIfPresent(
+                meta, "classificationUpdatedAt", record.classificationUpdatedAt());
 
         meta.keySet().retainAll(Symbol.META_JSON_ALLOWED_KEYS);
         return meta;

@@ -33,7 +33,7 @@ import com.omni.platform.modules.scheduler.topology.TopologyNodeKey;
 
 import tools.jackson.databind.json.JsonMapper;
 
-/** Inactive I3.b storage boundary. No scheduler, controller or producer calls this repository. */
+/** Frozen path storage; gated I3.c preparation is its only runtime caller. */
 @Repository
 public class JobRunRepository {
     private final JdbcTemplate jdbc;
@@ -143,6 +143,16 @@ public class JobRunRepository {
                 .findFirst();
     }
 
+    /** Retry lookup validates request metadata but never rebuilds an already frozen path. */
+    public Optional<JobRunSnapshot> findByRequest(Request request) {
+        return requestId(request)
+                .map(
+                        id -> {
+                            var snapshot = findById(id).orElseThrow();
+                            return replay(id, request, snapshot.path());
+                        });
+    }
+
     private JobRunSnapshot replay(UUID id, Request request, FrozenJobRunPath frozen) {
         Boolean matches =
                 jdbc.queryForObject(
@@ -164,7 +174,8 @@ public class JobRunRepository {
         return findById(id).orElseThrow();
     }
 
-    private List<UUID> resolveDefinitions(RequiredPath path) {
+    /** Read-only bounded lookup so preparation can lock definitions before inserting FK rows. */
+    public List<UUID> resolveDefinitions(RequiredPath path) {
         List<JobDefinitionIdentity> identities =
                 path.steps().stream().map(step -> step.key().definition()).distinct().toList();
         List<Object> parameters = new ArrayList<>();

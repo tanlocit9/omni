@@ -31,12 +31,35 @@ messages, rewrite statuses, or implement Phase 12 concurrency.
 
 ## Static Graph and Planned Dispatch Planning
 
-I3.b adds source for an inactive JobRun snapshot repository: a request, complete
-scoped ancestor-to-target membership, and nullable execution/run-step links. It
-does not insert execution or outbox rows, alter scheduled/manual entry points,
-or replace the current guard. I3.c owns preparation; I3.d owns manual cutover;
-I4 owns safe predecessor-completion admission. See
-[I3.b persistence scope/evidence](../plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+I3.b adds request/path persistence and nullable execution links. I3.c adds bounded
+GLOBAL/VN preparation and V13 closed execution/message membership, with dependencies
+enqueued before the target. The preparation flag is **false** by default; current
+scheduled/manual entry points and guard remain active. FIFO enqueue order does not
+prove predecessor completion. I3.d owns manual audit cutover/removal and cron/entry
+target review; I4 owns safe predecessor-completion admission before activation. See
+[I3.c scope/evidence](../plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
+
+Prepared SYNC_SYMBOLS freezes EXCHANGE executions before dispatch. Symbol-upsert
+messages update symbol data without appending SYMBOL executions to that membership;
+worker status events continue to determine completion. Legacy parents retain their
+existing per-symbol tracking. Database guards also validate parent membership when
+a writer omits the child's JobRun link.
+
+The I3.c parent/run lock cycle was reproduced against old V13 in a real-service
+PostgreSQL test. Repair source bypasses run locks for progress-only execution and
+outbox UPDATEs while retaining parent aggregation locking and membership guards. The
+[lock-safety repair plan](../plans/030-static-graph-dispatch-planner.md#i3c-lock-safety-repair-plan--2026-10-19)
+records the separate five-check local PASS on 2026-10-20: 28 focused PostgreSQL
+tests and 351 full Platform tests, with attributable Java coverage and SQL case
+mapping. Both competing service transactions now commit in the regression test.
+The route remains disabled pending I4 completion-admission proof.
+
+Visible JobRun replay locks its target definition before its run, matching fresh
+preparation's definition-before-run order. Lease validation/release stays in the
+same transaction after closure validation. The separate Java replay repair passed
+29 focused PostgreSQL cases and 352 full Platform tests on 2026-10-20, including
+scheduled/manual overlap with a definition-held caller; old Java reproduced a
+deadlock. See [replay repair](../plans/030-static-graph-dispatch-planner.md#i3c-replay-definitionrun-lock-repair--2026-10-20).
 
 The canonical [Plan 030 delivery sequence](../plans/030-static-graph-dispatch-planner.md#canonical-revised-delivery-sequence--2026-10-15) is I2 static target-to-ancestor contract, I3 durable JobRun preparation, I4 guarded JobRun-aware admission, I5 measured diagnostics and I6 operations read-model handoff. Earlier parent-only discovery and RAM binding proposals are superseded. Runtime correlation comes from persisted JobRun and immutable scoped run-step membership, not timestamp heuristics or a process-local authoritative cache.
 

@@ -125,8 +125,11 @@ Platform owns one process-local topology API. I3.a pre-cutover source resolves s
 I3.b source adds a separate persisted **run instance**, not a topology authority:
 `job_runs` and immutable scoped steps/predecessors preserve the resolved path
 across restarts or later static-declaration changes. The new storage boundary is
-inactive; scheduler/manual preparation, Kafka payloads and FIFO dispatch stay on
-their existing paths. See [I3.b persistence](../plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
+used by a default-disabled I3.c preparation route. V13 freezes execution/message
+membership after bounded dependency-first preparation. Existing scheduler/manual,
+Kafka payloads and FIFO remain active; I4 completion admission is required before
+enabling the new route. No cron or manual audit cutover occurs here. See
+[I3.c preparation](../plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
 
 ## Source-of-truth Config
 

@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +31,7 @@ public class EvaluateSignalsJobProducer extends JobProducer {
     @Value("${kafka.topics.topic-evaluate-signals}")
     private String topic;
 
-    public EvaluateSignalsJobProducer(
-            JobService jobService,
-            KafkaPublisher kafkaPublisher) {
+    public EvaluateSignalsJobProducer(JobService jobService, KafkaPublisher kafkaPublisher) {
 
         super(jobService, kafkaPublisher);
     }
@@ -49,56 +48,77 @@ public class EvaluateSignalsJobProducer extends JobProducer {
 
     @Override
     protected List<KafkaMessage> buildMessages(
+            JobDefinition job, JobExecutionHistory jobExecutionHistory, Instant timestamps) {
+        return buildRunMessages(job, jobExecutionHistory, timestamps, null);
+    }
+
+    @Override
+    protected List<KafkaMessage> buildRunMessages(
             JobDefinition job,
             JobExecutionHistory jobExecutionHistory,
-            Instant timestamps) {
-        Map<String, Object> jobConfig = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+            Instant timestamps,
+            JobRunWorkContext context) {
+        Map<String, Object> jobConfig =
+                job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SyncSignalsConfig config = JobConfigMapper.toSignalsConfig(jobConfig);
         String timeframe = config.timeframe();
         String strategy = config.strategy();
 
-        List<String> exchanges = JobConfigMapper.readStringList(
-                jobConfig,
-                JobDefinitionConfig.CONFIG_KEY_EXCHANGES);
+        List<String> exchanges =
+                JobConfigMapper.readStringList(jobConfig, JobDefinitionConfig.CONFIG_KEY_EXCHANGES);
         if (exchanges.isEmpty()) {
             exchanges = JobDefinitionConfig.VIETNAM_EXCHANGES;
         }
 
-        log.info("Evaluating signals for exchanges={} strategy={} timeframe={} jobId={} executionId={}",
-                exchanges, strategy, timeframe, job.getId(), jobExecutionHistory.getId());
+        log.info(
+                "Evaluating signals for exchanges={} strategy={} timeframe={} jobId={} executionId={}",
+                exchanges,
+                strategy,
+                timeframe,
+                job.getId(),
+                jobExecutionHistory.getId());
 
         return exchanges.stream()
-                .map(exchange -> {
-                    String normalizedExchange = exchange == null ? "" : exchange.trim().toUpperCase();
-                    Map<String, Object> metadata = new HashMap<>();
-                    metadata.putAll(jobConfig);
-                    metadata.put(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of(normalizedExchange));
+                .map(
+                        exchange -> {
+                            String normalizedExchange =
+                                    exchange == null ? "" : exchange.trim().toUpperCase();
+                            Map<String, Object> metadata = new HashMap<>();
+                            metadata.putAll(jobConfig);
+                            metadata.put(
+                                    JobDefinitionConfig.CONFIG_KEY_EXCHANGES,
+                                    List.of(normalizedExchange));
 
-                    JobExecutionHistory childJobExecutionHistory = jobService.createChildExecution(
-                            jobExecutionHistory.getId(),
-                            WorkIdentity.of(WorkType.EXCHANGE, normalizedExchange),
-                            metadata,
-                            timestamps);
+                            JobExecutionHistory childJobExecutionHistory =
+                                    createChild(
+                                            context,
+                                            jobExecutionHistory,
+                                            WorkIdentity.of(WorkType.EXCHANGE, normalizedExchange),
+                                            metadata,
+                                            timestamps);
 
-                    return new KafkaMessage(
-                            normalizedExchange,
-                            new SignalEvaluationJobMessage(
-                                    job.getId(),
-                                    childJobExecutionHistory.getId(),
-                                    jobExecutionHistory.getId(),
-                                    job.getSource().toString(),
-                                    WorkType.EXCHANGE,
+                            return new KafkaMessage(
                                     normalizedExchange,
-                                    normalizedExchange,
-                                    timeframe,
-                                    strategy,
-                                    metadata));
-                })
+                                    new SignalEvaluationJobMessage(
+                                            job.getId(),
+                                            childJobExecutionHistory.getId(),
+                                            jobExecutionHistory.getId(),
+                                            job.getSource().toString(),
+                                            WorkType.EXCHANGE,
+                                            normalizedExchange,
+                                            normalizedExchange,
+                                            timeframe,
+                                            strategy,
+                                            metadata));
+                        })
                 .toList();
     }
 
     @Override
     protected void postPublish(JobDefinition job, Instant now) {
-        log.info("Published signal evaluation job [{}] for source [{}]", job.getId(), job.getSource());
+        log.info(
+                "Published signal evaluation job [{}] for source [{}]",
+                job.getId(),
+                job.getSource());
     }
 }

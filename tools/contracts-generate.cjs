@@ -25,6 +25,7 @@ const generation = spawnSync(buf, ['generate'], {
   cwd: contractsRoot,
   encoding: 'utf8',
   stdio: 'inherit',
+  windowsHide: true,
   shell: process.platform === 'win32',
 });
 

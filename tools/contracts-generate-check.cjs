@@ -38,6 +38,7 @@ function generate() {
     cwd: repositoryRoot,
     encoding: 'utf8',
     stdio: 'inherit',
+    windowsHide: true,
   });
 
   if (generation.error) {

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -128,6 +129,15 @@ def log_path(directory: Path, name: str) -> Path:
     return directory / "logs" / f"{name}.log"
 
 
+def command_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    if sys.platform == "win32":
+        environment.setdefault("NX_NO_CLOUD", "true")
+        environment.setdefault("NX_NATIVE_COMMAND_RUNNER", "false")
+        environment.setdefault("NX_TUI", "false")
+    return environment
+
+
 def command_run(args: argparse.Namespace) -> int:
     if not args.command:
         raise CheckResultError("missing command after --")
@@ -145,6 +155,7 @@ def command_run(args: argparse.Namespace) -> int:
         process = subprocess.Popen(
             resolved_command,
             cwd=ROOT,
+            env=command_environment(),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

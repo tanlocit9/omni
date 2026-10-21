@@ -15,6 +15,7 @@ function run(command, args, options = {}) {
     cwd: contractsRoot,
     encoding: 'utf8',
     stdio: 'inherit',
+    windowsHide: true,
     shell: process.platform === 'win32',
     ...options,
   });
@@ -44,7 +45,11 @@ if (require.main === module) {
   try {
     const baseline = process.env.CONTRACTS_BASE_SHA;
     const subdir = resolveBaseline(baseline, (args) =>
-      spawnSync('git', args, { cwd: repositoryRoot, stdio: 'ignore' })
+      spawnSync('git', args, {
+        cwd: repositoryRoot,
+        stdio: 'ignore',
+        windowsHide: true,
+      })
     );
     console.log(`Checking contracts against ${baseline}:${subdir}`);
     process.exit(

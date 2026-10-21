@@ -1,5 +1,23 @@
 # Omni Release Notes
 
+## 2026-10-19 - Windows tooling launch review (local checks passed)
+
+Contract launchers and formatter-test Git helpers now request hidden Windows
+children. Root tools-test and verify use a direct Python launcher, preferring the
+workspace interpreter and bypassing pyenv batch shims on Windows. The inspected
+third-party graph runtime still starts Git without Windows creation flags; exact
+ownership of the reported CMD tab is unconfirmed because process-tree access is
+denied. No global configuration or installed package changed. The owner-approved
+four-check gate passed (`WINDOWS-TOOLING-20261019`): changed-file formatting, 14
+tooling tests through the new Python launcher, 7 CI-policy tests and 9 formatter
+tests. Contract generation/breaking commands and full verify orchestration were
+not executed; their launch flags remain statically inspected. Controlled owner
+observation found no flash when Nx Cloud was disabled for the lightweight target.
+Recorder Windows child defaults now disable Cloud/native runner/TUI, preserving
+explicit overrides and leaving repo configuration/non-Windows CI unchanged.
+Three new tests cover environment defaults, overrides and non-Windows behavior.
+This does not claim every third-party tool or direct launch path is flash-free.
+
 ## 2026-10-18 - I3.b JobRun persistence foundation (local gate passed)
 
 Added forward-only V12 for JobRun requests, frozen scoped steps/predecessors and

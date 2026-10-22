@@ -1,6 +1,5 @@
 package com.omni.platform.modules.scheduler.services;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -13,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.omni.platform.modules.scheduler.config.ManualTriggerProperties;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.DependencySummary;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.ExecutionSummary;
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.JobDefinitionDetail;
@@ -21,7 +19,6 @@ import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.JobDefinitionS
 import com.omni.platform.modules.scheduler.dtos.JobOperationsDtos.PageResponse;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
-import com.omni.platform.modules.scheduler.repositories.BlockedJobRepository;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
 
@@ -30,18 +27,18 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class JobOperationsCatalogService {
-    private static final Pattern SECRET = Pattern.compile(
-            "(?i)\\b(password|secret|token|access[-_]?key|private[-_]?key)\\b\\s*[:=]\\s*[^,;\\s]+");
-    private static final Pattern STORAGE_URI = Pattern.compile(
-            "(?i)\\b(?:s3|minio|file)://[^\\s,;]+");
-    private static final Pattern WINDOWS_PATH = Pattern.compile(
-            "(?i)(?<![A-Za-z0-9_])[A-Z]:\\\\(?:[^\\s\\\\]+\\\\)+[^\\s,;]+");
-    private static final Pattern UNIX_STORAGE_PATH = Pattern.compile(
-            "(?<![A-Za-z0-9_])/(?:data|mnt|var|tmp|opt|srv|home)/[^\\s,;]+");
+    private static final Pattern SECRET =
+            Pattern.compile(
+                    "(?i)\\b(password|secret|token|access[-_]?key|private[-_]?key)\\b\\s*[:=]\\s*[^,;\\s]+");
+    private static final Pattern STORAGE_URI =
+            Pattern.compile("(?i)\\b(?:s3|minio|file)://[^\\s,;]+");
+    private static final Pattern WINDOWS_PATH =
+            Pattern.compile("(?i)(?<![A-Za-z0-9_])[A-Z]:\\\\(?:[^\\s\\\\]+\\\\)+[^\\s,;]+");
+    private static final Pattern UNIX_STORAGE_PATH =
+            Pattern.compile("(?<![A-Za-z0-9_])/(?:data|mnt|var|tmp|opt|srv|home)/[^\\s,;]+");
     private final JobDefinitionRepository jobDefinitionRepository;
     private final JobExecutionHistoryRepository executionRepository;
-    private final BlockedJobRepository blockedJobRepository;
-    private final ManualTriggerProperties triggerProperties;
+    private static final String MANUAL_TRIGGER_DEFERRED = "Manual job triggering is deferred";
 
     @Transactional(readOnly = true)
     public PageResponse<JobDefinitionSummary> list(
@@ -51,84 +48,126 @@ public class JobOperationsCatalogService {
         String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         String type = jobType == null ? "" : jobType.trim().toUpperCase(Locale.ROOT);
 
-        List<JobDefinition> matching = jobDefinitionRepository.findAll(Sort.by("id")).stream()
-                .filter(job -> q.isEmpty() || searchable(job).contains(q))
-                .filter(job -> type.isEmpty() || job.getJobType().name().equals(type))
-                .filter(job -> active == null || active.equals(Boolean.TRUE.equals(job.getIsActive())))
-                .toList();
+        List<JobDefinition> matching =
+                jobDefinitionRepository.findAll(Sort.by("id")).stream()
+                        .filter(job -> q.isEmpty() || searchable(job).contains(q))
+                        .filter(job -> type.isEmpty() || job.getJobType().name().equals(type))
+                        .filter(
+                                job ->
+                                        active == null
+                                                || active.equals(
+                                                        Boolean.TRUE.equals(job.getIsActive())))
+                        .toList();
         int from = Math.min(matching.size(), page * size);
         int to = Math.min(matching.size(), from + size);
-        return new PageResponse<>(matching.subList(from, to).stream().map(this::summary).toList(),
-                page, size, matching.size());
+        return new PageResponse<>(
+                matching.subList(from, to).stream().map(this::summary).toList(),
+                page,
+                size,
+                matching.size());
     }
 
     @Transactional(readOnly = true)
     public JobDefinitionDetail detail(UUID id) {
         JobDefinition job = findDefinition(id);
-        Triggerability triggerability = triggerability(job);
-        List<ExecutionSummary> recent = executionRepository
-                .findTop20ByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(id).stream()
-                .map(JobOperationsCatalogService::execution).toList();
+        List<ExecutionSummary> recent =
+                executionRepository
+                        .findTop20ByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(id)
+                        .stream()
+                        .map(JobOperationsCatalogService::execution)
+                        .toList();
         return new JobDefinitionDetail(
-                job.getId(), job.getTitle(), job.getSource().name(), job.getJobType().name(),
-                job.getJobType().name(), stableWorkKey(job),
-                Boolean.TRUE.equals(job.getIsActive()), job.getCronExpr(), job.getNextRun(),
-                triggerability.allowed(), triggerability.reason(), recent.isEmpty() ? null : recent.get(0),
-                dependencies(job), List.of(), recent);
+                job.getId(),
+                job.getTitle(),
+                job.getSource().name(),
+                job.getJobType().name(),
+                job.getJobType().name(),
+                stableWorkKey(job),
+                Boolean.TRUE.equals(job.getIsActive()),
+                job.getCronExpr(),
+                job.getNextRun(),
+                false,
+                MANUAL_TRIGGER_DEFERRED,
+                recent.isEmpty() ? null : recent.get(0),
+                dependencies(job),
+                List.of(),
+                recent);
     }
 
     public JobDefinition findDefinition(UUID id) {
-        return jobDefinitionRepository.findById(id)
-                .orElseThrow(() -> new JobOperationException(
-                        HttpStatus.NOT_FOUND, "job_definition_not_found", "Job definition was not found"));
+        return jobDefinitionRepository
+                .findById(id)
+                .orElseThrow(
+                        () ->
+                                new JobOperationException(
+                                        HttpStatus.NOT_FOUND,
+                                        "job_definition_not_found",
+                                        "Job definition was not found"));
     }
 
     public static ExecutionSummary execution(JobExecutionHistory value) {
-        return new ExecutionSummary(value.getId(), value.getStatus().name(), value.getTriggeredAt(),
-                value.getStartedAt(), value.getFinishedAt(), value.getRecordsSynced(), value.getRecordsSkipped(),
+        return new ExecutionSummary(
+                value.getId(),
+                value.getStatus().name(),
+                value.getTriggeredAt(),
+                value.getStartedAt(),
+                value.getFinishedAt(),
+                value.getRecordsSynced(),
+                value.getRecordsSkipped(),
                 sanitize(value.getError()));
     }
 
-    private JobDefinitionSummary summary(JobDefinition job) {
-        Triggerability triggerability = triggerability(job);
-        ExecutionSummary last = executionRepository
-                .findFirstByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(job.getId())
-                .map(JobOperationsCatalogService::execution).orElse(null);
-        return new JobDefinitionSummary(
-                job.getId(), job.getTitle(), job.getSource().name(), job.getJobType().name(),
-                job.getJobType().name(), stableWorkKey(job),
-                Boolean.TRUE.equals(job.getIsActive()), job.getCronExpr(), job.getNextRun(),
-                triggerability.allowed(), triggerability.reason(), last);
+    @Transactional(readOnly = true)
+    public ExecutionSummary executionStatus(UUID executionId) {
+        return executionRepository
+                .findById(executionId)
+                .map(JobOperationsCatalogService::execution)
+                .orElseThrow(
+                        () ->
+                                new JobOperationException(
+                                        HttpStatus.NOT_FOUND,
+                                        "job_execution_not_found",
+                                        "Job execution was not found"));
     }
 
-    private Triggerability triggerability(JobDefinition job) {
-        if (!Boolean.TRUE.equals(job.getIsActive())) {
-            return new Triggerability(false, "Job definition is inactive");
-        }
-        if (!triggerProperties.allows(job)) {
-            return new Triggerability(false, "Job definition is not in the manual-trigger allow-list");
-        }
-        if (job.getClaimToken() != null && job.getClaimUntil() != null
-                && job.getClaimUntil().isAfter(Instant.now())) {
-            return new Triggerability(false, "Another scheduler or operator execution owns this job");
-        }
-        String name = job.getJobType().name() + "_" + job.getSource().name();
-        return blockedJobRepository.findByJobNameAndResolvedFalse(name)
-                .<Triggerability>map(blocked -> new Triggerability(false, sanitize(blocked.getBlockReason())))
-                .orElseGet(() -> new Triggerability(true, null));
+    private JobDefinitionSummary summary(JobDefinition job) {
+        ExecutionSummary last =
+                executionRepository
+                        .findFirstByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(job.getId())
+                        .map(JobOperationsCatalogService::execution)
+                        .orElse(null);
+        return new JobDefinitionSummary(
+                job.getId(),
+                job.getTitle(),
+                job.getSource().name(),
+                job.getJobType().name(),
+                job.getJobType().name(),
+                stableWorkKey(job),
+                Boolean.TRUE.equals(job.getIsActive()),
+                job.getCronExpr(),
+                job.getNextRun(),
+                false,
+                MANUAL_TRIGGER_DEFERRED,
+                last);
     }
 
     private static DependencySummary dependencies(JobDefinition job) {
         Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
-        return new DependencySummary(strings(config.get("dependsOnJobs")),
-                datasetNames(config.get("dependsOnDatasets")), datasetNames(config.get("producesDatasets")));
+        return new DependencySummary(
+                strings(config.get("dependsOnJobs")),
+                datasetNames(config.get("dependsOnDatasets")),
+                datasetNames(config.get("producesDatasets")));
     }
 
     private static List<String> strings(Object value) {
         if (!(value instanceof List<?> list)) {
             return List.of();
         }
-        return list.stream().map(String::valueOf).map(String::trim).filter(item -> !item.isEmpty()).toList();
+        return list.stream()
+                .map(String::valueOf)
+                .map(String::trim)
+                .filter(item -> !item.isEmpty())
+                .toList();
     }
 
     private static List<String> datasetNames(Object value) {
@@ -147,8 +186,13 @@ public class JobOperationsCatalogService {
     }
 
     private static String searchable(JobDefinition job) {
-        return String.join(" ", job.getId().toString(), String.valueOf(job.getTitle()),
-                job.getSource().name(), job.getJobType().name()).toLowerCase(Locale.ROOT);
+        return String.join(
+                        " ",
+                        job.getId().toString(),
+                        String.valueOf(job.getTitle()),
+                        job.getSource().name(),
+                        job.getJobType().name())
+                .toLowerCase(Locale.ROOT);
     }
 
     private static String stableWorkKey(JobDefinition job) {
@@ -165,8 +209,5 @@ public class JobOperationsCatalogService {
         compact = WINDOWS_PATH.matcher(compact).replaceAll("[redacted-location]");
         compact = UNIX_STORAGE_PATH.matcher(compact).replaceAll("[redacted-location]");
         return compact.length() <= 500 ? compact : compact.substring(0, 500);
-    }
-
-    private record Triggerability(boolean allowed, String reason) {
     }
 }

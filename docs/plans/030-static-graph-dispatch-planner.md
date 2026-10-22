@@ -1055,6 +1055,129 @@ No new document/ID or acceptance weakening. Preparation stays false, I2 remains
 `verification_pending`, I3 remains `pending`; no owner attestation, CI, migration,
 deployment or I3.d/I4 activation is claimed.
 
+##### I3.d manual triggering deferred — local checkpoint, 2026-10-22
+
+Owner decision: defer operator-triggered jobs themselves, together with standalone
+request/rejection audit, under [TD-017](../technical-debt/017-manual-request-rejection-audit.md).
+The earlier manual-to-JobRun audit expansion proposal is superseded. No request-only
+JobRun state/nullable path or fabricated execution is introduced. I2 remains
+`verification_pending`; I3 remains `pending`. The bounded I3.d withdrawal and cron
+inventory checkpoint is locally verified using its own seven-check gate below.
+
+Implemented source boundary:
+
+- Removed ManualJobTriggerService/entity/repository and ManualTriggerProperties,
+  its binding and example allow-list. The automatic scheduler, static topology,
+  JobRun preparation, FIFO guard/claim/fencing/retry/publish remain unchanged.
+- Kept catalog/detail/execution reads. Execution lookup now belongs to the read-only
+  catalog service. Catalog DTO compatibility fields remain `triggerable=false`,
+  `triggerBlockReason="Manual job triggering is deferred"`, and an empty accepted
+  parameter list. Old trigger POST and request-status GET are authenticated HTTP
+  410 tombstones with code `manual_trigger_deferred`; they touch no audit/execution
+  storage. This is a deliberate operator API withdrawal, not a protobuf change.
+- Removed Console trigger form/filter, request submission/status polling client
+  and Dataset Explorer metadata-sync actions. Retained catalog/history/search,
+  metadata browsing, partition selection and query preview. Read-only Data Health
+  scans and unrelated notification APIs are not operator job triggers.
+- V14 drops only `manual_job_triggers`, without CASCADE, history rewrite or JobRun
+  schema changes. V8/V12/V13 remain intact. No audit-history migration. Before
+  deploying V14 stop old readers/application instances and take any required
+  backup: application rollback alone cannot recreate deleted audit history. No
+  migration has been run against a retained environment in this checkpoint.
+- Internal MANUAL JobRun mode/preparation remains tested for future reuse; there
+  is no operator route that invokes it. BACKFILL remains reserved. Preparation
+  stays false until I4 completion admission; all existing cron entries remain.
+  Cron reduction is not safe while dependency preparation is disabled and is not
+  claimed completed by removal of manual triggering.
+
+Impact reconciliation: cached graph over API/manual service/properties, Console
+client and V8 reports 65 direct nodes, 56 impacted/two hops (20 displayed), nine
+additional files, 107 unresolved calls and truncation; built behind HEAD. Reconcile
+Platform controllers/catalog/config/claim boundaries, Console JobsPanel and
+DatasetExplorer callers, persistence migration/startup/upgrade and tests explicitly.
+Ingestor/Analyzer Kafka payloads/status/upsert and Parquet/metadata writers,
+Query Service read contracts, shared protobuf/generated code/py-common, dataset
+ownership/paths, READY-last and exact lineage are unchanged. Operations owns the
+old-reader shutdown/backup/drop rollout and preserved false preparation flag.
+
+Executed impact/test matrix: HTTP 410 for POST/poll and no
+intent, authenticated 401 boundary, read-only catalog/execution success/missing/
+sanitized errors, fresh startup without old beans/table, legacy upgrade with
+intentional audit loss but retained JobRun/execution/outbox, existing preparation
+membership/rollback/concurrency regressions, JobsPanel read/search/errors and no
+manual controls, DatasetExplorer browsing without sync actions, and Console
+typecheck/build. Tests use only isolated PostgreSQL; no providers. SQL has an
+executed case matrix rather than numeric coverage. Changed critical Java requires
+80% line/branch attributable coverage. No Console coverage target is declared;
+record focused UI tests/source mapping rather than inventing a numeric pass.
+
+Owner-approved gate passed on 2026-10-22: `nx run omni:format`, `nx run platform:test`,
+`nx run platform:coverage`, `nx run platform:build`, `nx run omni-console:test`,
+`nx run omni-console:typecheck`, `nx run omni-console:build`. Clean build executed
+341 Platform tests across 55 suites with zero failures/errors/skips; subsequent
+test/coverage targets reused the unchanged Gradle outputs. Console executed 27
+tests across six files; its final repeat reused matching Nx cache. Controller
+coverage is 100% line (no branches); catalog list/detail/summary/executionStatus
+method families including lambdas are 100% line and 100% of applicable branches.
+Startup exercised authenticated 410/no new run/history/outbox, unauthenticated 401
+and retained catalog 200. Upgrade exercised V11 legacy audit/history/outbox through
+V13 prepared-run storage to V14, dropping only audit while retaining frozen run,
+history and outbox. Existing 29 preparation regressions passed, including replay,
+membership, rollback, concurrency and progress-lock cases. Two controller, three
+catalog, two startup and 12 repository tests passed in the same full suite.
+
+The initial full run exposed a test isolation assumption (zero total runs after a
+different test created a valid run). The corrected assertion checks unchanged run
+count across retired-route calls; the renewed clean build above is passing.
+Recorded gate, exact source hashes, JUnit/JaCoCo and executed source/test matrix
+are in ignored `.agent/check-results/P14-I3d/`; earlier failure evidence is retained.
+SQL/UI have explicit executed cases, not invented numeric coverage. No owner
+attestation, CI/deployment, activation, whole-increment promotion or new commit.
+
+Documentation disposition: canonical architecture/ADR, execution flow/database,
+Platform/Console service guides, deployment, ownership/navigation, registry/plan,
+TD-017/index/priority diagrams, release notes and the manual-trigger-metadata skill
+record current withdrawal. No shared Kafka/data-lake contract or runtime coding
+rule changes; AGENTS/CLAUDE/.roo retain their existing authority. Plan 008 remains
+historical Phase 7 reference with a current availability note. No new roadmap ID.
+
+###### I3.d cron/entry inventory — static source review, 2026-10-22
+
+`JobDefinitionConfig`, the 19 canonical sector seeds, `StaticDefinitionDependencies`
+and `JobDefinitionSeeder` define 32 identities across 12 job types. This is a
+source inventory, not a query of live or operator-customized definitions. The
+bootstrap group has 23 identities (symbols, 19 price definitions and three signal
+definitions); the other nine are initially deferred by one day, not disabled.
+The seeder preserves applicable existing operator activation/cadence settings.
+
+| Job type                            | Definitions | Canonical schedule                                | Disposition                         |
+| ----------------------------------- | ----------: | ------------------------------------------------- | ----------------------------------- |
+| SYNC_SYMBOLS                        |           1 | Monthly, day 1 at 03:00                           | Retain shared upstream              |
+| SYNC_STOCK_PRICE                    |          19 | Weekdays 18:00–18:36, every two minutes by sector | Retain shared upstream              |
+| SYNC_INDICATORS                     |           1 | Weekdays 18:45                                    | Retain signal upstream              |
+| SYNC_SIGNALS                        |           3 | Weekdays 19:00, 19:05, 19:10                      | Retain all three definitions        |
+| EVALUATE_SIGNALS                    |           1 | Weekdays 19:15                                    | Retain; terminal entry candidate    |
+| PRECOMPUTE_SYMBOL_FEATURES          |           1 | Weekdays 19:30                                    | Retain sector-feature upstream      |
+| PRECOMPUTE_SECTOR_FEATURES          |           1 | Weekdays 19:45                                    | Retain shared upstream              |
+| SECTOR_ROTATION_BACKTEST            |           1 | Weekdays 19:50                                    | Retain; terminal entry candidate    |
+| SECTOR_TRANSITION_ANALYZE           |           1 | Weekdays 20:00                                    | Retain; terminal entry candidate    |
+| SECTOR_TRANSITION_EVALUATE_OUTCOMES |           1 | Weekdays 21:00                                    | Retain; terminal entry candidate    |
+| SYNC_INTRADAY_EOD                   |           1 | Weekdays 15:15                                    | Retain confirmed-signal upstream    |
+| SYNC_METADATA                       |           1 | Weekdays 20:00                                    | Retain independent discovery writer |
+
+`EVALUATE_SIGNALS` expands all three signal definitions; the confirmed signal also
+depends on intraday EOD. Transition analysis/outcome evaluation each retains one
+canonical universe writer. Metadata remains a scheduled independent terminal after
+withdrawal of its manual button. The five terminal candidates are evaluation,
+rotation, transition analysis, transition outcome evaluation and metadata.
+
+Keep all 32 canonical cron definitions and existing standalone schedules at this
+checkpoint. Preparation is false; removing upstream schedules now could remove
+the only execution path. I4 must prove safe completion admission before the owner
+selects terminal entries and confirms remaining standalone operational needs.
+This inventory authorizes neither activation nor cron reduction; no cron, seed or
+static dependency source was changed.
+
 #### I3.b persistence foundation — 2026-10-18
 
 The owner explicitly requested this bounded checkpoint on the existing branch.
@@ -1181,7 +1304,7 @@ Start with **I3.a static definition-edge extraction** above before adding JobRun
 One **`job_runs`** row is the durable logical request; `job_runs.id` is the authoritative UUID `jobRunId`. Modes: `SCHEDULED`, `MANUAL`, reserved `BACKFILL`. Record target job definition, a typed request scope (GLOBAL/EXCHANGE/SECTOR/SYMBOL-capable with explicit support gating), businessDate and optional businessGroup, request metadata/idempotency, path topology version/fingerprint if needed, lifecycle and failure reason. **Persist complete resolved ancestor + target path/membership** in an explicit stable bounded representation (e.g. run-step rows), linking `job_execution_histories` root/child executions to their run. Persist enough to reconstruct completed/unfinished predecessors after restart even if static declarations change. Do not infer from `triggeredAt` or legacy `runKey`. Use an approved additive schema/migration, but **no persisted second topology authority or arbitrary execution DAG**: run steps are an immutable instance of the static graph at run creation.
 
 - **Definition reduction means reduce independently scheduled entry targets, not delete dependency definitions required by producers.** Keep executable definitions/configuration for all path steps. Mark only user/scheduler-selected **target roots** as independently triggerable; their ancestors may become dependency-only with no independent cron. Audit existing cron definitions before disabling any, prevent duplicate target/ancestor work, and preserve explicit standalone/manual scheduling where still required.
-- Scheduled/manual requests both enter the JobRun creation boundary. Manual uses `job_runs` for request identity/audit/idempotency. **Drop `manual_job_triggers` and its V8-era runtime entity/repository usage after manual controllers/services have atomically cut over and integration tests pass; no historical-data migration is required or claimed by owner decision.** An already-applied Flyway V8 is never deleted/rewritten; add a forward migration that safely drops the obsolete table only when deployed app no longer reads it. Existing endpoint semantics/permissions remain compatible or receive explicit reviewed deprecation, not accidental 500s. Archive/drop audit data is an explicit intentional consequence.
+- Scheduled target requests enter the JobRun boundary; internal MANUAL mode remains non-exposed for future reuse. Manual triggering is now owner-deferred under TD-017; future reactivation must define request audit/idempotency before exposing it. **Drop `manual_job_triggers` and its V8-era runtime entity/repository usage after manual controllers/services have atomically cut over and integration tests pass; no historical-data migration is required or claimed by owner decision.** An already-applied Flyway V8 is never deleted/rewritten; add a forward migration that safely drops the obsolete table only when deployed app no longer reads it. Existing endpoint semantics/permissions remain compatible or receive explicit reviewed deprecation, not accidental 500s. Archive/drop audit data is an explicit intentional consequence.
 - Materialize all approved required dependency + target executions and outbox messages **in DAG topological order** (dependencies before dependents), preserving per-parent one-time fan-out membership closure and zero-child behavior. The **full planned path** must remain visible in `JobRun` even if outbox preparation is chunked/retired; do not claim closure merely from a partial batch. Use transactional idempotency keys such as (run, step, work identity, business date) and bounded transactions; no N+1 fan-out expansion or unbounded single transaction. Retry/restart must never duplicate a logical step. Existing dataset readiness and exact-version rules apply before work can be considered successful.
 - **I3 leaves `SchedulerOutboxDispatcher.findCandidates()`, FIFO selection, `DependencyRegistry`, WAITING/BLOCKED, atomic claim/fencing, retries and Kafka publish intact.** Dependency-first enqueue/FIFO is a _preference_, **not an execution completion guarantee**: an upstream may be PUBLISHED but not finished when downstream candidates are examined. If the existing guard cannot prove required execution completion for a new run path, **do not activate the new target-driven route in I3**; keep it behind a disabled-by-default feature flag or enforce a bounded guard-compatible safe admission rule. No silent correctness regression allowed before I4.
 - Independent rollback/verification: no schema removal before cutover; old scheduled/manual runtime works during staging, then new target-run creation may be separately enabled after compatibility checks. PostgreSQL tests for referential integrity, commit/rollback, retry/crash, duplicate runs, multiple definitions and multiple dates; manual API and legacy outbox regression PASS.
@@ -1266,15 +1389,15 @@ No trading or research algorithm is introduced. The shared topology makes determ
 
 ### Field/DTO inventory — canonical 2026-10-15
 
-| Owner    | Contract change                                                                                                                                           | Required compatibility                                                                                                                        |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| I2       | Static target→ancestors topological path, definition/node identity mapping, diagnostics                                                                   | Additive internal API; no runtime activation                                                                                                  |
-| I3       | **New `job_runs` and durable run-step membership**; `jobRunId` link to root/child execution; scheduled/manual/backfill mode; target/scope/request context | New forward Flyway migration; manual API cutover before dropping manual table; old rows/FIFO/guard remain safe; no modification of applied V8 |
-| I3       | Optional root-only autonomous cron scheduling                                                                                                             | Dependency definitions/producer configs retained; no silent loss of independent required schedules; explicit opt-in                           |
-| I4       | Execution/outbox read projection, typed JobRun cohort/step/quota selection, scoped queries and enabled/fallback config                                    | Read-only bounded snapshot, claim-time revalidation, guarded/fenced publishing and rollback                                                   |
-| I5       | Versioned diagnostic SQL, benchmark evidence, metric read dictionary                                                                                      | No metric storage/schema/public API required solely for measurement                                                                           |
-| I6       | Bounded JobRun operations projection or approved API                                                                                                      | No duplicate Plan 029 UI, explicit UNKNOWN and authorization                                                                                  |
-| Deferred | Optional runtime caching and full historical backfill (Plan 028)                                                                                          | Separate evidence and owner approval; no speculative cache epic                                                                               |
+| Owner    | Contract change                                                                                                                                           | Required compatibility                                                                                                                                                     |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I2       | Static target→ancestors topological path, definition/node identity mapping, diagnostics                                                                   | Additive internal API; no runtime activation                                                                                                                               |
+| I3       | **New `job_runs` and durable run-step membership**; `jobRunId` link to root/child execution; scheduled/manual/backfill mode; target/scope/request context | New forward Flyway migration; I3.d owner-deferred manual API with HTTP 410 before dropping old audit table; old rows/FIFO/guard remain safe; no modification of applied V8 |
+| I3       | Optional root-only autonomous cron scheduling                                                                                                             | Dependency definitions/producer configs retained; no silent loss of independent required schedules; explicit opt-in                                                        |
+| I4       | Execution/outbox read projection, typed JobRun cohort/step/quota selection, scoped queries and enabled/fallback config                                    | Read-only bounded snapshot, claim-time revalidation, guarded/fenced publishing and rollback                                                                                |
+| I5       | Versioned diagnostic SQL, benchmark evidence, metric read dictionary                                                                                      | No metric storage/schema/public API required solely for measurement                                                                                                        |
+| I6       | Bounded JobRun operations projection or approved API                                                                                                      | No duplicate Plan 029 UI, explicit UNKNOWN and authorization                                                                                                               |
+| Deferred | Optional runtime caching and full historical backfill (Plan 028)                                                                                          | Separate evidence and owner approval; no speculative cache epic                                                                                                            |
 
 Kafka/protobuf, dataset manifests, storage object paths and Python worker transport stay unchanged **unless an I3 dependency-preparation implementation proves an additive producer/consumer contract is unavoidable**; if so stop, document blast radius and obtain a separately approved compatibility slice. Never conflate JobRun/step completion with outbox PUBLISHED or dataset READY. `triggeredAt` remains audit timestamp; legacy `runKey` remains compatible until cutover; `jobRunId` is run correlation, not child identity.
 
@@ -1420,9 +1543,9 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 - [ ] I3.a extracts job-to-job edges from `configJson.dependsOnJobs` to the single typed, source-controlled static definition-level declaration; all current edges/definitions/strategies match, provider/resolver and callers are migrated compatibly, startup/outbox/guard regression passes and no SQL dependency graph is introduced.
 - [ ] `job_runs.id` is `jobRunId`, with durable target/mode/typed scope/date/path and immutable **scoped** run-step membership. Every step can be mapped to required predecessors, execution/outbox evidence and run identity after restart. No timestamp-based cross-step correlation.
 - [ ] All executable ancestor job definitions remain available as dependency-only definitions; only independently scheduled **entry targets** are reduced after reviewing cron and manual use. DAG path resolves and enqueues dependencies before target without producing unsupported extra descendants.
-- [ ] Manual trigger controller/API/idempotency/permissions and audit move to JobRun; obsolete `manual_job_triggers` table is dropped via **new forward-only migration after code cutover** (no data migration); prior Flyway migration files are untouched. No broken startup state during rollout.
+- [ ] Manual trigger cutover preserves committed-run idempotency/permissions; operator triggering and rejected-request audit are owner-deferred under TD-017 for this phase; preserve read APIs and return explicit authenticated HTTP 410 on old trigger/audit routes; obsolete `manual_job_triggers` table is dropped via **new forward-only migration after code cutover** (no data migration); prior Flyway migration files are untouched. No broken startup state during rollout.
 - [ ] Existing outbox FIFO/guard/claim/retry/fencing/publish behavior remains compatible; **enqueue order is not completion safety**. Any newly introduced target-run route is gated off unless existing guard or a proven safe admission check prevents downstream execution before upstream SUCCESS/closed membership.
-- [ ] Transaction, partial preparation, crash/replay, concurrent run, duplicate creation, zero-child, missing/failed work, and safe rollback tests pass with legacy/manual/scheduled behavior unaffected.
+- [ ] Transaction, partial preparation, crash/replay, concurrent run, duplicate creation, zero-child, missing/failed work, and safe rollback tests pass with scheduled behavior preserved and manual API withdrawal explicitly verified under TD-017.
 
 ### P14-I4 — JobRun-aware planning and guarded outbox integration
 
@@ -1463,7 +1586,7 @@ Stop and request owner input if:
 ## Rollback — canonical 2026-10-15
 
 - **I2:** inactive graph handoff may be rolled back without runtime/schema changes.
-- **I3:** disable target-driven JobRun preparation; preserve legacy scheduling and FIFO outbox until safe migration/cutover. **The dropped manual table cannot be restored without backup**, and no manual history migration is planned: document this irreversible data-loss consequence before executing its forward migration, and preserve manual API availability through the cutover.
+- **I3:** disable target-driven JobRun preparation; preserve legacy scheduling and FIFO outbox until safe migration/cutover. **The dropped manual table cannot be restored without backup**, and no manual history migration is planned: document this irreversible data-loss consequence before executing its forward migration, and retain read APIs plus explicit authenticated HTTP 410 on deferred manual routes.
 - **I4:** disable JobRun-aware outbox selection and retain explicitly reviewed historic FIFO behavior, DependencyGuard, claim fencing and persisted records; never silently bypass an enabled cohort barrier.
 - **I5/I6:** diagnostics and bounded read-model consumers can be withdrawn without affecting claims or execution history.
 - Never roll back by deleting JobRun/outbox/execution data, modifying applied migrations, replaying unpublished work without idempotency, or inventing successful upstream completion.

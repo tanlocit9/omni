@@ -1,9 +1,21 @@
 ---
 name: manual-trigger-metadata
-description: Safely discover and manually trigger Omni's existing SYNC_METADATA job through the Platform operator API, optionally targeting one supported dataset or exact partition, then poll the audited trigger and execution to a terminal state.
+description: Report that operator-triggered SYNC_METADATA is deferred under TD-017; do not call retired trigger routes or bypass orchestration.
 ---
 
 # Manual Trigger Metadata
+
+## Current availability — deferred, 2026-10-21
+
+**Stop before making any trigger/polling call.** The owner deferred manual job
+triggering in I3.d. The old trigger/audit routes return `410 manual_trigger_deferred`;
+their storage and Console actions are removed in source. The instructions below
+are historical reactivation context, not an executable workflow. Do not publish
+directly to Kafka, change scheduler state, enable JobRun preparation or invent
+another trigger path. Explain the limitation and refer to
+[TD-017](../../../docs/technical-debt/017-manual-request-rejection-audit.md) and
+[Plan 030](../../../docs/plans/030-static-graph-dispatch-planner.md).
+Reactivation requires owner-approved implementation and renewed verification.
 
 Use this skill when the owner asks to manually synchronize or republish metadata
 manifests through the existing Platform job API.

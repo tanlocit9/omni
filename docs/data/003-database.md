@@ -120,7 +120,7 @@ metadata/path fails rather than reshaping an existing run. BACKFILL is reserved.
 Execution history adds nullable `job_run_id` and `job_run_step_index`. Existing
 rows/writers retain NULL links. Linked execution definitions and parent/child run
 ownership are enforced by composite foreign keys. Execution and parent IDs retain
-their current meanings. No legacy history rewrite or manual-table drop occurs.
+their current meanings. I3.b introduced no legacy history rewrite or manual-table drop; I3.d V14 separately removes deferred manual audit below.
 
 Apply V12 before running the updated history entity mapping; allow a normal DDL
 lock window for adding indexes/foreign keys. Roll back application code while
@@ -136,7 +136,7 @@ atomic preparation. Closed execution/outbox membership cannot be appended, delet
 or rebound; status/retry/claim progress stays mutable. Legacy NULL links and optional
 V12 links are retained. Apply V13 before enabling any preparation caller; retain
 the additive schema on rollback. The flag remains false until completion barriers
-are proved in I4. No manual table is removed. See
+are proved in I4. I3.c did not remove manual audit; I3.d V14 does so separately. See
 [I3.c evidence](../plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
 
 The execution guard validates versioned parent run/step membership before allowing
@@ -236,15 +236,17 @@ instances. `DEAD` rows are visible terminal records and are not replayed automat
 
 ### Symbols
 
-### Manual job triggers
+### Deferred manual job triggers
 
-| Field          | Value                                                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Migration      | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                         |
-| Owner          | Platform scheduler/job-operations module                                                                                                                                                         |
-| Purpose        | Durable operator audit and idempotency ledger; accepted work has a stable execution/outbox identity before its later dependency decision.                                                        |
-| Related source | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/entities/ManualJobTrigger.java) |
-| Related flow   | [Job execution](../flows/001-job-execution.md)                                                                                                                                                   |
+[V8](../../database/migrations/V8__create_manual_job_triggers.sql) historically
+created `manual_job_triggers`. Owner decision in I3.d defers manual job triggering
+and request audit under [TD-017](../technical-debt/017-manual-request-rejection-audit.md).
+[V14](../../database/migrations/V14__drop_deferred_manual_job_triggers.sql) drops only
+that table, without CASCADE or historical-data migration. Runtime entity/repository
+and manual-trigger allow-list are removed; catalog/execution reads stay available.
+Stop old application readers before applying V14 and back up audit history if
+needed: application rollback alone cannot restore it. No retained-environment
+migration is claimed. JobRun V12/V13 and execution/outbox history are unchanged.
 
 ### Symbols
 

@@ -58,10 +58,14 @@ before forwarding. The trusted proxy must remove every client-supplied
 verified operator identity. Never configure the browser to manufacture this
 header.
 
-Set `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST` on Platform to a comma-separated
-list of exact definition UUIDs or `JOB_TYPE:SOURCE` identities. An empty value
-disables manual triggers. Kafka, object storage, PostgreSQL, and the raw Platform
-port remain private; the browser receives no credentials or physical paths.
+Manual job triggering is deferred under TD-017; remove obsolete manual allow-list
+settings. Job catalog and execution reads still require the trusted operator
+header; old trigger/audit routes return HTTP 410. Before deploying V14, stop old
+application instances that still access `manual_job_triggers` and back up its
+history if rollback is required. V14 intentionally discards that audit table;
+application rollback alone cannot restore it. No historical-data migration or
+production deployment is claimed. Kafka, object storage, PostgreSQL and the raw
+Platform port remain private; browsers receive no credentials or physical paths.
 
 ### Minimum sizing
 

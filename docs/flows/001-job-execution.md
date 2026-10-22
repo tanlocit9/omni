@@ -2,9 +2,13 @@
 
 Platform owns job orchestration. Workers execute data-plane tasks and report status back through Kafka.
 
-The private Console may request an operator-triggered run through Platform's
-`/api/v1/jobs` API. This is a second entry point into the same claim, producer,
-and transactional-outbox preparation boundary; it is not a second scheduler.
+Operator-triggered jobs are deferred by owner decision in I3.d ([TD-017](../technical-debt/017-manual-request-rejection-audit.md)).
+The private Console retains read-only job catalog/history and dataset browsing.
+Old POST `/api/v1/jobs/definitions/{id}/triggers` and GET `/api/v1/jobs/triggers/{id}`
+return authenticated HTTP 410 with code `manual_trigger_deferred`; they create no
+request, execution or outbox intent. Execution status remains available through
+the catalog service. V14 drops the old manual audit table after old instances are
+stopped; no audit history is migrated. JobRun validation/membership is unchanged.
 Dependency evaluation remains Platform-local and occurs only when the scheduler
 outbox considers the durable work for dispatch.
 Catalog and status responses expose logical identities only. Operational errors
@@ -34,8 +38,8 @@ messages, rewrite statuses, or implement Phase 12 concurrency.
 I3.b adds request/path persistence and nullable execution links. I3.c adds bounded
 GLOBAL/VN preparation and V13 closed execution/message membership, with dependencies
 enqueued before the target. The preparation flag is **false** by default; current
-scheduled/manual entry points and guard remain active. FIFO enqueue order does not
-prove predecessor completion. I3.d owns manual audit cutover/removal and cron/entry
+scheduled entry points and guard remain active. FIFO enqueue order does not
+prove predecessor completion. I3.d defers manual triggering and owns cron/entry
 target review; I4 owns safe predecessor-completion admission before activation. See
 [I3.c scope/evidence](../plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
 
@@ -301,7 +305,7 @@ flowchart TD
 | Job definitions        | [`database/migrations/V1__create_job_definitions_table.sql`](../../database/migrations/V1__create_job_definitions_table.sql), [`database/migrations/V5__add_scheduler_claim_lease.sql`](../../database/migrations/V5__add_scheduler_claim_lease.sql)         |
 | Job execution history  | [`database/migrations/V2__create_job_execution_histories_table.sql`](../../database/migrations/V2__create_job_execution_histories_table.sql)                                                                                                                 |
 | Scheduler outbox       | [`database/migrations/V6__create_scheduler_outbox.sql`](../../database/migrations/V6__create_scheduler_outbox.sql), [`database/migrations/V11__dependency_aware_scheduler_outbox.sql`](../../database/migrations/V11__dependency_aware_scheduler_outbox.sql) |
-| Manual trigger audit   | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                                                                                     |
+| Manual audit removal   | [`database/migrations/V8__create_manual_job_triggers.sql`](../../database/migrations/V8__create_manual_job_triggers.sql)                                                                                                                                     |
 | Java messaging records | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/messaging)                                                                                                       |
 | Java producers         | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers)                                                                                                       |
 | Producer registry      | [`apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/producers/JobProducerRegistry.java)                                                     |

@@ -142,6 +142,19 @@ static review found no further issue in the changed lock/claim path. Plan 030 re
 the matrix, review limits and unchanged false flag/statuses. Earlier counts above
 remain historical checkpoints.
 
+I3.d owner scope decision (2026-10-21): operator-triggered jobs and request audit
+are deferred under [TD-017](../../technical-debt/017-manual-request-rejection-audit.md).
+Source removes manual service/storage/config and Console trigger/sync actions;
+read APIs remain, old trigger/audit routes return authenticated HTTP 410. New V14
+drops the legacy table after old readers stop; audit history is intentionally not
+migrated. JobRun invariants, automatic cron and false preparation flag remain.
+The bounded I3.d checkpoint passed its seven-check local gate on 2026-10-22:
+341 Platform tests / 55 suites and 27 Console tests / six files, with attributable
+controller/catalog coverage and executed migration/source mapping in Plan 030.
+The static inventory retains all 32 canonical cron identities pending I4 safety.
+No retained-environment migration, activation, cron reduction, status promotion
+or commit is claimed.
+
 - **P14-I4:** execution-centered **JobRun path snapshot** drives outbox selection, cohort barrier, joins and fair quotas with admission/claim revalidation, fallback, fenced publish and TD-014 safety evidence.
 - **P14-I5:** runnable, versioned read-only SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, Hikari/DB/query/throughput measured baseline, and metric dictionary. Essential I3/I4 safety and query tests remain their own acceptance gates.
 - **P14-I6:** bounded read-model and dashboard handoff for Plan 029, without creating a second dashboard/UI implementation or unnecessary API.

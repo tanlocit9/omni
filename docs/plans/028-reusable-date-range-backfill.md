@@ -1,5 +1,10 @@
 # Plan 028 — Reusable Date-Range Job Backfill
 
+Current availability (I3.d owner decision, 2026-10-21): operator job triggering
+is deferred under TD-017; read-only jobs/data inspection remains. Existing manual
+service references below are historical or future reactivation context, not
+current callable APIs. Do not enable manual/backfill routes from this plan alone.
+
 Status: **REVIEW REQUIRED / ON HOLD** (owner decision 2026-10-16). Proposed supporting plan, **not approved for implementation or scheduled**. Canonical source-controlled static dependency ownership moves to Plan 030 P14-I3.a; all persisted-edge migration proposals below are historical candidates pending redesign.
 
 Canonical scheduling owner: [`docs/plans/roadmap/implementation-increments.md`](roadmap/implementation-increments.md). Implementation requires a separately registered increment before autonomous execution.

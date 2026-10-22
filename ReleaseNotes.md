@@ -1,5 +1,37 @@
 # Omni Release Notes
 
+## 2026-10-22 - I3.d operator job triggers deferred (local gate passed)
+
+Owner deferred manual job triggering and request audit under TD-017. Source removes
+the manual service/entity/repository/config, Console trigger forms/polling and
+metadata-sync buttons. Catalog/execution and dataset reads remain. Old trigger/audit
+routes return authenticated HTTP 410 `manual_trigger_deferred`. V14 drops only the
+old manual audit table after old readers stop; no audit migration or JobRun schema
+rewrite. Back up old history if rollback is needed. Internal MANUAL preparation
+stays non-exposed; automatic cron/FIFO/guard and false preparation flag remain.
+The seven-check format/test/coverage/build/typecheck gate passed: 341 Platform tests
+across 55 suites and 27 Console tests across six files. Impacted controller/catalog
+methods have 100% line and applicable branch coverage; V14 upgrade and fresh-startup
+cases passed on isolated PostgreSQL. Static inventory retains all 32 canonical cron
+identities until I4 admission safety; I2/I3 registry statuses remain unchanged.
+No migration against retained databases, deployment, activation or commit.
+
+## 2026-10-21 - Rejected-request audit accepted as technical debt
+
+TD-017 records owner acceptance of deferring durable audit/reasons for requests
+that never produce a committed JobRun. The earlier proposal to expand JobRun's
+request-only lifecycle is no longer a prerequisite for current I3.d. API rejection
+reasons, permissions and committed-run correctness remain required. The exact
+legacy removal scope is awaiting clarification; no table/API has been removed.
+Documentation only, with no verification execution or runtime activation.
+
+## 2026-10-21 - I3.d manual cutover proposal (superseded by TD-017 decision above)
+
+Plan 030 records the request/audit lifecycle gap between the current manual API and
+sealed JobRun storage, the proposed additive cutover, recovery/compatibility tests,
+cron inventory and deferred manual-table drop. Owner data-model approval is pending.
+No schema/source change, verification execution, cron reduction or activation.
+
 ## 2026-10-20 - I3.c replay lock order (local gate passed)
 
 Visible-run replay now locks the target definition before the run, matching fresh

@@ -42,11 +42,6 @@ app:
       # Staged I3.c only. FIFO enqueue is not a predecessor-completion barrier; keep off until I4.
       preparation-enabled: false
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}
-    manual-trigger:
-      # allow-list is injected directly from .env as the canonical property key
-      # app.scheduler.manual-trigger.allow-list (comma-separated, split by Spring
-      # Boot relaxed binding).  A YAML scalar placeholder is NOT used here because
-      # ${ENV_VAR:} resolves to a single string and is never split into List<String>.
     claim:
       lease-duration: ${APP_SCHEDULER_CLAIM_LEASE_DURATION:PT2M}
       batch-size: ${APP_SCHEDULER_CLAIM_BATCH_SIZE:10}

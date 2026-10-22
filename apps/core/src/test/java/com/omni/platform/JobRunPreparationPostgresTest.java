@@ -69,8 +69,7 @@ class JobRunPreparationPostgresTest {
 
     @BeforeEach
     void reset() {
-        jdbc.execute(
-                "TRUNCATE job_runs, job_execution_histories, symbols, manual_job_triggers CASCADE");
+        jdbc.execute("TRUNCATE job_runs, job_execution_histories, symbols CASCADE");
         jdbc.update(
                 "UPDATE job_definitions SET is_active=true, claim_token=null, claimed_by=null, claimed_at=null, claim_until=null");
         // Reapply exactly the seed configuration; retain IDs and the test's independent runtime
@@ -270,8 +269,12 @@ class JobRunPreparationPostgresTest {
                                 String.class,
                                 id))
                 .contains("eod");
-        assertThat(count("manual_job_triggers"))
-                .isZero(); // Internal preparation does not replace legacy audit/API ownership.
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT to_regclass('public.manual_job_triggers') IS NULL",
+                                Boolean.class))
+                .isTrue(); // Internal MANUAL preparation remains tested; operator triggering is
+        // deferred.
         assertThatThrownBy(
                         () ->
                                 preparation.prepareManual(

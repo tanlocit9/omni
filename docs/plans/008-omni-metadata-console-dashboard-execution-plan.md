@@ -1,5 +1,10 @@
 # Omni Metadata, Dataset Explorer, Parquet Viewer, and Dashboard Execution Plan
 
+Current availability (owner decision 2026-10-21): I3.d defers operator-triggered
+jobs and request audit under TD-017. Catalog/history remain read-only; old manual
+routes return HTTP 410 and V14 removes legacy audit storage. Historical Phase 7
+completion/verification below predates this withdrawal and does not reactivate it.
+
 Status: Deferred technical debt execution record; not eligible for current MVP scheduling
 Source baseline: `main@19055b3731b45934fd85cb28dda5a8636a2ed4a0`  
 Target application: `apps/omni-console`  

@@ -231,3 +231,13 @@ nx run py-common:test
 nx run py-common:lint
 nx run platform:build
 ```
+
+## Deferred operator job triggers — I3.d
+
+JobOperationsController keeps catalog/detail/execution reads and HTTP 410
+tombstones for retired manual trigger/audit routes. Execution lookup belongs to
+JobOperationsCatalogService. No ManualJobTrigger entity/repository/service or
+manual allow-list remains. V14 removes only its old audit table after old readers
+stop. Console JobsPanel/DatasetExplorer retain read-only behavior. See TD-017 and
+Plan 030 before reintroducing operator triggering; internal MANUAL preparation is
+not a public feature. Automatic scheduling and data-plane contracts are unchanged.

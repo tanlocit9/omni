@@ -90,6 +90,7 @@ class PlatformStartupPostgresTest {
             assertSeedsAndTopology(first, repository);
             JobDefinition retained = find(repository, SEEDS.getFirst());
             retainedId = retained.getId();
+            assertManualTriggerDeferred(first, retainedId);
             retained.setTitle("stale seed title");
             retained.setConfigJson(Map.of("stale", true));
             retained.setFallbackSources(List.of(DataSource.TCBS));
@@ -252,6 +253,67 @@ class PlatformStartupPostgresTest {
                         "--management.health.readinessstate.enabled=true",
                         "--management.endpoint.health.group.readiness.include=readinessState",
                         "--management.health.defaults.enabled=false");
+    }
+
+    private void assertManualTriggerDeferred(
+            ConfigurableApplicationContext context, UUID definitionId) throws Exception {
+        var jdbc = context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        int runsBefore = jdbc.queryForObject("SELECT count(*) FROM job_runs", Integer.class);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT to_regclass('public.manual_job_triggers') IS NULL",
+                                Boolean.class))
+                .isTrue();
+        assertThat(context.containsBean("manualJobTriggerService")).isFalse();
+        int port = context.getEnvironment().getRequiredProperty("local.server.port", Integer.class);
+        String base = "http://127.0.0.1:" + port + "/api/v1/jobs";
+        try (var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
+            var unauthorized =
+                    HttpRequest.newBuilder(URI.create(base + "/triggers/" + UUID.randomUUID()))
+                            .timeout(Duration.ofSeconds(10))
+                            .GET()
+                            .build();
+            assertThat(client.send(unauthorized, HttpResponse.BodyHandlers.ofString()).statusCode())
+                    .isEqualTo(401);
+            for (var request :
+                    List.of(
+                            HttpRequest.newBuilder(
+                                            URI.create(
+                                                    base
+                                                            + "/definitions/"
+                                                            + definitionId
+                                                            + "/triggers"))
+                                    .header("X-Omni-User", "test-operator")
+                                    .timeout(Duration.ofSeconds(10))
+                                    .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                                    .build(),
+                            HttpRequest.newBuilder(
+                                            URI.create(base + "/triggers/" + UUID.randomUUID()))
+                                    .header("X-Omni-User", "test-operator")
+                                    .timeout(Duration.ofSeconds(10))
+                                    .GET()
+                                    .build())) {
+                var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(410);
+                assertThat(response.body()).contains("manual_trigger_deferred");
+            }
+            var catalog =
+                    client.send(
+                            HttpRequest.newBuilder(
+                                            URI.create(base + "/definitions/" + definitionId))
+                                    .header("X-Omni-User", "test-operator")
+                                    .timeout(Duration.ofSeconds(10))
+                                    .GET()
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString());
+            assertThat(catalog.statusCode()).isEqualTo(200);
+            assertThat(catalog.body()).containsPattern("\"triggerable\"\\s*:\\s*false");
+            assertThat(catalog.body()).contains("Manual job triggering is deferred");
+        }
+        assertThat(context.getBean(JobExecutionHistoryRepository.class).count()).isZero();
+        assertThat(context.getBean(SchedulerOutboxRepository.class).count()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM job_runs", Integer.class))
+                .isEqualTo(runsBefore);
     }
 
     private void assertReadyAndIsolated(ConfigurableApplicationContext context) throws Exception {

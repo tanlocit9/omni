@@ -132,18 +132,16 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens metadata recovery controls when no datasets exist', async () => {
+  it('keeps an empty Dataset Explorer read-only while manual recovery is deferred', async () => {
     render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dataset Explorer' }));
 
     expect(
-      await screen.findByRole('button', { name: 'Sync EOD metadata' })
+      await screen.findByText('No metadata partition found.')
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Sync indicator metadata' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Sync all metadata' })
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /sync.*metadata/i })
+    ).not.toBeInTheDocument();
   });
 
   it('returns to the Market Dashboard after using an operator tool', () => {

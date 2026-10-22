@@ -2,12 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 import {
   getJsonResult,
-  getTriggerStatus,
   listDatasets,
-  listJobDefinitions,
   listPartitions,
   submitQuery,
-  triggerJob,
   waitForQuery,
   type DatasetManifest,
   type DatasetSummary,
@@ -18,8 +15,6 @@ import { ResultTable } from './ResultTable';
 interface Props {
   onSelect: (manifest: DatasetManifest) => void;
 }
-
-const DEFAULT_SYNC_REASON = 'Manual metadata recovery from Omni Console';
 
 function quoteIdentifier(value: string): string {
   return `"${value.replaceAll('"', '""')}"`;
@@ -41,8 +36,6 @@ export function DatasetExplorer({ onSelect }: Props) {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncReason, setSyncReason] = useState('');
   const pageSize = 100;
 
   useEffect(() => {
@@ -84,80 +77,6 @@ export function DatasetExplorer({ onSelect }: Props) {
     );
     setManifest(selected ?? null);
     if (selected) onSelect(selected);
-  }
-
-  async function synchronize(
-    mode: 'full' | 'dataset' | 'exact',
-    targetDataset = dataset
-  ) {
-    if (syncing) return;
-    const parameters =
-      mode === 'full'
-        ? {}
-        : mode === 'dataset'
-        ? { dataset: targetDataset }
-        : { dataset: targetDataset, partition: manifest?.partition };
-    const logicalTarget =
-      mode === 'full'
-        ? 'all registered datasets'
-        : mode === 'dataset'
-        ? `dataset ${targetDataset}`
-        : `${targetDataset} ${JSON.stringify(manifest?.partition)}`;
-    if (!window.confirm(`Synchronize metadata for ${logicalTarget}?`)) return;
-
-    setSyncing(true);
-    setError(null);
-    try {
-      const definitions = await listJobDefinitions({
-        jobType: 'SYNC_METADATA',
-        active: true,
-      });
-      const definition = definitions.items.find((item) => item.triggerable);
-      if (!definition)
-        throw new Error('No triggerable SYNC_METADATA job is available');
-      const trigger = await triggerJob(
-        definition.id,
-        syncReason.trim() || DEFAULT_SYNC_REASON,
-        crypto.randomUUID(),
-        parameters
-      );
-      if (trigger.state !== 'ACCEPTED') {
-        throw new Error(trigger.blockReason ?? trigger.error ?? trigger.state);
-      }
-      for (let attempt = 0; attempt < 60; attempt += 1) {
-        const status = await getTriggerStatus(trigger.requestId);
-        const state = status.execution?.status;
-        if (state === 'SUCCESS') {
-          const [nextDatasets, nextPartitions] = await Promise.all([
-            listDatasets(),
-            dataset ? listPartitions(dataset) : Promise.resolve([]),
-          ]);
-          setDatasets(nextDatasets);
-          setPartitions(nextPartitions);
-          const refreshed = nextPartitions.find((item) =>
-            Object.entries(partitionFilter).every(
-              ([key, value]) => String(item.partition[key]) === value
-            )
-          );
-          setManifest(refreshed ?? nextPartitions[0] ?? null);
-          setSyncReason('');
-          return;
-        }
-        if (state && ['FAILED', 'ERROR', 'CANCELLED'].includes(state)) {
-          throw new Error(
-            status.execution?.error ?? `Synchronization ${state}`
-          );
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 1000));
-      }
-      throw new Error('Synchronization status polling timed out');
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : 'Synchronization failed'
-      );
-    } finally {
-      setSyncing(false);
-    }
   }
 
   async function preview(nextPage = page) {
@@ -227,35 +146,7 @@ export function DatasetExplorer({ onSelect }: Props) {
 
       <main className="panel detail-panel">
         {error && <div className="error-banner">{error}</div>}
-        {(loading || syncing) && (
-          <div className="loading-line">
-            {syncing ? 'Synchronizing metadata…' : 'Loading…'}
-          </div>
-        )}
-        <div className="query-toolbar" aria-label="Metadata synchronization">
-          <input
-            aria-label="Synchronization reason"
-            placeholder="Operator reason (optional)"
-            maxLength={500}
-            value={syncReason}
-            onChange={(event) => setSyncReason(event.target.value)}
-          />
-          <button
-            disabled={syncing}
-            onClick={() => synchronize('dataset', 'eod')}
-          >
-            Sync EOD metadata
-          </button>
-          <button
-            disabled={syncing}
-            onClick={() => synchronize('dataset', 'indicators')}
-          >
-            Sync indicator metadata
-          </button>
-          <button disabled={syncing} onClick={() => synchronize('full')}>
-            Sync all metadata
-          </button>
-        </div>
+        {loading && <div className="loading-line">Loading…</div>}
         {!manifest && !loading ? (
           <div className="empty-state">No metadata partition found.</div>
         ) : null}

@@ -41,7 +41,7 @@ Phase 4 extends this boundary because checking dataset dependencies before execu
 - Claim queries stay bounded and deterministic with `ORDER BY next_run ASC NULLS FIRST, id ASC` and a configured batch size.
 - PostgreSQL-specific lock behavior is covered by Testcontainers integration tests instead of relying on H2 semantics; passing evidence remains required before an increment is completed.
 - `JobScheduler.scan()` claims due definitions and `JobProducer.prepareDispatch()` creates stable execution/outbox state without Kafka I/O or pre-enqueue dependency blocking.
-- Manual acceptance uses the same durable preparation path and can return a stable execution identity while work is waiting.
+- Historical manual acceptance used the same durable preparation path. Owner decision on 2026-10-21 defers the operator-trigger API/UI under TD-017; I3.d retains authenticated HTTP 410 tombstones and removes its audit storage. Scheduler/outbox claim, fencing and preparation ownership remain unchanged. Internal MANUAL preparation is not a public trigger capability.
 - Outbox delivery uses a second lease/fencing token. A failed publish preserves the same message identity and payload for retry.
 - Waiting for a dependency is operationally distinct from attempting and failing Kafka delivery.
 - Terminal dependency incompatibility is visible as `BLOCKED` in execution/outbox state and cannot be reclaimed.

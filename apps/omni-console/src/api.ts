@@ -195,23 +195,6 @@ export interface JobDefinitionPage {
   total: number;
 }
 
-export interface ManualTriggerResponse {
-  requestId: string;
-  definitionId: string;
-  executionId: string | null;
-  state: 'REQUESTED' | 'ACCEPTED' | 'BLOCKED' | 'CONFLICT' | 'FAILED';
-  duplicate: boolean;
-  blockReason: string | null;
-  error: string | null;
-  requestedAt: string;
-  resolvedAt: string | null;
-}
-
-export interface TriggerStatusResponse {
-  trigger: ManualTriggerResponse;
-  execution: JobExecutionSummary | null;
-}
-
 export function listJobDefinitions(filters: {
   q?: string;
   jobType?: string;
@@ -226,44 +209,6 @@ export function listJobDefinitions(filters: {
 
 export function getJobDefinition(id: string): Promise<JobDefinitionDetail> {
   return platformRequest(`/api/v1/jobs/definitions/${encodeURIComponent(id)}`);
-}
-
-export function triggerJob(
-  id: string,
-  reason: string,
-  idempotencyKey: string,
-  parameters: Record<string, unknown> = {}
-): Promise<ManualTriggerResponse> {
-  return fetch(
-    `${PLATFORM_API_BASE}/api/v1/jobs/definitions/${encodeURIComponent(
-      id
-    )}/triggers`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Omni-User': SYSTEM_OPERATOR_UUID,
-      },
-      body: JSON.stringify({ reason, idempotencyKey, parameters }),
-    }
-  ).then(async (response) => {
-    if (response.ok || response.status === 409) {
-      return response.json() as Promise<ManualTriggerResponse>;
-    }
-    const payload = (await response.json().catch(() => null)) as {
-      detail?: string;
-      code?: string;
-    } | null;
-    throw new ApiError(
-      payload?.detail ?? `Request failed (${response.status})`,
-      response.status,
-      payload?.code
-    );
-  });
-}
-
-export function getTriggerStatus(id: string): Promise<TriggerStatusResponse> {
-  return platformRequest(`/api/v1/jobs/triggers/${encodeURIComponent(id)}`);
 }
 
 export function listDatasets(): Promise<DatasetSummary[]> {

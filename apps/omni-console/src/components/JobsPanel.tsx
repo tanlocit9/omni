@@ -1,18 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   ApiError,
   getJobDefinition,
-  getTriggerStatus,
   listJobDefinitions,
-  triggerJob,
   type JobDefinitionDetail,
   type JobDefinitionSummary,
-  type JobExecutionSummary,
-  type ManualTriggerResponse,
 } from '../api';
-
-const TERMINAL = new Set(['SUCCESS', 'FAILED', 'ERROR', 'CANCELLED']);
 
 function describeError(error: unknown): string {
   if (!(error instanceof ApiError)) return 'The job service is unavailable.';
@@ -39,14 +33,8 @@ export function JobsPanel() {
   const [detail, setDetail] = useState<JobDefinitionDetail | null>(null);
   const [query, setQuery] = useState('');
   const [activeOnly, setActiveOnly] = useState(true);
-  const [triggerableOnly, setTriggerableOnly] = useState(false);
-  const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [trigger, setTrigger] = useState<ManualTriggerResponse | null>(null);
-  const [execution, setExecution] = useState<JobExecutionSummary | null>(null);
-  const pollGeneration = useRef(0);
 
   useEffect(() => {
     let current = true;
@@ -89,77 +77,7 @@ export function JobsPanel() {
     };
   }, [selectedId]);
 
-  useEffect(
-    () => () => {
-      pollGeneration.current += 1;
-    },
-    []
-  );
-
-  const filtered = useMemo(
-    () => (triggerableOnly ? jobs.filter((job) => job.triggerable) : jobs),
-    [jobs, triggerableOnly]
-  );
-
-  const selected = useMemo(
-    () => filtered.find((job) => job.id === selectedId) ?? null,
-    [filtered, selectedId]
-  );
-
-  async function poll(requestId: string) {
-    const generation = ++pollGeneration.current;
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      await new Promise((resolve) =>
-        window.setTimeout(resolve, Math.min(5000, 750 + attempt * 250))
-      );
-      if (generation !== pollGeneration.current) return;
-      try {
-        const status = await getTriggerStatus(requestId);
-        setTrigger(status.trigger);
-        setExecution(status.execution);
-        if (
-          status.trigger.state !== 'ACCEPTED' ||
-          (status.execution && TERMINAL.has(status.execution.status))
-        )
-          return;
-      } catch (error) {
-        setMessage(describeError(error));
-        return;
-      }
-    }
-    setMessage(
-      'Execution status polling timed out. The execution may still be running.'
-    );
-  }
-
-  async function submitTrigger() {
-    if (!detail || !reason.trim() || submitting) return;
-    if (!window.confirm(`Trigger ${detail.jobType} for ${detail.source}?`))
-      return;
-    setSubmitting(true);
-    setMessage(null);
-    setExecution(null);
-    pollGeneration.current += 1;
-    try {
-      const idempotencyKey = crypto.randomUUID();
-      const response = await triggerJob(
-        detail.id,
-        reason.trim(),
-        idempotencyKey
-      );
-      setTrigger(response);
-      if (response.state === 'BLOCKED' || response.state === 'CONFLICT') {
-        setMessage(response.blockReason ?? 'The trigger was not dispatched.');
-      } else if (response.state === 'ACCEPTED') {
-        setReason('');
-        void poll(response.requestId);
-      }
-    } catch (error) {
-      setMessage(describeError(error));
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const selected = jobs.find((job) => job.id === selectedId) ?? null;
 
   return (
     <section className="jobs-grid" aria-label="Job operations">
@@ -169,7 +87,7 @@ export function JobsPanel() {
             <p className="eyebrow">Operations</p>
             <h2>Job catalog</h2>
           </div>
-          <span>{filtered.length}</span>
+          <span>{jobs.length}</span>
         </div>
         <label>
           <span className="field-label">Search jobs</span>
@@ -187,20 +105,12 @@ export function JobsPanel() {
           />
           Active definitions only
         </label>
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={triggerableOnly}
-            onChange={(event) => setTriggerableOnly(event.target.checked)}
-          />
-          Allow-list only (triggerable)
-        </label>
         <div className="stack-list" aria-busy={loading}>
           {loading && <p className="muted">Loading definitions…</p>}
-          {!loading && filtered.length === 0 && (
+          {!loading && jobs.length === 0 && (
             <p className="muted">No matching definitions.</p>
           )}
-          {filtered.map((job) => (
+          {jobs.map((job) => (
             <button
               key={job.id}
               className={`list-item ${selectedId === job.id ? 'active' : ''}`}
@@ -211,11 +121,9 @@ export function JobsPanel() {
                 {job.source} · {job.jobType}
               </small>
               <span
-                className={`status-chip ${
-                  job.triggerable ? 'ready' : 'blocked'
-                }`}
+                className={`status-chip ${job.active ? 'ready' : 'blocked'}`}
               >
-                {job.triggerable ? 'READY' : 'UNAVAILABLE'}
+                {job.active ? 'ACTIVE' : 'INACTIVE'}
               </span>
             </button>
           ))}
@@ -272,63 +180,6 @@ export function JobsPanel() {
                   {detail.dependencies.produces.join(', ') || 'None declared'}
                 </p>
               </section>
-              <section className="schema-card job-card">
-                <h3>Manual trigger</h3>
-                {!detail.triggerable && (
-                  <p className="callout warning">{detail.triggerBlockReason}</p>
-                )}
-                <label>
-                  <span className="field-label">
-                    Operational reason (required)
-                  </span>
-                  <input
-                    value={reason}
-                    maxLength={500}
-                    disabled={!detail.triggerable || submitting}
-                    onChange={(event) => setReason(event.target.value)}
-                    placeholder="Why is this run needed?"
-                  />
-                </label>
-                <button
-                  className="primary-button"
-                  disabled={!detail.triggerable || !reason.trim() || submitting}
-                  onClick={submitTrigger}
-                >
-                  {submitting ? 'Submitting…' : 'Review & trigger'}
-                </button>
-              </section>
-            </div>
-
-            <div>
-              {trigger && (
-                <section className="trigger-result">
-                  <div>
-                    <span>Request</span>
-                    <code>{trigger.requestId}</code>
-                  </div>
-                  <div>
-                    <span>Trigger state</span>
-                    <strong>
-                      {trigger.state}
-                      {trigger.duplicate ? ' · IDEMPOTENT REPLAY' : ''}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Execution</span>
-                    <code>{trigger.executionId ?? 'Not created'}</code>
-                  </div>
-                  <div>
-                    <span>Execution state</span>
-                    <strong>
-                      {execution?.status ??
-                        (trigger.state === 'ACCEPTED' ? 'PENDING' : '—')}
-                    </strong>
-                  </div>
-                  {execution?.error && (
-                    <p className="callout danger">{execution.error}</p>
-                  )}
-                </section>
-              )}
             </div>
 
             <section className="recent-runs">

@@ -19,9 +19,10 @@ See [I3.b scope and evidence](../../docs/plans/030-static-graph-dispatch-planner
 I3.c adds bounded target-path preparation and V13 closed execution/message
 membership. `app.scheduler.job-run.preparation-enabled` is **false** by default;
 keep it disabled until I4 proves predecessor-completion admission. Apply V13 before
-using the new service. The existing scheduler/manual routes, cron definitions and
-manual audit remain active; custom definitions and historical intraday overrides
-keep their legacy path. See [I3.c scope and gates](../../docs/plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
+using the new service. The scheduler and cron definitions remain active. I3.d
+defers operator-triggered runs under TD-017: old routes return HTTP 410, and V14
+removes the old audit table. Internal MANUAL preparation remains a tested,
+non-exposed port. See [I3.c scope and gates](../../docs/plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
 
 - Scheduler job definitions and execution history.
 - Parent/child job aggregation.
@@ -29,7 +30,7 @@ keep their legacy path. See [I3.c scope and gates](../../docs/plans/030-static-g
 - Kafka job producers for ingestion and analytical workers.
 - Kafka consumers for worker status, symbol upserts, sector upserts, and notifications.
 - Platform-facing API and operational state.
-- Private job catalog, manual-trigger, audit, and execution-status API.
+- Private read-only job catalog and execution-status API; operator triggering is deferred.
 
 ## Does Not Own
 
@@ -64,18 +65,17 @@ keep their legacy path. See [I3.c scope and gates](../../docs/plans/030-static-g
 
 ## Private job operations API
 
-`/api/v1/jobs` exposes a redacted catalog, definition detail, manual trigger,
-trigger status, and execution status to Omni Console. The trusted reverse proxy
+`/api/v1/jobs` exposes a redacted read-only catalog, definition detail and execution
+status to Omni Console. The trusted reverse proxy
 must replace `X-Omni-User` with the authenticated operator identity. The browser
 must not manufacture this header.
 
-Manual execution is disabled unless
-`APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST` explicitly lists a definition UUID or
-`JOB_TYPE:SOURCE`. Accepted requests reuse scheduler claims, registered producers,
-and the transactional outbox. They commit stable execution and PENDING outbox
-identity before the dispatcher evaluates dependencies. They preserve the cron
-`nextRun`. Runtime parameters, force/bypass, cancellation, direct Kafka access,
-secrets, and physical paths are not part of this contract.
+Operator-triggered jobs are deferred under TD-017. Old POST trigger and GET audit
+routes return authenticated HTTP 410 `manual_trigger_deferred` without creating
+work. Remove obsolete allow-list settings. Stop old application readers before
+V14 drops the old audit table; audit history is intentionally not migrated and
+requires backup for rollback. Scheduler claims, producers, cron cadence, FIFO
+guard and outbox remain active. No force/bypass or alternate manual dispatch path.
 
 ## Main Modules
 

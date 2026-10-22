@@ -20,6 +20,7 @@ flowchart TD
     Measured --> DispatchResidue["TD-014: dispatcher evidence transfer"]
     Measured --> JavaQuality["TD-015: Java static analysis and Sonar gate"]
     Later --> Features["TD-002/004/011: operations and features"]
+    Later --> RequestAudit["TD-017: manual job triggers and audit"]
 
     classDef done fill:#d5f5e3,stroke:#198754,color:#111;
     classDef active fill:#fff3cd,stroke:#b58105,color:#111;
@@ -28,7 +29,7 @@ flowchart TD
     class Gate pending;
     class Safety,Identity,Data,Kafka active;
     class Planner active;
-    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Later,Features pending;
+    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Later,Features,RequestAudit pending;
 ```
 
 ## Reading the Diagram
@@ -40,3 +41,4 @@ flowchart TD
 - TD-009 contains independent offset-safety and measured-capacity slices; a correctness fix does not require the full capacity epic.
 - TD-015 records the missing Sonar/static-analysis target plus confirmed Java type-safety/tooling warnings; it is conditional quality debt, not evidence of a failed Sonar gate.
 - Closed TD-006 is intentionally excluded.
+- TD-017 retains owner-accepted deferred rejection audit; it does not block current I3.d or authorize weakening run correctness/permissions.

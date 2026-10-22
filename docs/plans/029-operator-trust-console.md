@@ -1,5 +1,10 @@
 # Plan 029 — Operator Trust Console
 
+Current availability (I3.d owner decision, 2026-10-21): operator job triggering
+is deferred under TD-017; read-only jobs/data inspection remains. Existing manual
+service references below are historical or future reactivation context, not
+current callable APIs. Do not enable manual/backfill routes from this plan alone.
+
 Status: Owner-approved Phase 13 supporting implementation plan. Canonical increment status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). This planning document does not claim that Phase 13 runtime behavior exists.
 
 Owner decisions recorded: 2026-10-06; revised 2026-10-07 for delivery priority and Query Service memory caching.

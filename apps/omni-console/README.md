@@ -49,29 +49,15 @@ identity on both Query Service and Platform requests. See
 
 ## Jobs tab
 
-The Jobs tab reads the redacted Platform catalog, displays triggerability and
-recent executions, requires a reason plus confirmation, generates a stable
-idempotency key, and follows an accepted execution with bounded backoff. It does
-not contain scheduler decisions, credentials, object paths, Kafka access,
-force/bypass, cancellation, or runtime-parameter controls.
+The Jobs tab is read-only: catalog, search, schedule information, dependencies
+and recent execution history. Operator triggering, request polling and Dataset
+Explorer metadata-sync actions are deferred under TD-017. Their old Platform
+routes return authenticated HTTP 410; the Console no longer calls them. Dataset
+browsing, partition selection, query preview and read-only Data Health scans remain.
+Future manual metadata refresh requires owner-approved trigger/API/audit support;
+do not substitute direct Kafka, storage writes or scheduler state changes.
 
-## Planned Dataset Explorer metadata refresh
-
-P3-I5 plans a `Refresh Metadata` action for supported exact dataset partitions. V1
-is limited to EOD exchanges HOSE, HNX, and UPCOM and remains `pending`; this action
-is not implemented yet.
-
-The confirmation shows dataset and partition and requires a reason. Console submits
-logical `dataset`/`partition` parameters through the existing Platform Phase 7
-trigger API, displays the returned execution ID, polls the existing execution
-status with bounded backoff, and refreshes the metadata view after success. It
-disables duplicate submission while pending and preserves the current metadata
-view after failure.
-
-Console does not resolve object paths, touch object storage, recompute Parquet, or
-make scheduler/dependency/concurrency decisions. Unsupported partitions do not show
-the action. Physical paths, buckets, manifest paths, credentials, force/bypass, and
-direct browser-to-Kafka fields are never sent.
+Historical Phase 7 evidence below predates the I3.d owner deferral.
 
 Phase 7 acceptance is verified through the defined Nx targets:
 

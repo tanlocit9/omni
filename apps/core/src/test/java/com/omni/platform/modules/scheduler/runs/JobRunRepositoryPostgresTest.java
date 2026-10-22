@@ -429,6 +429,22 @@ class JobRunRepositoryPostgresTest {
         legacy.update(
                 "INSERT INTO scheduler_outbox_messages (execution_id,message_index,topic,payload) VALUES (?,0,'legacy','{}')",
                 execution);
+        assertThat(legacy.queryForObject("SELECT count(*) FROM manual_job_triggers", Integer.class))
+                .isEqualTo(1);
+        Flyway.configure()
+                .dataSource(source)
+                .defaultSchema("legacy_upgrade")
+                .locations(MIGRATIONS)
+                .target("13")
+                .load()
+                .migrate();
+        var retainedRuns =
+                new JobRunRepository(
+                        legacy,
+                        new DataSourceTransactionManager(source),
+                        JsonMapper.builder().build());
+        var retained =
+                retainedRuns.prepare(request("retain-through-v14"), path(step(key("legacy"))));
         Flyway.configure()
                 .dataSource(source)
                 .defaultSchema("legacy_upgrade")
@@ -442,8 +458,12 @@ class JobRunRepositoryPostgresTest {
                 .containsEntry("job_run_id", null)
                 .containsEntry("job_run_step_index", null)
                 .containsEntry("status", "RUNNING");
-        assertThat(legacy.queryForObject("SELECT count(*) FROM manual_job_triggers", Integer.class))
-                .isEqualTo(1);
+        assertThat(
+                        legacy.queryForObject(
+                                "SELECT to_regclass('legacy_upgrade.manual_job_triggers') IS NULL",
+                                Boolean.class))
+                .isTrue(); // V14 intentionally drops only deferred manual request audit.
+        assertThat(retainedRuns.findById(retained.id())).contains(retained);
         assertThat(
                         legacy.queryForObject(
                                 "SELECT status FROM scheduler_outbox_messages", String.class))

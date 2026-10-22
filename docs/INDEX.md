@@ -106,6 +106,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | technical-debt/013 | [Legacy Dependency-Guard Residue](technical-debt/013-legacy-dependency-guard-residue.md) | Open cleanup / optional guard capability debt | Non-blocking P14; promote only from an activation trigger | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 006](plans/006-job-dependency-guard-progress.md), [TD-007](technical-debt/007-async-dependency-evaluation.md) |
 | technical-debt/014 | [Dependency-Aware Dispatch Verification Residue](technical-debt/014-dependency-aware-dispatch-verification-residue.md) | Superseded P4-I3 evidence residue | Safety/evidence transferred to P14-I4 | [Plan 030](plans/030-static-graph-dispatch-planner.md), [Plan 023](plans/023-dependency-aware-outbox-dispatch.md), [increment registry](plans/roadmap/implementation-increments.md) |
 | technical-debt/015 | [Java Static Analysis and Sonar Quality Gate](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) | Open Java code-quality/tooling debt | P2 conditional; no configured Sonar gate | [Platform project targets](../apps/core/project.json), [Platform Gradle configuration](../apps/core/build.gradle.kts), [technical-debt index](technical-debt/README.md) |
+| technical-debt/017 | [Deferred Manual Triggering and Request Audit](technical-debt/017-manual-request-rejection-audit.md) | Owner-accepted deferred audit gap | P14-I3.d / future operator audit | [Plan 030](plans/030-static-graph-dispatch-planner.md), [debt index](technical-debt/README.md) |
 
 ## Roadmap View
 
@@ -119,7 +120,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | Cross-cutting governance and tooling       | `governance/001`; `reference/002`; `development/001-004`; `plans/011`, `plans/024-026`; `technical-debt/005-007`, `technical-debt/010` |
 | Group F - Worker throughput and writer     | `deployment/003`; `plans/027`; `technical-debt/009-010`                                                                                |
 | Group G - Operator trust                   | `architecture/001`; `data/003`; `flows/001`; `plans/029`; retained source from `plans/008-009`                                         |
-| Milestone 1 - Scheduler topology/planning  | `flows/001`; `development/001`; `plans/023`, `plans/028-030`; `technical-debt/012-014`                                                 |
+| Milestone 1 - Scheduler topology/planning  | `flows/001`; `development/001`; `plans/023`, `plans/028-030`; `technical-debt/012-014`, `technical-debt/017`                           |
 | Historical compatibility                   | `plans/006`, `plans/013`                                                                                                               |
 
 ## Numbering Rules

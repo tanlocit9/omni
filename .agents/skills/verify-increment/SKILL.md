@@ -155,7 +155,7 @@ independently satisfied.
 
 ### 7. Documentation synchronization
 
-If roadmap evidence changes, load `update-implementation-plans`, update the minimum
+If roadmap evidence changes, load [`update-implementation-plans`](../update-implementation-plans/SKILL.md), update the minimum
 canonical surfaces, run post-edit code-review-graph change detection, and invoke
 `verify-document-consistency` before claiming synchronization.
 

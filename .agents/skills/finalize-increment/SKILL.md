@@ -150,10 +150,10 @@ or rewrite that file without owner direction.
 
 ### 5. Synchronize documentation and update roadmap evidence after PASS
 
-Only after `PASS`, load the `update-implementation-plans` skill and follow its
+Only after `PASS`, load the [`update-implementation-plans` skill](../update-implementation-plans/SKILL.md) and follow its
 synchronization workflow. Review the selected phase document,
 [`implementation-increments.md`](../../../docs/plans/roadmap/implementation-increments.md),
-[`execution-log.md`](../../../docs/plans/roadmap/execution-log.md), the supporting plan,
+root [`ReleaseNotes.md`](../../../ReleaseNotes.md), the supporting plan,
 and every affected architecture, ADR, flow, data, deployment, development, service,
 index, and repository-guidance document. Update applicable documents in the same
 change; record an explicit no-update reason for each reviewed area that does not

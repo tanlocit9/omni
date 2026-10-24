@@ -1,5 +1,30 @@
 # Omni Release Notes
 
+## 2026-10-24 - Claude skills join the shared repository directory
+
+Moved all four Claude-local workflows into `.agents/skills`: `debug-issue`,
+`explore-codebase`, `refactor-safely` and `review-changes`. Compared names, exact
+content and workflow scopes with the eight existing shared skills; no duplicate
+skill was added. Normalized frontmatter names and `SKILL.md`, replaced rigid graph
+call/token rules with bounded evidence gathering and preserved execution approval
+boundaries. Code review remains separate from increment/documentation verification.
+Originals are hash-backed up under ignored
+`.agent/skill-migrations/20261024-claude-to-shared/`; removed old Claude skill copies
+and updated CLAUDE/tooling guidance. All 12 skills now have shared entrypoints.
+Other Claude configuration and the existing staged index are preserved. Static
+inspection only; no executable checks, application changes, staging or commit.
+
+## 2026-10-24 - Shared repository skills replace Zoo-local copies
+
+Reconciled both skills under `.roo/skills` with `.agents/skills`:
+`manual-verification-handoff` was identical; `update-implementation-plans` retains
+its current shared workflow. Removed the duplicate Zoo-local copies after saving
+hash-checked originals in ignored `.agent/skill-migrations/20261024-zoo-to-shared/`.
+AGENTS and tooling guidance identify `.agents/skills` as the shared owner; editor
+rules continue linking there. Corrected the handoff execution-history link to
+root ReleaseNotes. Application source, runtime contracts and roadmap statuses
+are unchanged. Static inspection only; no executable verification or Git delivery.
+
 ## 2026-10-22 - I3.d operator job triggers deferred (local gate passed)
 
 Owner deferred manual job triggering and request audit under TD-017. Source removes

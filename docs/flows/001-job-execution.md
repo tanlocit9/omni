@@ -71,11 +71,11 @@ The canonical [Plan 030 delivery sequence](../plans/030-static-graph-dispatch-pl
 
 I3.a pre-cutover source now makes `StaticDefinitionDependencies` the provider declaration and adds a typed resolver constructor. Unused topology compatibility adapters have been removed; JSON baseline/custom-fixture reading now belongs only to test source. Seed JSON remains until the catalog/config consumer-removal gates in Plan 030 pass. The focused startup test passed again after adapter cleanup; the I3.a full regression subsequently passed 293 tests, while its separate coverage/build gate remains open. Historical I1/I2 evidence does not verify the new source.
 
-P14-I3 will persist a target-driven JobRun and its required scoped ancestor-to-target steps, then prepare dependency-first execution/outbox intent while preserving the existing FIFO/guard/claim/publish pipeline. Enqueue order does not prove completion; the new route stays disabled unless safe admission is proven. P14-I4 will query persisted step membership, execution progress including published-but-unfinished work, and separate outbox eligibility. It waits for required predecessor SUCCESS and closed membership before advancing, preserves independent run/group/date scopes and joins, and revalidates barriers at admission. Typed scope supports future symbol rollout without cloning static nodes. Existing guard retains dataset readiness/version authority; no outbox processing-success status or arbitrary execution DAG is introduced.
+Completed P14-I3 persists a target-driven JobRun and its required scoped ancestor-to-target steps, and prepares dependency-first execution/outbox intent while preserving the existing FIFO/guard/claim/publish pipeline. Enqueue order does not prove completion; the new route stays disabled unless safe admission is proven. P14-I4 will query persisted step membership, execution progress including published-but-unfinished work, and separate outbox eligibility. It waits for required predecessor SUCCESS and closed membership before advancing, preserves independent run/group/date scopes and joins, and revalidates barriers at admission. Typed scope supports future symbol rollout without cloning static nodes. Existing guard retains dataset readiness/version authority; no outbox processing-success status or arbitrary execution DAG is introduced.
 
-The current definition-scoped outbox projection and first-dispatchable planner remain inactive scaffolding. P14-I2 is verification_pending for the static contract/handoff only; earlier backlog-only PASS/attestation does not close it. P14-I3 through I6 remain pending. I4 owns snapshot/quota/scoped-query integration and final TD-014 safety proof; I5 owns consolidated performance evidence and I6 the Plan 029 graph read-model handoff. No runtime JobRun/planner activation or query-load pass is claimed. Snapshot-count comparison is observability only, not dispatch admission or completion evidence.
+The current definition-scoped outbox projection and first-dispatchable planner remain inactive scaffolding. P14-I2 static handoff and P14-I3 gated JobRun preparation are completed after the 2026-10-24 acceptance reconciliation, using the fresh source-bound 357-test/coverage/build gate rather than historical backlog-only evidence. P14-I4 through I6 remain pending. I4 owns snapshot/quota/scoped-query integration and final TD-014 safety proof; I5 owns consolidated performance evidence and I6 the Plan 029 graph read-model handoff. No runtime JobRun/planner activation or query-load pass is claimed. Snapshot-count comparison is observability only, not dispatch admission or completion evidence.
 
-The static topology does not change the dependency authority shown below: every future selected candidate still passes through `DependencyRegistry` and `DependencyGuard`, which alone evaluate required input readiness and exact versions. Typed definition-level predecessor declarations now describe logical orchestration topology; retained seed `dependsOnJobs` is compatibility/parity metadata during the unverified I3.a pre-cutover; `dependsOnDatasets` and manifests describe data readiness. Graph position is never READY evidence. The existing atomic claim, lease/fencing token, WAITING/BLOCKED handling, publish retry identity, and rollback to bounded FIFO selection remain required. Persisted topology, provider-policy expansion, and advanced fairness are deferred.
+The static topology does not change the dependency authority shown below: every future selected candidate still passes through `DependencyRegistry` and `DependencyGuard`, which alone evaluate required input readiness and exact versions. Typed definition-level predecessor declarations describe logical orchestration topology; retained seed `dependsOnJobs` is catalog compatibility/parity metadata pending consumer removal. I3.a parity and startup have local executed evidence in Plan 030; whole-increment status remains owned by the registry. `dependsOnDatasets` and manifests describe data readiness. Graph position is never READY evidence. The existing atomic claim, lease/fencing token, WAITING/BLOCKED handling and publish retry identity remain required. I4 owns JobRun-aware admission and safe fallback; persisted topology, provider-policy expansion and advanced fairness are deferred.
 
 ## Flow
 
@@ -99,7 +99,7 @@ sequenceDiagram
   Scheduler->>Producer: prepareDispatch(job, claim, now)
   Producer->>DB: Atomically create execution(s), PENDING outbox, advance nextRun, release claim
   DB-->>Scheduler: Commit stable execution/message identities
-  Scheduler->>DB: Load bounded candidates or planned node/scope candidates after P14-I3
+  Scheduler->>DB: Load bounded FIFO candidates (JobRun-scoped selection belongs to I4)
   Scheduler->>Scheduler: Evaluate manifests and exact run/work barriers through DependencyRegistry
   Scheduler->>DB: Atomically claim READY candidate with lease/fence
   Scheduler->>Kafka: Publish serialized outbox payload(s)
@@ -141,42 +141,32 @@ JobScheduler
 
 ## Responsibilities
 
-## Manual Operator Trigger
+## Deferred Manual Operator Trigger
 
 ```mermaid
 sequenceDiagram
-  participant Console
+  participant Caller as Caller of retired routes
   participant Proxy as Trusted private proxy
   participant API as Platform Jobs API
-  participant DB as PostgreSQL
-  participant Producer as Existing JobProducer
-  participant Outbox as SchedulerOutboxDispatcher
 
-  Console->>Proxy: definition + idempotency key + reason
-  Proxy->>API: replace/inject X-Omni-User
-  API->>DB: persist audited manual request
-  API->>DB: claim exact active definition with fencing token
-  API->>Producer: prepareManualDispatch
-  Producer->>DB: create execution + PENDING outbox; release claim
-  Note over Producer,DB: cron nextRun is preserved
-  API-->>Console: stable request/execution identity and accepted state
-  Outbox->>DB: evaluate durable candidate at dispatch boundary
-  alt waiting
-    Outbox->>DB: retain PENDING; defer without consuming a delivery attempt
-  else terminal dependency failure
-    Outbox->>DB: mark outbox and execution BLOCKED
-  else ready
-    Outbox->>DB: atomically claim using lease and fencing token
+  Caller->>Proxy: Old trigger POST or audit/status GET
+  Proxy->>API: Authenticate and replace/inject X-Omni-User
+  alt missing operator identity
+    API-->>Caller: HTTP 401
+  else authenticated caller
+    API-->>Caller: HTTP 410 manual_trigger_deferred
   end
+  Note over Caller,API: No request audit, JobRun, execution or outbox write
 ```
 
-Manual triggering is secure by default: `APP_SCHEDULER_MANUAL_TRIGGER_ALLOW_LIST`
-must contain an exact definition UUID or `JOB_TYPE:SOURCE`. Runtime parameters are
-rejected except for the typed `SYNC_METADATA` logical target contract. The API does
-not expose `config_json`, credentials, or physical storage paths and has no force,
-dependency bypass, concurrency bypass, cancellation, or direct Kafka path. The
-deployment proxy must remove any browser-supplied `X-Omni-User` and inject the
-authenticated private operator identity.
+Operator triggering and request audit are deferred under TD-017. Console has no
+trigger forms, polling or metadata-sync action. The old manual allow-list setting
+and runtime service/entity/repository are removed. Catalog and execution reads
+remain behind the trusted operator identity; the proxy must strip browser-supplied
+`X-Omni-User` and inject the authenticated identity. Internal MANUAL preparation
+ports remain for compatibility, with no operator caller. Future reactivation
+requires an approved authorization/audit contract. There is no force, bypass or
+direct browser-to-Kafka route.
 
 ### `SYNC_METADATA` operation
 
@@ -189,24 +179,25 @@ storage fields are rejected.
 
 ```mermaid
 sequenceDiagram
-  participant Scheduler as Platform scheduler/manual API
-  participant API as Platform Jobs API
+  participant Scheduler as Platform scheduler
+  participant Producer as Registered metadata producer
   participant Claim as Global metadata execution guard
   participant Worker as Metadata synchronization handler
   participant Storage as Object storage
 
-  Scheduler->>API: claim SYNC_METADATA execution
-  API->>Claim: dependencies, global concurrency, idempotency
+  Scheduler->>Producer: Prepare scheduled SYNC_METADATA execution and outbox
+  Producer->>Claim: Durable candidate: dependencies and global concurrency
   Claim->>Worker: topic-sync-metadata (optional logical target)
   Worker->>Storage: read registered canonical Parquet objects
   Worker->>Worker: validate and build complete candidate in memory
   Worker->>Storage: replace _metadata/metadata.json once
   Worker->>Storage: read back and validate
-  Worker-->>API: SUCCESS, PARTIAL_SUCCESS, or ERROR with bounded counts
+  Worker-->>Scheduler: Status event with bounded counts
 ```
 
-Manual requests require an operator reason and may contain only `dataset` and an
-optional complete `partition`. Scheduled execution defaults to full synchronization.
+Scheduled execution defaults to full synchronization. The transport retains its
+optional logical `dataset` and complete `partition` target contract; this does not
+expose an operator trigger. Manual metadata requests are deferred under TD-017.
 The worker never recomputes, deletes, or rewrites Parquet; data producers do not
 write metadata. Query Service remains read-only.
 
@@ -256,9 +247,9 @@ Claim candidates use the Phase 0 due semantics: active jobs where `nextRun <= no
 
 ## Dependency Tree Metadata
 
-Seeded job definitions retain compatibility/traceability dependency metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). The current I3.a pre-cutover source moves active topology declarations to typed definition-level predecessors behind the existing I1 provider/API; parity and startup verification remain pending. Plan 028 is REVIEW REQUIRED / ON HOLD and must reuse this topology and the accepted JobRun boundary; no replacement persisted dependency graph is approved.
+Seeded job definitions retain catalog compatibility/traceability metadata in [`JobDefinitionConfig.java`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/constants/JobDefinitionConfig.java). Active topology uses typed definition-level predecessors behind the existing provider/API; parity, resolver and startup tests have local executed evidence in Plan 030. JSON removal still requires migrating its remaining catalog reader. Plan 028 is REVIEW REQUIRED / ON HOLD and must reuse this topology and the accepted JobRun boundary; no replacement persisted dependency graph is approved.
 
-Scheduled and accepted manual work first commit stable execution and PENDING outbox identities. Dataset dependencies declared as `ENFORCED` are then checked at the scheduler-outbox dispatch boundary. READY manifests and exact `dataVersion` lineage remain authoritative; execution state is scoped to the exact run/work item and the metadata workflow uses a complete-run barrier where supported. WAITING remains PENDING without consuming delivery attempts, while terminal incompatibility produces `BLOCKED`, not a worker `FAILED` result. `DOCUMENTATION_ONLY` dependencies remain advisory. Static topology and dataset readiness are related but non-interchangeable contracts.
+Scheduled work first commits stable execution and PENDING outbox identities; retained internal MANUAL preparation follows the same boundary but is not an exposed operator feature. Dataset dependencies declared as `ENFORCED` are then checked at the scheduler-outbox dispatch boundary. READY manifests and exact `dataVersion` lineage remain authoritative; execution state is scoped to the exact run/work item and the metadata workflow uses a complete-run barrier where supported. WAITING remains PENDING without consuming delivery attempts, while terminal incompatibility produces `BLOCKED`, not a worker `FAILED` result. `DOCUMENTATION_ONLY` dependencies remain advisory. Static topology and dataset readiness are related but non-interchangeable contracts.
 
 ```mermaid
 flowchart TD

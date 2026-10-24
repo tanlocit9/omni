@@ -129,6 +129,25 @@ class JobRunPreparationPostgresTest {
                 .isZero();
         assertThat(definitions.findById(target.getId()).orElseThrow().getNextRun()).isAfter(NOW);
         assertThat(definitions.findById(target.getId()).orElseThrow().getClaimToken()).isNull();
+        var candidates = context.getBean(SchedulerOutboxService.class).findCandidates(NOW, 100);
+        assertThat(candidates)
+                .hasSize(5)
+                .allSatisfy(
+                        candidate -> {
+                            assertThat(candidate.parentExecutionId()).isNotNull();
+                            assertThat(
+                                            jdbc.queryForObject(
+                                                    "SELECT parent_log_id FROM job_execution_histories WHERE id=?",
+                                                    UUID.class,
+                                                    candidate.executionId()))
+                                    .isEqualTo(candidate.parentExecutionId());
+                            assertThat(
+                                            jdbc.queryForObject(
+                                                    "SELECT job_run_id FROM job_execution_histories WHERE id=?",
+                                                    UUID.class,
+                                                    candidate.executionId()))
+                                    .isNotNull();
+                        });
     }
 
     @Test

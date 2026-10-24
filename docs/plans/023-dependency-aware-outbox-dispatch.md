@@ -8,8 +8,8 @@ Prevent overdue scheduled jobs from starting nearly simultaneously after a servi
 
 ## Outcome
 
-- Scheduled and accepted manual work create executions and PENDING outbox messages without blocking on dependencies.
-- `SchedulerOutboxDispatcher` is the one dependency gate for scheduled and manual work before claim/publish.
+- Scheduled work and retained internal MANUAL preparation create executions and PENDING outbox messages without blocking on dependencies. Operator triggering is deferred under TD-017; retired routes return HTTP 410.
+- `SchedulerOutboxDispatcher` remains the dependency gate before claim/publish; final JobRun-aware admission belongs to P14-I4.
 - The scheduler-owned dependency package exposes a small `DependencyRegistry` boundary and immutable request/result types to the dispatcher while keeping evaluators and manifest readers internal to the same orchestration owner.
 - Do not create a facade-only application module that imports its implementation back from Scheduler; a future independent module requires a neutral request contract with no `JobDefinition` or scheduler-repository dependency.
 - V1 uses static definitions; no dependency repository or dependency table is introduced.
@@ -17,7 +17,7 @@ Prevent overdue scheduled jobs from starting nearly simultaneously after a servi
 - Metadata jobs use a global barrier and cannot race upstream sync/manifest updates after evening startup.
 - Terminal upstream failure marks the downstream execution `BLOCKED` with a bounded structured reason; it does not fabricate a worker `FAILED` result.
 
-## Current Problem
+## Historical Problem Before the Retained Implementation
 
 The scheduler currently checks dependencies before enqueue, while the outbox claims PENDING messages FIFO without dependency awareness. After downtime, multiple overdue jobs can be enqueued or become runnable together, causing concurrent database, Kafka, MinIO, and metadata activity. The metadata job currently has no effective dependency barrier, which allows metadata updates to overlap incomplete upstream work.
 
@@ -54,8 +54,8 @@ DependencyRegistry
 
 ## Runtime Flow
 
-1. Scheduler or the audited manual-trigger path accepts work, creates the execution, and writes a PENDING outbox message without a pre-enqueue dependency block.
-2. Manual API responses expose the stable request/execution identity; later status reflects dependency `WAITING`, publication, or terminal `BLOCKED`.
+1. Scheduler creates the execution and writes a PENDING outbox message without a pre-enqueue dependency block. Retained internal MANUAL preparation uses the same boundary without an operator caller.
+2. Operator trigger/audit routes return authenticated HTTP 410 under TD-017 and create no work; existing execution reads retain dependency/publication/terminal status visibility.
 3. Dispatcher over-fetches PENDING candidates so blocked rows do not consume the publish batch.
 4. For each candidate, dispatcher builds a request with `domain`, `jobDefinitionId`, `executionId`, `parentExecutionId`, `workType`, `workKey`, and `runKey`/trading date.
 5. Registry selects the registered `DependencyPolicy`; V1 routes `VN` to `VNDependencyPolicy`.
@@ -80,7 +80,14 @@ Eligibility is evaluated before the atomic claim without holding a transaction a
   - confirmed signals retain any exact-date intraday requirement defined by their algorithm plan;
   - metadata depends on the required upstream executions and dataset readiness for that run.
 
-## Static Graph & DispatchPlanner Promotion — 2026-10-08
+## Historical Static Graph & DispatchPlanner Promotion — 2026-10-08
+
+The story labels and diagram in this dated section preserve the earlier design.
+The canonical 2026-10-15 sequence in Plan 030 supersedes them: I2 static handoff,
+I3 JobRun preparation, I4 guarded snapshot/planner admission and TD-014 safety proof,
+then I5/I6 diagnostics/read-model handoff. Operator triggering is deferred under
+TD-017; references to accepted manual work below describe retained internal
+compatibility or the historical baseline, not a callable operator API.
 
 The 2026-10-07 design note was promoted into the active [Plan 030 — Static Graph & DispatchPlanner](030-static-graph-dispatch-planner.md) epic with stories P14-I1, P14-I2, and P14-I3. [TD-012](../technical-debt/012-static-dag-dispatch-planner.md) preserves deferred extensions. Owner priority on 2026-10-08 superseded P4-I3 rather than requiring completion of the old dispatcher path; all READY/WAITING/BLOCKED, no-starvation, claim/fencing, retry, compatibility, migration, fallback, and runtime evidence moves into P14-I3 acceptance through TD-014.
 

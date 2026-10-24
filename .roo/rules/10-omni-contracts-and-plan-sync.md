@@ -9,8 +9,9 @@ for plan requirements.
 - Never edit [`libs/contracts/gen`](../../libs/contracts/gen), reuse protobuf field
   numbers/names, or put physical storage paths in Kafka business messages.
 - Preserve manifest-based readiness, `dataVersion` lineage, and READY-last writes.
-- Manual jobs must reuse Platform's private API, claims, dependency guards,
-  registered producers, and outbox; never add force/bypass or browser-to-Kafka.
+- Operator job triggering is deferred under [TD-017](../../docs/technical-debt/017-manual-request-rejection-audit.md).
+  Future approved manual jobs must reuse Platform claims, dependency guards,
+  registered producers and outbox; never add force/bypass or browser-to-Kafka.
 - When implementation changes architecture, contracts, workflow, or tooling,
   synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
   applicable rules, and canonical docs before marking work done.

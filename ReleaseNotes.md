@@ -1,5 +1,25 @@
 # Omni Release Notes
 
+## 2026-10-24 - P14-I2 and P14-I3 completed after acceptance reconciliation
+
+Owner requested verification and completion marking. Rechecked the passing
+seven-check `P14-I2-I3-coverage-docs-20261023` gate, exact source/test/migration
+binding (zero changes), separate I2/I3 acceptance-to-test matrices, cross-service
+impact and documentation. Clean build evidence remains 357 tests / 59 suites,
+zero failures/errors/skips; all 32 critical components meet 80% line/branch.
+Marked I2 and I3 completed and reconciled current plan/registry/roadmap/architecture/
+flow descriptions. Historical checkpoint statuses and evidence remain dated.
+
+I3 completion retains the already-approved staging boundary: preparation false,
+32 cron identities intact, manual operator triggering deferred under TD-017.
+I4 remains pending for scoped snapshot/barrier/admission and TD-014 proof; its
+dependency gate is now satisfied, but apps/core path-isolation/readiness review
+must close before autonomous selection. I5 measurements and I6 read-model handoff
+remain dependent. Retained-environment V14 rollout, activation and cron reduction
+are not claimed. No unchanged application suite rerun, owner attestation, Git
+delivery, deployment or whole-P14 completion. See [Plan 030](docs/plans/030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24)
+for the acceptance matrix, remaining deliverables and reasons.
+
 ## 2026-10-24 - Claude skills join the shared repository directory
 
 Moved all four Claude-local workflows into `.agents/skills`: `debug-issue`,
@@ -24,6 +44,31 @@ AGENTS and tooling guidance identify `.agents/skills` as the shared owner; edito
 rules continue linking there. Corrected the handoff execution-history link to
 root ReleaseNotes. Application source, runtime contracts and roadmap statuses
 are unchanged. Static inspection only; no executable verification or Git delivery.
+
+## 2026-10-23 - I2/I3 coverage and documentation reconciliation
+
+Added focused tests for real serialized outbox root/child candidate identity,
+malformed/foreign/missing parent identity, claim ownership/release failures,
+internal MANUAL cadence and approved-input compatibility, SYNC_SYMBOLS fallback
+configuration, legacy status counters/terminal-state protection and sanitized
+catalog dependency shapes. Extended the real
+PostgreSQL preparation test to reload frozen candidate ownership. The null-config
+regression reproduced `HashMap(null)`; producer message construction now uses an
+empty map consistently without mutating the stored config.
+
+Current execution flow, post-V14 database ERD, architecture/ownership/service
+guidance, ADR, roadmap and skill links are reconciled. Operator triggering stays
+deferred under TD-017. Added the portable shared plan-update skill because the
+previous `.roo/skills` copy is Git-ignored. Clean build executed **357 tests / 59
+suites**, zero failures/errors/skips; focused tests passed 19 cases. All 32 audited
+critical components exceed the 80% line/branch gate. JobService is 95.12% / 88.76%,
+outbox service 99.37% / 91.30%, and SyncSymbols/catalog 100% / 100%.
+The seven-check local gate and static consistency evidence are recorded in
+[Plan 030](docs/plans/030-static-graph-dispatch-planner.md#i2i3-coverage-and-documentation-reconciliation--2026-10-23).
+Compact result: `PASS P14-I2-I3-coverage-docs-20261023 required=7 pass=7 fail=0 unknown=0 missing=0`.
+I2 remains verification_pending, I3 pending; preparation stays false and all 32 cron
+identities remain. No migration against retained databases, deployment, activation,
+owner attestation or Git delivery is claimed.
 
 ## 2026-10-22 - I3.d operator job triggers deferred (local gate passed)
 

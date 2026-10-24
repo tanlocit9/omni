@@ -66,13 +66,25 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P13-I3 | Manual EOD Parquet Data Health scan                                | pending              | high     | [P3-I4, P7-I2]        | []                                  | [apps/query-service, apps/omni-console, configs, docs]                                                           | autonomous        | true                    | null                                      | null                                     |
 | P13-I4 | Operator-first fixed dashboard shell                               | pending              | high     | [P13-I2]              | []                                  | [apps/omni-console, apps/core, apps/query-service, docs]                                                         | autonomous        | false                   | null                                      | null                                     |
 | P14-I1 | Static topology and validation                                     | completed            | critical | [P4-I2]               | [P14-I2]                            | [apps/core, configs, docs]                                                                                       | autonomous        | false                   | null                                      | null                                     |
-| P14-I2 | Static DAG dispatcher contract and handoff                         | verification_pending | critical | [P14-I1]              | [P14-I3]                            | [apps/core, configs, docs]                                                                                       | autonomous        | false                   | null                                      | null                                     |
-| P14-I3 | Static definition edges, unified JobRun and target preparation     | pending              | critical | [P14-I2]              | [P14-I4]                            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
+| P14-I2 | Static DAG dispatcher contract and handoff                         | completed            | critical | [P14-I1]              | [P14-I3]                            | [apps/core, configs, docs]                                                                                       | autonomous        | false                   | null                                      | null                                     |
+| P14-I3 | Static definition edges, unified JobRun and target preparation     | completed            | critical | [P14-I2]              | [P14-I4]                            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
 | P14-I4 | JobRun-aware outbox planning and guarded admission                 | pending              | critical | [P14-I3]              | [P14-I5, P13-I1]                    | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
 | P14-I5 | Diagnostic SQL and measured scheduler performance                  | pending              | high     | [P14-I4]              | [P14-I6]                            | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 | P14-I6 | JobRun operations read-model handoff                               | pending              | high     | [P14-I5]              | []                                  | [apps/core, docs]                                                                                                | autonomous        | false                   | null                                      | null                                     |
 
 ## Canonical Plan 030 scope revision — 2026-10-15
+
+Current completion update — 2026-10-24: P14-I2 and P14-I3 are `completed`.
+Source/test/migration bindings still match the executed 357-test/59-suite gate
+`P14-I2-I3-coverage-docs-20261023` (required=7/pass=7); all 32 audited critical
+components meet 80% line/branch and the separate I2/I3 acceptance matrices and
+documentation are reconciled in [Plan 030](../030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24).
+Preparation stays false and all 32 cron identities remain under the existing I3.d
+boundary. No owner attestation, deployment or runtime activation is claimed.
+I4 remains `pending`: dependencies are met, but concrete path isolation against
+other verification_pending apps/core ownership must be recorded before autonomous
+selection. I5/I6 remain pending on I4/I5. The dated checkpoint paragraphs below
+preserve historical statuses and do not override this update or the registry table.
 
 P14-I1 static topology remains `completed`. **P14-I2 is narrowed** to its static graph dispatcher-facing topology/path contract and standalone compatibility verification; the previously attempted backlog-only snapshot and pure planner PASS is historical evidence only. I2 remains `verification_pending`, NOT automatically complete. No new JobRun persistence or runtime activation in I2.
 
@@ -155,6 +167,21 @@ The static inventory retains all 32 canonical cron identities pending I4 safety.
 No retained-environment migration, activation, cron reduction, status promotion
 or commit is claimed.
 
+I2/I3 reconciliation — 2026-10-23: the full review command gate passed (341 Platform
+and 27 Console tests), while semantic acceptance retained coverage/documentation
+findings. Owner requested their repair: populated outbox parent validation,
+claim ownership/release, SYNC_SYMBOLS fallback and catalog compatibility tests;
+a regression also exposed and repaired null-config message construction.
+The new seven-check local gate and fresh per-source coverage are recorded in
+[Plan 030](../030-static-graph-dispatch-planner.md#i2i3-coverage-and-documentation-reconciliation--2026-10-23).
+Clean build executed 357 tests / 59 suites with zero failures/errors/skips; focused
+tests passed 19 cases. All 32 audited critical components exceed the default
+80% line/branch gate (JobService 95.12% / 88.76%, outbox 99.37% / 91.30%,
+SyncSymbols/catalog 100% / 100%). Current manual/ERD and ownership guidance is
+reconciled, with the plan-update skill now shared under `.agents/skills`, without
+changing acceptance or registry statuses:
+I2 `verification_pending`, I3 `pending`, preparation false, 32 cron identities retained.
+
 - **P14-I4:** execution-centered **JobRun path snapshot** drives outbox selection, cohort barrier, joins and fair quotas with admission/claim revalidation, fallback, fenced publish and TD-014 safety evidence.
 - **P14-I5:** runnable, versioned read-only SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, Hikari/DB/query/throughput measured baseline, and metric dictionary. Essential I3/I4 safety and query tests remain their own acceptance gates.
 - **P14-I6:** bounded read-model and dashboard handoff for Plan 029, without creating a second dashboard/UI implementation or unnecessary API.
@@ -194,8 +221,8 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | Order | Increment | Current status         | Exit condition before advancing                                                                                                                                                                                                                                                                      |
 | ----- | --------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | P14-I1    | `completed`            | Local Platform test/coverage/build gate passed; every critical class met the 80% line/branch threshold, cross-service no-impact boundaries were reconciled, and owner attestation was recorded for `tanlocit9`. No CI/deployment/runtime claim.                                                      |
-| 2     | P14-I2    | `verification_pending` | Freeze static ancestor-path/definition mapping handoff, independent validation, compatibility and tests; leave FIFO runtime unchanged.                                                                                                                                                               |
-| 3     | P14-I3    | `pending`              | Static per-definition edge cutover/parity first, then JobRun persistence and complete static path membership, scheduled/manual cutover, dependency-first durable enqueue, runtime old-guard safety, forward-only manual-table drop with tests and rollback.                                          |
+| 2     | P14-I2    | `completed` | Freeze static ancestor-path/definition mapping handoff, independent validation, compatibility and tests; leave FIFO runtime unchanged.                                                                                                                                                               |
+| 3     | P14-I3    | `completed`              | Static per-definition edge cutover/parity first, then JobRun persistence and complete static path membership, scheduled/manual cutover, dependency-first durable enqueue, runtime old-guard safety, forward-only manual-table drop with tests and rollback.                                          |
 | 4     | P14-I4    | `pending`              | Bounded JobRun snapshot, cohort completion gates, scoped outbox admission and TD-014 guard/claim/fencing/retry/concurrency/fallback verification.                                                                                                                                                    |
 | 5     | P14-I5    | `pending`              | Measured SQL performance/connection-pool/throughput baselines, executable diagnostic scripts and metric dictionary.                                                                                                                                                                                  |
 | 6     | P14-I6    | `pending`              | Dashboard-ready bounded run/step read model and Plan 029 handoff without unnecessary UI or API.                                                                                                                                                                                                      |
@@ -210,7 +237,7 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 12    | P9-I4     | `pending`              | Paused to release active apps/core ownership for P14. After P9-I1 and P8-I4 dependencies complete and work resumes, prove exact-date confirmation/suppression, stale/missing input, lineage, persistence, and notification-runtime behavior without reactivating P9-I2 or P9-I3.                     |
 | 13    | P1-I3     | `verification_pending` | Reconcile Platform/Analyzer/config/storage writer impacts and prove one-writer, canonical-universe, retry, lineage, and failure-path coverage; Git/CI metadata remains optional traceability unless an explicit delivery gate applies.                                                               |
 
-P13-I3 is a separate owner-decision lane after P3-I4/P7-I2. Query Service memory caching is resolved; calendar/lifecycle evidence must be approved or scope explicitly narrowed. Its activation does not block P13-I4. Owner decision on 2026-10-10 pauses P8-I4 and P9-I4 at `pending`, preserves all source/evidence/acceptance, and hands off their active apps/core ownership to P14. P14-I1 is completed; P14-I2 requires graph-contract validation and fresh verification. P14-I3 through I6 remain pending.
+P13-I3 is a separate owner-decision lane after P3-I4/P7-I2. Query Service memory caching is resolved; calendar/lifecycle evidence must be approved or scope explicitly narrowed. Its activation does not block P13-I4. Owner decision on 2026-10-10 pauses P8-I4 and P9-I4 at `pending`, preserves all source/evidence/acceptance, and hands off their active apps/core ownership to P14. P14-I1 through I3 are completed after the 2026-10-24 acceptance reconciliation; P14-I4 through I6 remain pending. I4 dependency readiness is satisfied, but module-conflict/isolation reconciliation is still required before autonomous selection.
 
 ## Deferred follow-up boundary — 2026-10-07
 
@@ -218,7 +245,7 @@ P10, P11, and P12 are now owner-gated technical-debt follow-ups, not active auto
 
 ## First eligible increment
 
-The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls. P14-I1 is completed; P14-I2 static graph handoff is verification_pending; P14-I3 JobRun preparation, I4 guarded outbox integration, I5 measured diagnostics and I6 read-model handoff are pending. P4-I3 is superseded; TD-014 evidence transfers to P14-I4. The P13-I1/P13-I2/P13-I4 operator-trust sequence follows, with graph-specific views consuming I5/I6 handoff. P8-I1 remains the evidence gate for P8-I2 and P8-I5 in the remaining queue. P8-I2 follows and gates completion of both P8-I4 and P8-I5. P9-I5 remains superseded technical debt.
+The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls. P14-I1–I3 are completed; I4 guarded outbox integration, I5 measured diagnostics and I6 read-model handoff remain pending. Preparation is still disabled; no retained-database rollout is claimed. P4-I3 is superseded; TD-014 evidence transfers to P14-I4. The P13-I1/P13-I2/P13-I4 operator-trust sequence follows, with graph-specific views consuming I5/I6 handoff. P8-I1 remains the evidence gate for P8-I2 and P8-I5 in the remaining queue. P8-I2 follows and gates completion of both P8-I4 and P8-I5. P9-I5 remains superseded technical debt.
 
 P4-I3 source implementation is present but the increment is `superseded`: scheduled/manual work commits execution plus PENDING outbox first; Platform-local dispatch returns READY/WAITING/BLOCKED; WAITING does not consume delivery attempts; terminal BLOCKED is non-reclaimable; claim fencing and READY/dataVersion semantics remain the baseline. TD-014 records the unclosed evidence, and P14-I4 must prove these invariants against the final planner-integrated path. P11-I1 and P13-I1 now depend on P14-I4 rather than historical P4-I3.
 

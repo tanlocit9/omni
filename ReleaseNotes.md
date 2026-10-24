@@ -1,5 +1,27 @@
 # Omni Release Notes
 
+## 2026-10-24 - P14-I4 started with inactive JobRun snapshot/planner checkpoint
+
+Owner requested P14 continuation after merge. Added bounded read-only PostgreSQL
+JobRun snapshots and a pure run/step planner using frozen V12/V13 membership,
+closed all-execution SUCCESS barriers, joins, typed scopes, freshness, per-run
+round-robin quotas and unused quota reuse. PUBLISHED is not worker completion.
+Exact path isolation from other pending Platform work is documented for I4.a.
+Tests cover the 100-item/budget-75 trace, failure/unknown, scope/date isolation,
+lease/retry buckets, restart, uncommitted preparation and bounded EXPLAIN.
+
+Owner approved automatic verification for this session. New local gate PASS 7/7:
+377 Platform tests and 20 focused cases, zero failures/errors/skips. All 15
+new Java components have 100% line coverage; reader branches 80%, other
+applicable branches 100%. PostgreSQL bounds/closure/concurrency and real EXPLAIN
+pass; SQL has no fabricated numeric coverage. Formatting and static document
+audit pass. The initial lease fixture failure is repaired; old PASS is not reused.
+P14-I4 remains in_progress, I5/I6 pending, I1–I3 completed.
+No dispatcher integration, admission revalidation, runtime activation, migration,
+cron reduction, provider call, commit or deployment is claimed. See
+[Plan 030](docs/plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24)
+for the impact/test matrix, executed checkpoint evidence and remaining I4 work.
+
 ## 2026-10-24 - P14-I2 and P14-I3 completed after acceptance reconciliation
 
 Owner requested verification and completion marking. Rechecked the passing

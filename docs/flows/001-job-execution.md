@@ -35,6 +35,13 @@ messages, rewrite statuses, or implement Phase 12 concurrency.
 
 ## Static Graph and Planned Dispatch Planning
 
+I4.a adds an inactive bounded JobRun snapshot reader and pure planner over
+frozen paths and V13 closure. PUBLISHED counts remain separate from actual
+execution SUCCESS; joins require every closed predecessor. No dispatcher calls
+this code yet. The inactive checkpoint has a passing local test/build/coverage
+gate; guarded admission/revalidation and TD-014 safety are still I4 work. See
+[I4.a scope and evidence](../plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
+
 I3.b adds request/path persistence and nullable execution links. I3.c adds bounded
 GLOBAL/VN preparation and V13 closed execution/message membership, with dependencies
 enqueued before the target. The preparation flag is **false** by default; current

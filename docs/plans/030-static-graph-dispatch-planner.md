@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I3 are completed as of 2026-10-24; I4–I6 remain pending. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
+Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I3 are completed; I4 is in progress at the inactive I4.a snapshot/planner checkpoint below; I5/I6 remain pending. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -28,6 +28,126 @@ A reusable static definition-path handoff in I2, followed by durable JobRun prep
 in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
 local acceptance/test/coverage/build and documentation evidence below. No new
 owner attestation, deployment or I4 admission activation is asserted.
+
+## I4.a bounded snapshot and planner — 2026-10-24
+
+Owner requested continuation after the I2/I3 merge. P14-I4 is `in_progress`;
+I4.a is a review checkpoint under that ID, not an independently completed increment.
+The current agent owns this bounded implementation. The dated I2/I3 completion
+record below retains its earlier I4-pending/readiness assessment; this checkpoint
+supersedes that assessment only for the explicitly isolated paths below.
+
+Source added:
+
+- [`JobRunDispatchSnapshotReader`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshotReader.java)
+  accepts 1–32 explicit distinct run IDs and rejects missing/unsupported/oversized
+  populations. At most 1024 total steps and 8192 edges are accepted per read;
+  overflow is incomplete, never a truncated successful path. Three parameterized
+  queries run inside a new read-only REPEATABLE READ transaction with a five-second
+  timeout. Separate scoped execution/outbox aggregates prevent join overcounting.
+- [`JobRunDispatchSnapshot`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshot.java)
+  separates population completeness from each run's sealed identity/count/path
+  validity. Exact run/step identity, effective scope/date, direct predecessors,
+  expected/actual execution/message counts, SUCCESS/failure/unknown counts and
+  exclusive eligible/leased/retry-delayed/PUBLISHED/BLOCKED buckets remain visible.
+  Every required execution, including the parent, must be SUCCESS; neither
+  PUBLISHED nor a parent-only SUCCESS opens the barrier. Zero-child/zero-message
+  steps need an explicitly successful closed parent. Legacy optional V12 links
+  without V13 closure remain UNKNOWN, never fabricated success.
+- [`JobRunDispatchPlanner`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchPlanner.java)
+  is pure and has no runtime caller. It chooses only unfinished steps whose direct
+  predecessors are all successfully closed; independent roots remain eligible
+  while joins wait. Bounded round-robin turns are allocated per run, then across
+  eligible sibling roots. Unused quota passes to other runs; the returned advisory
+  cursor follows the last allocated turn. Stale/future/incomplete population
+  snapshots allocate nothing. A malformed/unknown/terminal run cannot dispatch
+  and does not block separately valid runs in a complete requested population.
+
+Isolation reconciliation: all five new production/test files are under scheduler
+`planning`; no existing producer, claim/status/upsert handler, execution writer,
+notification module, Sector Transition path or shared application wiring is edited.
+The reader is an injectable read-only bean; only focused tests currently call it.
+P1-I3, P8-I1/I2/I5 and P9-I1 retain their existing source/evidence/ownership; their
+pending verification is not borrowed as I4 evidence. This establishes isolation
+for I4.a only. Dispatcher/repository admission paths require a renewed ownership
+and impact review for the next checkpoint.
+
+Initial graph analysis found 20 direct nodes, two impacted test nodes, 73 unresolved
+call sites and a stale pre-merge index. These bounded results do not prove isolation;
+the exact new-file scope, caller inventory and canonical documents reconcile it.
+Post-edit incremental graph update reached HEAD and change detection ran for the
+14 owned paths. It reported zero changed symbols because the five new Java files
+remain untracked and were not indexed, even after a full 518-file refresh; Markdown has no execution graph. This is
+an analysis limitation, not a zero-impact or test-coverage verdict. Source caller
+inspection finds no production caller beyond the reader's constructor and the
+pure planner declaration. No staging is performed merely to satisfy graph output.
+
+| Surface                      | Impact / no-impact reason                                                                                                                                                                                        |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                     | Add read-only bounded snapshot DTO/reader and pure planning API; no scheduler/dispatcher caller, claim, publish, status or execution mutation. Existing backlog-only scaffolding remains inactive and unchanged. |
+| Persistence                  | Read existing V12/V13 frozen paths/closure/execution/outbox indexes; no migration, index, retention, DML trigger or database lifecycle change. No kept environment is accessed by tests.                         |
+| Analyzer / Ingestor          | No Kafka payload/topic/producer/consumer, worker runtime, concurrency or provider change. SYMBOL/EXCHANGE/SECTOR fixture reads do not activate unsupported producer scopes.                                      |
+| Query Service / Console      | No endpoint, read contract, UI, query engine or dataset-discovery change; no Plan 029 delivery is claimed.                                                                                                       |
+| Shared contracts / libraries | No protobuf/generated output, shared JSON contract or py-common change. New Java records remain scheduler-local.                                                                                                 |
+| Configuration / deployment   | No property, default, environment, Docker, cron or deployment workflow change. Preparation remains false; all 32 cron identities remain.                                                                         |
+| Storage / data safety        | No Parquet/manifest/path/writer change. DependencyRegistry retains READY and exact-version authority; this planner cannot grant dataset readiness or Kafka admission.                                            |
+| Tests / operations           | New pure tests and isolated PostgreSQL fixtures, including bounded EXPLAIN evidence when executed. No watcher, application launch, live provider, operational activation or retained-database migration.         |
+
+### I4.a source-to-test matrix and execution boundary
+
+| Feature/source                                                                                                                          | Focused test evidence to execute                                                                                                                                                                                               | Current evidence                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Snapshot records: immutable collections, closure/identity/count consistency, failure/unknown, target ancestor membership                | JobRunDispatchPlannerTest: malformedOrDisconnectedPathsCannotBeInterpretedAsReady; closureIdentityCountsAndUnknownEvidenceFailClosed; snapshotAndPlanCollectionsAreImmutableAndDuplicateRunsRejected                           | PASS; executed in focused and clean-build suites                           |
+| Pure planner: 100 items/budget 75, closed SUCCESS barrier, joins, root/run fairness, quota reuse, scope/date isolation, freshness       | JobRunDispatchPlannerTest: hundredItemsBudget75SendsRemainderThenWaitsForEveryExecutionSuccess; joinsRequireAllPredecessorsAndParentSuccessCannotHideRunningChildren; cursor/unusedQuota/siblingRoots/typedScopes/stale tests  | PASS; executed in focused and clean-build suites                           |
+| PostgreSQL reader: real V12/V13 closure and status/outbox populations, legacy/missing/terminal/bounds, restart, uncommitted preparation | JobRunDispatchSnapshotPostgresTest: actualHundredItemTrace; joinsFailedBranchesAndOtherRuns; leaseDelayPublicationAndBlockedCounts; missingLegacyUnpreparedTerminalAndBounds; uncommittedPreparation; aggregateStepBound tests | PASS; executed in focused and clean-build suites                           |
+| Exact aggregate SQL and nonmutation                                                                                                     | JobRunDispatchSnapshotPostgresTest.boundedExplainUsesActualSnapshotSqlWithoutMutatingOrClaimingWork; report build/reports/job-run-dispatch/snapshot-explain.json                                                               | PASS; actual 3-row aggregate EXPLAIN retained; no I5-scale benchmark claim |
+
+Owner approved automatic verification for this session. Local checkpoint gate:
+`PASS P14-I4a required=7 pass=7 fail=0 unknown=0 missing=0 sources=exit_code`.
+Executed 20 focused cases and 377 full Platform tests with zero failures/errors/
+skips. Clean build, coverage, changed-file format, explicit Markdown format check,
+attributable coverage and static document structure all pass. All 15 new Java
+classes/records/enums have 100% line coverage; the reader has 80% branch coverage,
+and all other applicable branches have 100%. The unexecuted reader defenses
+cover unsupported/malformed persisted headers and inconsistent population sizes
+currently prohibited by V12 constraints; they are not represented as executed.
+SQL is not numerically instrumented by JaCoCo. Nine real PostgreSQL cases and
+actual bounded EXPLAIN supplement it; this is not a SQL coverage percentage or
+an integrated dispatcher/worker performance claim. The first clean build caught
+an invalid lease fixture; it was repaired to supply token/owner/expiry together,
+and the final full build passed. Existing shutdown Hikari/JPA warnings are
+non-failing. Local evidence and five-file source/test SHA-256 binding are in
+ignored `.agent/check-results/P14-I4a/attributable-coverage.json`.
+No earlier I2/I3 PASS, owner attestation, CI, runtime activation or full I4
+completion is substituted for this new checkpoint evidence.
+
+Remaining I4 work: bounded work discovery and cursor ownership; scoped candidate
+queries and no-starvation reallocation on actual WAITING/BLOCKED/lost claims;
+existing DependencyRegistry per candidate; atomic predecessor/closure revalidation
+at claim under concurrency; unchanged fencing/attempt/retry/publish-ack semantics;
+barrier-preserving fallback and old-row compatibility; full TD-014 safety matrix;
+startup/query cost/concurrency/restart evidence and a conscious activation/rollback
+boundary. This checkpoint cannot safely enable preparation or replace FIFO.
+I5 measured diagnostics and I6 operations handoff remain pending on full I4/I5.
+
+Documentation disposition: plan/registry/roadmap summaries and diagram, execution
+flow, system overview, database read-boundary description, Platform README and
+root release notes reflect this inactive checkpoint. ADR 007 is unchanged because
+claim/guard/publish authority is untouched. Kafka/data-lake/deployment documents,
+Plan 023/028/029, indexes, development ownership, AGENTS/CLAUDE/rules and skills
+need no change: no new document, producer/contract/schema/default/command/owner or
+policy is introduced. No CI/merge/deployment/whole-I4 completion is claimed.
+
+Static documentation audit: consistent for this bounded source-present checkpoint.
+Reviewed current P14 IDs/status/dependencies, the nine documentation surfaces,
+new local source/test entrypoints and checkpoint anchors, preserved historical
+evidence, explicit no-update reasons and unchanged contract/migration/activation
+claims. I4 remains in progress; no unchecked acceptance item is promoted.
+The seven-check local checkpoint gate passes. The bounded helper checks 17 added
+links/anchors, three plan structures and 61 unique registry identities; manual
+status/ownership/contract review supplements it. Documentation edits are formatted
+and rechecked after recording evidence. Full I4 acceptance remains unchecked
+because discovery, guarded admission and TD-014 integration are still outstanding.
 
 ## I2/I3 completion and remaining P14 work — 2026-10-24
 
@@ -192,14 +312,14 @@ An empty upstream outbox backlog is neither execution-completion nor readiness e
 
 **This section supersedes the earlier 2026-10-13 and prior P14-I2/P14-I3 target scopes and acceptance language elsewhere in this file. Historical verification remains historical evidence, not the current implementation target.** The new architecture is **target-driven JobRun → static-DAG preparation → existing durable outbox → JobRun-aware publish admission**. The goal is not to implement a general workflow engine.
 
-| Story                                                   | Status      | Independently deployable output                                                                                                          | Runtime boundary                                                                          |
-| ------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **P14-I1** — Static topology                            | `completed` | Existing validated immutable static DAG                                                                                                  | No dispatcher activation                                                                  |
-| **P14-I2** — Static DAG dispatcher contract and handoff | `completed` | Definitive topology-to-dispatch contracts, traversal/ancestor closure, mapping, validation, tests and handoff for I3                     | **No JobRun schema, outbox changes, runtime activation or dashboard SQL requirement**     |
-| **P14-I3** — Unified JobRun + target DAG preparation    | `completed` | Durable `job_runs` and DAG path/membership; prepare dependencies then target, enqueue messages in stable dependency-first order          | Existing FIFO outbox + existing DependencyRegistry guard/claims/publish behavior retained |
-| **P14-I4** — JobRun-aware outbox planner and admission  | `pending`   | Bounded execution-centered JobRun snapshot; cohort barriers, quota/fairness, scoped candidate reads and atomic admission revalidation    | Planner activated with safe FIFO fallback, preserve fencing/retry and full TD-014 proof   |
-| **P14-I5** — SQL diagnostics and performance evidence   | `pending`   | Versioned SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, measured snapshot/claim/dispatch latency and metrics read-projection dictionary | No dashboard UI or new statistics store                                                   |
-| **P14-I6** — Operations/read-model handoff              | `pending`   | Stable bounded JobRun/topology read contract and documentation/fixtures for Plan 029 graph-specific view                                 | API/read model only if actually required and approved; Plan 029 still owns dashboard UI   |
+| Story                                                   | Status        | Independently deployable output                                                                                                          | Runtime boundary                                                                          |
+| ------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **P14-I1** — Static topology                            | `completed`   | Existing validated immutable static DAG                                                                                                  | No dispatcher activation                                                                  |
+| **P14-I2** — Static DAG dispatcher contract and handoff | `completed`   | Definitive topology-to-dispatch contracts, traversal/ancestor closure, mapping, validation, tests and handoff for I3                     | **No JobRun schema, outbox changes, runtime activation or dashboard SQL requirement**     |
+| **P14-I3** — Unified JobRun + target DAG preparation    | `completed`   | Durable `job_runs` and DAG path/membership; prepare dependencies then target, enqueue messages in stable dependency-first order          | Existing FIFO outbox + existing DependencyRegistry guard/claims/publish behavior retained |
+| **P14-I4** — JobRun-aware outbox planner and admission  | `in_progress` | Bounded execution-centered JobRun snapshot; cohort barriers, quota/fairness, scoped candidate reads and atomic admission revalidation    | Planner activated with safe FIFO fallback, preserve fencing/retry and full TD-014 proof   |
+| **P14-I5** — SQL diagnostics and performance evidence   | `pending`     | Versioned SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, measured snapshot/claim/dispatch latency and metrics read-projection dictionary | No dashboard UI or new statistics store                                                   |
+| **P14-I6** — Operations/read-model handoff              | `pending`     | Stable bounded JobRun/topology read contract and documentation/fixtures for Plan 029 graph-specific view                                 | API/read model only if actually required and approved; Plan 029 still owns dashboard UI   |
 
 Dependencies are **I1 → I2 → I3 → I4 → I5 → I6** for new graph-specific capabilities. Basic Plan 029 operations/stage work remains separately scheduled. No current status is promoted by this documentation decision.
 

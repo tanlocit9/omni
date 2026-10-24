@@ -33,6 +33,12 @@ non-exposed port. See [I3.c scope and gates](../../docs/plans/030-static-graph-d
 - Platform-facing API and operational state.
 - Private read-only job catalog and execution-status API; operator triggering is deferred.
 
+I4.a adds `JobRunDispatchSnapshotReader`, immutable progress records and a pure
+`JobRunDispatchPlanner`. They have no runtime scheduler/dispatcher caller.
+The inactive checkpoint passes a local seven-check gate (377 Platform tests,
+20 focused cases and attributable coverage); existing FIFO/guard/claims
+and disabled preparation remain unchanged. See [I4.a checkpoint](../../docs/plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
+
 ## Does Not Own
 
 - External stock data fetching.

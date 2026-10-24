@@ -93,6 +93,15 @@ The diagram describes the schema after V14. Historical `manual_job_triggers`
 belongs to V8 through V13 only; see [deferred manual job triggers](#deferred-manual-job-triggers)
 for its removal and rollback boundary.
 
+### Inactive JobRun dispatch snapshot (I4.a)
+
+`JobRunDispatchSnapshotReader` reads existing frozen paths, preparations,
+executions and outbox with explicit run IDs inside a new read-only REPEATABLE
+READ transaction. Population, step and edge bounds fail closed; separate scoped
+aggregates avoid execution/message join overcounting. No schema/index/trigger
+changes or runtime caller are introduced. Nine isolated PostgreSQL cases and
+bounded EXPLAIN capture pass locally; this is not production-scale query evidence. See [Plan 030 I4.a](../plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
+
 ### JobRun persistence foundation (I3.b)
 
 [`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql)

@@ -38,14 +38,17 @@ class SchedulerOutboxDispatcherTest {
         var ready = candidate("ready");
         var claim = claim(ready);
         when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(waiting, ready));
-        when(dependencies.evaluate(any())).thenReturn(
-                DependencyDecision.waiting("DEPENDENCY_WAITING", "manifest missing", NOW.plusSeconds(30)),
-                DependencyDecision.ready(Map.of()));
+        when(dependencies.evaluate(any()))
+                .thenReturn(
+                        DependencyDecision.waiting(
+                                "DEPENDENCY_WAITING", "manifest missing", NOW.plusSeconds(30)),
+                        DependencyDecision.ready(Map.of()));
         when(outbox.claimEligible(
-                ready.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+                        ready.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
                 .thenReturn(claim);
-        SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outbox, dependencies, kafka, properties(2));
+        SchedulerOutboxDispatcher dispatcher =
+                new SchedulerOutboxDispatcher(
+                        outbox, dependencies, kafka, properties(2), legacy(outbox));
 
         dispatcher.dispatchBatch(NOW);
 
@@ -62,10 +65,13 @@ class SchedulerOutboxDispatcherTest {
         KafkaPublisher kafka = mock(KafkaPublisher.class);
         var blocked = candidate("blocked");
         when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(blocked));
-        when(dependencies.evaluate(any())).thenReturn(
-                DependencyDecision.blocked("DEPENDENCY_INCOMPATIBLE", "schema unsupported"));
-        SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outbox, dependencies, kafka, properties(1));
+        when(dependencies.evaluate(any()))
+                .thenReturn(
+                        DependencyDecision.blocked(
+                                "DEPENDENCY_INCOMPATIBLE", "schema unsupported"));
+        SchedulerOutboxDispatcher dispatcher =
+                new SchedulerOutboxDispatcher(
+                        outbox, dependencies, kafka, properties(1), legacy(outbox));
 
         dispatcher.dispatchBatch(NOW);
 
@@ -83,10 +89,12 @@ class SchedulerOutboxDispatcherTest {
         var second = candidate("second");
         when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(first, second));
         when(dependencies.evaluate(any())).thenReturn(DependencyDecision.ready(Map.of()));
-        when(outbox.claimEligible(first.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+        when(outbox.claimEligible(
+                        first.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
                 .thenReturn(claim(first));
-        SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outbox, dependencies, kafka, properties(1));
+        SchedulerOutboxDispatcher dispatcher =
+                new SchedulerOutboxDispatcher(
+                        outbox, dependencies, kafka, properties(1), legacy(outbox));
 
         dispatcher.dispatchBatch(NOW);
 
@@ -105,15 +113,19 @@ class SchedulerOutboxDispatcherTest {
         var failingClaim = claim(failing);
         when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(stale, failing));
         when(dependencies.evaluate(any())).thenReturn(DependencyDecision.ready(Map.of()));
-        when(outbox.claimEligible(stale.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+        when(outbox.claimEligible(
+                        stale.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
                 .thenReturn(staleClaim);
-        when(outbox.claimEligible(failing.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+        when(outbox.claimEligible(
+                        failing.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
                 .thenReturn(failingClaim);
         when(outbox.markDelivered(eq(staleClaim), any())).thenReturn(false);
         doThrow(new RuntimeException("provider\r\nfailed"))
-                .when(kafka).publishSerializedAndWait(eq("jobs"), eq("failing"), any(), any());
-        SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outbox, dependencies, kafka, properties(2));
+                .when(kafka)
+                .publishSerializedAndWait(eq("jobs"), eq("failing"), any(), any());
+        SchedulerOutboxDispatcher dispatcher =
+                new SchedulerOutboxDispatcher(
+                        outbox, dependencies, kafka, properties(2), legacy(outbox));
 
         dispatcher.dispatchBatch(NOW);
 
@@ -130,25 +142,121 @@ class SchedulerOutboxDispatcherTest {
         var failing = candidate("failure-null");
         var failingClaim = claim(failing);
         when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(waiting, failing));
-        when(dependencies.evaluate(any())).thenReturn(
-                DependencyDecision.waiting(null, null, NOW.plusSeconds(30)),
-                DependencyDecision.ready(Map.of()));
-        when(outbox.claimEligible(failing.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+        when(dependencies.evaluate(any()))
+                .thenReturn(
+                        DependencyDecision.waiting(null, null, NOW.plusSeconds(30)),
+                        DependencyDecision.ready(Map.of()));
+        when(outbox.claimEligible(
+                        failing.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
                 .thenReturn(failingClaim);
-        doThrow(new RuntimeException()).when(kafka)
+        doThrow(new RuntimeException())
+                .when(kafka)
                 .publishSerializedAndWait(eq("jobs"), eq("failure-null"), any(), any());
-        SchedulerOutboxDispatcher dispatcher = new SchedulerOutboxDispatcher(
-                outbox, dependencies, kafka, properties(2));
+        SchedulerOutboxDispatcher dispatcher =
+                new SchedulerOutboxDispatcher(
+                        outbox, dependencies, kafka, properties(2), legacy(outbox));
 
         dispatcher.dispatchBatch(NOW);
 
-        verify(outbox).markWaiting(waiting.messageId(), NOW.plusSeconds(30),
-                "{\"code\":\"unknown\",\"detail\":\"unknown\"}");
+        verify(outbox)
+                .markWaiting(
+                        waiting.messageId(),
+                        NOW.plusSeconds(30),
+                        "{\"code\":\"unknown\",\"detail\":\"unknown\"}");
         verify(outbox).scheduleRetry(eq(failingClaim), any(), eq("unknown"));
     }
 
     private SchedulerProperties properties(int batchSize) {
-        return new SchedulerProperties("core-a", new SchedulerProperties.Claim(Duration.ofMinutes(2), batchSize));
+        return new SchedulerProperties(
+                "core-a", new SchedulerProperties.Claim(Duration.ofMinutes(2), batchSize));
+    }
+
+    @Test
+    void malformedDependencyDecisionsFailClosedWithoutStarvingReadyCandidate() {
+        for (var invalid :
+                java.util.Arrays.asList(
+                        (DependencyDecision) null,
+                        new DependencyDecision(null, "bad", "bad", null, Map.of()),
+                        DependencyDecision.waiting("bad", "bad", null))) {
+            var outbox = mock(SchedulerOutboxService.class);
+            var dependencies = mock(DependencyRegistry.class);
+            var kafka = mock(KafkaPublisher.class);
+            var poison = candidate("bad");
+            var ready = candidate("good");
+            var claimed = claim(ready);
+            when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(poison, ready));
+            when(dependencies.evaluate(any()))
+                    .thenReturn(invalid)
+                    .thenReturn(DependencyDecision.ready(Map.of()));
+            when(outbox.claimEligible(
+                            ready.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+                    .thenReturn(claimed);
+            new SchedulerOutboxDispatcher(
+                            outbox, dependencies, kafka, properties(2), legacy(outbox))
+                    .dispatchBatch(NOW);
+            verify(outbox, never())
+                    .claimEligible(eq(poison.messageId()), any(), any(), any(), any());
+            verify(outbox).markDelivered(eq(claimed), any());
+        }
+    }
+
+    @Test
+    void dependencyExceptionDefersPoisonAndContinuesToReadyCandidate() {
+        var outbox = mock(SchedulerOutboxService.class);
+        var dependencies = mock(DependencyRegistry.class);
+        var kafka = mock(KafkaPublisher.class);
+        var poison = candidate("poison");
+        var ready = candidate("ready");
+        var claimed = claim(ready);
+        when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(poison, ready));
+        when(dependencies.evaluate(any()))
+                .thenThrow(new IllegalStateException("fixture"))
+                .thenReturn(DependencyDecision.ready(Map.of()));
+        when(outbox.claimEligible(
+                        ready.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+                .thenReturn(claimed);
+        new SchedulerOutboxDispatcher(outbox, dependencies, kafka, properties(2), legacy(outbox))
+                .dispatchBatch(NOW);
+        verify(outbox).markWaiting(eq(poison.messageId()), eq(NOW.plusSeconds(30)), any());
+        verify(outbox).markDelivered(eq(claimed), any());
+    }
+
+    private com.omni.platform.modules.scheduler.planning.JobRunDispatchCoordinator legacy(
+            SchedulerOutboxService outbox) {
+        when(outbox.renewForPublish(any(), any(), any())).thenReturn(true);
+        return new com.omni.platform.modules.scheduler.planning.JobRunDispatchCoordinator(
+                null, null, outbox, false, false);
+    }
+
+    @Test
+    void supersededPublishFenceNeverSendsAndShortLeaseFailsConfiguration() {
+        var outbox = mock(SchedulerOutboxService.class);
+        var dependencies = mock(DependencyRegistry.class);
+        var kafka = mock(KafkaPublisher.class);
+        var candidate = candidate("stale");
+        var claimed = claim(candidate);
+        when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(candidate));
+        when(dependencies.evaluate(any())).thenReturn(DependencyDecision.ready(Map.of()));
+        when(outbox.claimEligible(
+                        candidate.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
+                .thenReturn(claimed);
+        var coordinator = legacy(outbox);
+        when(outbox.renewForPublish(any(), any(), any())).thenReturn(false);
+        new SchedulerOutboxDispatcher(outbox, dependencies, kafka, properties(1), coordinator)
+                .dispatchBatch(NOW);
+        verify(kafka, never()).publishSerializedAndWait(any(), any(), any(), any());
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new SchedulerOutboxDispatcher(
+                                        outbox,
+                                        dependencies,
+                                        kafka,
+                                        new SchedulerProperties(
+                                                "owner",
+                                                new SchedulerProperties.Claim(
+                                                        Duration.ofSeconds(15), 1)),
+                                        coordinator))
+                .hasMessageContaining("must exceed");
     }
 
     private SchedulerOutboxCandidate candidate(String key) {
@@ -156,12 +264,27 @@ class SchedulerOutboxDispatcherTest {
         job.setId(UUID.randomUUID());
         job.setJobType(JobDefinition.JobType.SYNC_INDICATORS);
         job.setSource(JobDefinition.DataSource.ANALYZER);
-        return new SchedulerOutboxCandidate(UUID.randomUUID(), UUID.randomUUID(), null, job,
-                "SYMBOL", key, "2026-08-13", Map.of(), NOW);
+        return new SchedulerOutboxCandidate(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null,
+                job,
+                "SYMBOL",
+                key,
+                "2026-08-13",
+                Map.of(),
+                NOW);
     }
 
     private SchedulerOutboxClaim claim(SchedulerOutboxCandidate candidate) {
-        return new SchedulerOutboxClaim(candidate.messageId(), UUID.randomUUID(), "core-a",
-                candidate.executionId(), "jobs", candidate.workKey(), "{}", 1);
+        return new SchedulerOutboxClaim(
+                candidate.messageId(),
+                UUID.randomUUID(),
+                "core-a",
+                candidate.executionId(),
+                "jobs",
+                candidate.workKey(),
+                "{}",
+                1);
     }
 }

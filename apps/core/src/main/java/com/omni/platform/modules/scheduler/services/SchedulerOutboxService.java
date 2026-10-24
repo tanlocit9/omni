@@ -23,11 +23,13 @@ import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 import com.omni.platform.shared.outbox.ClaimableOutboxStore;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOutboxClaim> {
 
     private final SchedulerOutboxRepository repository;
@@ -83,19 +85,44 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     /** Batch-load only IDs selected by the bounded scoped query, preserving its order. */
     @Transactional(readOnly = true)
     public List<SchedulerOutboxCandidate> findCandidatesByIds(List<UUID> ids) {
-        if (ids.size() > 400 || ids.stream().distinct().count() != ids.size()) {
-            throw new IllegalArgumentException("Expected at most 400 distinct candidate IDs");
-        }
-        if (ids.isEmpty()) return List.of();
-        Map<UUID, SchedulerOutboxMessage> messages = new java.util.HashMap<>();
-        repository
-                .findAllCandidates(ids)
-                .forEach(message -> messages.put(message.getId(), message));
+        var messages = candidateRows(ids);
         return ids.stream()
                 .map(messages::get)
                 .filter(java.util.Objects::nonNull)
                 .map(message -> toCandidate(message, true))
                 .toList();
+    }
+
+    /** Poison intent is skipped diagnostically, without hiding other bounded candidates. */
+    @Transactional(readOnly = true)
+    public List<SchedulerOutboxCandidate> findCandidatesByIdsSafely(List<UUID> ids) {
+        var messages = candidateRows(ids);
+        List<SchedulerOutboxCandidate> result = new java.util.ArrayList<>();
+        for (UUID id : ids) {
+            var message = messages.get(id);
+            if (message == null) continue;
+            try {
+                result.add(toCandidate(message, true));
+            } catch (RuntimeException error) {
+                log.warn(
+                        "OUTBOX_CANDIDATE_INVALID messageId={} type={}",
+                        id,
+                        error.getClass().getSimpleName());
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private Map<UUID, SchedulerOutboxMessage> candidateRows(List<UUID> ids) {
+        if (ids.size() > 400 || ids.stream().distinct().count() != ids.size()) {
+            throw new IllegalArgumentException("Expected at most 400 distinct candidate IDs");
+        }
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, SchedulerOutboxMessage> messages = new java.util.HashMap<>();
+        repository
+                .findAllCandidates(ids)
+                .forEach(message -> messages.put(message.getId(), message));
+        return messages;
     }
 
     /** All executions are already tracked by the caller; no per-message database lookup. */
@@ -165,6 +192,28 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
 
     private SchedulerOutboxCandidate toCandidate(SchedulerOutboxMessage message, boolean fetched) {
         JsonNode payload = parseCandidatePayload(message);
+        JobExecutionHistory workExecution = candidateExecution(message, payload, fetched);
+        Map<String, Object> metadata =
+                workExecution.getMetaJson() == null ? Map.of() : workExecution.getMetaJson();
+        String workType = optionalText(payload, "workType", value(metadata, "workType", null));
+        String workKey = optionalText(payload, "workKey", value(metadata, "workKey", null));
+        if (workType == null || workKey == null)
+            throw new IllegalStateException(
+                    "Missing scheduler outbox work identity messageId=" + message.getId());
+        return new SchedulerOutboxCandidate(
+                message.getId(),
+                workExecution.getId(),
+                workExecution.getParentLogId(),
+                workExecution.getJob(),
+                workType,
+                workKey,
+                value(metadata, "runKey", workExecution.getTriggeredAt().toString()),
+                metadata,
+                message.getAvailableAt());
+    }
+
+    private JobExecutionHistory candidateExecution(
+            SchedulerOutboxMessage message, JsonNode payload, boolean fetched) {
         UUID persistedExecutionId = message.getExecution().getId();
         UUID workExecutionId =
                 optionalUuid(payload, "executionId", message.getId(), persistedExecutionId);
@@ -190,24 +239,18 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
             verifyPayloadParent(message, payload, workExecution);
         }
 
-        Map<String, Object> metadata =
-                workExecution.getMetaJson() == null ? Map.of() : workExecution.getMetaJson();
-        String workType = optionalText(payload, "workType", value(metadata, "workType", null));
-        String workKey = optionalText(payload, "workKey", value(metadata, "workKey", null));
-        if (workType == null || workKey == null) {
+        if (!workExecutionId.equals(persistedExecutionId)
+                && (message.getExecution().getJobRunId() != null
+                        || workExecution.getJobRunId() != null
+                        || !persistedExecutionId.equals(workExecution.getParentLogId())
+                        || !message.getExecution()
+                                .getJob()
+                                .getId()
+                                .equals(workExecution.getJob().getId()))) {
             throw new IllegalStateException(
-                    "Missing scheduler outbox work identity messageId=" + message.getId());
+                    "Legacy outbox payload is not a child of its stored parent");
         }
-        return new SchedulerOutboxCandidate(
-                message.getId(),
-                workExecution.getId(),
-                workExecution.getParentLogId(),
-                workExecution.getJob(),
-                workType,
-                workKey,
-                value(metadata, "runKey", workExecution.getTriggeredAt().toString()),
-                metadata,
-                message.getAvailableAt());
+        return workExecution;
     }
 
     private JsonNode parseCandidatePayload(SchedulerOutboxMessage message) {
@@ -277,7 +320,10 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         }
         SchedulerOutboxClaim claim =
                 repository.claimEligible(messageId, now, instanceId, leaseDuration);
-        if (claim != null) persistApprovedInputs(message.getExecution(), approvedInputVersions);
+        if (claim != null && !approvedInputVersions.isEmpty())
+            persistApprovedInputs(
+                    candidateExecution(message, parseCandidatePayload(message), true),
+                    approvedInputVersions);
         return claim;
     }
 
@@ -337,6 +383,11 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                                                 "dataVersion", entry.getValue()))
                         .toList());
         execution.setMetaJson(metadata);
+    }
+
+    @Transactional
+    public boolean renewForPublish(SchedulerOutboxClaim claim, Instant at, Duration lease) {
+        return repository.renewForPublish(claim, at, lease);
     }
 
     private static String value(Map<String, Object> metadata, String key, String fallback) {

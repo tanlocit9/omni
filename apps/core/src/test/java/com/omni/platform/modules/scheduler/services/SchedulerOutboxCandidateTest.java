@@ -189,6 +189,84 @@ class SchedulerOutboxCandidateTest {
     }
 
     @Test
+    void legacyParentIntentKeepsApprovedVersionsOnActualWorkChildAndRejectsForeignAlias() {
+        var parent = execution(null);
+        parent.setJobRunId(null);
+        var child = execution(parent.getId());
+        child.setJobRunId(null);
+        child.setJob(parent.getJob());
+        var row =
+                row(
+                        parent,
+                        Map.of(
+                                "executionId",
+                                child.getId().toString(),
+                                "parentExecutionId",
+                                parent.getId().toString()));
+        row.setId(UUID.randomUUID());
+        when(repository.findById(row.getId())).thenReturn(Optional.of(row));
+        when(histories.findByIdWithJob(child.getId())).thenReturn(Optional.of(child));
+        when(repository.claimEligible(any(), any(), any(), any()))
+                .thenReturn(
+                        new com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim(
+                                row.getId(),
+                                UUID.randomUUID(),
+                                "owner",
+                                parent.getId(),
+                                "jobs",
+                                "key",
+                                row.getPayload(),
+                                1));
+        var input =
+                com.omni.platform.modules.scheduler.dependencies.DatasetRef.of(
+                        "eod", Map.of("exchange", "HOSE"));
+        assertThat(
+                        service.claimEligible(
+                                row.getId(),
+                                NOW,
+                                "owner",
+                                java.time.Duration.ofMinutes(1),
+                                Map.of(input, "v1")))
+                .isNotNull();
+        assertThat(child.getMetaJson()).containsKey("approvedInputs");
+        assertThat(parent.getMetaJson()).doesNotContainKey("approvedInputs");
+        child.setParentLogId(UUID.randomUUID());
+        row.setPayload(
+                json.writeValueAsString(
+                        Map.of(
+                                "executionId",
+                                child.getId().toString(),
+                                "parentExecutionId",
+                                child.getParentLogId().toString())));
+        assertThatThrownBy(
+                        () ->
+                                service.claimEligible(
+                                        row.getId(),
+                                        NOW,
+                                        "owner",
+                                        java.time.Duration.ofMinutes(1),
+                                        Map.of(input, "v2")))
+                .hasMessageContaining("stored parent");
+    }
+
+    @Test
+    void safeBatchSkipsPoisonAndDeletedIntentWithoutHidingValidCandidates() {
+        var work = execution(null);
+        var good = row(work, Map.of("executionId", work.getId().toString()));
+        good.setId(UUID.randomUUID());
+        var bad = row(execution(null), Map.of());
+        bad.setId(UUID.randomUUID());
+        bad.setPayload("{");
+        UUID missing = UUID.randomUUID();
+        var ids = List.of(bad.getId(), missing, good.getId());
+        when(repository.findAllCandidates(ids)).thenReturn(List.of(bad, good));
+        assertThat(service.findCandidatesByIdsSafely(ids))
+                .singleElement()
+                .satisfies(candidate -> assertThat(candidate.messageId()).isEqualTo(good.getId()));
+        assertThat(service.findCandidatesByIdsSafely(List.of())).isEmpty();
+    }
+
+    @Test
     void boundedBatchUsesLoadedMembershipPreservesOrderAndRejectsForeignRunPayload() {
         var a = execution(null);
         var b = execution(null);
@@ -217,6 +295,17 @@ class SchedulerOutboxCandidateTest {
                                                 .toList()))
                 .isInstanceOf(IllegalArgumentException.class);
         first.getExecution().setJobRunId(null);
+        b.setJobRunId(null);
+        b.setParentLogId(a.getId());
+        b.setJob(a.getJob());
+        first.setPayload(
+                json.writeValueAsString(
+                        Map.of(
+                                "executionId",
+                                b.getId().toString(),
+                                "parentExecutionId",
+                                a.getId().toString())));
+        second.setPayload(first.getPayload());
         when(histories.findByIdWithJob(b.getId())).thenReturn(Optional.of(b));
         assertThat(service.findCandidatesByIds(ids)).hasSize(2);
     }

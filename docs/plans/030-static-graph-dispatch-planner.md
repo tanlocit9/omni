@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I3 are completed; I4 is in progress at the I4.b scoped selection/admission checkpoint below; I5/I6 remain pending. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
+Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I4 are completed on local source-bound evidence; I5 is ready for isolated diagnostics and I6 remains pending on I5. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -26,8 +26,118 @@ Current stories and statuses are defined solely by the [canonical I1–I6 story 
 
 A reusable static definition-path handoff in I2, followed by durable JobRun preparation
 in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
-local acceptance/test/coverage/build and documentation evidence below. No new
-owner attestation, deployment or I4 admission activation is asserted.
+local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
+No new owner attestation or deployment is asserted.
+
+## I4.c integrated admission and completion — 2026-10-24
+
+I4.a (`9c7fbfc`) and I4.b (`7213795`) are verified checkpoints. I4.c connects
+`JobRunDispatchCoordinator` to `SchedulerOutboxDispatcher`, completing I4's
+Platform-local runtime implementation. The dated inactive descriptions below
+describe those earlier checkpoints, not the current dispatcher.
+
+The coordinator rotates a bounded 32-run window, takes a read-only snapshot and
+plans the earliest unfinished closed path. Dispatch budget is 1–100; scoped reads
+are at most four times allocated quota, with a separate legacy lane, primary
+quotas and round-robin overflow. Managed and legacy opportunities alternate at
+budget one. Run cursors advance only for visited opportunities or empty scopes;
+they are advisory, never completion/identity authority. Normal candidate output
+is bounded at 800 and fallback at 400. Stale/incomplete snapshots or planner/read
+exceptions enter paginated FIFO fallback. Every linked fallback row still uses
+locked JobRun admission; database failure produces no candidates. An enabled
+planner never implicitly falls back to the historical unscoped claim path.
+
+Every visited candidate goes through DependencyRegistry before claim. WAITING,
+BLOCKED, malformed/failed guard decisions and lost claims leave capacity for
+other selected work. Registry errors defer without attempts; BLOCKED is terminal,
+not a fabricated worker failure. The store locks run, transitive roots/children
+and message using SKIP LOCKED, verifies closed counts and exact definition/scope/
+date, and rereads current status on the same connection through the fenced claim.
+No Kafka I/O occurs under these locks. Approved versions persist only after a
+successful claim, on the actual work execution; legacy parent-FK/child-payload
+messages retain that compatibility and cannot alias another definition/run.
+
+Before each Kafka send the dispatcher renews the exact still-live token/owner.
+Expired/superseded claims are not sent. Lease duration must exceed the 15-second
+publish timeout; the two-minute default is unchanged. Renewal, ack and retry
+timestamps use the tick's clock plus elapsed monotonic time, including queue/send
+delay. Acknowledgement/retry remain fenced and preserve identity. Delivery remains
+at-least-once; consumer idempotency is still required. PUBLISHED never means worker
+SUCCESS or dataset READY. No new execution/outbox status is introduced.
+
+### Executed acceptance and impact-to-test matrix
+
+Local gate: **PASS P14-I4 required=8 pass=8 fail=0 unknown=0 missing=0
+sources=exit_code**. The final clean build executes 413 tests / 63
+suites, zero failures/errors/skips; the seven integrated focused suites execute
+88 cases. The full regression also executes planner/snapshot suites.
+Required checks are changed-file formatting, focused tests, clean Platform build,
+Platform coverage, attributable coverage, acceptance evidence, static documentation
+consistency and explicit owned-document Prettier check. No CI, merge, retained-DB
+rollout, live provider or deployed worker claim is inferred.
+
+| Criterion / feature                                                                                                                                                     | Changed or directly impacted production source                                         | Executed evidence                                                                                                                                                                                                                                                              | Line / branch                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Closed bounded snapshot, published-but-unfinished work, UNKNOWN, same-connection locked reads                                                                           | JobRunDispatchSnapshot / JobRunDispatchSnapshotReader                                  | Ten JobRunDispatchSnapshotPostgresTest cases: closure, aggregates, bounds, direct root success, transaction boundary; actual snapshot SQL EXPLAIN                                                                                                                              | 100.00% / 81.82%; snapshot records individually >=80%                           |
+| Earliest unfinished transitive path, joins, scope isolation, quota allocation                                                                                           | JobRunDispatchPlanner                                                                  | Twelve JobRunDispatchPlannerTest cases and real admission joins/failures/out-of-order SUCCESS cases                                                                                                                                                                            | 100.00% / 100.00%                                                               |
+| 100-item budget-75 trace, WAIT then downstream, unused quota and legacy/run fairness                                                                                    | JobRunDispatchCoordinator                                                              | integratedHundredItemBudget75TraceRequiresClosedSuccessBeforeEveryAdvance; waitingBlockedAndLostClaimsCannotConsumeOtherReadyScopeBudget; eight coordinator cases including budget-one A/legacy/B rotation                                                                     | 100.00% / 98.15%                                                                |
+| Scoped SQL, admission locking, failed/unknown/incomplete membership, concurrent claims, strict legacy, fallback/restart and planned SYMBOL/EXCHANGE/GLOBAL/date mapping | JobRunDispatchStore                                                                    | Seventeen JobRunAdmissionPostgresTest cases use real JPA/JDBC/PostgreSQL; lock each run/root/child/message, mutate predecessor after snapshot, metadata rollback, cursor wrap and actual scoped SQL EXPLAIN                                                                    | 100.00% / 91.43%                                                                |
+| READY/WAITING/BLOCKED and registry error handling, bounded refill, per-send renewal                                                                                     | SchedulerOutboxDispatcher                                                              | Eight dispatcher cases, actual real-registry prepared producer, SUCCESS-without-READY waits, JobSchedulerDependencyPostgresTest and integrated admission tests                                                                                                                 | 100.00% / 100.00%                                                               |
+| Ordered poison-safe batch, frozen identity, compatible legacy child identity and approved versions after claim                                                          | SchedulerOutboxService; SchedulerOutboxRepository.findAllCandidates (declarative JPQL) | Nine SchedulerOutboxCandidateTest cases plus real PostgreSQL single-batch query, losing-claim and rollback cases                                                                                                                                                               | 99.04% / 90.48%; no invented JPQL percentage                                    |
+| Claim attempts/status/availability, live lease renewal, exact owner/token ack and retry                                                                                 | SchedulerOutboxRepositoryCustom / SchedulerOutboxRepositoryImpl                        | Real concurrent claim/recovery, expired/foreign/superseded/PUBLISHED renewal, steal-later-batch-fence, retry identity and terminal BLOCKED tests; ten JobDefinitionClaimRepositoryPostgresTest cases                                                                           | 99.14% / 88.46%                                                                 |
+| Directly impacted legacy execution aggregation and approved version persistence                                                                                         | JobService                                                                             | Full scheduler/JobService regression and actual prepared SYNC_SYMBOLS dispatch without fabricated execution SUCCESS                                                                                                                                                            | 95.12% / 88.76%                                                                 |
+| Graph-reached preparation callers and inactive legacy read projection                                                                                                   | JobProducer.prepareRunStep / prepareDispatchInternal; BacklogSnapshotService.capture   | Actual prepared SYNC_SYMBOLS integration, ten JobDefinitionClaimRepositoryPostgresTest cases and full producer regression; BacklogSnapshotServiceTest executes unchanged findBacklogGroups projection. Legacy projection has no runtime caller and no new admission authority. | JobProducer 100% / 100%; BacklogSnapshotService 100% / 87.50%                   |
+| Startup/rollout compatibility and configuration bounds                                                                                                                  | application.yaml; coordinator/dispatcher constructors                                  | Real Spring preparation-enabled tests; ApplicationContextRunner rejects preparation=true/planning=false; lease <=15s rejected; V11 legacy PENDING/PUBLISHED/BLOCKED migration tests                                                                                            | Constructor counters included above; configuration/SQL have behavioral evidence |
+
+All 31 critical Java classes/records independently meet >=80% line and
+applicable branch coverage. Exact JUnit cases, per-class counters and SHA-256
+source/test/config bindings are in ignored
+`.agent/check-results/P14-I4/attributable-coverage.json`; acceptance-evidence maps
+the five I4 criteria and all ten transferred TD-014 invariants to executed cases.
+There is no fabricated SQL coverage percentage. Disposable PostgreSQL query plans
+are targeted correctness/cost evidence, not production performance or I5's
+environment/window-aware latency, pool and throughput benchmark deliverable.
+
+### Cross-service blast radius and documentation disposition
+
+Graph impact/change analysis identifies dispatcher, admission, candidate service,
+repository and JobService/producer callers. Its bounded/truncated edges and
+untracked-file limitations do not prove isolation. The following reconciliation
+uses the canonical architecture, flow, Kafka, data-lake, database, deployment,
+service and ownership documents indexed by docs/README.md and direct source/tests.
+
+| Area                       | Impact / concrete no-impact reason                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                   | Coordinator/dispatcher/store/outbox service/repository changes above; existing JobService and producer/status boundaries exercised. No notification, Sector Transition or unrelated verification_pending writer edits.                                                                                                                                                                                                                                                                          |
+| Analyzer                   | Existing command/status and approved dataset versions unchanged; no analysis handlers, concurrency, producer scope or Parquet writes changed.                                                                                                                                                                                                                                                                                                                                                   |
+| Ingestor                   | Existing SYNC_SYMBOLS commands/status and symbol upsert ownership retained. Actual Platform producer tested with mocked Kafka; no provider/worker process activation claimed.                                                                                                                                                                                                                                                                                                                   |
+| Query Service              | No endpoint, query engine, dataset discovery or read contract changed.                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Console                    | No view/API/manual-trigger behavior changed; retired routes remain HTTP 410 under TD-017.                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Shared contracts/libraries | No protobuf, generated code, py-common, Kafka business field, manifest, path or dataset owner change. READY-last and exact lineage remain existing guard/worker responsibilities; SUCCESS-without-READY rejection is exercised.                                                                                                                                                                                                                                                                 |
+| Persistence                | Reads/locks and fenced renewal reuse V12/V13 and existing indexes. No new schema, migration, trigger, status, retention, deletion or applied migration rewrite. V11 retained-row compatibility executes in a disposable DB.                                                                                                                                                                                                                                                                     |
+| Configuration              | New APP_SCHEDULER_JOB_RUN_PLANNING_ENABLED defaults true; root local/deployment environment examples document it and remove the retired deployment-only manual allow-list example. Preparation stays false. Startup rejects unsafe combination and lease <=publish timeout. No credentials/topics/regions change.                                                                                                                                                                               |
+| Tests / operations         | Real bounded PostgreSQL races/rollback/restart/query plans, per-class coverage and fake Kafka send/timeout paths; low-cardinality mode/error diagnostics. New rollout/rollback runbook describes controlled historical FIFO rollback without deleting state.                                                                                                                                                                                                                                    |
+| Documentation              | Plan, registry, roadmap index/diagram, release notes, architecture, ADR, execution flow, database, development ownership, Platform README, Plan 023, TD-014/debt index and documentation indexes updated. Deployment gets a dedicated runbook.                                                                                                                                                                                                                                                  |
+| Reviewed without edits     | Kafka/data-lake canonical contracts and Analyzer/Ingestor/Query/Console guides: no wire/storage/worker/UI changes. Existing deployment 001–003 keep their separate infrastructure/migration subjects; new runbook owns I4. Field/DTO reference: no transport/persistence field or new table. AGENTS/CLAUDE/.roo/shared skills: workflow/ownership guardrails remain applicable; no new agent command or verification policy. ADR registry: existing ADR-007 is updated, no new decision number. |
+
+### Completion and remaining boundary
+
+I4 is completed on local source-bound evidence; TD-014's transferred safety package
+is closed without resurrecting superseded P4-I3. Planning defaults on, but JobRun
+**preparation remains false**, all 32 cron identities remain, and no retained
+environment has been activated. See the [rollout/rollback runbook](../deployment/004-job-run-admission-rollout.md).
+The owner must select terminal/standalone entry targets and review overlapping
+shared GLOBAL upstream work before enabling preparation. Typed future scopes are
+tested as storage/admission fixtures, not as supported symbol producer narrowing
+or cross-run shared-work coalescing; separate immutable runs remain separate.
+
+I5 is ready for bounded read-only diagnostics/benchmark artifacts and documentation,
+isolated from other apps/core execution/status/notification writers. Any production
+instrumentation edit must first reconcile that writer overlap. I6 remains pending
+on I5. P13-I1's dependencies are met, but remains pending until its wider shared
+execution/status/contract ownership is reconciled against verification_pending
+P1-I3/P8-I1/I2/I5/P9-I1. This task stops at completed I4; it does not implement I5/I6,
+backfill, provider runtime activation, manual triggers or worker throughput changes.
 
 ## I4.b scoped selection and locked admission — 2026-10-24
 
@@ -1923,11 +2033,11 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I4 — JobRun-aware planning and guarded outbox integration
 
-- [ ] Bounded PostgreSQL read snapshot includes closed run-step and child membership, terminal and published-but-unfinished evidence, separate outbox lease/eligibility/retry states, freshness, completeness and UNKNOWN reasons.
-- [ ] Planner selects earliest incomplete predecessor path, advances only on required predecessor SUCCESS + closed membership, respects joins and isolates businessGroup/businessDate/jobRunId; no implicit graph traversal beyond target.
-- [ ] The 100-item budget-75 trace verifies 75→25 upstream dispatch while children run, barrier WAIT, eventual downstream advance and unused quota going to other scopes.
-- [ ] Before every admission/claim, revalidate the selected JobRun cohort barrier, use DependencyRegistry READY/WAITING/BLOCKED and preserve atomic fenced publish/retry/ack. Bounded no-starvation fallback and legacy row compatibility tested, transferred [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md) evidence completed.
-- [ ] Targeted SQL query cost, concurrency, scope isolation (including planned SYMBOL and shared EXCHANGE/GLOBAL mapping), bounds and restart evidence are sufficient to activate I4 safely; the full performance/metrics pack is owned by I5.
+- [x] Bounded PostgreSQL read snapshot includes closed run-step and child membership, terminal and published-but-unfinished evidence, separate outbox lease/eligibility/retry states, freshness, completeness and UNKNOWN reasons.
+- [x] Planner selects earliest incomplete predecessor path, advances only on required predecessor SUCCESS + closed membership, respects joins and isolates businessGroup/businessDate/jobRunId; no implicit graph traversal beyond target.
+- [x] The 100-item budget-75 trace verifies 75→25 upstream dispatch while children run, barrier WAIT, eventual downstream advance and unused quota going to other scopes.
+- [x] Before every admission/claim, revalidate the selected JobRun cohort barrier, use DependencyRegistry READY/WAITING/BLOCKED and preserve atomic fenced publish/retry/ack. Bounded no-starvation fallback and legacy row compatibility tested, transferred [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md) evidence completed.
+- [x] Targeted SQL query cost, concurrency, scope isolation (including planned SYMBOL and shared EXCHANGE/GLOBAL mapping), bounds and restart evidence are sufficient to activate I4 safely; the full performance/metrics pack is owned by I5.
 
 ### P14-I5 — measured evidence
 

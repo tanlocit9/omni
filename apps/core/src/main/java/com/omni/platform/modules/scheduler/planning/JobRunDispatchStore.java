@@ -80,9 +80,12 @@ public class JobRunDispatchStore {
             Selection selection, Instant now, int limit) {
         bounds(limit);
         var parameters = scope(selection, now).addValue("limit", limit);
-        List<UUID> ids =
-                jdbc.queryForList(
-                        """
+        List<UUID> ids = jdbc.queryForList(SCOPED_IDS_SQL, parameters, UUID.class);
+        return outbox.findCandidatesByIdsSafely(ids);
+    }
+
+    private static final String SCOPED_IDS_SQL =
+            """
                 SELECT o.id FROM scheduler_outbox_messages o
                 JOIN job_execution_histories h ON h.id=o.execution_id
                 JOIN job_run_steps s ON s.job_run_id=h.job_run_id AND s.step_index=h.job_run_step_index
@@ -91,11 +94,7 @@ public class JobRunDispatchStore {
                   AND o.status='PENDING' AND o.available_at <= :now
                   AND (o.claim_until IS NULL OR o.claim_until <= :now)
                 ORDER BY o.available_at,o.created_at,o.id LIMIT :limit
-                """,
-                        parameters,
-                        UUID.class);
-        return outbox.findCandidatesByIds(ids);
-    }
+                """;
 
     @Transactional(readOnly = true)
     public List<SchedulerOutboxCandidate> findLegacyCandidates(Instant now, int limit) {
@@ -110,7 +109,7 @@ public class JobRunDispatchStore {
                 """,
                         parameters(now).addValue("limit", limit),
                         UUID.class);
-        return outbox.findCandidatesByIds(ids);
+        return outbox.findCandidatesByIdsSafely(ids);
     }
 
     /** Run lock -> roots -> children -> outbox, all SKIP LOCKED, before metadata or attempts change. */
@@ -193,6 +192,127 @@ public class JobRunDispatchStore {
         return new MapSqlParameterSource(
                 "now", java.sql.Timestamp.from(Objects.requireNonNull(now)));
     }
+
+    /** Guard legacy identity too: a newly linked row cannot bypass enabled JobRun admission. */
+    @Transactional(timeout = 5)
+    public SchedulerOutboxClaim claimLegacy(
+            UUID messageId,
+            Instant now,
+            String owner,
+            Duration lease,
+            Map<DatasetRef, String> approved) {
+        var parameters = parameters(now).addValue("message", messageId);
+        var executions =
+                jdbc.queryForList(
+                        """
+                SELECT h.id FROM job_execution_histories h JOIN scheduler_outbox_messages o ON o.execution_id=h.id
+                WHERE o.id=:message AND h.job_run_id IS NULL FOR SHARE OF h SKIP LOCKED
+                """,
+                        parameters,
+                        UUID.class);
+        if (executions.isEmpty()) return null;
+        var messages =
+                jdbc.queryForList(
+                        """
+                SELECT id FROM scheduler_outbox_messages WHERE id=:message AND status='PENDING'
+                  AND available_at <= :now AND (claim_until IS NULL OR claim_until <= :now)
+                FOR UPDATE SKIP LOCKED
+                """,
+                        parameters,
+                        UUID.class);
+        if (messages.isEmpty()) return null;
+        return outbox.claimEligible(messageId, now, owner, lease, approved);
+    }
+
+    /** Bounded FIFO pagination for fallback; each linked candidate still passes claimPlanned. */
+    @Transactional(readOnly = true)
+    public FallbackBatch findFallbackCandidates(Instant now, FallbackCursor after, int limit) {
+        bounds(limit);
+        List<FallbackRow> rows = new ArrayList<>(fallbackRows(now, after, false, limit));
+        if (after != null && rows.size() < limit)
+            rows.addAll(fallbackRows(now, after, true, limit - rows.size()));
+        if (rows.isEmpty()) return new FallbackBatch(List.of(), after);
+        var candidates =
+                outbox.findCandidatesByIdsSafely(
+                        rows.stream().map(FallbackRow::messageId).toList());
+        Map<UUID, SchedulerOutboxCandidate> loaded = new java.util.HashMap<>();
+        candidates.forEach(candidate -> loaded.put(candidate.messageId(), candidate));
+        List<PlannedCandidate> result = new ArrayList<>();
+        for (var row : rows) {
+            var candidate = loaded.get(row.messageId());
+            if (candidate != null) result.add(new PlannedCandidate(candidate, row.selection()));
+        }
+        return new FallbackBatch(result, rows.getLast().cursor());
+    }
+
+    private List<FallbackRow> fallbackRows(
+            Instant now, FallbackCursor after, boolean wrap, int limit) {
+        String comparison =
+                after == null
+                        ? ""
+                        : " AND (o.available_at,o.created_at,o.id) "
+                                + (wrap ? "<=" : ">")
+                                + " (:available,:created,:id)";
+        var parameters = parameters(now).addValue("limit", limit);
+        if (after != null)
+            parameters
+                    .addValue("available", java.sql.Timestamp.from(after.availableAt()))
+                    .addValue("created", java.sql.Timestamp.from(after.createdAt()))
+                    .addValue("id", after.messageId());
+        return jdbc.query(
+                """
+                SELECT o.id,h.job_run_id,h.job_run_step_index,s.job_definition_id,s.scope_type,s.scope_key,s.business_date,
+                    o.available_at,o.created_at FROM scheduler_outbox_messages o
+                JOIN job_execution_histories h ON h.id=o.execution_id
+                LEFT JOIN job_run_steps s ON s.job_run_id=h.job_run_id AND s.step_index=h.job_run_step_index
+                WHERE o.status='PENDING' AND o.available_at <= :now
+                  AND (o.claim_until IS NULL OR o.claim_until <= :now)
+                """
+                        + comparison
+                        + " ORDER BY o.available_at,o.created_at,o.id LIMIT :limit",
+                parameters,
+                (rs, row) -> {
+                    UUID id = rs.getObject("id", UUID.class),
+                            run = rs.getObject("job_run_id", UUID.class);
+                    Selection selection =
+                            run == null
+                                    ? null
+                                    : new Selection(
+                                            run,
+                                            rs.getInt("job_run_step_index"),
+                                            rs.getObject("job_definition_id", UUID.class),
+                                            new com.omni.platform.modules.scheduler.topology
+                                                    .RequiredPathResolver.Scope(
+                                                    com.omni.platform.modules.scheduler.topology
+                                                            .RequiredPathResolver.ScopeType.valueOf(
+                                                            rs.getString("scope_type")),
+                                                    rs.getString("scope_key"),
+                                                    rs.getObject(
+                                                            "business_date",
+                                                            java.time.LocalDate.class)),
+                                            1,
+                                            JobRunDispatchPlanner.Reason.ROOT_STEP);
+                    return new FallbackRow(
+                            id,
+                            selection,
+                            new FallbackCursor(
+                                    rs.getTimestamp("available_at").toInstant(),
+                                    rs.getTimestamp("created_at").toInstant(),
+                                    id));
+                });
+    }
+
+    public record PlannedCandidate(SchedulerOutboxCandidate candidate, Selection selection) {}
+
+    public record FallbackCursor(Instant availableAt, Instant createdAt, UUID messageId) {}
+
+    public record FallbackBatch(List<PlannedCandidate> candidates, FallbackCursor nextCursor) {
+        public FallbackBatch {
+            candidates = List.copyOf(candidates);
+        }
+    }
+
+    private record FallbackRow(UUID messageId, Selection selection, FallbackCursor cursor) {}
 
     private static MapSqlParameterSource scope(Selection selection, Instant now) {
         Objects.requireNonNull(selection);

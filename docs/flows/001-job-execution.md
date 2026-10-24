@@ -35,19 +35,15 @@ messages, rewrite statuses, or implement Phase 12 concurrency.
 
 ## Static Graph and Planned Dispatch Planning
 
-I4.b adds scoped candidate and locked-admission service APIs, not yet called by
-the dispatcher. Revalidation includes every transitive ancestor, so intermediate
-SUCCESS cannot hide unfinished earlier work. Claims retain the existing guard,
-lease/token/owner and retry/ack boundary; a lost claim cannot rewrite approved
-inputs. Dispatcher integration and TD-014 remain I4.c work. See
-[I4.b scope/evidence](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
-
-I4.a adds an inactive bounded JobRun snapshot reader and pure planner over
-frozen paths and V13 closure. PUBLISHED counts remain separate from actual
-execution SUCCESS; joins require every closed predecessor. No dispatcher calls
-this code yet. The inactive checkpoint has a passing local test/build/coverage
-gate; guarded admission/revalidation and TD-014 safety are still I4 work. See
-[I4.a scope and evidence](../plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
+I4 integrates bounded JobRun snapshot/planning and `JobRunDispatchCoordinator`
+with the dispatcher. Linked planned/fallback rows require closed transitive
+predecessor SUCCESS under admission locks; NULL-run legacy rows use strict identity
+revalidation. DependencyRegistry still decides READY/WAITING/BLOCKED for every
+visited candidate. Stale/incomplete snapshots use bounded paginated guarded FIFO;
+database failure dispatches nothing. Per-send live-fence renewal precedes Kafka,
+and retry/ack keep exact owner/token identity. PUBLISHED is not worker SUCCESS or
+dataset READY. See [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24).
+The I4.a/I4.b inactive APIs described in earlier checkpoint evidence are now wired.
 
 I3.b adds request/path persistence and nullable execution links. I3.c adds bounded
 GLOBAL/VN preparation and V13 closed execution/message membership, with dependencies
@@ -70,7 +66,7 @@ outbox UPDATEs while retaining parent aggregation locking and membership guards.
 records the separate five-check local PASS on 2026-10-20: 28 focused PostgreSQL
 tests and 351 full Platform tests, with attributable Java coverage and SQL case
 mapping. Both competing service transactions now commit in the regression test.
-The route remains disabled pending I4 completion-admission proof.
+The route remains disabled pending owner entry-target/shared-upstream rollout review; I4 admission is locally proved.
 
 Visible JobRun replay locks its target definition before its run, matching fresh
 preparation's definition-before-run order. Lease validation/release stays in the
@@ -85,9 +81,9 @@ The canonical [Plan 030 delivery sequence](../plans/030-static-graph-dispatch-pl
 
 I3.a pre-cutover source now makes `StaticDefinitionDependencies` the provider declaration and adds a typed resolver constructor. Unused topology compatibility adapters have been removed; JSON baseline/custom-fixture reading now belongs only to test source. Seed JSON remains until the catalog/config consumer-removal gates in Plan 030 pass. The focused startup test passed again after adapter cleanup; the I3.a full regression subsequently passed 293 tests, while its separate coverage/build gate remains open. Historical I1/I2 evidence does not verify the new source.
 
-Completed P14-I3 persists a target-driven JobRun and its required scoped ancestor-to-target steps, and prepares dependency-first execution/outbox intent while preserving the existing FIFO/guard/claim/publish pipeline. Enqueue order does not prove completion; the new route stays disabled unless safe admission is proven. P14-I4 will query persisted step membership, execution progress including published-but-unfinished work, and separate outbox eligibility. It waits for required predecessor SUCCESS and closed membership before advancing, preserves independent run/group/date scopes and joins, and revalidates barriers at admission. Typed scope supports future symbol rollout without cloning static nodes. Existing guard retains dataset readiness/version authority; no outbox processing-success status or arbitrary execution DAG is introduced.
+Completed P14-I3 persists a target-driven JobRun and its required scoped ancestor-to-target steps, and prepares dependency-first execution/outbox intent while preserving the existing FIFO/guard/claim/publish pipeline. Enqueue order does not prove completion; the new route stays disabled unless safe admission is proven. Completed P14-I4 queries persisted step membership, execution progress including published-but-unfinished work, and separate outbox eligibility. It waits for required predecessor SUCCESS and closed membership before advancing, preserves independent run/group/date scopes and joins, and revalidates barriers at admission. Typed scope supports future symbol rollout without cloning static nodes. Existing guard retains dataset readiness/version authority; no outbox processing-success status or arbitrary execution DAG is introduced.
 
-The current definition-scoped outbox projection and first-dispatchable planner remain inactive scaffolding. P14-I2 static handoff and P14-I3 gated JobRun preparation are completed after the 2026-10-24 acceptance reconciliation, using the fresh source-bound 357-test/coverage/build gate rather than historical backlog-only evidence. P14-I4 through I6 remain pending. I4 owns snapshot/quota/scoped-query integration and final TD-014 safety proof; I5 owns consolidated performance evidence and I6 the Plan 029 graph read-model handoff. No runtime JobRun/planner activation or query-load pass is claimed. Snapshot-count comparison is observability only, not dispatch admission or completion evidence.
+The current definition-scoped outbox projection and first-dispatchable planner remain inactive scaffolding. P14-I2 static handoff and P14-I3 gated JobRun preparation are completed after the 2026-10-24 acceptance reconciliation, using the fresh source-bound 357-test/coverage/build gate rather than historical backlog-only evidence. P14-I4 is now completed with integrated snapshot/quota/scoped-query and final TD-014 safety proof; I5 is ready and I6 waits for I5; I5 owns consolidated performance evidence and I6 the Plan 029 graph read-model handoff. The planner is integrated, but new JobRun preparation remains disabled; no retained rollout or production query-load pass is claimed. Snapshot-count comparison is observability only, not dispatch admission or completion evidence.
 
 The static topology does not change the dependency authority shown below: every future selected candidate still passes through `DependencyRegistry` and `DependencyGuard`, which alone evaluate required input readiness and exact versions. Typed definition-level predecessor declarations describe logical orchestration topology; retained seed `dependsOnJobs` is catalog compatibility/parity metadata pending consumer removal. I3.a parity and startup have local executed evidence in Plan 030; whole-increment status remains owned by the registry. `dependsOnDatasets` and manifests describe data readiness. Graph position is never READY evidence. The existing atomic claim, lease/fencing token, WAITING/BLOCKED handling and publish retry identity remain required. I4 owns JobRun-aware admission and safe fallback; persisted topology, provider-policy expansion and advanced fairness are deferred.
 

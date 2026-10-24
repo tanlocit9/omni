@@ -93,20 +93,19 @@ The diagram describes the schema after V14. Historical `manual_job_triggers`
 belongs to V8 through V13 only; see [deferred manual job triggers](#deferred-manual-job-triggers)
 for its removal and rollback boundary.
 
-### Inactive JobRun dispatch snapshot (I4.a)
+### JobRun dispatch snapshot and admission (I4)
 
-I4.b adds indexed run/step/definition/scope/date candidate reads and a transactional
-admission store. It uses run, root/child and message locks with SKIP LOCKED, counts
-closed membership and rereads the barrier on the same connection before the
-existing fenced claim. No schema/index/trigger changes are introduced. Integration
-and final dispatcher safety remain I4.c; see [Plan 030](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
-
-`JobRunDispatchSnapshotReader` reads existing frozen paths, preparations,
-executions and outbox with explicit run IDs inside a new read-only REPEATABLE
-READ transaction. Population, step and edge bounds fail closed; separate scoped
-aggregates avoid execution/message join overcounting. No schema/index/trigger
-changes or runtime caller are introduced. Nine isolated PostgreSQL cases and
-bounded EXPLAIN capture pass locally; this is not production-scale query evidence. See [Plan 030 I4.a](../plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
+The integrated coordinator reads bounded explicit run IDs using a read-only
+REPEATABLE READ snapshot, with separate execution/outbox aggregates to prevent
+overcounting. The admission store reads exact run/step/definition/scope/date
+candidates, locks run and transitive roots/children before the message using
+SKIP LOCKED, and rereads closed membership on the same transaction connection.
+It preserves the existing fenced claim; publish renewal requires a still-live
+owner/token. Fallback is paginated and retains the same linked-run barrier.
+No schema/index/trigger/status change is introduced. Actual PostgreSQL tests and
+bounded source-query EXPLAIN pass locally; SQL has no invented numeric coverage
+and this is not production-scale benchmark evidence. See
+[I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24).
 
 ### JobRun persistence foundation (I3.b)
 

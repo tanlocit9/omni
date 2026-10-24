@@ -5,7 +5,7 @@
 | Field                      | Assessment                                                                                                                                                                                       |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Type                       | Superseded implementation/evidence residue                                                                                                                                                       |
-| Status                     | DEFERRED / safety semantics absorbed by Plan 030 P14-I4                                                                                                                                          |
+| Status                     | CLOSED — 2026-10-24 / transferred invariants verified by P14-I4                                                                                                                                  |
 | Former roadmap owner       | P4-I3 — Dependency-aware outbox dispatch and terminal blocking                                                                                                                                   |
 | Replacement delivery owner | P14-I4 — Dispatcher integration with preserved claim and fencing                                                                                                                                 |
 | Reason                     | Static Graph & DispatchPlanner now changes candidate selection and dispatcher integration. Completing the old dispatcher increment first would verify a path that P14-I4 will materially revise. |
@@ -25,7 +25,7 @@ Current source provides:
 - focused unit and PostgreSQL integration tests exist for parts of this behavior;
 - V11 adds dependency reason and BLOCKED visibility while retaining existing rows.
 
-Source presence and historical focused tests do not prove completion. No new verification result is asserted by this debt record.
+Source presence alone did not prove completion. The final P14-I4 executed matrix below closes the transferred package; historical P4-I3 is still superseded.
 
 ## Evidence Not Closed Under P4-I3
 
@@ -40,9 +40,9 @@ The former increment did not record a complete package for:
 
 These gaps must not be copied forward as a passing result.
 
-## Transfer to P14-I4
+## Transfer to P14-I4 (now verified)
 
-P14-I4 must prove the final post-planner dispatcher behavior. The following are mandatory acceptance invariants, not optional technical debt:
+P14-I4 has locally proved the final post-planner dispatcher behavior. The following are mandatory acceptance invariants, not optional technical debt:
 
 1. every planner-selected candidate is evaluated through `DependencyRegistry`;
 2. planner/topology state never substitutes for manifest readiness or exact `dataVersion` approval;
@@ -84,4 +84,13 @@ Close this debt when P14-I4 is completed with the transferred invariants and ful
 
 ## Verification Boundary
 
-Static source, roadmap, and graph inspection informed this classification. No build, test, lint, format, migration, load, runtime, deployment, or CI command was run.
+The original transfer classification was static. Closure now uses P14-I4's
+8/8 local gate, 413 tests / 63 suites, 88 focused integrated cases,
+per-component >=80% line/branch and the explicit ten-invariant executed-test
+matrix in [Plan 030](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24). Actual PostgreSQL tests include V11 legacy
+compatibility, closed-run admission races/rollback/restart and fenced renewal,
+retry and acknowledgement. Kafka is mocked; no provider, retained migration,
+deployment, production load or CI claim is made. The
+[rollout/rollback runbook](../deployment/004-job-run-admission-rollout.md) records
+the unactivated preparation/entry-target/shared-upstream boundary. Closure does
+not restore P4-I3 or activate TD-007/TD-013/TD-016/TD-017.

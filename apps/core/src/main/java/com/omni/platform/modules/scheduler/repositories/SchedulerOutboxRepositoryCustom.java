@@ -14,7 +14,8 @@ public interface SchedulerOutboxRepositoryCustom {
     SchedulerOutboxClaim claimEligible(
             UUID messageId, Instant now, String claimedBy, Duration leaseDuration);
 
-    List<SchedulerOutboxClaim> claimPending(Instant now, String claimedBy, Duration leaseDuration, int batchSize);
+    List<SchedulerOutboxClaim> claimPending(
+            Instant now, String claimedBy, Duration leaseDuration, int batchSize);
 
     boolean markWaiting(UUID messageId, Instant availableAt, String reason);
 
@@ -22,5 +23,8 @@ public interface SchedulerOutboxRepositoryCustom {
 
     boolean markPublished(UUID messageId, UUID claimToken, String claimedBy, Instant publishedAt);
 
-    boolean markFailed(UUID messageId, UUID claimToken, String claimedBy, Instant availableAt, String error);
+    boolean markFailed(
+            UUID messageId, UUID claimToken, String claimedBy, Instant availableAt, String error);
+
+    boolean renewForPublish(SchedulerOutboxClaim claim, Instant at, Duration lease);
 }

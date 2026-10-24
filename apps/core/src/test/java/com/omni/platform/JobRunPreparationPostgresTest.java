@@ -1461,6 +1461,98 @@ class JobRunPreparationPostgresTest {
                 .orElseThrow();
     }
 
+    @Test
+    void realPreparationDispatchesClosedSymbolWorkThroughIntegratedPlannerAndRegistry() {
+        var target = target(JobType.SYNC_SYMBOLS);
+        UUID root = preparation.prepareScheduled(target, claim(target), NOW);
+        var kafka =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class);
+        var dispatcher =
+                new com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher(
+                        context.getBean(SchedulerOutboxService.class),
+                        context.getBean(
+                                com.omni.platform.modules.scheduler.dependencies.DependencyRegistry
+                                        .class),
+                        kafka,
+                        new com.omni.platform.modules.scheduler.config.SchedulerProperties(
+                                "integration",
+                                new com.omni.platform.modules.scheduler.config.SchedulerProperties
+                                        .Claim(Duration.ofMinutes(2), 10)),
+                        context.getBean(
+                                com.omni.platform.modules.scheduler.planning
+                                        .JobRunDispatchCoordinator.class));
+        String before =
+                jdbc.queryForObject(
+                        "SELECT status FROM job_execution_histories WHERE id=?",
+                        String.class,
+                        root);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                dispatcher, "dispatchBatch", NOW);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM scheduler_outbox_messages WHERE status='PUBLISHED'",
+                                Long.class))
+                .isEqualTo(3);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                root))
+                .isEqualTo(before)
+                .isNotEqualTo("SUCCESS");
+    }
+
+    @Test
+    void successfulPreparedAncestorsCannotSubstituteForDatasetReadyApproval() {
+        var target = target(JobType.SYNC_INDICATORS);
+        UUID root = preparation.prepareScheduled(target, claim(target), NOW);
+        UUID run =
+                jdbc.queryForObject(
+                        "SELECT job_run_id FROM job_execution_histories WHERE id=?",
+                        UUID.class,
+                        root);
+        int targetStep =
+                jdbc.queryForObject(
+                        "SELECT job_run_step_index FROM job_execution_histories WHERE id=?",
+                        Integer.class,
+                        root);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='SUCCESS' WHERE job_run_id=? AND job_run_step_index<?",
+                run,
+                targetStep);
+        var kafka =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class);
+        var dispatcher =
+                new com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher(
+                        context.getBean(SchedulerOutboxService.class),
+                        context.getBean(
+                                com.omni.platform.modules.scheduler.dependencies.DependencyRegistry
+                                        .class),
+                        kafka,
+                        new com.omni.platform.modules.scheduler.config.SchedulerProperties(
+                                "integration",
+                                new com.omni.platform.modules.scheduler.config.SchedulerProperties
+                                        .Claim(Duration.ofMinutes(2), 10)),
+                        context.getBean(
+                                com.omni.platform.modules.scheduler.planning
+                                        .JobRunDispatchCoordinator.class));
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                dispatcher, "dispatchBatch", NOW);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT sum(o.attempts) FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id WHERE h.parent_log_id=?",
+                                Long.class,
+                                root))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM scheduler_outbox_messages WHERE status='PUBLISHED'",
+                                Long.class))
+                .isZero();
+    }
+
     private static SchedulerClaim claim(JobDefinition definition) {
         return claims.claimJobDefinition(definition.getId(), NOW, "preparation-test").orElseThrow();
     }

@@ -33,16 +33,20 @@ non-exposed port. See [I3.c scope and gates](../../docs/plans/030-static-graph-d
 - Platform-facing API and operational state.
 - Private read-only job catalog and execution-status API; operator triggering is deferred.
 
-I4.a adds `JobRunDispatchSnapshotReader`, immutable progress records and a pure
-`JobRunDispatchPlanner`. They have no runtime scheduler/dispatcher caller.
+Historical I4.a checkpoint: added `JobRunDispatchSnapshotReader`, immutable progress records and a pure
+`JobRunDispatchPlanner`. At that checkpoint they had no runtime scheduler/dispatcher caller; current integration is described below.
 The inactive checkpoint passes a local seven-check gate (377 Platform tests,
 20 focused cases and attributable coverage); existing FIFO/guard/claims
 and disabled preparation remain unchanged. See [I4.a checkpoint](../../docs/plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
 
-Current I4.b work adds scoped candidate queries and atomic locked admission via
-`JobRunDispatchStore`. No dispatcher caller is wired yet; preparation remains off.
-`SchedulerOutboxService` batch-loads scoped entities and persists approved inputs
-only for a successful claim. See [I4.b scope/evidence](../../docs/plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+Current I4.c integrates `JobRunDispatchCoordinator`, the snapshot/planner and
+`JobRunDispatchStore` with the existing dispatcher. Legacy rows retain strict
+identity handling; linked rows revalidate closed predecessors through claim.
+DependencyRegistry is evaluated for every visited candidate; per-send live-fence
+renewal and fenced retry/ack retain at-least-once delivery. Preparation stays off.
+The earlier I4.a inactive description is checkpoint history. See
+[I4 completion](../../docs/plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and the
+[rollout runbook](../../docs/deployment/004-job-run-admission-rollout.md).
 
 ## Does Not Own
 

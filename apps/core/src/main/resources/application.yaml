@@ -39,6 +39,8 @@ app:
   scheduler:
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     job-run:
+      # Explicit false is a conscious historical FIFO rollback; incompatible with enabled preparation.
+      planning-enabled: ${APP_SCHEDULER_JOB_RUN_PLANNING_ENABLED:true}
       # Staged I3.c only. FIFO enqueue is not a predecessor-completion barrier; keep off until I4.
       preparation-enabled: false
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}

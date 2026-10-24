@@ -95,7 +95,7 @@ BANKS and REAL_ESTATE remain independent, and symbol-level grouping is deferred.
 Incomplete evidence fails closed; the cursor remains caller-owned, not persisted state.
 `DependencyGuard` remains the required-input readiness
 authority and atomic outbox claims remain the execution fence. Do not call the planner
-from runtime dispatch before P14-I4 supplies scoped candidate queries and fallback safety.
+from runtime dispatch. Completed P14-I4 uses the separate JobRun snapshot/planner/coordinator, scoped candidate queries and guarded fallback.
 P14-I2 owns the static contract; P14-I3 persists JobRun and immutable scoped step membership.
 Use jobRunId for cross-step correlation; runtime state is PostgreSQL-first, not an authoritative RAM cache.
 
@@ -234,14 +234,14 @@ nx run platform:build
 
 ## JobRun-aware admission — I4
 
-I4.b scoped run discovery, candidate reads and locked admission live in
-`planning/JobRunDispatchStore`; snapshot records/reader and pure planner remain
-in the same package. `SchedulerOutboxService` batch-loads candidate entities and
-persists approved inputs only after claim success. Database locks protect the
-closed transitive predecessor barrier through the existing fenced claim; the
-snapshot reread must share that transaction/connection. No dispatcher caller is
-wired yet. See [Plan 030 I4.b](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24)
-before integrating guard/claim/publish or implementing fallback.
+JobRun snapshot/planner/store/coordinator live under `scheduler/planning`.
+`SchedulerOutboxDispatcher` evaluates DependencyRegistry, claims through the
+coordinator, renews the live fence before each send, then fences retry/ack.
+`SchedulerOutboxService` owns ordered poison-safe batch loading and approved
+versions after claim; repository SQL owns status/availability/lease/token checks.
+Keep the locked reread on the same connection and Kafka outside admission locks.
+Preparation stays disabled; use [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and
+the [rollout runbook](../deployment/004-job-run-admission-rollout.md) before changes.
 
 ## Deferred operator job triggers — I3.d
 

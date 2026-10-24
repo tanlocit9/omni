@@ -102,6 +102,9 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 
 ## Documentation Rules
 
+JobRun planner activation/rollback and lease/configuration safety are described in
+[deployment/004-job-run-admission-rollout.md](deployment/004-job-run-admission-rollout.md).
+
 - Prefer Mermaid diagrams/tables over long prose.
 - Keep one canonical document per concept.
 - Do not duplicate Kafka topic or S3 path details outside canonical data docs.

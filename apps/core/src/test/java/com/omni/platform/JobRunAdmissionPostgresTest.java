@@ -440,6 +440,396 @@ class JobRunAdmissionPostgresTest {
         }
     }
 
+    @Test
+    void integratedHundredItemBudget75TraceRequiresClosedSuccessBeforeEveryAdvance()
+            throws Exception {
+        UUID run = prepare(false, true, 100);
+        var registry = readyRegistry();
+        var kafka =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class);
+        var coordinator = coordinator(snapshots);
+        var dispatcher = dispatcher(75, registry, kafka, coordinator);
+        tick(dispatcher);
+        assertThat(published(run, 0)).isEqualTo(75);
+        assertThat(published(run, 1)).isZero();
+        tick(dispatcher);
+        assertThat(published(run, 0)).isEqualTo(100);
+        assertThat(published(run, 1)).isZero();
+        tick(dispatcher);
+        assertThat(published(run, 1)).isZero();
+        succeed(run, 0);
+        tick(dispatcher);
+        assertThat(published(run, 1)).isEqualTo(75);
+        assertThat(published(run, 2)).isZero();
+        tick(dispatcher);
+        assertThat(published(run, 1)).isEqualTo(100);
+        assertThat(published(run, 2)).isZero();
+        succeed(run, 1);
+        tick(dispatcher);
+        assertThat(published(run, 2)).isEqualTo(75);
+        org.mockito.Mockito.verify(registry, org.mockito.Mockito.times(275))
+                .evaluate(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(kafka, org.mockito.Mockito.times(275))
+                .publishSerializedAndWait(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM job_execution_histories WHERE job_run_id=? AND job_run_step_index=2 AND status='RUNNING'",
+                                Long.class,
+                                run))
+                .isEqualTo(101L);
+    }
+
+    @Test
+    void fallbackPagesRemainBarrierGuardedAcrossSnapshotFailuresAndRestart() {
+        UUID run = prepare(false, true);
+        var broken = org.mockito.Mockito.mock(JobRunDispatchSnapshotReader.class);
+        org.mockito.Mockito.when(
+                        broken.capture(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyList()))
+                .thenThrow(new IllegalStateException("snapshot unavailable"));
+        var dispatcher =
+                dispatcher(
+                        10,
+                        readyRegistry(),
+                        org.mockito.Mockito.mock(
+                                com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class),
+                        coordinator(broken));
+        tick(dispatcher);
+        assertThat(published(run, 0)).isEqualTo(1);
+        assertThat(published(run, 1)).isZero();
+        assertThat(published(run, 2)).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT sum(o.attempts) FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id WHERE h.job_run_id=?",
+                                Long.class,
+                                run))
+                .isEqualTo(1);
+        // New coordinator loses advisory cursors, not membership or completion authority.
+        var restarted =
+                dispatcher(
+                        10,
+                        readyRegistry(),
+                        org.mockito.Mockito.mock(
+                                com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class),
+                        coordinator(snapshots));
+        tick(restarted);
+        assertThat(published(run, 1)).isZero();
+        succeed(run, 0);
+        tick(restarted);
+        assertThat(published(run, 1)).isEqualTo(1);
+        assertThat(published(run, 2)).isZero();
+    }
+
+    @Test
+    void fifoFallbackCursorWrapsWithoutDuplicatesAndStrictLegacyClaimRejectsNewRunLinks() {
+        assertThat(store.findFallbackCandidates(NOW, null, 2).candidates()).isEmpty();
+        UUID run = prepare(false, true);
+        var first = store.findFallbackCandidates(NOW, null, 2);
+        assertThat(first.candidates()).hasSize(2);
+        var second = store.findFallbackCandidates(NOW, first.nextCursor(), 2);
+        assertThat(second.candidates()).hasSize(2);
+        assertThat(second.candidates())
+                .extracting(c -> c.candidate().messageId())
+                .doesNotHaveDuplicates();
+        var seen = new java.util.HashSet<UUID>();
+        first.candidates().forEach(c -> seen.add(c.candidate().messageId()));
+        second.candidates().forEach(c -> seen.add(c.candidate().messageId()));
+        assertThat(seen).hasSize(3);
+        assertThat(
+                        store.claimLegacy(
+                                message(run, 0), NOW, "legacy", Duration.ofSeconds(30), Map.of()))
+                .isNull();
+        var definition = selection(run, 0).definitionId();
+        UUID history = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO job_execution_histories(id,job_id,used_source,status,meta_json) VALUES (?,?,'VND','RUNNING','{\"workType\":\"GLOBAL\",\"workKey\":\"VN\"}')",
+                history,
+                definition);
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test','{}',?)",
+                id,
+                history,
+                java.sql.Timestamp.from(NOW));
+        assertThat(store.findFallbackCandidates(NOW, null, 10).candidates())
+                .anyMatch(candidate -> candidate.selection() == null);
+        UUID poison = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,1,'test','{',?)",
+                poison,
+                history,
+                java.sql.Timestamp.from(NOW.minusSeconds(1)));
+        var skipped = store.findFallbackCandidates(NOW, null, 1);
+        assertThat(skipped.candidates()).isEmpty();
+        assertThat(skipped.nextCursor()).isNotNull();
+        assertThat(store.findFallbackCandidates(NOW, skipped.nextCursor(), 1).candidates())
+                .hasSize(1);
+        assertThat(
+                        store.claimLegacy(
+                                UUID.randomUUID(), NOW, "none", Duration.ofSeconds(30), Map.of()))
+                .isNull();
+        var legacy = store.claimLegacy(id, NOW, "legacy", Duration.ofSeconds(30), Map.of());
+        assertThat(legacy).isNotNull();
+        assertThat(store.claimLegacy(id, NOW, "busy", Duration.ofSeconds(30), Map.of())).isNull();
+        outbox.scheduleRetry(legacy, NOW, "retry");
+        UUID linked = prepare(false, false);
+        jdbc.update(
+                "UPDATE job_execution_histories SET job_run_id=?,job_run_step_index=0 WHERE id=?",
+                linked,
+                history);
+        assertThat(store.claimLegacy(id, NOW, "stale", Duration.ofSeconds(30), Map.of())).isNull();
+        assertThat(attempts(id)).isEqualTo(1);
+    }
+
+    @Test
+    void waitingBlockedAndLostClaimsCannotConsumeOtherReadyScopeBudget() {
+        UUID a = prepare(false, true),
+                b = prepare(false, true),
+                c = prepare(false, true),
+                d = prepare(false, true);
+        var registry =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.modules.scheduler.dependencies.DependencyRegistry.class);
+        org.mockito.Mockito.when(registry.evaluate(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(
+                        call -> {
+                            var request =
+                                    (com.omni.platform.modules.scheduler.dependencies
+                                                    .DependencyRequest)
+                                            call.getArgument(0);
+                            if (request.outboxMessageId().equals(message(a, 0)))
+                                return com.omni.platform.modules.scheduler.dependencies
+                                        .DependencyDecision.waiting(
+                                        "WAIT", "fixture", NOW.plusSeconds(30));
+                            if (request.outboxMessageId().equals(message(b, 0)))
+                                return com.omni.platform.modules.scheduler.dependencies
+                                        .DependencyDecision.blocked("BLOCKED", "fixture");
+                            if (request.outboxMessageId().equals(message(c, 0))) {
+                                jdbc.update("UPDATE job_runs SET state='CANCELLED' WHERE id=?", c);
+                            }
+                            return com.omni.platform.modules.scheduler.dependencies
+                                    .DependencyDecision.ready(Map.of());
+                        });
+        tick(
+                dispatcher(
+                        4,
+                        registry,
+                        org.mockito.Mockito.mock(
+                                com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class),
+                        coordinator(snapshots)));
+        assertThat(published(d, 0)).isEqualTo(1);
+        assertThat(attempts(message(a, 0))).isZero();
+        assertThat(attempts(message(b, 0))).isZero();
+        assertThat(attempts(message(c, 0))).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM scheduler_outbox_messages WHERE id=?",
+                                String.class,
+                                message(b, 0)))
+                .isEqualTo("BLOCKED");
+    }
+
+    @Test
+    void publishFailureRetriesSameIdentityAndLegacyLaneRemainsFairAtBudgetOne() throws Exception {
+        UUID run = prepare(false, true);
+        UUID history = UUID.randomUUID(), legacyId = UUID.randomUUID();
+        var definition = selection(run, 0).definitionId();
+        jdbc.update(
+                "INSERT INTO job_execution_histories(id,job_id,used_source,status,meta_json) VALUES (?,?,'VND','RUNNING','{\"workType\":\"GLOBAL\",\"workKey\":\"VN\"}')",
+                history,
+                definition);
+        jdbc.update(
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test','{}',?)",
+                legacyId,
+                history,
+                java.sql.Timestamp.from(NOW));
+        var kafka =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class);
+        var coordinator = coordinator(snapshots);
+        var dispatcher = dispatcher(1, readyRegistry(), kafka, coordinator);
+        org.mockito.Mockito.doThrow(new RuntimeException("fixture transport failure"))
+                .doNothing()
+                .when(kafka)
+                .publishSerializedAndWait(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        tick(dispatcher);
+        assertThat(attempts(message(run, 0))).isEqualTo(1);
+        assertThat(published(run, 0)).isZero();
+        tick(dispatcher);
+        assertThat(attempts(legacyId)).isEqualTo(1);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                dispatcher, "dispatchBatch", NOW.plusSeconds(31));
+        assertThat(published(run, 0)).isEqualTo(1);
+        assertThat(attempts(message(run, 0))).isEqualTo(2);
+    }
+
+    @Test
+    void scopedSqlExplainIsBoundedWithActualSourceQueryAndDoesNotClaim() throws Exception {
+        UUID run = prepare(false, true, 100);
+        var selected = selection(run, 0);
+        var field = JobRunDispatchStore.class.getDeclaredField("SCOPED_IDS_SQL");
+        field.setAccessible(true);
+        String sql = (String) field.get(null);
+        var parameters =
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("run", run)
+                        .addValue("step", 0)
+                        .addValue("definition", selected.definitionId())
+                        .addValue("type", selected.scope().type().name())
+                        .addValue("key", selected.scope().key())
+                        .addValue("date", selected.scope().businessDate())
+                        .addValue("now", java.sql.Timestamp.from(NOW))
+                        .addValue("limit", 50);
+        var template =
+                new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc);
+        String report =
+                template.queryForObject(
+                        "EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) " + sql, parameters, String.class);
+        var parsed =
+                context.getBean("jsonMapper", tools.jackson.databind.json.JsonMapper.class)
+                        .readTree(report)
+                        .get(0);
+        assertThat(parsed.get("Plan").get("Actual Rows").asInt()).isEqualTo(50);
+        assertThat(parsed.get("Plan").has("Shared Hit Blocks")).isTrue();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT sum(attempts) FROM scheduler_outbox_messages", Long.class))
+                .isZero();
+        var path = java.nio.file.Path.of("build/reports/job-run-dispatch/scoped-explain.json");
+        java.nio.file.Files.createDirectories(path.getParent());
+        java.nio.file.Files.writeString(path, report);
+    }
+
+    static com.omni.platform.modules.scheduler.planning.JobRunDispatchCoordinator coordinator(
+            JobRunDispatchSnapshotReader reader) {
+        return new com.omni.platform.modules.scheduler.planning.JobRunDispatchCoordinator(
+                store, reader, outbox, true, false);
+    }
+
+    @Test
+    void expiredOrSupersededPublishLeaseCannotBeRenewed() {
+        UUID run = prepare(false, true);
+        UUID message = message(run, 0);
+        var old = claim(selection(run, 0), message, "old");
+        assertThat(outbox.renewForPublish(old, NOW.plusSeconds(31), Duration.ofSeconds(30)))
+                .isFalse();
+        var current =
+                store.claimPlanned(
+                        selection(run, 0),
+                        message,
+                        NOW.plusSeconds(31),
+                        "new",
+                        Duration.ofSeconds(30),
+                        Map.of());
+        assertThat(outbox.renewForPublish(old, NOW.plusSeconds(32), Duration.ofSeconds(30)))
+                .isFalse();
+        assertThat(outbox.renewForPublish(current, NOW.plusSeconds(32), Duration.ofSeconds(30)))
+                .isTrue();
+        var foreign =
+                new SchedulerOutboxClaim(
+                        current.messageId(),
+                        current.claimToken(),
+                        "other",
+                        current.executionId(),
+                        current.topic(),
+                        current.key(),
+                        current.payload(),
+                        current.attempts());
+        assertThat(outbox.renewForPublish(foreign, NOW.plusSeconds(33), Duration.ofSeconds(30)))
+                .isFalse();
+        assertThat(outbox.markDelivered(current, NOW.plusSeconds(34))).isTrue();
+        assertThat(outbox.renewForPublish(current, NOW.plusSeconds(35), Duration.ofSeconds(30)))
+                .isFalse();
+    }
+
+    @Test
+    void dispatcherRechecksFenceBeforeSendingLaterClaimInSameBatch() throws Exception {
+        UUID run = prepare(false, true, 2);
+        var kafka =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            if (calls.incrementAndGet() == 1) {
+                                String payload = call.getArgument(2);
+                                UUID execution =
+                                        UUID.fromString(
+                                                context.getBean(
+                                                                "jsonMapper",
+                                                                tools.jackson.databind.json
+                                                                        .JsonMapper.class)
+                                                        .readTree(payload)
+                                                        .get("executionId")
+                                                        .asText());
+                                jdbc.update(
+                                        "UPDATE scheduler_outbox_messages SET claim_token=?,claimed_by='new-owner',claim_until=? WHERE status='PENDING' AND claim_token IS NOT NULL AND execution_id<>?",
+                                        UUID.randomUUID(),
+                                        java.sql.Timestamp.from(Instant.now().plusSeconds(60)),
+                                        execution);
+                            }
+                            return null;
+                        })
+                .when(kafka)
+                .publishSerializedAndWait(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        tick(dispatcher(2, readyRegistry(), kafka, coordinator(snapshots)));
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(published(run, 0)).isEqualTo(1);
+    }
+
+    static com.omni.platform.modules.scheduler.dependencies.DependencyRegistry readyRegistry() {
+        var registry =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.modules.scheduler.dependencies.DependencyRegistry.class);
+        org.mockito.Mockito.when(registry.evaluate(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(
+                        com.omni.platform.modules.scheduler.dependencies.DependencyDecision.ready(
+                                Map.of()));
+        return registry;
+    }
+
+    static com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher dispatcher(
+            int budget,
+            com.omni.platform.modules.scheduler.dependencies.DependencyRegistry registry,
+            com.omni.platform.shared.infrastructure.kafka.KafkaPublisher kafka,
+            com.omni.platform.modules.scheduler.planning.JobRunDispatchCoordinator coordinator) {
+        return new com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher(
+                outbox,
+                registry,
+                kafka,
+                new com.omni.platform.modules.scheduler.config.SchedulerProperties(
+                        "dispatcher-test",
+                        new com.omni.platform.modules.scheduler.config.SchedulerProperties.Claim(
+                                Duration.ofMinutes(2), budget)),
+                coordinator);
+    }
+
+    static void tick(com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher dispatcher) {
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                dispatcher, "dispatchBatch", NOW);
+    }
+
+    static long published(UUID run, int step) {
+        return jdbc.queryForObject(
+                "SELECT count(*) FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id WHERE h.job_run_id=? AND h.job_run_step_index=? AND o.status='PUBLISHED'",
+                Long.class,
+                run,
+                step);
+    }
+
     static SchedulerOutboxClaim claim(Selection selected, UUID message, String owner) {
         return store.claimPlanned(selected, message, NOW, owner, Duration.ofSeconds(30), Map.of());
     }
@@ -477,7 +867,64 @@ class JobRunAdmissionPostgresTest {
                 JobRunDispatchPlanner.Reason.ROOT_STEP);
     }
 
+    @Test
+    void plannedSymbolExchangeAndGlobalMappingRemainRunAndDateIsolatedAtClaim() {
+        // Stored-contract fixtures only. Actual producer support is still enforced by I3
+        // preparation.
+        UUID hpg =
+                prepare(
+                        false,
+                        true,
+                        1,
+                        new Scope(ScopeType.SYMBOL, "HOSE:HPG", LocalDate.of(2035, 1, 2)));
+        UUID fpt =
+                prepare(
+                        false,
+                        true,
+                        1,
+                        new Scope(ScopeType.SYMBOL, "HOSE:FPT", LocalDate.of(2035, 1, 2)));
+        UUID exchange =
+                prepare(
+                        false,
+                        true,
+                        1,
+                        new Scope(ScopeType.EXCHANGE, "HOSE", LocalDate.of(2035, 1, 3)));
+        succeed(hpg, 0);
+        succeed(hpg, 1);
+        var selected = selection(hpg, 2);
+        assertThat(store.findScopedCandidates(selected, NOW, 10))
+                .singleElement()
+                .satisfies(
+                        candidate -> assertThat(candidate.messageId()).isEqualTo(message(hpg, 2)));
+        assertThat(claim(selected, message(hpg, 2), "hpg")).isNotNull();
+        assertThat(claim(selection(fpt, 2), message(fpt, 2), "fpt")).isNull();
+        var foreign =
+                new Selection(
+                        hpg,
+                        2,
+                        selected.definitionId(),
+                        new Scope(ScopeType.SYMBOL, "HOSE:FPT", selected.scope().businessDate()),
+                        1,
+                        selected.reason());
+        assertThat(store.findScopedCandidates(foreign, NOW, 10)).isEmpty();
+        succeed(exchange, 0);
+        succeed(exchange, 1);
+        assertThat(claim(selection(exchange, 2), message(exchange, 2), "exchange")).isNotNull();
+    }
+
     static UUID prepare(boolean join, boolean closed) {
+        return prepare(join, closed, 1);
+    }
+
+    static UUID prepare(boolean join, boolean closed, int children) {
+        return prepare(
+                join,
+                closed,
+                children,
+                new Scope(ScopeType.GLOBAL, "VN", LocalDate.of(2035, 1, 2)));
+    }
+
+    static UUID prepare(boolean join, boolean closed, int children, Scope targetScope) {
         return tx.execute(
                 status -> {
                     List<RequiredPathResolver.Step> steps = new ArrayList<>();
@@ -486,8 +933,12 @@ class JobRunAdmissionPostgresTest {
                                 new StepKey(
                                         new JobDefinitionIdentity(
                                                 DataSource.VND, JobType.SYNC_SYMBOLS, cron),
-                                        new Scope(
-                                                ScopeType.GLOBAL, "VN", LocalDate.of(2035, 1, 2)));
+                                        steps.isEmpty()
+                                                ? new Scope(
+                                                        ScopeType.GLOBAL,
+                                                        "VN",
+                                                        targetScope.businessDate())
+                                                : targetScope);
                         var predecessors =
                                 steps.isEmpty() || join && steps.size() == 1
                                         ? List.<StepKey>of()
@@ -513,42 +964,64 @@ class JobRunAdmissionPostgresTest {
                                             1, steps.getLast().key(), steps));
                     if (!closed) return saved.id();
                     for (int index = 0; index < 3; index++) {
-                        UUID parent = UUID.randomUUID(), child = UUID.randomUUID();
+                        UUID parent = UUID.randomUUID();
                         var json =
                                 context.getBean(
                                         "jsonMapper", tools.jackson.databind.json.JsonMapper.class);
                         String metadata =
-                                "{\"runPreparationVersion\":\"1\",\"businessDate\":\"2035-01-02\",\"workType\":\"GLOBAL\",\"workKey\":\"VN\"}";
-                        for (UUID id : List.of(parent, child))
-                            jdbc.update(
-                                    "INSERT INTO job_execution_histories(id,job_id,used_source,status,parent_log_id,job_run_id,job_run_step_index,meta_json) VALUES (?,?,'VND','RUNNING',?,?,?,CAST(? AS jsonb))",
-                                    id,
-                                    saved.definitionIds().get(index),
-                                    id.equals(parent) ? null : parent,
-                                    saved.id(),
-                                    index,
-                                    metadata);
-                        String payload =
                                 json.writeValueAsString(
                                         Map.of(
-                                                "executionId",
-                                                child.toString(),
-                                                "parentExecutionId",
-                                                parent.toString(),
+                                                "runPreparationVersion",
+                                                "1",
+                                                "businessDate",
+                                                targetScope.businessDate().toString(),
                                                 "workType",
                                                 "GLOBAL",
                                                 "workKey",
                                                 "VN"));
                         jdbc.update(
-                                "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test',?,?)",
-                                child,
-                                payload,
-                                java.sql.Timestamp.from(NOW));
+                                "INSERT INTO job_execution_histories(id,job_id,used_source,status,parent_log_id,job_run_id,job_run_step_index,meta_json) VALUES (?,?,'VND','RUNNING',?,?,?,CAST(? AS jsonb))",
+                                parent,
+                                saved.definitionIds().get(index),
+                                null,
+                                saved.id(),
+                                index,
+                                metadata);
+                        for (int childIndex = 0; childIndex < children; childIndex++) {
+                            UUID child = UUID.randomUUID();
+                            String childKey = "work-" + childIndex;
+                            jdbc.update(
+                                    "INSERT INTO job_execution_histories(id,job_id,used_source,status,parent_log_id,job_run_id,job_run_step_index,meta_json) VALUES (?,?,'VND','RUNNING',?,?,?,CAST(? AS jsonb))",
+                                    child,
+                                    saved.definitionIds().get(index),
+                                    parent,
+                                    saved.id(),
+                                    index,
+                                    metadata.replace("\"VN\"", "\"" + childKey + "\""));
+                            String payload =
+                                    json.writeValueAsString(
+                                            Map.of(
+                                                    "executionId",
+                                                    child.toString(),
+                                                    "parentExecutionId",
+                                                    parent.toString(),
+                                                    "workType",
+                                                    "GLOBAL",
+                                                    "workKey",
+                                                    childKey));
+                            jdbc.update(
+                                    "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test',?,?)",
+                                    child,
+                                    payload,
+                                    java.sql.Timestamp.from(NOW));
+                        }
                         jdbc.update(
-                                "INSERT INTO job_run_step_preparations(job_run_id,step_index,parent_execution_id,child_count,message_count,closed_at) VALUES (?,?,?,1,1,?)",
+                                "INSERT INTO job_run_step_preparations(job_run_id,step_index,parent_execution_id,child_count,message_count,closed_at) VALUES (?,?,?,?,?,?)",
                                 saved.id(),
                                 index,
                                 parent,
+                                children,
+                                children,
                                 java.sql.Timestamp.from(NOW));
                     }
                     return saved.id();

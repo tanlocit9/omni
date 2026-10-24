@@ -1,5 +1,30 @@
 # Omni Release Notes
 
+## 2026-10-24 - P14-I4 completed with guarded integrated dispatch
+
+Connected JobRun snapshot/planner/scoped admission to the existing dispatcher.
+Bounded quotas, legacy fairness and guarded paginated FIFO fallback preserve
+closed transitive predecessor barriers and DependencyRegistry readiness/version
+approval. Approved versions follow the actual work execution after claim; live
+owner/token renewal before each send prevents sending superseded batch claims.
+Retry/ack remain fenced and at-least-once. No worker SUCCESS is fabricated.
+
+Local gate PASS 8/8: 413 Platform tests / 63 suites, 88 focused cases,
+zero failures/errors/skips; all 31 critical Java components >=80% line/branch.
+Actual PostgreSQL races, metadata rollback, 100-item budget-75 trace, guarded
+fallback/restart, future typed scope isolation, source-query EXPLAIN and V11
+legacy compatibility pass. TD-014's ten transferred invariants are closed; P4-I3
+stays superseded. I4.a commit 9c7fbfc and I4.b commit 7213795 remain separate.
+See [full acceptance/coverage and documentation disposition](docs/plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24).
+
+Preparation remains false and all 32 cron identities remain. Entry-target/shared
+GLOBAL upstream review precedes activation; no symbol producer narrowing,
+shared-work coalescing, retained migration, live provider, CI or deployment is claimed.
+I5 is ready for isolated read-only SQL/benchmark artifacts; I6 waits for I5.
+P13-I1's dependencies are met, but wider writer overlap still requires reconciliation.
+This delivery stops at I4. Canonical docs/indexes and the new
+[rollout/rollback runbook](docs/deployment/004-job-run-admission-rollout.md) are synchronized.
+
 ## 2026-10-24 - P14-I4.b scoped selection and transactional admission
 
 I4.a was verified/committed as 9c7fbfc. Added bounded run paging, exact scoped

@@ -74,6 +74,15 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 
 ## Canonical Plan 030 scope revision — 2026-10-15
 
+I4 review repair — 2026-10-25: both real PostgreSQL regressions were reproduced
+before repair. The renewed local gate passes 8/8 with 416 tests,
+31 critical Java components >=80% line/branch and source-bound acceptance.
+Rotated pages survive snapshot sorting; legacy admission skips the actual busy
+child before metadata updates, tested against `JobService.applyStatus()`.
+See [current repair evidence](../030-static-graph-dispatch-planner.md#i4-review-regressions--2026-10-25). I4 remains completed; I5 ready/I6 pending.
+Preparation stays false; no migration/deletion/retained rollout is included.
+The dated 413-test checkpoint below remains historical.
+
 Current I4 completion — 2026-10-24: P14-I1–I4 are `completed`.
 [I4.c integrated admission](../030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24).
 The local gate passes 8/8: 413 full tests / 63 suites, 88 focused cases,

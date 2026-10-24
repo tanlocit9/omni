@@ -1,5 +1,20 @@
 # Omni Release Notes
 
+## 2026-10-25 - P14-I4 review fixes for run rotation and legacy child locks
+
+Confirmed the actual status entrypoint is `JobService.applyStatus()`. Reproduced
+both review findings with real PostgreSQL, then preserved rotated run-page order
+through the request-time-sorted snapshot and acquired a nonwaiting write lock on
+the actual legacy work child before loading/updating approved inputs. Busy child
+admission skips without attempts while the real status transaction completes.
+
+Renewed local gate PASS 8/8: 416 tests / 63 suites,
+zero failures/errors/skips; all 31 critical Java components >=80%
+line/branch. Includes real budget-one rotation, child/status/retry and identity-only
+loading regressions. See [repair matrix and scope](docs/plans/030-static-graph-dispatch-planner.md#i4-review-regressions--2026-10-25).
+I4 status and I5/I6 readiness remain unchanged. Preparation=false and 32 cron entries
+are retained; no migration, data deletion, CI, deployment or live provider claim.
+
 ## 2026-10-24 - P14-I4 completed with guarded integrated dispatch
 
 Connected JobRun snapshot/planner/scoped admission to the existing dispatcher.

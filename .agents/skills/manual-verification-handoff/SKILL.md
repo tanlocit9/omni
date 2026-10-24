@@ -93,7 +93,7 @@ Read only the relevant entries in:
 
 - the selected phase document;
 - [`docs/plans/roadmap/implementation-increments.md`](../../../docs/plans/roadmap/implementation-increments.md);
-- [`docs/plans/roadmap/execution-log.md`](../../../docs/plans/roadmap/execution-log.md);
+- root [`ReleaseNotes.md`](../../../ReleaseNotes.md), the canonical execution history;
 - directly affected supporting documents or dependent statuses.
 
 Follow [`docs/plans/roadmap/automation-rules.md`](../../../docs/plans/roadmap/automation-rules.md)

@@ -22,6 +22,8 @@ contracts, and for post-edit change detection as specified in [`AGENTS.md`](AGEN
 
 Canonical navigation:
 
+- [`.agents/skills`](.agents/skills) — shared repository skills; load the relevant
+  entrypoint there instead of maintaining a copy in `.claude/skills`.
 - [`docs/README.md`](docs/README.md) — documentation index
 - [`docs/development/001-where-to-change.md`](docs/development/001-where-to-change.md) — ownership
 - [`docs/governance/001-implementation-plan-standard.md`](docs/governance/001-implementation-plan-standard.md) — plan rules

@@ -20,6 +20,9 @@ rules belong in [`docs`](docs); do not duplicate them in agent files.
   format verification command.
 - Use [`docs/development/001-where-to-change.md`](docs/development/001-where-to-change.md)
   for ownership and [`docs/README.md`](docs/README.md) for canonical documentation.
+- Keep repository skills in [`.agents/skills`](.agents/skills), shared across coding
+  agents. Editor-specific rules link to these skills; see the
+  [skill ownership guidance](docs/development/003-codex-control-and-tooling.md#shared-repository-skills).
 
 ## Worktree inspection boundary
 
@@ -148,7 +151,7 @@ sources rather than copying architecture prose.
 Before finalizing any increment, agents must run the documentation-synchronization
 workflow even when source implementation is already complete:
 
-1. load the `update-implementation-plans` skill;
+1. load the [`update-implementation-plans` skill](.agents/skills/update-implementation-plans/SKILL.md);
 2. review the canonical increment registry, numbered implementation plan, root release
    notes, and affected architecture, ADR, flow, data, deployment, development, service,
    index, and repository-guidance documents;

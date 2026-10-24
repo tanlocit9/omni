@@ -14,7 +14,7 @@ for plan requirements.
 - When implementation changes architecture, contracts, workflow, or tooling,
   synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
   applicable rules, and canonical docs before marking work done.
-- Increment finalization must invoke `update-implementation-plans`, explicitly review
+- Increment finalization must invoke [`update-implementation-plans`](../../.agents/skills/update-implementation-plans/SKILL.md), explicitly review
   applicable architecture/ADR/flow/data/deployment/development/service/index docs,
   run post-edit code-review-graph change detection, and invoke
   `verify-document-consistency`; missing or unresolved documentation evidence blocks

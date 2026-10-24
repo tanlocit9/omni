@@ -38,6 +38,39 @@ The assessment also found these gaps:
 6. Do not add an MCP when existing Codex shell, Nx, or GitHub capabilities already provide the required control surface.
 7. Do not merge automatically. Omni's roadmap automation leaves pull requests as drafts until acceptance criteria and CI pass.
 
+## Shared Repository Skills
+
+Canonical repository skills live in [`.agents/skills`](../../.agents/skills), so
+Codex, Claude, Zoo/Roo and other coding agents use the same maintained instructions.
+Editor-specific rules may link to those entrypoints but must not keep separate
+workflow copies under `.roo/skills` or `.claude/skills`. `.agent` remains ignored generated/local state;
+it is not a skill directory. Existing skill names and explicit invocation boundaries
+are preserved.
+
+The 2026-10-24 migration reconciled both Zoo skills: `manual-verification-handoff`
+was byte-identical to its shared copy; `update-implementation-plans` already had
+a shared version aligned with current registry, coverage and documentation gates.
+The shared versions remain authoritative and the old local copies are removed.
+The handoff skill references root `ReleaseNotes.md`, not the absent historical
+`roadmap/execution-log.md` path. Other `.roo` rules/configuration are retained.
+
+The subsequent Claude migration adds four distinct shared skills: `debug-issue`,
+`explore-codebase`, `refactor-safely` and `review-changes`. No name or exact-content
+collision exists with the eight existing shared skills. Their scopes remain
+separate: observed defect diagnosis, read-only navigation, requested structural
+refactoring and read-only code review. Code review does not replace documentation
+consistency or increment acceptance verification. The migrated entrypoints use
+lowercase hyphenated names and `SKILL.md`, discover available graph tools, respect
+the repository verification gate and avoid rigid tool-call/output quotas.
+`CLAUDE.md` points to the shared directory; the old skill copies are removed while
+other Claude configuration is retained. There are now 12 shared skill entrypoints.
+
+This documentation/skill-location change affects agent workflow only. Platform,
+Analyzer, Ingestor, Query Service, Console, contracts/libraries, persistence,
+runtime configuration, datasets, deployment and operations have no behavior change.
+No build/test/lint/format or executable skill validator was run for this migration;
+inspection is static and does not reuse prior application checks as migration proof.
+
 ## Recommended Controls
 
 | Priority | Control               | Type                 | Decision                                               | Primary value                                                                                                          |

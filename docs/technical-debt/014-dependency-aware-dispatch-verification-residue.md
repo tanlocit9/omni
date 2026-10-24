@@ -16,7 +16,7 @@ P4-I3 source and historical evidence remain valid baseline information, but P4-I
 
 Current source provides:
 
-- scheduled and accepted manual work commit execution plus PENDING scheduler-outbox intent before dependency evaluation;
+- scheduled work and retained internal MANUAL preparation commit execution plus PENDING scheduler-outbox intent before dependency evaluation; operator-triggered jobs are deferred under TD-017, with authenticated HTTP 410 on retired routes;
 - `DependencyRegistry` adapts the manifest-backed guard into READY, WAITING, and BLOCKED decisions;
 - WAITING remains PENDING and does not consume a publish attempt;
 - terminal BLOCKED closes the outbox/execution and cannot be reclaimed;

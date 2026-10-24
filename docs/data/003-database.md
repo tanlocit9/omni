@@ -9,7 +9,6 @@ Flyway migrations under [`database/migrations`](../../database/migrations) are t
 ```mermaid
 erDiagram
   JOB_DEFINITIONS ||--o{ JOB_EXECUTION_HISTORIES : creates
-  JOB_DEFINITIONS ||--o{ MANUAL_JOB_TRIGGERS : receives
   JOB_DEFINITIONS ||--o{ JOB_RUNS : targets
   JOB_RUNS ||--|{ JOB_RUN_STEPS : freezes
   JOB_RUN_STEPS ||--o{ JOB_RUN_STEP_PREDECESSORS : dependent
@@ -17,7 +16,6 @@ erDiagram
   JOB_RUN_STEPS |o--o{ JOB_EXECUTION_HISTORIES : optional_run_link
   JOB_RUN_STEPS ||--o| JOB_RUN_STEP_PREPARATIONS : closes
   JOB_EXECUTION_HISTORIES ||--o| JOB_RUN_STEP_PREPARATIONS : root_membership
-  JOB_EXECUTION_HISTORIES ||--o| MANUAL_JOB_TRIGGERS : dispatches
   JOB_EXECUTION_HISTORIES ||--o{ JOB_EXECUTION_HISTORIES : parent_child
   SECTORS ||--o{ SYMBOLS : classifies
 
@@ -36,16 +34,6 @@ erDiagram
     string status
     timestamptz started_at
     timestamptz completed_at
-  }
-
-  MANUAL_JOB_TRIGGERS {
-    uuid id
-    uuid job_definition_id
-    uuid execution_id
-    string actor
-    string idempotency_key
-    string state
-    timestamptz requested_at
   }
 
   JOB_RUNS {
@@ -100,6 +88,10 @@ erDiagram
 ```
 
 ## Important Domains
+
+The diagram describes the schema after V14. Historical `manual_job_triggers`
+belongs to V8 through V13 only; see [deferred manual job triggers](#deferred-manual-job-triggers)
+for its removal and rollback boundary.
 
 ### JobRun persistence foundation (I3.b)
 

@@ -67,7 +67,8 @@ public class SyncSymbolsJobProducer extends JobProducer {
             Instant timestamps,
             JobRunWorkContext context) {
 
-        List<String> exchanges = extractExchanges(job.getConfigJson());
+        Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+        List<String> exchanges = extractExchanges(config);
         Map<String, Integer> symbolCountsByExchange =
                 symbolRepository.countAllActiveSymbolsGroupedByExchange().stream()
                         .collect(
@@ -78,8 +79,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
                 .map(
                         exchange -> {
                             Integer symbolCount = symbolCountsByExchange.getOrDefault(exchange, 0);
-                            Map<String, Object> messageConfig =
-                                    new java.util.HashMap<>(job.getConfigJson());
+                            Map<String, Object> messageConfig = new java.util.HashMap<>(config);
                             messageConfig.put(
                                     JobDefinitionConfig.CONFIG_KEY_SYMBOL_COUNT, symbolCount);
                             enrichSectorConfig(messageConfig);
@@ -128,7 +128,7 @@ public class SyncSymbolsJobProducer extends JobProducer {
     }
 
     private List<String> extractExchanges(Map<String, Object> config) {
-        if (config == null || !config.containsKey(JobDefinitionConfig.CONFIG_KEY_EXCHANGES)) {
+        if (!config.containsKey(JobDefinitionConfig.CONFIG_KEY_EXCHANGES)) {
             return DEFAULT_EXCHANGES;
         }
         Object raw = config.get(JobDefinitionConfig.CONFIG_KEY_EXCHANGES);

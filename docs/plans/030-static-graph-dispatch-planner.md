@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). This planning document does not claim that the runtime implementation exists.
+Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I3 are completed as of 2026-10-24; I4–I6 remain pending. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -25,8 +25,87 @@ Current stories and statuses are defined solely by the [canonical I1–I6 story 
 ## Outcome
 
 A reusable static definition-path handoff in I2, followed by durable JobRun preparation
-in I3 and guarded runtime admission in I4. Current I2 has approved local test, coverage
-and build evidence; no new owner attestation, deployment or increment completion is asserted.
+in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
+local acceptance/test/coverage/build and documentation evidence below. No new
+owner attestation, deployment or I4 admission activation is asserted.
+
+## I2/I3 completion and remaining P14 work — 2026-10-24
+
+Owner requested verification and completion marking. I2 and I3 are now
+`completed` in the registry after acceptance-by-acceptance reconciliation, not
+merely from a command PASS. The historical checkpoint statuses below retain their
+dates; the registry and this completion record describe current status.
+
+Bound gate: `PASS P14-I2-I3-coverage-docs-20261023 required=7 pass=7 fail=0 unknown=0 missing=0`.
+The 2026-10-24 source/test/migration hash comparison found zero changes against
+the executed clean-build binding, including Console source; no unchanged suite
+was rerun. Clean build executed 357 Platform tests / 59 suites, no failures/errors/
+skips; 19 focused cases and all 32 audited critical components meet 80% line and
+applicable branch coverage. Prior Console test/typecheck/lint/build evidence
+covers its unchanged I3.d withdrawal. Static documentation consistency is reviewed
+again for the completion edit. No CI/deployment/provider/live gate is asserted or
+waived; the bounded inactive handoff/preparation scope does not require activation.
+
+### Acceptance-to-evidence reconciliation
+
+| Increment / criterion | Executed source/test evidence | Result |
+| --- | --- | --- |
+| I2 validated definition-specific closure/order, bounds, roots/joins and invalid mapping/cycle rejection | RequiredPathResolverTest (11), StaticJobTopologyTest (5), StaticDefinitionDependenciesTest (5); resolver 100% line / 95.83% branch, topology 99.23% / 94.83% | PASS |
+| I2 versioned immutable handoff and I3 compatibility | RequiredPathResolver contract v1 and nested records; FrozenJobRunPathTest, JobRunRepositoryPostgresTest and actual preparation consume it; immutable/scoped record coverage as recorded in the I2 matrix | PASS |
+| I2 inactive planner/scaffolding disposition and unchanged startup/dispatcher | Existing caller inventory, DispatchPlannerTest/BacklogSnapshotServiceTest, two real startup cases, scheduler/outbox/guard/PostgreSQL regressions; no runtime planner caller | PASS |
+| I3.a one typed definition-edge authority with seed parity and strategy isolation | Five typed declaration/parity cases, resolver consumers and startup/reseed; StaticDefinitionDependencies 100% / 100% | PASS |
+| I3.b durable run identity, typed effective scopes, immutable path/predecessors and restart reconstruction | V12, FrozenJobRunPathTest (4), JobRunRepositoryPostgresTest (12), real JPA startup; repository 98.77% / 89.29%, frozen path 96.97% / 100% | PASS |
+| I3 retained definitions, reviewed cron/entry inventory and dependency-first complete preparation | All 32 cron identities retained under the approved I3.d staging boundary; real preparation/order/joins/all-producer tests; no unsupported descendants | PASS; activation/cron reduction belongs after I4 safety |
+| I3.d approved manual withdrawal and forward-only audit removal | HTTP 401/410/no-intent/read regressions; fresh startup and V11→V13→V14 isolated upgrade retain JobRun/execution/outbox while dropping audit; old migrations unchanged | PASS; no retained-environment rollout claim |
+| I3 compatible FIFO/guard/claim/retry/fencing and disabled new route | Scheduler/dependency/dispatcher regressions, populated serialized outbox root/child candidate tests, claim ownership/release tests; outbox service 99.37% / 91.30%, JobService 95.12% / 88.76% | PASS; preparation-enabled=false |
+| I3 transaction/retry/restart/races/rollback/zero-child/failure safety | 29 real PostgreSQL preparation cases, 12 persistence cases, work-context/claim/status tests and V13 SQL case matrix; preparation service 99.35% / 91.67% | PASS |
+
+The detailed separate I2 and I3 feature/source/test matrices, per-class/method
+counters and SQL/UI instrumentation limits remain in the handoff sections below and
+[renewed reconciliation](#i2i3-coverage-and-documentation-reconciliation--2026-10-23).
+Graph impact was refreshed for 12 implemented source surfaces: 90 direct nodes,
+55 impacted, 23 additional files, 283 unresolved call sites and truncation.
+The recorded cross-service matrix, actual source boundaries and executed tests
+resolve this limitation; bounded graph results are not proof of no impact.
+Platform/persistence/configuration and Console are covered explicitly; unchanged
+Analyzer/Ingestor transport, Query Service reads, shared contracts/libraries and
+dataset/storage/READY/lineage contracts retain their no-impact reasons.
+
+This completion follows the existing I3.d decision to retain all cron entries
+until I4, not a newly weakened acceptance requirement. The checklist below makes
+that already-approved staging boundary explicit. Internal MANUAL compatibility
+is not operator triggering; runtime preparation currently supports GLOBAL/VN,
+while persisted typed scopes reserve future supported mappings.
+
+### Remaining work and reasons
+
+| Owner / state | Remaining deliverable | Why it remains |
+| --- | --- | --- |
+| P14-I4 — pending | Bounded PostgreSQL JobRun/step execution snapshots; closed-membership/all-predecessor-SUCCESS barriers and joins; quotas/fairness; scoped candidate reads; admission/claim revalidation; guarded/fenced retry/ack, safe fallback, legacy compatibility and TD-014 safety proof | Current planner/projection is inactive legacy scaffolding. FIFO enqueue and PUBLISHED do not prove worker completion. Targeted SQL/concurrency/restart/scope-isolation evidence is required before activation. |
+| P14-I5 — pending, depends on I4 | Versioned read-only diagnostics and bounded EXPLAIN plans; measured latency/buffers/DB calls/Hikari/throughput with environment/window/baseline; bounded metric dictionary | No final integrated I4 path exists to measure. Necessary I4 safety/query correctness cannot be postponed to I5. |
+| P14-I6 — pending, depends on I5 | Bounded run/path/step progress and UNKNOWN/completeness/read-model contract or fixtures; approved API only when needed; Plan 029 handoff | Requires accepted runtime semantics and measured I5 evidence. Plan 029 owns UI; actual worker processing must not be inferred from preparation-time RUNNING. |
+| I4 activation / entry-target decision | Review terminal entries and standalone needs, prevent conflicting shared upstream work, then consider enabling preparation and reducing cron | With preparation disabled, removing upstream cron can remove the only execution path. I3's inventory does not authorize the owner decision or unsafe activation. |
+| Retained-environment rollout | Stop old readers before V14, preserve any required audit backup, apply migration in the deployment workflow and verify rollback/recovery | Disposable PostgreSQL evidence is not deployment evidence; V14 audit loss cannot be reversed by application rollback alone. No rollout is authorized here. |
+
+I4 readiness was evaluated: I3 is completed, execution is autonomous, no owner
+decision flag is set, and objective acceptance/commands exist. It remains
+`pending` because isolation from other `verification_pending` apps/core ownership
+(P1-I3, P8-I1/I2/I5, P9-I1) is not yet recorded for the concrete I4 implementation
+scope. Reconcile those paths before autonomous selection; this is a scheduling
+boundary, not a missing I2/I3 acceptance gate. I5/I6 remain dependency-incomplete.
+
+Operator triggering/audit (TD-017), general backfill rollout (Plan 028), narrowed
+symbol producer activation and speculative runtime caches remain separately
+gated/deferred. They are not new mandatory P14 increments or grounds to enable
+unsupported behavior. No `owner_verified` attestation, commit, push, deployment
+or whole-P14 completion is recorded.
+
+Documentation review disposition: current registry/roadmap/diagram, Plan 030,
+system overview, execution flow and root release notes are updated. Architecture
+and ADR ownership, Kafka/data-lake/database/deployment, development/service/index
+docs and agent guidance were reviewed; no other update is needed because source,
+schema, wire, defaults, rollout instructions, navigation and policies are unchanged.
+Historical evidence/status paragraphs remain dated history, not current blockers.
 
 ## Historical Source Baseline and Gaps (pre-2026-10-15)
 
@@ -116,8 +195,8 @@ An empty upstream outbox backlog is neither execution-completion nor readiness e
 | Story                                                   | Status                 | Independently deployable output                                                                                                          | Runtime boundary                                                                          |
 | ------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | **P14-I1** — Static topology                            | `completed`            | Existing validated immutable static DAG                                                                                                  | No dispatcher activation                                                                  |
-| **P14-I2** — Static DAG dispatcher contract and handoff | `verification_pending` | Definitive topology-to-dispatch contracts, traversal/ancestor closure, mapping, validation, tests and handoff for I3                     | **No JobRun schema, outbox changes, runtime activation or dashboard SQL requirement**     |
-| **P14-I3** — Unified JobRun + target DAG preparation    | `pending`              | Durable `job_runs` and DAG path/membership; prepare dependencies then target, enqueue messages in stable dependency-first order          | Existing FIFO outbox + existing DependencyRegistry guard/claims/publish behavior retained |
+| **P14-I2** — Static DAG dispatcher contract and handoff | `completed` | Definitive topology-to-dispatch contracts, traversal/ancestor closure, mapping, validation, tests and handoff for I3                     | **No JobRun schema, outbox changes, runtime activation or dashboard SQL requirement**     |
+| **P14-I3** — Unified JobRun + target DAG preparation    | `completed`              | Durable `job_runs` and DAG path/membership; prepare dependencies then target, enqueue messages in stable dependency-first order          | Existing FIFO outbox + existing DependencyRegistry guard/claims/publish behavior retained |
 | **P14-I4** — JobRun-aware outbox planner and admission  | `pending`              | Bounded execution-centered JobRun snapshot; cohort barriers, quota/fairness, scoped candidate reads and atomic admission revalidation    | Planner activated with safe FIFO fallback, preserve fencing/retry and full TD-014 proof   |
 | **P14-I5** — SQL diagnostics and performance evidence   | `pending`              | Versioned SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, measured snapshot/claim/dispatch latency and metrics read-projection dictionary | No dashboard UI or new statistics store                                                   |
 | **P14-I6** — Operations/read-model handoff              | `pending`              | Stable bounded JobRun/topology read contract and documentation/fixtures for Plan 029 graph-specific view                                 | API/read model only if actually required and approved; Plan 029 still owns dashboard UI   |
@@ -126,7 +205,7 @@ Dependencies are **I1 → I2 → I3 → I4 → I5 → I6** for new graph-specifi
 
 ### P14-I2 — Finalize static DAG for dispatch use
 
-Outcome: finish _existing_ P14-I2 (currently `verification_pending`) by narrowing it to a validated, reusable **static topology contract** for consumers including I3 and backfill. Reconcile existing P14-I1 graph source and WIP inactive planner scaffolding. Provide deterministic ancestor closure of a target, topological ordering, multiple roots/joins, stable definition mapping, and diagnostics. Define a versioned internal handoff interface such as `resolveRequiredPath(targetDefinition, scope)` returning **definition/node path only**, not runtime execution or message claims.
+Outcome (completed 2026-10-24): a validated, reusable **static topology contract** for consumers including I3 and future backfill, reconciled with P14-I1 graph source and inactive planner scaffolding. It provides deterministic ancestor closure of a target, topological ordering, multiple roots/joins, stable definition mapping and diagnostics. Version-1 `resolveRequiredPath` returns **definition/node path only**, not runtime execution or message claims.
 
 - No new execution-centered cohort completion logic, `job_runs` persistence, Kafka publication, SQL performance baseline or dashboard metrics under I2. Existing unfinished snapshot/planner classes may remain unused, be adapted atomically, or be marked explicitly as **DEPRECATION CANDIDATE** with caller inventory; never break builds or the current dispatcher.
 - **Acceptance:** graph traversal/ordering tests, definition mapping with duplicate/missing/cycle detection, independent root paths, startup/build/regression verification, and an I3 integration contract; scheduler/outbox behavior unchanged. P14-I1 historical PASS remains valid, I2's earlier backlog-only PASS does not close this revised story.
@@ -1178,6 +1257,98 @@ selects terminal entries and confirms remaining standalone operational needs.
 This inventory authorizes neither activation nor cron reduction; no cron, seed or
 static dependency source was changed.
 
+#### I2/I3 coverage and documentation reconciliation — 2026-10-23
+
+Owner requested full I2/I3 review, then documentation repair and missing coverage.
+The initial review gate `P14-I2-I3-review-20261023` passed seven commands: 341
+Platform tests / 55 suites and 27 Console tests / six files, but did not close
+semantic acceptance. It found unexecuted outbox parent validation, incomplete
+claim/configuration branches and contradictory current manual/ERD guidance.
+The earlier missing-skill finding was withdrawn: a local copy exists under
+Git-ignored `.roo/skills`. This repair adds the portable shared
+[`update-implementation-plans` entrypoint](../../.agents/skills/update-implementation-plans/SKILL.md)
+and updates guidance to reference it; the existing local copy is preserved.
+
+Current repair keeps the I2 resolver contract, V12/V13/V14, all 32 cron identities,
+false preparation flag, FIFO/guard/fencing and TD-017 decision. One production
+fix normalizes null `SYNC_SYMBOLS` config to an empty map before exchange fallback
+and message construction. A new regression reproduced the previous
+`HashMap(null)` failure; no Kafka schema, topic, storage path or producer ownership
+changes. Remaining changes add tests and correct documentation/guidance links.
+
+The new required gate is `P14-I2-I3-coverage-docs-20261023`: focused tests,
+full Platform test, coverage, clean build, changed-file formatting, attributable
+coverage thresholds and static document structure/link inspection. Clean build
+executed **357 tests / 59 suites**, zero failures/errors/skips; the final test and
+coverage targets reused that unchanged executed report. Focused tests executed
+19 cases across five classes, including 16 added cases. All 32 audited critical
+components meet 80% line/branch; branches absent from instrumentation are N/A.
+Reports, source hashes, graph output and the compact conclusion are preserved in
+ignored `.agent/check-results/P14-I2-I3-coverage-docs-20261023/`.
+Compact conclusion: `PASS P14-I2-I3-coverage-docs-20261023 required=7 pass=7 fail=0 unknown=0 missing=0`.
+Static document review is consistent for the repaired surfaces; 28 added local
+links/anchors, three plan section sets and 61 registry IDs were inspected, with
+selected dependency/status checks. This is not a repository-wide link audit.
+Graph detection reports three structural test-gap hints for SyncSymbols; actual
+executed JUnit/JaCoCo resolves them with 100% line/branch producer coverage.
+No new Console source changed; the preceding 27-test/typecheck/lint/build pass is
+compatibility evidence for unchanged Console, not a new UI execution in this gate.
+
+Impact reconciliation starts with graph analysis of outbox service, JobService,
+SyncSymbols producer and catalog: 72 direct nodes, 47 impacted, 19 additional files,
+313 unresolved call sites and truncated edges. This is not cross-language proof.
+
+| Surface                    | Repair impact or concrete no-impact reason                                                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                   | Null-config producer fix; tests for real serialized root/child candidate identity, malformed/missing/foreign IDs, legacy fallbacks, claim ownership/release, manual compatibility and sanitized catalog reads.                              |
+| Analyzer / Ingestor        | Existing JSON message fields and topics retained; SYNC_SYMBOLS with null config now produces the same default exchange work as empty config. No worker code, provider policy or transport migration.                                        |
+| Query Service / Console    | No source/API/discovery change; documentation describes the existing read-only UI and authenticated 410 tombstones. No rerun of unchanged Python/UI suites is claimed.                                                                      |
+| Shared contracts/libraries | No protobuf/generated code, py-common, topic or path configuration change; tests use the real existing Platform serializer.                                                                                                                 |
+| Persistence                | No migration/schema change. Existing real PostgreSQL preparation test now reloads serialized candidates and checks persisted execution/parent/run ownership. Full startup/upgrade/closure/rollback/concurrency regressions remain required. |
+| Configuration / storage    | Null config is normalized locally without mutating job config. Flag remains false; no manifest, READY-last, lineage, dataset or object-path change.                                                                                         |
+| Tests / operations         | Focused and full Platform gates with method-level JaCoCo counters; no activation, cron reduction, retained-database migration, provider call or deployment.                                                                                 |
+
+I2 coverage matrix: the renewed full gate executed the resolver/topology/identity/
+immutable-contract, typed-declaration parity, inactive-scaffolding and unchanged
+startup/FIFO rows above. Fresh resolver coverage is 100% / 95.83%, topology
+99.23% / 94.83%, typed declaration 100% / 100%, identity 93.33% / 83.33%,
+provider 100% line with no branches, and node key 100% / 100%. Nested handoff
+records remain fully covered. No runtime planner caller was added.
+The following I3 matrix supplements the persistence/preparation/SQL matrices above:
+
+| Criterion / critical source                                                                                    | New or extended executed-test mapping                                                                                                                                                                                                                                                                                                               | Fresh coverage                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| SchedulerOutboxService.enqueueRunStep -> serialization -> findCandidates/toCandidate/verifyPayloadParent       | SchedulerOutboxCandidateTest realSerializedPreparedRootAndChildRoundTripThroughCandidateLoading; rejectsUnexpectedMissingAndForeignParentIdentity; rejectsMalformedJsonExecutionIdentityAndMissingExecution; legacyPayloadFallbackUsesPersistedIdentityAndRejectsAbsentWorkIdentity; legacyEnqueueRejectsMissingOrForeignChildrenBeforeSavingIntent | Class 99.37% line / 91.30% branch; toCandidate 100% / 100%, verifyPayloadParent 100% / 87.50%, enqueueRunStep 100% / 92.50% |
+| Real PostgreSQL frozen execution/run/parent ownership after candidate reload                                   | JobRunPreparationPostgresTest.preparesDependenciesBeforeTargetWithFrozenExecutionAndMessageMembership, extended to call real candidate loader                                                                                                                                                                                                       | PASS: all 29 preparation cases and two startup cases; executed SQL matrix, no numeric SQL claim                             |
+| JobService.verifyClaimOwnership/releaseClaim/completeRunPreparation and retained internal manual compatibility | JobServiceClaimTest foreignDefinitionTokenAndOwnerFailBeforePreparationOrLeaseRelease; scheduledPreparationAdvancesCadenceAndReleasesOnlyMatchingClaim; internalManualPreparationPreservesCadenceAndApprovedLogicalInputs; lostLeaseReleaseFailsInsteadOfReportingPreparationSuccess                                                                | All named helpers 100% line/branch; whole service 95.12% / 88.76%                                                           |
+| JobService legacy status counters, child work identity and terminal-state compatibility                        | JobServiceStatusCompatibilityTest legacyStatusCountersAcceptNumericTextNullAndInsertedFallbackWithExplicitCountPrecedence; invalidCounterTypesAreRejectedBeforeLoadingOrMutatingExecutions; missingOrForeignStatusWorkIdentityCannotUpdatePreparedWork; directFailureAndSuccessTransitionsDoNotReopenTerminalWork                                   | Whole service 95.12% line / 88.76% branch; all four new compatibility cases executed                                        |
+| SyncSymbolsJobProducer null/missing/malformed/default/empty/explicit config and unchanged input                | SyncSymbolsJobProducerTest nullMissingAndMalformedExchangeConfigurationRetainsDefaultWork; emptyExchangeListCreatesNoWorkAndExplicitEntriesAreNormalizedWithoutMutation                                                                                                                                                                             | 100% line / 100% branch including null-config normalization and extractExchanges                                            |
+| JobOperationsCatalogService legacy/null dependency shapes, deduplication and bounded sanitized output          | JobOperationsCatalogServiceTest.catalogHandlesLegacyDependencyShapesWithoutExposingConfiguration plus existing read/410/auth tests                                                                                                                                                                                                                  | 100% line / 100% branch                                                                                                     |
+
+Documentation disposition: current flow removes manual acceptance/allow-list and
+assigns scoped admission to I4; database ERD reflects post-V14 schema; architecture,
+ownership, Platform guide, ADR 007, roadmap/registry/release notes and agent skill
+links are reconciled. Historical checkpoint counts/matrices remain historical.
+AGENTS and skill/rule references link the tracked `.agents/skills` entrypoint;
+the deferred-manual rule points to TD-017. Plan 023 labels the older story mapping
+historical, Plan 029 reflects the registry's P14-I4/P7-I3 prerequisite and I5/I6
+graph handoff, and the field/DTO reference and TD-014 identify I4 as final safety
+owner. No new architecture authority or dependency decision is added.
+
+Reviewed no-update areas: Kafka/data-lake contracts (same wire/path/READY/lineage),
+deployment (existing V14 stop-old-readers/backup/rollback guidance still applies),
+Console guide (already read-only), docs README/INDEX (same canonical files/IDs),
+CLAUDE (defers to AGENTS), Plan 028 and TD-012/TD-017 (ownership,
+deferrals and boundaries unchanged). `roadmap/execution-log.md` is absent; root
+ReleaseNotes remains the historical execution log. Static consistency review checks
+the updated scope/status/contract/evidence claims, mandatory sections and added
+local links/anchors; final graph detection records changed source/tests/docs without
+treating graph reachability as executed coverage. No open finding remains in this
+bounded documentation repair; this does not declare whole-increment completion.
+
+I2 stays `verification_pending`, I3 stays `pending`; I4–I6 are not promoted.
+This repair does not attest the owner, waive acceptance criteria or activate runtime.
+
 #### I3.b persistence foundation — 2026-10-18
 
 The owner explicitly requested this bounded checkpoint on the existing branch.
@@ -1409,9 +1580,9 @@ Kafka/protobuf, dataset manifests, storage object paths and Python worker transp
 | Analyzer                   | No runtime change: planner selection is Platform-local and worker payloads remain unchanged. Transport remains unchanged in the approved scope; any unavoidable I3 change requires the separately approved compatibility slice described in Contract Impact.                                                                                                                                                             |
 | Ingestor                   | No runtime change for the same reason; provider behavior and ingestion concurrency remain deferred.                                                                                                                                                                                                                                                                                                                      |
 | Query Service              | No runtime change. It does not own scheduler topology or dispatch planning.                                                                                                                                                                                                                                                                                                                                              |
-| Omni Console               | No I2 runtime scope. Plan 029 graph-specific JobRun views consume I5 evidence and I6 handoff; basic operations remain independently scoped.                                                                                                                                                                                                                                                                              |
+| Omni Console               | No I2 runtime scope. I3.d withdraws operator triggers/polling and metadata-sync actions while retaining catalog/history/browsing; its UI tests are recorded above. Plan 029 graph-specific JobRun views consume I5 evidence and I6 handoff.                                                                                                                                                                              |
 | Shared contracts/libraries | No protobuf, Kafka, or shared Python change. Hand-written Java abstractions remain in Platform because current ownership is scheduler-local.                                                                                                                                                                                                                                                                             |
-| Persistence                | Execution histories, parent aggregation, metadata identity and outbox eligibility are jointly impacted. Review bounded joins/indexes, late-child closure and retry correlation; no graph/count persistence or outbox status is approved. Missing identity/closure evidence requires an explicit contract/migration decision before implementation.                                                                       |
+| Persistence                | I3 persists frozen JobRun instances (V12), closed execution/message counts and progress guards (V13), then removes deferred manual audit (V14). These rows are instance evidence, not a mutable topology. I4 consumes them for scoped snapshots/admission. No new outbox processing-success status is approved.                                                                                                          |
 | Configuration              | No I2 configuration change. I3 owns safe target-route gating; I4 owns bounded planner/admission settings. No provider credentials, regions, topics, or storage paths change.                                                                                                                                                                                                                                             |
 | Tests                      | Platform unit and PostgreSQL integration tests are directly impacted; producer/worker contract tests are no-impact while payloads remain unchanged.                                                                                                                                                                                                                                                                      |
 | Operations                 | Add bounded planner diagnostics, fallback visibility, and query-cost evidence; no deployment topology, capacity, or provider-policy change.                                                                                                                                                                                                                                                                              |
@@ -1534,18 +1705,18 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I2 — static topology handoff
 
-- [ ] Reuse the P14-I1 validated graph to resolve target ancestors, stable job definition mapping and dependency-first topological order; multiple roots/joins, cycles, missing/duplicate definitions, deterministic output and bounded traversal covered by tests.
-- [ ] Produce an approved internal graph-to-dispatch handoff **without** adding JobRun schema/runtime outbox integration/metrics UI; version the contract and validate I3 compatibility.
-- [ ] Inactive earlier snapshot/planner scaffolding is reconciled or documented as candidate for deprecation/removal with caller inventory; legacy scheduler/dispatcher builds and tests pass unchanged.
+- [x] Reuse the P14-I1 validated graph to resolve target ancestors, stable job definition mapping and dependency-first topological order; multiple roots/joins, cycles, missing/duplicate definitions, deterministic output and bounded traversal covered by tests.
+- [x] Produce an approved internal graph-to-dispatch handoff **without** adding JobRun schema/runtime outbox integration/metrics UI; version the contract and validate I3 compatibility.
+- [x] Inactive earlier snapshot/planner scaffolding is reconciled or documented as candidate for deprecation/removal with caller inventory; legacy scheduler/dispatcher builds and tests pass unchanged.
 
 ### P14-I3 — unified JobRun, DAG path and durable preparation
 
-- [ ] I3.a extracts job-to-job edges from `configJson.dependsOnJobs` to the single typed, source-controlled static definition-level declaration; all current edges/definitions/strategies match, provider/resolver and callers are migrated compatibly, startup/outbox/guard regression passes and no SQL dependency graph is introduced.
-- [ ] `job_runs.id` is `jobRunId`, with durable target/mode/typed scope/date/path and immutable **scoped** run-step membership. Every step can be mapped to required predecessors, execution/outbox evidence and run identity after restart. No timestamp-based cross-step correlation.
-- [ ] All executable ancestor job definitions remain available as dependency-only definitions; only independently scheduled **entry targets** are reduced after reviewing cron and manual use. DAG path resolves and enqueues dependencies before target without producing unsupported extra descendants.
-- [ ] Manual trigger cutover preserves committed-run idempotency/permissions; operator triggering and rejected-request audit are owner-deferred under TD-017 for this phase; preserve read APIs and return explicit authenticated HTTP 410 on old trigger/audit routes; obsolete `manual_job_triggers` table is dropped via **new forward-only migration after code cutover** (no data migration); prior Flyway migration files are untouched. No broken startup state during rollout.
-- [ ] Existing outbox FIFO/guard/claim/retry/fencing/publish behavior remains compatible; **enqueue order is not completion safety**. Any newly introduced target-run route is gated off unless existing guard or a proven safe admission check prevents downstream execution before upstream SUCCESS/closed membership.
-- [ ] Transaction, partial preparation, crash/replay, concurrent run, duplicate creation, zero-child, missing/failed work, and safe rollback tests pass with scheduled behavior preserved and manual API withdrawal explicitly verified under TD-017.
+- [x] I3.a extracts job-to-job edges from `configJson.dependsOnJobs` to the single typed, source-controlled static definition-level declaration; all current edges/definitions/strategies match, provider/resolver and callers are migrated compatibly, startup/outbox/guard regression passes and no SQL dependency graph is introduced.
+- [x] `job_runs.id` is `jobRunId`, with durable target/mode/typed scope/date/path and immutable **scoped** run-step membership. Every step can be mapped to required predecessors, execution/outbox evidence and run identity after restart. No timestamp-based cross-step correlation.
+- [x] All executable ancestor job definitions remain available. Cron/entry-target inventory is reviewed; under the approved I3.d staging boundary all 32 schedules remain until I4 proves safe admission and the owner selects terminal/standalone targets. DAG path resolves and enqueues dependencies before target without producing unsupported extra descendants.
+- [x] Manual trigger cutover preserves committed-run idempotency/permissions; operator triggering and rejected-request audit are owner-deferred under TD-017 for this phase; preserve read APIs and return explicit authenticated HTTP 410 on old trigger/audit routes; obsolete `manual_job_triggers` table is dropped via **new forward-only migration after code cutover** (no data migration); prior Flyway migration files are untouched. No broken startup state during rollout.
+- [x] Existing outbox FIFO/guard/claim/retry/fencing/publish behavior remains compatible; **enqueue order is not completion safety**. Any newly introduced target-run route is gated off unless existing guard or a proven safe admission check prevents downstream execution before upstream SUCCESS/closed membership.
+- [x] Transaction, partial preparation, crash/replay, concurrent run, duplicate creation, zero-child, missing/failed work, and safe rollback tests pass with scheduled behavior preserved and manual API withdrawal explicitly verified under TD-017.
 
 ### P14-I4 — JobRun-aware planning and guarded outbox integration
 

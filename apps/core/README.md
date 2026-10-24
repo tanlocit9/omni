@@ -12,8 +12,9 @@ Static topology declaration is Platform-local: `StaticJobTopologyProvider` expos
 
 I3.b source adds an inactive JobRun persistence boundary and forward-only V12
 migration for frozen scoped paths and nullable execution links. Apply V12 before
-the updated entity mapping starts. Scheduler/manual entry points still use their
-existing paths; no execution/outbox intent is created by snapshot persistence.
+the updated entity mapping starts. Snapshot persistence alone creates no
+execution/outbox intent. Scheduled work keeps its existing path while preparation
+is disabled; operator manual routes are withdrawn under I3.d below.
 See [I3.b scope and evidence](../../docs/plans/030-static-graph-dispatch-planner.md#i3b-persistence-foundation--2026-10-18).
 
 I3.c adds bounded target-path preparation and V13 closed execution/message

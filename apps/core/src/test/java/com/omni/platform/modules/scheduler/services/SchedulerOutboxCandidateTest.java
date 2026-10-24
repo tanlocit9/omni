@@ -1,0 +1,213 @@
+package com.omni.platform.modules.scheduler.services;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage;
+import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
+import com.omni.platform.modules.scheduler.messaging.SyncMetadataJobMessage;
+import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
+import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxRepository;
+import com.omni.platform.shared.executions.WorkType;
+import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+
+import tools.jackson.databind.json.JsonMapper;
+
+class SchedulerOutboxCandidateTest {
+    private static final Instant NOW = Instant.parse("2035-01-02T12:00:00Z");
+    private final SchedulerOutboxRepository repository = mock(SchedulerOutboxRepository.class);
+    private final JobExecutionHistoryRepository histories =
+            mock(JobExecutionHistoryRepository.class);
+    private final JsonMapper json = JsonMapper.builder().build();
+    private final SchedulerOutboxService service =
+            new SchedulerOutboxService(repository, histories, new KafkaPublisher(null, json), json);
+
+    @Test
+    void realSerializedPreparedRootAndChildRoundTripThroughCandidateLoading() {
+        for (boolean fanout : List.of(false, true)) {
+            var parent = execution(null);
+            var work = fanout ? execution(parent.getId()) : parent;
+            work.setJob(parent.getJob());
+            work.setJobRunId(parent.getJobRunId());
+            work.setJobRunStepIndex(parent.getJobRunStepIndex());
+            var payload =
+                    new SyncMetadataJobMessage(
+                            parent.getJob().getId(),
+                            work.getId(),
+                            work.getParentLogId(),
+                            "VCI",
+                            WorkType.GLOBAL,
+                            "SYNC_METADATA",
+                            null,
+                            Map.of());
+            List<SchedulerOutboxMessage> saved = new ArrayList<>();
+            doAnswer(
+                            invocation -> {
+                                Iterable<SchedulerOutboxMessage> rows = invocation.getArgument(0);
+                                rows.forEach(saved::add);
+                                return saved;
+                            })
+                    .when(repository)
+                    .saveAll(any());
+            service.enqueueRunStep(
+                    parent,
+                    "jobs",
+                    List.of(new KafkaMessage("metadata", payload)),
+                    NOW,
+                    fanout ? List.of(work) : List.of());
+            var row = saved.getFirst();
+            stubCandidate(row, work);
+
+            var candidate = service.findCandidates(NOW, 10).getFirst();
+
+            assertThat(json.readTree(row.getPayload()).get("executionId").asText())
+                    .isEqualTo(work.getId().toString());
+            assertThat(candidate.executionId()).isEqualTo(work.getId());
+            assertThat(candidate.parentExecutionId()).isEqualTo(work.getParentLogId());
+            assertThat(candidate.workType()).isEqualTo("GLOBAL");
+            assertThat(candidate.workKey()).isEqualTo("SYNC_METADATA");
+            assertThat(candidate.jobDefinition()).isSameAs(parent.getJob());
+            assertThat(candidate.availableAt()).isEqualTo(NOW);
+        }
+    }
+
+    @Test
+    void rejectsUnexpectedMissingAndForeignParentIdentity() {
+        for (boolean child : List.of(false, true)) {
+            var work = execution(child ? UUID.randomUUID() : null);
+            for (String parent : List.of("", UUID.randomUUID().toString())) {
+                if (!child && parent.isEmpty()) continue;
+                var payload = new HashMap<String, Object>();
+                payload.put("executionId", work.getId().toString());
+                if (!parent.isEmpty()) payload.put("parentExecutionId", parent);
+                var row = row(work, payload);
+                stubCandidate(row, work);
+                assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining(child ? "parentExecutionId mismatch" : "Unexpected");
+            }
+        }
+    }
+
+    @Test
+    void rejectsMalformedJsonExecutionIdentityAndMissingExecution() {
+        var work = execution(null);
+        var row = row(work, Map.of());
+        stubCandidate(row, work);
+        row.setPayload("{");
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("Invalid scheduler outbox payload");
+        row.setPayload("{\"executionId\":\"not-a-uuid\"}");
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("Invalid scheduler outbox executionId");
+        row.setPayload(json.writeValueAsString(Map.of("executionId", work.getId().toString())));
+        when(histories.findByIdWithJob(work.getId())).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("payload execution not found");
+    }
+
+    @Test
+    void legacyPayloadFallbackUsesPersistedIdentityAndRejectsAbsentWorkIdentity() {
+        var work = execution(null);
+        var row = row(work, Map.of("executionId", " ", "workType", " "));
+        stubCandidate(row, work);
+        var candidate = service.findCandidates(NOW, 10).getFirst();
+        assertThat(candidate.executionId()).isEqualTo(work.getId());
+        assertThat(candidate.runKey()).isEqualTo(NOW.toString());
+        assertThat(candidate.workType()).isEqualTo("GLOBAL");
+        work.setMetaJson(null);
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("Missing scheduler outbox work identity");
+        work.setMetaJson(Map.of("workType", "GLOBAL", "workKey", " "));
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("Missing scheduler outbox work identity");
+        row.setPayload(
+                "{\"workType\":\"GLOBAL\",\"workKey\":\"SYNC_METADATA\",\"executionId\":null}");
+        assertThat(service.findCandidates(NOW, 10)).hasSize(1);
+        when(repository.findById(row.getId())).thenReturn(Optional.empty());
+        assertThat(service.findCandidates(NOW, 10)).isEmpty();
+    }
+
+    @Test
+    void legacyEnqueueRejectsMissingOrForeignChildrenBeforeSavingIntent() {
+        var parent = execution(null);
+        var child = execution(parent.getId());
+        var payload =
+                new SyncMetadataJobMessage(
+                        parent.getJob().getId(),
+                        child.getId(),
+                        parent.getId(),
+                        "VCI",
+                        WorkType.GLOBAL,
+                        "SYNC_METADATA",
+                        null,
+                        Map.of());
+        when(histories.findById(child.getId())).thenReturn(Optional.empty());
+        assertThatThrownBy(
+                        () ->
+                                service.enqueue(
+                                        parent,
+                                        "jobs",
+                                        List.of(new KafkaMessage("metadata", payload)),
+                                        NOW))
+                .hasMessageContaining("child execution not found");
+        child.setParentLogId(UUID.randomUUID());
+        when(histories.findById(child.getId())).thenReturn(Optional.of(child));
+        assertThatThrownBy(
+                        () ->
+                                service.enqueue(
+                                        parent,
+                                        "jobs",
+                                        List.of(new KafkaMessage("metadata", payload)),
+                                        NOW))
+                .hasMessageContaining("belongs to another parent");
+        verify(repository, org.mockito.Mockito.never()).save(any());
+    }
+
+    private void stubCandidate(SchedulerOutboxMessage row, JobExecutionHistory work) {
+        row.setId(UUID.randomUUID());
+        when(repository.findPendingCandidateIds(NOW, 10)).thenReturn(List.of(row.getId()));
+        when(repository.findById(row.getId())).thenReturn(Optional.of(row));
+        when(histories.findByIdWithJob(work.getId())).thenReturn(Optional.of(work));
+    }
+
+    private SchedulerOutboxMessage row(JobExecutionHistory work, Map<String, ?> payload) {
+        var row = new SchedulerOutboxMessage();
+        row.setExecution(work);
+        row.setAvailableAt(NOW);
+        row.setPayload(json.writeValueAsString(payload));
+        return row;
+    }
+
+    private static JobExecutionHistory execution(UUID parentId) {
+        var job = new JobDefinition();
+        job.setId(UUID.randomUUID());
+        var work = new JobExecutionHistory();
+        work.setId(UUID.randomUUID());
+        work.setJob(job);
+        work.setJobRunId(UUID.randomUUID());
+        work.setJobRunStepIndex(0);
+        work.setUsedSource(JobDefinition.DataSource.VCI);
+        work.setParentLogId(parentId);
+        work.setTriggeredAt(NOW);
+        work.setMetaJson(Map.of("workType", "GLOBAL", "workKey", "SYNC_METADATA"));
+        return work;
+    }
+}

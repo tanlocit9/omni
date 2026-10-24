@@ -22,7 +22,7 @@ Phase 4 extends this boundary because checking dataset dependencies before execu
 - Kafka delivery is at-least-once through a transactional outbox, using stable execution/message identities for idempotency.
 - Current Phase 0 due semantics remain unchanged: active jobs with `nextRun <= now` or `nextRun = NULL` are candidates.
 - For a claim candidate whose `nextRun` is `NULL`, `scheduledFor` is set to the claim acquisition timestamp. Stable execution/message identity preserves that run identity through dispatch and retry.
-- Scheduled and accepted manual work commit an execution and PENDING scheduler-outbox row before dependency evaluation.
+- Scheduled work and retained internal MANUAL preparation commit execution and PENDING scheduler-outbox intent before dependency evaluation. Operator-triggered jobs are deferred under TD-017; the retired API routes return HTTP 410 rather than accepting manual work.
 - Dependency evaluation remains Platform-local and occurs before the outbox row is claimed for Kafka publication.
 - The dispatcher evaluates unclaimed candidates and returns one of three decisions:
   - `READY`: atomically claim with a fresh lease/fencing token, increment the delivery attempt, and publish;

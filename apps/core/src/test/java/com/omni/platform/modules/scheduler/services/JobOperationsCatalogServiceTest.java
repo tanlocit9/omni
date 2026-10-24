@@ -123,6 +123,40 @@ class JobOperationsCatalogServiceTest {
                 .isInstanceOf(JobOperationException.class);
     }
 
+    @Test
+    void catalogHandlesLegacyDependencyShapesWithoutExposingConfiguration() {
+        var definition = job(JobType.SYNC_METADATA, DataSource.ANALYZER, true);
+        when(definitions.findById(definition.getId())).thenReturn(Optional.of(definition));
+        when(executions.findTop20ByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(
+                        definition.getId()))
+                .thenReturn(List.of());
+        definition.setConfigJson(null);
+        assertThat(service.detail(definition.getId()).dependencies().jobs()).isEmpty();
+        var mixed = new java.util.ArrayList<Object>();
+        mixed.add(Map.of("dataset", "eod"));
+        mixed.add(Map.of("ignored", "private-value"));
+        mixed.add("indicators");
+        mixed.add(" ");
+        mixed.add(42);
+        mixed.add(null);
+        mixed.add(Map.of("dataset", "eod"));
+        definition.setConfigJson(
+                Map.of(
+                        "dependsOnJobs",
+                        List.of(" SYNC_SYMBOLS ", " "),
+                        "dependsOnDatasets",
+                        mixed,
+                        "producesDatasets",
+                        "not-a-list"));
+        var detail = service.detail(definition.getId());
+        assertThat(detail.dependencies().jobs()).containsExactly("SYNC_SYMBOLS");
+        assertThat(detail.dependencies().datasets()).containsExactly("eod", "indicators");
+        assertThat(detail.dependencies().produces()).isEmpty();
+        assertThat(detail.toString()).doesNotContain("private-value");
+        assertThat(JobOperationsCatalogService.sanitize(null)).isNull();
+        assertThat(JobOperationsCatalogService.sanitize("x".repeat(600))).hasSize(500);
+    }
+
     private static JobDefinition job(JobType type, DataSource source, boolean active) {
         JobDefinition value = new JobDefinition();
         value.setId(UUID.randomUUID());

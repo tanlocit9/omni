@@ -17,7 +17,7 @@ Make Omni Console open with truthful answers to three operator questions, in thi
 2. Is EOD data sufficient and trustworthy for the expected trading dates?
 3. What small, fixed market review can be shown from existing trusted datasets?
 
-Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations, Data Health, and the fixed shell remain independently deliverable from [Plan 030](030-static-graph-dispatch-planner.md); only a JobRun-specific graph view waits for P14-I5/I6.
+Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations and the fixed shell follow P14-I4/P13-I1 and do not wait for P14-I5/I6; a JobRun-specific graph view consumes I5/I6. Data Health retains its separate P3-I4/P7-I2 dependencies. The [increment registry](roadmap/implementation-increments.md) owns this scheduling boundary.
 
 ## Outcome
 
@@ -35,12 +35,12 @@ After Phase 13 is implemented and verified:
 
 ## Verified Baseline and Conflicts
 
-| Area                | Existing source capability                                                                                                                                                              | Missing capability                                                                                                                                                                          | Conflict resolved by this plan                                                                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Job operations      | Platform exposes a job catalog, safe manual trigger, execution status, and recent parent history. Console has a Jobs panel. Scheduler outbox persists dependency and publication state. | Authoritative stage timestamps, stage counts, queue/processing/end-to-end/status lag, daily throughput, stall heuristics, and publish-drain estimates.                                      | Child executions are currently marked `RUNNING` and receive `startedAt` during dispatch preparation. That state cannot truthfully mean active worker processing. |
-| EOD inspection      | Query Service resolves logical READY identities and runs bounded DuckDB queries over Parquet. Existing dashboard endpoints expose selected EOD aggregates and manifest provenance.      | Manual row-level checks for expected dates, duplicates/conflicts, fields, OHLCV validity, corruption, and schema mismatch, with exact result provenance retained in a bounded memory cache. | Manifest readiness/freshness is not proof that every expected symbol/date row is present and valid.                                                              |
-| Console composition | A compile-time widget registry and fixed EOD/signal widgets exist. Market Dashboard is currently the default section.                                                                   | Operator-first composition and shared filters across operations, health, and a small market review.                                                                                         | The owner-approved product order supersedes the prior market-first default while retaining reusable widget/query source.                                         |
-| Capacity planning   | Phase 12 requires measurement before concurrency and batching.                                                                                                                          | A truthful operator-visible baseline whose stages and rates are comparable.                                                                                                                 | P12-I1 must depend on P13-I1 so concurrency, bulk-status, and writer decisions do not rely on ambiguous `RUNNING` rows.                                          |
+| Area                | Existing source capability                                                                                                                                                                                              | Missing capability                                                                                                                                                                          | Conflict resolved by this plan                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job operations      | Platform exposes read-only job catalog, execution status and recent parent history; operator triggering is deferred under TD-017. Console has a Jobs panel. Scheduler outbox persists dependency and publication state. | Authoritative stage timestamps, stage counts, queue/processing/end-to-end/status lag, daily throughput, stall heuristics, and publish-drain estimates.                                      | Child executions are currently marked `RUNNING` and receive `startedAt` during dispatch preparation. That state cannot truthfully mean active worker processing. |
+| EOD inspection      | Query Service resolves logical READY identities and runs bounded DuckDB queries over Parquet. Existing dashboard endpoints expose selected EOD aggregates and manifest provenance.                                      | Manual row-level checks for expected dates, duplicates/conflicts, fields, OHLCV validity, corruption, and schema mismatch, with exact result provenance retained in a bounded memory cache. | Manifest readiness/freshness is not proof that every expected symbol/date row is present and valid.                                                              |
+| Console composition | A compile-time widget registry and fixed EOD/signal widgets exist. Market Dashboard is currently the default section.                                                                                                   | Operator-first composition and shared filters across operations, health, and a small market review.                                                                                         | The owner-approved product order supersedes the prior market-first default while retaining reusable widget/query source.                                         |
+| Capacity planning   | Phase 12 requires measurement before concurrency and batching.                                                                                                                                                          | A truthful operator-visible baseline whose stages and rates are comparable.                                                                                                                 | P12-I1 must depend on P13-I1 so concurrency, bulk-status, and writer decisions do not rely on ambiguous `RUNNING` rows.                                          |
 
 Source presence is baseline evidence only. It does not make a Phase 13 increment implemented, verified, or completed.
 
@@ -324,7 +324,8 @@ Canonical statuses and dependencies remain in the increment registry.
 
 ### P13-I1 — Truthful execution stage model and baseline instrumentation
 
-**Dependencies:** P4-I3, P7-I3.  
+**Dependencies:** P14-I4, P7-I3.
+
 **Blocks:** P13-I2 and P12-I1.
 
 Outcome:
@@ -341,7 +342,7 @@ P13-I1 does not implement worker concurrency, bulk Platform status application, 
 
 ### P13-I2 — Job Operations dashboard and stall heuristics
 
-**Dependencies:** P13-I1. Basic operations do not depend on Plan 030; a graph-specific presentation task depends on completed P14-I2.
+**Dependencies:** P13-I1, which depends on P14-I4/P7-I3. Basic operations do not wait for I5/I6; graph-specific JobRun presentation consumes the I5/I6 handoff.
 **Blocks:** P13-I4.
 
 Outcome:
@@ -351,7 +352,7 @@ Outcome:
 - show scheduler-outbox publishable, dependency-waiting, claimed, and retryable backlog separately;
 - calculate guarded publish-drain duration/timestamp for only the eligible snapshot;
 - classify idle, progressing backlog, suspected stall, and unknown without automatic remediation;
-- keep graph grouping/tracing as a separable presentation task after P14-I2, without delaying the basic API/dashboard or requiring P14-I4.
+- keep graph-specific JobRun grouping/tracing as a separable presentation task consuming P14-I5/I6, without delaying basic operations after the P14-I4/P13-I1 prerequisites.
 
 ### P13-I3 — Manual EOD Parquet Data Health scan
 
@@ -386,12 +387,12 @@ Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introd
 
 ## Relationship to Plan 030
 
-- P13-I1 truthful stage evidence and baseline instrumentation do not depend on P14.
+- P13-I1 truthful stage evidence and baseline instrumentation depend on completed P14-I4 and P7-I3, as recorded in the canonical registry.
 - P13-I2 basic counts, rates, durations, publishable backlog, ETA, and warning states depend only on P13-I1 and existing scheduler-outbox evidence.
 - A JobRun-specific P13-I2 presentation slice consumes P14-I5/I6's accepted snapshot/metric semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
 - P13-I3 Data Health is independent of P14.
-- P13-I4 shell/navigation is independent of P14 and renders graph views as unavailable until their dependency is complete.
-- No Plan 029 story requires P14-I4 unless a later approved scope explicitly needs planner-runtime outcomes rather than topology/snapshot presentation.
+- P13-I4 shell/navigation follows P13-I2 and therefore inherits the P13-I1/P14-I4 prerequisite; it renders graph views as unavailable until I5/I6 handoff is complete.
+- Basic Job Operations does not wait for I5/I6. This does not waive its existing P14-I4 prerequisite. P13-I3 Data Health retains its separate P3-I4/P7-I2 dependencies.
 
 ## Technical Debt Kept Separate
 
@@ -464,7 +465,7 @@ Before implementation, inspect exact project targets and obtain approval for a c
 - [ ] Rate zero, sparse evidence, stale progress, and changing snapshots produce typed honest states rather than division-by-zero or fabricated ETA.
 - [ ] Every estimate exposes snapshot time, rate window, sample count, rate, estimated duration/time, and non-SLA wording.
 - [ ] Idle/stall classification is configurable, evidence-based, cardinality-safe, and warning-only.
-- [ ] Basic Job Operations ships without waiting for Plan 030; any graph-specific grouping/tracing uses the accepted P14-I2 projection and remains unavailable beforehand rather than inferred in Console.
+- [ ] Basic Job Operations ships after P14-I4/P13-I1 without waiting for I5/I6; graph-specific JobRun grouping/tracing consumes the accepted I5/I6 read-model handoff and remains unavailable beforehand rather than inferred in Console.
 
 ### P13-I3
 
@@ -532,7 +533,7 @@ The detailed [Phase 13 register and small delivery slices](../reference/002-plan
 | DataHealthScanRequest/Result               | Scope/checks/bounds/refresh; exact provenance/findings/state/completeness; scannedAt/expiresAt/cache hit/miss      | MEDIUM candidate API; memory only, authorize every request; no new Data Health table or repair action.                                                                      |
 | Dashboard shell                            | Existing read DTOs plus unavailable/UNKNOWN/stale presentation                                                     | LOW presentation change; preserve scanner owner gate.                                                                                                                       |
 
-Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract → .d optional graph presentation after P14-I2; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
+Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract → .d optional graph presentation after P14-I5/I6; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
 
 These task suffixes are review units under existing IDs, not new scheduled increments. Keep canonical dependencies and all original acceptance criteria. A shared producer/consumer compatibility slice is coherent; it must not be split into unsafe independent deployments.
 

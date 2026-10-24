@@ -10,7 +10,7 @@ flowchart TD
     P1 --> P2["P2 Contracts — foundation complete"]
     P1 --> P3["P3 Data contracts — date normalization complete"]
     P3 --> P4["P4 Dependency guard — foundation complete; P4-I3 superseded"]
-    P4 --> P14["P14 Static Graph and DispatchPlanner — P14-I1 complete; P14-I2 verification pending; P14-I3 pending"]
+    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I3 complete; I4–I6 pending"]
     P4 --> P5["P5 Deployment — superseded/deferred"]
     P5 --> P6["P6 Console expansion — superseded/deferred"]
     P4 --> P7["P7 Job operations ✅"]
@@ -38,7 +38,7 @@ flowchart TD
 
 ## Reading the Diagram
 
-- P14 is the active [Static Graph & DispatchPlanner epic](../030-static-graph-dispatch-planner.md); P14-I1 is completed; P14-I2 static handoff passed renewed local test/coverage/build on 2026-10-16, with documentation reconciled 2026-10-17; I2 remains verification_pending and I3–I6 pending. No runtime planner is activated.
+- P14 is the active [Static Graph & DispatchPlanner epic](../030-static-graph-dispatch-planner.md); I1–I3 are completed after [the 2026-10-24 acceptance reconciliation](../030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24). I4–I6 remain pending. Preparation remains false and all 32 cron identities remain; no runtime planner is activated.
 - The P14 → P13 edge applies only to graph-specific JobRun presentation using I5 evidence and I6 handoff; basic P13 operations remain independently deliverable.
 - P10, P11, and P12 retain historical status/evidence but remain owner-gated deferred work.
 - Diagram edges summarize planning relationships and never replace exact `depends_on` metadata in the increment registry.

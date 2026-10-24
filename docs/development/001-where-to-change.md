@@ -232,6 +232,17 @@ nx run py-common:lint
 nx run platform:build
 ```
 
+## JobRun-aware admission — I4
+
+I4.b scoped run discovery, candidate reads and locked admission live in
+`planning/JobRunDispatchStore`; snapshot records/reader and pure planner remain
+in the same package. `SchedulerOutboxService` batch-loads candidate entities and
+persists approved inputs only after claim success. Database locks protect the
+closed transitive predecessor barrier through the existing fenced claim; the
+snapshot reread must share that transaction/connection. No dispatcher caller is
+wired yet. See [Plan 030 I4.b](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24)
+before integrating guard/claim/publish or implementing fallback.
+
 ## Deferred operator job triggers — I3.d
 
 JobOperationsController keeps catalog/detail/execution reads and HTTP 410

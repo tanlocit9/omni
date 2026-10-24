@@ -50,6 +50,15 @@ Phase 4 extends this boundary because checking dataset dependencies before execu
 
 ## Related Work
 
+P14-I4.b adds a bounded scoped admission service, not yet a dispatcher caller.
+It locks run membership and predecessor/selected executions before the message,
+uses SKIP LOCKED, then rechecks closed all-ancestor SUCCESS and the existing
+status/availability/lease claim. Snapshot rereads share the caller connection;
+approved inputs are persisted only after claim success in that transaction.
+No Kafka I/O is performed under these locks. DependencyRegistry still owns dataset
+READY/exact-version approval; final integrated proof remains I4.c/TD-014.
+See [Plan 030 I4.b](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+
 - [Job execution flow](../flows/001-job-execution.md)
 - [Dependency-aware outbox dispatch](../plans/023-dependency-aware-outbox-dispatch.md)
 - [Concurrent workers and writer batching](../plans/027-concurrent-workers-and-writer-batching.md)

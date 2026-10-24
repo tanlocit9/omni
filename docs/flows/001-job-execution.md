@@ -35,6 +35,13 @@ messages, rewrite statuses, or implement Phase 12 concurrency.
 
 ## Static Graph and Planned Dispatch Planning
 
+I4.b adds scoped candidate and locked-admission service APIs, not yet called by
+the dispatcher. Revalidation includes every transitive ancestor, so intermediate
+SUCCESS cannot hide unfinished earlier work. Claims retain the existing guard,
+lease/token/owner and retry/ack boundary; a lost claim cannot rewrite approved
+inputs. Dispatcher integration and TD-014 remain I4.c work. See
+[I4.b scope/evidence](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+
 I4.a adds an inactive bounded JobRun snapshot reader and pure planner over
 frozen paths and V13 closure. PUBLISHED counts remain separate from actual
 execution SUCCESS; joins require every closed predecessor. No dispatcher calls

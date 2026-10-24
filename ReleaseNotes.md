@@ -1,5 +1,25 @@
 # Omni Release Notes
 
+## 2026-10-24 - P14-I4.b scoped selection and transactional admission
+
+I4.a was verified/committed as 9c7fbfc. Added bounded run paging, exact scoped
+candidate queries, separate legacy FIFO reads and batch entity loading. Admission
+locks run/closed execution membership before outbox claim, rereads the barrier on
+the same connection and preserves existing claim/fencing. Transitive ancestors
+must all succeed; out-of-order intermediate SUCCESS cannot open a downstream
+barrier. Lost claims no longer rewrite approved inputs; metadata failure rolls
+back attempts/claim together. No dispatcher caller or preparation activation yet.
+
+I4.b local gate PASS 7/7: 389 Platform tests / 62 suites and 37
+focused cases, zero failures/errors/skips. All 18 critical Java components
+meet at least 80% line/branch; admission store 100.00% / 87.50%,
+planner 100.00% / 100.00%, outbox 99.44% / 92.73%.
+Actual PostgreSQL locks/fences/rollback and one-statement JPA batch loading pass;
+SQL has no fabricated numeric coverage. No whole-I4 completion or activation.
+Docs/ADR/database/flow/service descriptions are updated;
+I4.c still owns actual dispatcher/guard/fallback/publish and TD-014 integration.
+See [Plan 030](docs/plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+
 ## 2026-10-24 - P14-I4 started with inactive JobRun snapshot/planner checkpoint
 
 Owner requested P14 continuation after merge. Added bounded read-only PostgreSQL

@@ -95,6 +95,12 @@ for its removal and rollback boundary.
 
 ### Inactive JobRun dispatch snapshot (I4.a)
 
+I4.b adds indexed run/step/definition/scope/date candidate reads and a transactional
+admission store. It uses run, root/child and message locks with SKIP LOCKED, counts
+closed membership and rereads the barrier on the same connection before the
+existing fenced claim. No schema/index/trigger changes are introduced. Integration
+and final dispatcher safety remain I4.c; see [Plan 030](../plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+
 `JobRunDispatchSnapshotReader` reads existing frozen paths, preparations,
 executions and outbox with explicit run IDs inside a new read-only REPEATABLE
 READ transaction. Population, step and edge bounds fail closed; separate scoped

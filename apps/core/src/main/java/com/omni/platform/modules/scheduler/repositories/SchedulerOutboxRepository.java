@@ -11,15 +11,25 @@ import com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage;
 import com.omni.platform.shared.repositories.BaseRepository;
 
 @Repository
-public interface SchedulerOutboxRepository extends BaseRepository<SchedulerOutboxMessage>, SchedulerOutboxRepositoryCustom {
+public interface SchedulerOutboxRepository
+        extends BaseRepository<SchedulerOutboxMessage>, SchedulerOutboxRepositoryCustom {
 
     List<SchedulerOutboxMessage> findAllByExecution_IdOrderByMessageIndex(UUID executionId);
 
-    @Query("""
+    @Query(
+            """
             SELECT message FROM SchedulerOutboxMessage message
             WHERE message.execution.id = :executionId
                OR message.execution.parentLogId = :executionId
             ORDER BY message.messageIndex
             """)
     List<SchedulerOutboxMessage> findAllForExecution(@Param("executionId") UUID executionId);
+
+    @Query(
+            """
+            SELECT message FROM SchedulerOutboxMessage message
+            JOIN FETCH message.execution execution JOIN FETCH execution.job
+            WHERE message.id IN :ids
+            """)
+    List<SchedulerOutboxMessage> findAllCandidates(@Param("ids") List<UUID> ids);
 }

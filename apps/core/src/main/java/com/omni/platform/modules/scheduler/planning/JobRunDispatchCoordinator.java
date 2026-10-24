@@ -69,9 +69,20 @@ public class JobRunDispatchCoordinator {
             int managedBudget = legacy.isEmpty() ? budget : Math.max(1, budget / 2);
             if (!runs.isEmpty()) {
                 var snapshot = snapshots.capture(now, runs);
+                // Snapshot SQL orders by request time; fairness follows the rotated discovery page.
+                var orderedSnapshot =
+                        new JobRunDispatchSnapshot(
+                                snapshot.capturedAt(),
+                                snapshot.complete(),
+                                runs.stream()
+                                        .flatMap(
+                                                id ->
+                                                        snapshot.runs().stream()
+                                                                .filter(run -> run.id().equals(id)))
+                                        .toList());
                 var plan =
                         planner.plan(
-                                snapshot,
+                                orderedSnapshot,
                                 managedBudget,
                                 null,
                                 now.plusNanos(System.nanoTime() - started),

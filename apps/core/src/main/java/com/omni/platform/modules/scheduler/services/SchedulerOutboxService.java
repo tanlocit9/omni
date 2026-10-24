@@ -82,6 +82,26 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 .toList();
     }
 
+    /** Resolve intent identity without loading a mutable child before admission locks it. */
+    @Transactional(readOnly = true)
+    public UUID findLegacyWorkExecutionId(UUID messageId) {
+        var message = repository.findById(messageId).orElse(null);
+        if (message == null) return null;
+        try {
+            return optionalUuid(
+                    parseCandidatePayload(message),
+                    "executionId",
+                    messageId,
+                    message.getExecution().getId());
+        } catch (RuntimeException error) {
+            log.warn(
+                    "OUTBOX_CANDIDATE_INVALID messageId={} type={}",
+                    messageId,
+                    error.getClass().getSimpleName());
+            return null;
+        }
+    }
+
     /** Batch-load only IDs selected by the bounded scoped query, preserving its order. */
     @Transactional(readOnly = true)
     public List<SchedulerOutboxCandidate> findCandidatesByIds(List<UUID> ids) {

@@ -790,6 +790,140 @@ class JobRunAdmissionPostgresTest {
         assertThat(published(run, 0)).isEqualTo(1);
     }
 
+    @Test
+    void realSnapshotPreservesRotatedRunPageAtBudgetOne() {
+        UUID a = prepare(false, true, 4);
+        UUID b = prepare(false, true, 4);
+        var page = store.findRunPage(NOW, null, 32);
+        assertThat(page).containsExactlyInAnyOrder(a, b);
+        var kafka =
+                org.mockito.Mockito.mock(
+                        com.omni.platform.shared.infrastructure.kafka.KafkaPublisher.class);
+        var dispatcher = dispatcher(1, readyRegistry(), kafka, coordinator(snapshots));
+        UUID first = page.getFirst(), second = page.getLast();
+        tick(dispatcher);
+        assertThat(published(first, 0)).isEqualTo(1);
+        tick(dispatcher);
+        assertThat(published(second, 0)).isEqualTo(1);
+        tick(dispatcher);
+        tick(dispatcher);
+        assertThat(published(first, 0)).isEqualTo(2);
+        assertThat(published(second, 0)).isEqualTo(2);
+    }
+
+    @Test
+    void legacyChildStatusCanFinishWhileApprovedInputAdmissionSkipsItsBusyWorkRow()
+            throws Exception {
+        UUID definition =
+                jdbc.queryForObject(
+                        "SELECT id FROM job_definitions WHERE source='VND' AND cron_expr='a'",
+                        UUID.class);
+        UUID parent = UUID.randomUUID(), child = UUID.randomUUID(), message = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO job_execution_histories(id,job_id,used_source,status,meta_json) VALUES (?,?,'VND','RUNNING','{}')",
+                parent,
+                definition);
+        jdbc.update(
+                "INSERT INTO job_execution_histories(id,job_id,parent_log_id,used_source,status,meta_json) VALUES (?,?,?,'VND','RUNNING','{\"workType\":\"EXCHANGE\",\"workKey\":\"HOSE\"}')",
+                child,
+                definition,
+                parent);
+        String payload =
+                "{\"executionId\":\""
+                        + child
+                        + "\",\"parentExecutionId\":\""
+                        + parent
+                        + "\",\"workType\":\"EXCHANGE\",\"workKey\":\"HOSE\"}";
+        jdbc.update(
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test',?,?)",
+                message,
+                parent,
+                payload,
+                java.sql.Timestamp.from(NOW));
+        var locked = new CountDownLatch(1);
+        var finish = new CountDownLatch(1);
+        var approved = Map.of(DatasetRef.of("eod", Map.of("exchange", "HOSE")), "v1");
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var worker =
+                    pool.submit(
+                            () ->
+                                    tx.executeWithoutResult(
+                                            status -> {
+                                                jdbc.queryForObject(
+                                                        "SELECT id FROM job_execution_histories WHERE id=? FOR UPDATE",
+                                                        UUID.class,
+                                                        child);
+                                                locked.countDown();
+                                                try {
+                                                    assertThat(finish.await(10, TimeUnit.SECONDS))
+                                                            .isTrue();
+                                                } catch (InterruptedException e) {
+                                                    throw new RuntimeException(e);
+                                                }
+                                                context.getBean(
+                                                                com.omni.platform.modules.scheduler
+                                                                        .services.JobService.class)
+                                                        .applyStatus(
+                                                                new com.omni.platform.modules
+                                                                        .scheduler.messaging
+                                                                        .JobStatusMessage(
+                                                                        definition.toString(),
+                                                                        child.toString(),
+                                                                        parent.toString(),
+                                                                        com.omni.platform.shared
+                                                                                .executions.WorkType
+                                                                                .EXCHANGE,
+                                                                        "HOSE",
+                                                                        "SUCCESS",
+                                                                        Map.of(),
+                                                                        null,
+                                                                        NOW,
+                                                                        NOW,
+                                                                        0,
+                                                                        null,
+                                                                        1));
+                                            }));
+            try {
+                assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+                var admission =
+                        pool.submit(
+                                () ->
+                                        store.claimLegacy(
+                                                message,
+                                                NOW,
+                                                "legacy",
+                                                Duration.ofSeconds(30),
+                                                approved));
+                assertThat(admission.get(3, TimeUnit.SECONDS)).isNull();
+                assertThat(attempts(message)).isZero();
+            } finally {
+                finish.countDown();
+            }
+            worker.get(10, TimeUnit.SECONDS);
+        }
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                child))
+                .isEqualTo("SUCCESS");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                parent))
+                .isEqualTo("SUCCESS");
+        assertThat(store.claimLegacy(message, NOW, "legacy", Duration.ofSeconds(30), approved))
+                .isNotNull();
+        assertThat(attempts(message)).isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT meta_json::text FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                child))
+                .contains("v1");
+    }
+
     static com.omni.platform.modules.scheduler.dependencies.DependencyRegistry readyRegistry() {
         var registry =
                 org.mockito.Mockito.mock(

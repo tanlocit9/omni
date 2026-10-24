@@ -221,6 +221,18 @@ public class JobRunDispatchStore {
                         parameters,
                         UUID.class);
         if (messages.isEmpty()) return null;
+        // Legacy outbox FK may name the parent while payload identifies the actual work child.
+        // applyStatus flushes child before aggregating parent. Never wait for that child while
+        // holding the parent SHARE lock, or metadata flush would invert the status lock order.
+        UUID workId = outbox.findLegacyWorkExecutionId(messageId);
+        if (workId == null) return null;
+        var work =
+                jdbc.queryForList(
+                        "SELECT id FROM job_execution_histories WHERE id=:work AND job_run_id IS NULL FOR UPDATE SKIP LOCKED",
+                        parameters.addValue("work", workId),
+                        UUID.class);
+        if (work.isEmpty()) return null;
+        if (outbox.findCandidatesByIdsSafely(List.of(messageId)).isEmpty()) return null;
         return outbox.claimEligible(messageId, now, owner, lease, approved);
     }
 

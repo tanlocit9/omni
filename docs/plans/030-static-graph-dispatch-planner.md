@@ -29,6 +29,73 @@ in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bou
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
 
+## I4 review regressions — 2026-10-25
+
+The current status handler is `JobService.applyStatus()`, not `handleStatus()`.
+It calls `saveAndFlush` on the child, then `aggregateParentExecution` locks the
+parent for update. Source inspection confirms the review's lock-order concern
+despite the incorrect method name. Two real PostgreSQL regressions failed on the
+pre-fix implementation: budget-one run rotation selected the first run again,
+and legacy approved-input admission timed out waiting for a worker-locked child.
+These failures are recorded as `test/reproduce-before-fix`, separate from the
+required passing post-fix gate; they are not erased or treated as passing tests.
+
+The coordinator now restores the rotated `findRunPage` order after the snapshot
+SQL sorts by request time. The planner's cursor contract and snapshot membership,
+freshness and completeness remain unchanged. Four actual dispatch ticks alternate
+between two runs at budget one while both still have eligible backlog; no mocked
+snapshot ordering substitutes for this regression.
+
+For legacy admission, the store locks the stored execution with SHARE SKIP LOCKED,
+then locks the eligible message, resolves work identity without loading the mutable
+child, and acquires FOR UPDATE SKIP LOCKED on that actual work execution. Only then
+does it load/validate the candidate and invoke the existing claim/version write.
+A busy child returns no claim and consumes no attempt, releasing the parent lock
+at transaction end. This avoids waiting for child metadata while holding the
+parent, and avoids loading stale child state before acquiring its write lock.
+The regression holds the child in a worker transaction, verifies admission returns
+without waiting, invokes real `applyStatus()`, proves child and parent SUCCESS,
+then retries and persists approved versions on the actual child. The status owner
+and aggregation algorithm are unchanged; Kafka remains outside admission locks.
+
+Local post-fix gate `P14-I4-review-20261025`: PASS 8/8, 416
+tests / 63 suites, zero failures/errors/skips. Focused admission,
+coordinator, JobService and candidate suites pass; clean build, Platform coverage,
+source-bound attributable coverage/acceptance, owned-file format, explicit
+Prettier check and static documentation consistency pass. All 31
+critical Java components meet >=80% line/branch. Exact cases and source/test/config
+SHA-256 bindings are retained in ignored `.agent/check-results/P14-I4-review-20261025/`.
+The 2026-10-24 gate below is historical evidence for its pre-review source, not a
+verification substitute for this repair. SQL has no invented numeric coverage.
+
+| Changed / impacted source                                                                   | Executed regression                                                                                                             | Line / branch    |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| JobRunDispatchCoordinator.load                                                              | realSnapshotPreservesRotatedRunPageAtBudgetOne; coordinator fairness/quota cases                                                | 100.00% / 98.15% |
+| JobRunDispatchStore.claimLegacy                                                             | legacyChildStatusCanFinishWhileApprovedInputAdmissionSkipsItsBusyWorkRow; existing strict legacy and lock/fence cases           | 100.00% / 89.47% |
+| SchedulerOutboxService.findLegacyWorkExecutionId / candidate validation / approved versions | legacyWorkIdentityIsResolvedWithoutLoadingChildBeforeItsLock; PostgreSQL child/status retry regression and full candidate suite | 99.08% / 90.62%  |
+| JobService.applyStatus / aggregateParentExecution (unchanged production source)             | Real worker transaction in the new regression; full JobService regression                                                       | 95.12% / 88.76%  |
+
+Cross-service reconciliation: Platform admission/candidate reads and tests change;
+persistence uses existing row locks only, without schema/trigger/status/migration
+changes. Analyzer/Ingestor command/status consumers and producers are unchanged;
+Query Service/Console APIs are unchanged; contracts, py-common, Kafka fields,
+manifests, READY-last, dataset paths/ownership and exact lineage remain unchanged.
+Configuration, 32 cron entries, preparation=false, retained data and operations
+rollout remain unchanged. Graph analysis is bounded and reconciled against the
+same canonical architecture/flow/Kafka/data-lake/database/service/ownership owners
+as I4.c. Plan, registry, release notes, ADR, flow and database documentation are
+updated. Architecture, deployment runbook, service/development guides, indexes,
+field/DTO reference, AGENTS/CLAUDE/.roo/skills need no edit: this restores their
+existing fairness/nonblocking claim guarantees without adding a public contract,
+deployment flag, data field, document or agent workflow.
+
+Legacy retirement remains a separate scope decision: current `enqueue` already
+writes child-FK messages, so old parent-FK/payload-child compatibility can be
+retired after retained-row reconciliation; it is distinct from removing the
+still-active NULL-JobRun scheduling path. No data deletion or migration execution
+is authorized by these two bug fixes. I4 completion and I5/I6 readiness are unchanged
+after this renewed gate; no CI, provider, retained rollout or deployment is claimed.
+
 ## I4.c integrated admission and completion — 2026-10-24
 
 I4.a (`9c7fbfc`) and I4.b (`7213795`) are verified checkpoints. I4.c connects

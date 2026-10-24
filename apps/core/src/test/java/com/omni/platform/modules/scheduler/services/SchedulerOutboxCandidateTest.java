@@ -31,6 +31,27 @@ import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 import tools.jackson.databind.json.JsonMapper;
 
 class SchedulerOutboxCandidateTest {
+    @Test
+    void legacyWorkIdentityIsResolvedWithoutLoadingChildBeforeItsLock() {
+        UUID id = UUID.randomUUID(), parentId = UUID.randomUUID(), childId = UUID.randomUUID();
+        var parent = new JobExecutionHistory();
+        parent.setId(parentId);
+        var message = new SchedulerOutboxMessage();
+        message.setId(id);
+        message.setExecution(parent);
+        when(repository.findById(id)).thenReturn(Optional.of(message));
+        message.setPayload("{\"executionId\":\"" + childId + "\"}");
+        assertThat(service.findLegacyWorkExecutionId(id)).isEqualTo(childId);
+        message.setPayload("{}");
+        assertThat(service.findLegacyWorkExecutionId(id)).isEqualTo(parentId);
+        message.setPayload("{");
+        assertThat(service.findLegacyWorkExecutionId(id)).isNull();
+        message.setPayload("{\"executionId\":\"invalid\"}");
+        assertThat(service.findLegacyWorkExecutionId(id)).isNull();
+        assertThat(service.findLegacyWorkExecutionId(UUID.randomUUID())).isNull();
+        org.mockito.Mockito.verifyNoInteractions(histories);
+    }
+
     private static final Instant NOW = Instant.parse("2035-01-02T12:00:00Z");
     private final SchedulerOutboxRepository repository = mock(SchedulerOutboxRepository.class);
     private final JobExecutionHistoryRepository histories =

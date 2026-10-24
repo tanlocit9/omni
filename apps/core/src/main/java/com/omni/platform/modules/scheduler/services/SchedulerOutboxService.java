@@ -80,6 +80,24 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 .toList();
     }
 
+    /** Batch-load only IDs selected by the bounded scoped query, preserving its order. */
+    @Transactional(readOnly = true)
+    public List<SchedulerOutboxCandidate> findCandidatesByIds(List<UUID> ids) {
+        if (ids.size() > 400 || ids.stream().distinct().count() != ids.size()) {
+            throw new IllegalArgumentException("Expected at most 400 distinct candidate IDs");
+        }
+        if (ids.isEmpty()) return List.of();
+        Map<UUID, SchedulerOutboxMessage> messages = new java.util.HashMap<>();
+        repository
+                .findAllCandidates(ids)
+                .forEach(message -> messages.put(message.getId(), message));
+        return ids.stream()
+                .map(messages::get)
+                .filter(java.util.Objects::nonNull)
+                .map(message -> toCandidate(message, true))
+                .toList();
+    }
+
     /** All executions are already tracked by the caller; no per-message database lookup. */
     @Transactional
     public void enqueueRunStep(
@@ -142,20 +160,32 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     }
 
     private SchedulerOutboxCandidate toCandidate(SchedulerOutboxMessage message) {
+        return toCandidate(message, false);
+    }
+
+    private SchedulerOutboxCandidate toCandidate(SchedulerOutboxMessage message, boolean fetched) {
         JsonNode payload = parseCandidatePayload(message);
         UUID persistedExecutionId = message.getExecution().getId();
         UUID workExecutionId =
                 optionalUuid(payload, "executionId", message.getId(), persistedExecutionId);
+        if (fetched
+                && message.getExecution().getJobRunId() != null
+                && !workExecutionId.equals(persistedExecutionId)) {
+            throw new IllegalStateException(
+                    "JobRun payload execution does not match frozen outbox membership");
+        }
         JobExecutionHistory workExecution =
-                executionRepository
-                        .findByIdWithJob(workExecutionId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "Outbox payload execution not found messageId="
-                                                        + message.getId()
-                                                        + " executionId="
-                                                        + workExecutionId));
+                fetched && workExecutionId.equals(persistedExecutionId)
+                        ? message.getExecution()
+                        : executionRepository
+                                .findByIdWithJob(workExecutionId)
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalStateException(
+                                                        "Outbox payload execution not found messageId="
+                                                                + message.getId()
+                                                                + " executionId="
+                                                                + workExecutionId));
         if (hasText(payload, "executionId")) {
             verifyPayloadParent(message, payload, workExecution);
         }
@@ -245,8 +275,10 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         if (message == null || message.getStatus() != SchedulerOutboxMessage.Status.PENDING) {
             return null;
         }
-        persistApprovedInputs(message.getExecution(), approvedInputVersions);
-        return repository.claimEligible(messageId, now, instanceId, leaseDuration);
+        SchedulerOutboxClaim claim =
+                repository.claimEligible(messageId, now, instanceId, leaseDuration);
+        if (claim != null) persistApprovedInputs(message.getExecution(), approvedInputVersions);
+        return claim;
     }
 
     @Transactional

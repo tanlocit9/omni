@@ -96,6 +96,24 @@ class JobRunDispatchPlannerTest {
     }
 
     @Test
+    void outOfOrderIntermediateSuccessCannotHideUnfinishedTransitiveAncestor() {
+        Run chain =
+                run(
+                        step(0, List.of(), 0, 1, 0),
+                        step(1, List.of(0), 0, 1, 2),
+                        step(2, List.of(1), 1, 0, 0));
+        assertThat(plan(10, chain).status()).isEqualTo(Status.WAIT);
+        Run done =
+                run(
+                        step(0, List.of(), 0, 1, 2),
+                        step(1, List.of(0), 0, 1, 2),
+                        step(2, List.of(1), 1, 0, 0));
+        assertThat(plan(10, done).selections())
+                .singleElement()
+                .satisfies(selection -> assertThat(selection.stepIndex()).isEqualTo(2));
+    }
+
+    @Test
     void unusedQuotaFlowsToOtherRunsAndWaitingRunsDoNotConsumeBudget() {
         Run one = run(step(0, List.of(), 1, 0, 0));
         Run many = run(step(0, List.of(), 10, 0, 0));

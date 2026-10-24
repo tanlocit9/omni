@@ -52,16 +52,7 @@ public final class JobRunDispatchPlanner {
                                     step ->
                                             step.progress() == Progress.UNFINISHED
                                                     && step.outbox().eligible() > 0)
-                            .filter(
-                                    step ->
-                                            step.predecessors().stream()
-                                                    .allMatch(
-                                                            predecessor ->
-                                                                    run.steps()
-                                                                                    .get(
-                                                                                            predecessor)
-                                                                                    .progress()
-                                                                            == Progress.SUCCESS))
+                            .filter(step -> predecessorsSucceeded(run, step.index()))
                             .map(step -> new Candidate(run.id(), step))
                             .toList();
             if (!eligible.isEmpty()) byRun.add(eligible);
@@ -123,6 +114,18 @@ public final class JobRunDispatchPlanner {
             this.runId = runId;
             this.step = step;
         }
+    }
+
+    /** Include transitive ancestors: an out-of-order SUCCESS must not hide unfinished work. */
+    static boolean predecessorsSucceeded(Run run, int stepIndex) {
+        java.util.BitSet ancestors = new java.util.BitSet(run.steps().size());
+        run.steps().get(stepIndex).predecessors().forEach(ancestors::set);
+        for (int index = stepIndex - 1; index >= 0; index--) {
+            if (!ancestors.get(index)) continue;
+            if (run.steps().get(index).progress() != Progress.SUCCESS) return false;
+            run.steps().get(index).predecessors().forEach(ancestors::set);
+        }
+        return true;
     }
 
     public record Selection(

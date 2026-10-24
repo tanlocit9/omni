@@ -38,7 +38,7 @@ flowchart TD
 
 ## Reading the Diagram
 
-- P14 is the active [Static Graph & DispatchPlanner epic](../030-static-graph-dispatch-planner.md); I1–I3 are completed after [the 2026-10-24 acceptance reconciliation](../030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24). I4 is in progress at the inactive snapshot/planner checkpoint; I5/I6 remain pending. Preparation remains false and all 32 cron identities remain; no runtime planner is activated.
+- P14 is the active [Static Graph & DispatchPlanner epic](../030-static-graph-dispatch-planner.md); I1–I3 are completed after [the 2026-10-24 acceptance reconciliation](../030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24). I4 is in progress at the scoped selection/locked admission checkpoint; I5/I6 remain pending. Preparation remains false and all 32 cron identities remain; no runtime planner is activated.
 - The P14 → P13 edge includes the P13-I1 dependency on completed I4/P7-I3. Basic operations do not wait for I5/I6; graph-specific JobRun presentation consumes their evidence and handoff.
 - P10, P11, and P12 retain historical status/evidence but remain owner-gated deferred work.
 - Diagram edges summarize planning relationships and never replace exact `depends_on` metadata in the increment registry.

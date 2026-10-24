@@ -149,6 +149,15 @@ public class JobRunDispatchSnapshotReader {
         return new JobRunDispatchSnapshot(at, complete, runs);
     }
 
+    /** Admission already holds membership/status locks on the caller's connection. */
+    JobRunDispatchSnapshot captureLocked(Instant at, UUID runId) {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager
+                .isActualTransactionActive()) {
+            throw new IllegalStateException("Admission snapshot requires a transaction");
+        }
+        return read(at, List.of(runId));
+    }
+
     private static Key key(ResultSet rs) throws SQLException {
         return new Key(rs.getObject("job_run_id", UUID.class), rs.getInt("step_index"));
     }

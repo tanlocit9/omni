@@ -74,19 +74,16 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 
 ## Canonical Plan 030 scope revision — 2026-10-15
 
-Current I4 update — 2026-10-24, after owner-requested continuation: P14-I4 is
-`in_progress` at the inactive [I4.a snapshot/planner checkpoint](../030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
-The current agent owns five new scheduler planning/source-test files. Exact path
-isolation from P1-I3, P8-I1/I2/I5 and P9-I1 is documented there: no existing
-execution/status/notification/producer/claim implementation is edited. This
-resolves the earlier selection concern for I4.a only; renewed reconciliation
-is required before dispatcher/admission edits. I4.a local gate PASS 7/7 covers
-377 full Platform tests and 20 focused cases; all 15 new Java components
-have 100% line coverage, reader branches 80% and other applicable branches 100%.
-SQL cases/EXPLAIN and documentation audit pass. This verifies the inactive
-checkpoint only, not guarded admission, activation or whole-I4 completion.
-I1–I3 remain completed and I5/I6 pending. Earlier dated checkpoint statements
-below retain their historical statuses.
+Current I4 update — 2026-10-24: P14-I4 is `in_progress` at
+[I4.b scoped selection and locked admission](../030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+I4.a passed its seven-check gate and is committed as 9c7fbfc. I4.b expands
+explicit ownership to scheduler planning, scoped/batch outbox reads and safe
+claim metadata ordering. Status/notification/Sector Transition/producer writers
+owned by P1-I3/P8-I1/I2/I5/P9-I1 remain unchanged. I4.b local gate PASS 7/7:
+389 Platform tests, 37 focused cases and all 18 critical components
+at least 80% line/branch. No dispatcher caller is wired yet; preparation stays false. Final dispatcher,
+fallback and TD-014 proof remain I4.c. I1–I3 remain completed; I5/I6 pending.
+Earlier dated checkpoint statements below retain their historical statuses.
 
 Current completion update — 2026-10-24: P14-I2 and P14-I3 are `completed`.
 Source/test/migration bindings still match the executed 357-test/59-suite gate

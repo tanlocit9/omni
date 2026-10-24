@@ -188,6 +188,60 @@ class SchedulerOutboxCandidateTest {
         when(histories.findByIdWithJob(work.getId())).thenReturn(Optional.of(work));
     }
 
+    @Test
+    void boundedBatchUsesLoadedMembershipPreservesOrderAndRejectsForeignRunPayload() {
+        var a = execution(null);
+        var b = execution(null);
+        var first = row(a, Map.of("executionId", a.getId().toString()));
+        var second = row(b, Map.of("executionId", b.getId().toString()));
+        first.setId(UUID.randomUUID());
+        second.setId(UUID.randomUUID());
+        UUID deleted = UUID.randomUUID();
+        List<UUID> ids = List.of(first.getId(), second.getId(), deleted);
+        when(repository.findAllCandidates(ids)).thenReturn(List.of(second, first));
+        assertThat(service.findCandidatesByIds(ids))
+                .extracting(candidate -> candidate.executionId())
+                .containsExactly(a.getId(), b.getId());
+        org.mockito.Mockito.verifyNoInteractions(histories);
+        first.setPayload(json.writeValueAsString(Map.of("executionId", b.getId().toString())));
+        assertThatThrownBy(() -> service.findCandidatesByIds(ids))
+                .hasMessageContaining("frozen outbox membership");
+        assertThat(service.findCandidatesByIds(List.of())).isEmpty();
+        assertThatThrownBy(() -> service.findCandidatesByIds(List.of(first.getId(), first.getId())))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                service.findCandidatesByIds(
+                                        java.util.stream.IntStream.range(0, 401)
+                                                .mapToObj(i -> UUID.randomUUID())
+                                                .toList()))
+                .isInstanceOf(IllegalArgumentException.class);
+        first.getExecution().setJobRunId(null);
+        when(histories.findByIdWithJob(b.getId())).thenReturn(Optional.of(b));
+        assertThat(service.findCandidatesByIds(ids)).hasSize(2);
+    }
+
+    @Test
+    void lostClaimCannotRewriteApprovedInputVersions() {
+        var work = execution(null);
+        var row = row(work, Map.of());
+        row.setId(UUID.randomUUID());
+        when(repository.findById(row.getId())).thenReturn(Optional.of(row));
+        var ref =
+                com.omni.platform.modules.scheduler.dependencies.DatasetRef.of(
+                        "eod", Map.of("exchange", "HOSE"));
+        var before = work.getMetaJson();
+        assertThat(
+                        service.claimEligible(
+                                row.getId(),
+                                NOW,
+                                "owner",
+                                java.time.Duration.ofMinutes(1),
+                                Map.of(ref, "v1")))
+                .isNull();
+        assertThat(work.getMetaJson()).isSameAs(before);
+    }
+
     private SchedulerOutboxMessage row(JobExecutionHistory work, Map<String, ?> payload) {
         var row = new SchedulerOutboxMessage();
         row.setExecution(work);

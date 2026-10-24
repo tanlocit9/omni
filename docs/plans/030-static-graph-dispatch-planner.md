@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I3 are completed; I4 is in progress at the inactive I4.a snapshot/planner checkpoint below; I5/I6 remain pending. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
+Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I3 are completed; I4 is in progress at the I4.b scoped selection/admission checkpoint below; I5/I6 remain pending. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -28,6 +28,89 @@ A reusable static definition-path handoff in I2, followed by durable JobRun prep
 in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
 local acceptance/test/coverage/build and documentation evidence below. No new
 owner attestation, deployment or I4 admission activation is asserted.
+
+## I4.b scoped selection and locked admission — 2026-10-24
+
+I4.a was verified and committed as `9c7fbfc`. Owner requested verify/document/commit
+after every bounded part and continuation until full I4 completion. Current scope
+adds the admission store before wiring the dispatcher; I4 remains `in_progress`.
+No production dispatcher uses this store yet. I4.a's dated inactive-API descriptions
+below are its checkpoint history, not the current I4 completion claim.
+
+[`JobRunDispatchStore`](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchStore.java)
+adds keyset rotation over at most 32 due JobRuns, candidate reads restricted to one
+exact run/step/definition/effective scope/date, and a separate NULL-run legacy FIFO
+query. Candidate limits are 1–400. Candidate entities are batch-fetched with their
+execution/definition, preserving SQL order and handling disappeared rows without
+N+1 work lookups on frozen membership. Prepared payloads cannot retarget another
+execution; historical unlinked parent/child payload lookup remains compatible.
+
+Admission runs in a five-second transaction, locks the JobRun, then the selected
+step and all transitive ancestor executions (roots before children), then the
+message. Every locking read uses SKIP LOCKED. Expected closed membership counts
+must match the locked set, bounded at 21024 executions; a busy, incomplete or
+oversized set does not claim or consume an attempt. A snapshot reread uses the
+same connection under these locks, avoiding a nested pool connection and preserving
+current status through claim. Exact scope/definition, closure, all ancestor SUCCESS
+and outbox status/availability/lease are revalidated. Input versions are written
+only after the existing atomic fenced claim succeeds, in the same transaction;
+metadata failure rolls the claim back. No Kafka I/O occurs under these locks.
+
+The pure planner now checks transitive ancestors too: out-of-order intermediate
+SUCCESS cannot hide an unfinished earlier ancestor. Neither planner nor store
+replaces DependencyRegistry READY/exact-version approval; integrated caller
+evaluation, starvation control, fallback and publish handling remain I4.c work.
+
+Shared-path isolation is expanded explicitly: scheduler planning, outbox candidate
+loading, repository batch reads and claim metadata ordering are owned by I4.b.
+P1-I3/P8-I1/I2/I5/P9-I1 writers, notification handlers, Sector Transition paths,
+worker statuses and producer preparation are unchanged. Legacy claim behavior
+changes only by preventing metadata writes from lost claims. New batch APIs remain
+scheduler-internal; there is no public HTTP or worker transport change.
+
+| Surface                                 | Reconciled impact / no-impact reason                                                                                                                                                                                                                                          |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform / persistence                  | New scoped SQL/transactional store, transitive planning and batch JPA reads; existing claim/lease/attempt/fence SQL is reused. No migration, index, closure trigger, lifecycle, retention or schema change.                                                                   |
+| Analyzer / Ingestor                     | Existing dependency/version inputs and job transport unchanged; no provider, worker concurrency or dataset producer change. No unsupported scope activation.                                                                                                                  |
+| Query Service / Console                 | No API, UI, query engine or dataset discovery change.                                                                                                                                                                                                                         |
+| Contracts / libraries / storage         | No protobuf/generated output, py-common, Kafka/topic/manifest/path/READY-last/lineage change; the registry retains data-readiness authority.                                                                                                                                  |
+| Configuration / deployment / operations | No flag/default/cron/endpoint/deployment change; preparation stays false. All database execution is in disposable PostgreSQL tests.                                                                                                                                           |
+| Tests                                   | Actual JPA/JDBC admission tests cover stale/failed/join/identity/legacy/bounds, busy run/root/child/message locks, concurrent claims, lease recovery, fenced retry/ack and metadata rollback; planner/outbox tests cover transitive ordering and batch/losing-claim behavior. |
+
+Initial graph analysis on shared outbox/planner paths found 41 direct nodes, ten
+impacted nodes, four additional files, truncation and 148 unresolved call sites.
+The exact source/caller and cross-service reconciliation above supplements it.
+
+Local checkpoint gate: `PASS P14-I4b required=7 pass=7 fail=0 unknown=0 missing=0 sources=exit_code`.
+Executed 389 full Platform tests / 62 suites and 37 focused cases,
+zero failures/errors/skips. Clean build, coverage, changed-file format, explicit
+11-document Prettier check, attributable coverage and static consistency pass.
+The impact/source/test matrix is bound to actual executed JUnit cases and per-class
+JaCoCo counters in ignored `.agent/check-results/P14-I4b/attributable-coverage.json`.
+
+| Critical feature / source                                                                                                                   | Executed evidence                                                                                                  | Line / branch     |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| JobRunDispatchStore: page wrap, exact scope, closed transitive admission, locks, fenced recovery, retry/ack, metadata rollback              | Eight JobRunAdmissionPostgresTest cases exercise actual JPA/JDBC against disposable PostgreSQL                     | 100.00% / 87.50%  |
+| JobRunDispatchPlanner: earliest unfinished transitive path, joins/fairness/bounds                                                           | 12 JobRunDispatchPlannerTest cases, including out-of-order intermediate SUCCESS                                    | 100.00% / 100.00% |
+| JobRunDispatchSnapshotReader: same-connection locked read and independent read-only snapshot                                                | Ten JobRunDispatchSnapshotPostgresTest cases plus admission cases; no new connection while holding admission locks | 100.00% / 81.82%  |
+| SchedulerOutboxService: ordered batch reads, frozen-payload identity, losing-claim metadata safety and existing enqueue/claim compatibility | Seven SchedulerOutboxCandidateTest cases, real admission tests and full scheduler regression                       | 99.44% / 92.73%   |
+
+All 18 critical Java components meet at least 80% line and applicable
+branch coverage. Declarative JPQL/native SQL are proved by executed PostgreSQL cases;
+no Java/SQL coverage percentage is inferred for repository annotations. The batch
+test records exactly one JPA prepared statement per candidate batch, plus the
+separate bounded JDBC ID read. This is targeted query evidence, not I5 workload
+performance. Unsupported/corrupt-schema guards retain explicit unexecuted branches
+without weakening the numeric threshold. No owner attestation, deployment, provider
+call or complete-I4 result is substituted for this service-level checkpoint.
+
+Documentation disposition: Plan 030, registry/current roadmap, system overview,
+job flow, database boundary, Platform README, ADR 007 and root release notes
+describe this service-level checkpoint; TD-014 remains open for final integrated
+dispatcher proof. Kafka/data-lake/deployment/index/agent guidance and Plans 023/028/029
+need no new change because their contracts, rollout, ownership and dependencies
+remain valid. I4.c must add actual dispatcher selection/guard/revalidation/fallback
+and publish evidence before marking I4 completed; I5/I6 remain pending.
 
 ## I4.a bounded snapshot and planner — 2026-10-24
 

@@ -39,6 +39,11 @@ The inactive checkpoint passes a local seven-check gate (377 Platform tests,
 20 focused cases and attributable coverage); existing FIFO/guard/claims
 and disabled preparation remain unchanged. See [I4.a checkpoint](../../docs/plans/030-static-graph-dispatch-planner.md#i4a-bounded-snapshot-and-planner--2026-10-24).
 
+Current I4.b work adds scoped candidate queries and atomic locked admission via
+`JobRunDispatchStore`. No dispatcher caller is wired yet; preparation remains off.
+`SchedulerOutboxService` batch-loads scoped entities and persists approved inputs
+only for a successful claim. See [I4.b scope/evidence](../../docs/plans/030-static-graph-dispatch-planner.md#i4b-scoped-selection-and-locked-admission--2026-10-24).
+
 ## Does Not Own
 
 - External stock data fetching.

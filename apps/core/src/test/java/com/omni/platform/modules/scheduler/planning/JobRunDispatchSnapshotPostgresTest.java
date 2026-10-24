@@ -554,4 +554,10 @@ class JobRunDispatchSnapshotPostgresTest {
                 run,
                 step);
     }
+
+    @Test
+    void admissionSnapshotCannotAccidentallyOpenANewTransactionOrRunWithoutOne() {
+        assertThatThrownBy(() -> reader.captureLocked(NOW, UUID.randomUUID()))
+                .hasMessageContaining("requires a transaction");
+    }
 }

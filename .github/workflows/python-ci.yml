@@ -19,6 +19,8 @@ permissions:
 
 env:
   NX_DAEMON: false
+  # Reusable workflows do not inherit the caller workflow's env.
+  NX_NO_CLOUD: 'true'
   UV_LOCKED: 'true'
 
 jobs:
@@ -73,7 +75,10 @@ jobs:
 
       - name: Build
         if: ${{ !inputs.integration }}
-        run: npx nx run ${{ inputs.project }}:build
+        # sync-ci above already validates uv.lock with --locked. The Nx build
+        # exporter uses --frozen. UV 0.8.13 requires UV_LOCKED to be absent,
+        # even setting it to false still conflicts with --frozen.
+        run: env -u UV_LOCKED npx nx run ${{ inputs.project }}:build
 
       - name: Publication integration tests
         if: inputs.integration

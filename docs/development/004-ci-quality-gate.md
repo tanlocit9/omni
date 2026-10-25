@@ -1,6 +1,6 @@
 # CI Quality Gate
 
-Status: focused local tests passed; full workflow and GitHub Actions evidence pending.
+Status: CI environment repair verified locally; hosted GitHub Actions evidence pending.
 
 The workflows are [ci.yml](../../.github/workflows/ci.yml) and
 [python-ci.yml](../../.github/workflows/python-ci.yml). CI runs on pushes to `main`
@@ -8,6 +8,35 @@ and `multi-phase`, PRs targeting `main`, and manual dispatch. Pushing only to `W
 does not trigger it. Manual dispatch requires a previous full commit SHA and selects
 all stacks. New pushes cancel older runs for the same PR/ref. Runner jobs have
 explicit timeouts, including the job inside the reusable Python workflow.
+
+## CI environment repair — 2026-10-25
+
+Both workflows set `NX_NO_CLOUD=true`, including the reusable Python workflow,
+which does not inherit its caller's workflow environment. Checks do not require
+private Nx Cloud workspace access; `nx.json` and workspace permissions are unchanged.
+This avoids the separate Nx Cloud 401 without treating it as the Python build cause.
+
+Python dependency sync still runs `sync-ci` with `uv sync --locked`. Lint, tests
+and integration retain `UV_LOCKED=true`. Only Build runs
+`env -u UV_LOCKED npx nx run <project>:build`: the Nx locked build exporter uses
+`uv export --frozen`, and UV 0.8.13 rejects a simultaneous UV_LOCKED environment
+variable even when set to `false`. Remove that variable for the build child;
+do not remove the preceding freshness validation or unlock the test steps.
+
+Local repair verification uses the CI-pinned UV 0.8.13: locked sync and build pass
+for Query Service, Analyzer, Ingestor and py-common, together with the seven
+CI-policy tests, owned-file format and static workflow review. Evidence is recorded
+under `CI-FIX-20261025`; it is not a hosted CI pass. The earlier full Windows run
+had 35/42 passing checks; contracts generation remains blocked by the local protoc
+debug-runtime dependency and CRLF formatting. No contract fix or all-stack green
+result is claimed by this environment repair.
+
+Blast radius is CI orchestration for all selected stacks and the four Python
+package builds. Platform, Analyzer, Ingestor, Query Service and Console application
+source/runtime behavior are unchanged; shared contracts/libraries, Kafka, storage,
+database, datasets, provider access and deployment are unchanged. CI/dependency
+guidance and root release notes are updated; roadmap statuses and other canonical
+architecture/service/agent documents need no edit for this environment-only repair.
 
 ## Selection and cross-service blast radius
 
@@ -94,9 +123,11 @@ previous contract module exists.
 ## Python dependencies and integration
 
 Each Python project declares an uncached `sync-ci` target using `uv sync --locked`
-with its package name. `UV_LOCKED=true` also applies to subsequent workflow steps,
-so implicit uv resolution must not update the lockfile. `--frozen` alone would skip
-the manifest freshness check; it is insufficient for detecting lockfile drift.
+with its package name. `UV_LOCKED=true` also applies to lint, tests and integration,
+so implicit uv resolution must not update the lockfile. Build removes that variable
+after sync validates freshness, because the Nx exporter passes `--frozen`.
+`--frozen` alone would skip the manifest freshness check; it is insufficient for
+detecting lockfile drift and never replaces the required locked sync.
 Development sync targets are unchanged. Dependencies and `uv.lock` are unchanged.
 
 The separate `ingestor-integration` job follows Ingestor selection and invokes the

@@ -249,7 +249,11 @@ Versioned SELECT-only SQL, parameter/bound/safety instructions and the observati
 dictionary live in [database/diagnostics/p14/v1](../../database/diagnostics/p14/v1/README.md).
 JobRunDiagnosticsPostgresTest executes the actual SQL; SchedulerDiagnosticsFixture
 is disposable test data, not a runtime service or a retained-data cleanup tool.
-Production admission/status ownership remains unchanged.
+JobRunDispatchBenchmarkPostgresTest and JdbcMeasurementProbe record actual
+JDBC/pool behavior only in tests; PlatformStartupPostgresTest exposes an optional
+test initializer and preserves its existing default isolation. Reproduction and
+source-bound results live beside the SQL. Production admission/status ownership
+remains unchanged.
 
 ## Deferred operator job triggers — I3.d
 

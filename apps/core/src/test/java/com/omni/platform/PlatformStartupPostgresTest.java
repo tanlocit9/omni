@@ -201,10 +201,20 @@ class PlatformStartupPostgresTest {
 
     static ConfigurableApplicationContext startApplication(
             PostgreSQLContainer<?> database, boolean preparationEnabled) {
+        return startApplication(database, preparationEnabled, context -> {});
+    }
+
+    static ConfigurableApplicationContext startApplication(
+            PostgreSQLContainer<?> database,
+            boolean preparationEnabled,
+            org.springframework.context.ApplicationContextInitializer<
+                            org.springframework.context.ConfigurableApplicationContext>
+                    extra) {
         return new SpringApplicationBuilder(PlatformApplication.class, StartupIsolation.class)
                 .web(WebApplicationType.SERVLET)
                 .registerShutdownHook(false)
                 .initializers(
+                        extra,
                         context ->
                                 context.getBeanFactory()
                                         .registerSingleton(

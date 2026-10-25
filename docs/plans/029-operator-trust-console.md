@@ -385,6 +385,12 @@ Outcome:
 
 Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introduces durable target-driven JobRun path creation with existing FIFO outbox; P14-I4 integrates JobRun-aware outbox admission; P14-I5 delivers SQL/metrics baselines; P14-I6 hands over bounded read projections for graph-specific Job Operations. **Basic** stage/throughput/Data Health/shell work in this plan does not wait for I5/I6. The **graph-specific** visualization consumes I5/I6 evidence; run scope may be per-symbol while metrics labels remain bounded, never infers actual worker RUNNING from preparation-time child RUNNING, and never treats outbox PUBLISHED as finished processing.
 
+I5 now provides a [v1 observation dictionary](../../database/diagnostics/p14/v1/metrics.md)
+and [source-bound local measurements](../../database/diagnostics/p14/v1/benchmark-results.md).
+These define limits/UNKNOWN semantics and synthetic workload observations only;
+I6 still owns the accepted bounded graph read-model handoff. No UI/API, actual
+worker processing timestamp, ETA/SLA or dataset READY is inferred from these artifacts.
+
 ## Relationship to Plan 030
 
 - P13-I1 truthful stage evidence and baseline instrumentation depend on completed P14-I4 and P7-I3, as recorded in the canonical registry.

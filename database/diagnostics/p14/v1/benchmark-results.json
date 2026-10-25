@@ -1,0 +1,1790 @@
+{
+  "version": 1,
+  "startedAt": "2026-10-25T06:46:53.372300Z",
+  "finishedAt": "2026-10-25T06:47:13.957600900Z",
+  "environment": {
+    "processors": 16,
+    "java": "21.0.12.1",
+    "heapMaxBytes": 536870912,
+    "os": "Windows 11",
+    "osVersion": "10.0",
+    "hikariMax": 10,
+    "hikariMinIdle": 10,
+    "postgres": "PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit"
+  },
+  "dataset": {
+    "name": "disposable synthetic scheduler state",
+    "kafka": "mock broker acknowledgement",
+    "worker": "synthetic real applyStatus calls",
+    "provider": "none",
+    "businessDate": "2035-01-02"
+  },
+  "warmups": 5,
+  "samples": 30,
+  "percentiles": "nearest rank; p99 at 30 samples is the observed maximum, not an SLA",
+  "scenarios": [
+    {
+      "runs": 1,
+      "planStatus": "PLANNED",
+      "messages": 300,
+      "executions": 303,
+      "metrics": {
+        "runDiscovery": {
+          "observations": {
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0051,
+              "p95": 0.0051,
+              "samples": 30,
+              "p50": 0.0037,
+              "p99": 0.0051,
+              "min": 0.0034
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "elapsedMs": {
+            "max": 2.0689,
+            "p95": 2.0029,
+            "samples": 30,
+            "p50": 1.5744,
+            "p99": 2.0689,
+            "min": 1.4116
+          },
+          "windowStart": "2026-10-25T06:46:53.953804800Z",
+          "windowEnd": "2026-10-25T06:46:54.003678500Z"
+        },
+        "snapshot": {
+          "observations": {
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0068,
+              "p95": 0.0068,
+              "samples": 30,
+              "p50": 0.0039,
+              "p99": 0.0068,
+              "min": 0.0035
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 120
+          },
+          "elapsedMs": {
+            "max": 5.7421,
+            "p95": 5.5655,
+            "samples": 30,
+            "p50": 4.6152,
+            "p99": 5.7421,
+            "min": 4.2819
+          },
+          "windowStart": "2026-10-25T06:46:54.032997800Z",
+          "windowEnd": "2026-10-25T06:46:54.176093900Z"
+        },
+        "planner": {
+          "observations": {
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "elapsedMs": {
+            "max": 0.159,
+            "p95": 0.1461,
+            "samples": 30,
+            "p50": 0.0649,
+            "p99": 0.159,
+            "min": 0.0588
+          },
+          "windowStart": "2026-10-25T06:46:54.177093Z",
+          "windowEnd": "2026-10-25T06:46:54.179091800Z"
+        },
+        "scopedCandidateRead": {
+          "observations": {
+            "jdbcExecuteCalls": 60,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0176,
+              "p95": 0.0169,
+              "samples": 30,
+              "p50": 0.0087,
+              "p99": 0.0176,
+              "min": 0.0055
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 90
+          },
+          "elapsedMs": {
+            "max": 19.1046,
+            "p95": 18.5651,
+            "samples": 30,
+            "p50": 13.4896,
+            "p99": 19.1046,
+            "min": 11.6858
+          },
+          "windowStart": "2026-10-25T06:46:54.265738300Z",
+          "windowEnd": "2026-10-25T06:46:54.700269Z"
+        },
+        "fifoCandidateReadReference": {
+          "observations": {
+            "jdbcExecuteCalls": 4530,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0105,
+              "p95": 0.0101,
+              "samples": 30,
+              "p50": 0.0077,
+              "p99": 0.0105,
+              "min": 0.0063
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 4560
+          },
+          "elapsedMs": {
+            "max": 103.8692,
+            "p95": 99.5094,
+            "samples": 30,
+            "p50": 89.7778,
+            "p99": 103.8692,
+            "min": 81.2935
+          },
+          "windowStart": "2026-10-25T06:46:55.330806600Z",
+          "windowEnd": "2026-10-25T06:46:58.046858200Z"
+        },
+        "claimRollback": {
+          "observations": {
+            "jdbcExecuteCalls": 300,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 30,
+            "acquisitionMs": {
+              "max": 0.0245,
+              "p95": 0.0224,
+              "samples": 30,
+              "p50": 0.0022,
+              "p99": 0.0245,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 330
+          },
+          "elapsedMs": {
+            "max": 13.2782,
+            "p95": 8.5071,
+            "samples": 30,
+            "p50": 6.7963,
+            "p99": 13.2782,
+            "min": 6.4259
+          },
+          "windowStart": "2026-10-25T06:46:58.101783800Z",
+          "windowEnd": "2026-10-25T06:46:58.317254900Z"
+        },
+        "scopedReturnedRows": 75,
+        "fifoReturnedRows": 75
+      },
+      "childrenPerStep": 100,
+      "name": "one-run-100",
+      "stepsPerRun": 3,
+      "state": "ready"
+    },
+    {
+      "runs": 32,
+      "planStatus": "PLANNED",
+      "messages": 960,
+      "executions": 1056,
+      "metrics": {
+        "runDiscovery": {
+          "observations": {
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0029,
+              "p95": 0.0027,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0029,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "elapsedMs": {
+            "max": 2.7146,
+            "p95": 2.6548,
+            "samples": 30,
+            "p50": 2.3052,
+            "p99": 2.7146,
+            "min": 2.1995
+          },
+          "windowStart": "2026-10-25T06:47:00.311374400Z",
+          "windowEnd": "2026-10-25T06:47:00.382821600Z"
+        },
+        "snapshot": {
+          "observations": {
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0031,
+              "p95": 0.003,
+              "samples": 30,
+              "p50": 0.0022,
+              "p99": 0.0031,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 120
+          },
+          "elapsedMs": {
+            "max": 9.6284,
+            "p95": 8.9199,
+            "samples": 30,
+            "p50": 7.3282,
+            "p99": 9.6284,
+            "min": 6.5303
+          },
+          "windowStart": "2026-10-25T06:47:00.427349800Z",
+          "windowEnd": "2026-10-25T06:47:00.655759500Z"
+        },
+        "planner": {
+          "observations": {
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "elapsedMs": {
+            "max": 0.3064,
+            "p95": 0.2632,
+            "samples": 30,
+            "p50": 0.1899,
+            "p99": 0.3064,
+            "min": 0.1647
+          },
+          "windowStart": "2026-10-25T06:47:00.656761300Z",
+          "windowEnd": "2026-10-25T06:47:00.662796300Z"
+        },
+        "scopedCandidateRead": {
+          "observations": {
+            "jdbcExecuteCalls": 60,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0032,
+              "p95": 0.0032,
+              "samples": 30,
+              "p50": 0.0022,
+              "p99": 0.0032,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 90
+          },
+          "elapsedMs": {
+            "max": 7.0508,
+            "p95": 6.9241,
+            "samples": 30,
+            "p50": 5.2881,
+            "p99": 7.0508,
+            "min": 4.6879
+          },
+          "windowStart": "2026-10-25T06:47:00.693619Z",
+          "windowEnd": "2026-10-25T06:47:00.857613300Z"
+        },
+        "fifoCandidateReadReference": {
+          "observations": {
+            "jdbcExecuteCalls": 4530,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0084,
+              "p95": 0.008,
+              "samples": 30,
+              "p50": 0.0051,
+              "p99": 0.0084,
+              "min": 0.0035
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 4560
+          },
+          "elapsedMs": {
+            "max": 99.3186,
+            "p95": 94.6873,
+            "samples": 30,
+            "p50": 80.7248,
+            "p99": 99.3186,
+            "min": 74.3784
+          },
+          "windowStart": "2026-10-25T06:47:01.336566700Z",
+          "windowEnd": "2026-10-25T06:47:03.792895100Z"
+        },
+        "claimRollback": {
+          "observations": {
+            "jdbcExecuteCalls": 300,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 30,
+            "acquisitionMs": {
+              "max": 0.003,
+              "p95": 0.0029,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.003,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 330
+          },
+          "elapsedMs": {
+            "max": 7.1881,
+            "p95": 6.2306,
+            "samples": 30,
+            "p50": 5.8657,
+            "p99": 7.1881,
+            "min": 5.5995
+          },
+          "windowStart": "2026-10-25T06:47:03.833691100Z",
+          "windowEnd": "2026-10-25T06:47:04.011212200Z"
+        },
+        "scopedReturnedRows": 10,
+        "fifoReturnedRows": 75
+      },
+      "childrenPerStep": 10,
+      "name": "32-runs-10",
+      "stepsPerRun": 3,
+      "state": "ready"
+    },
+    {
+      "runs": 1,
+      "planStatus": "PLANNED",
+      "messages": 60,
+      "executions": 63,
+      "metrics": {
+        "runDiscovery": {
+          "observations": {
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0115,
+              "p95": 0.0029,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0115,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "elapsedMs": {
+            "max": 1.3733,
+            "p95": 1.3359,
+            "samples": 30,
+            "p50": 1.0307,
+            "p99": 1.3733,
+            "min": 0.9222
+          },
+          "windowStart": "2026-10-25T06:47:04.278287300Z",
+          "windowEnd": "2026-10-25T06:47:04.310452Z"
+        },
+        "snapshot": {
+          "observations": {
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0031,
+              "p95": 0.003,
+              "samples": 30,
+              "p50": 0.0022,
+              "p99": 0.0031,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 120
+          },
+          "elapsedMs": {
+            "max": 3.7822,
+            "p95": 3.6898,
+            "samples": 30,
+            "p50": 3.3606,
+            "p99": 3.7822,
+            "min": 3.1067
+          },
+          "windowStart": "2026-10-25T06:47:04.327268200Z",
+          "windowEnd": "2026-10-25T06:47:04.429282600Z"
+        },
+        "planner": {
+          "observations": {
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "elapsedMs": {
+            "max": 0.0854,
+            "p95": 0.0315,
+            "samples": 30,
+            "p50": 0.0202,
+            "p99": 0.0854,
+            "min": 0.0184
+          },
+          "windowStart": "2026-10-25T06:47:04.429282600Z",
+          "windowEnd": "2026-10-25T06:47:04.430288600Z"
+        },
+        "scopedCandidateRead": {
+          "observations": {
+            "jdbcExecuteCalls": 60,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0034,
+              "p95": 0.0028,
+              "samples": 30,
+              "p50": 0.0022,
+              "p99": 0.0034,
+              "min": 0.0021
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 90
+          },
+          "elapsedMs": {
+            "max": 3.9301,
+            "p95": 3.9052,
+            "samples": 30,
+            "p50": 3.1646,
+            "p99": 3.9301,
+            "min": 2.8155
+          },
+          "windowStart": "2026-10-25T06:47:04.449504Z",
+          "windowEnd": "2026-10-25T06:47:04.547208300Z"
+        },
+        "fifoCandidateReadReference": {
+          "observations": {
+            "jdbcExecuteCalls": 3630,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0077,
+              "p95": 0.0072,
+              "samples": 30,
+              "p50": 0.0051,
+              "p99": 0.0077,
+              "min": 0.0039
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 3660
+          },
+          "elapsedMs": {
+            "max": 70.5805,
+            "p95": 66.1487,
+            "samples": 30,
+            "p50": 61.666,
+            "p99": 70.5805,
+            "min": 55.4085
+          },
+          "windowStart": "2026-10-25T06:47:04.859287400Z",
+          "windowEnd": "2026-10-25T06:47:06.703482100Z"
+        },
+        "claimRollback": {
+          "observations": {
+            "jdbcExecuteCalls": 300,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 30,
+            "acquisitionMs": {
+              "max": 0.0032,
+              "p95": 0.0032,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0032,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 330
+          },
+          "elapsedMs": {
+            "max": 7.2504,
+            "p95": 6.7611,
+            "samples": 30,
+            "p50": 6.379,
+            "p99": 7.2504,
+            "min": 6.0961
+          },
+          "windowStart": "2026-10-25T06:47:06.740232100Z",
+          "windowEnd": "2026-10-25T06:47:06.931768300Z"
+        },
+        "scopedReturnedRows": 20,
+        "fifoReturnedRows": 60
+      },
+      "childrenPerStep": 20,
+      "name": "join-one-parent-success",
+      "stepsPerRun": 3,
+      "state": "join"
+    },
+    {
+      "runs": 1,
+      "planStatus": "WAIT",
+      "messages": 60,
+      "executions": 63,
+      "metrics": {
+        "runDiscovery": {
+          "observations": {
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0083,
+              "p95": 0.0026,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0083,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "elapsedMs": {
+            "max": 1.1635,
+            "p95": 1.0211,
+            "samples": 30,
+            "p50": 0.9199,
+            "p99": 1.1635,
+            "min": 0.8691
+          },
+          "windowStart": "2026-10-25T06:47:07.180178900Z",
+          "windowEnd": "2026-10-25T06:47:07.207959300Z"
+        },
+        "snapshot": {
+          "observations": {
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0032,
+              "p95": 0.0027,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0032,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 120
+          },
+          "elapsedMs": {
+            "max": 3.91,
+            "p95": 3.8964,
+            "samples": 30,
+            "p50": 3.5943,
+            "p99": 3.91,
+            "min": 3.4165
+          },
+          "windowStart": "2026-10-25T06:47:07.227084500Z",
+          "windowEnd": "2026-10-25T06:47:07.336618Z"
+        },
+        "planner": {
+          "observations": {
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "elapsedMs": {
+            "max": 0.015,
+            "p95": 0.0058,
+            "samples": 30,
+            "p50": 0.0032,
+            "p99": 0.015,
+            "min": 0.0031
+          },
+          "windowStart": "2026-10-25T06:47:07.336618Z",
+          "windowEnd": "2026-10-25T06:47:07.336618Z"
+        },
+        "claimRollback": {
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
+        }
+      },
+      "childrenPerStep": 20,
+      "name": "retry-and-live-lease",
+      "stepsPerRun": 3,
+      "state": "retry"
+    },
+    {
+      "runs": 1,
+      "planStatus": "INCOMPLETE",
+      "messages": 0,
+      "executions": 0,
+      "metrics": {
+        "runDiscovery": {
+          "observations": {
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0033,
+              "p95": 0.003,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0033,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "elapsedMs": {
+            "max": 1.0984,
+            "p95": 1.066,
+            "samples": 30,
+            "p50": 0.9659,
+            "p99": 1.0984,
+            "min": 0.8524
+          },
+          "windowStart": "2026-10-25T06:47:07.405354100Z",
+          "windowEnd": "2026-10-25T06:47:07.434957200Z"
+        },
+        "snapshot": {
+          "observations": {
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0143,
+              "p95": 0.0098,
+              "samples": 30,
+              "p50": 0.003,
+              "p99": 0.0143,
+              "min": 0.0022
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 120
+          },
+          "elapsedMs": {
+            "max": 6.1076,
+            "p95": 6.0134,
+            "samples": 30,
+            "p50": 4.291,
+            "p99": 6.1076,
+            "min": 3.5802
+          },
+          "windowStart": "2026-10-25T06:47:07.452105100Z",
+          "windowEnd": "2026-10-25T06:47:07.583669Z"
+        },
+        "planner": {
+          "observations": {
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "elapsedMs": {
+            "max": 0.004,
+            "p95": 0.0036,
+            "samples": 30,
+            "p50": 0.002,
+            "p99": 0.004,
+            "min": 0.0018
+          },
+          "windowStart": "2026-10-25T06:47:07.583669Z",
+          "windowEnd": "2026-10-25T06:47:07.583669Z"
+        },
+        "claimRollback": {
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
+        }
+      },
+      "childrenPerStep": 0,
+      "name": "unknown-closure",
+      "stepsPerRun": 3,
+      "state": "unknown"
+    },
+    {
+      "runs": 1,
+      "planStatus": "WAIT",
+      "messages": 60,
+      "executions": 63,
+      "metrics": {
+        "runDiscovery": {
+          "observations": {
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0051,
+              "p95": 0.0031,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0051,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "elapsedMs": {
+            "max": 1.7235,
+            "p95": 1.3464,
+            "samples": 30,
+            "p50": 1.0579,
+            "p99": 1.7235,
+            "min": 0.9724
+          },
+          "windowStart": "2026-10-25T06:47:07.793759600Z",
+          "windowEnd": "2026-10-25T06:47:07.826451600Z"
+        },
+        "snapshot": {
+          "observations": {
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 1,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "max": 0.0032,
+              "p95": 0.0029,
+              "samples": 30,
+              "p50": 0.0021,
+              "p99": 0.0032,
+              "min": 0.002
+            },
+            "connectionAcquisitions": 30,
+            "applicationDatabaseCalls": 120
+          },
+          "elapsedMs": {
+            "max": 3.9924,
+            "p95": 3.9109,
+            "samples": 30,
+            "p50": 3.5486,
+            "p99": 3.9924,
+            "min": 3.3385
+          },
+          "windowStart": "2026-10-25T06:47:07.845868700Z",
+          "windowEnd": "2026-10-25T06:47:07.952649400Z"
+        },
+        "planner": {
+          "observations": {
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "poolPeak": {
+              "active": 0,
+              "total": 10,
+              "idle": 10,
+              "waiting": 0
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "elapsedMs": {
+            "max": 0.0058,
+            "p95": 0.0052,
+            "samples": 30,
+            "p50": 0.004,
+            "p99": 0.0058,
+            "min": 0.0039
+          },
+          "windowStart": "2026-10-25T06:47:07.953650700Z",
+          "windowEnd": "2026-10-25T06:47:07.953650700Z"
+        },
+        "claimRollback": {
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
+        }
+      },
+      "childrenPerStep": 20,
+      "name": "failed-predecessor",
+      "stepsPerRun": 3,
+      "state": "failed"
+    }
+  ],
+  "syntheticStages": {
+    "windowEnd": "2026-10-25T06:47:13.868970600Z",
+    "windowStart": "2026-10-25T06:47:08.434597900Z",
+    "elapsedSeconds": 5.4296728,
+    "counts": {
+      "plannedQuota": 300,
+      "registryVisited": 300,
+      "fakeBrokerAcknowledged": 300,
+      "offeredCandidates": 375,
+      "claimed": 300,
+      "syntheticChildStatusSuccess": 300
+    },
+    "tickMs": {
+      "max": 819.823,
+      "p95": 819.823,
+      "samples": 9,
+      "p50": 265.4784,
+      "p99": 819.823,
+      "min": 3.5135
+    },
+    "statusCallMs": {
+      "max": 28.1958,
+      "p95": 10.3885,
+      "samples": 300,
+      "p50": 7.1335,
+      "p99": 12.3698,
+      "min": 5.4218
+    },
+    "throughputPerSecond": {
+      "syntheticStatus": 55.25194814685703,
+      "fakePublish": 55.25194814685703
+    },
+    "observations": {
+      "jdbcExecuteCalls": 5171,
+      "commits": 1233,
+      "poolNow": {
+        "active": 0,
+        "total": 10,
+        "idle": 10,
+        "waiting": 0
+      },
+      "poolPeak": {
+        "active": 1,
+        "total": 10,
+        "idle": 10,
+        "waiting": 0
+      },
+      "rollbacks": 0,
+      "acquisitionMs": {
+        "max": 0.0228,
+        "p95": 0.0039,
+        "samples": 1236,
+        "p50": 0.0029,
+        "p99": 0.0064,
+        "min": 0.002
+      },
+      "connectionAcquisitions": 1236,
+      "applicationDatabaseCalls": 6404
+    }
+  },
+  "controlledPoolPressure": {
+    "label": "controlled saturation, not normal workload",
+    "workers": 4,
+    "heldPoolSlots": 10,
+    "minimumHoldAfterObservedWaitMs": 30,
+    "observations": {
+      "jdbcExecuteCalls": 13,
+      "commits": 4,
+      "poolNow": {
+        "active": 0,
+        "total": 10,
+        "idle": 10,
+        "waiting": 0
+      },
+      "poolPeak": {
+        "active": 10,
+        "total": 10,
+        "idle": 10,
+        "waiting": 3
+      },
+      "rollbacks": 0,
+      "acquisitionMs": {
+        "max": 75.4095,
+        "p95": 75.4095,
+        "samples": 15,
+        "p50": 0.4983,
+        "p99": 75.4095,
+        "min": 0.0028
+      },
+      "connectionAcquisitions": 15,
+      "applicationDatabaseCalls": 17
+    },
+    "snapshotMs": {
+      "max": 80.6014,
+      "p95": 80.6014,
+      "samples": 4,
+      "p50": 70.0901,
+      "p99": 80.6014,
+      "min": 65.1128
+    }
+  },
+  "sourceSha256": {
+    "apps/core/src/test/java/com/omni/platform/JobRunDispatchBenchmarkPostgresTest.java": "ee08dd65587ea87ec839940df6c313a60c70f5660b54bbf672aa30624d8e766c",
+    "apps/core/src/test/java/com/omni/platform/JdbcMeasurementProbe.java": "fdaf59ed7f59fb8455f5b2de7da3484388a64c06f573f403acd506564bb21561",
+    "apps/core/src/test/java/com/omni/platform/SchedulerDiagnosticsFixture.java": "38d45a7cdb69f83eb40bcb9817359dbc2fe8c92005fb40d8e1b73062c8c6b8f0",
+    "apps/core/src/test/java/com/omni/platform/PlatformStartupPostgresTest.java": "67590310fa375b1e3da1c009b432dcf3104c7e976455fc76a5f2b50ca0f7ff9a",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshotReader.java": "101e9a105b669f0fdc7a757e2b4e3b8e185429169b37f47dab66d7ea1ade1180",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchPlanner.java": "23472d562325917f2710650f793e86b18fe44ce17a1c07237259257631a49d1e",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchStore.java": "112202acc1d8308a1481c5d65c9f21783b32cfd68b875e8b7329dd78aab6716b",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchCoordinator.java": "e8c1aed908cdd6d2c4876655330256d98fd31efbf94d85086aa56d3fde0cbba5",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/services/SchedulerOutboxService.java": "5a6933afb0ae5128c67348c695057b2b1ff9677d6bdf4c716140f39b57c637a5",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/SchedulerOutboxRepositoryImpl.java": "4fd4202d505848a6b4a10492b88a3b42015fc2b680ba54806e6eea0863d4e2c6",
+    "database/diagnostics/p14/v1/run_steps.sql": "7ec2e883469f116741ef38f8e524f5d91349f284a51505d7cb64ca2cd1fc8ef3",
+    "database/diagnostics/p14/v1/legacy_outbox_inventory.sql": "1c2d04ff5b18ed0085614b3b89ccf4f9daba44c952a99cb6a3fee27a111250ef"
+  },
+  "limitations": [
+    "Windows/disposable PostgreSQL measurements are not production baselines",
+    "JDBC execute calls are application execution-call observations, not TCP packet/protocol round trips",
+    "No pg_stat_statements required; its metrics, real provider/network/worker processing times are unavailable",
+    "FIFO comparison measures candidate reading only; FIFO cannot replace the JobRun admission barrier",
+    "Claim timings include rollback; mutating EXPLAIN is restricted to this disposable rollback fixture",
+    "No performance pass/fail threshold, index forcing, new runtime metrics, preparation activation or retained data access"
+  ],
+  "unchangedMeasuredProductionSha256": {
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/SchedulerOutboxDispatcher.java": "ed3b63fd742f0dca3ac2956685de727962934bebe19f67d44d5f66e21dc13b43",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java": "31fcbc873414568b6b85065c79c060ce49f3340634a60aed6e3847497595e1e6",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshot.java": "2fdb9a73fc67e804fe813e022255e78c3f2cb2fc0bef1fab8d7634cfeb0c341a"
+  },
+  "queryPlanSummaries": [
+    {
+      "name": "32-runs-10-claim-update-explain",
+      "planningMs": 0.048,
+      "executionMs": 0.123,
+      "rootActualRows": 0,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 22,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "ModifyTable"],
+      "indexes": ["idx_scheduler_outbox_dispatch"],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "32-runs-10-diagnostic-explain",
+      "planningMs": 2.164,
+      "executionMs": 9.728,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 3718,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Function Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Recursive Union",
+        "Result",
+        "Seq Scan",
+        "Sort",
+        "WorkTable Scan"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "32-runs-10-fifo-explain",
+      "planningMs": 0.06,
+      "executionMs": 0.071,
+      "rootActualRows": 75,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 17,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "Limit"],
+      "indexes": ["idx_scheduler_outbox_dispatch"],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "32-runs-10-inventory-explain",
+      "planningMs": 0.594,
+      "executionMs": 11.418,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 701,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "scheduler_outbox_messages_pkey",
+        "uq_execution_run_identity",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "32-runs-10-scoped-explain",
+      "planningMs": 0.193,
+      "executionMs": 2.746,
+      "rootActualRows": 10,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 3256,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "idx_job_run_steps_definition",
+        "idx_scheduler_outbox_dispatch"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "32-runs-10-snapshot-explain",
+      "planningMs": 0.486,
+      "executionMs": 3.641,
+      "rootActualRows": 96,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 3715,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Seq Scan",
+        "Sort"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "failed-predecessor-diagnostic-explain",
+      "planningMs": 1.291,
+      "executionMs": 1.677,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 143,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Function Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Recursive Union",
+        "Result",
+        "Seq Scan",
+        "Sort",
+        "WorkTable Scan"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "failed-predecessor-inventory-explain",
+      "planningMs": 0.581,
+      "executionMs": 7.417,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 278,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "scheduler_outbox_messages_pkey",
+        "uq_execution_run_identity",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "join-one-parent-success-claim-update-explain",
+      "planningMs": 0.055,
+      "executionMs": 0.14,
+      "rootActualRows": 0,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 13,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "ModifyTable"],
+      "indexes": ["idx_scheduler_outbox_dispatch"],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "join-one-parent-success-diagnostic-explain",
+      "planningMs": 2.105,
+      "executionMs": 1.998,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 145,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Function Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Recursive Union",
+        "Result",
+        "Seq Scan",
+        "Sort",
+        "WorkTable Scan"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "join-one-parent-success-fifo-explain",
+      "planningMs": 0.078,
+      "executionMs": 0.093,
+      "rootActualRows": 60,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 43,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "Limit"],
+      "indexes": ["idx_scheduler_outbox_dispatch"],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "join-one-parent-success-inventory-explain",
+      "planningMs": 0.902,
+      "executionMs": 6.109,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 283,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "scheduler_outbox_messages_pkey",
+        "uq_execution_run_identity",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "join-one-parent-success-scoped-explain",
+      "planningMs": 0.197,
+      "executionMs": 0.395,
+      "rootActualRows": 20,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 257,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "idx_job_run_steps_definition",
+        "idx_scheduler_outbox_dispatch"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "join-one-parent-success-snapshot-explain",
+      "planningMs": 0.465,
+      "executionMs": 0.478,
+      "rootActualRows": 3,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 149,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "job_run_step_preparations_pkey",
+        "uq_job_run_step_definition",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "one-run-100-claim-update-explain",
+      "planningMs": 0.056,
+      "executionMs": 0.131,
+      "rootActualRows": 0,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 19,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "ModifyTable"],
+      "indexes": ["idx_scheduler_outbox_dispatch"],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "one-run-100-diagnostic-explain",
+      "planningMs": 2.568,
+      "executionMs": 2.287,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 942,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Function Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Recursive Union",
+        "Result",
+        "Seq Scan",
+        "Sort",
+        "WorkTable Scan"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "one-run-100-fifo-explain",
+      "planningMs": 0.06,
+      "executionMs": 0.078,
+      "rootActualRows": 75,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 70,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "Limit"],
+      "indexes": ["idx_scheduler_outbox_dispatch"],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "one-run-100-inventory-explain",
+      "planningMs": 0.886,
+      "executionMs": 10.8,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 692,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "scheduler_outbox_messages_pkey",
+        "uq_execution_run_identity",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "one-run-100-scoped-explain",
+      "planningMs": 0.234,
+      "executionMs": 3.207,
+      "rootActualRows": 75,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 1302,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "idx_job_run_steps_definition",
+        "idx_scheduler_outbox_dispatch"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "one-run-100-snapshot-explain",
+      "planningMs": 0.603,
+      "executionMs": 1.119,
+      "rootActualRows": 3,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 946,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "job_run_step_preparations_pkey",
+        "uq_job_run_step_definition",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "retry-and-live-lease-diagnostic-explain",
+      "planningMs": 1.657,
+      "executionMs": 1.96,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 143,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Function Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Recursive Union",
+        "Result",
+        "Seq Scan",
+        "Sort",
+        "WorkTable Scan"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "retry-and-live-lease-inventory-explain",
+      "planningMs": 0.626,
+      "executionMs": 5.302,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 360,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "scheduler_outbox_messages_pkey",
+        "uq_execution_run_identity",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "unknown-closure-diagnostic-explain",
+      "planningMs": 1.525,
+      "executionMs": 1.55,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 15,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Function Scan",
+        "Hash",
+        "Hash Join",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Recursive Union",
+        "Result",
+        "Seq Scan",
+        "Sort",
+        "WorkTable Scan"
+      ],
+      "indexes": [
+        "idx_execution_job_run_step",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    },
+    {
+      "name": "unknown-closure-inventory-explain",
+      "planningMs": 1.092,
+      "executionMs": 0.506,
+      "rootActualRows": 1,
+      "rootActualLoops": 1,
+      "rootSharedHitBlocks": 1,
+      "rootSharedReadBlocks": 0,
+      "nodeTypes": [
+        "Aggregate",
+        "CTE Scan",
+        "Index Scan",
+        "Limit",
+        "Nested Loop",
+        "Result",
+        "Sort"
+      ],
+      "indexes": [
+        "scheduler_outbox_messages_pkey",
+        "uq_execution_run_identity",
+        "uq_scheduler_outbox_execution_message"
+      ],
+      "boundary": "Root buffer/row values; nested nodes are not summed because counters can be inclusive"
+    }
+  ]
+}

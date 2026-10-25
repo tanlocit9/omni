@@ -3,7 +3,8 @@
 This directory is the documentation entry point for Omni. It is designed to help a new developer understand the system without reading implementation-level code first. Use the [numbered documentation registry](INDEX.md) for complete non-ADR coverage, classifications, roadmap mappings, and related-document links.
 
 Versioned [scheduler diagnostic SQL and observation dictionary](../database/diagnostics/p14/v1/README.md)
-are owned by Plan 030 I5; they do not change admission or authorize I7 cleanup.
+and [measured local benchmark](../database/diagnostics/p14/v1/benchmark-results.md)
+are owned by completed Plan 030 I5; they do not change admission or authorize I7 cleanup.
 
 ## Start Here
 

@@ -1,5 +1,22 @@
 # Omni Release Notes
 
+## 2026-10-25 - P14-I5 completed with measured diagnostic evidence
+
+I5.a (734d2ef) supplies versioned read-only run/step and legacy-alias SQL. I5.b adds
+a test-only JDBC/Hikari probe and reproducible six-workload PostgreSQL benchmark:
+5 warmups, 30 samples per repeated stage, p50/p95/p99, 24 actual query plans,
+source hashes and explicit database-call/pool boundaries. Real dispatcher/guard/
+claim/applyStatus paths record 300 synthetic child completions with fake Kafka;
+this is not a provider/worker throughput claim or production SLA.
+
+Local gate PASS 7/7: 423 tests / 65 suites, zero failures/errors/skips,
+six SQL cases and all 31 critical Java components >=80% line/branch.
+[Measured report](database/diagnostics/p14/v1/benchmark-results.md) and dictionary
+hand off to I6/I7. Both dependents become ready under scoped isolation and their
+own acceptance/rollout gates. No I6/I7 implementation, runtime instrumentation,
+schema, retained data, preparation/provider/deployment or hosted CI change.
+See [completion matrix and documentation review](docs/plans/030-static-graph-dispatch-planner.md#i5-completion-and-measured-evidence--2026-10-25).
+
 ## 2026-10-25 - P14-I5.a read-only diagnostics started
 
 Added versioned run/step progress and legacy outbox inventory SQL, read-only

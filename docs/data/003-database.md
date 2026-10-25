@@ -122,7 +122,8 @@ observe explicit bounded run-step windows and paginated legacy outbox identity
 states in read-only transactions. Separate aggregates prevent fan-out overcounting;
 unknown/malformed/conflicting evidence does not authorize cleanup or admission.
 No migration/index/extension, retention or runtime writer is changed. The metric
-dictionary is an I6 handoff; I5 benchmark evidence is recorded separately.
+dictionary is an I6 handoff; [measured I5 query/pool evidence](../../database/diagnostics/p14/v1/benchmark-results.md)
+is local/disposable, with no production latency or retained migration claim.
 
 ### JobRun persistence foundation (I3.b)
 

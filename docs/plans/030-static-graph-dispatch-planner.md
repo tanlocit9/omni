@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6/I7 are ready. Preparation remains disabled; no retained rollout or deployment is claimed.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I6 are completed on local source-bound evidence; I7 remains ready. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -29,7 +29,74 @@ in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bou
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
 
+## I6 bounded read-model completion — 2026-10-25
+
+Owner-requested branch `feat/P14-I6` starts at merged main `0c521ef`.
+P14-I6 completes the approved SQL/read-contract handoff to Plan 029, without a
+new endpoint, UI, runtime DTO or statistics store. The additive readModel v1 in
+run_steps.sql preserves the original v1 diagnostic fields. See the
+[operator contract](../../database/diagnostics/p14/v1/read-model.md),
+[executed fixtures](../../database/diagnostics/p14/v1/read-model-fixtures.json)
+and [refreshed measured report](../../database/diagnostics/p14/v1/benchmark-results.md).
+I7 remains ready; I6 does not authorize cleanup or preparation activation.
+
+Local gate **PASS P14-I6 required=8 pass=8**: nine I6 PostgreSQL tests,
+eight existing diagnostic tests, focused benchmark, clean Platform build,
+coverage, owned-file formatting, source/acceptance audit and document consistency.
+The full build executes **434 tests / 66 suites**, zero failures/errors/skips.
+All 31 critical Java components meet >=80% line/applicable branch coverage;
+the changed SQL has executed behavioral coverage below, not a Java percentage.
+Source hashes bind the full coverage owners, SQL, I6 test and fixture bytes.
+Ignored `.agent/check-results/P14-I6/` retains the gate and coverage evidence.
+
+| Criterion / changed source                                                                     | Executed test mapping and limits                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frozen path, explicit scope, bounded run/step progress in run_steps.sql                        | JobRunReadModelPostgresTest.exposesBoundedFrozenPathCountsAndDatabaseCaptureClocks checks fingerprint/version, nested predecessor indices, counts, original envelope compatibility and database clocks. thirtyTwoRunsRemainIsolatedAndNeverBecomeGlobalBacklog exercises 32 runs and exact single-run selection.                      |
+| Incomplete windows cannot look idle                                                            | invalidMissingDuplicateAndOverBoundWindowsCannotMasqueradeAsIdle covers empty/missing/duplicate/33-run inputs, suppressed operator runs and malformed JSON failure. Structural completeness remains separate from membership confidence.                                                                                              |
+| Execution SUCCESS, publication and preparation RUNNING do not prove worker processing or READY | publishedAndPreparationRunningNeverInventWorkerProcessingOrReady and completedExecutionPathReportsFractionWithoutClaimingDatasetReadiness check completion fractions, joins, null worker/READY/rates and typed unavailable reasons.                                                                                                   |
+| UNKNOWN/blocked/failed fail closed                                                             | missingClosureAndUnsupportedRunStateStayUnknownWithNullFraction covers open membership and terminal lifecycle, including outbox BLOCKED; blockedOutboxOverridesSuccessAndKeepsJoinWaiting retains BLOCKED precedence after execution SUCCESS. Unknown fractions are null and counts_trusted is false.                                 |
+| Queue partitions, predecessor waits and empty work                                             | waitReasonsSeparateLiveLeaseRetryFailureAndCandidateEligibility exercises valid fenced-lease state, retry delay, failure and downstream wait. zeroChildClosedStepsStillNeedRootSuccessAndNoQueueDoesNotMeanIdle covers empty eligible queues and root-only completion.                                                                |
+| Freshness and throughput handoff                                                               | Actual SQL capture clocks bracket materialized observations; observedAt remains a separate lease clock. Consumer age/skew policy and stale/unavailable examples are specified, not implemented as Console behavior. Live rate fields remain null without an authoritative counter window; I5 synthetic rates retain their provenance. |
+| Cost/regression and inherited safety                                                           | Existing eight diagnostics pass, including jsonb poison pagination and BLOCKED/SUCCESS divergence. Six benchmark workloads, five warmups, 30 samples and 24 actual query plans are rerun against the additive SQL. Full regression and attributable coverage preserve the unchanged guard/claim/status paths.                         |
+
+Cross-service impact starts with graph analysis of SQL/test files and is reconciled
+against canonical docs: Platform changes read-only projection and disposable tests,
+not admission/status/claim writers. Analyzer/Ingestor keep transport/status/provider/
+Parquet behavior; Query Service/Console have no endpoint, discovery or UI changes.
+Shared contracts/generated code/py-common, Kafka fields/topics, manifests, storage
+paths/ownership, READY-last and exact lineage remain unchanged. Persistence uses
+existing schema/indexes; no migration/cleanup, configuration change, retained DB
+access or writer overlap is introduced. Preparation stays false and 32 crons remain.
+Operations gain a SELECT-only contract and bounded unknown/freshness guidance.
+Graph bounds and untracked-file indexing are not coverage proof; actual SQL/JUnit
+execution and the source/test matrix establish the changed behavior.
+
+Self-review used review-changes: checked output compatibility and bounds, path/run
+isolation, counts without fan-out, unknown/blocked priority, valid lease constraints,
+worker/READY/rate nulls, clock provenance, read-only transactions and rollback.
+The initial lease fixture violated the existing claim-state constraint and was
+corrected; all latest checks pass. Added the root-only/zero-queue regression and
+explicitly required consumers to carry outer observedAt when extracting readModel.
+No unresolved actionable correctness finding remains in the scoped self-review.
+This is local review, not an independent reviewer or hosted CI result.
+
+Documentation synchronization updates Plan 030/029, registry, roadmap index/diagram,
+release notes, architecture, job flow, database, deployment runbook, development
+ownership, documentation entrypoint and diagnostic contract/dictionary/fixtures/
+benchmark artifacts. ADRs need no update: no new runtime architecture decision.
+Kafka/data-lake and service guides need no update: producer/consumer, API, storage
+and service ownership remain unchanged. Field/DTO inventory needs no update: its
+I6 internal read-projection declaration is fulfilled without new runtime fields.
+The numbered documentation index needs no row for artifacts outside docs.
+AGENTS/CLAUDE, .roo and shared skills need no update: workflow/tooling policy is
+unchanged. Post-edit graph detection and static consistency review pass.
+No owner attestation, hosted CI, deployment, actual worker/provider throughput,
+retained migration or Plan 029 UI implementation is claimed.
+
 ## I5 review repairs — 2026-10-25
+
+Historical I5 review checkpoint for its repaired source; I6 above owns the latest
+additive SQL and regenerated benchmark evidence.
 
 Both review findings were reproduced by two failing PostgreSQL regression tests
 before modifying SQL. The repaired source renews I5's local evidence through
@@ -2053,7 +2120,7 @@ Expose or specify bounded JobRun/path/step progress, queue backlog, completion/w
 
 ### P14-I7 — Legacy outbox data cleanup and compatibility retirement
 
-Owner requested this increment on 2026-10-25. Canonical status is `pending`,
+Owner requested this increment on 2026-10-25. Registration status was `pending`; current status belongs to the increment registry,
 depending on P14-I4 and P14-I5. I5 supplies the bounded data inventory; I6's operator
 read model is not a prerequisite. Reconcile shared Platform writer ownership before
 starting implementation. This registration authorizes planning, not retained-data
@@ -2351,8 +2418,8 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I6 — operations read-model handoff
 
-- [ ] Graph-specific JobRun/path status, completeness, backlog, uncertain states and measured progress can be consumed through a bounded read contract/fixtures or approved API if necessary; no duplicate dashboard implementation.
-- [ ] Plan 029 owns actual operator UI; worker RUNNING is reported only with actual worker timing evidence, never inferred from preparation-time child RUNNING.
+- [x] Graph-specific JobRun/path status, completeness, backlog, uncertain states and measured progress can be consumed through a bounded read contract/fixtures or approved API if necessary; no duplicate dashboard implementation.
+- [x] Plan 029 owns actual operator UI; worker RUNNING is reported only with actual worker timing evidence, never inferred from preparation-time child RUNNING.
 
 ### P14-I7 — legacy data cleanup
 

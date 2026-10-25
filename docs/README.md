@@ -5,6 +5,9 @@ This directory is the documentation entry point for Omni. It is designed to help
 Versioned [scheduler diagnostic SQL and observation dictionary](../database/diagnostics/p14/v1/README.md)
 and [measured local benchmark](../database/diagnostics/p14/v1/benchmark-results.md)
 are owned by completed Plan 030 I5; they do not change admission or authorize I7 cleanup.
+The additive [I6 bounded operator read contract](../database/diagnostics/p14/v1/read-model.md)
+hands frozen run/path/step observations and uncertainty/freshness rules to Plan 029;
+it introduces no application endpoint or UI.
 
 ## Start Here
 

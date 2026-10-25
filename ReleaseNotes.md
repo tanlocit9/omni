@@ -1,5 +1,17 @@
 # Omni Release Notes
 
+## 2026-10-25 - P14-I7 registered for legacy outbox cleanup
+
+Added owner-requested P14-I7, pending on I4/I5 and independent of I6. Scope is a
+forward migration normalizing historical parent-FK/payload-child references,
+preserving intent/delivery/history, followed by removal of that compatibility
+branch after zero-alias verification. Invalid identities/collisions stop migration;
+the active NULL-JobRun lane and JobRun membership remain intact. Backup, writer
+quiescence, recovery, real PostgreSQL preservation/concurrency tests and attributable
+coverage are required. Retained migration execution and physical history purging
+remain separately authorized. No migration/runtime change or new test PASS.
+Canonical plan, registry, roadmap/index/diagram and documentation index synchronized.
+
 ## 2026-10-25 - P14-I4 review fixes for run rotation and legacy child locks
 
 Confirmed the actual status entrypoint is `JobService.applyStatus()`. Reproduced

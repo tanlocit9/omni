@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I4 are completed on local source-bound evidence; I5 is ready for isolated diagnostics and I6 remains pending on I5. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
+Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I4 are completed on local source-bound evidence; I5 is ready for isolated diagnostics and I6 remains pending on I5; I7 legacy-data cleanup is pending on I4/I5. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -20,7 +20,7 @@ Provide one validated static DAG that accepts a **target job definition** and re
 
 **The target/entry job is often a DAG sink, not a root node in graph theory.** “Reduce job definitions” means reduce separately cron-scheduled **entry targets**; ancestor definitions, producers and configurations remain. Existing jobs may remain independently triggerable where operationally required.
 
-Current stories and statuses are defined solely by the [canonical I1–I6 story sequence](#canonical-revised-delivery-sequence--2026-10-15). Requirements elsewhere labeled historical must not override it. No runtime implementation, migration, benchmark or test execution is claimed by this documentation revision.
+Current stories and statuses are defined solely by the [canonical I1–I7 story sequence](#canonical-revised-delivery-sequence--2026-10-15). Requirements elsewhere labeled historical must not override it. No runtime implementation, migration, benchmark or test execution is claimed by this documentation revision.
 
 ## Outcome
 
@@ -89,7 +89,7 @@ field/DTO reference, AGENTS/CLAUDE/.roo/skills need no edit: this restores their
 existing fairness/nonblocking claim guarantees without adding a public contract,
 deployment flag, data field, document or agent workflow.
 
-Legacy retirement remains a separate scope decision: current `enqueue` already
+Legacy retirement is now scheduled as P14-I7 (pending on I4/I5): current `enqueue` already
 writes child-FK messages, so old parent-FK/payload-child compatibility can be
 retired after retained-row reconciliation; it is distinct from removing the
 still-active NULL-JobRun scheduling path. No data deletion or migration execution
@@ -1873,11 +1873,79 @@ Outbox planning now reads the persisted **JobRun path and run-step membership as
 
 Deliver runnable **read-only SQL diagnostics** for active JobRun cohorts, path completeness, parent/child status, waiting/failing joins, published-but-unfinished steps, eligible/leased/retry-delayed outbox, unknown identity and overcount detection. Each query documents parameters, bounds, expected cardinality, sample-safe use and interpretation. Benchmark snapshot and claim SQL using controlled `EXPLAIN (ANALYZE, BUFFERS)`, rows scanned/returned, index scans/buffer reads, transaction duration, Hikari active/idle/pending/wait, round trips, per-tick snapshot/planner latency p50/p95/p99 and planned→selected→claimed→published→executed breakdown. **No made-up PASS thresholds**; baseline and regression comparison with dataset size, environment and sampling window. `pg_stat_statements` is optional, not presumed installed. Define a low-cardinality metrics/read-projection dictionary for Plan 029 (not a UI).
 
+For I7, the read-only diagnostic pack also inventories historical parent-FK/payload-child
+aliases by delivery/lease state, malformed or missing identity, conflicting run links
+and projected FK/message-index collisions. Record bounds, counts and interpretation;
+I5 does not migrate, repair or delete these rows.
+
 I3/I4 require **targeted safety/query correctness diagnostics** before activation; moving the consolidated SQL _deliverable_ to I5 does **not** defer necessary I3/I4 security, concurrency, fail-closed, lock/cost or regression checks.
 
 ### P14-I6 — Operator read-model handoff
 
 Expose or specify bounded JobRun/path/step progress, queue backlog, completion/wait/blocked reason, throughput, snapshot freshness and uncertain/UNKNOWN flags for Plan 029. Distinguish execution preparation/status from actual worker processing (P13-I1 timing evidence). No high-cardinality metric labels, full graph engine, dataset manifest reimplementation or dashboard UI duplication. Keep all required API addition/migration and backward-compatible fields scoped and independently testable; otherwise documentation/SQL contracts alone suffice and no new endpoint should be introduced.
+
+### P14-I7 — Legacy outbox data cleanup and compatibility retirement
+
+Owner requested this increment on 2026-10-25. Canonical status is `pending`,
+depending on P14-I4 and P14-I5. I5 supplies the bounded data inventory; I6's operator
+read model is not a prerequisite. Reconcile shared Platform writer ownership before
+starting implementation. This registration authorizes planning, not retained-data
+deletion, migration execution or JobRun preparation activation.
+
+Retire only the historical outbox shape whose stored execution FK names the parent
+while its payload identifies the actual child. Current enqueue writes child FKs.
+Keep the active NULL-JobRun scheduling lane, execution hierarchy, scheduled entries,
+DependencyRegistry, fenced attempts/leases/retry/ack and exact-version approval.
+
+1. Inventory candidate rows by PENDING/PUBLISHED/BLOCKED, active/expired lease,
+   parent/child identity, payload validity, missing child, conflicting JobRun links
+   and projected `(execution_id, message_index)` uniqueness collisions. Version the
+   bounded read-only diagnostics and reconcile row counts before/after migration.
+2. Add the next unused forward Flyway migration; never rewrite V6/V12/V13/V14 or
+   disable membership guards. Normalize only validated legacy references to the
+   actual child, requiring matching parent/definition and NULL JobRun links.
+   Preserve message/execution IDs, payload/key/topic, status, attempts, availability,
+   lease/token/owner, timestamps, metadata and historical execution relationships.
+   Reject malformed/unresolved/ambiguous rows and collisions transactionally with
+   actionable diagnostics; do not guess identity or silently delete/quarantine work.
+3. Pause/drain affected Platform writers and claims under a documented rollout;
+   take/validate a backup and confirm no incompatible old writer remains. Applying
+   the migration to a retained environment requires explicit owner authorization.
+   Physical purging of history requires a separately approved retention/deletion
+   policy; normalization is not permission to delete unfinished or published work.
+4. After normalization and a zero-remaining-alias check, remove parent-FK/child-
+   payload fallback reads, alias-specific metadata resolution and obsolete tests.
+   Validate payload execution identity against the stored FK and fail closed on
+   mismatch; retain legitimate parentExecutionId and no-alias legacy scheduling.
+   Keep the I4 busy-work-row nonblocking protection required by the surviving lane.
+5. Verify real PostgreSQL upgrade from pre-cleanup fixtures and fresh install,
+   repeat Flyway migrate/validate without reapplying or duplicating intent, failure
+   rollback, collision/malformed/missing-
+   child/linked-run rejection, leased/PENDING/PUBLISHED/BLOCKED preservation,
+   retry/restart, concurrent `JobService.applyStatus()` and regular legacy/JobRun
+   dispatch. Map every impacted source/safety path to executed tests and >=80%
+   line/branch coverage; SQL needs an explicit behavior matrix, not a percentage.
+   Proposed Nx checks: `nx run platform:test`, `nx run platform:coverage`,
+   `nx run platform:build`, owned-file format and documentation consistency.
+
+Blast radius: Platform candidate parsing, admission, enqueue validation and tests
+are impacted; PostgreSQL gets a forward data normalization/validation migration.
+Analyzer/Ingestor retain the same command/status identity and no code/worker change
+is planned; Query Service/Console retain APIs and history views; contracts/proto,
+generated code and py-common are unchanged. Kafka payloads, manifests, READY-last,
+dataset paths/ownership and lineage are unchanged. Configuration/preparation/cron
+are unchanged. Operations own backup, writer quiescence, rollout and recovery;
+failed migration rolls back atomically, and post-cutover recovery uses the verified
+backup/artifact plan without resetting attempts, replaying delivered messages or
+reintroducing competing writers. Graph impact must be refreshed and reconciled
+against canonical service/data/flow/deployment ownership before implementation.
+
+Documentation disposition for this planning change: registry, Plan 030, roadmap
+index/diagram, documentation index and release notes updated. Existing architecture,
+ADR, flow, database, deployment, service/development guides, field/DTO reference and
+AGENTS/CLAUDE/.roo/skills describe unchanged current behavior and need no edit now.
+I7 implementation must synchronize their affected migration, strict-identity and
+rollout sections together. No new runtime, schema, test or cleanup PASS is claimed.
 
 ### Symbol-rooted JobRun extensibility — owner design guard 2026-10-15
 
@@ -1940,15 +2008,16 @@ No trading or research algorithm is introduced. The shared topology makes determ
 
 ### Field/DTO inventory — canonical 2026-10-15
 
-| Owner    | Contract change                                                                                                                                           | Required compatibility                                                                                                                                                     |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I2       | Static target→ancestors topological path, definition/node identity mapping, diagnostics                                                                   | Additive internal API; no runtime activation                                                                                                                               |
-| I3       | **New `job_runs` and durable run-step membership**; `jobRunId` link to root/child execution; scheduled/manual/backfill mode; target/scope/request context | New forward Flyway migration; I3.d owner-deferred manual API with HTTP 410 before dropping old audit table; old rows/FIFO/guard remain safe; no modification of applied V8 |
-| I3       | Optional root-only autonomous cron scheduling                                                                                                             | Dependency definitions/producer configs retained; no silent loss of independent required schedules; explicit opt-in                                                        |
-| I4       | Execution/outbox read projection, typed JobRun cohort/step/quota selection, scoped queries and enabled/fallback config                                    | Read-only bounded snapshot, claim-time revalidation, guarded/fenced publishing and rollback                                                                                |
-| I5       | Versioned diagnostic SQL, benchmark evidence, metric read dictionary                                                                                      | No metric storage/schema/public API required solely for measurement                                                                                                        |
-| I6       | Bounded JobRun operations projection or approved API                                                                                                      | No duplicate Plan 029 UI, explicit UNKNOWN and authorization                                                                                                               |
-| Deferred | Optional runtime caching and full historical backfill (Plan 028)                                                                                          | Separate evidence and owner approval; no speculative cache epic                                                                                                            |
+| Owner    | Contract change                                                                                                                                           | Required compatibility                                                                                                                                                                                      |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I2       | Static target→ancestors topological path, definition/node identity mapping, diagnostics                                                                   | Additive internal API; no runtime activation                                                                                                                                                                |
+| I3       | **New `job_runs` and durable run-step membership**; `jobRunId` link to root/child execution; scheduled/manual/backfill mode; target/scope/request context | New forward Flyway migration; I3.d owner-deferred manual API with HTTP 410 before dropping old audit table; old rows/FIFO/guard remain safe; no modification of applied V8                                  |
+| I3       | Optional root-only autonomous cron scheduling                                                                                                             | Dependency definitions/producer configs retained; no silent loss of independent required schedules; explicit opt-in                                                                                         |
+| I4       | Execution/outbox read projection, typed JobRun cohort/step/quota selection, scoped queries and enabled/fallback config                                    | Read-only bounded snapshot, claim-time revalidation, guarded/fenced publishing and rollback                                                                                                                 |
+| I5       | Versioned diagnostic SQL, benchmark evidence, metric read dictionary                                                                                      | No metric storage/schema/public API required solely for measurement                                                                                                                                         |
+| I6       | Bounded JobRun operations projection or approved API                                                                                                      | No duplicate Plan 029 UI, explicit UNKNOWN and authorization                                                                                                                                                |
+| I7       | Historical outbox FK normalization and removal of parent-FK/payload-child compatibility                                                                   | Next forward migration, preflight/collision checks, preserved intent/delivery state, validated backup/rollback and strict FK/payload identity; no active NULL-JobRun lane removal or worker contract change |
+| Deferred | Optional runtime caching and full historical backfill (Plan 028)                                                                                          | Separate evidence and owner approval; no speculative cache epic                                                                                                                                             |
 
 Kafka/protobuf, dataset manifests, storage object paths and Python worker transport stay unchanged **unless an I3 dependency-preparation implementation proves an additive producer/consumer contract is unavoidable**; if so stop, document blast radius and obtain a separately approved compatibility slice. Never conflate JobRun/step completion with outbox PUBLISHED or dataset READY. `triggeredAt` remains audit timestamp; legacy `runKey` remains compatible until cutover; `jobRunId` is run correlation, not child identity.
 
@@ -2108,6 +2177,7 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I5 — measured evidence
 
+- [ ] Bounded read-only legacy-alias inventory for I7 reports delivery/lease states, invalid/missing identities, conflicting run links and projected FK/message-index collisions; no cleanup is executed by I5.
 - [ ] Versioned diagnostic SQL and safe bounded `EXPLAIN (ANALYZE, BUFFERS)` steps cover run steps, membership/completion, backlog, blocked/unknown causes, index usage and overcount prevention.
 - [ ] Dataset/window/environment-aware p50/p95/p99 planner/snapshot/claim durations, rows and buffers, DB calls, Hikari pool pressure, execution/publish throughput, comparisons and uncertain states are measured rather than guessed.
 - [ ] Definitions and limitations for Plan 029 metrics are recorded; no premature UI or new stats persistence.
@@ -2116,6 +2186,13 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 - [ ] Graph-specific JobRun/path status, completeness, backlog, uncertain states and measured progress can be consumed through a bounded read contract/fixtures or approved API if necessary; no duplicate dashboard implementation.
 - [ ] Plan 029 owns actual operator UI; worker RUNNING is reported only with actual worker timing evidence, never inferred from preparation-time child RUNNING.
+
+### P14-I7 — legacy data cleanup
+
+- [ ] Bounded inventory reconciles every legacy alias, unresolved/collision case and delivery/lease state; source/caller ownership and rollout preconditions are recorded.
+- [ ] Forward migration normalizes validated aliases without losing intent/history, rewriting applied migrations, mutating JobRun membership or bypassing constraints. Invalid/ambiguous rows and active incompatible writers stop cutover.
+- [ ] Remaining alias count is zero before alias compatibility code is removed; actual-child FK identity is enforced, while ordinary NULL-JobRun and JobRun dispatch, status aggregation, attempts and retry/ack remain compatible.
+- [ ] Real PostgreSQL migration/rollback/data-preservation/concurrency tests, impact-to-test matrix, attributable >=80% line/branch coverage, complete recorded checks and synchronized rollout/recovery docs pass. Retained migration/purge evidence is separate from local verification.
 
 ### Every story
 
@@ -2140,4 +2217,5 @@ Stop and request owner input if:
 - **I3:** disable target-driven JobRun preparation; preserve legacy scheduling and FIFO outbox until safe migration/cutover. **The dropped manual table cannot be restored without backup**, and no manual history migration is planned: document this irreversible data-loss consequence before executing its forward migration, and retain read APIs plus explicit authenticated HTTP 410 on deferred manual routes.
 - **I4:** disable JobRun-aware outbox selection and retain explicitly reviewed historic FIFO behavior, DependencyGuard, claim fencing and persisted records; never silently bypass an enabled cohort barrier.
 - **I5/I6:** diagnostics and bounded read-model consumers can be withdrawn without affecting claims or execution history.
+- **I7:** failed normalization rolls back atomically; after a successful strict-reader cutover, recover using the verified backup/artifact runbook with writers quiesced. Do not reverse FKs blindly, reset delivery state, rewrite applied migrations or purge history as rollback.
 - Never roll back by deleting JobRun/outbox/execution data, modifying applied migrations, replaying unpublished work without idempotency, or inventing successful upstream completion.

@@ -69,7 +69,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan       | Group E / Phase 11 / P11-I1-P11-I5 |
 | plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan       | Group F / Phase 12 / P12-I1-P12-I4 |
 | plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Active Phase 13 supporting plan            | Group G / Phase 13 / P13-I1-P13-I4 |
-| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I6           |
+| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I7           |
 
 ## Proposed, Historical, and Compatibility Plans
 

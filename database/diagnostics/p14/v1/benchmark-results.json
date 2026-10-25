@@ -1,51 +1,40 @@
 {
   "version": 1,
-  "startedAt": "2026-10-25T07:34:23.338132900Z",
-  "finishedAt": "2026-10-25T07:34:47.387834200Z",
+  "startedAt": "2026-10-25T11:37:42.855141600Z",
+  "finishedAt": "2026-10-25T11:38:03.122529500Z",
   "environment": {
-    "processors": 16,
-    "java": "21.0.12.1",
-    "heapMaxBytes": 536870912,
-    "os": "Windows 11",
     "osVersion": "10.0",
     "hikariMax": 10,
     "hikariMinIdle": 10,
-    "postgres": "PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit"
+    "postgres": "PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "processors": 16,
+    "java": "21.0.12.1",
+    "heapMaxBytes": 536870912,
+    "os": "Windows 11"
   },
   "dataset": {
-    "worker": "synthetic real applyStatus calls",
     "provider": "none",
     "businessDate": "2035-01-02",
     "name": "disposable synthetic scheduler state",
-    "kafka": "mock broker acknowledgement"
+    "kafka": "mock broker acknowledgement",
+    "worker": "synthetic real applyStatus calls"
   },
   "warmups": 5,
   "samples": 30,
   "percentiles": "nearest rank; p99 at 30 samples is the observed maximum, not an SLA",
   "scenarios": [
     {
+      "stepsPerRun": 3,
+      "state": "ready",
+      "runs": 1,
+      "planStatus": "PLANNED",
+      "messages": 300,
+      "executions": 303,
       "metrics": {
         "runDiscovery": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 2.0538,
-            "p99": 2.7632,
-            "min": 1.6603,
-            "max": 2.7632,
-            "p95": 2.5779
-          },
-          "windowStart": "2026-10-25T07:34:23.992556100Z",
-          "windowEnd": "2026-10-25T07:34:24.056476300Z",
+          "windowStart": "2026-10-25T11:37:43.377586500Z",
+          "windowEnd": "2026-10-25T11:37:43.426130700Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0052,
-              "p99": 0.0098,
-              "min": 0.0036,
-              "max": 0.0098,
-              "p95": 0.0083
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 60,
             "jdbcExecuteCalls": 30,
             "commits": 30,
@@ -61,30 +50,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0077,
+              "min": 0.0032,
+              "max": 0.0077,
+              "p95": 0.0069,
+              "samples": 30,
+              "p50": 0.0038
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 2.0222,
+            "min": 1.315,
+            "max": 2.0222,
+            "p95": 1.9649,
+            "samples": 30,
+            "p50": 1.5268
           }
         },
         "snapshot": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 5.2991,
-            "p99": 6.654,
-            "min": 4.655,
-            "max": 6.654,
-            "p95": 6.2015
-          },
-          "windowStart": "2026-10-25T07:34:24.090401400Z",
-          "windowEnd": "2026-10-25T07:34:24.252990500Z",
+          "windowStart": "2026-10-25T11:37:43.453787100Z",
+          "windowEnd": "2026-10-25T11:37:43.590814700Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0049,
-              "p99": 0.0169,
-              "min": 0.0037,
-              "max": 0.0169,
-              "p95": 0.0096
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 120,
             "jdbcExecuteCalls": 90,
             "commits": 30,
@@ -100,26 +89,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0071,
+              "min": 0.0034,
+              "max": 0.0071,
+              "p95": 0.006,
+              "samples": 30,
+              "p50": 0.0045
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 5.6653,
+            "min": 4.1244,
+            "max": 5.6653,
+            "p95": 4.993,
+            "samples": 30,
+            "p50": 4.46
           }
         },
         "planner": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.0688,
-            "p99": 0.1799,
-            "min": 0.0601,
-            "max": 0.1799,
-            "p95": 0.149
-          },
-          "windowStart": "2026-10-25T07:34:24.252990500Z",
-          "windowEnd": "2026-10-25T07:34:24.256501600Z",
+          "windowStart": "2026-10-25T11:37:43.605371700Z",
+          "windowEnd": "2026-10-25T11:37:43.607373Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 0,
-              "unavailableReason": "NO_SAMPLES"
-            },
-            "connectionAcquisitions": 0,
             "applicationDatabaseCalls": 0,
             "jdbcExecuteCalls": 0,
             "commits": 0,
@@ -135,30 +128,26 @@
               "active": 0,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0
+          },
+          "elapsedMs": {
+            "p99": 0.1662,
+            "min": 0.0622,
+            "max": 0.1662,
+            "p95": 0.1589,
+            "samples": 30,
+            "p50": 0.0908
           }
         },
         "scopedCandidateRead": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 15.8003,
-            "p99": 20.3318,
-            "min": 13.5837,
-            "max": 20.3318,
-            "p95": 19.6656
-          },
-          "windowStart": "2026-10-25T07:34:24.369626Z",
-          "windowEnd": "2026-10-25T07:34:24.855560Z",
+          "windowStart": "2026-10-25T11:37:43.701811600Z",
+          "windowEnd": "2026-10-25T11:37:44.094320400Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0084,
-              "p99": 0.0115,
-              "min": 0.0064,
-              "max": 0.0115,
-              "p95": 0.0107
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 90,
             "jdbcExecuteCalls": 60,
             "commits": 30,
@@ -174,30 +163,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.009,
+              "min": 0.0052,
+              "max": 0.009,
+              "p95": 0.0087,
+              "samples": 30,
+              "p50": 0.0067
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 16.3154,
+            "min": 10.94,
+            "max": 16.3154,
+            "p95": 15.6888,
+            "samples": 30,
+            "p50": 12.7424
           }
         },
         "fifoCandidateReadReference": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 109.5636,
-            "p99": 121.0302,
-            "min": 103.7389,
-            "max": 121.0302,
-            "p95": 119.897
-          },
-          "windowStart": "2026-10-25T07:34:25.563204500Z",
-          "windowEnd": "2026-10-25T07:34:28.881150300Z",
+          "windowStart": "2026-10-25T11:37:44.666136400Z",
+          "windowEnd": "2026-10-25T11:37:47.460435700Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0095,
-              "p99": 0.0272,
-              "min": 0.0078,
-              "max": 0.0272,
-              "p95": 0.017
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 4560,
             "jdbcExecuteCalls": 4530,
             "commits": 30,
@@ -213,30 +202,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0178,
+              "min": 0.0074,
+              "max": 0.0178,
+              "p95": 0.0148,
+              "samples": 30,
+              "p50": 0.009
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 102.3914,
+            "min": 83.2622,
+            "max": 102.3914,
+            "p95": 100.6546,
+            "samples": 30,
+            "p50": 93.1173
           }
         },
         "claimRollback": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 9.4207,
-            "p99": 11.8056,
-            "min": 8.5515,
-            "max": 11.8056,
-            "p95": 11.4556
-          },
-          "windowStart": "2026-10-25T07:34:28.962835300Z",
-          "windowEnd": "2026-10-25T07:34:29.256445500Z",
+          "windowStart": "2026-10-25T11:37:47.516618600Z",
+          "windowEnd": "2026-10-25T11:37:47.739359900Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0048,
-              "p99": 0.0382,
-              "min": 0.0027,
-              "max": 0.0382,
-              "p95": 0.0375
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 330,
             "jdbcExecuteCalls": 300,
             "commits": 0,
@@ -252,44 +241,44 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 30
+            "rollbacks": 30,
+            "acquisitionMs": {
+              "p99": 0.0452,
+              "min": 0.0021,
+              "max": 0.0452,
+              "p95": 0.0325,
+              "samples": 30,
+              "p50": 0.0027
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 8.1781,
+            "min": 6.7407,
+            "max": 8.1781,
+            "p95": 8.0894,
+            "samples": 30,
+            "p50": 7.3167
           }
         },
         "scopedReturnedRows": 75,
         "fifoReturnedRows": 75
       },
       "childrenPerStep": 100,
-      "name": "one-run-100",
-      "stepsPerRun": 3,
-      "state": "ready",
-      "runs": 1,
-      "planStatus": "PLANNED",
-      "messages": 300,
-      "executions": 303
+      "name": "one-run-100"
     },
     {
+      "stepsPerRun": 3,
+      "state": "ready",
+      "runs": 32,
+      "planStatus": "PLANNED",
+      "messages": 960,
+      "executions": 1056,
       "metrics": {
         "runDiscovery": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 2.5318,
-            "p99": 3.5921,
-            "min": 2.3155,
-            "max": 3.5921,
-            "p95": 3.4706
-          },
-          "windowStart": "2026-10-25T07:34:31.561156Z",
-          "windowEnd": "2026-10-25T07:34:31.641299600Z",
+          "windowStart": "2026-10-25T11:37:49.656190200Z",
+          "windowEnd": "2026-10-25T11:37:49.725395500Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0026,
-              "p99": 0.0032,
-              "min": 0.002,
-              "max": 0.0032,
-              "p95": 0.0032
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 60,
             "jdbcExecuteCalls": 30,
             "commits": 30,
@@ -305,30 +294,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.003,
+              "min": 0.0019,
+              "max": 0.003,
+              "p95": 0.0029,
+              "samples": 30,
+              "p50": 0.0021
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 2.7819,
+            "min": 2.0637,
+            "max": 2.7819,
+            "p95": 2.7541,
+            "samples": 30,
+            "p50": 2.2439
           }
         },
         "snapshot": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 7.7261,
-            "p99": 13.256,
-            "min": 7.0758,
-            "max": 13.256,
-            "p95": 11.9169
-          },
-          "windowStart": "2026-10-25T07:34:31.697722600Z",
-          "windowEnd": "2026-10-25T07:34:31.944656900Z",
+          "windowStart": "2026-10-25T11:37:49.768409700Z",
+          "windowEnd": "2026-10-25T11:37:49.985676400Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.003,
-              "p99": 0.0192,
-              "min": 0.002,
-              "max": 0.0192,
-              "p95": 0.0167
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 120,
             "jdbcExecuteCalls": 90,
             "commits": 30,
@@ -344,26 +333,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0034,
+              "min": 0.0021,
+              "max": 0.0034,
+              "p95": 0.0032,
+              "samples": 30,
+              "p50": 0.0026
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 8.2204,
+            "min": 6.2919,
+            "max": 8.2204,
+            "p95": 8.0317,
+            "samples": 30,
+            "p50": 7.1106
           }
         },
         "planner": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.3466,
-            "p99": 0.5544,
-            "min": 0.237,
-            "max": 0.5544,
-            "p95": 0.5206
-          },
-          "windowStart": "2026-10-25T07:34:31.947170Z",
-          "windowEnd": "2026-10-25T07:34:31.957729Z",
+          "windowStart": "2026-10-25T11:37:49.987263600Z",
+          "windowEnd": "2026-10-25T11:37:49.996960300Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 0,
-              "unavailableReason": "NO_SAMPLES"
-            },
-            "connectionAcquisitions": 0,
             "applicationDatabaseCalls": 0,
             "jdbcExecuteCalls": 0,
             "commits": 0,
@@ -379,30 +372,26 @@
               "active": 0,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0
+          },
+          "elapsedMs": {
+            "p99": 0.5657,
+            "min": 0.1673,
+            "max": 0.5657,
+            "p95": 0.4287,
+            "samples": 30,
+            "p50": 0.3137
           }
         },
         "scopedCandidateRead": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 6.1789,
-            "p99": 8.5505,
-            "min": 5.5041,
-            "max": 8.5505,
-            "p95": 7.289
-          },
-          "windowStart": "2026-10-25T07:34:32.002054800Z",
-          "windowEnd": "2026-10-25T07:34:32.191748800Z",
+          "windowStart": "2026-10-25T11:37:50.031690900Z",
+          "windowEnd": "2026-10-25T11:37:50.203907800Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0029,
-              "p99": 0.009,
-              "min": 0.0021,
-              "max": 0.009,
-              "p95": 0.005
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 90,
             "jdbcExecuteCalls": 60,
             "commits": 30,
@@ -418,30 +407,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0033,
+              "min": 0.0021,
+              "max": 0.0033,
+              "p95": 0.0032,
+              "samples": 30,
+              "p50": 0.0027
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 6.4457,
+            "min": 4.9416,
+            "max": 6.4457,
+            "p95": 6.2574,
+            "samples": 30,
+            "p50": 5.698
           }
         },
         "fifoCandidateReadReference": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 94.3058,
-            "p99": 102.5545,
-            "min": 88.2909,
-            "max": 102.5545,
-            "p95": 102.4036
-          },
-          "windowStart": "2026-10-25T07:34:32.677170400Z",
-          "windowEnd": "2026-10-25T07:34:35.517600200Z",
+          "windowStart": "2026-10-25T11:37:50.660175Z",
+          "windowEnd": "2026-10-25T11:37:53.092399600Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0065,
-              "p99": 0.0083,
-              "min": 0.005,
-              "max": 0.0083,
-              "p95": 0.0081
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 4560,
             "jdbcExecuteCalls": 4530,
             "commits": 30,
@@ -457,30 +446,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0089,
+              "min": 0.0052,
+              "max": 0.0089,
+              "p95": 0.008,
+              "samples": 30,
+              "p50": 0.0065
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 90.0695,
+            "min": 74.901,
+            "max": 90.0695,
+            "p95": 89.2819,
+            "samples": 30,
+            "p50": 79.4383
           }
         },
         "claimRollback": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 7.8833,
-            "p99": 12.3374,
-            "min": 6.9953,
-            "max": 12.3374,
-            "p95": 11.5396
-          },
-          "windowStart": "2026-10-25T07:34:35.566068200Z",
-          "windowEnd": "2026-10-25T07:34:35.816279200Z",
+          "windowStart": "2026-10-25T11:37:53.131854600Z",
+          "windowEnd": "2026-10-25T11:37:53.325882900Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0032,
-              "p99": 0.0072,
-              "min": 0.0023,
-              "max": 0.0072,
-              "p95": 0.0068
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 330,
             "jdbcExecuteCalls": 300,
             "commits": 0,
@@ -496,44 +485,44 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 30
+            "rollbacks": 30,
+            "acquisitionMs": {
+              "p99": 0.0051,
+              "min": 0.002,
+              "max": 0.0051,
+              "p95": 0.0037,
+              "samples": 30,
+              "p50": 0.0026
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 7.411,
+            "min": 5.8854,
+            "max": 7.411,
+            "p95": 7.3311,
+            "samples": 30,
+            "p50": 6.4129
           }
         },
         "scopedReturnedRows": 10,
         "fifoReturnedRows": 75
       },
       "childrenPerStep": 10,
-      "name": "32-runs-10",
-      "stepsPerRun": 3,
-      "state": "ready",
-      "runs": 32,
-      "planStatus": "PLANNED",
-      "messages": 960,
-      "executions": 1056
+      "name": "32-runs-10"
     },
     {
+      "stepsPerRun": 3,
+      "state": "join",
+      "runs": 1,
+      "planStatus": "PLANNED",
+      "messages": 60,
+      "executions": 63,
       "metrics": {
         "runDiscovery": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 1.2122,
-            "p99": 1.5675,
-            "min": 1.0915,
-            "max": 1.5675,
-            "p95": 1.4686
-          },
-          "windowStart": "2026-10-25T07:34:36.141890500Z",
-          "windowEnd": "2026-10-25T07:34:36.178323Z",
+          "windowStart": "2026-10-25T11:37:53.658019900Z",
+          "windowEnd": "2026-10-25T11:37:53.695346800Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0026,
-              "p99": 0.0031,
-              "min": 0.002,
-              "max": 0.0031,
-              "p95": 0.003
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 60,
             "jdbcExecuteCalls": 30,
             "commits": 30,
@@ -549,30 +538,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0034,
+              "min": 0.002,
+              "max": 0.0034,
+              "p95": 0.0029,
+              "samples": 30,
+              "p50": 0.0026
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 1.5104,
+            "min": 1.0194,
+            "max": 1.5104,
+            "p95": 1.503,
+            "samples": 30,
+            "p50": 1.2189
           }
         },
         "snapshot": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 4.1274,
-            "p99": 4.5405,
-            "min": 3.7686,
-            "max": 4.5405,
-            "p95": 4.4885
-          },
-          "windowStart": "2026-10-25T07:34:36.200700600Z",
-          "windowEnd": "2026-10-25T07:34:36.324454700Z",
+          "windowStart": "2026-10-25T11:37:53.713673600Z",
+          "windowEnd": "2026-10-25T11:37:53.822995100Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0025,
-              "p99": 0.0031,
-              "min": 0.002,
-              "max": 0.0031,
-              "p95": 0.0031
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 120,
             "jdbcExecuteCalls": 90,
             "commits": 30,
@@ -588,26 +577,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0031,
+              "min": 0.002,
+              "max": 0.0031,
+              "p95": 0.0031,
+              "samples": 30,
+              "p50": 0.0026
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 4.0991,
+            "min": 3.3305,
+            "max": 4.0991,
+            "p95": 3.942,
+            "samples": 30,
+            "p50": 3.6144
           }
         },
         "planner": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.0394,
-            "p99": 0.093,
-            "min": 0.0327,
-            "max": 0.093,
-            "p95": 0.0738
-          },
-          "windowStart": "2026-10-25T07:34:36.325582100Z",
-          "windowEnd": "2026-10-25T07:34:36.326584100Z",
+          "windowStart": "2026-10-25T11:37:53.822995100Z",
+          "windowEnd": "2026-10-25T11:37:53.825517200Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 0,
-              "unavailableReason": "NO_SAMPLES"
-            },
-            "connectionAcquisitions": 0,
             "applicationDatabaseCalls": 0,
             "jdbcExecuteCalls": 0,
             "commits": 0,
@@ -623,30 +616,26 @@
               "active": 0,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0
+          },
+          "elapsedMs": {
+            "p99": 0.0855,
+            "min": 0.0187,
+            "max": 0.0855,
+            "p95": 0.0651,
+            "samples": 30,
+            "p50": 0.0392
           }
         },
         "scopedCandidateRead": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 4.856,
-            "p99": 6.843,
-            "min": 3.717,
-            "max": 6.843,
-            "p95": 6.5683
-          },
-          "windowStart": "2026-10-25T07:34:36.351899600Z",
-          "windowEnd": "2026-10-25T07:34:36.503194600Z",
+          "windowStart": "2026-10-25T11:37:53.847668500Z",
+          "windowEnd": "2026-10-25T11:37:53.961088500Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.003,
-              "p99": 0.0151,
-              "min": 0.0022,
-              "max": 0.0151,
-              "p95": 0.005
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 90,
             "jdbcExecuteCalls": 60,
             "commits": 30,
@@ -662,30 +651,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.003,
+              "min": 0.0022,
+              "max": 0.003,
+              "p95": 0.003,
+              "samples": 30,
+              "p50": 0.0026
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 4.7057,
+            "min": 2.9694,
+            "max": 4.7057,
+            "p95": 4.3329,
+            "samples": 30,
+            "p50": 3.7332
           }
         },
         "fifoCandidateReadReference": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 70.3723,
-            "p99": 90.5411,
-            "min": 67.8419,
-            "max": 90.5411,
-            "p95": 82.3126
-          },
-          "windowStart": "2026-10-25T07:34:36.862239300Z",
-          "windowEnd": "2026-10-25T07:34:39.013268100Z",
+          "windowStart": "2026-10-25T11:37:54.265463900Z",
+          "windowEnd": "2026-10-25T11:37:56.044928700Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0064,
-              "p99": 0.0597,
-              "min": 0.0048,
-              "max": 0.0597,
-              "p95": 0.0141
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 3660,
             "jdbcExecuteCalls": 3630,
             "commits": 30,
@@ -701,30 +690,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0124,
+              "min": 0.0053,
+              "max": 0.0124,
+              "p95": 0.008,
+              "samples": 30,
+              "p50": 0.0059
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 63.0132,
+            "min": 57.4288,
+            "max": 63.0132,
+            "p95": 62.5869,
+            "samples": 30,
+            "p50": 58.9351
           }
         },
         "claimRollback": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 7.3698,
-            "p99": 7.9089,
-            "min": 6.6205,
-            "max": 7.9089,
-            "p95": 7.8471
-          },
-          "windowStart": "2026-10-25T07:34:39.061995300Z",
-          "windowEnd": "2026-10-25T07:34:39.280711800Z",
+          "windowStart": "2026-10-25T11:37:56.081445Z",
+          "windowEnd": "2026-10-25T11:37:56.263995Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0028,
-              "p99": 0.0035,
-              "min": 0.0021,
-              "max": 0.0035,
-              "p95": 0.0034
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 330,
             "jdbcExecuteCalls": 300,
             "commits": 0,
@@ -740,173 +729,44 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 30
+            "rollbacks": 30,
+            "acquisitionMs": {
+              "p99": 0.0028,
+              "min": 0.002,
+              "max": 0.0028,
+              "p95": 0.0027,
+              "samples": 30,
+              "p50": 0.0022
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 6.5084,
+            "min": 5.7429,
+            "max": 6.5084,
+            "p95": 6.4528,
+            "samples": 30,
+            "p50": 6.0468
           }
         },
         "scopedReturnedRows": 20,
         "fifoReturnedRows": 60
       },
       "childrenPerStep": 20,
-      "name": "join-one-parent-success",
-      "stepsPerRun": 3,
-      "state": "join",
-      "runs": 1,
-      "planStatus": "PLANNED",
-      "messages": 60,
-      "executions": 63
+      "name": "join-one-parent-success"
     },
     {
-      "metrics": {
-        "runDiscovery": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 1.1035,
-            "p99": 1.2772,
-            "min": 0.9047,
-            "max": 1.2772,
-            "p95": 1.2583
-          },
-          "windowStart": "2026-10-25T07:34:39.558769900Z",
-          "windowEnd": "2026-10-25T07:34:39.591603300Z",
-          "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0025,
-              "p99": 0.0104,
-              "min": 0.002,
-              "max": 0.0104,
-              "p95": 0.0077
-            },
-            "connectionAcquisitions": 30,
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0
-          }
-        },
-        "snapshot": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 4.0323,
-            "p99": 4.9544,
-            "min": 3.7389,
-            "max": 4.9544,
-            "p95": 4.5908
-          },
-          "windowStart": "2026-10-25T07:34:39.613150500Z",
-          "windowEnd": "2026-10-25T07:34:39.735643900Z",
-          "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0026,
-              "p99": 0.0085,
-              "min": 0.002,
-              "max": 0.0085,
-              "p95": 0.0032
-            },
-            "connectionAcquisitions": 30,
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0
-          }
-        },
-        "planner": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.0072,
-            "p99": 0.0312,
-            "min": 0.0065,
-            "max": 0.0312,
-            "p95": 0.0175
-          },
-          "windowStart": "2026-10-25T07:34:39.735643900Z",
-          "windowEnd": "2026-10-25T07:34:39.735643900Z",
-          "observations": {
-            "acquisitionMs": {
-              "samples": 0,
-              "unavailableReason": "NO_SAMPLES"
-            },
-            "connectionAcquisitions": 0,
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "rollbacks": 0
-          }
-        },
-        "claimRollback": {
-          "samples": 0,
-          "unavailableReason": "NO_ELIGIBLE_SELECTION"
-        }
-      },
-      "childrenPerStep": 20,
-      "name": "retry-and-live-lease",
       "stepsPerRun": 3,
       "state": "retry",
       "runs": 1,
       "planStatus": "WAIT",
       "messages": 60,
-      "executions": 63
-    },
-    {
+      "executions": 63,
       "metrics": {
         "runDiscovery": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.984,
-            "p99": 1.1863,
-            "min": 0.8976,
-            "max": 1.1863,
-            "p95": 1.1213
-          },
-          "windowStart": "2026-10-25T07:34:39.811849500Z",
-          "windowEnd": "2026-10-25T07:34:39.841585700Z",
+          "windowStart": "2026-10-25T11:37:56.506096300Z",
+          "windowEnd": "2026-10-25T11:37:56.535233200Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0021,
-              "p99": 0.0056,
-              "min": 0.0019,
-              "max": 0.0056,
-              "p95": 0.0028
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 60,
             "jdbcExecuteCalls": 30,
             "commits": 30,
@@ -922,30 +782,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.027,
+              "min": 0.0019,
+              "max": 0.027,
+              "p95": 0.0123,
+              "samples": 30,
+              "p50": 0.0025
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 1.1618,
+            "min": 0.7817,
+            "max": 1.1618,
+            "p95": 1.1429,
+            "samples": 30,
+            "p50": 0.9185
           }
         },
         "snapshot": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 3.7922,
-            "p99": 4.2764,
-            "min": 3.5117,
-            "max": 4.2764,
-            "p95": 4.0916
-          },
-          "windowStart": "2026-10-25T07:34:39.860650700Z",
-          "windowEnd": "2026-10-25T07:34:39.975690700Z",
+          "windowStart": "2026-10-25T11:37:56.553178100Z",
+          "windowEnd": "2026-10-25T11:37:56.660287200Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0026,
-              "p99": 0.003,
-              "min": 0.0021,
-              "max": 0.003,
-              "p95": 0.003
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 120,
             "jdbcExecuteCalls": 90,
             "commits": 30,
@@ -961,26 +821,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0034,
+              "min": 0.0021,
+              "max": 0.0034,
+              "p95": 0.003,
+              "samples": 30,
+              "p50": 0.0022
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 3.9607,
+            "min": 3.1116,
+            "max": 3.9607,
+            "p95": 3.9121,
+            "samples": 30,
+            "p50": 3.5933
           }
         },
         "planner": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.0011,
-            "p99": 0.0253,
-            "min": 0.0011,
-            "max": 0.0253,
-            "p95": 0.0032
-          },
-          "windowStart": "2026-10-25T07:34:39.975690700Z",
-          "windowEnd": "2026-10-25T07:34:39.975690700Z",
+          "windowStart": "2026-10-25T11:37:56.660287200Z",
+          "windowEnd": "2026-10-25T11:37:56.660287200Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 0,
-              "unavailableReason": "NO_SAMPLES"
-            },
-            "connectionAcquisitions": 0,
             "applicationDatabaseCalls": 0,
             "jdbcExecuteCalls": 0,
             "commits": 0,
@@ -996,46 +860,42 @@
               "active": 0,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0
+          },
+          "elapsedMs": {
+            "p99": 0.0285,
+            "min": 0.0031,
+            "max": 0.0285,
+            "p95": 0.0092,
+            "samples": 30,
+            "p50": 0.0062
           }
         },
         "claimRollback": {
-          "samples": 0,
-          "unavailableReason": "NO_ELIGIBLE_SELECTION"
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
         }
       },
-      "childrenPerStep": 0,
-      "name": "unknown-closure",
+      "childrenPerStep": 20,
+      "name": "retry-and-live-lease"
+    },
+    {
       "stepsPerRun": 3,
       "state": "unknown",
       "runs": 1,
       "planStatus": "INCOMPLETE",
       "messages": 0,
-      "executions": 0
-    },
-    {
+      "executions": 0,
       "metrics": {
         "runDiscovery": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 1.1962,
-            "p99": 1.3683,
-            "min": 1.0893,
-            "max": 1.3683,
-            "p95": 1.3524
-          },
-          "windowStart": "2026-10-25T07:34:40.142450Z",
-          "windowEnd": "2026-10-25T07:34:40.179510900Z",
+          "windowStart": "2026-10-25T11:37:56.733676600Z",
+          "windowEnd": "2026-10-25T11:37:56.763029500Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0024,
-              "p99": 0.003,
-              "min": 0.002,
-              "max": 0.003,
-              "p95": 0.0028
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 60,
             "jdbcExecuteCalls": 30,
             "commits": 30,
@@ -1051,30 +911,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0042,
+              "min": 0.002,
+              "max": 0.0042,
+              "p95": 0.0028,
+              "samples": 30,
+              "p50": 0.0021
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 1.1414,
+            "min": 0.8792,
+            "max": 1.1414,
+            "p95": 1.089,
+            "samples": 30,
+            "p50": 0.9407
           }
         },
         "snapshot": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 4.2384,
-            "p99": 4.986,
-            "min": 3.9339,
-            "max": 4.986,
-            "p95": 4.5942
-          },
-          "windowStart": "2026-10-25T07:34:40.201023700Z",
-          "windowEnd": "2026-10-25T07:34:40.329443500Z",
+          "windowStart": "2026-10-25T11:37:56.780511900Z",
+          "windowEnd": "2026-10-25T11:37:56.880154500Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 30,
-              "p50": 0.0027,
-              "p99": 0.0064,
-              "min": 0.0021,
-              "max": 0.0064,
-              "p95": 0.0035
-            },
-            "connectionAcquisitions": 30,
             "applicationDatabaseCalls": 120,
             "jdbcExecuteCalls": 90,
             "commits": 30,
@@ -1090,26 +950,30 @@
               "active": 1,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.0031,
+              "min": 0.0021,
+              "max": 0.0031,
+              "p95": 0.0028,
+              "samples": 30,
+              "p50": 0.0021
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 3.8238,
+            "min": 2.8315,
+            "max": 3.8238,
+            "p95": 3.6989,
+            "samples": 30,
+            "p50": 3.3029
           }
         },
         "planner": {
-          "elapsedMs": {
-            "samples": 30,
-            "p50": 0.0086,
-            "p99": 0.013,
-            "min": 0.0073,
-            "max": 0.013,
-            "p95": 0.0123
-          },
-          "windowStart": "2026-10-25T07:34:40.329443500Z",
-          "windowEnd": "2026-10-25T07:34:40.330451200Z",
+          "windowStart": "2026-10-25T11:37:56.880154500Z",
+          "windowEnd": "2026-10-25T11:37:56.880154500Z",
           "observations": {
-            "acquisitionMs": {
-              "samples": 0,
-              "unavailableReason": "NO_SAMPLES"
-            },
-            "connectionAcquisitions": 0,
             "applicationDatabaseCalls": 0,
             "jdbcExecuteCalls": 0,
             "commits": 0,
@@ -1125,65 +989,182 @@
               "active": 0,
               "total": 10
             },
-            "rollbacks": 0
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0
+          },
+          "elapsedMs": {
+            "p99": 0.0218,
+            "min": 0.001,
+            "max": 0.0218,
+            "p95": 0.0036,
+            "samples": 30,
+            "p50": 0.0011
           }
         },
         "claimRollback": {
-          "samples": 0,
-          "unavailableReason": "NO_ELIGIBLE_SELECTION"
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
         }
       },
-      "childrenPerStep": 20,
-      "name": "failed-predecessor",
+      "childrenPerStep": 0,
+      "name": "unknown-closure"
+    },
+    {
       "stepsPerRun": 3,
       "state": "failed",
       "runs": 1,
       "planStatus": "WAIT",
       "messages": 60,
-      "executions": 63
+      "executions": 63,
+      "metrics": {
+        "runDiscovery": {
+          "windowStart": "2026-10-25T11:37:57.059586800Z",
+          "windowEnd": "2026-10-25T11:37:57.096565700Z",
+          "observations": {
+            "applicationDatabaseCalls": 60,
+            "jdbcExecuteCalls": 30,
+            "commits": 30,
+            "poolNow": {
+              "idle": 10,
+              "waiting": 0,
+              "active": 0,
+              "total": 10
+            },
+            "poolPeak": {
+              "idle": 10,
+              "waiting": 0,
+              "active": 1,
+              "total": 10
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.005,
+              "min": 0.0021,
+              "max": 0.005,
+              "p95": 0.0034,
+              "samples": 30,
+              "p50": 0.0022
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 1.673,
+            "min": 0.9623,
+            "max": 1.673,
+            "p95": 1.5009,
+            "samples": 30,
+            "p50": 1.1417
+          }
+        },
+        "snapshot": {
+          "windowStart": "2026-10-25T11:37:57.114223Z",
+          "windowEnd": "2026-10-25T11:37:57.221790800Z",
+          "observations": {
+            "applicationDatabaseCalls": 120,
+            "jdbcExecuteCalls": 90,
+            "commits": 30,
+            "poolNow": {
+              "idle": 10,
+              "waiting": 0,
+              "active": 0,
+              "total": 10
+            },
+            "poolPeak": {
+              "idle": 10,
+              "waiting": 0,
+              "active": 1,
+              "total": 10
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "p99": 0.003,
+              "min": 0.002,
+              "max": 0.003,
+              "p95": 0.0029,
+              "samples": 30,
+              "p50": 0.0022
+            },
+            "connectionAcquisitions": 30
+          },
+          "elapsedMs": {
+            "p99": 3.9739,
+            "min": 3.11,
+            "max": 3.9739,
+            "p95": 3.9471,
+            "samples": 30,
+            "p50": 3.5841
+          }
+        },
+        "planner": {
+          "windowStart": "2026-10-25T11:37:57.221790800Z",
+          "windowEnd": "2026-10-25T11:37:57.221790800Z",
+          "observations": {
+            "applicationDatabaseCalls": 0,
+            "jdbcExecuteCalls": 0,
+            "commits": 0,
+            "poolNow": {
+              "idle": 10,
+              "waiting": 0,
+              "active": 0,
+              "total": 10
+            },
+            "poolPeak": {
+              "idle": 10,
+              "waiting": 0,
+              "active": 0,
+              "total": 10
+            },
+            "rollbacks": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "connectionAcquisitions": 0
+          },
+          "elapsedMs": {
+            "p99": 0.0146,
+            "min": 0.0038,
+            "max": 0.0146,
+            "p95": 0.0054,
+            "samples": 30,
+            "p50": 0.0039
+          }
+        },
+        "claimRollback": {
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
+        }
+      },
+      "childrenPerStep": 20,
+      "name": "failed-predecessor"
     }
   ],
   "syntheticStages": {
-    "windowStart": "2026-10-25T07:34:40.881809300Z",
-    "elapsedSeconds": 6.3988037,
-    "counts": {
-      "syntheticChildStatusSuccess": 300,
-      "plannedQuota": 300,
-      "registryVisited": 300,
-      "fakeBrokerAcknowledged": 300,
-      "offeredCandidates": 375,
-      "claimed": 300
-    },
     "tickMs": {
+      "p99": 792.3837,
+      "min": 3.4783,
+      "max": 792.3837,
+      "p95": 792.3837,
       "samples": 9,
-      "p50": 332.2245,
-      "p99": 937.0133,
-      "min": 4.4483,
-      "max": 937.0133,
-      "p95": 937.0133
+      "p50": 259.2275
     },
     "statusCallMs": {
+      "p99": 12.3195,
+      "min": 5.2318,
+      "max": 29.1366,
+      "p95": 10.7352,
       "samples": 300,
-      "p50": 8.135,
-      "p99": 14.8411,
-      "min": 5.8637,
-      "max": 31.7636,
-      "p95": 12.2004
+      "p50": 6.8679
     },
     "throughputPerSecond": {
-      "fakePublish": 46.88376360099935,
-      "syntheticStatus": 46.88376360099935
+      "fakePublish": 56.339899817516944,
+      "syntheticStatus": 56.339899817516944
     },
     "observations": {
-      "acquisitionMs": {
-        "samples": 1236,
-        "p50": 0.0032,
-        "p99": 0.0084,
-        "min": 0.0021,
-        "max": 0.0594,
-        "p95": 0.0056
-      },
-      "connectionAcquisitions": 1236,
       "applicationDatabaseCalls": 6404,
       "jdbcExecuteCalls": 5171,
       "commits": 1233,
@@ -1199,33 +1180,35 @@
         "active": 1,
         "total": 10
       },
-      "rollbacks": 0
+      "rollbacks": 0,
+      "acquisitionMs": {
+        "p99": 0.0063,
+        "min": 0.002,
+        "max": 0.0769,
+        "p95": 0.0039,
+        "samples": 1236,
+        "p50": 0.0029
+      },
+      "connectionAcquisitions": 1236
     },
-    "windowEnd": "2026-10-25T07:34:47.286391600Z"
+    "windowEnd": "2026-10-25T11:38:03.025503100Z",
+    "windowStart": "2026-10-25T11:37:57.695688300Z",
+    "elapsedSeconds": 5.3248231,
+    "counts": {
+      "plannedQuota": 300,
+      "registryVisited": 300,
+      "fakeBrokerAcknowledged": 300,
+      "offeredCandidates": 375,
+      "claimed": 300,
+      "syntheticChildStatusSuccess": 300
+    }
   },
   "controlledPoolPressure": {
-    "snapshotMs": {
-      "samples": 4,
-      "p50": 81.4424,
-      "p99": 93.0232,
-      "min": 75.1676,
-      "max": 93.0232,
-      "p95": 93.0232
-    },
     "label": "controlled saturation, not normal workload",
     "workers": 4,
     "heldPoolSlots": 10,
     "minimumHoldAfterObservedWaitMs": 30,
     "observations": {
-      "acquisitionMs": {
-        "samples": 15,
-        "p50": 0.5358,
-        "p99": 87.0101,
-        "min": 0.0024,
-        "max": 87.0101,
-        "p95": 87.0101
-      },
-      "connectionAcquisitions": 15,
       "applicationDatabaseCalls": 17,
       "jdbcExecuteCalls": 13,
       "commits": 4,
@@ -1241,13 +1224,30 @@
         "active": 10,
         "total": 10
       },
-      "rollbacks": 0
+      "rollbacks": 0,
+      "acquisitionMs": {
+        "p99": 81.4047,
+        "min": 0.0029,
+        "max": 81.4047,
+        "p95": 81.4047,
+        "samples": 15,
+        "p50": 0.4629
+      },
+      "connectionAcquisitions": 15
+    },
+    "snapshotMs": {
+      "p99": 88.2205,
+      "min": 68.6124,
+      "max": 88.2205,
+      "p95": 88.2205,
+      "samples": 4,
+      "p50": 75.4549
     }
   },
   "sourceSha256": {
-    "apps/core/src/test/java/com/omni/platform/JobRunDispatchBenchmarkPostgresTest.java": "ee08dd65587ea87ec839940df6c313a60c70f5660b54bbf672aa30624d8e766c",
-    "apps/core/src/test/java/com/omni/platform/JdbcMeasurementProbe.java": "fdaf59ed7f59fb8455f5b2de7da3484388a64c06f573f403acd506564bb21561",
-    "apps/core/src/test/java/com/omni/platform/SchedulerDiagnosticsFixture.java": "38d45a7cdb69f83eb40bcb9817359dbc2fe8c92005fb40d8e1b73062c8c6b8f0",
+    "apps/core/src/test/java/com/omni/platform/JobRunDispatchBenchmarkPostgresTest.java": "62e7b8f128bb1cb3510450a5b43721a263b8f8a63fbdab5118f44188f2117f96",
+    "apps/core/src/test/java/com/omni/platform/JdbcMeasurementProbe.java": "58c32c6f27a2184770033f3e47441303c8ee60dbf86bb7da1bad11f67c7cce3f",
+    "apps/core/src/test/java/com/omni/platform/SchedulerDiagnosticsFixture.java": "569bc4b10fdbc4f942270b2f5242164647104f78897013cf5ab560735d07df90",
     "apps/core/src/test/java/com/omni/platform/PlatformStartupPostgresTest.java": "67590310fa375b1e3da1c009b432dcf3104c7e976455fc76a5f2b50ca0f7ff9a",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshotReader.java": "101e9a105b669f0fdc7a757e2b4e3b8e185429169b37f47dab66d7ea1ade1180",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchPlanner.java": "23472d562325917f2710650f793e86b18fe44ce17a1c07237259257631a49d1e",
@@ -1255,8 +1255,8 @@
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchCoordinator.java": "e8c1aed908cdd6d2c4876655330256d98fd31efbf94d85086aa56d3fde0cbba5",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/services/SchedulerOutboxService.java": "5a6933afb0ae5128c67348c695057b2b1ff9677d6bdf4c716140f39b57c637a5",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/SchedulerOutboxRepositoryImpl.java": "4fd4202d505848a6b4a10492b88a3b42015fc2b680ba54806e6eea0863d4e2c6",
-    "database/diagnostics/p14/v1/run_steps.sql": "18f9b14987a2de7771ceb54eafb6394ba7c7e5c2d83bebf1a7e07773065818bf",
-    "database/diagnostics/p14/v1/legacy_outbox_inventory.sql": "f7a98ad248c98f340b24a504092f67656711c80912d818e47679f7eabea08867"
+    "database/diagnostics/p14/v1/run_steps.sql": "62cf6860b424fbf312157f312661a7a7dfeaefac3ea0039c53f3d28867361cfe",
+    "database/diagnostics/p14/v1/legacy_outbox_inventory.sql": "5a0af0b7d1a0bd08b44ef6747746d3ec296a0a7553c7322f73f42189a4211577"
   },
   "limitations": [
     "Windows/disposable PostgreSQL measurements are not production baselines",
@@ -1274,8 +1274,8 @@
   "queryPlanSummaries": [
     {
       "name": "32-runs-10-claim-update-explain",
-      "planningMs": 0.056,
-      "executionMs": 0.139,
+      "planningMs": 0.053,
+      "executionMs": 0.148,
       "rootActualRows": 0,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 22,
@@ -1286,8 +1286,8 @@
     },
     {
       "name": "32-runs-10-diagnostic-explain",
-      "planningMs": 2.447,
-      "executionMs": 10.717,
+      "planningMs": 2.261,
+      "executionMs": 29.764,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 3718,
@@ -1305,6 +1305,7 @@
         "Result",
         "Seq Scan",
         "Sort",
+        "Subquery Scan",
         "WorkTable Scan"
       ],
       "indexes": [
@@ -1315,8 +1316,8 @@
     },
     {
       "name": "32-runs-10-fifo-explain",
-      "planningMs": 0.072,
-      "executionMs": 0.082,
+      "planningMs": 0.091,
+      "executionMs": 0.077,
       "rootActualRows": 75,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 21,
@@ -1327,11 +1328,11 @@
     },
     {
       "name": "32-runs-10-inventory-explain",
-      "planningMs": 0.971,
-      "executionMs": 19.986,
+      "planningMs": 0.799,
+      "executionMs": 15.793,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 701,
+      "rootSharedHitBlocks": 700,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1351,11 +1352,11 @@
     },
     {
       "name": "32-runs-10-scoped-explain",
-      "planningMs": 0.219,
-      "executionMs": 3.04,
+      "planningMs": 0.217,
+      "executionMs": 2.814,
       "rootActualRows": 10,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 3263,
+      "rootSharedHitBlocks": 3259,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
       "indexes": [
@@ -1367,8 +1368,8 @@
     },
     {
       "name": "32-runs-10-snapshot-explain",
-      "planningMs": 0.431,
-      "executionMs": 4.644,
+      "planningMs": 0.53,
+      "executionMs": 4.23,
       "rootActualRows": 96,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 3715,
@@ -1393,8 +1394,8 @@
     },
     {
       "name": "failed-predecessor-diagnostic-explain",
-      "planningMs": 1.388,
-      "executionMs": 1.743,
+      "planningMs": 2.056,
+      "executionMs": 2.884,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 143,
@@ -1412,6 +1413,7 @@
         "Result",
         "Seq Scan",
         "Sort",
+        "Subquery Scan",
         "WorkTable Scan"
       ],
       "indexes": [
@@ -1422,11 +1424,11 @@
     },
     {
       "name": "failed-predecessor-inventory-explain",
-      "planningMs": 0.659,
-      "executionMs": 12.343,
+      "planningMs": 0.66,
+      "executionMs": 7.594,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 280,
+      "rootSharedHitBlocks": 278,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1446,8 +1448,8 @@
     },
     {
       "name": "join-one-parent-success-claim-update-explain",
-      "planningMs": 0.05,
-      "executionMs": 0.109,
+      "planningMs": 0.056,
+      "executionMs": 0.111,
       "rootActualRows": 0,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 13,
@@ -1458,8 +1460,8 @@
     },
     {
       "name": "join-one-parent-success-diagnostic-explain",
-      "planningMs": 1.711,
-      "executionMs": 1.73,
+      "planningMs": 2.188,
+      "executionMs": 2.888,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 145,
@@ -1477,6 +1479,7 @@
         "Result",
         "Seq Scan",
         "Sort",
+        "Subquery Scan",
         "WorkTable Scan"
       ],
       "indexes": [
@@ -1487,11 +1490,11 @@
     },
     {
       "name": "join-one-parent-success-fifo-explain",
-      "planningMs": 0.066,
-      "executionMs": 0.065,
+      "planningMs": 0.061,
+      "executionMs": 0.066,
       "rootActualRows": 60,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 40,
+      "rootSharedHitBlocks": 32,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit"],
       "indexes": ["idx_scheduler_outbox_dispatch"],
@@ -1499,11 +1502,11 @@
     },
     {
       "name": "join-one-parent-success-inventory-explain",
-      "planningMs": 0.747,
-      "executionMs": 8.549,
+      "planningMs": 0.596,
+      "executionMs": 8.209,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 280,
+      "rootSharedHitBlocks": 272,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1523,11 +1526,11 @@
     },
     {
       "name": "join-one-parent-success-scoped-explain",
-      "planningMs": 0.215,
-      "executionMs": 0.439,
+      "planningMs": 0.197,
+      "executionMs": 0.388,
       "rootActualRows": 20,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 253,
+      "rootSharedHitBlocks": 246,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
       "indexes": [
@@ -1539,8 +1542,8 @@
     },
     {
       "name": "join-one-parent-success-snapshot-explain",
-      "planningMs": 0.439,
-      "executionMs": 0.525,
+      "planningMs": 0.427,
+      "executionMs": 0.473,
       "rootActualRows": 3,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 149,
@@ -1564,8 +1567,8 @@
     },
     {
       "name": "one-run-100-claim-update-explain",
-      "planningMs": 0.078,
-      "executionMs": 0.194,
+      "planningMs": 0.05,
+      "executionMs": 0.124,
       "rootActualRows": 0,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 19,
@@ -1576,8 +1579,8 @@
     },
     {
       "name": "one-run-100-diagnostic-explain",
-      "planningMs": 3.584,
-      "executionMs": 3.409,
+      "planningMs": 3.842,
+      "executionMs": 3.504,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 942,
@@ -1595,6 +1598,7 @@
         "Result",
         "Seq Scan",
         "Sort",
+        "Subquery Scan",
         "WorkTable Scan"
       ],
       "indexes": [
@@ -1605,11 +1609,11 @@
     },
     {
       "name": "one-run-100-fifo-explain",
-      "planningMs": 0.1,
-      "executionMs": 0.121,
+      "planningMs": 0.062,
+      "executionMs": 0.079,
       "rootActualRows": 75,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 70,
+      "rootSharedHitBlocks": 72,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit"],
       "indexes": ["idx_scheduler_outbox_dispatch"],
@@ -1617,11 +1621,11 @@
     },
     {
       "name": "one-run-100-inventory-explain",
-      "planningMs": 1.245,
-      "executionMs": 23.299,
+      "planningMs": 1.143,
+      "executionMs": 16.929,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 694,
+      "rootSharedHitBlocks": 698,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1641,11 +1645,11 @@
     },
     {
       "name": "one-run-100-scoped-explain",
-      "planningMs": 0.26,
-      "executionMs": 3.477,
+      "planningMs": 0.343,
+      "executionMs": 3.12,
       "rootActualRows": 75,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 1392,
+      "rootSharedHitBlocks": 1269,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
       "indexes": [
@@ -1657,8 +1661,8 @@
     },
     {
       "name": "one-run-100-snapshot-explain",
-      "planningMs": 0.675,
-      "executionMs": 1.332,
+      "planningMs": 0.794,
+      "executionMs": 1.586,
       "rootActualRows": 3,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 946,
@@ -1682,8 +1686,8 @@
     },
     {
       "name": "retry-and-live-lease-diagnostic-explain",
-      "planningMs": 1.561,
-      "executionMs": 1.675,
+      "planningMs": 1.988,
+      "executionMs": 2.694,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 143,
@@ -1701,6 +1705,7 @@
         "Result",
         "Seq Scan",
         "Sort",
+        "Subquery Scan",
         "WorkTable Scan"
       ],
       "indexes": [
@@ -1711,8 +1716,8 @@
     },
     {
       "name": "retry-and-live-lease-inventory-explain",
-      "planningMs": 0.676,
-      "executionMs": 8.878,
+      "planningMs": 0.565,
+      "executionMs": 8.028,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 360,
@@ -1735,8 +1740,8 @@
     },
     {
       "name": "unknown-closure-diagnostic-explain",
-      "planningMs": 1.523,
-      "executionMs": 1.489,
+      "planningMs": 2.303,
+      "executionMs": 2.619,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 15,
@@ -1754,6 +1759,7 @@
         "Result",
         "Seq Scan",
         "Sort",
+        "Subquery Scan",
         "WorkTable Scan"
       ],
       "indexes": [
@@ -1764,8 +1770,8 @@
     },
     {
       "name": "unknown-closure-inventory-explain",
-      "planningMs": 0.642,
-      "executionMs": 0.425,
+      "planningMs": 0.553,
+      "executionMs": 0.438,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 1,

@@ -54,6 +54,12 @@ synthetic local evidence, not a production latency budget or actual worker rate.
 Never run the test benchmark against retained data; its claim EXPLAIN/rollback and
 fake status transitions are intentionally confined to disposable PostgreSQL.
 
+The additive [I6 operator read contract](../../database/diagnostics/p14/v1/read-model.md)
+uses the same SELECT-only invocation. Begin a fresh transaction per observation;
+long-lived repeatable-read snapshots cannot establish current freshness. Consumers
+must enforce their declared age/clock policy and retain unknown/unavailable states.
+The contract introduces no endpoint, polling service, deployment flag or migration.
+
 ## Explicit rollback
 
 Keep preparation disabled first. Prefer retaining guarded planning while work

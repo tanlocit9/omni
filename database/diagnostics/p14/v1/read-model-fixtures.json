@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "description": "JSON Pointer expectations exercised against actual run_steps.sql by JobRunReadModelPostgresTest; identifiers and database capture clocks vary.",
+  "cases": {
+    "unfinished-join": {
+      "/version": 1,
+      "/complete": true,
+      "/runs/0/expected_steps": 3,
+      "/runs/0/observed_steps": 3,
+      "/runs/0/completed_steps": 0,
+      "/runs/0/progress": "UNFINISHED",
+      "/runs/0/completion_fraction": 0.0,
+      "/runs/0/counts_trusted": true,
+      "/runs/0/eligible": 6,
+      "/runs/0/steps/0/observation_reason": "ELIGIBLE_CANDIDATES",
+      "/runs/0/steps/2/predecessor_step_indices": [0, 1],
+      "/runs/0/steps/2/predecessor_wait": true,
+      "/runs/0/steps/2/observation_reason": "PREDECESSOR_WAIT",
+      "/workerProcessingReason": "NO_AUTHORITATIVE_WORKER_TIMING",
+      "/datasetReadyReason": "DEPENDENCY_REGISTRY_AUTHORITY",
+      "/throughput/reason": "NO_AUTHORITATIVE_COUNTER_WINDOW"
+    },
+    "published-join": {
+      "/runs/0/completed_steps": 1,
+      "/runs/0/published": 3,
+      "/runs/0/progress": "UNFINISHED",
+      "/runs/0/steps/1/observation_reason": "PUBLISHED_BUT_UNFINISHED",
+      "/runs/0/steps/2/observation_reason": "PREDECESSOR_WAIT",
+      "/runs/0/steps/1/worker_processing": null,
+      "/runs/0/steps/1/dataset_ready": null
+    },
+    "completed-chain": {
+      "/runs/0/progress": "SUCCESS",
+      "/runs/0/completed_steps": 3,
+      "/runs/0/completion_fraction": 1.0,
+      "/runs/0/steps/2/predecessor_step_indices": [1],
+      "/runs/0/steps/2/observation_reason": "EXECUTION_SUCCESS",
+      "/runs/0/steps/2/predecessor_wait": false
+    },
+    "blocked-join": {
+      "/runs/0/progress": "FAILED_OR_BLOCKED",
+      "/runs/0/failed_steps": 1,
+      "/runs/0/blocked": 1,
+      "/runs/0/completed_steps": 0,
+      "/runs/0/steps/0/observation_reason": "FAILED_OR_BLOCKED",
+      "/runs/0/steps/2/predecessor_wait": true
+    },
+    "unknown-membership": {
+      "/complete": true,
+      "/runs/0/progress": "UNKNOWN",
+      "/runs/0/unknown_steps": 3,
+      "/runs/0/counts_trusted": false,
+      "/runs/0/completion_fraction": null,
+      "/runs/0/steps/0/observation_reason": "UNKNOWN_MEMBERSHIP"
+    },
+    "terminal-run": {
+      "/runs/0/run_state": "FAILED",
+      "/runs/0/progress": "UNKNOWN",
+      "/runs/0/counts_trusted": false,
+      "/runs/0/completion_fraction": null,
+      "/runs/0/steps/0/observation_reason": "TERMINAL_OR_UNSUPPORTED_RUN"
+    },
+    "live-lease": {
+      "/runs/0/leased": 1,
+      "/runs/0/steps/0/observation_reason": "LIVE_LEASE",
+      "/runs/0/steps/1/observation_reason": "PREDECESSOR_WAIT"
+    },
+    "retry-delayed": {
+      "/runs/0/retry_delayed": 1,
+      "/runs/0/steps/0/observation_reason": "RETRY_DELAYED"
+    },
+    "failed-chain": {
+      "/runs/0/progress": "FAILED_OR_BLOCKED",
+      "/runs/0/failed_steps": 1,
+      "/runs/0/steps/0/observation_reason": "FAILED_OR_BLOCKED",
+      "/runs/0/steps/1/predecessor_wait": true
+    },
+    "unavailable-window": {
+      "/complete": false,
+      "/reason": "INVALID_MISSING_OR_OVERSIZED_WINDOW",
+      "/runs": []
+    }
+  }
+}

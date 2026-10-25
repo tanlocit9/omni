@@ -243,7 +243,7 @@ Keep the locked reread on the same connection and Kafka outside admission locks.
 Preparation stays disabled; use [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and
 the [rollout runbook](../deployment/004-job-run-admission-rollout.md) before changes.
 
-## Scheduler diagnostics — I5
+## Scheduler diagnostics and read-model handoff — I5/I6
 
 Versioned SELECT-only SQL, parameter/bound/safety instructions and the observation
 dictionary live in [database/diagnostics/p14/v1](../../database/diagnostics/p14/v1/README.md).
@@ -254,6 +254,12 @@ JDBC/pool behavior only in tests; PlatformStartupPostgresTest exposes an optiona
 test initializer and preserves its existing default isolation. Reproduction and
 source-bound results live beside the SQL. Production admission/status ownership
 remains unchanged.
+
+I6's [operator contract and fixtures](../../database/diagnostics/p14/v1/read-model.md)
+extend run_steps.sql additively. JobRunReadModelPostgresTest exercises the contract
+against actual PostgreSQL for frozen paths, per-run counts, wait/unknown reasons,
+capture clocks and unavailable evidence. Plan 029 owns any future API/UI consumer;
+do not introduce runtime DTOs or infer worker processing from these observations.
 
 ## Deferred operator job triggers — I3.d
 

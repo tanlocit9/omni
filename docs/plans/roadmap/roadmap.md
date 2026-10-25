@@ -2,7 +2,7 @@
 
 This diagram is a navigational view of roadmap phases and selected cross-phase dependencies. Canonical story status, dependencies, ownership, and execution eligibility remain in the [increment registry](implementation-increments.md). The [roadmap index](README.md) owns milestone and epic navigation.
 
-Color describes evidence state, not urgency.
+Color describes evidence state, not urgency. P14-I7 legacy outbox cleanup depends on I4/I5; I6 is not its prerequisite and no operator-trust dependency is added.
 
 ```mermaid
 flowchart TD
@@ -10,7 +10,7 @@ flowchart TD
     P1 --> P2["P2 Contracts — foundation complete"]
     P1 --> P3["P3 Data contracts — date normalization complete"]
     P3 --> P4["P4 Dependency guard — foundation complete; P4-I3 superseded"]
-    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I4 complete; I5 ready; I6 pending"]
+    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I4 complete; I5 ready; I6/I7 pending"]
     P4 --> P5["P5 Deployment — superseded/deferred"]
     P5 --> P6["P6 Console expansion — superseded/deferred"]
     P4 --> P7["P7 Job operations ✅"]

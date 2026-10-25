@@ -1,5 +1,20 @@
 # Omni Release Notes
 
+## 2026-10-25 - P14-I5 diagnostic review repairs
+
+Run progress now treats outbox BLOCKED as FAILED_OR_BLOCKED even when execution
+is SUCCESS or unfinished, preserving successor waits and production snapshot
+semantics. Legacy inventory validates jsonb representability before casting;
+numeric overflow, Unicode NUL and unpaired surrogate payloads are classified
+INVALID_JSON_OBJECT without aborting cursor pages.
+
+Both new PostgreSQL regressions failed before the fixes and pass afterward.
+Renewed local gate PASS 7/7: eight SQL cases, 425 tests / 65 suites and all 31
+critical Java components >=80% line/applicable branch. Source-bound benchmark
+artifacts are regenerated from six workloads and 24 actual query plans.
+No schema, runtime, retained data or hosted CI change is claimed. I6/I7 stay ready.
+See [repair evidence and documentation reconciliation](docs/plans/030-static-graph-dispatch-planner.md#i5-review-repairs--2026-10-25).
+
 ## 2026-10-25 - P14-I5 completed with measured diagnostic evidence
 
 I5.a (734d2ef) supplies versioned read-only run/step and legacy-alias SQL. I5.b adds

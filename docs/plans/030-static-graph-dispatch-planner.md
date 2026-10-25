@@ -29,7 +29,53 @@ in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bou
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
 
+## I5 review repairs — 2026-10-25
+
+Both review findings were reproduced by two failing PostgreSQL regression tests
+before modifying SQL. The repaired source renews I5's local evidence through
+`P14-I5-review-20261025`: PASS 7/7, 425 tests / 65 suites with zero failures,
+errors or skips, eight actual diagnostic SQL cases, and all 31 critical Java
+components at >=80% line and applicable branch coverage. SQL coverage is the
+executed behavioral matrix below, not a numeric Java percentage. The original
+423-test gate below remains historical evidence for its original source.
+
+| Changed source / safety condition                                             | Executed regression evidence                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| run_steps.sql: BLOCKED outbox overrides execution SUCCESS or unfinished state | JobRunDiagnosticsPostgresTest.blockedOutboxOverridesSuccessfulAndRunningExecutionsForChainsAndJoins exercises four chain/join and SUCCESS/RUNNING variants, the real markBlocked SUCCESS path, downstream predecessor waits and parity with JobRunDispatchSnapshot.Step.progress(). Unknown membership still takes precedence. |
+| legacy_outbox_inventory.sql: guard jsonb representability before casting TEXT | JobRunDiagnosticsPostgresTest.jsonSyntaxValidButJsonbIncompatiblePayloadsCannotPoisonInventoryPagination proves numeric overflow, Unicode NUL and an unpaired surrogate pass IS JSON OBJECT, become INVALID_JSON_OBJECT, and coexist with a valid alias across two size-one cursor pages.                                      |
+| Existing diagnostics and performance handoff                                  | All eight SQL cases, the focused benchmark and clean full Platform build pass. Six benchmark workloads, 30 measured samples after five warmups, 24 actual query plans and synthetic stage/pool observations are rerun; the linked measured report and JSON bind the repaired SQL bytes.                                        |
+
+The version-1 output schema and existing classification names remain unchanged.
+`pg_input_is_valid(payload, 'jsonb')` is built into the already-required PostgreSQL
+16; no extension or migration is introduced. Inventory cannot let a syntactically
+valid but unrepresentable JSON value abort cursor continuation. Outbox BLOCKED
+cannot report successful progress or open a successor barrier.
+
+Cross-service reconciliation: Platform owns the two SELECT scripts and actual
+PostgreSQL regression tests; scheduler admission/status/claim production code is
+unchanged. Analyzer and Ingestor have no transport, provider, Parquet or status
+changes. Query Service and Console have no endpoint, discovery or UI changes.
+Shared contracts/generated libraries/py-common, Kafka, storage paths, manifests,
+READY-last and exact lineage are unchanged. Persistence uses existing tables and
+indexes; configuration, preparation=false and 32 cron identities are unchanged.
+Operations receive corrected read-only observations; retained data is untouched.
+
+Documentation synchronization updates this plan, the canonical increment registry,
+release notes, diagnostic instructions/dictionary and regenerated benchmark
+artifacts. Reviewed architecture/ADRs, job flow, Kafka/data-lake/database,
+deployment/runbook and service ownership need no changes: these repairs restore
+the already documented progress and poison-row guarantees without changing their
+contracts or runtime. Roadmap index/diagram, governance, development guidance,
+documentation index, AGENTS/CLAUDE and repository rules need no changes: IDs,
+I5 completed / I6-I7 ready dependencies, navigation and workflow remain intact.
+Post-edit graph change detection and the static document-consistency audit are
+part of the renewed gate. No hosted CI, deployment, provider, retained database
+execution or new owner attestation is claimed.
+
 ## I5 completion and measured evidence — 2026-10-25
+
+Historical original completion checkpoint; the review-repair section above owns
+the renewed gate, and the linked benchmark artifacts contain the latest rerun.
 
 I5 is completed on source-bound local evidence. I5.a was separately verified and
 committed as `734d2ef`; I5.b adds only a disposable benchmark and its observations.

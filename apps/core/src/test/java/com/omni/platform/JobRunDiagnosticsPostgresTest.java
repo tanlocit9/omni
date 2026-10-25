@@ -38,6 +38,95 @@ class JobRunDiagnosticsPostgresTest {
     }
 
     @Test
+    void blockedOutboxOverridesSuccessfulAndRunningExecutionsForChainsAndJoins() throws Exception {
+        for (boolean completed : List.of(true, false)) {
+            for (boolean join : List.of(false, true)) {
+                UUID run = f.run(1, true, join);
+                if (completed) {
+                    f.jdbc.update(
+                            "UPDATE job_execution_histories SET status='SUCCESS' WHERE job_run_id=? AND (job_run_step_index=0 OR ? AND job_run_step_index=1)",
+                            run,
+                            join);
+                }
+                UUID message =
+                        f.jdbc.queryForObject(
+                                "SELECT o.id FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id WHERE h.job_run_id=? AND h.job_run_step_index=0",
+                                UUID.class,
+                                run);
+                if (completed) {
+                    assertThat(
+                                    context.getBean(
+                                                    com.omni.platform.modules.scheduler.services
+                                                            .SchedulerOutboxService.class)
+                                            .markBlocked(
+                                                    message,
+                                                    SchedulerDiagnosticsFixture.NOW,
+                                                    "review regression"))
+                            .isTrue();
+                    assertThat(
+                                    f.jdbc.queryForObject(
+                                            "SELECT count(*) FROM job_execution_histories WHERE job_run_id=? AND job_run_step_index=0 AND status<>'SUCCESS'",
+                                            Integer.class,
+                                            run))
+                            .isZero();
+                } else {
+                    // Observe an existing inconsistent row without fabricating worker failure.
+                    f.jdbc.update(
+                            "UPDATE scheduler_outbox_messages SET status='BLOCKED' WHERE id=?",
+                            message);
+                }
+                var observed = f.query("run_steps.sql", f.runParameters(List.of(run))).get("rows");
+                assertThat(observed.get(0).get("progress").asText()).isEqualTo("FAILED_OR_BLOCKED");
+                assertThat(observed.get(join ? 2 : 1).get("predecessor_wait").asBoolean()).isTrue();
+                var actual =
+                        context.getBean(
+                                        com.omni.platform.modules.scheduler.planning
+                                                .JobRunDispatchSnapshotReader.class)
+                                .capture(SchedulerDiagnosticsFixture.NOW, List.of(run))
+                                .runs()
+                                .getFirst()
+                                .steps()
+                                .getFirst();
+                assertThat(actual.progress())
+                        .isEqualTo(
+                                com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshot
+                                        .Progress.FAILED);
+            }
+        }
+    }
+
+    @Test
+    void jsonSyntaxValidButJsonbIncompatiblePayloadsCannotPoisonInventoryPagination()
+            throws Exception {
+        for (String payload :
+                List.of("{\"x\":1e1000000}", "{\"x\":\"\\u0000\"}", "{\"x\":\"\\ud800\"}")) {
+            f.jdbc.execute("TRUNCATE job_runs,job_execution_histories CASCADE");
+            UUID poison = f.legacy("alias", "PENDING"), valid = f.legacy("alias", "PENDING");
+            f.jdbc.update(
+                    "UPDATE scheduler_outbox_messages SET payload=? WHERE id=?", payload, poison);
+            assertThat(
+                            f.jdbc.queryForObject(
+                                    "SELECT CAST(? AS text) IS JSON OBJECT",
+                                    Boolean.class,
+                                    payload))
+                    .isTrue();
+            var all = f.query("legacy_outbox_inventory.sql", f.legacyParameters("", 400));
+            assertThat(all.get("counts").get("INVALID_JSON_OBJECT").asInt()).isEqualTo(1);
+            assertThat(all.get("counts").get("LEGACY_ALIAS").asInt()).isEqualTo(1);
+            var seen = new java.util.HashSet<String>();
+            String cursor = "";
+            for (int page = 0; page < 2; page++) {
+                var result = f.query("legacy_outbox_inventory.sql", f.legacyParameters(cursor, 1));
+                assertThat(result.get("rows").size()).isEqualTo(1);
+                seen.add(result.get("rows").get(0).get("message_id").asText());
+                assertThat(result.get("hasMore").asBoolean()).isEqualTo(page == 0);
+                cursor = result.get("nextCursor").asText();
+            }
+            assertThat(seen).containsExactlyInAnyOrder(poison.toString(), valid.toString());
+        }
+    }
+
+    @Test
     void runCountsDoNotMultiplyMessagesAndKeepPublishedSeparateFromCompletion() throws Exception {
         UUID run = f.run(3, true, false);
         f.run(5, true, false); // Another run must not multiply or satisfy the selected cohort.

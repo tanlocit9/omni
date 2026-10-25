@@ -75,6 +75,14 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 
 ## Canonical Plan 030 scope revision — 2026-10-15
 
+I5 review repairs — 2026-10-25: renewed source-bound local gate PASS 7/7,
+425 tests / 65 suites, eight SQL cases and 31 critical Java components >=80%
+line/applicable branch. BLOCKED progress and jsonb-incompatible poison payloads
+have executed PostgreSQL regression coverage; measured artifacts are refreshed.
+I5 remains completed; I6/I7 remain ready with their own acceptance/rollout gates.
+The original 423-test checkpoint below is historical, not evidence for repaired SQL.
+See [review repair matrix](../030-static-graph-dispatch-planner.md#i5-review-repairs--2026-10-25).
+
 I5 completion — 2026-10-25: I5 is completed on local gate PASS 7/7,
 423 tests / 65 suites, six SQL cases, six benchmark workloads,
 24 real query plans and 31 critical components >=80% line/branch.

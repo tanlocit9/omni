@@ -37,7 +37,10 @@ an actual read-only transaction. Do not concatenate unquoted SQL input.
 Both scripts return `version=1`. An incomplete run envelope cannot authorize
 admission. A complete envelope means the requested structural window was observed,
 not that every step is SUCCESS or every dataset is READY. `progress` reflects
-execution/membership only; DependencyRegistry retains READY/exact-version authority.
+execution/membership and outbox BLOCKED evidence; DependencyRegistry retains
+READY/exact-version authority. Unknown membership takes precedence; otherwise any
+BLOCKED outbox yields FAILED_OR_BLOCKED even when all executions are SUCCESS,
+and keeps required successor barriers waiting.
 
 Run membership scans use exact run/step indexes and aggregate all associated work;
 the result/parameter limits do not guarantee a fixed number of database pages.
@@ -45,12 +48,16 @@ Large fan-out can still be expensive. Review controlled query plans and buffers
 before widening a sample. Do not force indexes or invent a universal latency limit.
 
 Inventory states distinguish current identity, a validated historical alias,
-malformed/non-object JSON, missing/invalid work ID, missing work execution, linked
+malformed/non-object or jsonb-incompatible JSON, missing/invalid work ID, missing work execution, linked
 run/parent/definition/payload-parent conflicts and projected unique-key collision.
 Collision checks include messages outside the current page. A legacy alias is
 evidence for I7 investigation, not permission to rewrite it. Live lease, terminal
 delivery state and row count must be reconciled under I7's writer-quiescence policy.
 Paging separate snapshots while writes continue is not an atomic global inventory.
+Before casting TEXT payloads, both IS JSON OBJECT and
+`pg_input_is_valid(payload, 'jsonb')` must pass. Syntactically valid objects with
+out-of-range numeric values, Unicode NUL or unpaired surrogates are classified
+INVALID_JSON_OBJECT; they cannot abort the page or prevent nextCursor continuation.
 
 ## Query plans and measurement
 
@@ -78,8 +85,8 @@ regression, never an automatically executed retained-database benchmark.
 
 ## Compatibility and recovery
 
-Requires the existing V12/V13 schema and PostgreSQL 16 (`IS JSON OBJECT` safely
-guards payload parsing). No migration, extension, role, index, metric persistence,
+Requires the existing V12/V13 schema and PostgreSQL 16 (`IS JSON OBJECT` and
+`pg_input_is_valid` guard object shape and jsonb conversion). No migration, extension, role, index, metric persistence,
 worker contract or runtime configuration is added. Remove the diagnostic client
 session to stop using the pack; no data rollback is needed. Do not edit applied
 migrations, fabricate execution SUCCESS or infer dataVersion/lineage from these

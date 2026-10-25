@@ -45,6 +45,15 @@ status and claims remain PostgreSQL-authoritative. Poison payloads are skipped
 with bounded diagnostics, not rewritten or treated as successful; repair/replay
 and generalized DLQ tooling remain separate work.
 
+## Read-only diagnostics
+
+Use the [v1 SQL/operator pack](../../database/diagnostics/p14/v1/README.md) with an
+explicit read-only transaction, bounded run IDs/pages and timeouts. The
+[I5 measurement report](../../database/diagnostics/p14/v1/benchmark-results.md) is
+synthetic local evidence, not a production latency budget or actual worker rate.
+Never run the test benchmark against retained data; its claim EXPLAIN/rollback and
+fake status transitions are intentionally confined to disposable PostgreSQL.
+
 ## Explicit rollback
 
 Keep preparation disabled first. Prefer retaining guarded planning while work
@@ -60,5 +69,6 @@ execution state, fabricate SUCCESS or edit applied Flyway migrations to roll bac
 The retired manual-trigger API remains authenticated HTTP 410 under TD-017.
 Disabling the planner does not restore manual triggering or dropped audit data.
 Future symbol producers, shared-work coalescing and date-range backfill require
-their own supported-scope/rollout decision. Full diagnostics/benchmarks and
-operator read-model presentation remain I5/I6 and Plan 029 work.
+their own supported-scope/rollout decision. I5's local diagnostic/benchmark
+artifacts are available above; operator read-model presentation remains I6 and
+Plan 029 work. They do not authorize retained-data migration or activation.

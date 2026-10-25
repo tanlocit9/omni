@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I4 are completed on local source-bound evidence; I5 is in progress on read-only diagnostics and I6 remains pending on I5; I7 legacy-data cleanup is pending on I4/I5. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6/I7 are ready. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -28,6 +28,76 @@ A reusable static definition-path handoff in I2, followed by durable JobRun prep
 in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
+
+## I5 completion and measured evidence — 2026-10-25
+
+I5 is completed on source-bound local evidence. I5.a was separately verified and
+committed as `734d2ef`; I5.b adds only a disposable benchmark and its observations.
+The [v1 diagnostic pack](../../database/diagnostics/p14/v1/README.md),
+[measured report](../../database/diagnostics/p14/v1/benchmark-results.md),
+[machine-readable observation](../../database/diagnostics/p14/v1/benchmark-results.json)
+and [dictionary](../../database/diagnostics/p14/v1/metrics.md) are the I6/I7 handoff.
+Earlier I5.a in-progress statements below are checkpoint history.
+
+Local final gate: **PASS P14-I5 required=7 pass=7**, including focused benchmark,
+six actual SQL cases, clean Platform build, coverage, owned-file formatting,
+source/SQL/measurement acceptance and static document consistency. The final build
+executes 423 tests / 65 suites with zero failures/errors/skips.
+All 31 impacted critical Java components meet >=80% line/branch;
+there is no fabricated SQL or test-fixture coverage percentage. Source hashes,
+actual JUnit cases/counters and the full acceptance matrix are retained under
+ignored `.agent/check-results/P14-I5/`.
+
+| I5 criterion / impacted source                                     | Executed evidence and boundary                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only run/step and I7 legacy inventory SQL                     | Six JobRunDiagnosticsPostgresTest cases execute both versioned SELECT files, covering scoped/closed counts, joins, publication versus completion, UNKNOWN, malformed/identity/collision states, delivery/lease partitions, pagination and actual read-only mutation rejection. SQL is behavioral coverage, not a numeric Java percentage.                                                                                                    |
+| Snapshot/planner/query/claim measurement                           | JobRunDispatchBenchmarkPostgresTest executes the unchanged production reader/planner/store/service, 5 warmups and 30 measured samples per stage over six declared workloads. Real claim timing includes rollback; actual claim UPDATE EXPLAIN executes only in the disposable rollback transaction.                                                                                                                                          |
+| Query cost and comparisons                                         | 24 actual EXPLAIN ANALYZE BUFFERS plans include production snapshot/scoped SQL, FIFO read reference, claim UPDATE and both diagnostic queries. Report records root rows/loops/buffers, node/index choices and planning/execution time. No forced index, guessed pass threshold or unqualified production speedup.                                                                                                                            |
+| Round-trip/pool observation                                        | Test-only JdbcMeasurementProbe wraps the real DataSource before JPA/transaction managers are created. JDBC execute and commit/rollback calls define the measured application database-call boundary, not TCP packets. Hikari gauges, acquisition distributions and four controlled waiters are observed; poolPeak fields are independent maxima. The default startup helper keeps its existing no-op path, exercised by the full regression. |
+| Planned → offered → claimed → acknowledged → completed distinction | Real dispatcher/registry/claim/JobService.applyStatus execute; counters record 300 allocated quota, 375 offered candidates, 300 visits/claims/fake acknowledgements/synthetic child SUCCESS calls. Offered rows may recur across ticks; fake broker/status throughput shares a declared orchestration window and is not provider/worker capacity.                                                                                            |
+| I6/Plan 029 semantic handoff                                       | Dictionary v1 defines bounds, completeness, UNKNOWN/unavailable reasons, lease/retry, publication versus execution/READY, observation windows, measurement units and low-cardinality label rules. No new endpoint, UI, stored metric or worker timing inference.                                                                                                                                                                             |
+
+Observed benchmark window: 2026-10-25T06:46:53.372300Z to 2026-10-25T06:47:13.957600900Z; Windows/Java
+21.0.12.1, PostgreSQL PostgreSQL 16.14,
+synthetic GLOBAL/VN three-step runs on business date 2035-01-02. Profiles include
+1 run × 100 children, 32 runs × 10, a waiting join, retry/live lease, unknown closure
+and failed predecessor. p99 at 30 samples is the observed maximum, not an SLA.
+Instrumentation and shared-host effects are included. Real provider/network/worker
+processing and pg_stat_statements metrics remain explicitly unavailable; source
+hashes bind exact local bytes, including checkout line endings.
+
+Cross-service impact: Platform gains test-only datasource/fixture/harness code;
+production dispatcher, JobService, producer and guard methods are unchanged.
+PostgreSQL diagnostics use existing schema and indexes, with no migration,
+extension or retained-state mutation. Analyzer/Ingestor retain transport, status,
+provider and Parquet behavior; Query Service/Console retain APIs, discovery and UI.
+Contracts/generated code/py-common, Kafka fields, manifests, dataset ownership,
+paths, READY-last and exact lineage are unchanged. Preparation=false, all 32 cron
+identities, manual HTTP 410 and existing claim/fence behavior remain intact.
+Operations gain read-only instructions and reproducible local measurements;
+withdrawing the artifacts needs no data rollback. No provider, deployment,
+retained DB, hosted CI or owner attestation is claimed.
+
+Documentation synchronization covers Plan/registry/roadmap index+diagram, release
+notes, architecture, flow, database, deployment runbook, development ownership,
+documentation entrypoint and Plan 029 handoff. Existing ADR, service guides,
+field/DTO inventory and AGENTS/CLAUDE/.roo/skills need no change: there is no new
+runtime decision, transport/persistent field, service API, agent command or policy.
+The numbered doc registry needs no row because the versioned artifacts live
+outside docs. Bounded graph results and untracked-file limitations are reconciled
+against these canonical areas; they are not executed coverage evidence.
+
+Direct dependent readiness: I6 and I7 become `ready`, not completed. Their
+dependencies and objective checks are present, execution is autonomous and no
+owner decision blocks development. I6 is isolated to bounded SQL/docs/read-model
+fixtures; any public API change needs its own impact review. I7 is isolated to
+historical alias normalization/reader retirement; existing producer, JobService
+status, notification and Sector Transition writers stay unchanged, and active
+NULL-JobRun dispatch remains supported. Reconcile writer overlap again before
+their implementation. I7 retained-row inventory, backup/quiescence and migration
+authorization remain rollout gates; readiness does not authorize data deletion.
+P13-I1's wider shared execution/status writer reconciliation remains pending.
+This task completes I5 only; it does not implement I6/I7 or activate preparation.
 
 ## I5.a read-only diagnostic pack — 2026-10-25
 
@@ -2228,10 +2298,10 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I5 — measured evidence
 
-- [ ] Bounded read-only legacy-alias inventory for I7 reports delivery/lease states, invalid/missing identities, conflicting run links and projected FK/message-index collisions; no cleanup is executed by I5.
-- [ ] Versioned diagnostic SQL and safe bounded `EXPLAIN (ANALYZE, BUFFERS)` steps cover run steps, membership/completion, backlog, blocked/unknown causes, index usage and overcount prevention.
-- [ ] Dataset/window/environment-aware p50/p95/p99 planner/snapshot/claim durations, rows and buffers, DB calls, Hikari pool pressure, execution/publish throughput, comparisons and uncertain states are measured rather than guessed.
-- [ ] Definitions and limitations for Plan 029 metrics are recorded; no premature UI or new stats persistence.
+- [x] Bounded read-only legacy-alias inventory for I7 reports delivery/lease states, invalid/missing identities, conflicting run links and projected FK/message-index collisions; no cleanup is executed by I5.
+- [x] Versioned diagnostic SQL and safe bounded `EXPLAIN (ANALYZE, BUFFERS)` steps cover run steps, membership/completion, backlog, blocked/unknown causes, index usage and overcount prevention.
+- [x] Dataset/window/environment-aware p50/p95/p99 planner/snapshot/claim durations, rows and buffers, DB calls, Hikari pool pressure, execution/publish throughput, comparisons and uncertain states are measured rather than guessed.
+- [x] Definitions and limitations for Plan 029 metrics are recorded; no premature UI or new stats persistence.
 
 ### P14-I6 — operations read-model handoff
 

@@ -67,8 +67,14 @@ the same workload and input against the production snapshot/scoped SELECT or
 documented FIFO reference. Differences are measurements, not SLA/pass thresholds.
 `pg_stat_statements` is optional and is not required by this pack.
 
-See the [metric/read-projection dictionary](metrics.md). Consolidated benchmark
-measurements remain pending until the separately recorded I5 benchmark gate passes.
+See the [metric/read-projection dictionary](metrics.md),
+[measured report](benchmark-results.md) and [source-bound JSON](benchmark-results.json).
+Reproduce with `nx run platform:test --args="--tests=*JobRunDispatchBenchmarkPostgresTest"`
+from workspace root. The harness uses five warmups and 30 measured samples,
+six synthetic workloads, test-only JDBC/pool instrumentation, actual query plans
+and rollback-only claim measurement. Fake Kafka and synthetic applyStatus calls
+do not measure real worker/provider processing. It is included in the full Platform
+regression, never an automatically executed retained-database benchmark.
 
 ## Compatibility and recovery
 

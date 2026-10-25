@@ -69,11 +69,19 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I2 | Static DAG dispatcher contract and handoff                         | completed            | critical | [P14-I1]              | [P14-I3]                            | [apps/core, configs, docs]                                                                                       | autonomous        | false                   | null                                      | null                                     |
 | P14-I3 | Static definition edges, unified JobRun and target preparation     | completed            | critical | [P14-I2]              | [P14-I4]                            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
 | P14-I4 | JobRun-aware outbox planning and guarded admission                 | completed            | critical | [P14-I3]              | [P14-I5, P14-I7, P13-I1]            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
-| P14-I5 | Diagnostic SQL and measured scheduler performance                  | ready                | high     | [P14-I4]              | [P14-I6, P14-I7]                    | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
+| P14-I5 | Diagnostic SQL and measured scheduler performance                  | in_progress          | high     | [P14-I4]              | [P14-I6, P14-I7]                    | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 | P14-I6 | JobRun operations read-model handoff                               | pending              | high     | [P14-I5]              | []                                  | [apps/core, docs]                                                                                                | autonomous        | false                   | null                                      | null                                     |
 | P14-I7 | Legacy outbox data cleanup and compatibility retirement            | pending              | high     | [P14-I4, P14-I5]      | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 
 ## Canonical Plan 030 scope revision — 2026-10-15
+
+I5.a checkpoint — 2026-10-25: P14-I5 is `in_progress` on read-only versioned SQL,
+legacy-alias inventory and the I6 metric dictionary. Runtime/status/producer code
+is untouched. SQL uses bounded explicit IDs/pages and is exercised against
+disposable PostgreSQL in actual read-only transactions. Local checkpoint PASS 6/6:
+422 full tests, six SQL cases and 31 critical Java components >=80% line/branch.
+Benchmarks remain I5.b, and I6/I7 stay pending. See
+[I5.a scope/evidence](../030-static-graph-dispatch-planner.md#i5a-read-only-diagnostic-pack--2026-10-25).
 
 I7 registration — 2026-10-25: owner requested legacy-data cleanup as P14-I7.
 Status `pending`; dependencies I4/I5, without adding an I6 or P13 prerequisite.
@@ -258,7 +266,7 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 2     | P14-I2    | `completed`            | Freeze static ancestor-path/definition mapping handoff, independent validation, compatibility and tests; leave FIFO runtime unchanged.                                                                                                                                                               |
 | 3     | P14-I3    | `completed`            | Static per-definition edge cutover/parity first, then JobRun persistence and complete static path membership, scheduled/manual cutover, dependency-first durable enqueue, runtime old-guard safety, forward-only manual-table drop with tests and rollback.                                          |
 | 4     | P14-I4    | `completed`            | Bounded JobRun snapshot, cohort completion gates, scoped outbox admission and TD-014 guard/claim/fencing/retry/concurrency/fallback verification.                                                                                                                                                    |
-| 5     | P14-I5    | `ready`                | Measured SQL performance/connection-pool/throughput baselines, executable diagnostic scripts and metric dictionary.                                                                                                                                                                                  |
+| 5     | P14-I5    | `in_progress`          | Measured SQL performance/connection-pool/throughput baselines, executable diagnostic scripts and metric dictionary.                                                                                                                                                                                  |
 | 6     | P14-I6    | `pending`              | Dashboard-ready bounded run/step read model and Plan 029 handoff without unnecessary UI or API.                                                                                                                                                                                                      |
 | 7     | P14-I7    | `pending`              | After I4/I5: inventory and normalize historical outbox parent/child aliases, prove preservation/rollback, then retire compatibility; no I6 dependency or active NULL-JobRun removal.                                                                                                                 |
 | 8     | P13-I1    | `pending`              | After P14-I4 and P7-I3, establish truthful worker timing evidence and stage model.                                                                                                                                                                                                                   |
@@ -281,7 +289,7 @@ P10, P11, and P12 are now owner-gated technical-debt follow-ups, not active auto
 ## First eligible increment
 
 The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls.
-P14-I1–I4 are completed. I5 is ready for isolated read-only diagnostics/benchmarks;
+P14-I1–I4 are completed. I5 is in progress for isolated read-only diagnostics/benchmarks;
 I6 waits for I5. P13-I1's dependency gate is met but its wider writer overlap is
 not yet reconciled, so it remains pending. Preparation stays disabled and no
 retained rollout is claimed. P4-I3 remains superseded; TD-014's transferred final

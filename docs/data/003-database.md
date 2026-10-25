@@ -115,6 +115,15 @@ aggregate parent without a parent-to-child wait cycle. Snapshot run order is
 restored to the rotated discovery page before planning. See
 [I4 review repair](../plans/030-static-graph-dispatch-planner.md#i4-review-regressions--2026-10-25).
 
+### Read-only scheduler diagnostic pack (I5)
+
+[Versioned SQL and operator instructions](../../database/diagnostics/p14/v1/README.md)
+observe explicit bounded run-step windows and paginated legacy outbox identity
+states in read-only transactions. Separate aggregates prevent fan-out overcounting;
+unknown/malformed/conflicting evidence does not authorize cleanup or admission.
+No migration/index/extension, retention or runtime writer is changed. The metric
+dictionary is an I6 handoff; I5 benchmark evidence is recorded separately.
+
 ### JobRun persistence foundation (I3.b)
 
 [`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql)

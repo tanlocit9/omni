@@ -1,5 +1,17 @@
 # Omni Release Notes
 
+## 2026-10-25 - P14-I5.a read-only diagnostics started
+
+Added versioned run/step progress and legacy outbox inventory SQL, read-only
+operator instructions and a bounded metric/read-projection dictionary. Actual
+PostgreSQL fixtures cover separate membership/message counts, transitive joins,
+publication versus completion, unknown closure, delivery/lease states, malformed
+payloads, identity/collision conflicts, UUID pagination and write rejection.
+Local P14-I5a gate PASS 6/6: six SQL cases and 422 full tests / 64 suites,
+all 31 critical Java components >=80% line/branch. Measurements remain I5.b, not a
+claimed I5 completion. No runtime, schema, retained data, provider or CI change.
+See [I5.a scope and evidence](docs/plans/030-static-graph-dispatch-planner.md#i5a-read-only-diagnostic-pack--2026-10-25).
+
 ## 2026-10-25 - CI cloud access and Python build environment repair
 
 Both CI workflows explicitly disable Nx Cloud access, including the reusable

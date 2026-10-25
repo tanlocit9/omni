@@ -388,7 +388,13 @@ Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introd
 I5 now provides a [v1 observation dictionary](../../database/diagnostics/p14/v1/metrics.md)
 and [source-bound local measurements](../../database/diagnostics/p14/v1/benchmark-results.md).
 These define limits/UNKNOWN semantics and synthetic workload observations only;
-I6 still owns the accepted bounded graph read-model handoff. No UI/API, actual
+I6 supplies the [bounded operator read contract](../../database/diagnostics/p14/v1/read-model.md)
+and [PostgreSQL expectation fixtures](../../database/diagnostics/p14/v1/read-model-fixtures.json),
+including path identity, run/step progress, backlog, unknown reasons and capture
+freshness. Its acceptance evidence remains owned by Plan 030 and the canonical
+increment registry. Plan 029 must gate version/completeness/freshness, preserve
+null worker/throughput/READY evidence, and add authorization if an API is later
+approved. This handoff implements no Plan 029 presentation. No UI/API, actual
 worker processing timestamp, ETA/SLA or dataset READY is inferred from these artifacts.
 
 ## Relationship to Plan 030

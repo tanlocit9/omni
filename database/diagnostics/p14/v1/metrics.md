@@ -5,6 +5,13 @@ not a new endpoint, exporter, metrics table or accepted UI contract. PostgreSQL
 and the existing guard remain authoritative. Unknown/unavailable observations are
 null with a reason, never numeric zero or a fabricated processing state.
 
+P14-I6's [operator read contract](read-model.md) defines the additive readModel
+version, frozen path and bounded per-run summaries, reason precedence, null
+throughput, worker/READY authority and capture-clock freshness policy. Its
+[expectation fixtures](read-model-fixtures.json) are exercised against actual SQL.
+The caller's observedAt lease clock is separate from database capture clocks;
+counts_trusted=false and incomplete windows must never be rendered as idle.
+
 | Field / measure                                                        | Unit / source                                           | Meaning and limitation                                                                                                                                                                                                                                                                                      |
 | ---------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | version, observedAt, complete, reason                                  | v1 SQL envelope / UTC instant / boolean / bounded code  | Completeness concerns the explicit requested window. observedAt is a caller observation clock; capture duration and age are separate.                                                                                                                                                                       |

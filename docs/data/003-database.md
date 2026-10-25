@@ -125,6 +125,12 @@ No migration/index/extension, retention or runtime writer is changed. The metric
 dictionary is an I6 handoff; [measured I5 query/pool evidence](../../database/diagnostics/p14/v1/benchmark-results.md)
 is local/disposable, with no production latency or retained migration claim.
 
+P14-I6 adds a versioned [operator read contract](../../database/diagnostics/p14/v1/read-model.md)
+inside the same bounded SELECT envelope: frozen path/run/step progress, backlog,
+unknown/wait reasons and collection clocks. An incomplete window suppresses the
+operator run list; missing worker/READY/throughput evidence stays null with reasons.
+It adds no schema, stored statistics, runtime writer or data-cleanup operation.
+
 ### JobRun persistence foundation (I3.b)
 
 [`V12__create_job_runs_and_frozen_steps.sql`](../../database/migrations/V12__create_job_runs_and_frozen_steps.sql)

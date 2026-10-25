@@ -1,5 +1,21 @@
 # Omni Release Notes
 
+## 2026-10-25 - P14-I6 bounded operator read-model handoff
+
+Added readModel v1 to the existing read-only diagnostic envelope: frozen path/run
+identity, nested scoped steps, completion fractions, backlog partitions, reason
+precedence and collection clocks. Incomplete windows suppress the run list;
+unknown membership has untrusted counts/null fractions. Worker processing, READY
+and live throughput stay null with reasons. Plan 029 receives the contract and
+executed expectation fixtures, without a new endpoint or UI.
+
+Local gate PASS 8/8: 434 tests / 66 suites, nine I6 and eight diagnostic cases,
+31 critical Java components >=80% line/applicable branch, refreshed benchmark
+with six workloads/24 actual plans, formatting and documentation audit. Self-review
+found no unresolved scoped correctness issue. I7 remains ready. No runtime writer,
+schema, retained data, preparation, provider, deployment or hosted CI change.
+See [acceptance matrix and documentation dispositions](docs/plans/030-static-graph-dispatch-planner.md#i6-bounded-read-model-completion--2026-10-25).
+
 ## 2026-10-25 - P14-I5 diagnostic review repairs
 
 Run progress now treats outbox BLOCKED as FAILED_OR_BLOCKED even when execution

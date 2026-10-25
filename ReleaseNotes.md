@@ -1,5 +1,19 @@
 # Omni Release Notes
 
+## 2026-10-25 - CI cloud access and Python build environment repair
+
+Both CI workflows explicitly disable Nx Cloud access, including the reusable
+Python workflow; workspace permissions and nx.json remain unchanged. Python Build
+unsets UV_LOCKED for its child command so the Nx exporter's --frozen can run;
+locked dependency sync and locked lint/test/integration remain enforced.
+
+Verified with CI-pinned UV 0.8.13: locked sync and builds pass for query-service,
+analyzer, ingestor and py-common; seven CI-policy tests, formatting and static
+workflow review pass. Source application behavior, contracts, data and roadmap
+statuses are unchanged. No hosted CI pass or resolution of the separate Windows
+contracts/protoc runtime and CRLF limitations is claimed. See
+[CI environment repair](docs/development/004-ci-quality-gate.md#ci-environment-repair--2026-10-25).
+
 ## 2026-10-25 - P14-I7 registered for legacy outbox cleanup
 
 Added owner-requested P14-I7, pending on I4/I5 and independent of I6. Scope is a

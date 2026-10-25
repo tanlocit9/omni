@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I4 are completed on local source-bound evidence; I5 is ready for isolated diagnostics and I6 remains pending on I5; I7 legacy-data cleanup is pending on I4/I5. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
+Status: Owner-approved active epic in Milestone 1. Canonical story status, dependencies, readiness, and execution order belong to the [increment registry](roadmap/implementation-increments.md). I1–I4 are completed on local source-bound evidence; I5 is in progress on read-only diagnostics and I6 remains pending on I5; I7 legacy-data cleanup is pending on I4/I5. JobRun preparation is still disabled; completion does not claim runtime activation or deployment.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -28,6 +28,57 @@ A reusable static definition-path handoff in I2, followed by durable JobRun prep
 in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
+
+## I5.a read-only diagnostic pack — 2026-10-25
+
+I5 is `in_progress`. Versioned SELECT-only artifacts live under
+[`database/diagnostics/p14/v1`](../../database/diagnostics/p14/v1/README.md):
+run/step progress and legacy outbox inventory, plus the metric/read-projection
+dictionary for I6/Plan 029. No runtime caller, application API, configuration,
+migration, index, worker change or metric persistence is introduced.
+
+The run query takes 1–32 explicit run IDs with a global 1024-step/8192-edge window;
+separate execution/outbox aggregates avoid fan-out overcounting. It reports closure,
+identity, unknown/failure state, transitive join/predecessor waits and publication
+separately from execution completion. The inventory reads at most 400 rows plus
+one lookahead in UUID order across all delivery states. Malformed payloads, absent
+work, parent/definition/payload-parent/run conflicts and projected unique collisions
+remain explicit. Results are page observations, not a global cleanup certificate.
+
+Operational invocations require a read-only repeatable-read transaction, five-second
+statement timeout and 500ms lock timeout. Result limits do not cap every underlying
+membership scan; query plans and workload measurements remain essential. Tests
+bind the actual SQL files against disposable PostgreSQL 16, including read-only
+write rejection. No retained database is queried or changed.
+
+Local I5.a checkpoint gate PASS 6/6: six actual SQL/PostgreSQL cases and
+422 full Platform tests / 64 suites, zero failures/errors/skips.
+All 31 critical Java components remain >=80% line/branch. Clean build,
+Platform coverage, owned-file format, source/SQL acceptance matrix and documentation
+consistency pass. Exact SQL/test hashes and executed case matrix are retained in
+ignored `.agent/check-results/P14-I5a/`. No numeric SQL coverage is fabricated. I5 benchmark distributions, pool/round-trip
+observations, comparisons and synthetic stage throughput remain I5.b; no complete
+I5, I6 or I7 PASS/readiness is claimed by this checkpoint.
+
+Blast-radius reconciliation: Platform gains test-only fixtures and diagnostics;
+production dispatcher/status/producer/guard code is unchanged. PostgreSQL reads
+existing V12/V13 state with no schema/extension/retention change. Analyzer/Ingestor
+retain command/status, producer scope and Parquet responsibilities; Query Service
+and Console retain APIs/discovery/UI; shared contracts, generated protobuf,
+py-common, Kafka fields, manifests, paths, dataset ownership and exact lineage are
+unchanged. Configuration, preparation=false and cron identities are unchanged.
+Tests/operations gain read-only query invocation and a versioned observation
+dictionary. Graph results are bounded and cannot prove cross-language isolation;
+these boundaries are reconciled against the canonical documents indexed by docs.
+
+Documentation disposition: Plan, registry, roadmap index/diagram, release notes,
+database guide, development ownership and documentation entrypoint link the artifact.
+The numbered documentation registry needs no new row: artifacts live outside docs.
+Architecture/ADR/flow, service guides, deployment runbook, field/DTO reference and
+AGENTS/CLAUDE/.roo/skills need no semantic update: this adds no runtime/transport,
+writer, rollout switch, persistent field or agent policy. I6 read-model delivery,
+I7 normalization, real worker timing, provider/runtime deployment and CI remain
+separate; the dictionary explicitly marks unavailable observations as unknown.
 
 ## I4 review regressions — 2026-10-25
 

@@ -243,6 +243,14 @@ Keep the locked reread on the same connection and Kafka outside admission locks.
 Preparation stays disabled; use [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and
 the [rollout runbook](../deployment/004-job-run-admission-rollout.md) before changes.
 
+## Scheduler diagnostics — I5
+
+Versioned SELECT-only SQL, parameter/bound/safety instructions and the observation
+dictionary live in [database/diagnostics/p14/v1](../../database/diagnostics/p14/v1/README.md).
+JobRunDiagnosticsPostgresTest executes the actual SQL; SchedulerDiagnosticsFixture
+is disposable test data, not a runtime service or a retained-data cleanup tool.
+Production admission/status ownership remains unchanged.
+
 ## Deferred operator job triggers — I3.d
 
 JobOperationsController keeps catalog/detail/execution reads and HTTP 410

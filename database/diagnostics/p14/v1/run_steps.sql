@@ -54,7 +54,7 @@ WITH RECURSIVE args AS (
       WHEN run_state NOT IN ('PREPARED','RUNNING') THEN 'TERMINAL_OR_UNSUPPORTED_RUN'
       WHEN NOT closed OR roots<>1 OR executions<>child_count+1 OR messages<>message_count
         OR NOT identities_match OR unknown_executions>0 THEN 'UNKNOWN_MEMBERSHIP'
-      WHEN failed>0 THEN 'FAILED_OR_BLOCKED'
+      WHEN failed>0 OR blocked>0 THEN 'FAILED_OR_BLOCKED'
       WHEN successful=executions THEN 'SUCCESS'
       ELSE 'UNFINISHED' END AS progress
     FROM progress p

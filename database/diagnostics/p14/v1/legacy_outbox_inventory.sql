@@ -12,7 +12,8 @@ WITH args AS (
 ), bounded AS MATERIALIZED (
     SELECT * FROM page ORDER BY id LIMIT (SELECT row_limit FROM args)
 ), parsed AS (
-    SELECT o.*, CASE WHEN o.payload IS JSON OBJECT THEN o.payload::jsonb END AS document
+    SELECT o.*, CASE WHEN o.payload IS JSON OBJECT
+        AND pg_input_is_valid(o.payload, 'jsonb') THEN o.payload::jsonb END AS document
     FROM bounded o
 ), identities AS (
     SELECT o.*, CASE WHEN document->>'executionId' ~*

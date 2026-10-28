@@ -12,6 +12,7 @@ from py_common.config.models import KafkaSettings
 from py_common.kafka.factory import KafkaClientFactory
 from py_common.kafka.processing import consume_job_records
 from py_common.messaging import JobStatusMessage, JobStatusPublisher
+from py_common.runtime.supervision import WorkerSupervisor
 
 _logger = logging.getLogger(__name__)
 
@@ -39,6 +40,16 @@ class JobStatusKafkaService(ABC):
         self._producer: AIOKafkaProducer | None = None
         self._publisher: JobStatusPublisher | None = None
         self._task: asyncio.Task[None] | None = None
+        self._supervisor: WorkerSupervisor | None = None
+        self._connected = False
+
+    @property
+    def is_running(self) -> bool:
+        return (
+            self._connected
+            and self._supervisor is not None
+            and self._supervisor.is_running
+        )
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -49,7 +60,8 @@ class JobStatusKafkaService(ABC):
         except BaseException:
             await self._close_clients()
             raise
-        self._task = asyncio.create_task(self._consume_loop(), name=self._task_name)
+        self._supervisor = WorkerSupervisor(self._session, name=self._service_name)
+        self._task = asyncio.create_task(self._supervisor.run(), name=self._task_name)
 
     async def _start_clients(self) -> None:
         self._consumer = KafkaClientFactory.create_consumer(
@@ -72,6 +84,7 @@ class JobStatusKafkaService(ABC):
             self._kafka_settings.bootstrap_servers,
         )
         await self._producer.start()
+        self._connected = True
         _logger.info(
             "%s Kafka producer connected statusTopic=%s bootstrap=%s",
             self._service_name,
@@ -85,7 +98,16 @@ class JobStatusKafkaService(ABC):
             self._group_id,
         )
 
+    async def _session(self) -> None:
+        try:
+            if self._consumer is None:
+                await self._start_clients()
+            await self._consume_loop()
+        finally:
+            await self._close_clients()
+
     async def _close_clients(self) -> None:
+        self._connected = False
         consumer, producer = self._consumer, self._producer
         self._consumer = self._producer = self._publisher = None
         try:

@@ -268,6 +268,7 @@ async def test_cancel_during_initial_kafka_connection_closes_all_owned_resources
     )
     with pytest.raises(asyncio.CancelledError):
         await service.run()
+    assert not service.is_running
     consumer.stop.assert_awaited_once()
     producer.stop.assert_awaited_once()
     close.assert_awaited_once()

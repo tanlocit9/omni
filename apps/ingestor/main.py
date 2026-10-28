@@ -1,10 +1,12 @@
 from py_common.runtime import create_worker_app, run_async_worker
 
-from app.kafka_consumer import consume_loop
+from app.messaging.consumer import IngestorKafkaRoutingService
+
+service = IngestorKafkaRoutingService()
 
 
 async def main() -> None:
-    await consume_loop()
+    await service.run()
 
 
 app = create_worker_app(
@@ -12,6 +14,7 @@ app = create_worker_app(
     title="Omni Ingestor",
     description="Stock sync ingestor worker service.",
     version="0.1.0",
+    readiness=lambda: service.is_running,
 )
 
 

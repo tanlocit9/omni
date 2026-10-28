@@ -38,6 +38,11 @@ class IngestorKafkaRoutingService:
         self._default_client: StockClient | None = None
         self._parquet_storage: ParquetStorage | None = None
         self._immutable_publisher: ImmutableDatasetPublisher | None = None
+        self._ready = False
+
+    @property
+    def is_running(self) -> bool:
+        return self._ready
 
     async def run(self) -> None:
         logger.info(
@@ -63,6 +68,7 @@ class IngestorKafkaRoutingService:
                 self._immutable_publisher,
             ) = await self._create_storage()
             logger.info("Ingestor waiting for Kafka messages")
+            self._ready = True
             await consume_job_records(self._consumer, self._route_message)
         except asyncio.CancelledError:
             logger.info("Kafka consumer loop cancelled, shutting down.")
@@ -71,6 +77,7 @@ class IngestorKafkaRoutingService:
             await self.stop()
 
     async def stop(self) -> None:
+        self._ready = False
         try:
             if self._consumer is not None:
                 await self._consumer.stop()

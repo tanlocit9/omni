@@ -129,6 +129,45 @@ async def test_stop_without_started_clients():
 
 
 @pytest.mark.asyncio
+async def test_recovery_recreates_clients_and_stop_does_not_restart(monkeypatch):
+    from py_common.runtime.supervision import WorkerSupervisor
+
+    service = Service()
+    consumers = [AsyncMock(), AsyncMock()]
+    producers = [AsyncMock(), AsyncMock()]
+    consume = 0
+    recovered = asyncio.Event()
+
+    async def session():
+        nonlocal consume
+        consume += 1
+        if consume == 1:
+            raise RuntimeError("broker down")
+        recovered.set()
+        await asyncio.Future()
+
+    service._consume_loop = session
+    consumer_factory = Mock(side_effect=consumers)
+    producer_factory = Mock(side_effect=producers)
+    monkeypatch.setattr(KafkaClientFactory, "create_consumer", consumer_factory)
+    monkeypatch.setattr(KafkaClientFactory, "create_producer", producer_factory)
+    monkeypatch.setattr(
+        "py_common.kafka.job_status_service.WorkerSupervisor",
+        lambda *a, **kw: WorkerSupervisor(*a, **kw, retry_delay=0.01),
+    )
+    await service.start()
+    await service.start()  # no duplicate task/session
+    await asyncio.wait_for(recovered.wait(), 1)
+    assert service.is_running
+    await service.stop()
+    assert not service.is_running
+    assert consumer_factory.call_count == producer_factory.call_count == 2
+    for client in consumers + producers:
+        client.start.assert_awaited_once()
+        client.stop.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["consumer", "producer"])
 async def test_failed_initial_start_closes_partially_started_clients(
     monkeypatch, failure
@@ -146,5 +185,6 @@ async def test_failed_initial_start_closes_partially_started_clients(
     )
     with pytest.raises(RuntimeError, match="startup"):
         await service.start()
+    assert not service.is_running
     consumer.stop.assert_awaited_once()
     producer.stop.assert_awaited_once()

@@ -98,6 +98,35 @@ class JobRunPreparationPostgresTest {
     }
 
     @Test
+    void enabledSchedulerClaimsOnlyTerminalEntriesBeforeApplyingBatchLimit() {
+        jdbc.update(
+                "UPDATE job_definitions SET next_run=?",
+                java.sql.Timestamp.from(NOW.minusSeconds(1)));
+        var declaration =
+                context.getBean(
+                                com.omni.platform.modules.scheduler.topology
+                                        .StaticJobTopologyProvider.class)
+                        .definitionDependencies();
+        var selected = claims.claimDueJobs(NOW);
+        assertThat(selected).isNotEmpty();
+        for (var claim : selected) {
+            var definition = definitions.findById(claim.jobDefinitionId()).orElseThrow();
+            assertThat(declaration.scheduledEntries())
+                    .contains(
+                            new com.omni.platform.modules.scheduler.topology.JobDefinitionIdentity(
+                                    definition.getSource(),
+                                    definition.getJobType(),
+                                    definition.getCronExpr()));
+        }
+        assertThat(selected).hasSize(declaration.scheduledEntries().size());
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM job_definitions WHERE claim_token IS NULL AND job_type='SYNC_STOCK_PRICE'",
+                                Integer.class))
+                .isGreaterThan(0);
+    }
+
+    @Test
     void preparesDependenciesBeforeTargetWithFrozenExecutionAndMessageMembership() {
         var target = target(JobType.SYNC_INDICATORS);
         UUID execution = preparation.prepareScheduled(target, claim(target), NOW);

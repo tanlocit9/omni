@@ -123,6 +123,18 @@ public final class StaticDefinitionDependencies {
         return predecessors;
     }
 
+    /** Terminal definitions, including standalone jobs, are scheduled entry targets. */
+    public List<JobDefinitionIdentity> scheduledEntries() {
+        var upstream =
+                predecessors.values().stream()
+                        .flatMap(List::stream)
+                        .collect(java.util.stream.Collectors.toSet());
+        return predecessors.keySet().stream()
+                .filter(identity -> !upstream.contains(identity))
+                .sorted()
+                .toList();
+    }
+
     public StaticJobTopology topology() {
         return topology;
     }

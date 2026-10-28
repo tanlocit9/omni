@@ -8,13 +8,18 @@ import java.util.UUID;
 
 public interface JobDefinitionClaimRepository {
 
-    List<SchedulerClaim> claimDueJobs(Instant now, String claimedBy, Duration leaseDuration, int batchSize);
+    List<SchedulerClaim> claimDueJobs(
+            Instant now, String claimedBy, Duration leaseDuration, int batchSize);
 
-    Optional<SchedulerClaim> claimJobDefinition(
-            UUID jobDefinitionId,
+    List<SchedulerClaim> claimDueJobs(
             Instant now,
             String claimedBy,
-            Duration leaseDuration);
+            Duration leaseDuration,
+            int batchSize,
+            List<java.util.UUID> eligibleDefinitionIds);
+
+    Optional<SchedulerClaim> claimJobDefinition(
+            UUID jobDefinitionId, Instant now, String claimedBy, Duration leaseDuration);
 
     boolean releaseClaim(SchedulerClaim claim);
 

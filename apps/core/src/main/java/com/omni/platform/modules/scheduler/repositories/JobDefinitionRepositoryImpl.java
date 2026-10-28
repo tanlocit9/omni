@@ -17,29 +17,46 @@ import jakarta.persistence.Query;
 @Repository
 public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository {
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    @PersistenceContext private EntityManager entityManager;
+
+    @Override
+    public List<SchedulerClaim> claimDueJobs(
+            Instant now, String claimedBy, Duration leaseDuration, int batchSize) {
+        return claimDueJobs(now, claimedBy, leaseDuration, batchSize, null);
+    }
 
     @Override
     public List<SchedulerClaim> claimDueJobs(
             Instant now,
             String claimedBy,
             Duration leaseDuration,
-            int batchSize) {
+            int batchSize,
+            List<UUID> eligibleDefinitionIds) {
+        if (eligibleDefinitionIds != null && eligibleDefinitionIds.isEmpty()) return List.of();
         Instant claimUntil = now.plus(leaseDuration);
-        List<?> rows = entityManager.createNativeQuery("""
+        Query candidates =
+                entityManager
+                        .createNativeQuery(
+                                """
                 SELECT id, next_run
                 FROM job_definitions
                 WHERE is_active = TRUE
                 AND (next_run <= :now OR next_run IS NULL)
                 AND (claim_until IS NULL OR claim_until <= :now)
+                %s
                 ORDER BY next_run ASC NULLS FIRST, id ASC
                 FOR UPDATE SKIP LOCKED
                 LIMIT :batchSize
-                """)
-                .setParameter("now", now)
-                .setParameter("batchSize", batchSize)
-                .getResultList();
+                """
+                                        .formatted(
+                                                eligibleDefinitionIds == null
+                                                        ? ""
+                                                        : "AND id IN (:eligibleIds)"))
+                        .setParameter("now", now)
+                        .setParameter("batchSize", batchSize);
+        if (eligibleDefinitionIds != null)
+            candidates.setParameter("eligibleIds", eligibleDefinitionIds);
+        List<?> rows = candidates.getResultList();
 
         List<SchedulerClaim> claims = new ArrayList<>(rows.size());
         for (Object row : rows) {
@@ -48,7 +65,9 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
             Instant scheduledFor = toInstant(columns[1], now);
             UUID claimToken = UUID.randomUUID();
 
-            Query update = entityManager.createNativeQuery("""
+            Query update =
+                    entityManager.createNativeQuery(
+                            """
                     UPDATE job_definitions
                     SET claim_token = :claimToken,
                         claimed_by = :claimedBy,
@@ -63,13 +82,9 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
             update.setParameter("jobDefinitionId", jobDefinitionId);
             update.executeUpdate();
 
-            claims.add(new SchedulerClaim(
-                    jobDefinitionId,
-                    claimToken,
-                    claimedBy,
-                    now,
-                    claimUntil,
-                    scheduledFor));
+            claims.add(
+                    new SchedulerClaim(
+                            jobDefinitionId, claimToken, claimedBy, now, claimUntil, scheduledFor));
         }
 
         entityManager.flush();
@@ -82,11 +97,11 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
 
     @Override
     public Optional<SchedulerClaim> claimJobDefinition(
-            UUID jobDefinitionId,
-            Instant now,
-            String claimedBy,
-            Duration leaseDuration) {
-        List<?> rows = entityManager.createNativeQuery("""
+            UUID jobDefinitionId, Instant now, String claimedBy, Duration leaseDuration) {
+        List<?> rows =
+                entityManager
+                        .createNativeQuery(
+                                """
                 SELECT id
                 FROM job_definitions
                 WHERE id = :jobDefinitionId
@@ -94,16 +109,19 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
                 AND (claim_until IS NULL OR claim_until <= :now)
                 FOR UPDATE SKIP LOCKED
                 """)
-                .setParameter("jobDefinitionId", jobDefinitionId)
-                .setParameter("now", now)
-                .getResultList();
+                        .setParameter("jobDefinitionId", jobDefinitionId)
+                        .setParameter("now", now)
+                        .getResultList();
         if (rows.isEmpty()) {
             return Optional.empty();
         }
 
         UUID claimToken = UUID.randomUUID();
         Instant claimUntil = now.plus(leaseDuration);
-        int updated = entityManager.createNativeQuery("""
+        int updated =
+                entityManager
+                        .createNativeQuery(
+                                """
                 UPDATE job_definitions
                 SET claim_token = :claimToken,
                     claimed_by = :claimedBy,
@@ -111,12 +129,12 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
                     claim_until = :claimUntil
                 WHERE id = :jobDefinitionId
                 """)
-                .setParameter("claimToken", claimToken)
-                .setParameter("claimedBy", claimedBy)
-                .setParameter("claimedAt", now)
-                .setParameter("claimUntil", claimUntil)
-                .setParameter("jobDefinitionId", jobDefinitionId)
-                .executeUpdate();
+                        .setParameter("claimToken", claimToken)
+                        .setParameter("claimedBy", claimedBy)
+                        .setParameter("claimedAt", now)
+                        .setParameter("claimUntil", claimUntil)
+                        .setParameter("jobDefinitionId", jobDefinitionId)
+                        .executeUpdate();
         entityManager.flush();
         // The manual-trigger request may already have loaded this definition before
         // entering the claim transaction. Clear that stale managed instance after
@@ -125,13 +143,8 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
         if (updated != 1) {
             return Optional.empty();
         }
-        return Optional.of(new SchedulerClaim(
-                jobDefinitionId,
-                claimToken,
-                claimedBy,
-                now,
-                claimUntil,
-                now));
+        return Optional.of(
+                new SchedulerClaim(jobDefinitionId, claimToken, claimedBy, now, claimUntil, now));
     }
 
     @Override
@@ -141,7 +154,10 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
 
     @Override
     public boolean releaseClaim(UUID jobDefinitionId, UUID claimToken, String claimedBy) {
-        int released = entityManager.createNativeQuery("""
+        int released =
+                entityManager
+                        .createNativeQuery(
+                                """
                 UPDATE job_definitions
                 SET claim_token = NULL,
                     claimed_by = NULL,
@@ -151,10 +167,10 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
                 AND claim_token = :claimToken
                 AND claimed_by = :claimedBy
                 """)
-                .setParameter("jobDefinitionId", jobDefinitionId)
-                .setParameter("claimToken", claimToken)
-                .setParameter("claimedBy", claimedBy)
-                .executeUpdate();
+                        .setParameter("jobDefinitionId", jobDefinitionId)
+                        .setParameter("claimToken", claimToken)
+                        .setParameter("claimedBy", claimedBy)
+                        .executeUpdate();
         entityManager.flush();
         // Keep the persistence context consistent with the native claim release.
         entityManager.clear();

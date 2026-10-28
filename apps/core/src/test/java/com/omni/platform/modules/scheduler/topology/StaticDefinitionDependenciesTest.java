@@ -26,6 +26,27 @@ class StaticDefinitionDependenciesTest {
     private static final List<JobDefinitionSeed> SEEDS = JobDefinitionConfig.JOB_DEFINITION_SEEDS;
 
     @Test
+    void scheduledEntriesAreEveryTerminalDefinitionIncludingStandaloneMetadata() {
+        var typed = StaticDefinitionDependencies.canonical(SEEDS);
+        var entries = typed.scheduledEntries();
+        assertThat(entries).isNotEmpty();
+        assertThat(entries.stream().map(JobDefinitionIdentity::jobType).distinct())
+                .containsExactlyInAnyOrder(
+                        JobType.SYNC_METADATA,
+                        JobType.EVALUATE_SIGNALS,
+                        JobType.SECTOR_ROTATION_BACKTEST,
+                        JobType.SECTOR_TRANSITION_ANALYZE,
+                        JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES);
+        for (var identity : typed.predecessors().keySet()) {
+            boolean hasSuccessor =
+                    typed.predecessors().values().stream()
+                            .anyMatch(upstream -> upstream.contains(identity));
+            assertThat(entries.contains(identity)).isEqualTo(!hasSuccessor);
+        }
+        assertThatThrownBy(() -> entries.clear()).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
     void preservesEveryJsonBaselineDefinitionEdgeAndTopologyIncludingExplicitRoots() {
         var typed = StaticDefinitionDependencies.canonical(SEEDS);
         var legacy = JsonSeedDependencyFixture.fromSeeds(SEEDS);

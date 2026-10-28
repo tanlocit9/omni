@@ -6,11 +6,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.omni.platform.modules.scheduler.config.SchedulerProperties;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
+import com.omni.platform.modules.scheduler.topology.StaticJobTopologyProvider;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,9 +23,34 @@ public class SchedulerClaimService {
 
     private final JobDefinitionRepository jobDefinitionRepository;
     private final SchedulerProperties schedulerProperties;
+    private final StaticJobTopologyProvider topology;
+
+    @Value("${app.scheduler.job-run.preparation-enabled:false}")
+    private boolean jobRunPreparationEnabled;
 
     @Transactional
     public List<SchedulerClaim> claimDueJobs(Instant now) {
+        if (jobRunPreparationEnabled) {
+            var entries = topology.definitionDependencies().scheduledEntries();
+            var eligibleIds =
+                    entries.stream()
+                            .map(
+                                    identity ->
+                                            jobDefinitionRepository
+                                                    .findBySourceAndJobTypeAndCronExpr(
+                                                            identity.source(),
+                                                            identity.jobType(),
+                                                            identity.cronExpression()))
+                            .flatMap(Optional::stream)
+                            .map(JobDefinition::getId)
+                            .toList();
+            return jobDefinitionRepository.claimDueJobs(
+                    now,
+                    schedulerProperties.instanceId(),
+                    schedulerProperties.claim().leaseDuration(),
+                    schedulerProperties.claim().batchSize(),
+                    eligibleIds);
+        }
         return jobDefinitionRepository.claimDueJobs(
                 now,
                 schedulerProperties.instanceId(),
@@ -31,7 +59,8 @@ public class SchedulerClaimService {
     }
 
     @Transactional
-    public Optional<SchedulerClaim> claimJobDefinition(UUID jobDefinitionId, Instant now, String actor) {
+    public Optional<SchedulerClaim> claimJobDefinition(
+            UUID jobDefinitionId, Instant now, String actor) {
         return jobDefinitionRepository.claimJobDefinition(
                 jobDefinitionId,
                 now,

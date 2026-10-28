@@ -49,6 +49,15 @@
       },
       "outputs": ["{workspaceRoot}/coverage/{projectRoot}"]
     },
+    "test-integration": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run pytest tests/integration/ --no-cov --junitxml=../../reports/libs/py-common/kafka-integration/junit.xml",
+        "cwd": "libs/py-common",
+        "env": { "OMNI_KAFKA_INTEGRATION": "1" }
+      }
+    },
     "build": {
       "executor": "nx:run-commands",
       "options": {

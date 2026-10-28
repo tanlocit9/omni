@@ -5,7 +5,7 @@ This directory is the documentation entry point for Omni. It is designed to help
 Versioned [scheduler diagnostic SQL and observation dictionary](../database/diagnostics/p14/v1/README.md)
 and [measured local benchmark](../database/diagnostics/p14/v1/benchmark-results.md)
 are owned by completed Plan 030 I5; they do not change admission or authorize I7 cleanup.
-The additive [I6 bounded operator read contract](../database/diagnostics/p14/v1/read-model.md)
+The additive [I5 bounded operator read contract](../database/diagnostics/p14/v1/read-model.md)
 hands frozen run/path/step observations and uncertainty/freshness rules to Plan 029;
 it introduces no application endpoint or UI.
 
@@ -34,7 +34,7 @@ semantics are documented in [CI Quality Gate](development/004-ci-quality-gate.md
 18. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are deferred and owner-gated; historical blocked states remain.
 19. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 design; owner reactivation and the Phase 13 measurement gate are required.
 20. [Operator Trust Console](plans/029-operator-trust-console.md) — owner-approved Phase 13 plan for truthful Job Operations, manual EOD Data Health, and the fixed Job Operations → Data Health → Market Review order.
-21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — active Milestone 1 epic: I1 topology, I2 static handoff, I3 JobRun preparation, I4 guarded admission, I5 diagnostics and I6 operations handoff.
+21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — Milestone 1 epic: I1 topology, I2 static handoff, I3 JobRun preparation, I4 guarded admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup; former I6 is superseded into I5.
 
 ## Planning Map
 
@@ -65,8 +65,8 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Realtime Per-Tick](plans/014-realtime-per-tick.md) — bounded Phase 10 contract and finite archive/rebuild evidence plus the blocked VCI provider evidence matrix and historical live-collector proposal, now deferred under TD-011.
 - [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — deferred Phase 11 design; historical dependencies are retained, owner reactivation is required.
 - [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 detail; capacity work requires measured baseline and owner reactivation.
-- [Operator Trust Console](plans/029-operator-trust-console.md) — Phase 13 UI owner; JobRun-specific graph presentation consumes P14-I5/I6 evidence and read-model handoff.
-- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, I5 diagnostics and I6 operations handoff.
+- [Operator Trust Console](plans/029-operator-trust-console.md) — Phase 13 UI owner; JobRun-specific graph presentation consumes P14-I5 evidence and read-model handoff.
+- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup.
 
 ### Proposed, Historical, and Compatibility Plans
 

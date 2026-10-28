@@ -266,6 +266,31 @@ See [formatting scope](../../docs/development/001-where-to-change.md#formatting-
 
 ## Test
 
+For the dedicated shared-ancestor/replay safety scenario:
+
+```bash
+nx run platform:test-overlap
+```
+
+It creates separate PostgreSQL/Kafka/MinIO containers and deterministically
+interleaves two real runs on one EOD partition. The current source fails its safety
+assertion: successful indicator output uses a different version from admission's
+approved input. See the [reproduction and limits](../../docs/deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27).
+This opt-in regression is intentionally red; normal tests skip it unless
+`OMNI_P14_E2E=1`. The original `test-integration` target remains separately scoped.
+
+For the opt-in real cross-service workflow:
+
+```bash
+nx run platform:test-integration
+```
+
+This starts disposable PostgreSQL/Kafka/MinIO and real Python workers with a
+fixture market provider. It requires the root Python environment for all three
+Python apps in addition to Docker and JDK 21. It checks scheduled JobRun completion,
+READY/lineage, Query Service reads and metadata failure preservation; normal test
+runs skip this scenario. See the [setup, matrix and limitations](../../docs/deployment/004-job-run-admission-rollout.md#disposable-cross-service-integration--2026-10-26).
+
 Run the complete test suite or the build (which also runs tests):
 
 ```bash

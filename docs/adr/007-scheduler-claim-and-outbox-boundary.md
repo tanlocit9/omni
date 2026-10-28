@@ -68,7 +68,19 @@ the [inventory, backup, quiescence and recovery procedure](../deployment/004-job
 restored to the rotated discovery page before planning. See
 [I4 review repair](../plans/030-static-graph-dispatch-planner.md#i4-review-regressions--2026-10-25).
 
-Preparation is disabled pending owner entry-target/shared-upstream review.
+The [October 27 shared-ancestor integration](../deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27)
+reproduces an input-version safety gap beyond these claim/state locks: a shared
+ancestor can replace canonical EOD after admission, and the worker reports SUCCESS
+using a newer input than approved. Claim fencing does not provide dataset snapshot
+isolation. The opt-in safety test fails; no new production locking/snapshot strategy
+is selected here. Owner reports V15 already applied to the retained database.
+
+Preparation remains disabled. Owner selected terminal definition entries (including
+standalone metadata); claims filter those identities before batch limits when
+preparation is enabled. Ancestors retain their definitions and execute inside each
+run. This does not coalesce ancestors across runs or establish shared-writer safety;
+overlap and retained rollout evidence remain required. See the
+[current entry policy](../deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26).
 See [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and the
 [rollout/rollback runbook](../deployment/004-job-run-admission-rollout.md).
 

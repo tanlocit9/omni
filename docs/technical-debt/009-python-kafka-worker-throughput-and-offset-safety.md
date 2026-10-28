@@ -1,6 +1,69 @@
 # Python Kafka Worker Throughput and Offset Safety
 
-## Review — 2026-10-07
+## Supervised recovery update — 2026-10-26
+
+The owner-approved sequential recovery slice now restarts cleaned-up sessions
+with 5–60 second exponential backoff. Analyzer recreates same-group Kafka clients;
+Ingestor restarts routing/storage initialization. Failed commands stay uncommitted,
+and poison commands recur without skipping. Shutdown cancellation prevents restart,
+even if cleanup raises. Ingestor/Analyzer health reports 503 for failed/recovering
+consumers; it checks lifecycle rather than broker responsiveness or forward progress.
+
+The four-case real broker suite now verifies automatic recovery and HTTP 503 during
+outage rather than requiring explicit restart. Unit tests cover client recreation,
+startup/shutdown cleanup and healthy/failed consumers. See the
+[current matrix and limits](../deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26).
+TD-009 remains open for capacity/concurrency, operational deployment and remaining
+failure/load scenarios; this does not activate P12. The observations below are
+historical evidence of the repaired lifecycle defect.
+
+## Recovery observation — 2026-10-26
+
+The extended `py-common:test-integration` target passes four real-broker cases,
+including pause during terminal-status publication and recovery after explicit
+worker restart. The command offset remains uncommitted on publication timeout;
+restart processes it and commits after acknowledged SUCCESS. The shared worker
+HTTP wrapper still returns 200 when its background task has failed. This is a
+reproduced readiness defect; no supervisor or automatic recovery was added.
+See the [executed matrix and scope limits](../deployment/004-job-run-admission-rollout.md#disposable-cross-service-integration--2026-10-26).
+The earlier three-case evidence below remains historical; throughput/concurrency,
+rebalance handling and operational recovery are still open.
+
+## Offset correctness update — 2026-10-25
+
+The narrow sequential offset/startup slice is implemented and locally verified;
+TD-009 remains open for capacity, recovery supervision and operational evidence.
+The factory explicitly disables auto-commit, and both Ingestor and the shared
+Analyzer lifecycle use partition-specific commits after acknowledged terminal
+status. Ingestor no longer discards a startup batch. Failures, cancellation,
+unidentifiable commands and commit/rebalance failures stop before later work can
+advance the offset. This is fail-closed behavior, not a new poison/DLQ policy or
+automatic retry/supervision facility. Existing HTTP health responses do not detect
+every failed background consumer; alert/restart handling remains operational work.
+
+`nx run py-common:test-integration` uses a unique disposable Kafka 7.6.0 container,
+a loopback-only port and no retained volumes. Three broker cases exercise abrupt
+process exit before status, exit after status acknowledgement but before commit,
+and output/status acknowledgement followed by commit/restart. Commands replay in
+both crash windows; acknowledged and committed work does not replay. These are
+offset/publication-boundary tests, not live provider/storage/whole-JobRun E2E tests.
+The image must already be available; the target uses `--pull=never` and removes its
+own verified container. The normal test target skips these opt-in Docker cases.
+
+Local `P14-offset-safety` evidence records 155 py-common, 46 Ingestor and 142
+Analyzer passing tests, plus the three broker cases. Critical file line/branch
+coverage: factory 86.67%/100%, shared consume loop 100%/100%, shared service
+100%/87.5%, Ingestor consumer 95.92%/100%. The ignored
+`.agent/check-results/P14-offset-safety/coverage-matrix.json` binds sources and
+executed tests to reports. No retained offset reset, replay, deployment, provider,
+concurrency increase or automatic P12 increment promotion is claimed.
+
+See the [canonical offset contract](../data/001-kafka-contracts.md#python-command-offset-ownership)
+and [JobRun rollout readiness](../deployment/004-job-run-admission-rollout.md#offset-safety-follow-up--2026-10-25).
+The following October 7 assessment and September measurements are historical;
+current source assessment below incorporates this narrow fix.
+
+## Review — 2026-10-07 (historical)
 
 | Field           | Assessment                                                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -73,7 +136,11 @@ This evidence clears the Platform scheduler outbox as the immediate bottleneck. 
 
 ## Startup record-discard risk
 
-Ingestor `_start_kafka_clients()` awaits `consumer.getmany(timeout_ms=1000)` and discards the returned batches before entering its routing loop. Static source shows records may be fetched without handler/status publication; it does not prove production data loss. Verify startup with queued records and contiguous offset handling before choosing a fix. This correctness slice must not wait for concurrency, a writer service, or centralized logging deployment.
+Before the October 25 fix, Ingestor `_start_kafka_clients()` awaited
+`consumer.getmany(timeout_ms=1000)` and discarded its batches before routing.
+The startup poll has now been removed and queued-record routing/commit ordering
+has regression coverage. The historical source risk does not prove retained-data
+loss and did not require concurrency or a standalone writer to fix.
 
 ## Problem
 
@@ -170,8 +237,8 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 
 - **Current:** Ingestor and shared Analyzer consumers process one record at a time and
   await the full workflow.
-- **Current:** the shared aiokafka factory does not explicitly disable auto-commit or
-  define manual commit ownership.
+- **Current:** the factory disables auto-commit. Sequential command loops own
+  partition-specific commits after acknowledged status; see the October 25 update.
 - **Current:** Platform applies one child status and aggregates its parent per consumed
   status record.
 - **Planned, not implemented:** bounded concurrency, two-boundary offset ownership,
@@ -188,9 +255,9 @@ No new algorithm is unlocked. The work makes existing daily/EOD ingestion, indic
 1. For capacity expansion, complete P13-I1 first so dispatch, worker wait, processing, status publication, and
    Platform application have truthful evidence and a representative baseline; do not
    use child creation-time `RUNNING` rows as active-processing measurements.
-2. Reactivate the capacity scope only through a bounded increment; its retained Phase 12 dependencies are proposal context, not an active schedule. For offset safety, inventory every affected consumer, disable
-   implicit auto-commit, and prove contiguous-prefix commit, restart, revoke, and
-   shutdown safety before adding concurrency.
+2. Reactivate the capacity scope only through a bounded increment; its retained Phase 12 dependencies are proposal context, not an active schedule. The sequential offset slice now has the October 25 local evidence above. Preserve
+   its partition-specific commit/restart/shutdown guarantees; concurrency additionally
+   requires contiguous-prefix ownership and live rebalance/revoke evidence.
 3. Treat the recorded production cohort as directional history only; extend the P13-I1
    baseline with a fresh, complete, comparable offset/capacity cohort by topic, group,
    partition, job type, and stage.

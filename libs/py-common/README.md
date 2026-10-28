@@ -104,6 +104,26 @@ nx run py-common:lint
 nx run py-common:format
 ```
 
+Real Kafka offset/restart tests are opt-in:
+
+```bash
+nx run py-common:test-integration
+```
+
+This target requires Docker and the locally available
+`confluentinc/cp-kafka:7.6.0` image. It creates and removes its own disposable broker;
+it does not use the developer's configured broker. Shared consumer factories
+disable auto-commit; consumers must use the
+[acknowledged-status commit contract](../../docs/data/001-kafka-contracts.md#python-command-offset-ownership).
+The normal test target skips these Docker integration cases.
+
+The four cases cover crash/commit boundaries and a broker pause during terminal
+status publication. The outage case checks automatic same-group recovery of the
+uncommitted command and HTTP 503 during recovery, recorded in JUnit properties.
+Shared `WorkerSupervisor` retries cleaned-up sessions with 5–60 second backoff;
+shutdown cancellation stops retries. Poison records are not skipped or committed.
+See the [current recovery and entry policy](../../docs/deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26).
+
 ## Design Principles
 
 - Shared abstractions belong here only when they are genuinely reusable across Python services.

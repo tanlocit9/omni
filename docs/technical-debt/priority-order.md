@@ -34,7 +34,7 @@ flowchart TD
 
 ## Reading the Diagram
 
-- TD-012 is a historical promoted-design record; active bounded work is owned by [Plan 030](../plans/030-static-graph-dispatch-planner.md) and P14-I1 through P14-I6.
+- TD-012 is a historical promoted-design record; active bounded work is owned by [Plan 030](../plans/030-static-graph-dispatch-planner.md) and P14-I1 through P14-I5 and P14-I7 (former I6 merged into I5).
 - Persisted topology, expanded provider policy, adaptive quotas, and advanced fairness remain deferred.
 - TD-013 keeps unused blocked-job tracking cleanup and optional missing dependency evaluators outside P14 unless an explicit activation trigger occurs.
 - TD-014 is closed by P14-I4 final integrated local evidence; P4-I3 remains superseded. P14-I3 owns preparation, which remains disabled pending owner entry-target/shared-upstream review.

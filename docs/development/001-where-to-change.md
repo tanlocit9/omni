@@ -256,7 +256,7 @@ timeout and actual post-upgrade claim/retry/ack/status services. Legacy diagnost
 poison fixtures explicitly target V14; normal admission/preparation runs V15.
 Retained deployment follows the [cutover/recovery runbook](../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
 
-## Scheduler diagnostics and read-model handoff — I5/I6
+## Scheduler diagnostics and read-model handoff — I5
 
 Versioned SELECT-only SQL, parameter/bound/safety instructions and the observation
 dictionary live in [database/diagnostics/p14/v1](../../database/diagnostics/p14/v1/README.md).
@@ -268,7 +268,7 @@ test initializer and preserves its existing default isolation. Reproduction and
 source-bound results live beside the SQL. Production admission/status ownership
 remains unchanged.
 
-I6's [operator contract and fixtures](../../database/diagnostics/p14/v1/read-model.md)
+I5's [operator contract and fixtures](../../database/diagnostics/p14/v1/read-model.md)
 extend run_steps.sql additively. JobRunReadModelPostgresTest exercises the contract
 against actual PostgreSQL for frozen paths, per-run counts, wait/unknown reasons,
 capture clocks and unavailable evidence. Plan 029 owns any future API/UI consumer;

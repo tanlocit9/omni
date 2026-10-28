@@ -57,19 +57,19 @@ import jakarta.persistence.EntityManager;
 @Testcontainers
 @SpringBootTest(
         classes = {
-                com.omni.platform.PlatformApplication.class,
-                JobSchedulerDependencyPostgresTest.ManifestTestConfiguration.class
+            com.omni.platform.PlatformApplication.class,
+            JobSchedulerDependencyPostgresTest.ManifestTestConfiguration.class
         },
         properties = {
-                "spring.flyway.enabled=true",
-                "spring.flyway.locations=filesystem:../../database/migrations",
-                "spring.jpa.hibernate.ddl-auto=none",
-                "spring.task.scheduling.enabled=false",
-                "app.seed.job-definitions.enabled=false",
-                "app.scheduler.instance-id=scheduler-dependency-test",
-                "app.scheduler.claim.lease-duration=PT2M",
-                "app.scheduler.claim.batch-size=10",
-                "kafka.topics.topic-sync-indicators=sync-indicators-test"
+            "spring.flyway.enabled=true",
+            "spring.flyway.locations=filesystem:../../database/migrations",
+            "spring.jpa.hibernate.ddl-auto=none",
+            "spring.task.scheduling.enabled=false",
+            "app.seed.job-definitions.enabled=false",
+            "app.scheduler.instance-id=scheduler-dependency-test",
+            "app.scheduler.claim.lease-duration=PT2M",
+            "app.scheduler.claim.batch-size=10",
+            "kafka.topics.topic-sync-indicators=sync-indicators-test"
         })
 class JobSchedulerDependencyPostgresTest {
 
@@ -85,48 +85,38 @@ class JobSchedulerDependencyPostgresTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add(
-                "spring.datasource.driver-class-name",
-                POSTGRES::getDriverClassName);
+        registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
     }
 
-    @Autowired
-    private JobScheduler scheduler;
+    @Autowired private JobScheduler scheduler;
 
-    @Autowired
-    private SchedulerOutboxDispatcher outboxDispatcher;
+    @Autowired private SchedulerOutboxDispatcher outboxDispatcher;
 
-    @Autowired
-    private JobDefinitionRepository jobRepository;
+    @Autowired private JobDefinitionRepository jobRepository;
 
-    @Autowired
-    private SymbolRepository symbolRepository;
+    @Autowired private SymbolRepository symbolRepository;
 
-    @Autowired
-    private JobExecutionHistoryRepository executionRepository;
+    @Autowired private JobExecutionHistoryRepository executionRepository;
 
-    @Autowired
-    private SchedulerOutboxRepository outboxRepository;
+    @Autowired private SchedulerOutboxRepository outboxRepository;
 
-    @Autowired
-    private SchedulerOutboxService outboxService;
+    @Autowired private SchedulerOutboxService outboxService;
 
-    @Autowired
-    private InMemoryManifestReader manifestReader;
+    @Autowired private InMemoryManifestReader manifestReader;
 
-    @MockitoBean
-    private KafkaPublisher kafkaPublisher;
+    @MockitoBean private KafkaPublisher kafkaPublisher;
 
-    @Autowired
-    private EntityManager entityManager;
+    @Autowired private EntityManager entityManager;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    @Autowired private PlatformTransactionManager transactionManager;
+
+    @Autowired private tools.jackson.databind.json.JsonMapper jsonMapper;
 
     @BeforeEach
     void setUp() {
         manifestReader.clear();
-        when(kafkaPublisher.serialize(any())).thenReturn("{}");
+        when(kafkaPublisher.serialize(any()))
+                .thenAnswer(invocation -> jsonMapper.writeValueAsString(invocation.getArgument(0)));
     }
 
     @AfterEach
@@ -140,10 +130,8 @@ class JobSchedulerDependencyPostgresTest {
 
     @Test
     void missingManifestWaitsWithoutAttemptsAndReadyManifestsPublishOnce() {
-        DatasetRef hpgRef = DatasetRef.of(
-                "eod", Map.of("exchange", "hose", "code", "hpg"));
-        DatasetRef vnmRef = DatasetRef.of(
-                "eod", Map.of("exchange", "hose", "code", "vnm"));
+        DatasetRef hpgRef = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg"));
+        DatasetRef vnmRef = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "vnm"));
         saveSymbol("HPG", "HOSE");
         saveSymbol("VNM", "HOSE");
         JobDefinition job = saveDueIndicatorsJob();
@@ -152,26 +140,38 @@ class JobSchedulerDependencyPostgresTest {
 
         assertThat(executionRepository.count()).isEqualTo(3);
         assertThat(outboxRepository.count()).isEqualTo(2);
-        UUID parentExecutionId = executionRepository.findAll().stream()
-                .filter(execution -> execution.getParentLogId() == null)
-                .findFirst().orElseThrow().getId();
+        UUID parentExecutionId =
+                executionRepository.findAll().stream()
+                        .filter(execution -> execution.getParentLogId() == null)
+                        .findFirst()
+                        .orElseThrow()
+                        .getId();
         assertThat(outboxService.findByExecution(parentExecutionId)).hasSize(2);
-        assertThat(outboxRepository.findAll()).allSatisfy(message -> {
-            assertThat(message.getStatus()).isEqualTo(
-                    com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage.Status.PENDING);
-            assertThat(message.getAttempts()).isZero();
-            assertThat(message.getDependencyReason()).isNull();
-        });
+        assertThat(outboxRepository.findAll())
+                .allSatisfy(
+                        message -> {
+                            assertThat(message.getStatus())
+                                    .isEqualTo(
+                                            com.omni.platform.modules.scheduler.entities
+                                                    .SchedulerOutboxMessage.Status.PENDING);
+                            assertThat(message.getAttempts()).isZero();
+                            assertThat(message.getDependencyReason()).isNull();
+                        });
         assertClaimReleased(job);
 
         outboxDispatcher.dispatchBatch(Instant.now());
 
-        assertThat(outboxRepository.findAll()).allSatisfy(message -> {
-            assertThat(message.getStatus()).isEqualTo(
-                    com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage.Status.PENDING);
-            assertThat(message.getAttempts()).isZero();
-            assertThat(message.getDependencyReason()).contains("DEPENDENCY_WAITING");
-        });
+        assertThat(outboxRepository.findAll())
+                .allSatisfy(
+                        message -> {
+                            assertThat(message.getStatus())
+                                    .isEqualTo(
+                                            com.omni.platform.modules.scheduler.entities
+                                                    .SchedulerOutboxMessage.Status.PENDING);
+                            assertThat(message.getAttempts()).isZero();
+                            assertThat(message.getDependencyReason())
+                                    .contains("DEPENDENCY_WAITING");
+                        });
 
         manifestReader.put(hpgRef, readyManifest(hpgRef, "sha256:eod-hpg"));
         manifestReader.put(vnmRef, readyManifest(vnmRef, "sha256:eod-vnm"));
@@ -180,30 +180,40 @@ class JobSchedulerDependencyPostgresTest {
         outboxDispatcher.dispatchBatch(Instant.now());
 
         List<JobExecutionHistory> executions = executionRepository.findAll();
-        List<JobExecutionHistory> children = executions.stream()
-                .filter(execution -> execution.getParentLogId() != null)
-                .toList();
-        assertThat(children).hasSize(2).allSatisfy(child -> {
-            assertThat(child.getMetaJson()).containsKey("approvedInputs");
-            String workKey = (String) child.getMetaJson().get("workKey");
-            String code = workKey.substring(workKey.indexOf('-') + 1).toLowerCase(java.util.Locale.ROOT);
-            assertThat(child.getMetaJson().toString())
-                    .contains("eod", "hose", code, "sha256:eod-" + code)
-                    .doesNotContain("path", "s3://", "r2://");
-        });
-        assertThat(outboxRepository.findAll()).allSatisfy(message -> {
-            assertThat(message.getStatus()).isEqualTo(
-                    com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage.Status.PUBLISHED);
-            assertThat(message.getAttempts()).isEqualTo(1);
-        });
-        verify(kafkaPublisher, times(2)).publishSerializedAndWait(
-                anyString(), anyString(), anyString(), any());
+        List<JobExecutionHistory> children =
+                executions.stream()
+                        .filter(execution -> execution.getParentLogId() != null)
+                        .toList();
+        assertThat(children)
+                .hasSize(2)
+                .allSatisfy(
+                        child -> {
+                            assertThat(child.getMetaJson()).containsKey("approvedInputs");
+                            String workKey = (String) child.getMetaJson().get("workKey");
+                            String code =
+                                    workKey.substring(workKey.indexOf('-') + 1)
+                                            .toLowerCase(java.util.Locale.ROOT);
+                            assertThat(child.getMetaJson().toString())
+                                    .contains("eod", "hose", code, "sha256:eod-" + code)
+                                    .doesNotContain("path", "s3://", "r2://");
+                        });
+        assertThat(outboxRepository.findAll())
+                .allSatisfy(
+                        message -> {
+                            assertThat(message.getStatus())
+                                    .isEqualTo(
+                                            com.omni.platform.modules.scheduler.entities
+                                                    .SchedulerOutboxMessage.Status.PUBLISHED);
+                            assertThat(message.getAttempts()).isEqualTo(1);
+                        });
+        verify(kafkaPublisher, times(2))
+                .publishSerializedAndWait(anyString(), anyString(), anyString(), any());
 
         outboxDispatcher.dispatchBatch(Instant.now());
 
         assertThat(outboxRepository.count()).isEqualTo(2);
-        verify(kafkaPublisher, times(2)).publishSerializedAndWait(
-                anyString(), anyString(), anyString(), any());
+        verify(kafkaPublisher, times(2))
+                .publishSerializedAndWait(anyString(), anyString(), anyString(), any());
     }
 
     @Test
@@ -217,48 +227,87 @@ class JobSchedulerDependencyPostgresTest {
 
         assertThat(outboxService.findCandidates(Instant.now().plusSeconds(1), 10))
                 .hasSize(2)
-                .allSatisfy(candidate -> {
-                    assertThat(candidate.parentExecutionId()).isNotNull();
-                    assertThat(candidate.workType()).isEqualTo("SYMBOL");
-                })
+                .allSatisfy(
+                        candidate -> {
+                            assertThat(candidate.parentExecutionId()).isNotNull();
+                            assertThat(candidate.workType()).isEqualTo("SYMBOL");
+                        })
                 .extracting(candidate -> candidate.workKey())
                 .containsExactlyInAnyOrder("HOSE-HPG", "HOSE-VNM");
 
         outboxDispatcher.dispatchBatch(Instant.now());
 
-        assertThat(outboxRepository.findAll()).extracting(SchedulerOutboxMessage::getStatus)
-                .containsExactlyInAnyOrder(SchedulerOutboxMessage.Status.PENDING, SchedulerOutboxMessage.Status.PUBLISHED);
-        assertThat(outboxRepository.findAll().stream()
-                .filter(message -> message.getStatus() == SchedulerOutboxMessage.Status.PENDING)
-                .findFirst().orElseThrow().getAttempts()).isZero();
-        verify(kafkaPublisher, times(1)).publishSerializedAndWait(
-                anyString(), anyString(), anyString(), any());
+        assertThat(outboxRepository.findAll())
+                .extracting(SchedulerOutboxMessage::getStatus)
+                .containsExactlyInAnyOrder(
+                        SchedulerOutboxMessage.Status.PENDING,
+                        SchedulerOutboxMessage.Status.PUBLISHED);
+        assertThat(
+                        outboxRepository.findAll().stream()
+                                .filter(
+                                        message ->
+                                                message.getStatus()
+                                                        == SchedulerOutboxMessage.Status.PENDING)
+                                .findFirst()
+                                .orElseThrow()
+                                .getAttempts())
+                .isZero();
+        verify(kafkaPublisher, times(1))
+                .publishSerializedAndWait(anyString(), anyString(), anyString(), any());
     }
 
     @Test
     void concurrentEligibleClaimsAreFencedAndExpiredLeaseCanRecover() throws Exception {
         JobExecutionHistory execution = savePendingExecution(saveDueIndicatorsJob(), "claim-fence");
-        outboxService.enqueue(execution, "jobs", List.of(new KafkaMessage("claim-fence", Map.of())), Instant.now());
+        outboxService.enqueue(
+                execution,
+                "jobs",
+                List.of(
+                        new KafkaMessage(
+                                "claim-fence",
+                                Map.of("executionId", execution.getId().toString()))),
+                Instant.now());
         UUID messageId = outboxRepository.findAll().getFirst().getId();
         Instant claimTime = Instant.now();
         var start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            Future<?> first = executor.submit(() -> {
-                start.await();
-                return outboxService.claimEligible(messageId, claimTime, "node-a", Duration.ofSeconds(30), Map.of());
-            });
-            Future<?> second = executor.submit(() -> {
-                start.await();
-                return outboxService.claimEligible(messageId, claimTime, "node-b", Duration.ofSeconds(30), Map.of());
-            });
+            Future<?> first =
+                    executor.submit(
+                            () -> {
+                                start.await();
+                                return outboxService.claimEligible(
+                                        messageId,
+                                        claimTime,
+                                        "node-a",
+                                        Duration.ofSeconds(30),
+                                        Map.of());
+                            });
+            Future<?> second =
+                    executor.submit(
+                            () -> {
+                                start.await();
+                                return outboxService.claimEligible(
+                                        messageId,
+                                        claimTime,
+                                        "node-b",
+                                        Duration.ofSeconds(30),
+                                        Map.of());
+                            });
             start.countDown();
-            assertThat(java.util.stream.Stream.of(first.get(), second.get())
-                    .filter(java.util.Objects::nonNull)
-                    .toList()).hasSize(1);
+            assertThat(
+                            java.util.stream.Stream.of(first.get(), second.get())
+                                    .filter(java.util.Objects::nonNull)
+                                    .toList())
+                    .hasSize(1);
         }
 
-        var recovered = outboxService.claimEligible(
-                messageId, claimTime.plusSeconds(31), "node-c", Duration.ofMinutes(1), Map.of());
+        var recovered =
+                outboxService.claimEligible(
+                        messageId,
+                        claimTime.plusSeconds(31),
+                        "node-c",
+                        Duration.ofMinutes(1),
+                        Map.of());
         assertThat(recovered).isNotNull();
         assertThat(recovered.attempts()).isEqualTo(2);
     }
@@ -266,16 +315,30 @@ class JobSchedulerDependencyPostgresTest {
     @Test
     void blockedRowIsTerminalAndCannotBeReclaimed() {
         JobExecutionHistory execution = savePendingExecution(saveDueIndicatorsJob(), "blocked");
-        outboxService.enqueue(execution, "jobs", List.of(new KafkaMessage("blocked", Map.of())), Instant.now());
+        outboxService.enqueue(
+                execution,
+                "jobs",
+                List.of(
+                        new KafkaMessage(
+                                "blocked", Map.of("executionId", execution.getId().toString()))),
+                Instant.now());
         SchedulerOutboxMessage message = outboxRepository.findAll().getFirst();
 
-        assertThat(outboxService.markBlocked(message.getId(), Instant.now(), "{\"code\":\"UPSTREAM_FAILED\"}"))
+        assertThat(
+                        outboxService.markBlocked(
+                                message.getId(), Instant.now(), "{\"code\":\"UPSTREAM_FAILED\"}"))
                 .isTrue();
-        assertThat(outboxService.claimEligible(
-                message.getId(), Instant.now().plusSeconds(1), "node-a", Duration.ofMinutes(1), Map.of()))
+        assertThat(
+                        outboxService.claimEligible(
+                                message.getId(),
+                                Instant.now().plusSeconds(1),
+                                "node-a",
+                                Duration.ofMinutes(1),
+                                Map.of()))
                 .isNull();
-        assertThat(outboxService.claimPending(
-                Instant.now().plusSeconds(1), "node-a", Duration.ofMinutes(1), 10))
+        assertThat(
+                        outboxService.claimPending(
+                                Instant.now().plusSeconds(1), "node-a", Duration.ofMinutes(1), 10))
                 .isEmpty();
         assertThat(executionRepository.findById(execution.getId()).orElseThrow().getStatus())
                 .isEqualTo(JobExecutionHistory.JobStatus.BLOCKED);
@@ -287,21 +350,46 @@ class JobSchedulerDependencyPostgresTest {
         JobExecutionHistory pendingExecution = savePendingExecution(job, "legacy-pending");
         JobExecutionHistory publishedExecution = savePendingExecution(job, "legacy-published");
         outboxService.enqueue(
-                pendingExecution, "jobs", List.of(new KafkaMessage("legacy-pending", Map.of())), Instant.now());
+                pendingExecution,
+                "jobs",
+                List.of(
+                        new KafkaMessage(
+                                "legacy-pending",
+                                Map.of("executionId", pendingExecution.getId().toString()))),
+                Instant.now());
         outboxService.enqueue(
-                publishedExecution, "jobs", List.of(new KafkaMessage("legacy-published", Map.of())), Instant.now());
-        SchedulerOutboxMessage published = outboxRepository.findAll().stream()
-                .filter(message -> message.getExecution().getId().equals(publishedExecution.getId()))
-                .findFirst().orElseThrow();
+                publishedExecution,
+                "jobs",
+                List.of(
+                        new KafkaMessage(
+                                "legacy-published",
+                                Map.of("executionId", publishedExecution.getId().toString()))),
+                Instant.now());
+        SchedulerOutboxMessage published =
+                outboxRepository.findAll().stream()
+                        .filter(
+                                message ->
+                                        message.getExecution()
+                                                .getId()
+                                                .equals(publishedExecution.getId()))
+                        .findFirst()
+                        .orElseThrow();
         published.setStatus(SchedulerOutboxMessage.Status.PUBLISHED);
         published.setPublishedAt(Instant.now());
         outboxRepository.saveAndFlush(published);
 
-        assertThat(outboxRepository.findAll()).extracting(SchedulerOutboxMessage::getStatus)
-                .containsExactlyInAnyOrder(SchedulerOutboxMessage.Status.PENDING, SchedulerOutboxMessage.Status.PUBLISHED);
-        assertThat(outboxRepository.findAll()).allSatisfy(message -> assertThat(message.getDependencyReason()).isNull());
+        assertThat(outboxRepository.findAll())
+                .extracting(SchedulerOutboxMessage::getStatus)
+                .containsExactlyInAnyOrder(
+                        SchedulerOutboxMessage.Status.PENDING,
+                        SchedulerOutboxMessage.Status.PUBLISHED);
+        assertThat(outboxRepository.findAll())
+                .allSatisfy(message -> assertThat(message.getDependencyReason()).isNull());
         assertThat(outboxService.findCandidates(Instant.now().plusSeconds(1), 10))
-                .singleElement().satisfies(candidate -> assertThat(candidate.messageId()).isNotEqualTo(published.getId()));
+                .singleElement()
+                .satisfies(
+                        candidate ->
+                                assertThat(candidate.messageId()).isNotEqualTo(published.getId()));
     }
 
     private JobExecutionHistory savePendingExecution(JobDefinition job, String workKey) {
@@ -310,7 +398,8 @@ class JobSchedulerDependencyPostgresTest {
         execution.setUsedSource(job.getSource());
         execution.setStatus(JobExecutionHistory.JobStatus.PENDING);
         execution.setTriggeredAt(Instant.now());
-        execution.setMetaJson(Map.of("workType", "SYMBOL", "workKey", workKey, "runKey", "2026-09-27"));
+        execution.setMetaJson(
+                Map.of("workType", "SYMBOL", "workKey", workKey, "runKey", "2026-09-27"));
         return executionRepository.saveAndFlush(execution);
     }
 
@@ -336,14 +425,18 @@ class JobSchedulerDependencyPostgresTest {
     }
 
     void makeOutboxRetryDue() {
-        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
-                entityManager.createNativeQuery("""
+        new TransactionTemplate(transactionManager)
+                .executeWithoutResult(
+                        status ->
+                                entityManager
+                                        .createNativeQuery(
+                                                """
                         UPDATE scheduler_outbox_messages
                         SET available_at = :retryAt
                         WHERE status = 'PENDING'
                         """)
-                        .setParameter("retryAt", Instant.now().minusSeconds(1))
-                        .executeUpdate());
+                                        .setParameter("retryAt", Instant.now().minusSeconds(1))
+                                        .executeUpdate());
     }
 
     private void assertClaimReleased(JobDefinition job) {
@@ -388,8 +481,7 @@ class JobSchedulerDependencyPostgresTest {
 
     static final class InMemoryManifestReader implements ManifestReader {
 
-        private final Map<DatasetRef, DatasetManifest> manifests =
-                new ConcurrentHashMap<>();
+        private final Map<DatasetRef, DatasetManifest> manifests = new ConcurrentHashMap<>();
 
         @Override
         public Optional<DatasetManifest> readManifest(DatasetRef datasetRef) {

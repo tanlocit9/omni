@@ -243,6 +243,19 @@ Keep the locked reread on the same connection and Kafka outside admission locks.
 Preparation stays disabled; use [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and
 the [rollout runbook](../deployment/004-job-run-admission-rollout.md) before changes.
 
+## Legacy outbox normalization — P14-I7
+
+V15 under database/migrations validates and normalizes historical parent-FK aliases
+transactionally, then guards future FK/payload execution identity. Applied migrations
+and JobRun membership guards must not be rewritten or disabled. SchedulerOutboxService
+uses the canonical work FK and rejects mismatching identities; JobRunDispatchStore
+locks that work row without waiting before approved-input metadata updates.
+SchedulerOutboxIdentityMigrationPostgresTest exercises V14 upgrade/fresh install,
+preservation, failure rollback, strict writers, linked/closed membership, lock
+timeout and actual post-upgrade claim/retry/ack/status services. Legacy diagnostic
+poison fixtures explicitly target V14; normal admission/preparation runs V15.
+Retained deployment follows the [cutover/recovery runbook](../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
+
 ## Scheduler diagnostics and read-model handoff — I5/I6
 
 Versioned SELECT-only SQL, parameter/bound/safety instructions and the observation

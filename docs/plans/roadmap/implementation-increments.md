@@ -2,6 +2,17 @@
 
 This file is the canonical increment registry for scheduled autonomous delivery. Canonical numbered plans provide additional task detail; supporting plans under [`../../docs`](../..) provide rationale and must link back here instead of defining a competing schedule.
 
+Current I7 checkpoint — 2026-10-28: isolated local verification against c20d9cb
+completed under `P14-I7-reverify-20261028`. V15 and strict-work identity changes
+are separate from future expansion plans and worker/readiness follow-ups. I5/I6
+remain separate. Preparation and cron behavior are unchanged. Retained deployment
+requires the [V15 cutover procedure](../../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
+
+Fresh local source/test/build/coverage verification passed: 444 tests / 67 suites, zero failures/errors/skips; all 31 critical Java components meet >=80% line/applicable branch coverage. Ten migration cases, candidate/admission/preparation regressions and actual SQL/read-model/benchmark cases pass. The final gate is `P14-I7-reverify-20261028` (nine required checks, including owned-file format and static documentation audit). SQL coverage is behavioral, not a Java percentage. Exact source hashes and the executed criterion/source/test matrix are retained under `.agent/check-results/P14-I7-reverify-20261028/`.
+
+Dated execution sections below retain their historical status; the current
+registry and checkpoint above own scheduling.
+
 ## Status model
 
 See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution modes, branch ownership, CI retry rules, and plan-update authority.
@@ -71,7 +82,7 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I4 | JobRun-aware outbox planning and guarded admission                 | completed            | critical | [P14-I3]              | [P14-I5, P14-I7, P13-I1]            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
 | P14-I5 | Diagnostic SQL and measured scheduler performance                  | completed            | high     | [P14-I4]              | [P14-I6, P14-I7]                    | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 | P14-I6 | JobRun operations read-model handoff                               | completed            | high     | [P14-I5]              | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
-| P14-I7 | Legacy outbox data cleanup and compatibility retirement            | ready                | high     | [P14-I4, P14-I5]      | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
+| P14-I7 | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 
 ## Canonical Plan 030 scope revision — 2026-10-15
 
@@ -293,7 +304,7 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 4     | P14-I4    | `completed`            | Bounded JobRun snapshot, cohort completion gates, scoped outbox admission and TD-014 guard/claim/fencing/retry/concurrency/fallback verification.                                                                                                                                                    |
 | 5     | P14-I5    | `completed`            | Measured SQL performance/connection-pool/throughput baselines, executable diagnostic scripts and metric dictionary.                                                                                                                                                                                  |
 | 6     | P14-I6    | `completed`            | Dashboard-ready bounded run/step read model and Plan 029 handoff without unnecessary UI or API.                                                                                                                                                                                                      |
-| 7     | P14-I7    | `ready`                | After I4/I5: inventory and normalize historical outbox parent/child aliases, prove preservation/rollback, then retire compatibility; no I6 dependency or active NULL-JobRun removal.                                                                                                                 |
+| 7     | P14-I7    | `completed`            | After I4/I5: inventory and normalize historical outbox parent/child aliases, prove preservation/rollback, then retire compatibility; no I6 dependency or active NULL-JobRun removal.                                                                                                                 |
 | 8     | P13-I1    | `pending`              | After P14-I4 and P7-I3, establish truthful worker timing evidence and stage model.                                                                                                                                                                                                                   |
 | 9     | P13-I2    | `pending`              | After P13-I1, basic Job Operations; graph-specific read model requires appropriate I5/I6 handoff.                                                                                                                                                                                                    |
 | 10    | P13-I4    | `pending`              | After P13-I2, operator-first shell independent of graph-specific extras.                                                                                                                                                                                                                             |
@@ -305,7 +316,7 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 16    | P9-I4     | `pending`              | Paused to release active apps/core ownership for P14. After P9-I1 and P8-I4 dependencies complete and work resumes, prove exact-date confirmation/suppression, stale/missing input, lineage, persistence, and notification-runtime behavior without reactivating P9-I2 or P9-I3.                     |
 | 17    | P1-I3     | `verification_pending` | Reconcile Platform/Analyzer/config/storage writer impacts and prove one-writer, canonical-universe, retry, lineage, and failure-path coverage; Git/CI metadata remains optional traceability unless an explicit delivery gate applies.                                                               |
 
-P13-I3 is a separate owner-decision lane after P3-I4/P7-I2. Query Service memory caching is resolved; calendar/lifecycle evidence must be approved or scope explicitly narrowed. Its activation does not block P13-I4. Owner decision on 2026-10-10 pauses P8-I4 and P9-I4 at `pending`, preserves all source/evidence/acceptance, and hands off their active apps/core ownership to P14. P14-I1 through I6 are completed after source-bound local acceptance, coverage and documentation reconciliation. I7 remains ready with bounded ownership and rollout gates. P13-I1 remains pending on wider writer-overlap reconciliation, not an incomplete I4 dependency.
+P13-I3 is a separate owner-decision lane after P3-I4/P7-I2. Query Service memory caching is resolved; calendar/lifecycle evidence must be approved or scope explicitly narrowed. Its activation does not block P13-I4. Owner decision on 2026-10-10 pauses P8-I4 and P9-I4 at `pending`, preserves all source/evidence/acceptance, and hands off their active apps/core ownership to P14. P14-I1 through I6 are completed after source-bound local acceptance, coverage and documentation reconciliation. I7 is locally completed with fresh source-bound verification; retained rollout gates remain. P13-I1 remains pending on wider writer-overlap reconciliation, not an incomplete I4 dependency.
 
 ## Deferred follow-up boundary — 2026-10-07
 
@@ -314,8 +325,7 @@ P10, P11, and P12 are now owner-gated technical-debt follow-ups, not active auto
 ## First eligible increment
 
 The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls.
-P14-I1–I6 are completed. I7 is ready under its scoped isolation and retained-data
-rollout gates; the I6 completion evidence records the current read-model handoff.
+P14-I1–I7 are locally completed. Retained-data rollout gates remain; the I6 completion evidence records the current read-model handoff.
 P13-I1's dependency gate is met but its wider writer overlap is
 not yet reconciled, so it remains pending. Preparation stays disabled and no
 retained rollout is claimed. P4-I3 remains superseded; TD-014's transferred final

@@ -57,11 +57,14 @@ connection. Approved versions persist on actual work only after claim success.
 Every visited candidate still uses DependencyRegistry; no Kafka I/O occurs under
 admission locks. Before each send, exact live owner/token renewal rejects expired
 or superseded claims; ack/retry stay fenced. Delivery remains at-least-once.
-Legacy parent-FK/payload-child intent is different from linked JobRun membership:
-admission resolves the actual work ID without loading that child, locks it FOR
-UPDATE SKIP LOCKED, then validates/claims and writes approved inputs. A busy child
-is skipped without attempts so `JobService.applyStatus()` can flush child and
-aggregate parent without a parent-to-child wait cycle. Snapshot run order is
+P14-I7 V15 validates historical parent-FK/payload-child aliases and normalizes
+their FK to the actual work execution transactionally before strict readers start.
+Invalid identities or projected unique collisions abort without data changes.
+The identity trigger prevents incompatible writers from recreating aliases.
+NULL-JobRun admission locks the actual work row FOR UPDATE SKIP LOCKED before
+approved-input updates; busy work is skipped without attempts, preserving
+JobService.applyStatus child-before-parent lock ordering. Retained cutover requires
+the [inventory, backup, quiescence and recovery procedure](../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7). Snapshot run order is
 restored to the rotated discovery page before planning. See
 [I4 review repair](../plans/030-static-graph-dispatch-planner.md#i4-review-regressions--2026-10-25).
 

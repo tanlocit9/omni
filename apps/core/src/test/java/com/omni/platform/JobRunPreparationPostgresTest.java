@@ -691,9 +691,10 @@ class JobRunPreparationPostgresTest {
                         target.getSource().name());
         UUID outbox =
                 jdbc.queryForObject(
-                        "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload) VALUES (?,0,'legacy','{}') RETURNING id",
+                        "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload) VALUES (?,0,'legacy',?) RETURNING id",
                         UUID.class,
-                        legacy);
+                        legacy,
+                        "{\"executionId\":\"" + legacy + "\"}");
         assertThatThrownBy(
                         () ->
                                 jdbc.update(

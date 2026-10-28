@@ -9,7 +9,9 @@ import os
 import sys
 from collections.abc import Awaitable, Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
+from py_common.runtime.supervision import WorkerSupervisor
 
 WorkerHandler = Callable[[], Awaitable[None]]
 
@@ -37,7 +39,7 @@ def configure_logging(
 def run_async_worker(worker: WorkerHandler) -> None:
     """Run an async worker with common logging and asyncio lifecycle handling."""
     configure_logging()
-    asyncio.run(worker())
+    asyncio.run(WorkerSupervisor(worker, name="worker").run())
 
 
 def create_worker_app(
@@ -46,6 +48,7 @@ def create_worker_app(
     title: str,
     description: str,
     version: str,
+    readiness: Callable[[], bool] | None = None,
 ) -> FastAPI:
     """Create an ASGI wrapper app for an async worker.
 
@@ -68,7 +71,8 @@ def create_worker_app(
     @app.on_event("startup")
     async def startup_event() -> None:
         logger.info("Starting worker app: %s", title)
-        app.state.worker_task = asyncio.create_task(worker())
+        app.state.worker_supervisor = WorkerSupervisor(worker, name=title)
+        app.state.worker_task = asyncio.create_task(app.state.worker_supervisor.run())
         app.state.worker_task.add_done_callback(log_worker_task_result)
 
     @app.on_event("shutdown")
@@ -83,6 +87,13 @@ def create_worker_app(
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:
+        supervisor = getattr(app.state, "worker_supervisor", None)
+        if (
+            supervisor is None
+            or not supervisor.is_running
+            or (readiness is not None and not readiness())
+        ):
+            raise HTTPException(status_code=503, detail="Worker is not running")
         return {"status": "ok"}
 
     return app

@@ -4,8 +4,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
-from py_common.storage.exceptions import StorageError
 from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
+from py_common.storage.exceptions import StorageError
 from py_common.storage.global_metadata import GlobalMetadataReader, GlobalMetadataWriter
 from py_common.storage.metadata_sync import MetadataSynchronizer
 from py_common.storage.parquet import ParquetStorage
@@ -550,8 +550,16 @@ async def health_check(request: Request) -> dict[str, Any]:
             "last_error": info.last_error,
         }
 
+    workers = {
+        name: service.is_running
+        for name, service in request.app.state._state.items()
+        if name.endswith("_kafka_service")
+    }
+    if not all(workers.values()):
+        raise HTTPException(status_code=503, detail={"workers": workers})
     return {
         "status": "ok",
+        "workers": workers,
         "storage": storage_status,
     }
 

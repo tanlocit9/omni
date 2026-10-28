@@ -2,6 +2,17 @@
 
 Platform owns job orchestration. Workers execute data-plane tasks and report status back through Kafka.
 
+When JobRun preparation is enabled, scheduled entry selection uses terminal
+definitions (no successors) in the canonical static DAG, including standalone
+metadata. SQL filters eligible identities before claim batch limits; ancestor
+definitions retain their configuration and are prepared inside each target run.
+Disabled preparation retains legacy scheduling. See the
+[entry and recovery policy](../deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26)
+for current entries, local evidence and remaining overlap/rollout gates.
+Python workers recover failed sessions with backoff without advancing failed
+command offsets; health reports 503 during recovery. Warning-only metadata/symbol
+results can complete SUCCESS while dataset READY remains independently enforced.
+
 Operator-triggered jobs are deferred by owner decision in I3.d ([TD-017](../technical-debt/017-manual-request-rejection-audit.md)).
 The private Console retains read-only job catalog/history and dataset browsing.
 Old POST `/api/v1/jobs/definitions/{id}/triggers` and GET `/api/v1/jobs/triggers/{id}`
@@ -90,7 +101,7 @@ same transaction after closure validation. The separate Java replay repair passe
 scheduled/manual overlap with a definition-held caller; old Java reproduced a
 deadlock. See [replay repair](../plans/030-static-graph-dispatch-planner.md#i3c-replay-definitionrun-lock-repair--2026-10-20).
 
-The canonical [Plan 030 delivery sequence](../plans/030-static-graph-dispatch-planner.md#canonical-revised-delivery-sequence--2026-10-15) is I2 static target-to-ancestor contract, I3 durable JobRun preparation, I4 guarded JobRun-aware admission, I5 measured diagnostics and I6 operations read-model handoff. Earlier parent-only discovery and RAM binding proposals are superseded. Runtime correlation comes from persisted JobRun and immutable scoped run-step membership, not timestamp heuristics or a process-local authoritative cache.
+The canonical [Plan 030 delivery sequence](../plans/030-static-graph-dispatch-planner.md#canonical-revised-delivery-sequence--2026-10-15) is I2 static target-to-ancestor contract, I3 durable JobRun preparation, I4 guarded JobRun-aware admission, I5 measured diagnostics and operations read-model handoff. Earlier parent-only discovery and RAM binding proposals are superseded. Runtime correlation comes from persisted JobRun and immutable scoped run-step membership, not timestamp heuristics or a process-local authoritative cache.
 
 [Plan 030](../plans/030-static-graph-dispatch-planner.md) owns the active P14 sequence. P14-I1 is completed: the original implementation constructed one immutable process-local topology from seed `dependsOnJobs` declarations, maps every `(source, jobType, cronExpr)` definition identity to a stable logical `JobType` node, validates the graph at startup, and exposes deterministic bounded traversal and Mermaid diagnostics. Multiple definitions sharing one `JobType` intentionally map to the same logical node. No persisted graph or runtime dispatch behavior is introduced.
 

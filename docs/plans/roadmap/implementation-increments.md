@@ -4,8 +4,8 @@ This file is the canonical increment registry for scheduled autonomous delivery.
 
 Current I7 checkpoint — 2026-10-28: isolated local verification against c20d9cb
 completed under `P14-I7-reverify-20261028`. V15 and strict-work identity changes
-are separate from future expansion plans and worker/readiness follow-ups. I5/I6
-remain separate. Preparation and cron behavior are unchanged. Retained deployment
+are separate from future expansion plans and worker/readiness follow-ups. The verified commit keeps I5/I6
+separate; later consolidation remains outside that commit. Preparation and cron behavior are unchanged. Retained deployment
 requires the [V15 cutover procedure](../../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
 
 Fresh local source/test/build/coverage verification passed: 444 tests / 67 suites, zero failures/errors/skips; all 31 critical Java components meet >=80% line/applicable branch coverage. Ten migration cases, candidate/admission/preparation regressions and actual SQL/read-model/benchmark cases pass. The final gate is `P14-I7-reverify-20261028` (nine required checks, including owned-file format and static documentation audit). SQL coverage is behavioral, not a Java percentage. Exact source hashes and the executed criterion/source/test matrix are retained under `.agent/check-results/P14-I7-reverify-20261028/`.
@@ -80,11 +80,28 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I2 | Static DAG dispatcher contract and handoff                         | completed            | critical | [P14-I1]              | [P14-I3]                            | [apps/core, configs, docs]                                                                                       | autonomous        | false                   | null                                      | null                                     |
 | P14-I3 | Static definition edges, unified JobRun and target preparation     | completed            | critical | [P14-I2]              | [P14-I4]                            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
 | P14-I4 | JobRun-aware outbox planning and guarded admission                 | completed            | critical | [P14-I3]              | [P14-I5, P14-I7, P13-I1]            | [apps/core, database, configs, docs]                                                                             | autonomous        | false                   | null                                      | null                                     |
-| P14-I5 | Diagnostic SQL and measured scheduler performance                  | completed            | high     | [P14-I4]              | [P14-I6, P14-I7]                    | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
-| P14-I6 | JobRun operations read-model handoff                               | completed            | high     | [P14-I5]              | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
+| P14-I5 | Diagnostics, measured performance and operator read-model handoff  | completed            | high     | [P14-I4]              | [P14-I7]                            | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
+| P14-I6 | Merged into P14-I5 (historical read-model handoff)                 | superseded           | high     | []                    | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 | P14-I7 | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | []                                  | [apps/core, database, docs]                                                                                      | autonomous        | false                   | null                                      | null                                     |
 
+I7 local completion — 2026-10-25: source-bound gate PASS 8/8, 444 tests /
+67 suites, ten migration/upgrade/concurrency cases and all 31 critical Java
+components >=80% line/applicable branch. V15 preserves intent/history while
+normalizing valid NULL-JobRun aliases; strict work-FK readers/guard retire alias
+compatibility. Retained migration, backup/quiescence, zero-alias reconciliation and
+recovery remain explicit deployment gates, not a claimed retained cleanup run.
+I5 includes former I6; I6 remains superseded and historical commit/check IDs stay.
+See [I7 source/test matrix and operational limits](../030-static-graph-dispatch-planner.md#i7-local-completion--2026-10-25).
+
 ## Canonical Plan 030 scope revision — 2026-10-15
+
+Owner consolidation — 2026-10-25: P14-I5 includes diagnostics, measured performance
+and the operator read-model handoff previously delivered as I6. I5 remains completed;
+I6 is superseded into I5 and is not a scheduling dependency. I7 keeps its ID and
+depends only on I4/I5. Commits and historical P14-I5/P14-I6 check manifests/results
+remain unchanged, including c20d9cb and the source-bound 434-test/66-suite gate.
+See [consolidation decision](../030-static-graph-dispatch-planner.md#i5i6-consolidation--2026-10-25).
+The dated I6 completion entry below is historical evidence for the merged scope.
 
 I6 completion — 2026-10-25: local gate PASS 8/8, 434 tests / 66 suites,
 nine I6 contract cases, eight diagnostic cases, refreshed six-workload/24-plan
@@ -262,7 +279,7 @@ I2 `verification_pending`, I3 `pending`, preparation false, 32 cron identities r
 
 - **P14-I4:** execution-centered **JobRun path snapshot** drives outbox selection, cohort barrier, joins and fair quotas with admission/claim revalidation, fallback, fenced publish and TD-014 safety evidence.
 - **P14-I5:** runnable, versioned read-only SQL diagnostics, `EXPLAIN (ANALYZE, BUFFERS)`, Hikari/DB/query/throughput measured baseline, and metric dictionary. Essential I3/I4 safety and query tests remain their own acceptance gates.
-- **P14-I6:** bounded read-model and dashboard handoff for Plan 029, without creating a second dashboard/UI implementation or unnecessary API.
+- **P14-I5 (includes former I6):** diagnostics, measurement and bounded read-model handoff for Plan 029, without creating a second UI or unnecessary API.
 - Static topology is immutable configuration; `job_runs` persists one logical request and its required run steps, **not** a competing mutable graph authority. P14-I3 reserves a durable typed `RunScope` (symbol/sector/exchange/global-compatible), and immutable run steps record _effective_ upstream scope; symbol-specific producer activation is separately gated. `jobRunId` identifies a run regardless of its businessGroup, and sharing a global/exchange upstream must not produce duplicated conflicting work. `jobRunId=job_runs.id`; `executionId` and `parentLogId` retain existing semantics. Backfill rollout remains an approval-gated **review-required** Plan 028 capability; its persisted topology migration is not approved.
 - Every story has a green build/regression checkpoint and may be deployed without awaiting the next story. Java `@Deprecated` or explicit documented migration/removal gates are mandatory when decommissioning still-used contracts; no half-migration or deletion of applied Flyway V8 scripts. `RUNNING` on child execution does not prove worker processing has started.
 
@@ -290,11 +307,11 @@ required=1/pass=1). The later full regression passed 293 tests in 50 suites, zer
 I2/I3 status and dependencies are unchanged.
 See [cleanup scope/evidence](../030-static-graph-dispatch-planner.md#unused-compatibility-adapter-cleanup--2026-10-18).
 
-Milestone 1 groups the active scheduler-safety and operator-trust epics. Plan 030 is the priority epic with I1 static topology, I2 graph contract, I3 unified JobRun and DAG preparation, I4 JobRun-aware outbox integration, I5 measured diagnostics, and I6 operations read-model handoff. Plan 028 is **REVIEW REQUIRED / ON HOLD**: its old persisted dependency graph Increment A is superseded by Plan 030 I3.a static declaration ownership; any remaining backfill rollout must be redesigned and approved separately. Plan 029 basic operations remains independent; JobRun-specific presentation waits for accepted I5/I6 read evidence. No status is promoted by changing the schedule.
+Milestone 1 groups the active scheduler-safety and operator-trust epics. Plan 030 is the priority epic with I1 static topology, I2 graph contract, I3 unified JobRun and DAG preparation, I4 JobRun-aware outbox integration, I5 measured diagnostics and operations read-model handoff; I6 is superseded into I5. Plan 028 is **REVIEW REQUIRED / ON HOLD**: its old persisted dependency graph Increment A is superseded by Plan 030 I3.a static declaration ownership; any remaining backfill rollout must be redesigned and approved separately. Plan 029 basic operations remains independent; JobRun-specific presentation waits for accepted I5 read evidence. No status is promoted by changing the schedule.
 
 ## Active MVP priority order
 
-Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 JobRun preparation → I4 guarded outbox integration → I5 diagnostics → I6 operations handoff. TD-014 former P4-I3 verification transfers to **I4**, not I3. P13-I1 timing evidence may proceed after I4 and P7-I3 independently of I5/I6.
+Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 JobRun preparation → I4 guarded outbox integration → I5 diagnostics/read-model handoff (I6 merged into I5). TD-014 former P4-I3 verification transfers to **I4**, not I3. P13-I1 timing evidence may proceed after I4 and P7-I3 independently of I5.
 
 | Order | Increment | Current status         | Exit condition before advancing                                                                                                                                                                                                                                                                      |
 | ----- | --------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -303,10 +320,10 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 3     | P14-I3    | `completed`            | Static per-definition edge cutover/parity first, then JobRun persistence and complete static path membership, scheduled/manual cutover, dependency-first durable enqueue, runtime old-guard safety, forward-only manual-table drop with tests and rollback.                                          |
 | 4     | P14-I4    | `completed`            | Bounded JobRun snapshot, cohort completion gates, scoped outbox admission and TD-014 guard/claim/fencing/retry/concurrency/fallback verification.                                                                                                                                                    |
 | 5     | P14-I5    | `completed`            | Measured SQL performance/connection-pool/throughput baselines, executable diagnostic scripts and metric dictionary.                                                                                                                                                                                  |
-| 6     | P14-I6    | `completed`            | Dashboard-ready bounded run/step read model and Plan 029 handoff without unnecessary UI or API.                                                                                                                                                                                                      |
+| 6     | P14-I6    | `superseded`           | Scope completed under consolidated P14-I5; historical ID retained; no separate scheduling gate.                                                                                                                                                                                                      |
 | 7     | P14-I7    | `completed`            | After I4/I5: inventory and normalize historical outbox parent/child aliases, prove preservation/rollback, then retire compatibility; no I6 dependency or active NULL-JobRun removal.                                                                                                                 |
 | 8     | P13-I1    | `pending`              | After P14-I4 and P7-I3, establish truthful worker timing evidence and stage model.                                                                                                                                                                                                                   |
-| 9     | P13-I2    | `pending`              | After P13-I1, basic Job Operations; graph-specific read model requires appropriate I5/I6 handoff.                                                                                                                                                                                                    |
+| 9     | P13-I2    | `pending`              | After P13-I1, basic Job Operations; graph-specific read model requires appropriate I5 handoff.                                                                                                                                                                                                       |
 | 10    | P13-I4    | `pending`              | After P13-I2, operator-first shell independent of graph-specific extras.                                                                                                                                                                                                                             |
 | 11    | P8-I1     | `verification_pending` | Reconcile the Platform notification blast radius and prove attributable coverage for rendering, routing, deduplication, escaping, Unicode bounds, timezone, severity, and failure branches; record applicable runtime evidence.                                                                      |
 | 12    | P8-I2     | `verification_pending` | After P8-I1 completes, prove the additive `newSignalDate` producer/consumer impact and attributable Analyzer/Platform coverage, including unchanged-signal, first-date, digest, and compatibility branches.                                                                                          |
@@ -316,7 +333,7 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 16    | P9-I4     | `pending`              | Paused to release active apps/core ownership for P14. After P9-I1 and P8-I4 dependencies complete and work resumes, prove exact-date confirmation/suppression, stale/missing input, lineage, persistence, and notification-runtime behavior without reactivating P9-I2 or P9-I3.                     |
 | 17    | P1-I3     | `verification_pending` | Reconcile Platform/Analyzer/config/storage writer impacts and prove one-writer, canonical-universe, retry, lineage, and failure-path coverage; Git/CI metadata remains optional traceability unless an explicit delivery gate applies.                                                               |
 
-P13-I3 is a separate owner-decision lane after P3-I4/P7-I2. Query Service memory caching is resolved; calendar/lifecycle evidence must be approved or scope explicitly narrowed. Its activation does not block P13-I4. Owner decision on 2026-10-10 pauses P8-I4 and P9-I4 at `pending`, preserves all source/evidence/acceptance, and hands off their active apps/core ownership to P14. P14-I1 through I6 are completed after source-bound local acceptance, coverage and documentation reconciliation. I7 is locally completed with fresh source-bound verification; retained rollout gates remain. P13-I1 remains pending on wider writer-overlap reconciliation, not an incomplete I4 dependency.
+P13-I3 is a separate owner-decision lane after P3-I4/P7-I2. Query Service memory caching is resolved; calendar/lifecycle evidence must be approved or scope explicitly narrowed. Its activation does not block P13-I4. Owner decision on 2026-10-10 pauses P8-I4 and P9-I4 at `pending`, preserves all source/evidence/acceptance, and hands off their active apps/core ownership to P14. P14-I1 through I5 are completed after source-bound local acceptance, coverage and documentation reconciliation. I7 is locally completed; retained cutover/recovery gates remain; P13-I1 remains pending on wider writer-overlap reconciliation, not an incomplete I4 dependency.
 
 ## Deferred follow-up boundary — 2026-10-07
 
@@ -325,7 +342,9 @@ P10, P11, and P12 are now owner-gated technical-debt follow-ups, not active auto
 ## First eligible increment
 
 The MVP is the existing daily/EOD pipeline plus usable Telegram notifications and basic operator controls.
-P14-I1–I7 are locally completed. Retained-data rollout gates remain; the I6 completion evidence records the current read-model handoff.
+P14-I1–I5 and I7 are locally completed; retained cutover/recovery gates remain.
+Consolidated I5 includes the former I6 read-model scope and its historical evidence;
+I6 is superseded and is not a separate scheduling gate.
 P13-I1's dependency gate is met but its wider writer overlap is
 not yet reconciled, so it remains pending. Preparation stays disabled and no
 retained rollout is claimed. P4-I3 remains superseded; TD-014's transferred final

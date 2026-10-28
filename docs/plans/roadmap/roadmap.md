@@ -2,8 +2,8 @@
 
 Current I7 checkpoint — 2026-10-28: isolated local verification against c20d9cb
 completed under `P14-I7-reverify-20261028`. V15 and strict-work identity changes
-are separate from future expansion plans and worker/readiness follow-ups. I5/I6
-remain separate. Preparation and cron behavior are unchanged. Retained deployment
+are separate from future expansion plans and worker/readiness follow-ups. The verified commit keeps I5/I6
+separate; later consolidation remains outside that commit. Preparation and cron behavior are unchanged. Retained deployment
 requires the [V15 cutover procedure](../../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
 
 This diagram is a navigational view of roadmap phases and selected cross-phase dependencies. Canonical story status, dependencies, ownership, and execution eligibility remain in the [increment registry](implementation-increments.md). The [roadmap index](README.md) owns milestone and epic navigation.
@@ -16,7 +16,7 @@ flowchart TD
     P1 --> P2["P2 Contracts — foundation complete"]
     P1 --> P3["P3 Data contracts — date normalization complete"]
     P3 --> P4["P4 Dependency guard — foundation complete; P4-I3 superseded"]
-    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I7 locally complete"]
+    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I5 complete; I7 locally complete"]
     P4 --> P5["P5 Deployment — superseded/deferred"]
     P5 --> P6["P6 Console expansion — superseded/deferred"]
     P4 --> P7["P7 Job operations ✅"]
@@ -28,7 +28,7 @@ flowchart TD
     P8 --> P11
     P4 --> P13["P13 Operator trust — pending"]
     P7 --> P13
-    P14 -->|"I5/I6 graph read-model handoff"| P13
+    P14 -->|"I5 graph read-model handoff"| P13
     P11 --> P12["P12 Worker throughput — deferred debt"]
     P13 -->|"P13-I1 baseline gate"| P12
 
@@ -44,7 +44,7 @@ flowchart TD
 
 ## Reading the Diagram
 
-- P14 is the active [Static Graph & DispatchPlanner epic](../030-static-graph-dispatch-planner.md); I1–I3 are completed after [the 2026-10-24 acceptance reconciliation](../030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24). I4 is completed on its integrated local gate; I5 is locally completed; I6 is completed and I7 is locally completed with recorded scope/rollout boundaries. Preparation remains false and all 32 cron identities remain; the planner is integrated but no new JobRun preparation or retained rollout is activated.
-- The P14 → P13 edge includes the P13-I1 dependency on completed I4/P7-I3. Basic operations do not wait for I5/I6; graph-specific JobRun presentation consumes their evidence and handoff.
+- P14 is the active [Static Graph & DispatchPlanner epic](../030-static-graph-dispatch-planner.md); I1–I3 are completed after [the 2026-10-24 acceptance reconciliation](../030-static-graph-dispatch-planner.md#i2i3-completion-and-remaining-p14-work--2026-10-24). I4 is completed on its integrated local gate; I5 is locally completed; I7 is locally completed; former I6 is merged into I5 with recorded scope/rollout boundaries. Preparation remains false and all 32 cron identities remain; the planner is integrated but no new JobRun preparation or retained rollout is activated.
+- The P14 → P13 edge includes the P13-I1 dependency on completed I4/P7-I3. Basic operations do not wait for I5; graph-specific JobRun presentation consumes their evidence and handoff.
 - P10, P11, and P12 retain historical status/evidence but remain owner-gated deferred work.
 - Diagram edges summarize planning relationships and never replace exact `depends_on` metadata in the increment registry.

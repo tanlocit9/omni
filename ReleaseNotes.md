@@ -10,6 +10,127 @@ validation and nonwaiting work locks retire parent-alias runtime resolution.
 Fresh local source/test/build/coverage verification passed: 444 tests / 67 suites, zero failures/errors/skips; all 31 critical Java components meet >=80% line/applicable branch coverage. Ten migration cases, candidate/admission/preparation regressions and actual SQL/read-model/benchmark cases pass. The final gate is `P14-I7-reverify-20261028` (nine required checks, including owned-file format and static documentation audit). SQL coverage is behavioral, not a Java percentage. Exact source hashes and the executed criterion/source/test matrix are retained under `.agent/check-results/P14-I7-reverify-20261028/`.
 No historical PASS/coverage is reused. Preparation remains disabled; no retained migration/deployment.
 
+## 2026-10-27 - Shared-ancestor safety integration reproduces version mismatch
+
+Added opt-in `platform:test-overlap`, using disposable PostgreSQL, Kafka and MinIO
+with actual Platform/worker/storage/query paths. Run A is approved against a 180-row
+EOD version, then a shared ancestor in run B appends a row and metadata advances.
+Both executions and duplicate replay use the new 181-row input while retaining
+older approved versions and reporting SUCCESS. The safety assertion fails as
+intended; this is a reproduced activation blocker, not a passing integration gate.
+Only test harness/fixture/target and documentation change. Owner reports V15 already
+applied; no retained database/broker/storage access, migration, production fix,
+flag activation or increment-status promotion is claimed. See the
+[reproduction, source boundary and remaining design decision](docs/deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27).
+
+## 2026-10-26 - Symbol warnings, worker recovery and terminal scheduled entries
+
+Ingestor classification warnings now complete SUCCESS with persisted warning/result
+diagnostics. Shared worker supervision recreates cleaned-up sessions with 5–60
+second backoff and preserves failed command offsets. Ingestor/Analyzer health
+returns 503 for failed/recovering consumers; shutdown cancellation stops retries.
+The real broker test verifies automatic same-group replay after outage.
+
+Owner selected furthest downstream entries: definition-level DAG sinks including
+standalone metadata. Enabled JobRun claims filter those identities before the batch
+limit; all ancestor definitions remain. PostgreSQL tests cover entry selection and
+unchanged claim/preparation safety; the bounded real worker scenario additionally
+covers symbols fallback warning persistence. See [scope, evidence and rollout limits](docs/deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26).
+Preparation remains disabled; no retained migration, deployment, live-provider,
+full-catalog concurrency or roadmap-status promotion is claimed.
+
+## 2026-10-26 - Metadata partial results warn without failing execution
+
+Owner approved temporary tolerance of returned metadata partial results. Analyzer
+now emits SUCCESS and logs a warning, persisting `metaJson.result=PARTIAL_SUCCESS`,
+warning text and counters through Platform's existing handler. Exceptions remain
+ERROR/FAILED and dataset EXISTS/READY checks remain enforced. This supersedes the
+earlier partial-to-ERROR policy below. The shared Python/Java fixture and real
+Kafka/MinIO/PostgreSQL scenario cover warning completion; invalid-Parquet failure
+still preserves previous discovery. See [current policy and limits](docs/technical-debt/001-p3-i5-metadata-reconciliation.md#temporary-warning-policy--2026-10-26).
+No new status enum, retained replay, migration, flag or roadmap-status change.
+
+## 2026-10-26 - Disposable JobRun cross-service integration
+
+Added `platform:test-integration` with disposable PostgreSQL, Kafka and MinIO,
+actual scheduler/dispatcher and Python workers, and a deterministic market-provider
+fixture. The passing scenario verifies closed-run completion, dataset WAITING,
+READY/exact lineage and 180 rows through Query Service's S3/DuckDB path, plus real
+metadata failure applied to PostgreSQL without replacing prior discovery.
+The four passing `py-common:test-integration` cases include broker outage and
+explicit restart alongside the three crash/commit cases. The outage probe also
+records failed-worker HTTP health remaining 200; supervision and truthful health
+remain unresolved. See the [behavioral matrix and limits](docs/deployment/004-job-run-admission-rollout.md#disposable-cross-service-integration--2026-10-26).
+No flag/default change, retained migration, live provider, CI, deployment or roadmap
+status promotion is claimed.
+
+## 2026-10-26 - Metadata partial status compatibility
+
+Analyzer maps partial metadata scans to existing ERROR, which Platform normalizes
+to FAILED. Counters and an explicit skipped/failed-object error are retained;
+complete scans remain SUCCESS. Added a shared JSON fixture checked against actual
+Python serialization and Java `applyStatus()`, plus healthy/error/publication
+regressions. See [policy and verification limits](docs/technical-debt/001-p3-i5-metadata-reconciliation.md#conservative-terminal-mapping--2026-10-26).
+Expected-object classification, historical ignored executions and full broker/DB
+JobRun verification remain separate. No enum/migration, deployment, flag activation,
+historical replay or roadmap-status change is claimed.
+
+## 2026-10-25 - Sequential Python Kafka offset safety
+
+Disabled implicit commits in the shared factory and moved Ingestor/Analyzer command
+commits after acknowledged handler output/status, scoped to the exact processed
+partition and next offset. Removed Ingestor's discarded startup batch and corrected
+client cleanup during retry/storage failures. Missing/invalid execution identity,
+unacknowledged work and commit failures stop consumption before later offsets;
+recovery remains explicit, without a new DLQ or consumer supervisor.
+
+Local tests: py-common 155, Ingestor 46, Analyzer 142 and three disposable Kafka
+cases passed; critical file line/branch coverage meets >=80%. Broker tests include
+crash before status, crash after status acknowledgement but before commit, and
+successful output/status/commit across restart. Replay remains at-least-once.
+See [rollout limits and remaining gates](docs/deployment/004-job-run-admission-rollout.md#offset-safety-follow-up--2026-10-25).
+Clarified why Analyzer metadata emits PARTIAL_SUCCESS and why Platform currently
+ignores it; status mapping is unchanged. No flag activation, retained offset reset,
+migration, provider, hosted CI, deployment or commit is claimed.
+
+## 2026-10-25 - JobRun default-flow integration readiness
+
+Reviewed cross-service readiness and prepared the flag-removal sequence in the
+[rollout runbook](docs/deployment/004-job-run-admission-rollout.md#default-flow-readiness-review--2026-10-25).
+351 Python tests passed; unchanged Platform evidence reuses the previous 444-test
+gate with 32 source/test hash bindings, without rerunning Java. A disposable Kafka
+probe reproduced committed unfinished work not replaying after abrupt consumer
+exit. Ingestor's discarded startup batch and Analyzer's unsupported PARTIAL_SUCCESS
+remain blockers alongside entry-target selection and full broker/storage/status
+integration. Readiness is NOT READY; no flags, runtime source, retained database,
+deployment or increment statuses were changed by this review.
+
+## 2026-10-25 - P14-I7 legacy outbox identity retirement
+
+V15 validates all identities and projected collisions, normalizes only validated
+NULL-JobRun parent-FK/child-payload aliases and guards future execution ID/FK
+identity. It preserves all intent, history, delivery, attempts and lease fields;
+invalid/ambiguous/linked/colliding data aborts transactionally. Applied migrations
+and frozen membership guards remain unchanged. Strict candidate readers replace
+alias resolution; actual-work nonwaiting locking retains status/admission safety.
+
+Local gate PASS 8/8: 444 tests / 67 suites, ten migration cases including actual
+upgrade-to-approval/retry/ack/applyStatus, 31 critical Java components >=80%
+line/applicable branch, refreshed measurements and synchronized docs. I5 includes
+former I6; I6 is superseded, historical commits/results are unchanged. No retained
+migration, data purging, preparation, provider, deployment or hosted CI is claimed.
+Inventory, backup/quiescence, authorized migration and recovery remain deployment
+gates. See [acceptance and operational limits](docs/plans/030-static-graph-dispatch-planner.md#i7-local-completion--2026-10-25).
+
+## 2026-10-25 - P14-I5/I6 documentation consolidation
+
+Owner merged the delivered operator read-model handoff into P14-I5. I5 remains
+completed; I6 is superseded into I5, with its historical commit/check evidence
+retained unchanged. I7 keeps its ID and I4/I5 prerequisites. Current roadmap,
+consumer ownership and operator documentation are synchronized; earlier release
+notes retain historical scope/status/counts. No source, old commit, migration,
+verification result or runtime behavior is changed by this documentation decision.
+
 ## 2026-10-25 - P14-I6 bounded operator read-model handoff
 
 Added readModel v1 to the existing read-only diagnostic envelope: frozen path/run

@@ -17,7 +17,7 @@ Make Omni Console open with truthful answers to three operator questions, in thi
 2. Is EOD data sufficient and trustworthy for the expected trading dates?
 3. What small, fixed market review can be shown from existing trusted datasets?
 
-Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations and the fixed shell follow P14-I4/P13-I1 and do not wait for P14-I5/I6; a JobRun-specific graph view consumes I5/I6. Data Health retains its separate P3-I4/P7-I2 dependencies. The [increment registry](roadmap/implementation-increments.md) owns this scheduling boundary.
+Deliver this without conflating dispatch with processing, metadata readiness with row-level data health, or an estimate with an SLA. Establish the measurement baseline before Phase 12 chooses worker concurrency, Platform status batching, or an independent writer. Basic Job Operations and the fixed shell follow P14-I4/P13-I1 and do not wait for P14-I5; a JobRun-specific graph view consumes I5. Data Health retains its separate P3-I4/P7-I2 dependencies. The [increment registry](roadmap/implementation-increments.md) owns this scheduling boundary.
 
 ## Outcome
 
@@ -143,7 +143,7 @@ Provider-bound ingestion must not be averaged into CPU/storage-bound analysis wi
 
 ### Scheduler-outbox publish backlog and ETA
 
-The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I5/I6 deliver accepted JobRun metrics/read models, an optional graph-specific presentation may group or trace bounded backlog by run/step/topology. The UI must not construct topology or completion independently, infer READY from graph position, or delay basic Job Operations until I5/I6.
+The basic view uses existing scheduler-outbox evidence and does not require Plan 030. After P14-I5 delivers accepted JobRun metrics/read models, an optional graph-specific presentation may group or trace bounded backlog by run/step/topology. The UI must not construct topology or completion independently, infer READY from graph position, or delay basic Job Operations until I5.
 
 Scheduler-outbox visibility reports separately:
 
@@ -342,7 +342,7 @@ P13-I1 does not implement worker concurrency, bulk Platform status application, 
 
 ### P13-I2 — Job Operations dashboard and stall heuristics
 
-**Dependencies:** P13-I1, which depends on P14-I4/P7-I3. Basic operations do not wait for I5/I6; graph-specific JobRun presentation consumes the I5/I6 handoff.
+**Dependencies:** P13-I1, which depends on P14-I4/P7-I3. Basic operations do not wait for I5; graph-specific JobRun presentation consumes the I5 handoff.
 **Blocks:** P13-I4.
 
 Outcome:
@@ -352,7 +352,7 @@ Outcome:
 - show scheduler-outbox publishable, dependency-waiting, claimed, and retryable backlog separately;
 - calculate guarded publish-drain duration/timestamp for only the eligible snapshot;
 - classify idle, progressing backlog, suspected stall, and unknown without automatic remediation;
-- keep graph-specific JobRun grouping/tracing as a separable presentation task consuming P14-I5/I6, without delaying basic operations after the P14-I4/P13-I1 prerequisites.
+- keep graph-specific JobRun grouping/tracing as a separable presentation task consuming P14-I5, without delaying basic operations after the P14-I4/P13-I1 prerequisites.
 
 ### P13-I3 — Manual EOD Parquet Data Health scan
 
@@ -383,12 +383,12 @@ Outcome:
 
 ## Plan 030 JobRun handoff revision — 2026-10-15
 
-Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introduces durable target-driven JobRun path creation with existing FIFO outbox; P14-I4 integrates JobRun-aware outbox admission; P14-I5 delivers SQL/metrics baselines; P14-I6 hands over bounded read projections for graph-specific Job Operations. **Basic** stage/throughput/Data Health/shell work in this plan does not wait for I5/I6. The **graph-specific** visualization consumes I5/I6 evidence; run scope may be per-symbol while metrics labels remain bounded, never infers actual worker RUNNING from preparation-time child RUNNING, and never treats outbox PUBLISHED as finished processing.
+Plan 030 P14-I2 only freezes static graph/ancestor-path contracts. P14-I3 introduces durable target-driven JobRun path creation with existing FIFO outbox; P14-I4 integrates JobRun-aware outbox admission; P14-I5 delivers SQL/metrics baselines and bounded read projections for graph-specific Job Operations. **Basic** stage/throughput/Data Health/shell work in this plan does not wait for I5. The **graph-specific** visualization consumes I5 evidence; run scope may be per-symbol while metrics labels remain bounded, never infers actual worker RUNNING from preparation-time child RUNNING, and never treats outbox PUBLISHED as finished processing.
 
 I5 now provides a [v1 observation dictionary](../../database/diagnostics/p14/v1/metrics.md)
 and [source-bound local measurements](../../database/diagnostics/p14/v1/benchmark-results.md).
 These define limits/UNKNOWN semantics and synthetic workload observations only;
-I6 supplies the [bounded operator read contract](../../database/diagnostics/p14/v1/read-model.md)
+I5 supplies the [bounded operator read contract](../../database/diagnostics/p14/v1/read-model.md)
 and [PostgreSQL expectation fixtures](../../database/diagnostics/p14/v1/read-model-fixtures.json),
 including path identity, run/step progress, backlog, unknown reasons and capture
 freshness. Its acceptance evidence remains owned by Plan 030 and the canonical
@@ -401,10 +401,10 @@ worker processing timestamp, ETA/SLA or dataset READY is inferred from these art
 
 - P13-I1 truthful stage evidence and baseline instrumentation depend on completed P14-I4 and P7-I3, as recorded in the canonical registry.
 - P13-I2 basic counts, rates, durations, publishable backlog, ETA, and warning states depend only on P13-I1 and existing scheduler-outbox evidence.
-- A JobRun-specific P13-I2 presentation slice consumes P14-I5/I6's accepted snapshot/metric semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
+- A JobRun-specific P13-I2 presentation slice consumes P14-I5's accepted snapshot/metric semantics and consumes one Platform-owned read projection; it must not recreate graph rules in Console.
 - P13-I3 Data Health is independent of P14.
-- P13-I4 shell/navigation follows P13-I2 and therefore inherits the P13-I1/P14-I4 prerequisite; it renders graph views as unavailable until I5/I6 handoff is complete.
-- Basic Job Operations does not wait for I5/I6. This does not waive its existing P14-I4 prerequisite. P13-I3 Data Health retains its separate P3-I4/P7-I2 dependencies.
+- P13-I4 shell/navigation follows P13-I2 and therefore inherits the P13-I1/P14-I4 prerequisite; it renders graph views as unavailable until I5 handoff is complete.
+- Basic Job Operations does not wait for I5. This does not waive its existing P14-I4 prerequisite. P13-I3 Data Health retains its separate P3-I4/P7-I2 dependencies.
 
 ## Technical Debt Kept Separate
 
@@ -477,7 +477,7 @@ Before implementation, inspect exact project targets and obtain approval for a c
 - [ ] Rate zero, sparse evidence, stale progress, and changing snapshots produce typed honest states rather than division-by-zero or fabricated ETA.
 - [ ] Every estimate exposes snapshot time, rate window, sample count, rate, estimated duration/time, and non-SLA wording.
 - [ ] Idle/stall classification is configurable, evidence-based, cardinality-safe, and warning-only.
-- [ ] Basic Job Operations ships after P14-I4/P13-I1 without waiting for I5/I6; graph-specific JobRun grouping/tracing consumes the accepted I5/I6 read-model handoff and remains unavailable beforehand rather than inferred in Console.
+- [ ] Basic Job Operations ships after P14-I4/P13-I1 without waiting for I5; graph-specific JobRun grouping/tracing consumes the accepted I5 read-model handoff and remains unavailable beforehand rather than inferred in Console.
 
 ### P13-I3
 
@@ -545,7 +545,7 @@ The detailed [Phase 13 register and small delivery slices](../reference/002-plan
 | DataHealthScanRequest/Result               | Scope/checks/bounds/refresh; exact provenance/findings/state/completeness; scannedAt/expiresAt/cache hit/miss      | MEDIUM candidate API; memory only, authorize every request; no new Data Health table or repair action.                                                                      |
 | Dashboard shell                            | Existing read DTOs plus unavailable/UNKNOWN/stale presentation                                                     | LOW presentation change; preserve scanner owner gate.                                                                                                                       |
 
-Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract → .d optional graph presentation after P14-I5/I6; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
+Task boundaries: P13-I1.a contract inventory → .b additive worker/Platform timing → .c stage read projection → .d startedAt semantic migration → .e baseline; P13-I2.a aggregate API → .b ETA → .c warning/idle observation contract → .d optional graph presentation after P14-I5; P13-I3.a scan contract → .b check families → .c memory cache/lifecycle → .d evidence-gated missing dates; P13-I4.a navigation/unavailable shell → .b binding accepted DTOs.
 
 These task suffixes are review units under existing IDs, not new scheduled increments. Keep canonical dependencies and all original acceptance criteria. A shared producer/consumer compatibility slice is coherent; it must not be split into unsafe independent deployments.
 

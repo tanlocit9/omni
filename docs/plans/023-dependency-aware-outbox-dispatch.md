@@ -85,7 +85,7 @@ Eligibility is evaluated before the atomic claim without holding a transaction a
 The story labels and diagram in this dated section preserve the earlier design.
 The canonical 2026-10-15 sequence in Plan 030 supersedes them: I2 static handoff,
 I3 JobRun preparation, I4 guarded snapshot/planner admission and TD-014 safety proof,
-then I5/I6 diagnostics/read-model handoff. Operator triggering is deferred under
+then I5 diagnostics/read-model handoff. Operator triggering is deferred under
 TD-017; references to accepted manual work below describe retained internal
 compatibility or the historical baseline, not a callable operator API.
 

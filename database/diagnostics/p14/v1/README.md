@@ -4,7 +4,7 @@ Owner: [Plan 030 / P14-I5](../../../../docs/plans/030-static-graph-dispatch-plan
 These SELECT-only scripts observe persisted state. They do not claim messages,
 repair data, evaluate dataset READY, publish, or activate JobRun preparation.
 
-The additive [operator read contract v1](read-model.md) is P14-I6's bounded handoff
+The additive [operator read contract v1](read-model.md) is P14-I5's bounded handoff
 to Plan 029. `run_steps.sql` returns a separately versioned `readModel` alongside
 the original diagnostic fields. [PostgreSQL expectation fixtures](read-model-fixtures.json)
 cover run/path/step progress, queue partitions, unknown reasons and capture clocks;

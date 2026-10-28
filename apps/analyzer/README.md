@@ -6,7 +6,27 @@ Analyzer is the Python analytical worker/API service for indicators, signals, si
 
 Analyzer owns analytical jobs that read Parquet inputs, compute derived datasets, write Parquet outputs, and publish job status or notification events back to Platform.
 
+Known activation blocker: the indicator worker reads current discovery/canonical
+Parquet rather than a snapshot bound to Platform's persisted approved inputs. The
+[shared-ancestor integration](../../docs/deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27)
+reproduces SUCCESS with a newer input version during overlapping runs/replay.
+The opt-in safety test remains red; no production version-pinning fix is claimed.
+
 ## Owns
+
+Kafka job services use the shared
+[manual offset contract](../../docs/data/001-kafka-contracts.md#python-command-offset-ownership).
+Broker-acknowledged terminal status precedes command commit. The
+[metadata partial-result policy](../../docs/technical-debt/001-p3-i5-metadata-reconciliation.md#temporary-warning-policy--2026-10-26)
+temporarily maps returned partial results to SUCCESS with a logged warning and
+persisted `metaJson.result=PARTIAL_SUCCESS`, warning text and counters. Exceptions
+remain ERROR/FAILED. Dataset READY checks remain enforced independently;
+broker acknowledgement is not status application.
+
+Enabled Kafka services recover cleaned-up sessions with shared 5–60 second
+backoff, retaining their consumer group and committed offset. `/health` checks
+every enabled service and returns 503 when a consumer is failed or recovering.
+Cancellation stops retries; poison records are not skipped or committed.
 
 - Technical indicator calculation jobs.
 - Market signal calculation and signal-history persistence.

@@ -128,7 +128,7 @@ No migration/index/extension, retention or runtime writer is changed. The metric
 dictionary is an I6 handoff; [measured I5 query/pool evidence](../../database/diagnostics/p14/v1/benchmark-results.md)
 is local/disposable, with no production latency or retained migration claim.
 
-P14-I6 adds a versioned [operator read contract](../../database/diagnostics/p14/v1/read-model.md)
+P14-I5 adds a versioned [operator read contract](../../database/diagnostics/p14/v1/read-model.md)
 inside the same bounded SELECT envelope: frozen path/run/step progress, backlog,
 unknown/wait reasons and collection clocks. An incomplete window suppresses the
 operator run list; missing worker/READY/throughput evidence stays null with reasons.

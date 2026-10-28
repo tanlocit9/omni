@@ -4,6 +4,15 @@ Omni stores market and analytical datasets as Parquet files in the `stock-data` 
 
 Canonical path patterns live in [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml). This document explains dataset ownership and producer/consumer relationships.
 
+Canonical EOD and indicator Parquet paths are mutable: their current writers
+replace objects at those paths. A metadata `dataVersion` fingerprint is not itself
+an addressable historical snapshot. Platform's admission-time approved versions do
+not currently pin the indicator worker's read. The
+[shared-ancestor integration](../deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27)
+reproduces successful execution with a newer input after another run updates the
+same partition. READY/current metadata and scheduler fencing do not close this
+cross-run snapshot-safety gap; default-flow activation remains blocked.
+
 ## Dataset Map
 
 ```mermaid

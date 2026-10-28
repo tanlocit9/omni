@@ -1,6 +1,68 @@
 # P3-I5 Metadata Reconciliation Technical Debt
 
-## Review — 2026-10-07
+## Temporary warning policy — 2026-10-26
+
+Owner superseded the conservative partial-to-ERROR policy below. A returned
+`MetadataSyncResult.is_partial` now emits terminal SUCCESS so partial discovery
+does not fail the execution. Analyzer logs a warning with execution identity and
+retains `metaJson.result=PARTIAL_SUCCESS`, warning text and all counters for
+Platform persistence. Healthy results remain SUCCESS without warning fields.
+This is an explicit temporary operational tolerance, not a claim of complete data.
+
+Exceptions (invalid Parquet, empty full rebuild, invalid target, storage/publication
+failure) still follow ERROR/FAILED. The synchronizer still rejects failed physical
+validation before replacing discovery; no corrupt/empty publication is enabled.
+Dataset EXISTS/READY and exact approved-version checks remain enforced separately.
+No new top-level PARTIAL_SUCCESS status, enum or migration is introduced. Historical
+ignored messages remain unchanged. The subsequent
+[worker/entry follow-up](../deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26)
+also makes Ingestor symbol warnings complete SUCCESS with persisted diagnostics.
+
+Verification uses the shared Python/Java warning payload, parameterized
+skipped/failed/healthy results and warning-log checks, plus an auxiliary-object
+partial scan through real Kafka, MinIO and PostgreSQL. The same integration retains
+the invalid-Parquet FAILED/prior-discovery-preservation check. The current local
+gate is `P14-metadata-warning`; earlier gates below describe their original policy.
+TD-001 stays open for expected-object classification and remaining scope.
+
+## Conservative terminal mapping — 2026-10-26
+
+Historical policy, superseded by the temporary warning policy above.
+
+Owner approved the narrow partial-to-ERROR fix. `SYNC_METADATA` now emits ERROR
+when `MetadataSyncResult.is_partial` is true, with a count-bearing error message;
+non-partial results remain SUCCESS. All object/partition counters and published
+record counts are preserved. Existing Platform `JobService.applyStatus()` maps
+ERROR to FAILED, preserving its failure notification, parent aggregation and
+success-only barrier semantics. No enum, schema/migration or generated contract
+changes are required; the Python enum retains its compatibility member.
+
+This is deliberately conservative: skipped auxiliary objects can cause a failed
+execution even after valid discovery publication. It does not imply publication
+was rolled back. Expected auxiliary versus missing/invalid required objects still
+need classification; do not infer complete data from a successful object write.
+
+Local evidence under `P14-metadata-status`: 147 Analyzer tests, including shared
+wire-fixture equality, healthy SUCCESS, skipped/failed partial outcomes, empty
+sync and status-publication failure. `metadata/kafka.py` and `metadata/handler.py`
+have 100% line/branch coverage. A Java regression deserializes the same fixture
+and exercises the real `applyStatus()` with a mocked repository, checking FAILED,
+the recorded error, counters and save. Focused JobService/planner regressions
+cover existing status and barrier behavior. This is not PostgreSQL persistence,
+broker delivery, deployment or complete JobRun E2E verification.
+
+The [subsequent disposable cross-service scenario](../deployment/004-job-run-admission-rollout.md#disposable-cross-service-integration--2026-10-26)
+executes healthy and corrupt-Parquet scans through actual Kafka/MinIO and
+PostgreSQL, including FAILED persistence and preservation of previous discovery.
+This adds bounded real integration evidence to the mocked contract checks; it
+does not cover expected auxiliary-object classification or every partial-result
+branch across services.
+
+The status mismatch slice is locally resolved. TD-001 remains open for expected
+object classification and remaining integration scope; P3-I5 remains superseded. Historical
+messages already ignored by Platform are not replayed or rewritten by this fix.
+
+## Review — 2026-10-07 (historical)
 
 | Field           | Assessment                                                                                    |
 | --------------- | --------------------------------------------------------------------------------------------- |
@@ -19,7 +81,7 @@ Priority and review status: [technical-debt index](README.md). [Mermaid priority
 P3-I5 automatic metadata reconciliation has source present but is canonically
 `superseded`, not `verification_pending`. The scheduler definition, Platform producer,
 Analyzer Kafka consumer, and deterministic global metadata reconstruction path exist.
-The remaining gaps are status-contract correctness, expected-object classification,
+The remaining gaps are expected-object classification, whole-chain status evidence,
 manual-trigger configuration documentation, integration evidence, and removal of
 claims tied to the superseded per-partition READY-pointer design.
 
@@ -45,10 +107,32 @@ completion gate.
 
 ### Status Contract
 
-Analyzer emits `PARTIAL_SUCCESS` when reconciliation publishes usable manifests but
-also encounters skipped or failed objects. Platform's persisted execution status enum
-does not currently accept `PARTIAL_SUCCESS`, so Platform can ignore that terminal
-message and leave the execution non-terminal.
+Current policy and local evidence are recorded above. The following source
+assessment and decision options describe the pre-fix state on October 25.
+
+Source rechecked on 2026-10-25: `MetadataSyncResult.is_partial` is true when
+`objects_skipped > 0` or `objects_failed > 0`. Analyzer maps that result to
+`PARTIAL_SUCCESS` to distinguish a published discovery document from a wholly
+successful scan. However, the actual `MetadataSynchronizer._sync_locked()` raises
+when validation failures are counted, before replacing the discovery document;
+Analyzer publishes ERROR in that path. A normally returned partial result therefore
+comes from skipped objects, rather than successful publication after validation
+failure. The mocked worker test with both skipped and failed counts tests the
+mapping, not that production synchronizer behavior.
+
+`_scan_dataset()` counts any listed object whose path does not match the dataset's
+trusted Parquet path pattern as skipped, without classifying expected auxiliary
+objects separately. For example, a non-data file beneath an EOD prefix can coexist
+with valid partitions, a successful metadata replacement and a partial result.
+Such a skip alone does not prove that required financial data is missing.
+
+The contract mismatch is that Python defines and publishes this terminal label,
+but Platform's `JobExecutionHistory.JobStatus` does not define it.
+`JobService.applyStatus()` calls `resolveStatus()`, receives null and returns before
+updating execution/parent state. Kafka may acknowledge the status while its JobRun
+step remains unfinished. Manual offset commits fix input-delivery ownership, not
+this semantic rejection. This is source-confirmed behavior; an actual Analyzer ->
+Platform persistence/JobRun test is still required.
 
 Required follow-up:
 
@@ -57,6 +141,12 @@ Required follow-up:
 2. Apply the decision consistently to execution persistence, status DTOs, polling,
    parent aggregation, notifications, and sanitization.
 3. Add a Platform regression test using the actual Analyzer status payload.
+4. Classify expected auxiliary objects versus invalid/missing required objects
+   before deciding which skipped objects warrant a degraded result. Retain
+   `objectsSkipped`/`objectsFailed` metrics. A blanket partial-to-SUCCESS mapping
+   would hide incomplete scans; adding an enum alone would not define parent,
+   dependency barrier, notification or API behavior. This review changes no status
+   contract or persisted status values.
 
 ### Phase 7 Manual Trigger Configuration
 

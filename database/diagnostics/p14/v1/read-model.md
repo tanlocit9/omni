@@ -1,6 +1,6 @@
 # JobRun operator read contract v1
 
-P14-I6 hands this bounded SQL contract and its
+P14-I5 hands this bounded SQL contract and its
 [executed expectation fixtures](read-model-fixtures.json) to
 [Plan 029](../../../../docs/plans/029-operator-trust-console.md).
 Run [run_steps.sql](run_steps.sql) using the existing
@@ -114,4 +114,5 @@ allow additive fields, and fail unavailable on unknown states rather than guessi
 Reverting the additive SQL/docs/fixtures withdraws this consumer handoff without
 changing claims, messages or execution history. No migration, extension, API,
 Kafka contract, worker/provider call, retained-data repair or new runtime flag
-is needed. I7 cleanup and preparation activation remain separate work.
+is needed by this read contract. Retained I7 cutover and preparation activation
+require their own authorization under the rollout runbook.

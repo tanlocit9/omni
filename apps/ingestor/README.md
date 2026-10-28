@@ -8,6 +8,15 @@ Ingestor consumes Platform sync jobs, fetches external provider data, normalizes
 
 ## Owns
 
+Command consumption uses the shared
+[manual offset contract](../../docs/data/001-kafka-contracts.md#python-command-offset-ownership).
+Startup preserves queued records; failed handling/status publication leaves the
+command uncommitted. Shared supervision retries the complete cleaned-up session
+with 5–60 second backoff; `/health` returns 503 before readiness/during recovery.
+Poison records remain uncommitted and require explicit disposition.
+Symbol classification warnings now emit SUCCESS with logged and persisted
+`metaJson` warning/result diagnostics; actual errors remain ERROR.
+
 - External stock data provider clients.
 - Symbol and EOD ingestion handlers.
 - Provider data normalization.

@@ -1,5 +1,9 @@
 # Static DAG Dispatch Planner
 
+Current ownership — 2026-10-25: former P14-I6 was merged into P14-I5;
+P14-I6 is superseded, and P14-I7 retains the legacy cleanup scope. The dated
+promotion and earlier I5/I6 wording below are historical, not a second schedule.
+
 ## Decision
 
 Historical design note — 2026-10-07; promoted by owner decision on 2026-10-08 into the active [Plan 030 — Static Graph & DispatchPlanner](../plans/030-static-graph-dispatch-planner.md) epic and canonical stories P14-I1 through P14-I6. Status: ACTIVE EPIC REFERENCE / runtime not implemented by this documentation change.

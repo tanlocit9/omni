@@ -23,6 +23,52 @@ Do not update a producer or consumer in isolation. When changing a Kafka topic, 
 5. This document.
 6. Flow docs that reference the contract.
 
+## Python command offset ownership
+
+Offset/status acknowledgement is separate from input-version correctness. The
+current indicator command does not bind the worker's read to Platform's persisted
+admission-approved input version; overlapping shared ancestors can change the
+canonical data before processing/replay. See the failed
+[shared-ancestor safety integration](../deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27).
+No new wire fields or production fix are introduced by that test.
+
+Ingestor and Analyzer command consumers created by `KafkaClientFactory` disable
+auto-commit. Their shared `consume_job_records` loop processes one record at a
+time and commits only `{TopicPartition(topic, partition): offset + 1}` after the
+handler returns an acknowledged terminal `JobStatusMessage` with a syntactically
+valid execution UUID. Handlers await output/upsert publication and
+`JobStatusPublisher.publish()` (which awaits producer `send_and_wait`) before
+returning. Ingestor startup does not poll and discard a readiness batch.
+
+Exceptions, cancellation, unidentifiable/undecodable commands, handlers returning
+no status, and failed/rebalanced commits stop consumption without moving past the
+failed command. Later records cannot cause a commit across that failure. There is
+no implicit skip, commit in `finally` or durable DLQ. Shared supervision restarts
+cleaned-up sessions with 5–60 second exponential backoff, retaining the same group
+and committed offsets. Poison records recur until an authorized disposition exists;
+retries never skip or commit them. Ingestor and Analyzer health report 503 for failed
+or recovering consumers; task/client health is not a broker heartbeat or proof of
+forward progress. Cancellation stops recovery, including cleanup failures.
+
+Output/status publication and input-offset commits are separate Kafka operations.
+A crash after publication but before commit can replay work and duplicate output
+or status; handlers and Platform must preserve idempotency. Broker acknowledgement
+does not prove Platform applied a status or a dataset is READY. In particular,
+Analyzer metadata returned partial results temporarily emit SUCCESS with a warning
+log and `metaJson.result=PARTIAL_SUCCESS`, warning text and counters, so Platform
+persists completion without failing the execution. Exceptions still emit ERROR,
+normalized to FAILED; dataset EXISTS/READY checks remain independently enforced.
+No new persisted terminal status is introduced. See the temporary warning
+policy and integration limits in
+[TD-001](../technical-debt/001-p3-i5-metadata-reconciliation.md#temporary-warning-policy--2026-10-26). Offset safety is
+locally verified separately from capacity, rollout and full workflow integration;
+see [TD-009](../technical-debt/009-python-kafka-worker-throughput-and-offset-safety.md).
+
+Ingestor symbol classification warnings follow the same completion tolerance:
+SUCCESS with `metaJson.result=PARTIAL_SUCCESS`, warnings, classification source and
+counters. Existing top-level diagnostic extras remain compatible. Actual errors
+still emit ERROR; no unsupported top-level PARTIAL_SUCCESS is emitted by this path.
+
 ## Topic Map
 
 ```mermaid

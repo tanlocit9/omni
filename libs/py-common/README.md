@@ -1,5 +1,39 @@
 # py-common Library
 
+## I9 checkpoint and result-handoff alignment — 2026-10-28
+
+P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,
+I9.b shared ancestor work, I9.c definition consolidation with history/offset/
+migration/diagnostics/rollback evidence. These are not new registry IDs and do not
+change I9 status or activate P12.
+
+Future consumers send computed result plus unchanged atomic work identity to the
+writer: JobType, typed workKey, businessDate, canonical effective parameters and
+execution correlation. Add operation, logical output/row identity, deterministic
+intentId and result or a validated durable logical candidate reference. Keep
+physical paths out of business routing and retain execution attribution.
+
+Writer validates the intent, derives output writeKey and buffers only compatible
+operations; it does not resolve static graph or expand work. One work can emit
+multiple operations/outputs; several works or JobTypes can share a writeKey.
+Conflicting results under one intentId require explicit rejection/conflict handling.
+All required outputs must be durable before individual terminal SUCCESS.
+
+Current terminal-status commit loop is not the future durable-intent handoff loop.
+Preserve source-after-intent and writer-after-output/status commit boundaries.
+No implementation, new test/coverage PASS, version-binding solution or default
+activation is claimed. See [I9 checkpoints and handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
+
+
+
+P14 planned scope revision (2026-10-28): I8 — Unified work expansion first;
+then I9 — Graph-driven expansion and definition consolidation. Both are pending.
+Existing definitions remain the sole preset/configuration source. Full cron
+removal and definition-free runtime are outside scope; no second catalog.
+Preparation stays disabled. This describes plans, not implemented behavior.
+Reuse validation/storage/path/status/lifecycle helpers. Terminal-status commit loop cannot be reused unchanged for future durable-intent handoff.
+See [scope, impact and writer reuse](../../docs/plans/030-static-graph-dispatch-planner.md#i8i9-expansion-first-scope-revision--2026-10-28).
+
 py-common is the shared Python library for Omni worker services. Its Nx project name is `py-common` and its source path is [`libs/py-common`](.).
 
 ## Responsibility

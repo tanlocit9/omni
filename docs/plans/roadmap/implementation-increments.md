@@ -1,5 +1,31 @@
 # Dependency-Ordered Implementation Increments
 
+## I9 checkpoint and result-handoff alignment — 2026-10-28
+
+P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,
+I9.b shared ancestor work, I9.c definition consolidation with history/offset/
+migration/diagnostics/rollback evidence. These are not new registry IDs and do not
+change I9 status or activate P12.
+
+Future consumers send computed result plus unchanged atomic work identity to the
+writer: JobType, typed workKey, businessDate, canonical effective parameters and
+execution correlation. Add operation, logical output/row identity, deterministic
+intentId and result or a validated durable logical candidate reference. Keep
+physical paths out of business routing and retain execution attribution.
+
+Writer validates the intent, derives output writeKey and buffers only compatible
+operations; it does not resolve static graph or expand work. One work can emit
+multiple operations/outputs; several works or JobTypes can share a writeKey.
+Conflicting results under one intentId require explicit rejection/conflict handling.
+All required outputs must be durable before individual terminal SUCCESS.
+
+Current terminal-status commit loop is not the future durable-intent handoff loop.
+Preserve source-after-intent and writer-after-output/status commit boundaries.
+No implementation, new test/coverage PASS, version-binding solution or default
+activation is claimed. See [I9 checkpoints and handoff](../030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
+
+
+
 This file is the canonical increment registry for scheduled autonomous delivery. Canonical numbered plans provide additional task detail; supporting plans under [`../../docs`](../..) provide rationale and must link back here instead of defining a competing schedule.
 
 Current I7 checkpoint — 2026-10-28: isolated local verification against c20d9cb

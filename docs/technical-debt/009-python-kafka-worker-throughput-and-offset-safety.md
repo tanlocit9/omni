@@ -1,5 +1,58 @@
 # Python Kafka Worker Throughput and Offset Safety
 
+## I9 checkpoint and result-handoff alignment — 2026-10-28
+
+P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,
+I9.b shared ancestor work, I9.c definition consolidation with history/offset/
+migration/diagnostics/rollback evidence. These are not new registry IDs and do not
+change I9 status or activate P12.
+
+Future consumers send computed result plus unchanged atomic work identity to the
+writer: JobType, typed workKey, businessDate, canonical effective parameters and
+execution correlation. Add operation, logical output/row identity, deterministic
+intentId and result or a validated durable logical candidate reference. Keep
+physical paths out of business routing and retain execution attribution.
+
+Writer validates the intent, derives output writeKey and buffers only compatible
+operations; it does not resolve static graph or expand work. One work can emit
+multiple operations/outputs; several works or JobTypes can share a writeKey.
+Conflicting results under one intentId require explicit rejection/conflict handling.
+All required outputs must be durable before individual terminal SUCCESS.
+
+Current terminal-status commit loop is not the future durable-intent handoff loop.
+Preserve source-after-intent and writer-after-output/status commit boundaries.
+No implementation, new test/coverage PASS, version-binding solution or default
+activation is claimed. See [I9 checkpoints and handoff](../plans/030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
+
+
+
+## P14 expansion reuse boundary — 2026-10-28
+
+I8 common atomic expansion precedes I9 graph-driven ancestors/shared work and
+definition consolidation. Definitions remain configuration; full cron/definition
+removal is outside scope. I8/I9 pending and P12/writer deferred.
+
+Reuse I8 execution/work envelope, businessDate, resolved parameter snapshots,
+validation/canonicalization fixtures and logical output references. Reuse current
+py-common storage/path builders, JobStatusPublisher and Kafka lifecycle.
+Java SafeWriteIntent supplies mechanics semantics, not a Python writer service.
+
+Work dedup, logical output writeKey and operation intentId remain distinct.
+Symbols/dates and SYNC_SIGNALS/EVALUATE_SIGNALS can mutate the same strategy/
+timeframe/exchange history. JobType selects policy but is not a sufficient buffer/
+exclusion key. One work may emit several operations/outputs; equal keys do not
+prove batch compatibility. Preserve ordering/transition/notification semantics.
+
+Current consume_job_records requires acknowledged terminal status before commit;
+do not reuse unchanged for compute-to-intent handoff. Preserve two offset boundaries:
+source after durable intent acknowledgement (or authoritative error), writer after
+outputs plus per-child terminal status. RAM admission is not durable handoff/SUCCESS.
+intentId remains immutable execution/operation/logical row-output/schema-model
+identity; exact envelope/hash still to freeze. No writer or concurrency activation.
+Version binding remains unresolved separately; signal batching and ancestor dedup
+do not solve EOD/indicator approved-version or metadata/bytes races.
+See [Plan 030 reuse matrix](../plans/030-static-graph-dispatch-planner.md#writer-reuse-and-separation).
+
 ## Supervised recovery update — 2026-10-26
 
 The owner-approved sequential recovery slice now restarts cleaned-up sessions

@@ -182,7 +182,7 @@ async def process_sync_symbols_message(
         status = build_status(
             payload,
             started_at,
-            JobStatus.PARTIAL_SUCCESS if warnings else JobStatus.SUCCESS,
+            JobStatus.SUCCESS,
             records_inserted=current_count,
             total_records=current_count,
         )
@@ -191,6 +191,24 @@ async def process_sync_symbols_message(
         }
         if warnings:
             status_extras["warnings"] = warnings
+            logger.warning(
+                "Symbol synchronization warnings executionId=%s: %s",
+                execution_id,
+                "; ".join(warnings),
+            )
+        status = status.model_copy(
+            update={
+                "meta_json": {
+                    **status.meta_json,
+                    "classificationSource": classification_source,
+                    **(
+                        {"result": "PARTIAL_SUCCESS", "warnings": warnings}
+                        if warnings
+                        else {}
+                    ),
+                }
+            }
+        )
         status = status.model_copy(update=status_extras)
     except Exception as exc:
         logger.exception("Failed to process sync-symbols message: %s", exc)

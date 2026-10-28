@@ -10,6 +10,34 @@ validation and nonwaiting work locks retire parent-alias runtime resolution.
 Fresh local source/test/build/coverage verification passed: 444 tests / 67 suites, zero failures/errors/skips; all 31 critical Java components meet >=80% line/applicable branch coverage. Ten migration cases, candidate/admission/preparation regressions and actual SQL/read-model/benchmark cases pass. The final gate is `P14-I7-reverify-20261028` (nine required checks, including owned-file format and static documentation audit). SQL coverage is behavioral, not a Java percentage. Exact source hashes and the executed criterion/source/test matrix are retained under `.agent/check-results/P14-I7-reverify-20261028/`.
 No historical PASS/coverage is reused. Preparation remains disabled; no retained migration/deployment.
 
+## 2026-10-28 - I9 checkpoints and future result-to-writer handoff
+
+Owner split I9 into I9.a graph expansion, I9.b shared ancestor work and I9.c
+definition consolidation including history/offset/migration/diagnostics/rollback.
+Suffixes are internal gates, not new registry increments; I9 remains pending.
+Future consumers forward computed result plus unchanged work identity/execution
+context in validated operation intents. Writer derives output writeKey, dedups
+intentId and publishes terminal status only after required outputs are durable.
+Actual writer and durable-intent commit loop remain deferred; version binding
+is unresolved. Documentation only, no source/test/coverage/activation or I7 closure.
+
+
+## 2026-10-28 - P14 expansion-first revision and writer reuse
+
+Owner revised unimplemented I8/I9: common expansion across existing creation/
+dispatch routes first, graph ancestor composition/shared work and redundant-
+definition consolidation after parity. Both pending; definitions remain one
+configuration/preset source and historical relation. Prior unimplemented cron/
+definition-removal draft is replaced; no second catalog.
+
+Plan 030, registry/navigation, canonical flow/data/contracts/service docs and
+Plan 027/TD-009 now describe reuse of atomic envelope, accepted parameters, logical
+output references, validation/status/storage helpers. Work/output/intent keys stay
+separate; current terminal-status commit loop is not durable intent handoff.
+Version binding remains unresolved. No runtime implementation, public manual API,
+writer/concurrency/default activation or new I7 PASS/coverage/attestation.
+Historical I7 completion and previous failed bootstrap verification remain distinct.
+
 ## 2026-10-27 - Shared-ancestor safety integration reproduces version mismatch
 
 Added opt-in `platform:test-overlap`, using disposable PostgreSQL, Kafka and MinIO

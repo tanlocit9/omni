@@ -65,6 +65,377 @@ in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bou
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
 
+## I8/I9 expansion-first scope revision — 2026-10-28
+
+Owner revised the unimplemented I8/I9 draft: common expansion first, then static
+graph composition and definition consolidation. This replaces the earlier draft
+for cron isolation and definition-free runtime. Existing definitions/configJson
+remain the sole preset/configuration source; no second definition catalog.
+Full cron removal, definition-free runtime and historical definition-FK removal
+are outside these increments. Both remain pending; no runtime/flag change.
+
+### Shared expansion and writer contract for I8/I9
+
+Request tuple: <JobType>:<scope>:<dateFrom>:<dateTo>:<parameters>.
+Atomic work tuple: <JobType>:<workKey>:<businessDate>:<parameters>.
+Use typed scope/workType and canonical encoding, not ambiguous concatenation.
+Freeze exact Java/Python fields, map/default/null/value/collection normalization
+and hash fixtures before coding. Existing definition defaults and supported
+overrides resolve once, including source/strategy/timeframe and other effective
+values. Snapshot them. Definition UUID, cron, actor and diagnostic IDs are
+provenance, not atomic dedup keys. No new identityVersion/computationVersion field.
+
+Default both date bounds once to today's Vietnam local date. Expand inclusive
+weekdays excluding Saturday/Sunday; retry retains dates and snapshotted membership.
+Holiday/lifecycle, historical symbols and provider no-data need explicit support
+policy; weekdays are not a trading calendar. Only symbol-capable jobs derive
+EXCHANGE input to SYMBOL work. SYNC_SYMBOLS remains EXCHANGE, sector features
+SECTOR, universe/metadata jobs their supported atomic unit. Output businessDate
+and input lookback differ; enforce historical cutoff and no future-data leakage.
+
+All creation routes normalize -> expand -> persist closed membership -> enqueue
+once. Planned/legacy/fallback/retry outbox dispatch only delivers stored work;
+never fan out twice or re-expand on replay. Bound/page expansion and partial failure.
+I8 preserves existing graph and definition-selection behavior. I9 maps static
+dependency scope/parameters through the same I8 expander, projects upstream-relevant
+parameters and atomically shares matching work across overlapping requests.
+Different target strategies must not duplicate identical stock-price ancestors.
+
+Graph stores relations/mappings, not copied definition configuration. Select/merge
+existing definitions by explicit source/strategy/scope/default parity; conflicting
+or missing configuration fails, never an arbitrary first match. Keep execution
+UUIDs, parent aggregation, fencing and V15 execution-FK/payload guards. Shared
+work needs durable requester/dependency ownership and explicit retry/rerun/refresh/
+cancel/failure policy, not a second parent_log_id.
+
+### Writer reuse and separation
+
+| Surface | Reuse and source/plan state | Limit |
+| --- | --- | --- |
+| Atomic envelope | Existing executionId/parentExecutionId/workType/workKey; I8 defines businessDate/effective parameters | Carry through intents; request/definition/parent IDs do not determine output locks |
+| Parameters | I8 normalization, validation, accepted snapshots and fixtures | Never reinterpret delayed work using mutable config |
+| Logical outputs | Current DatasetRef, dataset registry, storage ports and path builders | Derive output writeKey from logical dataset/partition; no physical path business routing |
+| Dedup | I9 unique acquisition is planned | Work identity is not writer intentId; one work can produce several operations/outputs |
+| Kafka/status | Source-present factory, JobStatusPublisher, supervision and manual commit loop | Current consume_job_records commits after acknowledged terminal status, not durable successor intent; needs a separate reviewed handoff loop |
+| Safe-write | Source-present Java SafeWriteIntent validation/mechanics | Reuse semantics/tests; not a Python writer implementation |
+| writeMode/writeKey | Planned P12-I2/I4 policy/resolver | JobType selects policy, output selects buffer/exclusion, compatible operation selects batching |
+| intentId | Planned execution + operation + logical row/output + schema/model identity | Freeze exact envelope/hash; stable on retry, distinct operations stay distinct |
+
+Example: two HOSE-HPG signal days are different work but mutate the same strategy/
+timeframe/HOSE history. EVALUATE_SIGNALS also touches that history despite another
+JobType. Share output exclusion, not work identity; a batch may cross parents/dates
+only where ordered operation semantics are compatible.
+
+Preserve two offset boundaries: source commits after durable intent acknowledgement
+(or authoritative error); writer commits after all outputs plus per-child terminal
+status. RAM expansion/buffer admission is not durable handoff or SUCCESS. No P12/
+writer activation or concurrency increase. Version binding stays a separate
+unresolved writer/storage slice; selected signal batching and ancestor dedup do
+not solve EOD/indicator approved-version or metadata/bytes races. Preserve READY-last,
+DependencyRegistry and exact-lineage requirements; no safety gate is waived.
+
+### P14-I8 — Unified work expansion
+
+#### Goal
+
+Unify request-to-atomic-work expansion across existing creation/dispatch routes before graph or definition consolidation.
+
+#### Outcome
+
+Definition plus scope/date/parameter overrides yields closed, bounded smallest-supported work. Existing fan-out moves behind one boundary; existing graph/definition ownership stays.
+
+#### Dataset Outputs
+
+No new analytical dataset output. Existing schemas/paths/owners remain; dated
+cutoff/lookback changes require existing dataset regression.
+
+#### Metadata Outputs
+
+No dataset metadata output. Accepted work/dependency snapshots are operational
+evidence, not READY/discovery authority.
+
+#### Algorithm Feature Outputs
+
+No direct algorithm feature output.
+
+#### Algorithms Unlocked
+
+Consistent scoped/day work orchestration; no new strategy, public manual/backfill
+API or universal historical provider/version-binding guarantee.
+
+#### Contract Impact
+
+| Surface | Decision |
+| --- | --- |
+| Kafka/service-to-service protobuf | HIGH: explicit day/effective-parameter semantics across Java producers, Ingestor/Analyzer, py-common. Retain current JSON unless a schema migration is explicitly chosen; inspect Proto3 foundation, never hand-edit generated output. Freeze fields/defaults/legacy handling. |
+| Object-storage JSON manifest | Unchanged; preserve READY-last/lineage and old READY on failure. |
+| Storage path/dataset ownership | Unchanged; business day does not imply physical per-day files. Review shared-history writes as work count grows. |
+| Java/Python APIs | HIGH: common expander, creation adapters and dated worker behavior; execution/status identity retained. |
+| Configuration/environment | Existing definitions/configJson remain source of truth with accepted snapshots. No cron redesign, writer/concurrency increase or flag activation. |
+| Persistence | Inventory current membership fields; forward additions only where missing. Retain definition FKs and applied migrations. |
+
+#### Repository Guidance Updates
+
+Synchronize architecture, flow, data/Kafka/database, deployment, ownership and service
+guides, Plan 027/TD-009. Review AGENTS.md, CLAUDE.md and .roo/rules; general safety/
+verification rules stay authoritative. Do not introduce a second definition catalog.
+
+#### Verification
+
+Plan platform:test/build/coverage and test-integration; analyzer:test/coverage,
+ingestor:test/coverage and py-common:test/coverage as impacted. Contract lint/
+breaking only for actual schema migration. Cover route parity, canonical defaults,
+scope collision, weekends/midnight, bounds/partial failure, membership replay,
+historical provider capability, cutoff/lookback/future leakage, status and offsets.
+Require executed criterion/source/test mapping and >=80% line and branch coverage
+per critical changed/directly impacted component. Inspect declared Nx targets and
+obtain applicable authorization. Graph impact/change detection and cross-service
+reconciliation are required; unavailable graph tools are not PASS.
+No runtime checks/coverage are executed by this planning revision.
+
+#### Acceptance Criteria
+
+- [ ] Route matrix covers JobScheduler/JobProducer.prepareDispatch,
+      prepareManualDispatch, JobRunPreparationService.prepareScheduled/prepareManual
+      and every concrete JobType producer; no public manual endpoint activation.
+- [ ] All creation routes use one boundary; planned/NULL-run/fallback/retry/replay
+      outbox dispatch never performs a second fan-out.
+- [ ] Per-type atomic scope/default/override/date capability is explicit;
+      unsupported units/provider history fail. Existing graph/definition selection stays.
+- [ ] Same effective input produces same work; closed membership/parameters/dates
+      survive restart and mutable configuration changes.
+- [ ] Inclusive weekday expansion and Vietnam defaults are verified alongside
+      actual consumer date cutoff/lookback, not just labels.
+- [ ] Zero/oversized/partial work, transactions, cancellation and output/status
+      failures retain coherent membership, identity and commit ordering.
+- [ ] Producer/consumer fixtures, impact/coverage, required checks, docs and
+      rollout/rollback evidence pass before completion.
+
+#### Field/DTO Inventory and Bounded Delivery
+
+| Surface | Fields/change | Task |
+| --- | --- | --- |
+| Request | definition provenance, JobType, scope, dateFrom/dateTo, effective parameters; HIGH | I8.a capability/default/contract |
+| Expanded work | workType/workKey, businessDate, parameter snapshot; HIGH | I8.b bounded closed membership |
+| Routes | common expander plus producer/legacy/JobRun/internal manual adapters; HIGH | I8.c no-double-expansion migration |
+| Consumer | day cutoff/lookback and output compatibility; HIGH | I8.d dated worker adaptation |
+| Evidence | executed regression/coverage, docs/rollback | I8.e verification gate |
+
+I8 depends on I7; pending while prerequisite re-verification/readiness and graph/
+documentation gaps remain. This registration starts no implementation.
+
+### P14-I9 — Graph-driven expansion and definition consolidation
+
+#### Goal
+
+Compose static dependencies with verified I8 expansion, share ancestor work, then consolidate redundant definitions without losing configuration/history.
+
+#### Outcome
+
+Target work maps to ancestor work through static scope/parameter edges and I8 expansion. Matching work shares database identity and durable dependency barriers; existing definitions remain the one config source.
+
+#### Dataset Outputs
+
+No new analytical dataset output. Existing schemas/paths/owners remain; dated
+cutoff/lookback changes require existing dataset regression.
+
+#### Metadata Outputs
+
+No dataset metadata output. Accepted work/dependency snapshots are operational
+evidence, not READY/discovery authority.
+
+#### Algorithm Feature Outputs
+
+No direct algorithm feature output.
+
+#### Algorithms Unlocked
+
+Consistent scoped/day work orchestration; no new strategy, public manual/backfill
+API or universal historical provider/version-binding guarantee.
+
+#### Contract Impact
+
+| Surface | Decision |
+| --- | --- |
+| Kafka/service-to-service protobuf | Reuse I8 atomic contract; any additions require explicit producer/consumer tests. Work hash never replaces execution/fencing. |
+| Object-storage JSON manifest | Unchanged; version binding remains separately unresolved. |
+| Storage path/dataset ownership | Unchanged; work dedup is not all-writer output exclusion. |
+| Java/Python APIs | HIGH: resolver/mapping, shared preparation/completion, definition selection and diagnostics; consumers reuse I8. |
+| Configuration/environment | HIGH: consolidate equivalent definitions with source/strategy/default/scope/schedule mapping. Full cron removal is not scope. |
+| Persistence | HIGH: unique work acquisition, requester/dependency membership and immutable attempt policy. Forward migrations preserve historical FKs, paths/fingerprints, offsets, executions/outbox and V15 guards. |
+
+#### Repository Guidance Updates
+
+Synchronize architecture, flow, data/Kafka/database, deployment, ownership and service
+guides, Plan 027/TD-009. Review AGENTS.md, CLAUDE.md and .roo/rules; general safety/
+verification rules stay authoritative. Do not introduce a second definition catalog.
+
+#### Verification
+
+Plan platform:test/build/coverage, test-integration and test-overlap, plus impacted
+I8 worker/shared targets. Cover strategy edges, upstream projection, symbol to wider
+scope, overlapping ranges, concurrent dedup, shared-owner cancel/failure/retry,
+old paths/fingerprints/history/offsets and definition consolidation rollback.
+Keep known overlap safety FAIL as a separate version activation gate; never weaken
+it. Regress expired-lease WAITING/BLOCKED and READY-row progress before activation.
+Require executed criterion/source/test mapping and >=80% line and branch coverage
+per critical changed/directly impacted component. Inspect declared Nx targets and
+obtain applicable authorization. Graph impact/change detection and cross-service
+reconciliation are required; unavailable graph tools are not PASS.
+No runtime checks/coverage are executed by this planning revision.
+
+#### Acceptance Criteria
+
+- [ ] Static graph plus existing definitions derives ancestors through explicit
+      scope/parameter mapping and I8 expansion without another config catalog.
+- [ ] Strategy-specific edges use effective strategy instead of cron identity;
+      graph adaptation preserves all existing distinctions.
+- [ ] Projected upstream parameters share equivalent work despite target-only
+      differences; real source/strategy/scope/day/parameter differences stay distinct.
+- [ ] Atomic DB acquisition/shared ownership handles concurrent overlapping scopes/
+      ranges, joins, failures, retry/refresh and multiple-request cancellation.
+- [ ] Definition inventory maps old -> retained source/strategy/default/scope/
+      schedule behavior; conflicts fail explicitly.
+- [ ] Consolidation follows graph/expansion parity: stop new scheduling on retired
+      entries; preserve historical FKs, frozen paths/fingerprints and offset lookups
+      through explicit mappings. Do not delete historical data.
+- [ ] Replay never re-expands or silently substitutes an ancestor attempt.
+      Work reuse does not imply dataset freshness/READY.
+- [ ] Writer work/output/intent keys stay separate; no writer/concurrency/version
+      guarantee is added. Existing safety blockers stay visible.
+- [ ] Complete impact/test/coverage, migration/compatibility, diagnostics,
+      docs and rollback gates pass before completion.
+
+#### Field/DTO Inventory and Bounded Delivery
+
+| Surface | Fields/change | Task |
+| --- | --- | --- |
+| Static edge | dependency type, scope/parameter mapping; HIGH | I9.a graph-to-expander parity |
+| Shared work | atomic key, requester/upstream links, retry/refresh policy; HIGH | I9.b unique acquire/barriers |
+| Definitions | old-to-retained config/source/strategy/scope/schedule map; HIGH | I9.c consolidate after parity |
+| History | preserved FKs/path fingerprints/offset semantics; HIGH | I9.c migration/read/rollback |
+| Evidence | diagnostics/source-test/coverage/docs | Each checkpoint; final I9.c gate |
+
+I9 depends on I8 and remains pending. Full cron removal, definition-free runtime,
+writer, public manual/backfill platform and historical deletion are outside scope.
+
+### I9 checkpoints and writer result handoff — 2026-10-28
+
+I9 is delivered sequentially as I9.a -> I9.b -> I9.c after completed I8.
+These suffixes are internal checkpoints, not new scheduled increment IDs or a
+reason to mark I9 completed early. Registry I9 stays pending until implementation
+begins; each checkpoint has its own source/test/coverage, compatibility and
+documentation gate. Overall I9 closes only after all three gates pass.
+
+#### I9.a — Graph-driven expansion
+
+Compose static edge scope/parameter mappings with the I8 expander. Preserve
+strategy-specific ancestors and wider EXCHANGE/SECTOR/GLOBAL capabilities.
+Output: deterministic target-to-ancestor atomic work and dependency instances.
+Gate: mapping/parameter projection, date/lookback and route parity tests; no
+definition reduction yet. No cross-request shared-work claim until I9.b.
+
+#### I9.b — Shared ancestor work
+
+Add atomic database dedup/acquisition, durable requester/dependency membership,
+shared completion barriers, retry/refresh and cancellation ownership.
+Output: overlapping requests reference the same matching work/execution safely.
+Gate: concurrent acquisition, joins, failures, restart/replay, multiple-owner cancel
+and immutable referenced attempts. Cancelling one requester cannot terminate work
+another still needs. Preserve execution/status and future writer handoff identity.
+
+#### I9.c — Definition consolidation
+
+Consolidate redundant definitions only after I9.a/I9.b parity. Keep the existing
+definition/configuration source; do not build another catalog or remove definition
+history. Output: reviewed old-to-retained definition/config/scope/schedule mapping,
+compatible offset/history/frozen-path readers, diagnostics and rollback.
+Gate: behavior parity, preserved V12/V13 history/fingerprints and V15 identity,
+migration/offset/rollback tests plus complete I9 acceptance/coverage/docs.
+
+#### Future consumer-to-writer handoff
+
+The intended future flow is atomic work -> consumer computes -> result plus
+unchanged work identity -> writer -> durable output -> individual terminal status.
+I8/I9 prepare reusable identities/contracts; writer service and two-boundary offset
+handoff remain deferred Plan 027 implementation, not runtime changes in I9.b.
+
+The future validated write intent carries:
+- Original atomic work identity: JobType, typed workKey, businessDate and canonical
+  effective parameters, plus executionId and applicable parentExecutionId.
+- Computed result or a bounded durable logical candidate reference, operation and
+  logical output/row identity. Large results need a reviewed durable reference
+  contract; RAM pointers are invalid. Physical MinIO paths are not business routing.
+- Deterministic intentId, schema/model identity and applicable lineage evidence.
+  A writer must not infer missing approved versions or invent provenance.
+
+Writer does not rerun static graph or expand requests. It validates the operation,
+derives output writeKey and serializes/buffers compatible operations. Work dedup
+before compute and operation dedup at write time are separate: the same work can
+emit multiple operations/outputs. Duplicate replay preserves intentId and execution
+attribution; changed content under one intentId needs an explicit reject/conflict
+policy, not silent overwrite. A child reaches terminal success only after all its
+required outputs are durable; failures retain attributable execution/work identity.
+
+Source command commit after acknowledged durable intent is a future distinct
+boundary. Existing terminal-status consume_job_records cannot be reused unchanged
+to acknowledge the handoff. Writer offset commit follows output plus terminal
+status, including replay after storage success/status failure. Expansion membership,
+RAM queue admission and shared-work acquisition alone cannot acknowledge output.
+
+Contract fixtures planned with I8/I9 must show unchanged identity through consumer
+and writer, two dates/symbols sharing one output key, different JobTypes sharing
+that key, multiple intents per execution, duplicate/conflicting replay, durable
+reference validation, partial output failure and output/status/commit recovery.
+I8/I9 cover their producer/identity parts; actual writer execution/offset behavior
+is a later P12 gate, not a claimed test PASS here. Version binding stays unresolved.
+
+### I8/I9 cross-service impact reconciliation
+
+| Owner | I8 impact | I9 impact |
+| --- | --- | --- |
+| Platform | All producer/creation routes, expander, accepted snapshots and date/status compatibility | Graph/resolver, definition selection, projection, shared acquisition/barriers, catalog/notifications and offset mapping |
+| Analyzer | Atomic date contract, supported unit, strategy, cutoff/lookback, existing writes/status | Reuse I8 consumer behavior; regression for mapped inputs |
+| Ingestor | Historical provider capability, symbol/day work, exchange catalog/status | Source/fallback/offset parity through consolidation |
+| Query Service | Read/lineage regression; production change only if output contract proves necessary | Same dataset/API; no new READY authority |
+| Console | Existing read compatibility; no manual trigger | Shared request/work progress and old definition provenance where exposed |
+| Shared contracts/libs | Java/py-common validation, fixtures, Kafka/status/storage; inspect proto foundation | Reuse I8 envelope, no generated edits |
+| Persistence | Existing membership inventory before additions; keep definition FKs | Unique acquisition/shared links; preserve V12/V13 history/V15 guard |
+| Config | Definitions/configJson authority and effective snapshots | Reduce equivalents with explicit source/strategy/scope/schedule map |
+| Storage | Same paths/owners/READY; assess dated and shared-history writes | No universal output lock or version binding from dedup |
+| Tests/operations | Per-route/type capability matrix, bounds/contracts/date regression/coverage/rollout | Concurrency/migration/history/parity, diagnostics and rollback; retained actions separately gated |
+| Future writer | Reuse envelope/params/output/status; terminal-only loop is not handoff | Shared execution vs output/operation identity, P12 deferred |
+
+Graph tools are unavailable. Static reconciliation is fallback, not graph PASS or
+executed coverage. Resolve this limitation under policy before completion.
+
+### I7 re-verification boundary
+
+Historical attempt from another environment, superseded by the isolated local
+completion below. Its dependency-download failure is not the result of the new
+source-bound nine-check gate (the original eight areas, with formatting recorded
+separately for Java and docs).
+
+Review baseline: feat/P14-WIP at cfa0a345545f5e80f57fe48ae5fcfd8982e7080e,
+reconstructed from main 0c521ef plus all 82 compared files through GitHub reads.
+Git transport cannot reach its configured proxy. No branch/ref, commit, push or
+retained environment is changed. Original ignored P14-I7 required-check evidence
+is absent here: `conclusion --increment P14-I7` returns INVALID
+(`cannot_read_required.json`). The new P14-I7-reverify-20261028 focused Nx check
+fails before test execution because Gradle 9.2.1 download returns connection
+refused. Full build/coverage are not run after this prerequisite failure.
+There is no new test PASS, attributable coverage, owner attestation or fresh
+I7 closure. Historical `completed` is not relabelled as freshly verified.
+Restore the original eight-check manifest/evidence, rerun its complete gate on
+the selected source, reconcile source/test/coverage and documentation, then
+record a separate closure result. Do not replace that gate with the new manifest.
+
+The known approved-version overlap failure, metadata/Parquet read race and expired
+lease WAITING/BLOCKED persistence findings remain activation concerns. I7 owns
+legacy outbox alias normalization/retirement; its closure cannot certify these
+other behaviors. No production parent-BLOCKED defect is claimed without evidence.
+
+
 ## I7 isolated local completion — 2026-10-28
 
 I7 is locally completed after isolated verification against c20d9cb. This change contains V15,

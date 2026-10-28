@@ -1,0 +1,26 @@
+{
+  "jobDefinitionId": "00000000-0000-0000-0000-000000000001",
+  "executionId": "00000000-0000-0000-0000-000000000002",
+  "parentExecutionId": null,
+  "workType": "GLOBAL",
+  "workKey": "SYNC_METADATA",
+  "status": "SUCCESS",
+  "startedAt": "2026-10-26T00:00:00Z",
+  "finishedAt": "2026-10-26T00:00:00Z",
+  "errorMessage": null,
+  "recordsProcessed": 1,
+  "durationMs": 0,
+  "metaJson": {
+    "mode": "FULL",
+    "objectsSeen": 2,
+    "partitionsAdded": 1,
+    "partitionsReplaced": 0,
+    "partitionsRemoved": 0,
+    "partitionsUnchanged": 0,
+    "objectsSkipped": 1,
+    "objectsFailed": 0,
+    "result": "PARTIAL_SUCCESS",
+    "warning": "Metadata synchronization incomplete: 1 skipped object(s), 0 failed object(s)"
+  },
+  "newOffset": null
+}

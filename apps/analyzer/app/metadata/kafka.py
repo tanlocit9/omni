@@ -44,19 +44,25 @@ class MetadataSyncKafkaService(JobStatusKafkaService):
             message = SyncMetadataJobMessage.model_validate(raw)
             result = await self._handler.handle(message)
             finished_at = utc_now()
+            partial = result.is_partial
+            warning = (
+                "Metadata synchronization incomplete: "
+                f"{result.objects_skipped} skipped object(s), "
+                f"{result.objects_failed} failed object(s)"
+                if partial
+                else None
+            )
+            if warning:
+                _logger.warning("%s; executionId=%s", warning, message.execution_id)
             status = JobStatusMessage(
                 job_definition_id=message.job_definition_id,
                 execution_id=message.execution_id,
                 parent_execution_id=message.parent_execution_id,
                 work_type=message.work_type,
                 work_key=message.work_key,
-                status=(
-                    # TODO(TD-001): Align partial terminal outcomes with Platform.
-                    # Ref: docs/technical-debt/001-p3-i5-metadata-reconciliation.md
-                    JobStatus.PARTIAL_SUCCESS
-                    if result.is_partial
-                    else JobStatus.SUCCESS
-                ),
+                # Owner-approved temporary policy: partial results warn without
+                # failing execution. Dataset READY remains independently guarded.
+                status=JobStatus.SUCCESS,
                 started_at=started_at,
                 finished_at=finished_at,
                 records_processed=result.partitions_published,
@@ -70,6 +76,11 @@ class MetadataSyncKafkaService(JobStatusKafkaService):
                     "partitionsUnchanged": result.partitions_unchanged,
                     "objectsSkipped": result.objects_skipped,
                     "objectsFailed": result.objects_failed,
+                    **(
+                        {"result": "PARTIAL_SUCCESS", "warning": warning}
+                        if partial
+                        else {}
+                    ),
                 },
             )
         except Exception as exc:

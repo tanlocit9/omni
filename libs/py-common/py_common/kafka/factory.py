@@ -40,14 +40,14 @@ class KafkaClientFactory:
             group_id,
             settings.bootstrap_servers,
         )
-        # TODO(TD-009): Make command commit ownership explicit after successful
-        # output/status publication. See the TD-009 technical-debt record.
+        # Command loops own partition-specific commits after acknowledged status.
         if isinstance(topics, list):
             return AIOKafkaConsumer(
                 *topics,
                 bootstrap_servers=settings.bootstrap_servers,
                 group_id=group_id,
                 auto_offset_reset=auto_offset_reset,
+                enable_auto_commit=False,
                 # Add other common configurations here if needed
             )
         return AIOKafkaConsumer(
@@ -55,5 +55,6 @@ class KafkaClientFactory:
             bootstrap_servers=settings.bootstrap_servers,
             group_id=group_id,
             auto_offset_reset=auto_offset_reset,
+            enable_auto_commit=False,
             # Add other common configurations here if needed
         )

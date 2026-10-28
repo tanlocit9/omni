@@ -6,7 +6,8 @@ import logging
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from py_common.config import ConsumerGroup
 from py_common.kafka import KafkaClientFactory
-from py_common.messaging import JobStatusPublisher
+from py_common.kafka.processing import consume_job_records
+from py_common.messaging import JobStatusMessage, JobStatusPublisher
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.exceptions import StorageValidationError
@@ -49,28 +50,36 @@ class IngestorKafkaRoutingService:
             self._settings.minio.bucket,
             self._settings.default_stock_source,
         )
-        self._default_client = get_or_create_client(self._settings.default_stock_source)
-        self._consumer, self._producer = await self._start_kafka_clients()
-        self._status_publisher = JobStatusPublisher(
-            self._producer, self._settings.sync_job_status_topic, "ingestor"
-        )
-        self._parquet_storage, self._immutable_publisher = await self._create_storage()
-
         try:
+            self._default_client = get_or_create_client(
+                self._settings.default_stock_source
+            )
+            self._consumer, self._producer = await self._start_kafka_clients()
+            self._status_publisher = JobStatusPublisher(
+                self._producer, self._settings.sync_job_status_topic, "ingestor"
+            )
+            (
+                self._parquet_storage,
+                self._immutable_publisher,
+            ) = await self._create_storage()
             logger.info("Ingestor waiting for Kafka messages")
-            async for msg in self._consumer:
-                await self._route_message(msg)
+            await consume_job_records(self._consumer, self._route_message)
         except asyncio.CancelledError:
             logger.info("Kafka consumer loop cancelled, shutting down.")
+            raise
         finally:
             await self.stop()
 
     async def stop(self) -> None:
-        if self._consumer is not None:
-            await self._consumer.stop()
-        if self._producer is not None:
-            await self._producer.stop()
-        await close_cached_clients()
+        try:
+            if self._consumer is not None:
+                await self._consumer.stop()
+        finally:
+            try:
+                if self._producer is not None:
+                    await self._producer.stop()
+            finally:
+                await close_cached_clients()
 
     async def _start_kafka_clients(self) -> tuple[AIOKafkaConsumer, AIOKafkaProducer]:
         while True:
@@ -89,20 +98,21 @@ class IngestorKafkaRoutingService:
                 producer = KafkaClientFactory.create_producer(self._settings.kafka)
                 await consumer.start()
                 await producer.start()
-                # TODO(TD-009): Preserve startup batches; this call currently
-                # discards fetched records. See the TD-009 technical-debt record.
-                await consumer.getmany(timeout_ms=1000)
                 return consumer, producer
-            except Exception as exc:
+            except (Exception, asyncio.CancelledError) as exc:
                 logger.warning(
                     "Kafka not ready, retrying in %ds... (%s)",
                     self._settings.kafka_retry_interval_seconds,
                     exc,
                 )
-                if consumer is not None and consumer.started():
-                    await consumer.stop()
-                if producer is not None and producer.started():
-                    await producer.stop()
+                try:
+                    if consumer is not None:
+                        await consumer.stop()
+                finally:
+                    if producer is not None:
+                        await producer.stop()
+                if isinstance(exc, asyncio.CancelledError):
+                    raise
                 await asyncio.sleep(self._settings.kafka_retry_interval_seconds)
 
     async def _create_storage(self) -> tuple[ParquetStorage, ImmutableDatasetPublisher]:
@@ -126,7 +136,7 @@ class IngestorKafkaRoutingService:
         )
         return parquet, publisher
 
-    async def _route_message(self, msg) -> None:
+    async def _route_message(self, msg) -> JobStatusMessage:
         assert self._producer is not None
         assert self._status_publisher is not None
         assert self._default_client is not None
@@ -134,25 +144,21 @@ class IngestorKafkaRoutingService:
         assert self._immutable_publisher is not None
 
         if msg.topic == self._settings.topic_sync_intraday_eod:
-            await process_intraday_eod_message(
+            return await process_intraday_eod_message(
                 msg.value,
                 self._status_publisher,
                 self._immutable_publisher,
                 self._parquet_storage,
             )
-            return
-
         if msg.topic == self._settings.topic_sync_symbols:
-            await process_sync_symbols_message(
+            return await process_sync_symbols_message(
                 msg.value,
                 self._producer,
                 self._status_publisher,
                 self._default_client,
                 self._parquet_storage,
             )
-            return
-
-        await process_stock_price_message(
+        return await process_stock_price_message(
             msg.value,
             self._status_publisher,
             self._default_client,

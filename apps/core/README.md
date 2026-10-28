@@ -298,3 +298,11 @@ The later unfiltered `platform:test` run passed 293 tests across 50 suites with
 zero failures/errors/skips (`WINDOWS-HIDDEN-CONSOLES-20261018`). It generated
 JaCoCo reports but does not close the separate I3.a coverage/build gate. Three
 cached-context PostgreSQL shutdown timeouts remain a test-teardown follow-up.
+
+## P14-I7 canonical outbox identity
+
+V15 validates and normalizes legacy outbox execution aliases before strict
+candidate readers start. NULL-JobRun scheduling remains supported; only the
+parent-FK/payload-child compatibility branch is retired. Identity/lock failures
+preserve intent and fail closed. Follow the [V15 cutover procedure](../../docs/deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7)
+before retained deployment. Local evidence is recorded separately from rollout.

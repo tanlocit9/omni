@@ -1,6 +1,6 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I6 are completed on local source-bound evidence; I7 remains ready. Preparation remains disabled; no retained rollout or deployment is claimed.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I6 are completed on local source-bound evidence; I7 is locally completed. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -28,6 +28,78 @@ A reusable static definition-path handoff in I2, followed by durable JobRun prep
 in I3 and guarded runtime admission in I4. I2 and I3 are completed on source-bound
 local acceptance/test/coverage/build and documentation evidence below. I4 admission is integrated and locally verified below; preparation remains disabled.
 No new owner attestation or deployment is asserted.
+
+## I7 isolated local completion — 2026-10-28
+
+I7 is locally completed after isolated verification against c20d9cb. This change contains V15,
+strict canonical-work candidate validation, nonwaiting work locks and their
+regressions only. I5 and I6 retain their existing separate increment identities;
+I8/I9 planning and later worker/readiness changes are excluded.
+
+Fresh local source/test/build/coverage verification passed: 444 tests / 67 suites, zero failures/errors/skips; all 31 critical Java components meet >=80% line/applicable branch coverage. Ten migration cases, candidate/admission/preparation regressions and actual SQL/read-model/benchmark cases pass. The final gate is `P14-I7-reverify-20261028` (nine required checks, including owned-file format and static documentation audit). SQL coverage is behavioral, not a Java percentage. Exact source hashes and the executed criterion/source/test matrix are retained under `.agent/check-results/P14-I7-reverify-20261028/`.
+No historical PASS or coverage is reused.
+No retained migration, deployment, preparation activation or owner attestation
+is claimed. Preparation remains false and existing cron selection is unchanged.
+
+V15 validates every outbox identity and projected unique key in one PostgreSQL
+transaction, normalizes only validated NULL-JobRun parent-FK/payload-child aliases,
+then guards future execution ID/FK identity. Only execution_id changes; payload,
+message/execution IDs, keys/topics, delivery/attempts, availability, leases/tokens/
+owners, audit fields, metadata and execution/JobRun hierarchy are preserved.
+Applied V1–V14 and all membership guards remain untouched. Invalid/ambiguous rows,
+linked aliases and collisions abort before updates; lock failure rolls back safely.
+
+SchedulerOutboxService no longer resolves a payload child through a stored parent
+FK: missing/mismatching execution IDs and conflicting explicit definition IDs fail
+closed. Current parent-input enqueue still persists the actual child FK; work
+metadata fallback and parent history lookup remain supported. claimLegacy takes
+the actual FK work row FOR UPDATE SKIP LOCKED before outbox/approved-input writes,
+preserving child-before-parent status lock order and zero-attempt busy-work skips.
+The obsolete findLegacyWorkExecutionId API and alias acceptance branch are removed.
+I5/I6's versioned inventory remains useful before/after V15; tests that
+intentionally create old poison/alias data target V14 without disabling guards.
+
+| Changed source / acceptance path                                                                 | Attributable executed evidence                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V15 normalize only the FK and preserve intent/history in all delivery/lease states               | SchedulerOutboxIdentityMigrationPostgresTest.upgradePreservesEveryIntentHistoryAndDeliveryFieldAcrossStatesAndLeases compares every outbox field except FK and all execution rows across PENDING/PUBLISHED/BLOCKED, live/no lease and an already-current row; zero remaining aliases and unchanged counts are asserted.                                                       |
+| Upgrade, fresh install and restart                                                               | restartMigrateAndValidateAreIdempotentAndFreshInstallHasStrictGuard exercises V14→V15, repeat migrate/validate with no repeated intent, and empty V1→V15 installation.                                                                                                                                                                                                        |
+| Malformed/missing/invalid/jsonb poison payloads, missing child and conflicting parent/definition | malformedMissingInvalidAndJsonbPoisonIdentityRollBackAllNormalization and absentChildForeignParentDefinitionAndPayloadParentAreRejectedAtomically assert transactional FK/field/history preservation and no V15 schema-history row after failure. No quarantine/delete/guessing.                                                                                              |
+| Projected collision and linked-run rejection                                                     | projectedUniqueCollisionStopsBeforeChangingAnyReference and linkedAliasIsRejectedWithoutChangingCanonicalRunOrExecutionMembership fail before normalization and preserve all references and run links.                                                                                                                                                                        |
+| Closed JobRun membership and inherited guards                                                    | closedJobRunMembershipRemainsByteIdenticalAndItsGuardsStayEnabled preserves frozen runs/steps/closures and canonical intent through upgrade, then proves the existing immutability guard still rejects mutation.                                                                                                                                                              |
+| Incompatible future writer and delivery state                                                    | postCutoverGuardRejectsOldWriterAliasesAndPoisonButAllowsFencedDeliveryUpdates rejects alias/poison/missing IDs and preserves attempts/FK through normal ack fields.                                                                                                                                                                                                          |
+| Writer quiescence and retry                                                                      | activeWriterLockStopsMigrationAndAQuiescedRetrySucceeds proves the five-second lock timeout leaves data unchanged; the same forward migration succeeds after writer rollback. Locks do not replace operational drain.                                                                                                                                                         |
+| Actual post-upgrade candidate/claim/metadata/retry/ack/status behavior                           | upgradedAliasUsesActualServicesForApprovalRetryAckAndChildStatusAggregation starts the actual Platform on a V14 schema with an alias, applies V15, claims through JobRunDispatchStore, writes approvedInputs only on the child, retries from attempt 7 to 9, fences renewal/ack and calls real JobService.applyStatus to complete child/parent. No real broker/provider call. |
+| Strict candidate and safe skips in SchedulerOutboxService                                        | SchedulerOutboxCandidateTest covers normalized child metadata, parent/foreign/missing/invalid execution rejection, explicit definition mismatch, poison-safe batch order/bounds, lost claim and preserved metadata fallback. Removed alias-success expectations now assert rejection.                                                                                         |
+| Nonwaiting actual-work locking in JobRunDispatchStore                                            | JobRunAdmissionPostgresTest.normalizedChildStatusCanFinishWhileApprovedInputAdmissionSkipsItsBusyWorkRow runs concurrent actual applyStatus/admission, proves bounded skip without attempts while the worker holds the child and proves later normal claim/approval; inherited JobRun guard/fence/retry/fallback tests remain executed.                                       |
+
+Cross-service impact is reconciled against canonical architecture/data/flow/service
+ownership and graph analysis. Platform candidate parsing/admission, approved-input
+metadata, enqueue and status callers are reviewed; JobProducer/JobService already
+write canonical child FKs and their contracts stay unchanged. Notification outbox
+retains its separate table; Sector Transition producers inherit the canonical
+JobProducer/JobService enqueue path and downstream state writers stay unchanged.
+Analyzer/Ingestor keep Kafka
+execution/status identity, providers and Parquet behavior. Query Service/Console
+keep APIs/history/read handoff. Contracts/proto/generated code/py-common, Kafka
+topics/fields, manifests, physical paths/dataset ownership, READY-last and exact
+lineage do not change. Persistence gains V15/identity guard only; configuration,
+preparation=false and all 32 crons remain. Operations gain the explicit
+[cutover/recovery procedure](../deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
+Graph bounds and untracked-test indexing are not cross-language or coverage proof.
+
+Documentation review: architecture, ADR-007, execution flow, database,
+deployment, development ownership, roadmap, service guide and diagnostic
+instructions describe V15 and strict identity. Kafka/data-lake contracts,
+Analyzer/Ingestor/Query Service/Console guides, shared contracts/libraries,
+Plan 027/029, field inventory, indexes and AGENTS/CLAUDE/editor guidance need no
+change: message/schema/API/storage/workflow ownership and policy are unchanged.
+Applied migrations remain unchanged. Benchmark artifacts are refreshed after
+execution because the measured store/service source changed.
+
+Remaining operational gates are inventory/reconciliation, verified backup/restore,
+draining incompatible writers, explicitly authorized V15 execution, post-cutover
+zero-alias/field-count checks and compatible artifact recovery. No physical
+history deletion, live-provider throughput, deployment or hosted CI is claimed.
 
 ## I6 bounded read-model completion — 2026-10-25
 
@@ -805,6 +877,10 @@ An empty upstream outbox backlog is neither execution-completion nor readiness e
 ## Canonical revised delivery sequence — 2026-10-15
 
 **This section supersedes the earlier 2026-10-13 and prior P14-I2/P14-I3 target scopes and acceptance language elsewhere in this file. Historical verification remains historical evidence, not the current implementation target.** The new architecture is **target-driven JobRun → static-DAG preparation → existing durable outbox → JobRun-aware publish admission**. The goal is not to implement a general workflow engine.
+
+The table below preserves the original 2026-10-15 scope decision; its pending
+statuses are historical. Current statuses belong to the increment registry and
+the dated completion sections, including the isolated I7 gate above.
 
 | Story                                                   | Status        | Independently deployable output                                                                                                          | Runtime boundary                                                                          |
 | ------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -2423,10 +2499,10 @@ Aggregate project coverage, source presence, graph reachability, broad suite suc
 
 ### P14-I7 — legacy data cleanup
 
-- [ ] Bounded inventory reconciles every legacy alias, unresolved/collision case and delivery/lease state; source/caller ownership and rollout preconditions are recorded.
-- [ ] Forward migration normalizes validated aliases without losing intent/history, rewriting applied migrations, mutating JobRun membership or bypassing constraints. Invalid/ambiguous rows and active incompatible writers stop cutover.
-- [ ] Remaining alias count is zero before alias compatibility code is removed; actual-child FK identity is enforced, while ordinary NULL-JobRun and JobRun dispatch, status aggregation, attempts and retry/ack remain compatible.
-- [ ] Real PostgreSQL migration/rollback/data-preservation/concurrency tests, impact-to-test matrix, attributable >=80% line/branch coverage, complete recorded checks and synchronized rollout/recovery docs pass. Retained migration/purge evidence is separate from local verification.
+- [x] Bounded inventory reconciles every legacy alias, unresolved/collision case and delivery/lease state; source/caller ownership and rollout preconditions are recorded.
+- [x] Forward migration normalizes validated aliases without losing intent/history, rewriting applied migrations, mutating JobRun membership or bypassing constraints. Invalid/ambiguous rows and active incompatible writers stop cutover.
+- [x] Remaining alias count is zero before alias compatibility code is removed; actual-child FK identity is enforced, while ordinary NULL-JobRun and JobRun dispatch, status aggregation, attempts and retry/ack remain compatible.
+- [x] Real PostgreSQL migration/rollback/data-preservation/concurrency tests, impact-to-test matrix, attributable >=80% line/branch coverage, complete recorded checks and synchronized rollout/recovery docs pass. Retained migration/purge evidence is separate from local verification.
 
 ### Every story
 

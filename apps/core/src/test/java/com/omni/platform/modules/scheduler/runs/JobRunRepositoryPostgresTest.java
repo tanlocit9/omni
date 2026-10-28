@@ -427,8 +427,9 @@ class JobRunRepositoryPostgresTest {
                 definition,
                 execution);
         legacy.update(
-                "INSERT INTO scheduler_outbox_messages (execution_id,message_index,topic,payload) VALUES (?,0,'legacy','{}')",
-                execution);
+                "INSERT INTO scheduler_outbox_messages (execution_id,message_index,topic,payload) VALUES (?,0,'legacy',?)",
+                execution,
+                "{\"executionId\":\"" + execution + "\"}");
         assertThat(legacy.queryForObject("SELECT count(*) FROM manual_job_triggers", Integer.class))
                 .isEqualTo(1);
         Flyway.configure()

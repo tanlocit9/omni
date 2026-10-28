@@ -31,27 +31,6 @@ import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 import tools.jackson.databind.json.JsonMapper;
 
 class SchedulerOutboxCandidateTest {
-    @Test
-    void legacyWorkIdentityIsResolvedWithoutLoadingChildBeforeItsLock() {
-        UUID id = UUID.randomUUID(), parentId = UUID.randomUUID(), childId = UUID.randomUUID();
-        var parent = new JobExecutionHistory();
-        parent.setId(parentId);
-        var message = new SchedulerOutboxMessage();
-        message.setId(id);
-        message.setExecution(parent);
-        when(repository.findById(id)).thenReturn(Optional.of(message));
-        message.setPayload("{\"executionId\":\"" + childId + "\"}");
-        assertThat(service.findLegacyWorkExecutionId(id)).isEqualTo(childId);
-        message.setPayload("{}");
-        assertThat(service.findLegacyWorkExecutionId(id)).isEqualTo(parentId);
-        message.setPayload("{");
-        assertThat(service.findLegacyWorkExecutionId(id)).isNull();
-        message.setPayload("{\"executionId\":\"invalid\"}");
-        assertThat(service.findLegacyWorkExecutionId(id)).isNull();
-        assertThat(service.findLegacyWorkExecutionId(UUID.randomUUID())).isNull();
-        org.mockito.Mockito.verifyNoInteractions(histories);
-    }
-
     private static final Instant NOW = Instant.parse("2035-01-02T12:00:00Z");
     private final SchedulerOutboxRepository repository = mock(SchedulerOutboxRepository.class);
     private final JobExecutionHistoryRepository histories =
@@ -145,9 +124,9 @@ class SchedulerOutboxCandidateTest {
     }
 
     @Test
-    void legacyPayloadFallbackUsesPersistedIdentityAndRejectsAbsentWorkIdentity() {
+    void metadataFallbackUsesExplicitStoredIdentityAndRejectsAbsentWorkIdentity() {
         var work = execution(null);
-        var row = row(work, Map.of("executionId", " ", "workType", " "));
+        var row = row(work, Map.of("executionId", work.getId().toString(), "workType", " "));
         stubCandidate(row, work);
         var candidate = service.findCandidates(NOW, 10).getFirst();
         assertThat(candidate.executionId()).isEqualTo(work.getId());
@@ -161,7 +140,8 @@ class SchedulerOutboxCandidateTest {
                 .hasMessageContaining("Missing scheduler outbox work identity");
         row.setPayload(
                 "{\"workType\":\"GLOBAL\",\"workKey\":\"SYNC_METADATA\",\"executionId\":null}");
-        assertThat(service.findCandidates(NOW, 10)).hasSize(1);
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("stored work execution");
         when(repository.findById(row.getId())).thenReturn(Optional.empty());
         assertThat(service.findCandidates(NOW, 10)).isEmpty();
     }
@@ -210,7 +190,7 @@ class SchedulerOutboxCandidateTest {
     }
 
     @Test
-    void legacyParentIntentKeepsApprovedVersionsOnActualWorkChildAndRejectsForeignAlias() {
+    void normalizedChildIntentKeepsApprovedVersionsOnWorkAndRejectsParentAlias() {
         var parent = execution(null);
         parent.setJobRunId(null);
         var child = execution(parent.getId());
@@ -218,7 +198,7 @@ class SchedulerOutboxCandidateTest {
         child.setJob(parent.getJob());
         var row =
                 row(
-                        parent,
+                        child,
                         Map.of(
                                 "executionId",
                                 child.getId().toString(),
@@ -251,6 +231,7 @@ class SchedulerOutboxCandidateTest {
                 .isNotNull();
         assertThat(child.getMetaJson()).containsKey("approvedInputs");
         assertThat(parent.getMetaJson()).doesNotContainKey("approvedInputs");
+        row.setExecution(parent);
         child.setParentLogId(UUID.randomUUID());
         row.setPayload(
                 json.writeValueAsString(
@@ -267,7 +248,7 @@ class SchedulerOutboxCandidateTest {
                                         "owner",
                                         java.time.Duration.ofMinutes(1),
                                         Map.of(input, "v2")))
-                .hasMessageContaining("stored parent");
+                .hasMessageContaining("stored work execution");
     }
 
     @Test
@@ -304,7 +285,7 @@ class SchedulerOutboxCandidateTest {
         org.mockito.Mockito.verifyNoInteractions(histories);
         first.setPayload(json.writeValueAsString(Map.of("executionId", b.getId().toString())));
         assertThatThrownBy(() -> service.findCandidatesByIds(ids))
-                .hasMessageContaining("frozen outbox membership");
+                .hasMessageContaining("stored work execution");
         assertThat(service.findCandidatesByIds(List.of())).isEmpty();
         assertThatThrownBy(() -> service.findCandidatesByIds(List.of(first.getId(), first.getId())))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -328,7 +309,9 @@ class SchedulerOutboxCandidateTest {
                                 a.getId().toString())));
         second.setPayload(first.getPayload());
         when(histories.findByIdWithJob(b.getId())).thenReturn(Optional.of(b));
-        assertThat(service.findCandidatesByIds(ids)).hasSize(2);
+        assertThatThrownBy(() -> service.findCandidatesByIds(ids))
+                .hasMessageContaining("stored work execution");
+        assertThat(service.findCandidatesByIdsSafely(ids)).hasSize(1);
     }
 
     @Test
@@ -352,11 +335,33 @@ class SchedulerOutboxCandidateTest {
         assertThat(work.getMetaJson()).isSameAs(before);
     }
 
+    @Test
+    void explicitDefinitionMustMatchStoredWorkAndMissingExecutionCannotFallBack() {
+        var work = execution(null);
+        var row = row(work, Map.of("jobDefinitionId", work.getJob().getId().toString()));
+        stubCandidate(row, work);
+        assertThat(service.findCandidates(NOW, 10)).hasSize(1);
+        row.setPayload(
+                json.writeValueAsString(
+                        Map.of(
+                                "executionId",
+                                work.getId().toString(),
+                                "jobDefinitionId",
+                                UUID.randomUUID().toString())));
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("jobDefinitionId mismatch");
+        row.setPayload("{}");
+        assertThatThrownBy(() -> service.findCandidates(NOW, 10))
+                .hasMessageContaining("stored work execution");
+    }
+
     private SchedulerOutboxMessage row(JobExecutionHistory work, Map<String, ?> payload) {
         var row = new SchedulerOutboxMessage();
         row.setExecution(work);
         row.setAvailableAt(NOW);
-        row.setPayload(json.writeValueAsString(payload));
+        var fields = new HashMap<String, Object>(payload);
+        fields.putIfAbsent("executionId", work.getId().toString());
+        row.setPayload(json.writeValueAsString(fields));
         return row;
     }
 

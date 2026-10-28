@@ -82,26 +82,6 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 .toList();
     }
 
-    /** Resolve intent identity without loading a mutable child before admission locks it. */
-    @Transactional(readOnly = true)
-    public UUID findLegacyWorkExecutionId(UUID messageId) {
-        var message = repository.findById(messageId).orElse(null);
-        if (message == null) return null;
-        try {
-            return optionalUuid(
-                    parseCandidatePayload(message),
-                    "executionId",
-                    messageId,
-                    message.getExecution().getId());
-        } catch (RuntimeException error) {
-            log.warn(
-                    "OUTBOX_CANDIDATE_INVALID messageId={} type={}",
-                    messageId,
-                    error.getClass().getSimpleName());
-            return null;
-        }
-    }
-
     /** Batch-load only IDs selected by the bounded scoped query, preserving its order. */
     @Transactional(readOnly = true)
     public List<SchedulerOutboxCandidate> findCandidatesByIds(List<UUID> ids) {
@@ -235,16 +215,13 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     private JobExecutionHistory candidateExecution(
             SchedulerOutboxMessage message, JsonNode payload, boolean fetched) {
         UUID persistedExecutionId = message.getExecution().getId();
-        UUID workExecutionId =
-                optionalUuid(payload, "executionId", message.getId(), persistedExecutionId);
-        if (fetched
-                && message.getExecution().getJobRunId() != null
-                && !workExecutionId.equals(persistedExecutionId)) {
+        UUID workExecutionId = optionalUuid(payload, "executionId", message.getId(), null);
+        if (!persistedExecutionId.equals(workExecutionId)) {
             throw new IllegalStateException(
-                    "JobRun payload execution does not match frozen outbox membership");
+                    "Outbox payload execution does not match stored work execution");
         }
         JobExecutionHistory workExecution =
-                fetched && workExecutionId.equals(persistedExecutionId)
+                fetched
                         ? message.getExecution()
                         : executionRepository
                                 .findByIdWithJob(workExecutionId)
@@ -255,21 +232,19 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                                                                 + message.getId()
                                                                 + " executionId="
                                                                 + workExecutionId));
-        if (hasText(payload, "executionId")) {
-            verifyPayloadParent(message, payload, workExecution);
-        }
-
-        if (!workExecutionId.equals(persistedExecutionId)
-                && (message.getExecution().getJobRunId() != null
-                        || workExecution.getJobRunId() != null
-                        || !persistedExecutionId.equals(workExecution.getParentLogId())
-                        || !message.getExecution()
-                                .getJob()
-                                .getId()
-                                .equals(workExecution.getJob().getId()))) {
+        if (!workExecution
+                .getJob()
+                .getId()
+                .equals(
+                        optionalUuid(
+                                payload,
+                                "jobDefinitionId",
+                                message.getId(),
+                                workExecution.getJob().getId()))) {
             throw new IllegalStateException(
-                    "Legacy outbox payload is not a child of its stored parent");
+                    "Outbox payload jobDefinitionId mismatch messageId=" + message.getId());
         }
+        verifyPayloadParent(message, payload, workExecution);
         return workExecution;
     }
 
@@ -305,10 +280,6 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         return text == null || text.isBlank() ? fallback : text;
     }
 
-    private static boolean hasText(JsonNode payload, String field) {
-        return optionalText(payload, field, null) != null;
-    }
-
     private static void verifyPayloadParent(
             SchedulerOutboxMessage message, JsonNode payload, JobExecutionHistory workExecution) {
         String parentValue = optionalText(payload, "parentExecutionId", null);
@@ -338,12 +309,12 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         if (message == null || message.getStatus() != SchedulerOutboxMessage.Status.PENDING) {
             return null;
         }
+        JobExecutionHistory work =
+                candidateExecution(message, parseCandidatePayload(message), true);
         SchedulerOutboxClaim claim =
                 repository.claimEligible(messageId, now, instanceId, leaseDuration);
         if (claim != null && !approvedInputVersions.isEmpty())
-            persistApprovedInputs(
-                    candidateExecution(message, parseCandidatePayload(message), true),
-                    approvedInputVersions);
+            persistApprovedInputs(work, approvedInputVersions);
         return claim;
     }
 

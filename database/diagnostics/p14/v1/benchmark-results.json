@@ -1,1248 +1,1248 @@
 {
   "version": 1,
-  "startedAt": "2026-10-25T11:37:42.855141600Z",
-  "finishedAt": "2026-10-25T11:38:03.122529500Z",
+  "startedAt": "2026-10-28T14:36:02.928180200Z",
+  "finishedAt": "2026-10-28T14:36:23.734475900Z",
   "environment": {
     "osVersion": "10.0",
-    "hikariMax": 10,
-    "hikariMinIdle": 10,
-    "postgres": "PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
-    "processors": 16,
-    "java": "21.0.12.1",
+    "os": "Windows 11",
     "heapMaxBytes": 536870912,
-    "os": "Windows 11"
+    "java": "21.0.12.1",
+    "processors": 16,
+    "postgres": "PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "hikariMinIdle": 10,
+    "hikariMax": 10
   },
   "dataset": {
     "provider": "none",
-    "businessDate": "2035-01-02",
-    "name": "disposable synthetic scheduler state",
+    "worker": "synthetic real applyStatus calls",
     "kafka": "mock broker acknowledgement",
-    "worker": "synthetic real applyStatus calls"
+    "name": "disposable synthetic scheduler state",
+    "businessDate": "2035-01-02"
   },
   "warmups": 5,
   "samples": 30,
   "percentiles": "nearest rank; p99 at 30 samples is the observed maximum, not an SLA",
   "scenarios": [
     {
-      "stepsPerRun": 3,
-      "state": "ready",
-      "runs": 1,
-      "planStatus": "PLANNED",
-      "messages": 300,
-      "executions": 303,
+      "name": "one-run-100",
+      "childrenPerStep": 100,
       "metrics": {
         "runDiscovery": {
-          "windowStart": "2026-10-25T11:37:43.377586500Z",
-          "windowEnd": "2026-10-25T11:37:43.426130700Z",
+          "elapsedMs": {
+            "p99": 2.7694,
+            "p50": 1.8388,
+            "samples": 30,
+            "p95": 2.6652,
+            "max": 2.7694,
+            "min": 1.5159
+          },
           "observations": {
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0675,
+              "p50": 0.0048,
+              "samples": 30,
+              "p95": 0.0139,
+              "max": 0.0675,
+              "min": 0.0036
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0077,
-              "min": 0.0032,
-              "max": 0.0077,
-              "p95": 0.0069,
-              "samples": 30,
-              "p50": 0.0038
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 30,
+            "applicationDatabaseCalls": 60
           },
-          "elapsedMs": {
-            "p99": 2.0222,
-            "min": 1.315,
-            "max": 2.0222,
-            "p95": 1.9649,
-            "samples": 30,
-            "p50": 1.5268
-          }
+          "windowEnd": "2026-10-28T14:36:03.585187Z",
+          "windowStart": "2026-10-28T14:36:03.527770800Z"
         },
         "snapshot": {
-          "windowStart": "2026-10-25T11:37:43.453787100Z",
-          "windowEnd": "2026-10-25T11:37:43.590814700Z",
+          "elapsedMs": {
+            "p99": 5.3523,
+            "p50": 4.5475,
+            "samples": 30,
+            "p95": 5.1878,
+            "max": 5.3523,
+            "min": 4.1356
+          },
           "observations": {
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0062,
+              "p50": 0.0043,
+              "samples": 30,
+              "p95": 0.0054,
+              "max": 0.0062,
+              "min": 0.0031
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0071,
-              "min": 0.0034,
-              "max": 0.0071,
-              "p95": 0.006,
-              "samples": 30,
-              "p50": 0.0045
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 90,
+            "applicationDatabaseCalls": 120
           },
-          "elapsedMs": {
-            "p99": 5.6653,
-            "min": 4.1244,
-            "max": 5.6653,
-            "p95": 4.993,
-            "samples": 30,
-            "p50": 4.46
-          }
+          "windowEnd": "2026-10-28T14:36:03.755063800Z",
+          "windowStart": "2026-10-28T14:36:03.615849800Z"
         },
         "planner": {
-          "windowStart": "2026-10-25T11:37:43.605371700Z",
-          "windowEnd": "2026-10-25T11:37:43.607373Z",
+          "elapsedMs": {
+            "p99": 0.1603,
+            "p50": 0.1014,
+            "samples": 30,
+            "p95": 0.1544,
+            "max": 0.1603,
+            "min": 0.0567
+          },
           "observations": {
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "rollbacks": 0,
+            "connectionAcquisitions": 0,
             "acquisitionMs": {
               "unavailableReason": "NO_SAMPLES",
               "samples": 0
             },
-            "connectionAcquisitions": 0
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 0,
+            "applicationDatabaseCalls": 0
           },
-          "elapsedMs": {
-            "p99": 0.1662,
-            "min": 0.0622,
-            "max": 0.1662,
-            "p95": 0.1589,
-            "samples": 30,
-            "p50": 0.0908
-          }
+          "windowEnd": "2026-10-28T14:36:03.759150700Z",
+          "windowStart": "2026-10-28T14:36:03.755063800Z"
         },
         "scopedCandidateRead": {
-          "windowStart": "2026-10-25T11:37:43.701811600Z",
-          "windowEnd": "2026-10-25T11:37:44.094320400Z",
+          "elapsedMs": {
+            "p99": 24.5056,
+            "p50": 14.8124,
+            "samples": 30,
+            "p95": 23.7308,
+            "max": 24.5056,
+            "min": 11.7243
+          },
           "observations": {
-            "applicationDatabaseCalls": 90,
-            "jdbcExecuteCalls": 60,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0158,
+              "p50": 0.0085,
+              "samples": 30,
+              "p95": 0.0152,
+              "max": 0.0158,
+              "min": 0.0056
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.009,
-              "min": 0.0052,
-              "max": 0.009,
-              "p95": 0.0087,
-              "samples": 30,
-              "p50": 0.0067
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 60,
+            "applicationDatabaseCalls": 90
           },
-          "elapsedMs": {
-            "p99": 16.3154,
-            "min": 10.94,
-            "max": 16.3154,
-            "p95": 15.6888,
-            "samples": 30,
-            "p50": 12.7424
-          }
+          "windowEnd": "2026-10-28T14:36:04.332621800Z",
+          "windowStart": "2026-10-28T14:36:03.857236300Z"
         },
         "fifoCandidateReadReference": {
-          "windowStart": "2026-10-25T11:37:44.666136400Z",
-          "windowEnd": "2026-10-25T11:37:47.460435700Z",
+          "elapsedMs": {
+            "p99": 104.9143,
+            "p50": 96.7968,
+            "samples": 30,
+            "p95": 104.0771,
+            "max": 104.9143,
+            "min": 87.923
+          },
           "observations": {
-            "applicationDatabaseCalls": 4560,
-            "jdbcExecuteCalls": 4530,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0206,
+              "p50": 0.0094,
+              "samples": 30,
+              "p95": 0.0179,
+              "max": 0.0206,
+              "min": 0.0079
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0178,
-              "min": 0.0074,
-              "max": 0.0178,
-              "p95": 0.0148,
-              "samples": 30,
-              "p50": 0.009
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 4530,
+            "applicationDatabaseCalls": 4560
           },
-          "elapsedMs": {
-            "p99": 102.3914,
-            "min": 83.2622,
-            "max": 102.3914,
-            "p95": 100.6546,
-            "samples": 30,
-            "p50": 93.1173
-          }
+          "windowEnd": "2026-10-28T14:36:07.866172900Z",
+          "windowStart": "2026-10-28T14:36:04.953794300Z"
         },
         "claimRollback": {
-          "windowStart": "2026-10-25T11:37:47.516618600Z",
-          "windowEnd": "2026-10-25T11:37:47.739359900Z",
+          "elapsedMs": {
+            "p99": 10.2332,
+            "p50": 8.4331,
+            "samples": 30,
+            "p95": 10.2089,
+            "max": 10.2332,
+            "min": 7.3659
+          },
           "observations": {
-            "applicationDatabaseCalls": 330,
-            "jdbcExecuteCalls": 300,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0316,
+              "p50": 0.0042,
+              "samples": 30,
+              "p95": 0.0255,
+              "max": 0.0316,
+              "min": 0.0024
             },
             "rollbacks": 30,
-            "acquisitionMs": {
-              "p99": 0.0452,
-              "min": 0.0021,
-              "max": 0.0452,
-              "p95": 0.0325,
-              "samples": 30,
-              "p50": 0.0027
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 330,
+            "applicationDatabaseCalls": 360
           },
-          "elapsedMs": {
-            "p99": 8.1781,
-            "min": 6.7407,
-            "max": 8.1781,
-            "p95": 8.0894,
-            "samples": 30,
-            "p50": 7.3167
-          }
+          "windowEnd": "2026-10-28T14:36:08.203497Z",
+          "windowStart": "2026-10-28T14:36:07.941884600Z"
         },
         "scopedReturnedRows": 75,
         "fifoReturnedRows": 75
       },
-      "childrenPerStep": 100,
-      "name": "one-run-100"
+      "executions": 303,
+      "messages": 300,
+      "planStatus": "PLANNED",
+      "runs": 1,
+      "state": "ready",
+      "stepsPerRun": 3
     },
     {
-      "stepsPerRun": 3,
-      "state": "ready",
-      "runs": 32,
-      "planStatus": "PLANNED",
-      "messages": 960,
-      "executions": 1056,
+      "name": "32-runs-10",
+      "childrenPerStep": 10,
       "metrics": {
         "runDiscovery": {
-          "windowStart": "2026-10-25T11:37:49.656190200Z",
-          "windowEnd": "2026-10-25T11:37:49.725395500Z",
-          "observations": {
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.003,
-              "min": 0.0019,
-              "max": 0.003,
-              "p95": 0.0029,
-              "samples": 30,
-              "p50": 0.0021
-            },
-            "connectionAcquisitions": 30
-          },
           "elapsedMs": {
-            "p99": 2.7819,
-            "min": 2.0637,
-            "max": 2.7819,
-            "p95": 2.7541,
+            "p99": 3.4292,
+            "p50": 2.377,
             "samples": 30,
-            "p50": 2.2439
-          }
-        },
-        "snapshot": {
-          "windowStart": "2026-10-25T11:37:49.768409700Z",
-          "windowEnd": "2026-10-25T11:37:49.985676400Z",
+            "p95": 3.0707,
+            "max": 3.4292,
+            "min": 2.2252
+          },
           "observations": {
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0,
+            "connectionAcquisitions": 30,
             "acquisitionMs": {
               "p99": 0.0034,
-              "min": 0.0021,
-              "max": 0.0034,
-              "p95": 0.0032,
+              "p50": 0.0029,
               "samples": 30,
-              "p50": 0.0026
-            },
-            "connectionAcquisitions": 30
-          },
-          "elapsedMs": {
-            "p99": 8.2204,
-            "min": 6.2919,
-            "max": 8.2204,
-            "p95": 8.0317,
-            "samples": 30,
-            "p50": 7.1106
-          }
-        },
-        "planner": {
-          "windowStart": "2026-10-25T11:37:49.987263600Z",
-          "windowEnd": "2026-10-25T11:37:49.996960300Z",
-          "observations": {
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
+              "p95": 0.0033,
+              "max": 0.0034,
+              "min": 0.0023
             },
             "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "windowEnd": "2026-10-28T14:36:10.311537600Z",
+          "windowStart": "2026-10-28T14:36:10.237127900Z"
+        },
+        "snapshot": {
+          "elapsedMs": {
+            "p99": 10.0354,
+            "p50": 7.6512,
+            "samples": 30,
+            "p95": 9.8769,
+            "max": 10.0354,
+            "min": 7.0515
+          },
+          "observations": {
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0047,
+              "p50": 0.0032,
+              "samples": 30,
+              "p95": 0.0043,
+              "max": 0.0047,
+              "min": 0.0028
+            },
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 90,
+            "applicationDatabaseCalls": 120
+          },
+          "windowEnd": "2026-10-28T14:36:10.595142600Z",
+          "windowStart": "2026-10-28T14:36:10.357240800Z"
+        },
+        "planner": {
+          "elapsedMs": {
+            "p99": 0.5958,
+            "p50": 0.2929,
+            "samples": 30,
+            "p95": 0.5276,
+            "max": 0.5958,
+            "min": 0.1472
+          },
+          "observations": {
+            "connectionAcquisitions": 0,
             "acquisitionMs": {
               "unavailableReason": "NO_SAMPLES",
               "samples": 0
             },
-            "connectionAcquisitions": 0
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 0,
+            "applicationDatabaseCalls": 0
           },
-          "elapsedMs": {
-            "p99": 0.5657,
-            "min": 0.1673,
-            "max": 0.5657,
-            "p95": 0.4287,
-            "samples": 30,
-            "p50": 0.3137
-          }
+          "windowEnd": "2026-10-28T14:36:10.606858Z",
+          "windowStart": "2026-10-28T14:36:10.597155900Z"
         },
         "scopedCandidateRead": {
-          "windowStart": "2026-10-25T11:37:50.031690900Z",
-          "windowEnd": "2026-10-25T11:37:50.203907800Z",
+          "elapsedMs": {
+            "p99": 7.7764,
+            "p50": 6.4445,
+            "samples": 30,
+            "p95": 7.7563,
+            "max": 7.7764,
+            "min": 5.6378
+          },
           "observations": {
-            "applicationDatabaseCalls": 90,
-            "jdbcExecuteCalls": 60,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0052,
+              "p50": 0.0036,
+              "samples": 30,
+              "p95": 0.0047,
+              "max": 0.0052,
+              "min": 0.0028
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0033,
-              "min": 0.0021,
-              "max": 0.0033,
-              "p95": 0.0032,
-              "samples": 30,
-              "p50": 0.0027
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 60,
+            "applicationDatabaseCalls": 90
           },
-          "elapsedMs": {
-            "p99": 6.4457,
-            "min": 4.9416,
-            "max": 6.4457,
-            "p95": 6.2574,
-            "samples": 30,
-            "p50": 5.698
-          }
+          "windowEnd": "2026-10-28T14:36:10.845129700Z",
+          "windowStart": "2026-10-28T14:36:10.646191300Z"
         },
         "fifoCandidateReadReference": {
-          "windowStart": "2026-10-25T11:37:50.660175Z",
-          "windowEnd": "2026-10-25T11:37:53.092399600Z",
+          "elapsedMs": {
+            "p99": 95.2948,
+            "p50": 82.7576,
+            "samples": 30,
+            "p95": 93.1983,
+            "max": 95.2948,
+            "min": 76.4612
+          },
           "observations": {
-            "applicationDatabaseCalls": 4560,
-            "jdbcExecuteCalls": 4530,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0123,
+              "p50": 0.007,
+              "samples": 30,
+              "p95": 0.0109,
+              "max": 0.0123,
+              "min": 0.0058
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0089,
-              "min": 0.0052,
-              "max": 0.0089,
-              "p95": 0.008,
-              "samples": 30,
-              "p50": 0.0065
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 4530,
+            "applicationDatabaseCalls": 4560
           },
-          "elapsedMs": {
-            "p99": 90.0695,
-            "min": 74.901,
-            "max": 90.0695,
-            "p95": 89.2819,
-            "samples": 30,
-            "p50": 79.4383
-          }
+          "windowEnd": "2026-10-28T14:36:13.815572900Z",
+          "windowStart": "2026-10-28T14:36:11.320435800Z"
         },
         "claimRollback": {
-          "windowStart": "2026-10-25T11:37:53.131854600Z",
-          "windowEnd": "2026-10-25T11:37:53.325882900Z",
+          "elapsedMs": {
+            "p99": 10.6405,
+            "p50": 7.1193,
+            "samples": 30,
+            "p95": 7.862,
+            "max": 10.6405,
+            "min": 6.7725
+          },
           "observations": {
-            "applicationDatabaseCalls": 330,
-            "jdbcExecuteCalls": 300,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0076,
+              "p50": 0.0031,
+              "samples": 30,
+              "p95": 0.0052,
+              "max": 0.0076,
+              "min": 0.0026
             },
             "rollbacks": 30,
-            "acquisitionMs": {
-              "p99": 0.0051,
-              "min": 0.002,
-              "max": 0.0051,
-              "p95": 0.0037,
-              "samples": 30,
-              "p50": 0.0026
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 330,
+            "applicationDatabaseCalls": 360
           },
-          "elapsedMs": {
-            "p99": 7.411,
-            "min": 5.8854,
-            "max": 7.411,
-            "p95": 7.3311,
-            "samples": 30,
-            "p50": 6.4129
-          }
+          "windowEnd": "2026-10-28T14:36:14.081163400Z",
+          "windowStart": "2026-10-28T14:36:13.862866300Z"
         },
         "scopedReturnedRows": 10,
         "fifoReturnedRows": 75
       },
-      "childrenPerStep": 10,
-      "name": "32-runs-10"
+      "executions": 1056,
+      "messages": 960,
+      "planStatus": "PLANNED",
+      "runs": 32,
+      "state": "ready",
+      "stepsPerRun": 3
     },
     {
-      "stepsPerRun": 3,
-      "state": "join",
-      "runs": 1,
-      "planStatus": "PLANNED",
-      "messages": 60,
-      "executions": 63,
+      "name": "join-one-parent-success",
+      "childrenPerStep": 20,
       "metrics": {
         "runDiscovery": {
-          "windowStart": "2026-10-25T11:37:53.658019900Z",
-          "windowEnd": "2026-10-25T11:37:53.695346800Z",
+          "elapsedMs": {
+            "p99": 1.4314,
+            "p50": 1.0932,
+            "samples": 30,
+            "p95": 1.3261,
+            "max": 1.4314,
+            "min": 0.9535
+          },
           "observations": {
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0033,
+              "p50": 0.003,
+              "samples": 30,
+              "p95": 0.0033,
+              "max": 0.0033,
+              "min": 0.0023
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0034,
-              "min": 0.002,
-              "max": 0.0034,
-              "p95": 0.0029,
-              "samples": 30,
-              "p50": 0.0026
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 30,
+            "applicationDatabaseCalls": 60
           },
-          "elapsedMs": {
-            "p99": 1.5104,
-            "min": 1.0194,
-            "max": 1.5104,
-            "p95": 1.503,
-            "samples": 30,
-            "p50": 1.2189
-          }
+          "windowEnd": "2026-10-28T14:36:14.419791800Z",
+          "windowStart": "2026-10-28T14:36:14.385887Z"
         },
         "snapshot": {
-          "windowStart": "2026-10-25T11:37:53.713673600Z",
-          "windowEnd": "2026-10-25T11:37:53.822995100Z",
+          "elapsedMs": {
+            "p99": 4.016,
+            "p50": 3.4227,
+            "samples": 30,
+            "p95": 3.8593,
+            "max": 4.016,
+            "min": 3.1366
+          },
           "observations": {
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0054,
+              "p50": 0.0028,
+              "samples": 30,
+              "p95": 0.0033,
+              "max": 0.0054,
+              "min": 0.0022
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0031,
-              "min": 0.002,
-              "max": 0.0031,
-              "p95": 0.0031,
-              "samples": 30,
-              "p50": 0.0026
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 90,
+            "applicationDatabaseCalls": 120
           },
-          "elapsedMs": {
-            "p99": 4.0991,
-            "min": 3.3305,
-            "max": 4.0991,
-            "p95": 3.942,
-            "samples": 30,
-            "p50": 3.6144
-          }
+          "windowEnd": "2026-10-28T14:36:14.541957900Z",
+          "windowStart": "2026-10-28T14:36:14.438405400Z"
         },
         "planner": {
-          "windowStart": "2026-10-25T11:37:53.822995100Z",
-          "windowEnd": "2026-10-25T11:37:53.825517200Z",
+          "elapsedMs": {
+            "p99": 0.0502,
+            "p50": 0.0268,
+            "samples": 30,
+            "p95": 0.0485,
+            "max": 0.0502,
+            "min": 0.0251
+          },
           "observations": {
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "rollbacks": 0,
+            "connectionAcquisitions": 0,
             "acquisitionMs": {
               "unavailableReason": "NO_SAMPLES",
               "samples": 0
             },
-            "connectionAcquisitions": 0
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 0,
+            "applicationDatabaseCalls": 0
           },
-          "elapsedMs": {
-            "p99": 0.0855,
-            "min": 0.0187,
-            "max": 0.0855,
-            "p95": 0.0651,
-            "samples": 30,
-            "p50": 0.0392
-          }
+          "windowEnd": "2026-10-28T14:36:14.542963700Z",
+          "windowStart": "2026-10-28T14:36:14.541957900Z"
         },
         "scopedCandidateRead": {
-          "windowStart": "2026-10-25T11:37:53.847668500Z",
-          "windowEnd": "2026-10-25T11:37:53.961088500Z",
+          "elapsedMs": {
+            "p99": 4.8981,
+            "p50": 3.6585,
+            "samples": 30,
+            "p95": 4.8306,
+            "max": 4.8981,
+            "min": 3.2226
+          },
           "observations": {
-            "applicationDatabaseCalls": 90,
-            "jdbcExecuteCalls": 60,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0038,
+              "p50": 0.0031,
+              "samples": 30,
+              "p95": 0.0037,
+              "max": 0.0038,
+              "min": 0.0023
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.003,
-              "min": 0.0022,
-              "max": 0.003,
-              "p95": 0.003,
-              "samples": 30,
-              "p50": 0.0026
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 60,
+            "applicationDatabaseCalls": 90
           },
-          "elapsedMs": {
-            "p99": 4.7057,
-            "min": 2.9694,
-            "max": 4.7057,
-            "p95": 4.3329,
-            "samples": 30,
-            "p50": 3.7332
-          }
+          "windowEnd": "2026-10-28T14:36:14.680285Z",
+          "windowStart": "2026-10-28T14:36:14.565306400Z"
         },
         "fifoCandidateReadReference": {
-          "windowStart": "2026-10-25T11:37:54.265463900Z",
-          "windowEnd": "2026-10-25T11:37:56.044928700Z",
+          "elapsedMs": {
+            "p99": 64.1896,
+            "p50": 56.7423,
+            "samples": 30,
+            "p95": 63.0673,
+            "max": 64.1896,
+            "min": 54.1803
+          },
           "observations": {
-            "applicationDatabaseCalls": 3660,
-            "jdbcExecuteCalls": 3630,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0128,
+              "p50": 0.0049,
+              "samples": 30,
+              "p95": 0.008,
+              "max": 0.0128,
+              "min": 0.0028
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0124,
-              "min": 0.0053,
-              "max": 0.0124,
-              "p95": 0.008,
-              "samples": 30,
-              "p50": 0.0059
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 3630,
+            "applicationDatabaseCalls": 3660
           },
-          "elapsedMs": {
-            "p99": 63.0132,
-            "min": 57.4288,
-            "max": 63.0132,
-            "p95": 62.5869,
-            "samples": 30,
-            "p50": 58.9351
-          }
+          "windowEnd": "2026-10-28T14:36:16.710707200Z",
+          "windowStart": "2026-10-28T14:36:14.976011800Z"
         },
         "claimRollback": {
-          "windowStart": "2026-10-25T11:37:56.081445Z",
-          "windowEnd": "2026-10-25T11:37:56.263995Z",
+          "elapsedMs": {
+            "p99": 7.2498,
+            "p50": 6.4271,
+            "samples": 30,
+            "p95": 6.8764,
+            "max": 7.2498,
+            "min": 6.0221
+          },
           "observations": {
-            "applicationDatabaseCalls": 330,
-            "jdbcExecuteCalls": 300,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0048,
+              "p50": 0.0024,
+              "samples": 30,
+              "p95": 0.0032,
+              "max": 0.0048,
+              "min": 0.0023
             },
             "rollbacks": 30,
-            "acquisitionMs": {
-              "p99": 0.0028,
-              "min": 0.002,
-              "max": 0.0028,
-              "p95": 0.0027,
-              "samples": 30,
-              "p50": 0.0022
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 330,
+            "applicationDatabaseCalls": 360
           },
-          "elapsedMs": {
-            "p99": 6.5084,
-            "min": 5.7429,
-            "max": 6.5084,
-            "p95": 6.4528,
-            "samples": 30,
-            "p50": 6.0468
-          }
+          "windowEnd": "2026-10-28T14:36:16.941156300Z",
+          "windowStart": "2026-10-28T14:36:16.746808900Z"
         },
         "scopedReturnedRows": 20,
         "fifoReturnedRows": 60
       },
-      "childrenPerStep": 20,
-      "name": "join-one-parent-success"
-    },
-    {
-      "stepsPerRun": 3,
-      "state": "retry",
-      "runs": 1,
-      "planStatus": "WAIT",
-      "messages": 60,
       "executions": 63,
-      "metrics": {
-        "runDiscovery": {
-          "windowStart": "2026-10-25T11:37:56.506096300Z",
-          "windowEnd": "2026-10-25T11:37:56.535233200Z",
-          "observations": {
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.027,
-              "min": 0.0019,
-              "max": 0.027,
-              "p95": 0.0123,
-              "samples": 30,
-              "p50": 0.0025
-            },
-            "connectionAcquisitions": 30
-          },
-          "elapsedMs": {
-            "p99": 1.1618,
-            "min": 0.7817,
-            "max": 1.1618,
-            "p95": 1.1429,
-            "samples": 30,
-            "p50": 0.9185
-          }
-        },
-        "snapshot": {
-          "windowStart": "2026-10-25T11:37:56.553178100Z",
-          "windowEnd": "2026-10-25T11:37:56.660287200Z",
-          "observations": {
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0034,
-              "min": 0.0021,
-              "max": 0.0034,
-              "p95": 0.003,
-              "samples": 30,
-              "p50": 0.0022
-            },
-            "connectionAcquisitions": 30
-          },
-          "elapsedMs": {
-            "p99": 3.9607,
-            "min": 3.1116,
-            "max": 3.9607,
-            "p95": 3.9121,
-            "samples": 30,
-            "p50": 3.5933
-          }
-        },
-        "planner": {
-          "windowStart": "2026-10-25T11:37:56.660287200Z",
-          "windowEnd": "2026-10-25T11:37:56.660287200Z",
-          "observations": {
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "rollbacks": 0,
-            "acquisitionMs": {
-              "unavailableReason": "NO_SAMPLES",
-              "samples": 0
-            },
-            "connectionAcquisitions": 0
-          },
-          "elapsedMs": {
-            "p99": 0.0285,
-            "min": 0.0031,
-            "max": 0.0285,
-            "p95": 0.0092,
-            "samples": 30,
-            "p50": 0.0062
-          }
-        },
-        "claimRollback": {
-          "unavailableReason": "NO_ELIGIBLE_SELECTION",
-          "samples": 0
-        }
-      },
-      "childrenPerStep": 20,
-      "name": "retry-and-live-lease"
+      "messages": 60,
+      "planStatus": "PLANNED",
+      "runs": 1,
+      "state": "join",
+      "stepsPerRun": 3
     },
     {
-      "stepsPerRun": 3,
-      "state": "unknown",
-      "runs": 1,
-      "planStatus": "INCOMPLETE",
-      "messages": 0,
-      "executions": 0,
+      "name": "retry-and-live-lease",
+      "childrenPerStep": 20,
       "metrics": {
         "runDiscovery": {
-          "windowStart": "2026-10-25T11:37:56.733676600Z",
-          "windowEnd": "2026-10-25T11:37:56.763029500Z",
+          "elapsedMs": {
+            "p99": 1.0938,
+            "p50": 0.956,
+            "samples": 30,
+            "p95": 1.0567,
+            "max": 1.0938,
+            "min": 0.8606
+          },
           "observations": {
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0118,
+              "p50": 0.003,
+              "samples": 30,
+              "p95": 0.0099,
+              "max": 0.0118,
+              "min": 0.0024
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.0042,
-              "min": 0.002,
-              "max": 0.0042,
-              "p95": 0.0028,
-              "samples": 30,
-              "p50": 0.0021
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 30,
+            "applicationDatabaseCalls": 60
           },
-          "elapsedMs": {
-            "p99": 1.1414,
-            "min": 0.8792,
-            "max": 1.1414,
-            "p95": 1.089,
-            "samples": 30,
-            "p50": 0.9407
-          }
+          "windowEnd": "2026-10-28T14:36:17.214437300Z",
+          "windowStart": "2026-10-28T14:36:17.184917500Z"
         },
         "snapshot": {
-          "windowStart": "2026-10-25T11:37:56.780511900Z",
-          "windowEnd": "2026-10-25T11:37:56.880154500Z",
+          "elapsedMs": {
+            "p99": 4.257,
+            "p50": 3.7208,
+            "samples": 30,
+            "p95": 4.249,
+            "max": 4.257,
+            "min": 3.3062
+          },
           "observations": {
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
-            },
-            "rollbacks": 0,
+            "connectionAcquisitions": 30,
             "acquisitionMs": {
               "p99": 0.0031,
-              "min": 0.0021,
-              "max": 0.0031,
-              "p95": 0.0028,
+              "p50": 0.0029,
               "samples": 30,
-              "p50": 0.0021
-            },
-            "connectionAcquisitions": 30
-          },
-          "elapsedMs": {
-            "p99": 3.8238,
-            "min": 2.8315,
-            "max": 3.8238,
-            "p95": 3.6989,
-            "samples": 30,
-            "p50": 3.3029
-          }
-        },
-        "planner": {
-          "windowStart": "2026-10-25T11:37:56.880154500Z",
-          "windowEnd": "2026-10-25T11:37:56.880154500Z",
-          "observations": {
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
+              "p95": 0.0031,
+              "max": 0.0031,
+              "min": 0.0023
             },
             "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 90,
+            "applicationDatabaseCalls": 120
+          },
+          "windowEnd": "2026-10-28T14:36:17.346224100Z",
+          "windowStart": "2026-10-28T14:36:17.233041600Z"
+        },
+        "planner": {
+          "elapsedMs": {
+            "p99": 0.0228,
+            "p50": 0.0069,
+            "samples": 30,
+            "p95": 0.01,
+            "max": 0.0228,
+            "min": 0.0033
+          },
+          "observations": {
+            "connectionAcquisitions": 0,
             "acquisitionMs": {
               "unavailableReason": "NO_SAMPLES",
               "samples": 0
             },
-            "connectionAcquisitions": 0
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 0,
+            "applicationDatabaseCalls": 0
           },
-          "elapsedMs": {
-            "p99": 0.0218,
-            "min": 0.001,
-            "max": 0.0218,
-            "p95": 0.0036,
-            "samples": 30,
-            "p50": 0.0011
-          }
+          "windowEnd": "2026-10-28T14:36:17.346730500Z",
+          "windowStart": "2026-10-28T14:36:17.346224100Z"
         },
         "claimRollback": {
           "unavailableReason": "NO_ELIGIBLE_SELECTION",
           "samples": 0
         }
       },
-      "childrenPerStep": 0,
-      "name": "unknown-closure"
+      "executions": 63,
+      "messages": 60,
+      "planStatus": "WAIT",
+      "runs": 1,
+      "state": "retry",
+      "stepsPerRun": 3
     },
     {
-      "stepsPerRun": 3,
-      "state": "failed",
-      "runs": 1,
-      "planStatus": "WAIT",
-      "messages": 60,
-      "executions": 63,
+      "name": "unknown-closure",
+      "childrenPerStep": 0,
       "metrics": {
         "runDiscovery": {
-          "windowStart": "2026-10-25T11:37:57.059586800Z",
-          "windowEnd": "2026-10-25T11:37:57.096565700Z",
+          "elapsedMs": {
+            "p99": 21.6197,
+            "p50": 0.9552,
+            "samples": 30,
+            "p95": 1.5891,
+            "max": 21.6197,
+            "min": 0.8353
+          },
           "observations": {
-            "applicationDatabaseCalls": 60,
-            "jdbcExecuteCalls": 30,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0458,
+              "p50": 0.0029,
+              "samples": 30,
+              "p95": 0.003,
+              "max": 0.0458,
+              "min": 0.0023
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.005,
-              "min": 0.0021,
-              "max": 0.005,
-              "p95": 0.0034,
-              "samples": 30,
-              "p50": 0.0022
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 30,
+            "applicationDatabaseCalls": 60
           },
-          "elapsedMs": {
-            "p99": 1.673,
-            "min": 0.9623,
-            "max": 1.673,
-            "p95": 1.5009,
-            "samples": 30,
-            "p50": 1.1417
-          }
+          "windowEnd": "2026-10-28T14:36:17.474389400Z",
+          "windowStart": "2026-10-28T14:36:17.424342Z"
         },
         "snapshot": {
-          "windowStart": "2026-10-25T11:37:57.114223Z",
-          "windowEnd": "2026-10-25T11:37:57.221790800Z",
+          "elapsedMs": {
+            "p99": 3.6776,
+            "p50": 3.3005,
+            "samples": 30,
+            "p95": 3.5952,
+            "max": 3.6776,
+            "min": 3.0026
+          },
           "observations": {
-            "applicationDatabaseCalls": 120,
-            "jdbcExecuteCalls": 90,
-            "commits": 30,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 1,
-              "total": 10
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0033,
+              "p50": 0.0024,
+              "samples": 30,
+              "p95": 0.0032,
+              "max": 0.0033,
+              "min": 0.0022
             },
             "rollbacks": 0,
-            "acquisitionMs": {
-              "p99": 0.003,
-              "min": 0.002,
-              "max": 0.003,
-              "p95": 0.0029,
-              "samples": 30,
-              "p50": 0.0022
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
             },
-            "connectionAcquisitions": 30
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 90,
+            "applicationDatabaseCalls": 120
           },
-          "elapsedMs": {
-            "p99": 3.9739,
-            "min": 3.11,
-            "max": 3.9739,
-            "p95": 3.9471,
-            "samples": 30,
-            "p50": 3.5841
-          }
+          "windowEnd": "2026-10-28T14:36:17.591190500Z",
+          "windowStart": "2026-10-28T14:36:17.493030500Z"
         },
         "planner": {
-          "windowStart": "2026-10-25T11:37:57.221790800Z",
-          "windowEnd": "2026-10-25T11:37:57.221790800Z",
+          "elapsedMs": {
+            "p99": 0.0053,
+            "p50": 0.0022,
+            "samples": 30,
+            "p95": 0.003,
+            "max": 0.0053,
+            "min": 0.0018
+          },
           "observations": {
-            "applicationDatabaseCalls": 0,
-            "jdbcExecuteCalls": 0,
-            "commits": 0,
-            "poolNow": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "poolPeak": {
-              "idle": 10,
-              "waiting": 0,
-              "active": 0,
-              "total": 10
-            },
-            "rollbacks": 0,
+            "connectionAcquisitions": 0,
             "acquisitionMs": {
               "unavailableReason": "NO_SAMPLES",
               "samples": 0
             },
-            "connectionAcquisitions": 0
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 0,
+            "applicationDatabaseCalls": 0
           },
-          "elapsedMs": {
-            "p99": 0.0146,
-            "min": 0.0038,
-            "max": 0.0146,
-            "p95": 0.0054,
-            "samples": 30,
-            "p50": 0.0039
-          }
+          "windowEnd": "2026-10-28T14:36:17.592695900Z",
+          "windowStart": "2026-10-28T14:36:17.592695900Z"
         },
         "claimRollback": {
           "unavailableReason": "NO_ELIGIBLE_SELECTION",
           "samples": 0
         }
       },
+      "executions": 0,
+      "messages": 0,
+      "planStatus": "INCOMPLETE",
+      "runs": 1,
+      "state": "unknown",
+      "stepsPerRun": 3
+    },
+    {
+      "name": "failed-predecessor",
       "childrenPerStep": 20,
-      "name": "failed-predecessor"
+      "metrics": {
+        "runDiscovery": {
+          "elapsedMs": {
+            "p99": 1.2107,
+            "p50": 1.0464,
+            "samples": 30,
+            "p95": 1.1828,
+            "max": 1.2107,
+            "min": 0.9247
+          },
+          "observations": {
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0034,
+              "p50": 0.0024,
+              "samples": 30,
+              "p95": 0.0034,
+              "max": 0.0034,
+              "min": 0.0023
+            },
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 30,
+            "applicationDatabaseCalls": 60
+          },
+          "windowEnd": "2026-10-28T14:36:17.771635700Z",
+          "windowStart": "2026-10-28T14:36:17.740044Z"
+        },
+        "snapshot": {
+          "elapsedMs": {
+            "p99": 3.727,
+            "p50": 3.3429,
+            "samples": 30,
+            "p95": 3.5436,
+            "max": 3.727,
+            "min": 3.1448
+          },
+          "observations": {
+            "connectionAcquisitions": 30,
+            "acquisitionMs": {
+              "p99": 0.0033,
+              "p50": 0.0023,
+              "samples": 30,
+              "p95": 0.0033,
+              "max": 0.0033,
+              "min": 0.0022
+            },
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 1,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 30,
+            "jdbcExecuteCalls": 90,
+            "applicationDatabaseCalls": 120
+          },
+          "windowEnd": "2026-10-28T14:36:17.890140400Z",
+          "windowStart": "2026-10-28T14:36:17.788748800Z"
+        },
+        "planner": {
+          "elapsedMs": {
+            "p99": 0.0136,
+            "p50": 0.0073,
+            "samples": 30,
+            "p95": 0.0089,
+            "max": 0.0136,
+            "min": 0.0072
+          },
+          "observations": {
+            "connectionAcquisitions": 0,
+            "acquisitionMs": {
+              "unavailableReason": "NO_SAMPLES",
+              "samples": 0
+            },
+            "rollbacks": 0,
+            "poolPeak": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "poolNow": {
+              "total": 10,
+              "active": 0,
+              "waiting": 0,
+              "idle": 10
+            },
+            "commits": 0,
+            "jdbcExecuteCalls": 0,
+            "applicationDatabaseCalls": 0
+          },
+          "windowEnd": "2026-10-28T14:36:17.890140400Z",
+          "windowStart": "2026-10-28T14:36:17.890140400Z"
+        },
+        "claimRollback": {
+          "unavailableReason": "NO_ELIGIBLE_SELECTION",
+          "samples": 0
+        }
+      },
+      "executions": 63,
+      "messages": 60,
+      "planStatus": "WAIT",
+      "runs": 1,
+      "state": "failed",
+      "stepsPerRun": 3
     }
   ],
   "syntheticStages": {
     "tickMs": {
-      "p99": 792.3837,
-      "min": 3.4783,
-      "max": 792.3837,
-      "p95": 792.3837,
+      "p99": 789.3565,
+      "p50": 267.6749,
       "samples": 9,
-      "p50": 259.2275
+      "p95": 789.3565,
+      "max": 789.3565,
+      "min": 3.4442
     },
-    "statusCallMs": {
-      "p99": 12.3195,
-      "min": 5.2318,
-      "max": 29.1366,
-      "p95": 10.7352,
-      "samples": 300,
-      "p50": 6.8679
+    "counts": {
+      "syntheticChildStatusSuccess": 300,
+      "claimed": 300,
+      "offeredCandidates": 375,
+      "fakeBrokerAcknowledged": 300,
+      "registryVisited": 300,
+      "plannedQuota": 300
     },
-    "throughputPerSecond": {
-      "fakePublish": 56.339899817516944,
-      "syntheticStatus": 56.339899817516944
-    },
+    "elapsedSeconds": 5.2986811,
+    "windowStart": "2026-10-28T14:36:18.345647800Z",
+    "windowEnd": "2026-10-28T14:36:23.648857200Z",
     "observations": {
-      "applicationDatabaseCalls": 6404,
-      "jdbcExecuteCalls": 5171,
-      "commits": 1233,
-      "poolNow": {
-        "idle": 10,
-        "waiting": 0,
-        "active": 0,
-        "total": 10
-      },
-      "poolPeak": {
-        "idle": 10,
-        "waiting": 0,
-        "active": 1,
-        "total": 10
+      "connectionAcquisitions": 1236,
+      "acquisitionMs": {
+        "p99": 0.0054,
+        "p50": 0.0032,
+        "samples": 1236,
+        "p95": 0.0037,
+        "max": 0.0178,
+        "min": 0.0021
       },
       "rollbacks": 0,
-      "acquisitionMs": {
-        "p99": 0.0063,
-        "min": 0.002,
-        "max": 0.0769,
-        "p95": 0.0039,
-        "samples": 1236,
-        "p50": 0.0029
+      "poolPeak": {
+        "total": 10,
+        "active": 1,
+        "waiting": 0,
+        "idle": 10
       },
-      "connectionAcquisitions": 1236
+      "poolNow": {
+        "total": 10,
+        "active": 0,
+        "waiting": 0,
+        "idle": 10
+      },
+      "commits": 1233,
+      "jdbcExecuteCalls": 5471,
+      "applicationDatabaseCalls": 6704
     },
-    "windowEnd": "2026-10-25T11:38:03.025503100Z",
-    "windowStart": "2026-10-25T11:37:57.695688300Z",
-    "elapsedSeconds": 5.3248231,
-    "counts": {
-      "plannedQuota": 300,
-      "registryVisited": 300,
-      "fakeBrokerAcknowledged": 300,
-      "offeredCandidates": 375,
-      "claimed": 300,
-      "syntheticChildStatusSuccess": 300
+    "throughputPerSecond": {
+      "syntheticStatus": 56.61786288667194,
+      "fakePublish": 56.61786288667194
+    },
+    "statusCallMs": {
+      "p99": 11.8167,
+      "p50": 6.7645,
+      "samples": 300,
+      "p95": 9.6157,
+      "max": 22.9772,
+      "min": 5.2113
     }
   },
   "controlledPoolPressure": {
-    "label": "controlled saturation, not normal workload",
-    "workers": 4,
-    "heldPoolSlots": 10,
-    "minimumHoldAfterObservedWaitMs": 30,
+    "snapshotMs": {
+      "p99": 77.7944,
+      "p50": 68.4056,
+      "samples": 4,
+      "p95": 77.7944,
+      "max": 77.7944,
+      "min": 63.6461
+    },
     "observations": {
-      "applicationDatabaseCalls": 17,
-      "jdbcExecuteCalls": 13,
-      "commits": 4,
-      "poolNow": {
-        "idle": 10,
-        "waiting": 0,
-        "active": 0,
-        "total": 10
-      },
-      "poolPeak": {
-        "idle": 10,
-        "waiting": 3,
-        "active": 10,
-        "total": 10
+      "connectionAcquisitions": 15,
+      "acquisitionMs": {
+        "p99": 72.3868,
+        "p50": 0.4363,
+        "samples": 15,
+        "p95": 72.3868,
+        "max": 72.3868,
+        "min": 0.0035
       },
       "rollbacks": 0,
-      "acquisitionMs": {
-        "p99": 81.4047,
-        "min": 0.0029,
-        "max": 81.4047,
-        "p95": 81.4047,
-        "samples": 15,
-        "p50": 0.4629
+      "poolPeak": {
+        "total": 10,
+        "active": 10,
+        "waiting": 3,
+        "idle": 10
       },
-      "connectionAcquisitions": 15
+      "poolNow": {
+        "total": 10,
+        "active": 0,
+        "waiting": 0,
+        "idle": 10
+      },
+      "commits": 4,
+      "jdbcExecuteCalls": 13,
+      "applicationDatabaseCalls": 17
     },
-    "snapshotMs": {
-      "p99": 88.2205,
-      "min": 68.6124,
-      "max": 88.2205,
-      "p95": 88.2205,
-      "samples": 4,
-      "p50": 75.4549
-    }
+    "minimumHoldAfterObservedWaitMs": 30,
+    "heldPoolSlots": 10,
+    "workers": 4,
+    "label": "controlled saturation, not normal workload"
   },
   "sourceSha256": {
     "apps/core/src/test/java/com/omni/platform/JobRunDispatchBenchmarkPostgresTest.java": "62e7b8f128bb1cb3510450a5b43721a263b8f8a63fbdab5118f44188f2117f96",
@@ -1251,9 +1251,9 @@
     "apps/core/src/test/java/com/omni/platform/PlatformStartupPostgresTest.java": "67590310fa375b1e3da1c009b432dcf3104c7e976455fc76a5f2b50ca0f7ff9a",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshotReader.java": "101e9a105b669f0fdc7a757e2b4e3b8e185429169b37f47dab66d7ea1ade1180",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchPlanner.java": "23472d562325917f2710650f793e86b18fe44ce17a1c07237259257631a49d1e",
-    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchStore.java": "112202acc1d8308a1481c5d65c9f21783b32cfd68b875e8b7329dd78aab6716b",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchStore.java": "ef4b56edac5bdd20081303e40e8e5bdd7920e611ffd76934f7eee7a06db20cc5",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchCoordinator.java": "e8c1aed908cdd6d2c4876655330256d98fd31efbf94d85086aa56d3fde0cbba5",
-    "apps/core/src/main/java/com/omni/platform/modules/scheduler/services/SchedulerOutboxService.java": "5a6933afb0ae5128c67348c695057b2b1ff9677d6bdf4c716140f39b57c637a5",
+    "apps/core/src/main/java/com/omni/platform/modules/scheduler/services/SchedulerOutboxService.java": "101caa5be900ad794fd93dc87f7f90e1ee61604a48984bdcf0b00e2c89deec0f",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/repositories/SchedulerOutboxRepositoryImpl.java": "4fd4202d505848a6b4a10492b88a3b42015fc2b680ba54806e6eea0863d4e2c6",
     "database/diagnostics/p14/v1/run_steps.sql": "62cf6860b424fbf312157f312661a7a7dfeaefac3ea0039c53f3d28867361cfe",
     "database/diagnostics/p14/v1/legacy_outbox_inventory.sql": "5a0af0b7d1a0bd08b44ef6747746d3ec296a0a7553c7322f73f42189a4211577"
@@ -1266,7 +1266,7 @@
     "Claim timings include rollback; mutating EXPLAIN is restricted to this disposable rollback fixture",
     "No performance pass/fail threshold, index forcing, new runtime metrics, preparation activation or retained data access"
   ],
-  "unchangedMeasuredProductionSha256": {
+  "measuredProductionSha256": {
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/SchedulerOutboxDispatcher.java": "ed3b63fd742f0dca3ac2956685de727962934bebe19f67d44d5f66e21dc13b43",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java": "31fcbc873414568b6b85065c79c060ce49f3340634a60aed6e3847497595e1e6",
     "apps/core/src/main/java/com/omni/platform/modules/scheduler/planning/JobRunDispatchSnapshot.java": "2fdb9a73fc67e804fe813e022255e78c3f2cb2fc0bef1fab8d7634cfeb0c341a"
@@ -1274,8 +1274,8 @@
   "queryPlanSummaries": [
     {
       "name": "32-runs-10-claim-update-explain",
-      "planningMs": 0.053,
-      "executionMs": 0.148,
+      "planningMs": 0.049,
+      "executionMs": 0.131,
       "rootActualRows": 0,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 22,
@@ -1286,8 +1286,8 @@
     },
     {
       "name": "32-runs-10-diagnostic-explain",
-      "planningMs": 2.261,
-      "executionMs": 29.764,
+      "planningMs": 2.408,
+      "executionMs": 26.372,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 3718,
@@ -1316,11 +1316,11 @@
     },
     {
       "name": "32-runs-10-fifo-explain",
-      "planningMs": 0.091,
-      "executionMs": 0.077,
+      "planningMs": 0.064,
+      "executionMs": 0.07,
       "rootActualRows": 75,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 21,
+      "rootSharedHitBlocks": 19,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit"],
       "indexes": ["idx_scheduler_outbox_dispatch"],
@@ -1328,11 +1328,11 @@
     },
     {
       "name": "32-runs-10-inventory-explain",
-      "planningMs": 0.799,
-      "executionMs": 15.793,
+      "planningMs": 1.046,
+      "executionMs": 17.982,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 700,
+      "rootSharedHitBlocks": 701,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1352,11 +1352,11 @@
     },
     {
       "name": "32-runs-10-scoped-explain",
-      "planningMs": 0.217,
-      "executionMs": 2.814,
+      "planningMs": 0.262,
+      "executionMs": 3.987,
       "rootActualRows": 10,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 3259,
+      "rootSharedHitBlocks": 3262,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
       "indexes": [
@@ -1368,8 +1368,8 @@
     },
     {
       "name": "32-runs-10-snapshot-explain",
-      "planningMs": 0.53,
-      "executionMs": 4.23,
+      "planningMs": 0.714,
+      "executionMs": 3.952,
       "rootActualRows": 96,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 3715,
@@ -1394,8 +1394,8 @@
     },
     {
       "name": "failed-predecessor-diagnostic-explain",
-      "planningMs": 2.056,
-      "executionMs": 2.884,
+      "planningMs": 2.113,
+      "executionMs": 2.955,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 143,
@@ -1424,11 +1424,11 @@
     },
     {
       "name": "failed-predecessor-inventory-explain",
-      "planningMs": 0.66,
-      "executionMs": 7.594,
+      "planningMs": 0.536,
+      "executionMs": 9.385,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 278,
+      "rootSharedHitBlocks": 275,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1448,7 +1448,7 @@
     },
     {
       "name": "join-one-parent-success-claim-update-explain",
-      "planningMs": 0.056,
+      "planningMs": 0.049,
       "executionMs": 0.111,
       "rootActualRows": 0,
       "rootActualLoops": 1,
@@ -1460,8 +1460,8 @@
     },
     {
       "name": "join-one-parent-success-diagnostic-explain",
-      "planningMs": 2.188,
-      "executionMs": 2.888,
+      "planningMs": 1.925,
+      "executionMs": 2.725,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 145,
@@ -1491,10 +1491,10 @@
     {
       "name": "join-one-parent-success-fifo-explain",
       "planningMs": 0.061,
-      "executionMs": 0.066,
+      "executionMs": 0.068,
       "rootActualRows": 60,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 32,
+      "rootSharedHitBlocks": 39,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit"],
       "indexes": ["idx_scheduler_outbox_dispatch"],
@@ -1502,11 +1502,11 @@
     },
     {
       "name": "join-one-parent-success-inventory-explain",
-      "planningMs": 0.596,
-      "executionMs": 8.209,
+      "planningMs": 0.567,
+      "executionMs": 7.755,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 272,
+      "rootSharedHitBlocks": 279,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1526,11 +1526,11 @@
     },
     {
       "name": "join-one-parent-success-scoped-explain",
-      "planningMs": 0.197,
-      "executionMs": 0.388,
+      "planningMs": 0.193,
+      "executionMs": 0.385,
       "rootActualRows": 20,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 246,
+      "rootSharedHitBlocks": 253,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
       "indexes": [
@@ -1542,8 +1542,8 @@
     },
     {
       "name": "join-one-parent-success-snapshot-explain",
-      "planningMs": 0.427,
-      "executionMs": 0.473,
+      "planningMs": 0.393,
+      "executionMs": 0.587,
       "rootActualRows": 3,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 149,
@@ -1567,8 +1567,8 @@
     },
     {
       "name": "one-run-100-claim-update-explain",
-      "planningMs": 0.05,
-      "executionMs": 0.124,
+      "planningMs": 0.059,
+      "executionMs": 0.136,
       "rootActualRows": 0,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 19,
@@ -1579,8 +1579,8 @@
     },
     {
       "name": "one-run-100-diagnostic-explain",
-      "planningMs": 3.842,
-      "executionMs": 3.504,
+      "planningMs": 3.026,
+      "executionMs": 3.897,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 942,
@@ -1609,11 +1609,11 @@
     },
     {
       "name": "one-run-100-fifo-explain",
-      "planningMs": 0.062,
-      "executionMs": 0.079,
+      "planningMs": 0.069,
+      "executionMs": 0.078,
       "rootActualRows": 75,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 72,
+      "rootSharedHitBlocks": 70,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit"],
       "indexes": ["idx_scheduler_outbox_dispatch"],
@@ -1621,11 +1621,11 @@
     },
     {
       "name": "one-run-100-inventory-explain",
-      "planningMs": 1.143,
-      "executionMs": 16.929,
+      "planningMs": 1.139,
+      "executionMs": 19.251,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 698,
+      "rootSharedHitBlocks": 695,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1645,11 +1645,11 @@
     },
     {
       "name": "one-run-100-scoped-explain",
-      "planningMs": 0.343,
-      "executionMs": 3.12,
+      "planningMs": 0.309,
+      "executionMs": 3.212,
       "rootActualRows": 75,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 1269,
+      "rootSharedHitBlocks": 1364,
       "rootSharedReadBlocks": 0,
       "nodeTypes": ["Index Scan", "Limit", "Nested Loop"],
       "indexes": [
@@ -1661,8 +1661,8 @@
     },
     {
       "name": "one-run-100-snapshot-explain",
-      "planningMs": 0.794,
-      "executionMs": 1.586,
+      "planningMs": 0.609,
+      "executionMs": 1.176,
       "rootActualRows": 3,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 946,
@@ -1686,8 +1686,8 @@
     },
     {
       "name": "retry-and-live-lease-diagnostic-explain",
-      "planningMs": 1.988,
-      "executionMs": 2.694,
+      "planningMs": 2.195,
+      "executionMs": 2.85,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 143,
@@ -1716,11 +1716,11 @@
     },
     {
       "name": "retry-and-live-lease-inventory-explain",
-      "planningMs": 0.565,
-      "executionMs": 8.028,
+      "planningMs": 0.582,
+      "executionMs": 7.815,
       "rootActualRows": 1,
       "rootActualLoops": 1,
-      "rootSharedHitBlocks": 360,
+      "rootSharedHitBlocks": 359,
       "rootSharedReadBlocks": 0,
       "nodeTypes": [
         "Aggregate",
@@ -1740,8 +1740,8 @@
     },
     {
       "name": "unknown-closure-diagnostic-explain",
-      "planningMs": 2.303,
-      "executionMs": 2.619,
+      "planningMs": 1.979,
+      "executionMs": 2.522,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 15,
@@ -1770,8 +1770,8 @@
     },
     {
       "name": "unknown-closure-inventory-explain",
-      "planningMs": 0.553,
-      "executionMs": 0.438,
+      "planningMs": 0.564,
+      "executionMs": 0.307,
       "rootActualRows": 1,
       "rootActualLoops": 1,
       "rootSharedHitBlocks": 1,

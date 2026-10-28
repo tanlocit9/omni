@@ -97,3 +97,16 @@ worker contract or runtime configuration is added. Remove the diagnostic client
 session to stop using the pack; no data rollback is needed. Do not edit applied
 migrations, fabricate execution SUCCESS or infer dataVersion/lineage from these
 observations. Physical history deletion and compatibility retirement belong to I7.
+
+## I7 cutover boundary
+
+legacy_outbox_inventory.sql remains the read-only pre/post-cutover inventory.
+It can inspect V14 historical aliases/poison rows; V15 validates the entire
+population, normalizes only valid aliases and rejects malformed/unresolved or
+conflicting identity and projected collisions atomically. CURRENT_IDENTITY alone
+does not validate every parent/definition field. The new identity trigger blocks
+recreation of poison/missing/mismatching execution IDs. Application candidate
+readers resolve only the actual work FK after V15; active NULL-JobRun work remains.
+Follow the [authorized deployment procedure](../../../../docs/deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7).
+SQL fixtures deliberately covering old poison data target V14; normal runtime
+regressions and actual post-upgrade services exercise V15 without disabling guards.

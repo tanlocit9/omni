@@ -78,3 +78,49 @@ Future symbol producers, shared-work coalescing and date-range backfill require
 their own supported-scope/rollout decision. I5's local diagnostic/benchmark
 artifacts are available above; operator read-model presentation remains I6 and
 Plan 029 work. They do not authorize retained-data migration or activation.
+
+### V15 legacy outbox identity cutover (P14-I7)
+
+The new Platform artifact requires V15 before its strict candidate reader runs.
+Flyway applies it at startup only after the operator completes these prerequisites.
+Local test success does not authorize applying it to a retained database.
+
+1. Inventory every page of the [legacy outbox query](../../database/diagnostics/p14/v1/legacy_outbox_inventory.sql)
+   across PENDING/PUBLISHED/BLOCKED and active/expired leases. Reconcile the whole
+   population under a stable writer boundary, not merely one zero-alias page.
+   Inventory CURRENT_IDENTITY proves the FK matches the payload ID only; V15 also
+   validates parent/definition identity. Resolve malformed, missing, ambiguous or
+   conflicting identities through a separately reviewed data repair before cutover.
+2. Drain claims and stop affected Platform instances, schedulers and status writers.
+   Confirm no incompatible old binary or external execution/outbox writer remains.
+   Kafka status delivery may wait durably while Platform is stopped; do not reset
+   offsets or replay published work. Validate a database backup and restore procedure
+   covering schema history, outbox, executions and frozen JobRun membership.
+3. Apply the reviewed artifact/migration only with retained-environment authorization.
+   V15 takes execution/outbox table locks with a five-second lock timeout. Locks are
+   a second line of defense, not a replacement for writer quiescence. The migration
+   validates all rows and projected `(execution_id,message_index)` keys before
+   changing only alias execution_id values. It preserves payload/key/topic, IDs,
+   status, attempts, availability, leases/tokens/owners, audit timestamps, metadata
+   and all execution/JobRun relationships. Existing membership guards stay enabled.
+4. On error, stop deployment. PostgreSQL/Flyway roll back the V15 transaction,
+   including its new guard. Errors name the first affected message/reason or
+   projected collision key without logging raw payloads. Do not delete/quarantine
+   rows, disable guards, run Flyway repair, rewrite V1–V14 or reset delivery state
+   to force progress. Fix the stated precondition under a reviewed recovery action
+   and retry the same forward migration after quiescence.
+5. Before resuming, reconcile every message against its payload execution ID and
+   verify zero remaining aliases, unchanged row/ID counts and preserved delivery/
+   lease/history fields against the backup/inventory. The new trigger rejects
+   INSERT or payload/FK updates with missing, poison or mismatching execution IDs.
+   Ordinary lease/retry/ack/status updates still work. Verify canonical NULL-JobRun
+   and JobRun admission, exact approved-input metadata on the work child, fenced
+   retry/ack and child status/parent aggregation; do not infer dataset READY.
+6. Resume only the reviewed compatible writers. Binary rollback must keep canonical
+   child FKs and the V15 guard; validate the selected artifact's reader/writer contract
+   first. A full pre-V15 restore requires separate approval, stopped writers and a
+   verified compatible artifact. Never restore parent aliases into a running V15
+   deployment, fabricate SUCCESS, reset attempts or republish historical messages.
+
+Physical history purging, retained migration execution and preparation activation
+remain separate owner-authorized operations. This procedure adds no new runtime flag.

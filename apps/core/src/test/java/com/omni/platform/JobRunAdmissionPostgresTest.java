@@ -184,8 +184,9 @@ class JobRunAdmissionPostgresTest {
                 legacy,
                 a.definitionId());
         jdbc.update(
-                "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test','{}',?)",
+                "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test',?,?)",
                 legacy,
+                "{\"executionId\":\"" + legacy + "\"}",
                 java.sql.Timestamp.from(NOW));
         assertThat(store.findLegacyCandidates(NOW, 10))
                 .singleElement()
@@ -553,17 +554,23 @@ class JobRunAdmissionPostgresTest {
                 definition);
         UUID id = UUID.randomUUID();
         jdbc.update(
-                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test','{}',?)",
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test',?,?)",
                 id,
                 history,
+                "{\"executionId\":\"" + history + "\"}",
                 java.sql.Timestamp.from(NOW));
         assertThat(store.findFallbackCandidates(NOW, null, 10).candidates())
                 .anyMatch(candidate -> candidate.selection() == null);
         UUID poison = UUID.randomUUID();
         jdbc.update(
-                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,1,'test','{',?)",
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,1,'test',?,?)",
                 poison,
                 history,
+                "{\"executionId\":\""
+                        + history
+                        + "\",\"parentExecutionId\":\""
+                        + UUID.randomUUID()
+                        + "\"}",
                 java.sql.Timestamp.from(NOW.minusSeconds(1)));
         var skipped = store.findFallbackCandidates(NOW, null, 1);
         assertThat(skipped.candidates()).isEmpty();
@@ -645,9 +652,10 @@ class JobRunAdmissionPostgresTest {
                 history,
                 definition);
         jdbc.update(
-                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test','{}',?)",
+                "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test',?,?)",
                 legacyId,
                 history,
+                "{\"executionId\":\"" + history + "\"}",
                 java.sql.Timestamp.from(NOW));
         var kafka =
                 org.mockito.Mockito.mock(
@@ -812,7 +820,7 @@ class JobRunAdmissionPostgresTest {
     }
 
     @Test
-    void legacyChildStatusCanFinishWhileApprovedInputAdmissionSkipsItsBusyWorkRow()
+    void normalizedChildStatusCanFinishWhileApprovedInputAdmissionSkipsItsBusyWorkRow()
             throws Exception {
         UUID definition =
                 jdbc.queryForObject(
@@ -837,7 +845,7 @@ class JobRunAdmissionPostgresTest {
         jdbc.update(
                 "INSERT INTO scheduler_outbox_messages(id,execution_id,message_index,topic,payload,available_at) VALUES (?,?,0,'test',?,?)",
                 message,
-                parent,
+                child,
                 payload,
                 java.sql.Timestamp.from(NOW));
         var locked = new CountDownLatch(1);

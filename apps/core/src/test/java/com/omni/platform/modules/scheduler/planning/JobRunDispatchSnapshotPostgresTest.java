@@ -469,14 +469,20 @@ class JobRunDispatchSnapshotPostgresTest {
                                             childMeta,
                                             "RUNNING");
                                     jdbc.update(
-                                            "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test','{}',?)",
+                                            "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test',?,?)",
                                             execution,
+                                            "{\"executionId\":\""
+                                                    + execution
+                                                    + "\",\"parentExecutionId\":\""
+                                                    + parent
+                                                    + "\"}",
                                             java.sql.Timestamp.from(NOW));
                                 }
                                 if (directRoot) {
                                     jdbc.update(
-                                            "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test','{}',?)",
+                                            "INSERT INTO scheduler_outbox_messages(execution_id,message_index,topic,payload,available_at) VALUES (?,0,'test',?,?)",
                                             parent,
+                                            "{\"executionId\":\"" + parent + "\"}",
                                             java.sql.Timestamp.from(NOW));
                                 }
                                 jdbc.update(

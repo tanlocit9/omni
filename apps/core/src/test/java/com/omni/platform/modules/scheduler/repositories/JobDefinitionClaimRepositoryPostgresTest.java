@@ -43,26 +43,29 @@ import com.omni.platform.modules.scheduler.services.JobService;
 import jakarta.persistence.EntityManager;
 
 @Testcontainers
-@SpringBootTest(properties = {
-        "spring.flyway.enabled=true",
-        "spring.flyway.locations=filesystem:../../database/migrations",
-        "spring.jpa.hibernate.ddl-auto=none",
-        "app.seed.job-definitions.enabled=false",
-        "app.scheduler.instance-id=postgres-claim-test",
-        "app.scheduler.claim.lease-duration=PT2M",
-        "app.scheduler.claim.batch-size=10"
-})
+@SpringBootTest(
+        properties = {
+            "spring.flyway.enabled=true",
+            "spring.flyway.locations=filesystem:../../database/migrations",
+            "spring.jpa.hibernate.ddl-auto=none",
+            "app.seed.job-definitions.enabled=false",
+            "app.scheduler.instance-id=postgres-claim-test",
+            "app.scheduler.claim.lease-duration=PT2M",
+            "app.scheduler.claim.batch-size=10"
+        })
 class JobDefinitionClaimRepositoryPostgresTest {
 
-    private static final Logger LOG = LoggerFactory.getLogger(JobDefinitionClaimRepositoryPostgresTest.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(JobDefinitionClaimRepositoryPostgresTest.class);
     private static final Instant NOW = Instant.parse("2026-08-11T15:00:00Z");
     private static final Duration LEASE_DURATION = Duration.ofMinutes(2);
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("omni_claim_test")
-            .withUsername("postgres")
-            .withPassword("postgres");
+    static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("omni_claim_test")
+                    .withUsername("postgres")
+                    .withPassword("postgres");
 
     @DynamicPropertySource
     static void postgresProperties(DynamicPropertyRegistry registry) {
@@ -72,36 +75,38 @@ class JobDefinitionClaimRepositoryPostgresTest {
         registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
     }
 
-    @Autowired
-    private JobDefinitionRepository repository;
+    @Autowired private JobDefinitionRepository repository;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    @Autowired private PlatformTransactionManager transactionManager;
 
-    @Autowired
-    private EntityManager entityManager;
+    @Autowired private EntityManager entityManager;
 
-    @Autowired
-    private JobExecutionHistoryRepository executionRepository;
+    @Autowired private JobExecutionHistoryRepository executionRepository;
 
-    @Autowired
-    private SchedulerOutboxRepository outboxRepository;
+    @Autowired private SchedulerOutboxRepository outboxRepository;
 
-    @Autowired
-    private JobService jobService;
+    @Autowired private JobService jobService;
 
     @BeforeEach
     void logBlockedJobsSchema() {
         @SuppressWarnings("unchecked")
-        List<String> columns = entityManager.createNativeQuery("""
+        List<String> columns =
+                entityManager
+                        .createNativeQuery(
+                                """
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_schema = current_schema()
                   AND table_name = 'blocked_jobs'
                 ORDER BY ordinal_position
-                """, String.class).getResultList();
-        LOG.info("Diagnostic blocked_jobs columns in schema {}: {}",
-                entityManager.createNativeQuery("SELECT current_schema()", String.class).getSingleResult(),
+                """,
+                                String.class)
+                        .getResultList();
+        LOG.info(
+                "Diagnostic blocked_jobs columns in schema {}: {}",
+                entityManager
+                        .createNativeQuery("SELECT current_schema()", String.class)
+                        .getSingleResult(),
                 columns);
     }
 
@@ -121,8 +126,10 @@ class JobDefinitionClaimRepositoryPostgresTest {
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
 
-        Future<List<SchedulerClaim>> first = executor.submit(() -> claimAfterSignal(tx, ready, start, "core-a", 1));
-        Future<List<SchedulerClaim>> second = executor.submit(() -> claimAfterSignal(tx, ready, start, "core-b", 1));
+        Future<List<SchedulerClaim>> first =
+                executor.submit(() -> claimAfterSignal(tx, ready, start, "core-a", 1));
+        Future<List<SchedulerClaim>> second =
+                executor.submit(() -> claimAfterSignal(tx, ready, start, "core-b", 1));
 
         assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
         start.countDown();
@@ -137,7 +144,8 @@ class JobDefinitionClaimRepositoryPostgresTest {
     }
 
     @Test
-    @DisplayName("SKIP LOCKED lets a concurrent transaction claim a different due row without blocking")
+    @DisplayName(
+            "SKIP LOCKED lets a concurrent transaction claim a different due row without blocking")
     void skipLockedClaimsDifferentDueRow() throws Exception {
         JobDefinition firstJob = saveJob("due first", true, NOW.minusSeconds(120));
         JobDefinition secondJob = saveJob("due second", true, NOW.minusSeconds(60));
@@ -146,25 +154,42 @@ class JobDefinitionClaimRepositoryPostgresTest {
         CountDownLatch allowCommit = new CountDownLatch(1);
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        Future<List<SchedulerClaim>> first = executor.submit(() -> tx.execute(status -> {
-            List<SchedulerClaim> claims = repository.claimDueJobs(NOW, "core-a", LEASE_DURATION, 1);
-            firstClaimed.countDown();
-            await(allowCommit);
-            return claims;
-        }));
+        Future<List<SchedulerClaim>> first =
+                executor.submit(
+                        () ->
+                                tx.execute(
+                                        status -> {
+                                            List<SchedulerClaim> claims =
+                                                    repository.claimDueJobs(
+                                                            NOW, "core-a", LEASE_DURATION, 1);
+                                            firstClaimed.countDown();
+                                            await(allowCommit);
+                                            return claims;
+                                        }));
 
         assertThat(firstClaimed.await(10, TimeUnit.SECONDS)).isTrue();
 
-        Future<List<SchedulerClaim>> second = executor.submit(() -> tx.execute(status ->
-                repository.claimDueJobs(NOW, "core-b", LEASE_DURATION, 1)));
+        Future<List<SchedulerClaim>> second =
+                executor.submit(
+                        () ->
+                                tx.execute(
+                                        status ->
+                                                repository.claimDueJobs(
+                                                        NOW, "core-b", LEASE_DURATION, 1)));
 
         List<SchedulerClaim> secondClaims = second.get(10, TimeUnit.SECONDS);
         allowCommit.countDown();
         List<SchedulerClaim> firstClaims = first.get(10, TimeUnit.SECONDS);
         executor.shutdownNow();
 
-        assertThat(firstClaims).singleElement().extracting(SchedulerClaim::jobDefinitionId).isEqualTo(firstJob.getId());
-        assertThat(secondClaims).singleElement().extracting(SchedulerClaim::jobDefinitionId).isEqualTo(secondJob.getId());
+        assertThat(firstClaims)
+                .singleElement()
+                .extracting(SchedulerClaim::jobDefinitionId)
+                .isEqualTo(firstJob.getId());
+        assertThat(secondClaims)
+                .singleElement()
+                .extracting(SchedulerClaim::jobDefinitionId)
+                .isEqualTo(secondJob.getId());
     }
 
     @Test
@@ -181,7 +206,8 @@ class JobDefinitionClaimRepositoryPostgresTest {
 
         assertThat(claims)
                 .extracting(SchedulerClaim::jobDefinitionId)
-                .containsExactlyInAnyOrder(activeNull.getId(), activePast.getId(), activeEqual.getId());
+                .containsExactlyInAnyOrder(
+                        activeNull.getId(), activePast.getId(), activeEqual.getId());
         assertThat(claims)
                 .extracting(SchedulerClaim::jobDefinitionId)
                 .doesNotContain(activeFuture.getId(), inactivePast.getId(), inactiveNull.getId());
@@ -232,10 +258,24 @@ class JobDefinitionClaimRepositoryPostgresTest {
         expireClaim(staleTokenJob.getId(), NOW.minusSeconds(1));
         SchedulerClaim newerClaim = claim("core-b", 1).getFirst();
 
-        assertThat(release(newerClaim.jobDefinitionId(), newerClaim.claimToken(), "wrong-owner")).isFalse();
-        assertThat(release(staleClaim.jobDefinitionId(), staleClaim.claimToken(), staleClaim.claimedBy())).isFalse();
-        assertThat(release(newerClaim.jobDefinitionId(), newerClaim.claimToken(), newerClaim.claimedBy())).isTrue();
-        assertThat(claim("core-c", 1)).singleElement().extracting(SchedulerClaim::jobDefinitionId).isEqualTo(staleTokenJob.getId());
+        assertThat(release(newerClaim.jobDefinitionId(), newerClaim.claimToken(), "wrong-owner"))
+                .isFalse();
+        assertThat(
+                        release(
+                                staleClaim.jobDefinitionId(),
+                                staleClaim.claimToken(),
+                                staleClaim.claimedBy()))
+                .isFalse();
+        assertThat(
+                        release(
+                                newerClaim.jobDefinitionId(),
+                                newerClaim.claimToken(),
+                                newerClaim.claimedBy()))
+                .isTrue();
+        assertThat(claim("core-c", 1))
+                .singleElement()
+                .extracting(SchedulerClaim::jobDefinitionId)
+                .isEqualTo(staleTokenJob.getId());
     }
 
     @Test
@@ -243,8 +283,14 @@ class JobDefinitionClaimRepositoryPostgresTest {
     void claimStateConstraintRejectsPartialMetadata() {
         JobDefinition job = saveJob("partial metadata", true, NOW.minusSeconds(60));
 
-        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            entityManager.createNativeQuery("""
+        assertThatThrownBy(
+                        () ->
+                                new TransactionTemplate(transactionManager)
+                                        .executeWithoutResult(
+                                                status -> {
+                                                    entityManager
+                                                            .createNativeQuery(
+                                                                    """
                     UPDATE job_definitions
                     SET claim_token = :claimToken,
                         claimed_by = :claimedBy,
@@ -252,17 +298,23 @@ class JobDefinitionClaimRepositoryPostgresTest {
                         claim_until = :claimUntil
                     WHERE id = :jobDefinitionId
                     """)
-                    .setParameter("claimToken", UUID.randomUUID())
-                    .setParameter("claimedBy", "core-a")
-                    .setParameter("claimUntil", NOW.plus(LEASE_DURATION))
-                    .setParameter("jobDefinitionId", job.getId())
-                    .executeUpdate();
-            entityManager.flush();
-        })).hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class);
+                                                            .setParameter(
+                                                                    "claimToken", UUID.randomUUID())
+                                                            .setParameter("claimedBy", "core-a")
+                                                            .setParameter(
+                                                                    "claimUntil",
+                                                                    NOW.plus(LEASE_DURATION))
+                                                            .setParameter(
+                                                                    "jobDefinitionId", job.getId())
+                                                            .executeUpdate();
+                                                    entityManager.flush();
+                                                }))
+                .hasRootCauseInstanceOf(org.postgresql.util.PSQLException.class);
     }
 
     @Test
-    @DisplayName("two dispatchers claim one outbox message once and a failed attempt reuses its stable identity")
+    @DisplayName(
+            "two dispatchers claim one outbox message once and a failed attempt reuses its stable identity")
     void outboxClaimingIsFencedAndRecoverable() throws Exception {
         JobDefinition job = saveJob("outbox owner", true, NOW.plusSeconds(3600));
         JobExecutionHistory execution = new JobExecutionHistory();
@@ -284,10 +336,10 @@ class JobDefinitionClaimRepositoryPostgresTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
-        Future<List<SchedulerOutboxClaim>> first = executor.submit(() -> claimOutboxAfterSignal(
-                tx, ready, start, "core-a"));
-        Future<List<SchedulerOutboxClaim>> second = executor.submit(() -> claimOutboxAfterSignal(
-                tx, ready, start, "core-b"));
+        Future<List<SchedulerOutboxClaim>> first =
+                executor.submit(() -> claimOutboxAfterSignal(tx, ready, start, "core-a"));
+        Future<List<SchedulerOutboxClaim>> second =
+                executor.submit(() -> claimOutboxAfterSignal(tx, ready, start, "core-b"));
 
         assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
         start.countDown();
@@ -296,20 +348,35 @@ class JobDefinitionClaimRepositoryPostgresTest {
         executor.shutdownNow();
 
         assertThat(firstClaims.size() + secondClaims.size()).isEqualTo(1);
-        SchedulerOutboxClaim firstClaim = firstClaims.isEmpty() ? secondClaims.getFirst() : firstClaims.getFirst();
+        SchedulerOutboxClaim firstClaim =
+                firstClaims.isEmpty() ? secondClaims.getFirst() : firstClaims.getFirst();
         assertThat(firstClaim.messageId()).isEqualTo(message.getId());
         assertThat(firstClaim.executionId()).isEqualTo(execution.getId());
 
         Instant retryAt = NOW.plusSeconds(30);
-        Boolean markedFailed = tx.execute(status -> outboxRepository.markFailed(
-                firstClaim.messageId(), firstClaim.claimToken(), firstClaim.claimedBy(), retryAt, "broker down"));
+        Boolean markedFailed =
+                tx.execute(
+                        status ->
+                                outboxRepository.markFailed(
+                                        firstClaim.messageId(),
+                                        firstClaim.claimToken(),
+                                        firstClaim.claimedBy(),
+                                        retryAt,
+                                        "broker down"));
         assertThat(markedFailed).isTrue();
-        List<SchedulerOutboxClaim> earlyRetry = tx.execute(status -> outboxRepository.claimPending(
-                retryAt.minusMillis(1), "core-c", LEASE_DURATION, 1));
+        List<SchedulerOutboxClaim> earlyRetry =
+                tx.execute(
+                        status ->
+                                outboxRepository.claimPending(
+                                        retryAt.minusMillis(1), "core-c", LEASE_DURATION, 1));
         assertThat(earlyRetry).isEmpty();
 
-        SchedulerOutboxClaim retryClaim = tx.execute(status -> outboxRepository.claimPending(
-                retryAt, "core-c", LEASE_DURATION, 1)).getFirst();
+        SchedulerOutboxClaim retryClaim =
+                tx.execute(
+                                status ->
+                                        outboxRepository.claimPending(
+                                                retryAt, "core-c", LEASE_DURATION, 1))
+                        .getFirst();
         assertThat(retryClaim.messageId()).isEqualTo(firstClaim.messageId());
         assertThat(retryClaim.executionId()).isEqualTo(firstClaim.executionId());
         assertThat(retryClaim.claimToken()).isNotEqualTo(firstClaim.claimToken());
@@ -317,7 +384,8 @@ class JobDefinitionClaimRepositoryPostgresTest {
     }
 
     @Test
-    @DisplayName("backlog projection classifies dispatchable delayed and in-flight rows without payload loading")
+    @DisplayName(
+            "backlog projection classifies dispatchable delayed and in-flight rows without payload loading")
     void backlogProjectionClassifiesBoundedGroups() {
         JobDefinition firstJob = saveJob("backlog first", true, NOW.plusSeconds(3600));
         JobExecutionHistory firstExecution = saveExecution(firstJob);
@@ -333,13 +401,16 @@ class JobDefinitionClaimRepositoryPostgresTest {
         List<SchedulerBacklogGroup> bounded = outboxRepository.findBacklogGroups(NOW, 1);
 
         assertThat(all).hasSize(2);
-        assertThat(all).filteredOn(group -> group.jobDefinitionId().equals(firstJob.getId()))
-                .singleElement().satisfies(group -> {
-                    assertThat(group.pending()).isEqualTo(4);
-                    assertThat(group.dispatchable()).isEqualTo(2);
-                    assertThat(group.retryDelayed()).isEqualTo(1);
-                    assertThat(group.inFlight()).isEqualTo(1);
-                });
+        assertThat(all)
+                .filteredOn(group -> group.jobDefinitionId().equals(firstJob.getId()))
+                .singleElement()
+                .satisfies(
+                        group -> {
+                            assertThat(group.pending()).isEqualTo(4);
+                            assertThat(group.dispatchable()).isEqualTo(2);
+                            assertThat(group.retryDelayed()).isEqualTo(1);
+                            assertThat(group.inFlight()).isEqualTo(1);
+                        });
         assertThat(bounded).hasSize(2);
         assertThatThrownBy(() -> outboxRepository.findBacklogGroups(NOW, 0))
                 .isInstanceOf(InvalidDataAccessApiUsageException.class)
@@ -350,7 +421,8 @@ class JobDefinitionClaimRepositoryPostgresTest {
     }
 
     @Test
-    @DisplayName("claimed preparation commits one logical execution, outbox payload, nextRun, and exact release")
+    @DisplayName(
+            "claimed preparation commits one logical execution, outbox payload, nextRun, and exact release")
     void claimedPreparationIsAtomicAndIdempotentAtTheSchedulingBoundary() {
         JobDefinition job = new JobDefinition();
         job.setSource(DataSource.VND);
@@ -362,17 +434,30 @@ class JobDefinitionClaimRepositoryPostgresTest {
         job = repository.saveAndFlush(job);
         SchedulerClaim claim = claim("core-a", 1).getFirst();
 
-        UUID executionId = new TransactionTemplate(transactionManager).execute(status -> {
-            JobDefinition claimedJob = repository.findById(claim.jobDefinitionId()).orElseThrow();
-            JobExecutionHistory execution = jobService.prepareClaimedExecution(claimedJob, claim, NOW);
-            jobService.enqueueDispatch(
-                    execution,
-                    "jobs",
-                    List.of(new KafkaMessage("stable-key", java.util.Map.of("executionId", execution.getId()))),
-                    NOW);
-            jobService.releaseClaim(claim);
-            return execution.getId();
-        });
+        UUID executionId =
+                new TransactionTemplate(transactionManager)
+                        .execute(
+                                status -> {
+                                    JobDefinition claimedJob =
+                                            repository
+                                                    .findById(claim.jobDefinitionId())
+                                                    .orElseThrow();
+                                    JobExecutionHistory execution =
+                                            jobService.prepareClaimedExecution(
+                                                    claimedJob, claim, NOW);
+                                    jobService.enqueueDispatch(
+                                            execution,
+                                            "jobs",
+                                            List.of(
+                                                    new KafkaMessage(
+                                                            "stable-key",
+                                                            java.util.Map.of(
+                                                                    "executionId",
+                                                                    execution.getId()))),
+                                            NOW);
+                                    jobService.releaseClaim(claim);
+                                    return execution.getId();
+                                });
 
         JobDefinition preparedJob = repository.findById(job.getId()).orElseThrow();
         assertThat(preparedJob.getNextRun()).isAfter(NOW);
@@ -380,23 +465,26 @@ class JobDefinitionClaimRepositoryPostgresTest {
         assertThat(executionRepository.findById(executionId)).isPresent();
         assertThat(outboxRepository.findAllByExecution_IdOrderByMessageIndex(executionId))
                 .singleElement()
-                .satisfies(outbox -> {
-                    assertThat(outbox.getMessageIndex()).isZero();
-                    assertThat(outbox.getMessageKey()).isEqualTo("stable-key");
-                    assertThat(outbox.getPayload()).contains(executionId.toString());
-                });
+                .satisfies(
+                        outbox -> {
+                            assertThat(outbox.getMessageIndex()).isZero();
+                            assertThat(outbox.getMessageKey()).isEqualTo("stable-key");
+                            assertThat(outbox.getPayload()).contains(executionId.toString());
+                        });
         assertThat(claim("core-b", 1)).isEmpty();
         assertThat(executionRepository.count()).isEqualTo(1);
     }
 
     private List<SchedulerClaim> claim(String claimedBy, int batchSize) {
-        return new TransactionTemplate(transactionManager).execute(status ->
-                repository.claimDueJobs(NOW, claimedBy, LEASE_DURATION, batchSize));
+        return new TransactionTemplate(transactionManager)
+                .execute(
+                        status ->
+                                repository.claimDueJobs(NOW, claimedBy, LEASE_DURATION, batchSize));
     }
 
     private boolean release(UUID jobDefinitionId, UUID claimToken, String claimedBy) {
-        return new TransactionTemplate(transactionManager).execute(status ->
-                repository.releaseClaim(jobDefinitionId, claimToken, claimedBy));
+        return new TransactionTemplate(transactionManager)
+                .execute(status -> repository.releaseClaim(jobDefinitionId, claimToken, claimedBy));
     }
 
     private List<SchedulerClaim> claimAfterSignal(
@@ -407,31 +495,34 @@ class JobDefinitionClaimRepositoryPostgresTest {
             int batchSize) {
         ready.countDown();
         await(start);
-        return tx.execute(status -> repository.claimDueJobs(NOW, claimedBy, LEASE_DURATION, batchSize));
+        return tx.execute(
+                status -> repository.claimDueJobs(NOW, claimedBy, LEASE_DURATION, batchSize));
     }
 
     private List<SchedulerOutboxClaim> claimOutboxAfterSignal(
-            TransactionTemplate tx,
-            CountDownLatch ready,
-            CountDownLatch start,
-            String claimedBy) {
+            TransactionTemplate tx, CountDownLatch ready, CountDownLatch start, String claimedBy) {
         ready.countDown();
         await(start);
-        return tx.execute(status -> outboxRepository.claimPending(NOW, claimedBy, LEASE_DURATION, 1));
+        return tx.execute(
+                status -> outboxRepository.claimPending(NOW, claimedBy, LEASE_DURATION, 1));
     }
 
     private void expireClaim(UUID jobDefinitionId, Instant claimUntil) {
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            entityManager.createNativeQuery("""
+        new TransactionTemplate(transactionManager)
+                .executeWithoutResult(
+                        status -> {
+                            entityManager
+                                    .createNativeQuery(
+                                            """
                     UPDATE job_definitions
                     SET claim_until = :claimUntil
                     WHERE id = :jobDefinitionId
                     """)
-                    .setParameter("claimUntil", claimUntil)
-                    .setParameter("jobDefinitionId", jobDefinitionId)
-                    .executeUpdate();
-            entityManager.flush();
-        });
+                                    .setParameter("claimUntil", claimUntil)
+                                    .setParameter("jobDefinitionId", jobDefinitionId)
+                                    .executeUpdate();
+                            entityManager.flush();
+                        });
     }
 
     private JobExecutionHistory saveExecution(JobDefinition job) {
@@ -452,7 +543,7 @@ class JobDefinitionClaimRepositoryPostgresTest {
         message.setMessageIndex(messageIndex);
         message.setTopic("jobs");
         message.setMessageKey("backlog-" + execution.getId() + "-" + messageIndex);
-        message.setPayload("{}");
+        message.setPayload("{\"executionId\":\"" + execution.getId() + "\"}");
         message.setAvailableAt(availableAt);
         if (claimUntil != null) {
             message.setClaimToken(UUID.randomUUID());

@@ -206,7 +206,7 @@ public class JobRunDispatchStore {
                 jdbc.queryForList(
                         """
                 SELECT h.id FROM job_execution_histories h JOIN scheduler_outbox_messages o ON o.execution_id=h.id
-                WHERE o.id=:message AND h.job_run_id IS NULL FOR SHARE OF h SKIP LOCKED
+                WHERE o.id=:message AND h.job_run_id IS NULL FOR UPDATE OF h SKIP LOCKED
                 """,
                         parameters,
                         UUID.class);
@@ -221,17 +221,8 @@ public class JobRunDispatchStore {
                         parameters,
                         UUID.class);
         if (messages.isEmpty()) return null;
-        // Legacy outbox FK may name the parent while payload identifies the actual work child.
-        // applyStatus flushes child before aggregating parent. Never wait for that child while
-        // holding the parent SHARE lock, or metadata flush would invert the status lock order.
-        UUID workId = outbox.findLegacyWorkExecutionId(messageId);
-        if (workId == null) return null;
-        var work =
-                jdbc.queryForList(
-                        "SELECT id FROM job_execution_histories WHERE id=:work AND job_run_id IS NULL FOR UPDATE SKIP LOCKED",
-                        parameters.addValue("work", workId),
-                        UUID.class);
-        if (work.isEmpty()) return null;
+        // V15 makes the FK the actual work row. The first nonwaiting write lock protects
+        // approved-input metadata and preserves applyStatus's child-before-parent order.
         if (outbox.findCandidatesByIdsSafely(List.of(messageId)).isEmpty()) return null;
         return outbox.claimEligible(messageId, now, owner, lease, approved);
     }

@@ -23,7 +23,19 @@ class JobRunDiagnosticsPostgresTest {
 
     @BeforeAll
     static void start() {
-        context = PlatformStartupPostgresTest.startApplication(POSTGRES, false);
+        context =
+                PlatformStartupPostgresTest.startApplication(
+                        POSTGRES,
+                        false,
+                        application ->
+                                application
+                                        .getEnvironment()
+                                        .getPropertySources()
+                                        .addFirst(
+                                                new org.springframework.core.env.MapPropertySource(
+                                                        "pre-cutover-inventory",
+                                                        java.util.Map.of(
+                                                                "spring.flyway.target", "14"))));
         f = new SchedulerDiagnosticsFixture(context);
     }
 

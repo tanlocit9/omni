@@ -1,5 +1,15 @@
 # Omni Release Notes
 
+## 2026-10-28 - P14-I7 isolated local completion
+
+Prepared V15 normalization and strict canonical-work admission independently of
+later worker/readiness changes and future expansion plans. The migration changes
+only validated legacy execution FKs, preserves intent/history/lease/delivery
+fields and rejects invalid identities or collisions transactionally. Candidate
+validation and nonwaiting work locks retire parent-alias runtime resolution.
+Fresh local source/test/build/coverage verification passed: 444 tests / 67 suites, zero failures/errors/skips; all 31 critical Java components meet >=80% line/applicable branch coverage. Ten migration cases, candidate/admission/preparation regressions and actual SQL/read-model/benchmark cases pass. The final gate is `P14-I7-reverify-20261028` (nine required checks, including owned-file format and static documentation audit). SQL coverage is behavioral, not a Java percentage. Exact source hashes and the executed criterion/source/test matrix are retained under `.agent/check-results/P14-I7-reverify-20261028/`.
+No historical PASS/coverage is reused. Preparation remains disabled; no retained migration/deployment.
+
 ## 2026-10-25 - P14-I6 bounded operator read-model handoff
 
 Added readModel v1 to the existing read-only diagnostic envelope: frozen path/run

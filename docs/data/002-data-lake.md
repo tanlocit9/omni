@@ -1,5 +1,10 @@
 # Data Lake
 
+Planned P14 handoff — 2026-10-29: I8/I9 work identity does not change physical partition paths or dataset ownership. Future writer output writeKey is separate from atomic work and intentId; dated work/dedup does not solve approved-version binding or mutable metadata/bytes races.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Omni stores market and analytical datasets as Parquet files in the `stock-data` bucket on MinIO/S3-compatible object storage.
 
 Canonical path patterns live in [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml). This document explains dataset ownership and producer/consumer relationships.

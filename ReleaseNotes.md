@@ -1,5 +1,23 @@
 # Omni Release Notes
 
+## 2026-10-29 - Reconcile P14 I8/I9 registration and writer planning
+
+Added the missing canonical pending I8/I9 rows and reciprocal I7 -> I8 -> I9
+dependencies, updated priority/navigation/catalog views and kept I9.a/b/c as
+internal checkpoints. Replaced the stale current I8 prerequisite-reverify blocker
+with the recorded isolated I7 local completion; historical failed attempts and
+source-bound test counts remain untouched. I8 readiness is not promoted by docs.
+
+Plan/registry, architecture/flow/data/ownership/service notes and writer
+Plan 027/TD-009 now distinguish planned work from runtime. Writer reuses atomic
+identity/parameter/validation/storage/status context; work key, output writeKey and
+operation intentId remain separate. Actual durable result handoff/offset loops,
+writer rollout, version binding, concurrency and flags remain out of scope.
+Static documentation audit only; no new test/build/lint/format/coverage, I7
+re-verification, owner attestation, deployment or I8/I9 implementation is claimed.
+Graph impact/change-detection tools unavailable; limitation recorded in Plan 030.
+
+
 ## 2026-10-28 - P14-I7 isolated local completion
 
 Prepared V15 normalization and strict canonical-work admission independently of

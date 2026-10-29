@@ -1,5 +1,10 @@
 # Job Execution Flow
 
+Planned P14 handoff — 2026-10-29: I8 plans normalize/expand/persist/enqueue once for every creation route; outbox planned/legacy/fallback/retry/replay delivers stored membership without another fan-out. I9 then composes graph and shared ancestor ownership.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Platform owns job orchestration. Workers execute data-plane tasks and report status back through Kafka.
 
 When JobRun preparation is enabled, scheduled entry selection uses terminal

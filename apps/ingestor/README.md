@@ -1,5 +1,10 @@
 # Ingestor Service
 
+Planned P14 handoff — 2026-10-29: Pending I8 covers supported per-job atomic scope and dated-provider semantics. SYNC_SYMBOLS remains exchange-scoped; exact historical capability cannot be inferred from recent-record fetches. I9 keeps source/config/offset compatibility during consolidation.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Ingestor is the Python worker service for external market-data ingestion and raw/normalized Parquet dataset maintenance. Its Nx project name is `ingestor` and its source path is [`apps/ingestor`](.).
 
 ## Responsibility

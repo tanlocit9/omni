@@ -1,5 +1,12 @@
 # Omni Documentation
 
+P14 continuation is planned, not implemented: I8 unifies expansion, then I9.a/b/c
+compose graph, share ancestor work and consolidate definitions. I7 has recorded
+local completion; no current reverify blocker is inherited from the historical
+cloud download failure. See [current handoff](plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29)
+and the [canonical registry](plans/roadmap/implementation-increments.md#increment-registry).
+
+
 This directory is the documentation entry point for Omni. It is designed to help a new developer understand the system without reading implementation-level code first. Use the [numbered documentation registry](INDEX.md) for complete non-ADR coverage, classifications, roadmap mappings, and related-document links.
 
 Versioned [scheduler diagnostic SQL and observation dictionary](../database/diagnostics/p14/v1/README.md)
@@ -34,7 +41,7 @@ semantics are documented in [CI Quality Gate](development/004-ci-quality-gate.md
 18. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are deferred and owner-gated; historical blocked states remain.
 19. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 design; owner reactivation and the Phase 13 measurement gate are required.
 20. [Operator Trust Console](plans/029-operator-trust-console.md) — owner-approved Phase 13 plan for truthful Job Operations, manual EOD Data Health, and the fixed Job Operations → Data Health → Market Review order.
-21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — Milestone 1 epic: I1 topology, I2 static handoff, I3 JobRun preparation, I4 guarded admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup; former I6 is superseded into I5.
+21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — Milestone 1 epic: I1 topology, I2 static handoff, I3 JobRun preparation, I4 guarded admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup; pending I8 unified expansion and I9 graph/shared-work/definition consolidation; former I6 is superseded into I5.
 
 ## Planning Map
 
@@ -66,7 +73,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — deferred Phase 11 design; historical dependencies are retained, owner reactivation is required.
 - [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 detail; capacity work requires measured baseline and owner reactivation.
 - [Operator Trust Console](plans/029-operator-trust-console.md) — Phase 13 UI owner; JobRun-specific graph presentation consumes P14-I5 evidence and read-model handoff.
-- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup.
+- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup, followed by pending I8 expansion and I9 graph/shared-work/definition consolidation.
 
 ### Proposed, Historical, and Compatibility Plans
 

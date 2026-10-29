@@ -1,5 +1,10 @@
 # Kafka Contracts
 
+Planned P14 handoff — 2026-10-29: I8 plans explicit workType/workKey/businessDate/effective-parameter semantics across Java/Python, preserving execution/status identity. Future consumers forward computed result plus that identity in validated writer intents; exact wire/hash/compatibility is a contract task, not current wire behavior.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Kafka is the asynchronous contract boundary between Platform, Ingestor, and Analyzer.
 
 ## Proto3 contract foundation

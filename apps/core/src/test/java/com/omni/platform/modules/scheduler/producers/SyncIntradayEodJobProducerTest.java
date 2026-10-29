@@ -61,7 +61,7 @@ class SyncIntradayEodJobProducerTest {
                 job, parent, Instant.parse("2026-09-11T08:16:00Z"));
 
         assertThat(messages).extracting(KafkaMessage::key)
-                .containsExactly("HOSE-HPG:2026-09-11", "HNX-SHS:2026-09-11", "UPCOM-ACV:2026-09-11");
+                .containsExactly("HNX-SHS:2026-09-11", "HOSE-HPG:2026-09-11", "UPCOM-ACV:2026-09-11");
         assertThat(messages).allSatisfy(message -> {
             IntradayEodJobMessage payload = (IntradayEodJobMessage) message.payload();
             assertThat(payload.exchange()).isIn("HOSE", "HNX", "UPCOM");

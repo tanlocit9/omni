@@ -1,9 +1,28 @@
 # Data Lake
 
+EOD-to-indicator repair (2026-10-30): `ParquetStorage.read_bound_dataframe`
+recomputes the canonical dataset version from the same byte buffer it decodes,
+using the manifest schema/lineage and object checksum. Stale metadata or a changed
+mutable object cannot be relabelled as the approved input. This protects the
+indicator read path; it does not add all-writer exclusion, immutable historical
+versions or equivalent guarantees for other consumers. Paths/owners are unchanged.
+
+Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
+I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
+Common preparation now persists atomic dated work and sends the additive
+`jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
+snapshots; matching Java/Python rollout is required even on the legacy scheduler.
+Consumers preserve other dates and retain lookback; catalog/metadata are current
+snapshots only. Writer and shared ancestors remain deferred. EOD-to-indicator
+execution binding is implemented; broader version/concurrency guarantees remain
+deferred.
+The original I8 delivery ran no checks; later verification and repair evidence
+is recorded in Plan 030. This supersedes earlier design-only I8/I9 statements.
+See [contract, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+
 Planned P14 handoff — 2026-10-29: I8/I9 work identity does not change physical partition paths or dataset ownership. Future writer output writeKey is separate from atomic work and intentId; dated work/dedup does not solve approved-version binding or mutable metadata/bytes races.
 This note changes no implementation, configuration, preparation flag or existing
 runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
-
 
 Omni stores market and analytical datasets as Parquet files in the `stock-data` bucket on MinIO/S3-compatible object storage.
 

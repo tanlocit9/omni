@@ -301,7 +301,7 @@ class JobRunPreparationPostgresTest {
                         "operator",
                         "metadata-key",
                         "Test metadata",
-                        Map.of("dataset", "eod"),
+                        Map.of(),
                         Map.of("metadataTarget", Map.of("dataset", "eod")));
         assertThat(definitions.findById(metadata.getId()).orElseThrow().getNextRun())
                 .isEqualTo(next);
@@ -313,7 +313,7 @@ class JobRunPreparationPostgresTest {
                 .isEqualTo(1);
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT payload FROM scheduler_outbox_messages WHERE execution_id=?",
+                                "SELECT o.payload FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id WHERE h.parent_log_id=?",
                                 String.class,
                                 id))
                 .contains("eod");
@@ -428,7 +428,7 @@ class JobRunPreparationPostgresTest {
     }
 
     @Test
-    void readsSymbolOffsetsInOneBoundedLookupAndRetainsCanonicalWorkIdentity() {
+    void usesAtomicDayAndPreservesHistoricalSymbolOffsets() {
         var target = target(JobType.SYNC_STOCK_PRICE);
         jdbc.update(
                 "INSERT INTO job_execution_histories(job_id, used_source, status, new_offset, finished_at, meta_json) VALUES (?,?,'SUCCESS','2030-01-01',now(),'{\"workType\":\"SYMBOL\",\"workKey\":\"HOSE-AAA\"}')",
@@ -440,7 +440,11 @@ class JobRunPreparationPostgresTest {
                                 "SELECT o.payload FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id WHERE h.job_id=?",
                                 String.class,
                                 target.getId()))
-                .contains("2030-01-01T00:00:00Z");
+                .contains("\"businessDate\":\"2035-01-02\"", "2035-01-01T17:00:00Z")
+                .doesNotContain("2030-01-01T00:00:00Z");
+        assertThat(jdbc.queryForObject(
+                "SELECT new_offset FROM job_execution_histories WHERE job_id=? AND status='SUCCESS'",
+                String.class, target.getId())).isEqualTo("2030-01-01");
     }
 
     @Test
@@ -1282,7 +1286,7 @@ class JobRunPreparationPostgresTest {
                                             identity,
                                             child))
                     .isInstanceOf(DataAccessException.class)
-                    .hasMessageContaining("immutable");
+                    .hasMessageMatching("(?s).*(immutable|Atomic work snapshot identity mismatch).*");
         }
         assertThat(
                         jdbc.queryForObject(

@@ -17,5 +17,5 @@ public record IntradayEodJobMessage(
         String exchange,
         LocalDate tradingDate,
         String provider,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

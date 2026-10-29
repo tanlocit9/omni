@@ -17,9 +17,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "scheduler_outbox_messages", uniqueConstraints = @UniqueConstraint(
-        name = "uq_scheduler_outbox_execution_message",
-        columnNames = { "execution_id", "message_index" }))
+@Table(
+        name = "scheduler_outbox_messages",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_scheduler_outbox_execution_message",
+                        columnNames = {"execution_id", "message_index"}))
 @Getter
 @Setter
 public class SchedulerOutboxMessage extends AbstractClaimableOutboxMessage {
@@ -51,7 +54,8 @@ public class SchedulerOutboxMessage extends AbstractClaimableOutboxMessage {
     private String dependencyReason;
 
     public enum Status {
-        PENDING, PUBLISHED, BLOCKED
+        PENDING,
+        PUBLISHED,
+        BLOCKED
     }
 }
-

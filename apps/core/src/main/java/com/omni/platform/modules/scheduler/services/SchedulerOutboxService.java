@@ -2,17 +2,21 @@ package com.omni.platform.modules.scheduler.services;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.SchedulerOutboxMessage;
+import com.omni.platform.modules.scheduler.expansion.WorkExpansion;
 import com.omni.platform.modules.scheduler.messaging.JobMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepository;
@@ -21,10 +25,12 @@ import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxClaim;
 import com.omni.platform.modules.scheduler.repositories.SchedulerOutboxRepository;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 import com.omni.platform.shared.outbox.ClaimableOutboxStore;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
@@ -77,7 +83,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     public List<SchedulerOutboxCandidate> findCandidates(Instant now, int limit) {
         return repository.findPendingCandidateIds(now, limit).stream()
                 .map(repository::findById)
-                .flatMap(java.util.Optional::stream)
+                .flatMap(Optional::stream)
                 .map(this::toCandidate)
                 .toList();
     }
@@ -88,7 +94,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         var messages = candidateRows(ids);
         return ids.stream()
                 .map(messages::get)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .map(message -> toCandidate(message, true))
                 .toList();
     }
@@ -97,7 +103,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     @Transactional(readOnly = true)
     public List<SchedulerOutboxCandidate> findCandidatesByIdsSafely(List<UUID> ids) {
         var messages = candidateRows(ids);
-        List<SchedulerOutboxCandidate> result = new java.util.ArrayList<>();
+        List<SchedulerOutboxCandidate> result = new ArrayList<>();
         for (UUID id : ids) {
             var message = messages.get(id);
             if (message == null) continue;
@@ -118,7 +124,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
             throw new IllegalArgumentException("Expected at most 400 distinct candidate IDs");
         }
         if (ids.isEmpty()) return Map.of();
-        Map<UUID, SchedulerOutboxMessage> messages = new java.util.HashMap<>();
+        Map<UUID, SchedulerOutboxMessage> messages = new HashMap<>();
         repository
                 .findAllCandidates(ids)
                 .forEach(message -> messages.put(message.getId(), message));
@@ -135,7 +141,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
             List<JobExecutionHistory> children) {
         if (messages.size() > 5000)
             throw new IllegalArgumentException("JOB_RUN_WORK_BOUND_EXCEEDED");
-        Map<UUID, JobExecutionHistory> executions = new java.util.HashMap<>();
+        Map<UUID, JobExecutionHistory> executions = new HashMap<>();
         for (JobExecutionHistory child : children) {
             if (!parent.getId().equals(child.getParentLogId())
                     || !parent.getJobRunId().equals(child.getJobRunId())
@@ -144,8 +150,8 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
             }
             executions.put(child.getId(), child);
         }
-        java.util.Set<UUID> seen = new java.util.HashSet<>();
-        List<SchedulerOutboxMessage> rows = new java.util.ArrayList<>();
+        Set<UUID> seen = new HashSet<>();
+        List<SchedulerOutboxMessage> rows = new ArrayList<>();
         for (int index = 0; index < messages.size(); index++) {
             KafkaMessage message = messages.get(index);
             if (!(message.payload() instanceof JobMessage work)
@@ -167,8 +173,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
             if (!execution.getUsedSource().name().equals(work.source())
                     || work.workType() == null
                     || !work.workType().name().equals(execution.getMetaJson().get("workType"))
-                    || !java.util.Objects.equals(
-                            work.workKey(), execution.getMetaJson().get("workKey"))) {
+                    || !Objects.equals(work.workKey(), execution.getMetaJson().get("workKey"))) {
                 throw new IllegalArgumentException("JobRun message work identity mismatch");
             }
             SchedulerOutboxMessage row = new SchedulerOutboxMessage();
@@ -204,7 +209,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 message.getId(),
                 workExecution.getId(),
                 workExecution.getParentLogId(),
-                workExecution.getJob(),
+                WorkExpansion.candidate(workExecution),
                 workType,
                 workKey,
                 value(metadata, "runKey", workExecution.getTriggeredAt().toString()),
@@ -315,7 +320,29 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 repository.claimEligible(messageId, now, instanceId, leaseDuration);
         if (claim != null && !approvedInputVersions.isEmpty())
             persistApprovedInputs(work, approvedInputVersions);
-        return claim;
+        return claim == null ? null : new SchedulerOutboxClaim(
+                claim.messageId(), claim.claimToken(), claim.claimedBy(), claim.executionId(),
+                claim.topic(), claim.key(), bindApprovedInputs(claim.payload(), work), claim.attempts());
+    }
+
+    /** Reconstruct the exact logical publish envelope from durable intent and its first binding. */
+    @Transactional(readOnly = true)
+    public String boundPayload(UUID messageId) {
+        var message = repository.findById(messageId).orElseThrow();
+        var work = candidateExecution(message, parseCandidatePayload(message), false);
+        return bindApprovedInputs(message.getPayload(), work);
+    }
+
+    private String bindApprovedInputs(String payload, JobExecutionHistory work) {
+        Object approved = work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
+        if (approved == null) return payload;
+        if (!(approved instanceof List<?>)) throw new IllegalStateException("Invalid approved input binding");
+        ObjectNode body = (ObjectNode) jsonMapper.readTree(payload);
+        ObjectNode metadata = body.get("metadata") instanceof ObjectNode object
+                ? object : jsonMapper.createObjectNode();
+        metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
+        body.set("metadata", metadata);
+        return jsonMapper.writeValueAsString(body);
     }
 
     @Transactional
@@ -363,6 +390,8 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         if (execution.getMetaJson() != null) {
             metadata.putAll(execution.getMetaJson());
         }
+        // An execution attempt keeps its first approval across publication retries/replay.
+        if (metadata.containsKey("approvedInputs")) return;
         metadata.put(
                 "approvedInputs",
                 approvedInputVersions.entrySet().stream()

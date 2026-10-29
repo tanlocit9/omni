@@ -30,6 +30,5 @@ public record SymbolUpsertMessage(
             String sectorLv3Code,
             String sectorLv4Code,
             Instant classificationUpdatedAt,
-            Map<String, Object> meta) {
-    }
+            Map<String, Object> meta) {}
 }

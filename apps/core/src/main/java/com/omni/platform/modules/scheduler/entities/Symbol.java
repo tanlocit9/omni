@@ -15,22 +15,23 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "symbols", uniqueConstraints = @UniqueConstraint(columnNames = { "code", "exchange" }))
+@Table(name = "symbols", uniqueConstraints = @UniqueConstraint(columnNames = {"code", "exchange"}))
 @Getter
 @Setter
 public class Symbol extends BaseEntity {
 
-    public static final List<String> META_JSON_ALLOWED_KEYS = List.of(
-            "companyName",
-            "listedDate",
-            "sectorTaxonomy",
-            "sectorLevel",
-            "sourceSectorCode",
-            "sectorLv1Code",
-            "sectorLv2Code",
-            "sectorLv3Code",
-            "sectorLv4Code",
-            "classificationUpdatedAt");
+    public static final List<String> META_JSON_ALLOWED_KEYS =
+            List.of(
+                    "companyName",
+                    "listedDate",
+                    "sectorTaxonomy",
+                    "sectorLevel",
+                    "sourceSectorCode",
+                    "sectorLv1Code",
+                    "sectorLv2Code",
+                    "sectorLv3Code",
+                    "sectorLv4Code",
+                    "classificationUpdatedAt");
 
     @Column(nullable = false, length = 50)
     private String code;

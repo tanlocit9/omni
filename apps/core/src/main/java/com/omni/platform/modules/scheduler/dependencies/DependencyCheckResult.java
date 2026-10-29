@@ -56,9 +56,7 @@ public final class DependencyCheckResult {
      */
     public static DependencyCheckResult stale(DatasetRef ref, String detail) {
         return new DependencyCheckResult(
-                DependencyStatus.STALE,
-                String.format("Dataset %s is stale: %s", ref, detail),
-                ref);
+                DependencyStatus.STALE, String.format("Dataset %s is stale: %s", ref, detail), ref);
     }
 
     /**
@@ -67,17 +65,20 @@ public final class DependencyCheckResult {
     public static DependencyCheckResult empty(DatasetRef ref, long rowCount, long minRows) {
         return new DependencyCheckResult(
                 DependencyStatus.EMPTY,
-                String.format("Dataset %s has %d rows, minimum required: %d", ref, rowCount, minRows),
+                String.format(
+                        "Dataset %s has %d rows, minimum required: %d", ref, rowCount, minRows),
                 ref);
     }
 
     /**
      * Dataset schema version is not supported by consumer.
      */
-    public static DependencyCheckResult invalidSchema(DatasetRef ref, int schemaVersion, String supportedRange) {
+    public static DependencyCheckResult invalidSchema(
+            DatasetRef ref, int schemaVersion, String supportedRange) {
         return new DependencyCheckResult(
                 DependencyStatus.INVALID_SCHEMA,
-                String.format("Dataset %s schema version %d not in supported range: %s",
+                String.format(
+                        "Dataset %s schema version %d not in supported range: %s",
                         ref, schemaVersion, supportedRange),
                 ref);
     }
@@ -85,11 +86,12 @@ public final class DependencyCheckResult {
     /**
      * Downstream dataset's input versions don't match current upstream versions.
      */
-    public static DependencyCheckResult inputVersionMismatch(DatasetRef ref, String upstreamDataset,
-            String expectedVersion, String actualVersion) {
+    public static DependencyCheckResult inputVersionMismatch(
+            DatasetRef ref, String upstreamDataset, String expectedVersion, String actualVersion) {
         return new DependencyCheckResult(
                 DependencyStatus.INPUT_VERSION_MISMATCH,
-                String.format("Dataset %s input %s version mismatch: expected %s, actual %s",
+                String.format(
+                        "Dataset %s input %s version mismatch: expected %s, actual %s",
                         ref, upstreamDataset, expectedVersion, actualVersion),
                 ref);
     }
@@ -98,11 +100,15 @@ public final class DependencyCheckResult {
      * Downstream dataset's input versions don't match current upstream versions.
      * Overload that accepts upstream DatasetRef for better type safety.
      */
-    public static DependencyCheckResult inputVersionMismatch(DatasetRef downstreamRef, DatasetRef upstreamRef,
-            String recordedVersion, String currentVersion) {
+    public static DependencyCheckResult inputVersionMismatch(
+            DatasetRef downstreamRef,
+            DatasetRef upstreamRef,
+            String recordedVersion,
+            String currentVersion) {
         return new DependencyCheckResult(
                 DependencyStatus.INPUT_VERSION_MISMATCH,
-                String.format("Dataset %s input %s version mismatch: recorded %s, current %s",
+                String.format(
+                        "Dataset %s input %s version mismatch: recorded %s, current %s",
                         downstreamRef, upstreamRef, recordedVersion, currentVersion),
                 downstreamRef);
     }

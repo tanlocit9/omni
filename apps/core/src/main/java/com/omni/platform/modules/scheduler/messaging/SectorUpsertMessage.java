@@ -23,6 +23,5 @@ public record SectorUpsertMessage(
             String sourceSectorNameVi,
             String sourceSectorNameEn,
             Instant classificationUpdatedAt,
-            Map<String, Object> meta) {
-    }
+            Map<String, Object> meta) {}
 }

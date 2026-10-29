@@ -1,6 +1,19 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
-Current P14 scheduling reconciliation (2026-10-29): I8 and I9 are now explicitly
+Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
+I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
+Common preparation now persists atomic dated work and sends the additive
+`jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
+snapshots; matching Java/Python rollout is required even on the legacy scheduler.
+Consumers preserve other dates and retain lookback; catalog/metadata are current
+snapshots only. Writer and shared ancestors remain deferred. EOD-to-indicator
+execution binding is implemented; broader version/concurrency guarantees remain
+deferred.
+The original I8 delivery ran no checks; later verification and repair evidence
+is recorded in Plan 030. This supersedes earlier design-only I8/I9 statements.
+See [contract, impact matrix and local handoff](030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+
+Original P14 registration (superseded by current status above): I8 and I9 were
 registered pending after completed I7, with I9.a/b/c internal checkpoints.
 Reuse atomic work/execution envelope, accepted parameter snapshots, validation
 and storage/status helpers. Result + work identity reaches writer through a
@@ -8,7 +21,6 @@ future durable operation intent; output writeKey and deterministic intentId stay
 separate. Writer does not resolve graph or expand; actual handoff/offset loops
 remain deferred P12 work. This is no implementation or readiness/version-safety PASS.
 See [current handoff](030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
-
 
 ## I9 checkpoint and result-handoff alignment — 2026-10-28
 
@@ -33,8 +45,6 @@ Current terminal-status commit loop is not the future durable-intent handoff loo
 Preserve source-after-intent and writer-after-output/status commit boundaries.
 No implementation, new test/coverage PASS, version-binding solution or default
 activation is claimed. See [I9 checkpoints and handoff](030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
-
-
 
 ## P14 expansion reuse boundary — 2026-10-28
 

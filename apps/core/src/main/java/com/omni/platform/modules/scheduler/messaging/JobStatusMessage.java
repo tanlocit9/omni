@@ -18,5 +18,4 @@ public record JobStatusMessage(
         Instant finishedAt,
         long durationMs,
         String errorMessage,
-        Integer recordsProcessed) {
-}
+        Integer recordsProcessed) {}

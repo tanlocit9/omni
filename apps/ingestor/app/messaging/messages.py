@@ -4,10 +4,11 @@ from datetime import date, datetime
 from typing import Any
 
 from py_common.messaging import WorkType
-from pydantic import BaseModel, Field, field_validator
+from py_common.messaging.atomic_work import AtomicWorkEnvelope
+from pydantic import Field, field_validator
 
 
-class JobMessage(BaseModel):
+class JobMessage(AtomicWorkEnvelope):
     job_definition_id: str = Field(
         validation_alias="jobDefinitionId",
         serialization_alias="jobDefinitionId",

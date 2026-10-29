@@ -15,22 +15,31 @@ import com.omni.platform.shared.repositories.BaseRepository;
 @Repository
 public interface SymbolRepository extends BaseRepository<Symbol> {
 
-        @Query(nativeQuery = true, value = """
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
                         SELECT COUNT(id) FROM symbols
                         WHERE is_active = true
                           AND exchange = :exchange
                         """)
-        Integer countByExchange(@Param("exchange") String exchange);
+    Integer countByExchange(@Param("exchange") String exchange);
 
-        @Query(nativeQuery = true, value = """
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
                         SELECT exchange, COUNT(id) FROM symbols
                         WHERE is_active = true
                         GROUP BY exchange
                         """)
-        List<Object[]> countAllActiveSymbolsGroupedByExchange();
+    List<Object[]> countAllActiveSymbolsGroupedByExchange();
 
-        @Modifying
-        @Query(nativeQuery = true, value = """
+    @Modifying
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
                         INSERT INTO symbols (code, exchange, is_active, meta_json, created_at, updated_at)
                         VALUES (:code, :exchange, true, CAST(:metaJson AS jsonb), now(), now())
                         ON CONFLICT (code, exchange)
@@ -39,80 +48,99 @@ public interface SymbolRepository extends BaseRepository<Symbol> {
                             meta_json = CAST(:metaJson AS jsonb),
                             updated_at = now()
                         """)
-        void upsertOne(@Param("code") String code,
-                        @Param("exchange") String exchange,
-                        @Param("metaJson") String metaJson);
+    void upsertOne(
+            @Param("code") String code,
+            @Param("exchange") String exchange,
+            @Param("metaJson") String metaJson);
 
-        @Modifying
-        @Query(nativeQuery = true, value = """
+    @Modifying
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
                         UPDATE symbols
                         SET is_active = false, updated_at = now()
                         WHERE exchange = :exchange
                           AND is_active = true
                           AND code NOT IN (:codes)
                         """)
-        void deactivateMissing(@Param("exchange") String exchange, @Param("codes") Collection<String> codes);
+    void deactivateMissing(
+            @Param("exchange") String exchange, @Param("codes") Collection<String> codes);
 
-        default List<SymbolKeyProjection> findBySectorCodesAndLevel(String[] sectorCodes, int sectorLevel) {
-                if (sectorCodes == null || sectorCodes.length == 0) {
-                        return findAllActiveSymbolKeys();
-                }
-                String jsonKey = "sectorLv" + sectorLevel + "Code";
-                return findBySectorCodesAndLevelKey(sectorCodes, jsonKey);
+    default List<SymbolKeyProjection> findBySectorCodesAndLevel(
+            String[] sectorCodes, int sectorLevel) {
+        if (sectorCodes == null || sectorCodes.length == 0) {
+            return findAllActiveSymbolKeys();
         }
+        String jsonKey = "sectorLv" + sectorLevel + "Code";
+        return findBySectorCodesAndLevelKey(sectorCodes, jsonKey);
+    }
 
-        @Query(value = """
+    @Query(
+            value =
+                    """
                         SELECT code, exchange
                         FROM symbols
                         WHERE is_active = TRUE
-                        """, nativeQuery = true)
-        List<SymbolKeyProjection> findAllActiveSymbolKeys();
+                        """,
+            nativeQuery = true)
+    List<SymbolKeyProjection> findAllActiveSymbolKeys();
 
-        @Query(value = """
+    @Query(
+            value =
+                    """
                         SELECT code, exchange
                         FROM symbols
                         WHERE is_active = TRUE
                           AND UPPER(exchange) = UPPER(:exchange)
                         ORDER BY code
-                        """, nativeQuery = true)
-        List<SymbolKeyProjection> findAllActiveSymbolKeysByExchange(
-                        @Param("exchange") String exchange);
+                        """,
+            nativeQuery = true)
+    List<SymbolKeyProjection> findAllActiveSymbolKeysByExchange(@Param("exchange") String exchange);
 
-        @Query(value = """
+    @Query(
+            value =
+                    """
                         SELECT code, exchange
                         FROM symbols
                         WHERE is_active = TRUE
                           AND meta_json ->> CAST(:jsonKey AS text) = ANY(CAST(:sectorCodes AS text[]))
-                        """, nativeQuery = true)
-        List<SymbolKeyProjection> findBySectorCodesAndLevelKey(
-                        @Param("sectorCodes") String[] sectorCodes,
-                        @Param("jsonKey") String jsonKey);
-        default List<String> findDistinctSectorCodesByLevel(String[] sectorCodes, int sectorLevel) {
-                String jsonKey = "sectorLv" + sectorLevel + "Code";
-                if (sectorCodes == null || sectorCodes.length == 0) {
-                        return findAllDistinctSectorCodesByLevelKey(jsonKey);
-                }
-                return findDistinctSectorCodesByLevelKey(sectorCodes, jsonKey);
-        }
+                        """,
+            nativeQuery = true)
+    List<SymbolKeyProjection> findBySectorCodesAndLevelKey(
+            @Param("sectorCodes") String[] sectorCodes, @Param("jsonKey") String jsonKey);
 
-        @Query(value = """
+    default List<String> findDistinctSectorCodesByLevel(String[] sectorCodes, int sectorLevel) {
+        String jsonKey = "sectorLv" + sectorLevel + "Code";
+        if (sectorCodes == null || sectorCodes.length == 0) {
+            return findAllDistinctSectorCodesByLevelKey(jsonKey);
+        }
+        return findDistinctSectorCodesByLevelKey(sectorCodes, jsonKey);
+    }
+
+    @Query(
+            value =
+                    """
                         SELECT DISTINCT meta_json ->> CAST(:jsonKey AS text) AS sector_code
                         FROM symbols
                         WHERE is_active = TRUE
                           AND meta_json ->> CAST(:jsonKey AS text) IS NOT NULL
                         ORDER BY sector_code
-                        """, nativeQuery = true)
-        List<String> findAllDistinctSectorCodesByLevelKey(@Param("jsonKey") String jsonKey);
+                        """,
+            nativeQuery = true)
+    List<String> findAllDistinctSectorCodesByLevelKey(@Param("jsonKey") String jsonKey);
 
-        @Query(value = """
+    @Query(
+            value =
+                    """
                         SELECT DISTINCT meta_json ->> CAST(:jsonKey AS text) AS sector_code
                         FROM symbols
                         WHERE is_active = TRUE
                           AND meta_json ->> CAST(:jsonKey AS text) IS NOT NULL
                           AND meta_json ->> CAST(:jsonKey AS text) = ANY(CAST(:sectorCodes AS text[]))
                         ORDER BY sector_code
-                        """, nativeQuery = true)
-        List<String> findDistinctSectorCodesByLevelKey(
-                        @Param("sectorCodes") String[] sectorCodes,
-                        @Param("jsonKey") String jsonKey);
+                        """,
+            nativeQuery = true)
+    List<String> findDistinctSectorCodesByLevelKey(
+            @Param("sectorCodes") String[] sectorCodes, @Param("jsonKey") String jsonKey);
 }

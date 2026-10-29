@@ -25,8 +25,7 @@ public class BacklogSnapshotService {
     private final StaticJobTopology topology;
 
     public BacklogSnapshotService(
-            SchedulerOutboxRepository repository,
-            StaticJobTopologyProvider topologyProvider) {
+            SchedulerOutboxRepository repository, StaticJobTopologyProvider topologyProvider) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.topology = Objects.requireNonNull(topologyProvider, "topologyProvider").topology();
     }
@@ -45,12 +44,16 @@ public class BacklogSnapshotService {
     }
 
     private void add(Map<DispatchScope, BacklogCounts> entries, SchedulerBacklogGroup group) {
-        JobDefinitionIdentity identity = new JobDefinitionIdentity(
-                group.source(), group.jobType(), group.cronExpression());
+        JobDefinitionIdentity identity =
+                new JobDefinitionIdentity(group.source(), group.jobType(), group.cronExpression());
         TopologyNodeKey node = topology.nodeFor(identity);
         DispatchScope scope = new DispatchScope(node, group.jobDefinitionId(), identity);
-        BacklogCounts counts = new BacklogCounts(
-                group.pending(), group.dispatchable(), group.retryDelayed(), group.inFlight());
+        BacklogCounts counts =
+                new BacklogCounts(
+                        group.pending(),
+                        group.dispatchable(),
+                        group.retryDelayed(),
+                        group.inFlight());
         if (entries.putIfAbsent(scope, counts) != null) {
             throw new IllegalStateException("Duplicate backlog scope: " + scope);
         }

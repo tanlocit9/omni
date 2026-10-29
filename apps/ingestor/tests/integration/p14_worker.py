@@ -6,7 +6,9 @@ import asyncio
 import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -28,21 +30,23 @@ class FixtureProvider:
         ]
 
     async def fetch_recent_stock(self, symbol, size):
-        rows = (
-            181
-            if self.control and (self.control / "second-generation").exists()
-            else 180
-        )
-        return pd.DataFrame(
+        today = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+        revised = self.control and (self.control / "second-generation").exists()
+        rows = 180
+        frame = pd.DataFrame(
             {
-                "date": pd.date_range("2026-01-01", periods=rows, freq="D"),
+                "date": pd.bdate_range(end=today, periods=rows),
                 "ad_open": range(1, rows + 1),
                 "ad_high": range(2, rows + 2),
                 "ad_low": range(rows),
                 "ad_close": range(1, rows + 1),
                 "nm_volume": range(100, rows + 100),
             }
-        ).to_dict("records")
+        )
+        # A correction of the same atomic day must still change the input version.
+        if revised:
+            frame.loc[frame.index[-1], "ad_close"] = 999
+        return frame.to_dict("records")
 
     async def close(self):
         pass
@@ -72,7 +76,8 @@ async def main():
     consumer.get_or_create_client = lambda *args: provider
     stock_prices.get_or_create_client = lambda *args: provider
     symbols.get_or_create_client = lambda *args: provider
-    await consumer.IngestorKafkaRoutingService(settings).run()
+    service = consumer.IngestorKafkaRoutingService(settings)
+    await service.run()
 
 
 if __name__ == "__main__":

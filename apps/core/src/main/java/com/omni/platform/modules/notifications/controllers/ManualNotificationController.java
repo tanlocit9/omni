@@ -36,59 +36,68 @@ public class ManualNotificationController {
     @PostMapping("/signal/latest")
     public ResponseEntity<ManualLatestSignalNotificationResponse> sendLatestSignalNotification(
             @RequestParam(required = false) String symbolKey) {
-        String normalizedSymbol = symbolKey == null || symbolKey.isBlank() ? null : symbolKey.trim();
+        String normalizedSymbol =
+                symbolKey == null || symbolKey.isBlank() ? null : symbolKey.trim();
         LatestSignalResult latest = latestSignalNotificationService.findLatest(normalizedSymbol);
         UUID requestIdentity = UUID.randomUUID();
         String deliveryIdentity = "manual-latest:" + requestIdentity;
         Instant acceptedAt = Instant.now();
-        SignalChangedNotificationEvent event = new SignalChangedNotificationEvent(
-                requestIdentity,
-                requestIdentity,
-                latest.symbolKey(),
-                latest.previousSignal(),
-                latest.newSignal(),
-                latest.price(),
-                latest.signalDate(),
-                latest.reasonCodes(),
-                latest.score(),
-                latest.strategy(),
-                latest.timeframe(),
-                acceptedAt,
-                Map.of("manual", true, "generatedAt", latest.generatedAt()),
-                deliveryIdentity);
-        notificationOutboxService.enqueue(signalChangedNotificationTemplate.render(event), acceptedAt);
-        return ResponseEntity.accepted().body(new ManualLatestSignalNotificationResponse(
-                "ACCEPTED",
-                latest.symbolKey(),
-                latest.newSignal(),
-                latest.signalDate(),
-                latest.generatedAt(),
-                deliveryIdentity));
+        SignalChangedNotificationEvent event =
+                new SignalChangedNotificationEvent(
+                        requestIdentity,
+                        requestIdentity,
+                        latest.symbolKey(),
+                        latest.previousSignal(),
+                        latest.newSignal(),
+                        latest.price(),
+                        latest.signalDate(),
+                        latest.reasonCodes(),
+                        latest.score(),
+                        latest.strategy(),
+                        latest.timeframe(),
+                        acceptedAt,
+                        Map.of("manual", true, "generatedAt", latest.generatedAt()),
+                        deliveryIdentity);
+        notificationOutboxService.enqueue(
+                signalChangedNotificationTemplate.render(event), acceptedAt);
+        return ResponseEntity.accepted()
+                .body(
+                        new ManualLatestSignalNotificationResponse(
+                                "ACCEPTED",
+                                latest.symbolKey(),
+                                latest.newSignal(),
+                                latest.signalDate(),
+                                latest.generatedAt(),
+                                deliveryIdentity));
     }
 
     @PostMapping("/signal")
     public ResponseEntity<ManualSignalNotificationResponse> sendSignalNotification(
             @RequestBody(required = false) ManualSignalNotificationRequest request) {
-        ManualSignalNotificationRequest resolved = request == null
-                ? ManualSignalNotificationRequest.defaults().withDefaults()
-                : request.withDefaults();
+        ManualSignalNotificationRequest resolved =
+                request == null
+                        ? ManualSignalNotificationRequest.defaults().withDefaults()
+                        : request.withDefaults();
         String deliveryIdentity = "manual:" + UUID.randomUUID();
-        NotificationRequest notification = new NotificationRequest(
-                com.omni.platform.modules.notifications.dtos.NotificationChannel.SIGNALS,
-                NotificationType.SIGNAL,
-                NotificationKind.MANUAL_GENERIC,
-                NotificationSeverity.INFO,
-                resolved.title(),
-                resolved.message(),
-                resolved.metadata(),
-                deliveryIdentity);
+        NotificationRequest notification =
+                new NotificationRequest(
+                        com.omni.platform.modules.notifications.dtos.NotificationChannel.SIGNALS,
+                        NotificationType.SIGNAL,
+                        NotificationKind.MANUAL_GENERIC,
+                        NotificationSeverity.INFO,
+                        resolved.title(),
+                        resolved.message(),
+                        resolved.metadata(),
+                        deliveryIdentity);
 
         notificationOutboxService.enqueue(notification, Instant.now());
-        return ResponseEntity.accepted().body(new ManualSignalNotificationResponse(
-                "ACCEPTED",
-                resolved.title(),
-                resolved.metadata(),
-                deliveryIdentity));
+        return ResponseEntity.accepted()
+                .body(
+                        new ManualSignalNotificationResponse(
+                                "ACCEPTED",
+                                resolved.title(),
+                                resolved.metadata(),
+                                deliveryIdentity));
     }
 
     public record ManualSignalNotificationRequest(
@@ -105,16 +114,7 @@ public class ManualNotificationController {
 
         static ManualSignalNotificationRequest defaults() {
             return new ManualSignalNotificationRequest(
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null);
+                    null, null, null, null, null, null, null, null, null, null);
         }
 
         ManualSignalNotificationRequest withDefaults() {
@@ -168,13 +168,8 @@ public class ManualNotificationController {
             String newSignal,
             String signalDate,
             String generatedAt,
-            String deliveryIdentity) {
-    }
+            String deliveryIdentity) {}
 
     public record ManualSignalNotificationResponse(
-            String status,
-            String title,
-            Map<String, Object> metadata,
-            String deliveryIdentity) {
-    }
+            String status, String title, Map<String, Object> metadata, String deliveryIdentity) {}
 }

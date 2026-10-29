@@ -17,5 +17,5 @@ public record SectorRotationBacktestJobMessage(
         int sectorLevel,
         String timeframe,
         String strategy,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

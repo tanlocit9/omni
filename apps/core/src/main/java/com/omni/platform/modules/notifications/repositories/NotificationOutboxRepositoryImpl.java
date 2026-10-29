@@ -15,16 +15,15 @@ import jakarta.persistence.PersistenceContext;
 
 public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepositoryCustom {
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    @PersistenceContext private EntityManager entityManager;
 
     @Override
     public List<NotificationOutboxClaim> claimPending(
-            Instant now,
-            String claimedBy,
-            Duration leaseDuration,
-            int batchSize) {
-        List<?> rows = entityManager.createNativeQuery("""
+            Instant now, String claimedBy, Duration leaseDuration, int batchSize) {
+        List<?> rows =
+                entityManager
+                        .createNativeQuery(
+                                """
                 SELECT id, provider, channel, notification_kind, schema_version, payload, attempts
                 FROM notification_outbox_messages
                 WHERE status = 'PENDING'
@@ -34,9 +33,9 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
                 FOR UPDATE SKIP LOCKED
                 LIMIT :batchSize
                 """)
-                .setParameter("now", now)
-                .setParameter("batchSize", batchSize)
-                .getResultList();
+                        .setParameter("now", now)
+                        .setParameter("batchSize", batchSize)
+                        .getResultList();
 
         Instant claimUntil = now.plus(leaseDuration);
         List<NotificationOutboxClaim> claims = new ArrayList<>(rows.size());
@@ -44,7 +43,9 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
             Object[] columns = (Object[]) row;
             UUID messageId = (UUID) columns[0];
             UUID claimToken = UUID.randomUUID();
-            entityManager.createNativeQuery("""
+            entityManager
+                    .createNativeQuery(
+                            """
                     UPDATE notification_outbox_messages
                     SET claim_token = :claimToken, claimed_by = :claimedBy,
                         claim_until = :claimUntil, attempts = attempts + 1, updated_at = :now
@@ -56,16 +57,17 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
                     .setParameter("now", now)
                     .setParameter("messageId", messageId)
                     .executeUpdate();
-            claims.add(new NotificationOutboxClaim(
-                    messageId,
-                    claimToken,
-                    claimedBy,
-                    Provider.valueOf((String) columns[1]),
-                    NotificationChannel.valueOf((String) columns[2]),
-                    NotificationKind.valueOf((String) columns[3]),
-                    ((Number) columns[4]).intValue(),
-                    (String) columns[5],
-                    ((Number) columns[6]).intValue() + 1));
+            claims.add(
+                    new NotificationOutboxClaim(
+                            messageId,
+                            claimToken,
+                            claimedBy,
+                            Provider.valueOf((String) columns[1]),
+                            NotificationChannel.valueOf((String) columns[2]),
+                            NotificationKind.valueOf((String) columns[3]),
+                            ((Number) columns[4]).intValue(),
+                            (String) columns[5],
+                            ((Number) columns[6]).intValue() + 1));
         }
         entityManager.flush();
         return List.copyOf(claims);
@@ -83,19 +85,22 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
             String claimedBy,
             Instant availableAt,
             String sanitizedError) {
-        int updated = entityManager.createNativeQuery("""
+        int updated =
+                entityManager
+                        .createNativeQuery(
+                                """
                 UPDATE notification_outbox_messages
                 SET status = 'PENDING', available_at = :availableAt, last_error = :error,
                     claim_token = NULL, claimed_by = NULL, claim_until = NULL,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :messageId AND claim_token = :claimToken AND claimed_by = :claimedBy
                 """)
-                .setParameter("availableAt", availableAt)
-                .setParameter("error", sanitizedError)
-                .setParameter("messageId", messageId)
-                .setParameter("claimToken", claimToken)
-                .setParameter("claimedBy", claimedBy)
-                .executeUpdate();
+                        .setParameter("availableAt", availableAt)
+                        .setParameter("error", sanitizedError)
+                        .setParameter("messageId", messageId)
+                        .setParameter("claimToken", claimToken)
+                        .setParameter("claimedBy", claimedBy)
+                        .executeUpdate();
         entityManager.flush();
         return updated == 1;
     }
@@ -107,12 +112,15 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
             String claimedBy,
             Instant failedAt,
             String sanitizedError) {
-        return terminalUpdate(messageId, claimToken, claimedBy, failedAt, sanitizedError, "DEAD") == 1;
+        return terminalUpdate(messageId, claimToken, claimedBy, failedAt, sanitizedError, "DEAD")
+                == 1;
     }
 
     @Override
     public boolean acquireProviderPermit(String provider, Instant now, Duration interval) {
-        entityManager.createNativeQuery("""
+        entityManager
+                .createNativeQuery(
+                        """
                 INSERT INTO notification_provider_rate_limits (provider, next_permitted_at, updated_at)
                 VALUES (:provider, :now, :now)
                 ON CONFLICT (provider) DO NOTHING
@@ -120,19 +128,24 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
                 .setParameter("provider", provider)
                 .setParameter("now", now)
                 .executeUpdate();
-        Object value = entityManager.createNativeQuery("""
+        Object value =
+                entityManager
+                        .createNativeQuery(
+                                """
                 SELECT next_permitted_at
                 FROM notification_provider_rate_limits
                 WHERE provider = :provider
                 FOR UPDATE
                 """)
-                .setParameter("provider", provider)
-                .getSingleResult();
+                        .setParameter("provider", provider)
+                        .getSingleResult();
         Instant nextPermittedAt = (Instant) value;
         if (nextPermittedAt.isAfter(now)) {
             return false;
         }
-        entityManager.createNativeQuery("""
+        entityManager
+                .createNativeQuery(
+                        """
                 UPDATE notification_provider_rate_limits
                 SET next_permitted_at = :nextPermittedAt, updated_at = :now
                 WHERE provider = :provider
@@ -152,22 +165,27 @@ public class NotificationOutboxRepositoryImpl implements NotificationOutboxRepos
             Instant timestamp,
             String error,
             String status) {
-        String sql = "SENT".equals(status) ? """
+        String sql =
+                "SENT".equals(status)
+                        ? """
                 UPDATE notification_outbox_messages
                 SET status = 'SENT', sent_at = :timestamp, last_error = NULL,
                     claim_token = NULL, claimed_by = NULL, claim_until = NULL, updated_at = :timestamp
                 WHERE id = :messageId AND claim_token = :claimToken AND claimed_by = :claimedBy
-                """ : """
+                """
+                        : """
                 UPDATE notification_outbox_messages
                 SET status = 'DEAD', last_error = :error,
                     claim_token = NULL, claimed_by = NULL, claim_until = NULL, updated_at = :timestamp
                 WHERE id = :messageId AND claim_token = :claimToken AND claimed_by = :claimedBy
                 """;
-        var query = entityManager.createNativeQuery(sql)
-                .setParameter("timestamp", timestamp)
-                .setParameter("messageId", messageId)
-                .setParameter("claimToken", claimToken)
-                .setParameter("claimedBy", claimedBy);
+        var query =
+                entityManager
+                        .createNativeQuery(sql)
+                        .setParameter("timestamp", timestamp)
+                        .setParameter("messageId", messageId)
+                        .setParameter("claimToken", claimToken)
+                        .setParameter("claimedBy", claimedBy);
         if (!"SENT".equals(status)) {
             query.setParameter("error", error);
         }

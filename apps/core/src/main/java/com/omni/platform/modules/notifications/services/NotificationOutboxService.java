@@ -25,7 +25,8 @@ public class NotificationOutboxService implements NotificationOutboxStore {
     private final NotificationOutboxRepository repository;
     private final JsonMapper jsonMapper;
 
-    public NotificationOutboxService(NotificationOutboxRepository repository, JsonMapper jsonMapper) {
+    public NotificationOutboxService(
+            NotificationOutboxRepository repository, JsonMapper jsonMapper) {
         this.repository = repository;
         this.jsonMapper = jsonMapper;
     }
@@ -42,9 +43,13 @@ public class NotificationOutboxService implements NotificationOutboxStore {
                 serialize(request),
                 request.deduplicationKey(),
                 now);
-        return repository.findByProviderAndChannelAndDeduplicationKey(
-                provider, request.channel(), request.deduplicationKey())
-                .orElseThrow(() -> new IllegalStateException("Notification enqueue did not produce a durable row"));
+        return repository
+                .findByProviderAndChannelAndDeduplicationKey(
+                        provider, request.channel(), request.deduplicationKey())
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        "Notification enqueue did not produce a durable row"));
     }
 
     @Override
@@ -57,12 +62,15 @@ public class NotificationOutboxService implements NotificationOutboxStore {
     @Override
     public NotificationRequest decode(NotificationOutboxClaim claim) {
         if (claim.schemaVersion() != SCHEMA_VERSION) {
-            throw new IllegalArgumentException("Unsupported notification schema version: " + claim.schemaVersion());
+            throw new IllegalArgumentException(
+                    "Unsupported notification schema version: " + claim.schemaVersion());
         }
         try {
-            NotificationRequest request = jsonMapper.readValue(claim.payload(), NotificationRequest.class);
+            NotificationRequest request =
+                    jsonMapper.readValue(claim.payload(), NotificationRequest.class);
             if (request.kind() != claim.kind() || request.channel() != claim.channel()) {
-                throw new IllegalArgumentException("Persisted notification envelope does not match payload");
+                throw new IllegalArgumentException(
+                        "Persisted notification envelope does not match payload");
             }
             return request;
         } catch (JacksonException exception) {
@@ -78,12 +86,14 @@ public class NotificationOutboxService implements NotificationOutboxStore {
 
     @Transactional
     public boolean markSent(NotificationOutboxClaim claim, Instant sentAt) {
-        return repository.markSent(claim.messageId(), claim.claimToken(), claim.claimedBy(), sentAt);
+        return repository.markSent(
+                claim.messageId(), claim.claimToken(), claim.claimedBy(), sentAt);
     }
 
     @Override
     @Transactional
-    public boolean scheduleRetry(NotificationOutboxClaim claim, Instant retryAt, String sanitizedError) {
+    public boolean scheduleRetry(
+            NotificationOutboxClaim claim, Instant retryAt, String sanitizedError) {
         return markRetry(claim, retryAt, sanitizedError);
     }
 
@@ -97,7 +107,11 @@ public class NotificationOutboxService implements NotificationOutboxStore {
     @Transactional
     public boolean markDead(NotificationOutboxClaim claim, Instant failedAt, String error) {
         return repository.markDead(
-                claim.messageId(), claim.claimToken(), claim.claimedBy(), failedAt, sanitize(error));
+                claim.messageId(),
+                claim.claimToken(),
+                claim.claimedBy(),
+                failedAt,
+                sanitize(error));
     }
 
     @Override
@@ -117,7 +131,8 @@ public class NotificationOutboxService implements NotificationOutboxStore {
             throw new IllegalArgumentException("Notification deduplication key is required");
         }
         if (request.deduplicationKey().length() > 512) {
-            throw new IllegalArgumentException("Notification deduplication key exceeds 512 characters");
+            throw new IllegalArgumentException(
+                    "Notification deduplication key exceeds 512 characters");
         }
     }
 
@@ -125,12 +140,14 @@ public class NotificationOutboxService implements NotificationOutboxStore {
         try {
             return jsonMapper.writeValueAsString(request);
         } catch (JacksonException exception) {
-            throw new IllegalArgumentException("Notification request cannot be serialized", exception);
+            throw new IllegalArgumentException(
+                    "Notification request cannot be serialized", exception);
         }
     }
 
     private String sanitize(String error) {
-        String normalized = error == null ? "unknown" : error.replaceAll("[\\r\\n\\t]+", " ").trim();
+        String normalized =
+                error == null ? "unknown" : error.replaceAll("[\\r\\n\\t]+", " ").trim();
         return normalized.substring(0, Math.min(normalized.length(), MAX_ERROR_LENGTH));
     }
 }

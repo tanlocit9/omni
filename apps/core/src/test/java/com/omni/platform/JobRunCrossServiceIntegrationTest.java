@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayInputStream;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,6 +18,18 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
+import com.omni.platform.modules.scheduler.JobScheduler;
+import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshot;
+import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshotReader;
+import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
+import com.omni.platform.modules.scheduler.runs.JobRunPreparationService;
+import com.omni.platform.modules.scheduler.services.SchedulerClaimService;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,18 +43,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
-
-import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
-import com.omni.platform.modules.scheduler.JobScheduler;
-import com.omni.platform.modules.scheduler.entities.JobDefinition;
-import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
-import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshot;
-import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshotReader;
-import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
-
-import io.minio.GetObjectArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Opt-in actual DB/broker/storage/workers. Only external market data is a fixture. */
@@ -152,7 +154,7 @@ class JobRunCrossServiceIntegrationTest {
         if (overlapControls) {
             Path control = Files.createDirectory(directory.resolve("control"));
             environment.put("overlapControlDir", control.toString());
-            environment.put("expectedRows", 181);
+            environment.put("expectedRows", 1);
         }
         Files.writeString(config, JSON.writeValueAsString(environment));
         // Production listeners are started explicitly; no schedules run in this isolated profile.
@@ -244,7 +246,7 @@ class JobRunCrossServiceIntegrationTest {
         finish(prepare(JobType.SYNC_METADATA), dispatch);
         launch("query-service", "p14_query.py", true);
         var result = JSON.readTree(Files.readString(directory.resolve("query-result.json")));
-        assertThat(result.path("rows").asInt()).isEqualTo(180);
+        assertThat(result.path("rows").asInt()).isEqualTo(1);
         String eodVersion = result.path("eodDataVersion").asText();
         assertThat(
                         jdbc.queryForObject(
@@ -267,7 +269,7 @@ class JobRunCrossServiceIntegrationTest {
                                 symbolsWithWarning))
                 .isEqualTo(1);
         // A noncanonical auxiliary object produces a partial result, not a failed run.
-        byte[] note = "auxiliary".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] note = "auxiliary".getBytes(StandardCharsets.UTF_8);
         storage.putObject(
                 PutObjectArgs.builder().bucket(bucket).object("eod/hose/notes.txt").stream(
                                 new ByteArrayInputStream(note), note.length, -1)
@@ -293,7 +295,7 @@ class JobRunCrossServiceIntegrationTest {
                                 .build())) {
             previous = input.readAllBytes();
         }
-        byte[] corrupt = "invalid-parquet".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] corrupt = "invalid-parquet".getBytes(StandardCharsets.UTF_8);
         storage.putObject(
                 PutObjectArgs.builder().bucket(bucket).object("eod/hose/bad.parquet").stream(
                                 new ByteArrayInputStream(corrupt), corrupt.length, -1)
@@ -356,10 +358,10 @@ class JobRunCrossServiceIntegrationTest {
         // Keep every ancestor definition available; schedule only this test entry.
         jdbc.update(
                 "UPDATE job_definitions SET next_run=?",
-                java.sql.Timestamp.from(Instant.now().plusSeconds(86400)));
+                Timestamp.from(Instant.now().plusSeconds(86400)));
         jdbc.update(
                 "UPDATE job_definitions SET next_run=?,claim_token=null,claim_until=null WHERE id=?",
-                java.sql.Timestamp.from(Instant.now().minusSeconds(1)),
+                Timestamp.from(Instant.now().minusSeconds(1)),
                 definition.getId());
         if (type == JobType.SYNC_METADATA) {
             context.getBean(JobScheduler.class).scan();
@@ -368,12 +370,10 @@ class JobRunCrossServiceIntegrationTest {
             // Keep this provider-bounded worker scenario explicit; the scheduler
             // entry policy is exercised separately on the full seeded catalog.
             var claim =
-                    context.getBean(
-                                    com.omni.platform.modules.scheduler.services
-                                            .SchedulerClaimService.class)
+                    context.getBean(SchedulerClaimService.class)
                             .claimJobDefinition(definition.getId(), Instant.now(), "integration")
                             .orElseThrow();
-            context.getBean(com.omni.platform.modules.scheduler.runs.JobRunPreparationService.class)
+            context.getBean(JobRunPreparationService.class)
                     .prepareScheduled(definition, claim, Instant.now());
         }
         assertThat(

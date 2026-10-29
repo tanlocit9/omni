@@ -80,22 +80,34 @@ public final class DispatchPlanner {
         List<TopologyNodeKey> roots = rotatedRoots(rootCursor);
         TopologyNodeKey unchangedCursor = roots.isEmpty() ? null : roots.getFirst();
         if (!snapshot.complete()) {
-            return new DispatchPlan(snapshot.capturedAt(), Status.INCOMPLETE_SNAPSHOT,
-                    dispatchBudget, unchangedCursor, List.of());
+            return new DispatchPlan(
+                    snapshot.capturedAt(),
+                    Status.INCOMPLETE_SNAPSHOT,
+                    dispatchBudget,
+                    unchangedCursor,
+                    List.of());
         }
 
         // Reject future capture times as well as expired evidence; equality is valid.
         // Time is supplied by the caller instead of reading a clock inside this planner.
         Duration age = Duration.between(snapshot.capturedAt(), evaluatedAt);
         if (age.isNegative() || age.compareTo(maxSnapshotAge) > 0) {
-            return new DispatchPlan(snapshot.capturedAt(), Status.STALE_SNAPSHOT,
-                    dispatchBudget, unchangedCursor, List.of());
+            return new DispatchPlan(
+                    snapshot.capturedAt(),
+                    Status.STALE_SNAPSHOT,
+                    dispatchBudget,
+                    unchangedCursor,
+                    List.of());
         }
 
         List<RootCandidates> candidates = candidates(snapshot, roots);
         if (candidates.isEmpty()) {
-            return new DispatchPlan(snapshot.capturedAt(), Status.NO_DISPATCHABLE_WORK,
-                    dispatchBudget, unchangedCursor, List.of());
+            return new DispatchPlan(
+                    snapshot.capturedAt(),
+                    Status.NO_DISPATCHABLE_WORK,
+                    dispatchBudget,
+                    unchangedCursor,
+                    List.of());
         }
 
         Map<Candidate, Integer> allocations = allocate(candidates, dispatchBudget);
@@ -103,21 +115,20 @@ public final class DispatchPlanner {
         int order = 0;
         for (Map.Entry<Candidate, Integer> allocation : allocations.entrySet()) {
             Candidate candidate = allocation.getKey();
-            selections.add(new Selection(
-                    candidate.root(),
-                    candidate.scope(),
-                    allocation.getValue(),
-                    candidate.reason(),
-                    order++));
+            selections.add(
+                    new Selection(
+                            candidate.root(),
+                            candidate.scope(),
+                            allocation.getValue(),
+                            candidate.reason(),
+                            order++));
         }
         TopologyNodeKey cursor = nextCursorAfterAllocation(roots, allocations);
-        return new DispatchPlan(snapshot.capturedAt(), Status.PLANNED,
-                dispatchBudget, cursor, selections);
+        return new DispatchPlan(
+                snapshot.capturedAt(), Status.PLANNED, dispatchBudget, cursor, selections);
     }
 
-    private List<RootCandidates> candidates(
-            BacklogSnapshot snapshot,
-            List<TopologyNodeKey> roots) {
+    private List<RootCandidates> candidates(BacklogSnapshot snapshot, List<TopologyNodeKey> roots) {
         List<RootCandidates> result = new ArrayList<>();
         // Deduplication only: these scopes are not database claims or reservations.
         Set<DispatchScope> claimedScopes = new HashSet<>();
@@ -128,13 +139,15 @@ public final class DispatchPlanner {
                 snapshot.entriesForNode(selectedNode).stream()
                         .filter(entry -> entry.getValue().hasDispatchableWork())
                         .filter(entry -> claimedScopes.add(entry.getKey()))
-                        .map(entry -> new Candidate(
-                                root,
-                                entry.getKey(),
-                                entry.getValue().dispatchable(),
-                                nodeRootCounts.getOrDefault(selectedNode, 0) > 1
-                                        ? Reason.SHARED_DESCENDANT
-                                        : Reason.FIRST_DISPATCHABLE_ON_ROOT_PATH))
+                        .map(
+                                entry ->
+                                        new Candidate(
+                                                root,
+                                                entry.getKey(),
+                                                entry.getValue().dispatchable(),
+                                                nodeRootCounts.getOrDefault(selectedNode, 0) > 1
+                                                        ? Reason.SHARED_DESCENDANT
+                                                        : Reason.FIRST_DISPATCHABLE_ON_ROOT_PATH))
                         .forEach(scopes::add);
             }
             if (!scopes.isEmpty()) {
@@ -187,7 +200,12 @@ public final class DispatchPlanner {
     private Map<Candidate, Integer> allocate(List<RootCandidates> roots, int budget) {
         Map<Candidate, Integer> allocations = new LinkedHashMap<>();
         Map<Candidate, Long> remaining = new LinkedHashMap<>();
-        roots.forEach(root -> root.candidates().forEach(candidate -> remaining.put(candidate, candidate.available())));
+        roots.forEach(
+                root ->
+                        root.candidates()
+                                .forEach(
+                                        candidate ->
+                                                remaining.put(candidate, candidate.available())));
         int allocated = 0;
         boolean progressed = true;
         while (allocated < budget && progressed) {
@@ -225,28 +243,21 @@ public final class DispatchPlanner {
     }
 
     private TopologyNodeKey nextCursorAfterAllocation(
-            List<TopologyNodeKey> roots,
-            Map<Candidate, Integer> allocations) {
+            List<TopologyNodeKey> roots, Map<Candidate, Integer> allocations) {
         if (roots.isEmpty()) {
             return null;
         }
-        TopologyNodeKey last = allocations.keySet().stream()
-                .reduce((ignored, candidate) -> candidate)
-                .orElseThrow()
-                .root();
+        TopologyNodeKey last =
+                allocations.keySet().stream()
+                        .reduce((ignored, candidate) -> candidate)
+                        .orElseThrow()
+                        .root();
         int index = roots.indexOf(last);
         return roots.get((index + 1) % roots.size());
     }
 
     private record Candidate(
-            TopologyNodeKey root,
-            DispatchScope scope,
-            long available,
-            Reason reason) {
-    }
+            TopologyNodeKey root, DispatchScope scope, long available, Reason reason) {}
 
-    private record RootCandidates(
-            TopologyNodeKey root,
-            List<Candidate> candidates) {
-    }
+    private record RootCandidates(TopologyNodeKey root, List<Candidate> candidates) {}
 }

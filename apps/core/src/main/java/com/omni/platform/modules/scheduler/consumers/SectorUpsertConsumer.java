@@ -45,15 +45,22 @@ public class SectorUpsertConsumer extends AbstractConsumer {
         return upsertSectorsTopic;
     }
 
-    @KafkaListener(topics = "${kafka.topics.topic-upsert-sectors}", groupId = "${spring.kafka.consumer.group-id}")
+    @KafkaListener(
+            topics = "${kafka.topics.topic-upsert-sectors}",
+            groupId = "${spring.kafka.consumer.group-id}")
     @Transactional
     public void handleSectorUpsert(ConsumerRecord<String, String> record) {
         try {
-            SectorUpsertMessage event = jsonMapper.readValue(record.value(), SectorUpsertMessage.class);
+            SectorUpsertMessage event =
+                    jsonMapper.readValue(record.value(), SectorUpsertMessage.class);
             applyUpsert(event);
         } catch (Exception e) {
             publishMessageProcessingFailed(record, e);
-            log.error("Failed to process sector-upsert message [{}]: {}", record.key(), e.getMessage(), e);
+            log.error(
+                    "Failed to process sector-upsert message [{}]: {}",
+                    record.key(),
+                    e.getMessage(),
+                    e);
             throw new RuntimeException("Failed to process sector-upsert message", e);
         }
     }
@@ -66,8 +73,11 @@ public class SectorUpsertConsumer extends AbstractConsumer {
             return;
         }
 
-        log.info("Applying sector upsert batch for [{}]: {} records (expected {})",
-                event.exchange(), event.actualCount(), event.expectedCount());
+        log.info(
+                "Applying sector upsert batch for [{}]: {} records (expected {})",
+                event.exchange(),
+                event.actualCount(),
+                event.expectedCount());
 
         int failedUpserts = 0;
         List<String> codes = new ArrayList<>();
@@ -95,7 +105,11 @@ public class SectorUpsertConsumer extends AbstractConsumer {
                 metaJsons.add(jsonMapper.writeValueAsString(toMeta(event, sector)));
             } catch (Exception exc) {
                 failedUpserts++;
-                log.error("Failed to prepare sector [{}] for batch upsert: {}", sector.sectorCode(), exc.getMessage(), exc);
+                log.error(
+                        "Failed to prepare sector [{}] for batch upsert: {}",
+                        sector.sectorCode(),
+                        exc.getMessage(),
+                        exc);
             }
         }
 
@@ -113,16 +127,27 @@ public class SectorUpsertConsumer extends AbstractConsumer {
             } catch (Exception exc) {
                 failedUpserts += codes.size();
                 successfulUpserts = 0;
-                log.error("Failed to batch upsert {} sectors for [{}]: {}", codes.size(), event.exchange(), exc.getMessage(), exc);
+                log.error(
+                        "Failed to batch upsert {} sectors for [{}]: {}",
+                        codes.size(),
+                        event.exchange(),
+                        exc.getMessage(),
+                        exc);
             }
         }
 
-        log.info("Sector upsert complete for [{}]: success={} failed={}",
-                event.exchange(), successfulUpserts, failedUpserts);
+        log.info(
+                "Sector upsert complete for [{}]: success={} failed={}",
+                event.exchange(),
+                successfulUpserts,
+                failedUpserts);
 
         if (failedUpserts > 0) {
             throw new IllegalStateException(
-                    "Sector upsert batch completed with " + failedUpserts + " failed records for " + event.exchange());
+                    "Sector upsert batch completed with "
+                            + failedUpserts
+                            + " failed records for "
+                            + event.exchange());
         }
     }
 
@@ -139,7 +164,8 @@ public class SectorUpsertConsumer extends AbstractConsumer {
         MetadataUtils.putIfPresent(meta, "expectedCount", event.expectedCount());
         MetadataUtils.putIfPresent(meta, "actualCount", event.actualCount());
         MetadataUtils.putIfPresent(meta, "detectedAt", event.detectedAt());
-        MetadataUtils.putIfPresent(meta, "classificationUpdatedAt", record.classificationUpdatedAt());
+        MetadataUtils.putIfPresent(
+                meta, "classificationUpdatedAt", record.classificationUpdatedAt());
         return meta;
     }
 

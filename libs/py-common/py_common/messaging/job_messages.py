@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+
+from py_common.messaging.atomic_work import AtomicWorkEnvelope
 
 
 class WorkType(StrEnum):
@@ -12,7 +14,7 @@ class WorkType(StrEnum):
     GLOBAL = "GLOBAL"
 
 
-class JobMessage(BaseModel):
+class JobMessage(AtomicWorkEnvelope):
     """Base payload fields shared by scheduler-driven Kafka job messages."""
 
     job_definition_id: str = Field(alias="jobDefinitionId")

@@ -14,6 +14,7 @@ from py_common.messaging import (
     calculate_duration_ms,
     utc_now,
 )
+from py_common.messaging.atomic_work import carry_work_status
 from pydantic import ValidationError
 
 from app.settings import AppSettings
@@ -63,6 +64,7 @@ class SignalKafkaService(JobStatusKafkaService):
             message = SignalJobMessage.model_validate(raw)
             transition = await self._handler.handle(raw)
             status = self._build_status(message, started_at, utc_now(), transition)
+            status = carry_work_status(status, raw)
             await self.publish_status(status)
             try:
                 await self._publish_signal_notification(message, transition)
@@ -94,6 +96,7 @@ class SignalKafkaService(JobStatusKafkaService):
                 error_message=str(exc),
             )
 
+        status = carry_work_status(status, raw)
         await self.publish_status(status)
         return status
 

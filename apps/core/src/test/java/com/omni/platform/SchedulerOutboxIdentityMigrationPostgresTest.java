@@ -5,14 +5,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
+import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
+import com.omni.platform.modules.scheduler.planning.JobRunDispatchStore;
+import com.omni.platform.modules.scheduler.services.JobService;
+import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
+import com.omni.platform.shared.executions.WorkType;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -86,14 +100,14 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         assertThat(flyway(null).migrate().migrationsExecuted).isZero();
         flyway(null).validate();
         assertThat(intentsWithoutForeignKey()).isEqualTo(after);
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("15");
-        // A separate disposable schema exercises V1 through V15 from an empty install.
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("16");
+        // A separate disposable schema exercises V1 through V16 from an empty install.
         String original = schema;
         var originalSource = dataSource;
         try {
             schema = "i7_" + UUID.randomUUID().toString().replace("-", "");
             dataSource = source(schema);
-            assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(15);
+            assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(16);
             assertThat(
                             new JdbcTemplate(dataSource)
                                     .queryForObject(
@@ -248,9 +262,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                         UUID.class,
                         canonical.parent());
         UUID run = createRun(definition);
-        new org.springframework.transaction.support.TransactionTemplate(
-                        new org.springframework.jdbc.datasource.DataSourceTransactionManager(
-                                dataSource))
+        new TransactionTemplate(new DataSourceTransactionManager(dataSource))
                 .executeWithoutResult(
                         tx -> {
                             jdbc.update(
@@ -284,7 +296,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         var alias = row("PENDING", false, true);
         var before = intentsWithoutForeignKey();
         try (var connection = dataSource.getConnection();
-                var pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+                var pool = Executors.newSingleThreadExecutor()) {
             connection.setAutoCommit(false);
             try (var statement =
                     connection.prepareStatement(
@@ -293,7 +305,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                 statement.executeUpdate();
             }
             var migration = pool.submit(() -> flyway(null).migrate());
-            assertThatThrownBy(() -> migration.get(15, java.util.concurrent.TimeUnit.SECONDS))
+            assertThatThrownBy(() -> migration.get(15, TimeUnit.SECONDS))
                     .hasStackTraceContaining("lock timeout");
             connection.rollback();
         }
@@ -329,32 +341,19 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                                 context.getEnvironment()
                                         .getPropertySources()
                                         .addFirst(
-                                                new org.springframework.core.env.MapPropertySource(
+                                                new MapPropertySource(
                                                         "upgraded-work-schema",
                                                         Map.of(
                                                                 "spring.datasource.url",
                                                                 dataSource.getUrl()))))) {
             assertThat(application.getBean(Flyway.class).info().current().getVersion().toString())
-                    .isEqualTo("15");
-            var outbox =
-                    application.getBean(
-                            com.omni.platform.modules.scheduler.services.SchedulerOutboxService
-                                    .class);
-            var store =
-                    application.getBean(
-                            com.omni.platform.modules.scheduler.planning.JobRunDispatchStore.class);
-            var approved =
-                    Map.of(
-                            com.omni.platform.modules.scheduler.dependencies.DatasetRef.of(
-                                    "eod", Map.of("exchange", "HOSE")),
-                            "v1");
+                    .isEqualTo("16");
+            var outbox = application.getBean(SchedulerOutboxService.class);
+            var store = application.getBean(JobRunDispatchStore.class);
+            var approved = Map.of(DatasetRef.of("eod", Map.of("exchange", "HOSE")), "v1");
             var claim =
                     store.claimLegacy(
-                            work.message(),
-                            NOW,
-                            "upgrade-test",
-                            java.time.Duration.ofSeconds(30),
-                            approved);
+                            work.message(), NOW, "upgrade-test", Duration.ofSeconds(30), approved);
             assertThat(claim).isNotNull();
             assertThat(claim.executionId()).isEqualTo(work.child());
             assertThat(
@@ -378,23 +377,21 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                             work.message(),
                             NOW.plusSeconds(2),
                             "upgrade-test",
-                            java.time.Duration.ofSeconds(30),
+                            Duration.ofSeconds(30),
                             approved);
             assertThat(retried.executionId()).isEqualTo(work.child());
             assertThat(retried.attempts()).isEqualTo(9);
-            assertThat(
-                            outbox.renewForPublish(
-                                    retried, NOW.plusSeconds(2), java.time.Duration.ofSeconds(30)))
+            assertThat(outbox.renewForPublish(retried, NOW.plusSeconds(2), Duration.ofSeconds(30)))
                     .isTrue();
             assertThat(outbox.markDelivered(retried, NOW.plusSeconds(3))).isTrue();
             application
-                    .getBean(com.omni.platform.modules.scheduler.services.JobService.class)
+                    .getBean(JobService.class)
                     .applyStatus(
-                            new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
+                            new JobStatusMessage(
                                     definition.toString(),
                                     work.child().toString(),
                                     work.parent().toString(),
-                                    com.omni.platform.shared.executions.WorkType.EXCHANGE,
+                                    WorkType.EXCHANGE,
                                     "HOSE",
                                     "SUCCESS",
                                     Map.of(),
@@ -427,9 +424,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
     }
 
     private UUID createRun(UUID definition) {
-        return new org.springframework.transaction.support.TransactionTemplate(
-                        new org.springframework.jdbc.datasource.DataSourceTransactionManager(
-                                dataSource))
+        return new TransactionTemplate(new DataSourceTransactionManager(dataSource))
                 .execute(
                         tx -> {
                             UUID run =
@@ -472,7 +467,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         return jdbc.query(
                 "SELECT id,(to_jsonb(o)-'execution_id')::text AS value FROM scheduler_outbox_messages o",
                 rs -> {
-                    Map<UUID, String> values = new java.util.HashMap<>();
+                    Map<UUID, String> values = new HashMap<>();
                     while (rs.next())
                         values.put(rs.getObject("id", UUID.class), rs.getString("value"));
                     return values;

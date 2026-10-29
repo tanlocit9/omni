@@ -17,12 +17,12 @@ public interface NotificationOutboxRepository
         extends BaseRepository<NotificationOutboxMessage>, NotificationOutboxRepositoryCustom {
 
     Optional<NotificationOutboxMessage> findByProviderAndChannelAndDeduplicationKey(
-            Provider provider,
-            NotificationChannel channel,
-            String deduplicationKey);
+            Provider provider, NotificationChannel channel, String deduplicationKey);
 
     @Modifying
-    @Query(value = """
+    @Query(
+            value =
+                    """
             INSERT INTO notification_outbox_messages (
                 provider, channel, notification_kind, schema_version, payload,
                 deduplication_key, status, attempts, available_at)
@@ -30,7 +30,8 @@ public interface NotificationOutboxRepository
                 CAST(:provider AS VARCHAR), CAST(:channel AS VARCHAR), CAST(:kind AS VARCHAR),
                 :schemaVersion, :payload, :deduplicationKey, 'PENDING', 0, :availableAt)
             ON CONFLICT (provider, channel, deduplication_key) DO NOTHING
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     int insertIfAbsent(
             String provider,
             String channel,
@@ -42,6 +43,9 @@ public interface NotificationOutboxRepository
 
     long countByStatus(NotificationOutboxMessage.Status status);
 
-    @Query(value = "select min(created_at) from notification_outbox_messages where status = 'PENDING'", nativeQuery = true)
+    @Query(
+            value =
+                    "select min(created_at) from notification_outbox_messages where status = 'PENDING'",
+            nativeQuery = true)
     Optional<Instant> findOldestPendingCreatedAt();
 }

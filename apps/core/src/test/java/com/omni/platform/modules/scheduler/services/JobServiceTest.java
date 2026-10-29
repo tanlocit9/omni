@@ -46,6 +46,32 @@ import com.omni.platform.shared.executions.WorkType;
 
 @ExtendWith(MockitoExtension.class)
 class JobServiceTest {
+    @Test
+    void workerStatusCannotReplaceTheFirstApprovedInputBinding() {
+        var execution = execution(JobStatus.RUNNING, null);
+        var binding = List.of(Map.of("dataset", "eod", "partition", Map.of("exchange", "hose"), "dataVersion", "v1"));
+        execution.setMetaJson(Map.of("approvedInputs", binding));
+        when(historyRepository.findById(execution.getId())).thenReturn(Optional.of(execution));
+        when(historyRepository.saveAndFlush(execution)).thenReturn(execution);
+        service.applyStatus(message(execution.getId().toString(), null, "SUCCESS", 1, null,
+                Map.of("approvedInputs", List.of(Map.of("dataVersion", "forged")))));
+        assertThat(execution.getMetaJson()).containsEntry("approvedInputs", binding);
+    }
+    @Test
+    void metadataParentKeepsSuccessAndProjectsPartialWarningFromItsAtomicChild() {
+        var parent = execution(JobStatus.RUNNING, null);
+        parent.getJob().setJobType(JobType.SYNC_METADATA);
+        var child = execution(JobStatus.SUCCESS, parent.getId());
+        child.setMetaJson(Map.of("result", "PARTIAL_SUCCESS", "objectsSkipped", "1",
+                "warning", "1 skipped object(s)"));
+        when(historyRepository.findByIdForUpdate(parent.getId())).thenReturn(Optional.of(parent));
+        when(historyRepository.findAllByParentLogId(parent.getId())).thenReturn(List.of(child));
+        when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
+        service.aggregateParentExecution(parent.getId());
+        assertThat(parent.getStatus()).isEqualTo(JobStatus.SUCCESS);
+        assertThat(parent.getMetaJson()).containsEntry("result", "PARTIAL_SUCCESS")
+                .containsEntry("objectsSkipped", 1L).containsEntry("warning", "1 skipped object(s)");
+    }
 
     @Mock
     private JobDefinitionRepository jobDefinitionRepository;

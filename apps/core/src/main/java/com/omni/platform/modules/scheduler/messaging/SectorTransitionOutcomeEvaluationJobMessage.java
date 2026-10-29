@@ -21,5 +21,5 @@ public record SectorTransitionOutcomeEvaluationJobMessage(
         String timeframe,
         String strategy,
         List<Integer> predictionHorizons,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

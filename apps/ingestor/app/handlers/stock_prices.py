@@ -1,9 +1,11 @@
 import logging
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from py_common.kafka import decode_json_object_payload
 from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
+from py_common.storage.atomic_work import cutoff_frame, day_rows
 from py_common.storage.date_contracts import normalize_date_contracts
 from py_common.storage.parquet import ParquetStorage
 
@@ -72,19 +74,38 @@ async def process_stock_price_message(
 
         from_date = message.from_offset.date() if message.from_offset else None
         to_date = message.to_offset.date() if message.to_offset else date.today()
-
-        limit = compute_limit(from_date, to_date)
-        new_df = await fetch_stock_data(client, code, limit)
-
         object_name = settings.get_eod_path(exchange, code)
         existing_df = await parquet_storage.read_optional_dataframe(object_name)
+        bootstrap = existing_df is None or existing_df.empty
+
+        if message.business_date is not None:
+            from_date = to_date = message.business_date
+            today = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+            age = (today - to_date).days
+            if age < 0 or age + 30 > _ALL_RECORDS_LIMIT:
+                raise ValueError("Provider cannot serve requested atomic date")
+            # The provider API is recent-N; fetch the span, then prove the day.
+            limit = _ALL_RECORDS_LIMIT if bootstrap else age + 30
+        else:
+            limit = compute_limit(from_date, to_date)
+        new_df = await fetch_stock_data(client, code, limit)
+        if message.business_date is not None:
+            new_df = normalize_stock_price_dataframe_columns(new_df)
+            if bootstrap:
+                # Restore lookback for cold/new symbols without admitting future rows.
+                new_df = cutoff_frame(new_df, message.business_date, require_day=True)
+            else:
+                new_df = day_rows(new_df, message.business_date)
+
         frames = [df for df in (existing_df, new_df) if df is not None and not df.empty]
         combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
         if not combined.empty:
             combined = normalize_stock_price_dataframe_columns(combined)
             combined = normalize_date_contracts(combined)
-            combined = combined.drop_duplicates(subset=["date"])
+            combined = combined.drop_duplicates(
+                subset=["date"], keep="last" if message.business_date else "first"
+            )
             combined = combined.sort_values("date")
 
         await parquet_storage.write_dataframe(object_name, combined)

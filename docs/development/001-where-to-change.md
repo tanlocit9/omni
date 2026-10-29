@@ -1,9 +1,21 @@
 # Where to Change
 
+Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
+I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
+Common preparation now persists atomic dated work and sends the additive
+`jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
+snapshots; matching Java/Python rollout is required even on the legacy scheduler.
+Consumers preserve other dates and retain lookback; catalog/metadata are current
+snapshots only. Writer and shared ancestors remain deferred. EOD-to-indicator
+execution binding is implemented; broader version/concurrency guarantees remain
+deferred.
+The original I8 delivery ran no checks; later verification and repair evidence
+is recorded in Plan 030. This supersedes earlier design-only I8/I9 statements.
+See [contract, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+
 Planned P14 handoff — 2026-10-29: For pending I8, start with common expansion and all producer/creation-route adapters plus dated worker semantics. For I9.a/b/c, compose static mapping, implement shared work, then consolidate definitions only after parity. Outbox publication must not expand stored work twice.
 This note changes no implementation, configuration, preparation flag or existing
 runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
-
 
 Use this guide after reading [System overview](../architecture/001-system-overview.md). It maps common product or architecture changes to the first place to inspect.
 

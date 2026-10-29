@@ -10,9 +10,9 @@ import org.springframework.web.client.RestClient;
 
 @Configuration
 @EnableConfigurationProperties({
-        TelegramNotificationProperties.class,
-        NotificationOutboxProperties.class,
-        AnalyzerClientProperties.class
+    TelegramNotificationProperties.class,
+    NotificationOutboxProperties.class,
+    AnalyzerClientProperties.class
 })
 public class NotificationConfig {
 

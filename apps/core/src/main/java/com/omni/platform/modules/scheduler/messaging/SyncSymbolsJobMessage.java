@@ -15,5 +15,5 @@ public record SyncSymbolsJobMessage(
         String workKey,
         String exchange,
         Instant timestamp,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

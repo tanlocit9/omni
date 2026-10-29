@@ -12,6 +12,7 @@ class MetadataSyncJobHandler:
         self._synchronizer = synchronizer
 
     async def handle(self, message: SyncMetadataJobMessage) -> MetadataSyncResult:
+        message.require_current_snapshot()
         target = (
             MetadataSyncTarget(
                 dataset=message.target.dataset,

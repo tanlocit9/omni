@@ -25,13 +25,23 @@ public class DefaultJobNotificationPolicy implements JobNotificationPolicy {
     @Override
     public Optional<Object> buildNotification(JobNotificationContext context) {
         if (context.hasChildren()) {
-            return Optional.of(context.execution().getStatus() == JobStatus.SUCCESS
-                    ? jobNotificationTemplate.parentSucceeded(context.execution(), context.total(), context.success(), context.failed())
-                    : jobNotificationTemplate.parentFailed(context.execution(), context.total(), context.success(), context.failed()));
+            return Optional.of(
+                    context.execution().getStatus() == JobStatus.SUCCESS
+                            ? jobNotificationTemplate.parentSucceeded(
+                                    context.execution(),
+                                    context.total(),
+                                    context.success(),
+                                    context.failed())
+                            : jobNotificationTemplate.parentFailed(
+                                    context.execution(),
+                                    context.total(),
+                                    context.success(),
+                                    context.failed()));
         }
 
-        return Optional.of(context.execution().getStatus() == JobStatus.SUCCESS
-                ? jobNotificationTemplate.standaloneSucceeded(context.execution())
-                : jobNotificationTemplate.standaloneFailed(context.execution()));
+        return Optional.of(
+                context.execution().getStatus() == JobStatus.SUCCESS
+                        ? jobNotificationTemplate.standaloneSucceeded(context.execution())
+                        : jobNotificationTemplate.standaloneFailed(context.execution()));
     }
 }

@@ -23,7 +23,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class SignalChangedNotificationConsumer extends AbstractConsumer {
 
-    private static final Logger log = LoggerFactory.getLogger(SignalChangedNotificationConsumer.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(SignalChangedNotificationConsumer.class);
 
     private final JsonMapper jsonMapper;
     private final SignalFilterConfig signalFilter;
@@ -43,9 +44,10 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
         this.jsonMapper = jsonMapper;
         this.template = template;
         this.outboxService = outboxService;
-        this.signalFilter = telegramProperties.signalFilter() != null
-                ? telegramProperties.signalFilter()
-                : new SignalFilterConfig(null, null, null, null, null, null, null);
+        this.signalFilter =
+                telegramProperties.signalFilter() != null
+                        ? telegramProperties.signalFilter()
+                        : new SignalFilterConfig(null, null, null, null, null, null, null);
     }
 
     @Override
@@ -58,21 +60,37 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
             groupId = "${app.notifications.signal-consumer-group:platform-signal-notifications-v1}")
     public void handle(ConsumerRecord<String, String> record) {
         try {
-            SignalChangedNotificationMessage message = jsonMapper.readValue(
-                    record.value(), SignalChangedNotificationMessage.class);
+            SignalChangedNotificationMessage message =
+                    jsonMapper.readValue(record.value(), SignalChangedNotificationMessage.class);
             validate(message);
-            
+
             // Apply comprehensive signal filters
             if (!passesFilters(message)) {
-                log.debug("Signal notification filtered out: strategy={} symbolKey={} signal={} score={} timeframe={}",
-                        message.strategy(), message.symbolKey(), message.newSignal(), message.score(), message.timeframe());
+                log.debug(
+                        "Signal notification filtered out: strategy={} symbolKey={} signal={} score={} timeframe={}",
+                        message.strategy(),
+                        message.symbolKey(),
+                        message.newSignal(),
+                        message.score(),
+                        message.timeframe());
                 return;
             }
-            
-            SignalChangedNotificationEvent event = new SignalChangedNotificationEvent(
-                    message.executionId(), message.parentExecutionId(), message.symbolKey(), message.previousSignal(),
-                    message.newSignal(), message.price(), message.signalDate(), message.reasonCodes(), message.score(),
-                    message.strategy(), message.timeframe(), message.createdAt(), message.metadata());
+
+            SignalChangedNotificationEvent event =
+                    new SignalChangedNotificationEvent(
+                            message.executionId(),
+                            message.parentExecutionId(),
+                            message.symbolKey(),
+                            message.previousSignal(),
+                            message.newSignal(),
+                            message.price(),
+                            message.signalDate(),
+                            message.reasonCodes(),
+                            message.score(),
+                            message.strategy(),
+                            message.timeframe(),
+                            message.createdAt(),
+                            message.metadata());
             outboxService.enqueue(template.render(event), Instant.now());
         } catch (Exception exc) {
             publishMessageProcessingFailed(record, exc);
@@ -110,10 +128,14 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
     }
 
     private void validate(SignalChangedNotificationMessage message) {
-        if (message == null || !"SIGNAL_CHANGED".equals(message.type())
+        if (message == null
+                || !"SIGNAL_CHANGED".equals(message.type())
                 || !eligible(message)
-                || message.executionId() == null || message.parentExecutionId() == null
-                || isBlank(message.symbolKey()) || isBlank(message.newSignal()) || message.createdAt() == null) {
+                || message.executionId() == null
+                || message.parentExecutionId() == null
+                || isBlank(message.symbolKey())
+                || isBlank(message.newSignal())
+                || message.createdAt() == null) {
             throw new IllegalArgumentException("Invalid SIGNAL_CHANGED notification contract");
         }
     }
@@ -128,7 +150,8 @@ public class SignalChangedNotificationConsumer extends AbstractConsumer {
                         && "CONFIRMED_TREND_EQUALS".equalsIgnoreCase(message.strategy())
                         && "1d".equalsIgnoreCase(message.timeframe())
                         && message.metadata() != null
-                        && Boolean.parseBoolean(String.valueOf(message.metadata().get("persisted"))));
+                        && Boolean.parseBoolean(
+                                String.valueOf(message.metadata().get("persisted"))));
     }
 
     private boolean isBlank(String value) {

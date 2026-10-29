@@ -27,16 +27,19 @@ public class MinioManifestReader implements ManifestReader {
     private final String bucketName;
     private final ObjectMapper objectMapper;
 
-    public MinioManifestReader(MinioClient minioClient, String bucketName, ObjectMapper objectMapper) {
+    public MinioManifestReader(
+            MinioClient minioClient, String bucketName, ObjectMapper objectMapper) {
         this.minioClient = minioClient;
         this.bucketName = bucketName;
         this.objectMapper = objectMapper;
     }
 
     @Override
-    public Optional<DatasetManifest> readManifest(DatasetRef datasetRef) throws ManifestReadException {
-        try (InputStream stream = minioClient.getObject(GetObjectArgs.builder()
-                .bucket(bucketName).object(METADATA_PATH).build())) {
+    public Optional<DatasetManifest> readManifest(DatasetRef datasetRef)
+            throws ManifestReadException {
+        try (InputStream stream =
+                minioClient.getObject(
+                        GetObjectArgs.builder().bucket(bucketName).object(METADATA_PATH).build())) {
             JsonNode root = objectMapper.readTree(stream);
             validateRoot(root);
             for (JsonNode dataset : root.path("datasets")) {
@@ -69,17 +72,19 @@ public class MinioManifestReader implements ManifestReader {
     private DatasetManifest mapPartition(DatasetRef ref, JsonNode node) {
         List<ColumnMetadata> columns = new ArrayList<>();
         for (JsonNode column : node.path("columns")) {
-            columns.add(new ColumnMetadata(
-                    column.path("name").asText(),
-                    column.path("type").asText(),
-                    column.path("nullable").asBoolean()));
+            columns.add(
+                    new ColumnMetadata(
+                            column.path("name").asText(),
+                            column.path("type").asText(),
+                            column.path("nullable").asBoolean()));
         }
         List<DatasetInput> inputs = new ArrayList<>();
         for (JsonNode input : node.path("inputs")) {
-            inputs.add(new DatasetInput(
-                    input.path("dataset").asText(),
-                    stringMap(input.path("partition")),
-                    input.path("dataVersion").asText()));
+            inputs.add(
+                    new DatasetInput(
+                            input.path("dataset").asText(),
+                            stringMap(input.path("partition")),
+                            input.path("dataVersion").asText()));
         }
         return new DatasetManifest(
                 1,
@@ -104,14 +109,16 @@ public class MinioManifestReader implements ManifestReader {
 
     private static Map<String, String> stringMap(JsonNode node) {
         if (!node.isObject()) {
-            throw ManifestReadException.invalidContract(METADATA_PATH, "partition values must be an object");
+            throw ManifestReadException.invalidContract(
+                    METADATA_PATH, "partition values must be an object");
         }
         Map<String, String> values = new LinkedHashMap<>();
         Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             if (!field.getValue().isValueNode()) {
-                throw ManifestReadException.invalidContract(METADATA_PATH, "partition values must be scalar");
+                throw ManifestReadException.invalidContract(
+                        METADATA_PATH, "partition values must be scalar");
             }
             values.put(field.getKey(), field.getValue().asText());
         }
@@ -124,18 +131,28 @@ public class MinioManifestReader implements ManifestReader {
     }
 
     private static void validateRoot(JsonNode root) {
-        if (!root.isObject() || root.path("version").asInt(-1) != 1 || !root.path("datasets").isArray()) {
-            throw ManifestReadException.invalidContract(METADATA_PATH, "invalid global metadata document");
+        if (!root.isObject()
+                || root.path("version").asInt(-1) != 1
+                || !root.path("datasets").isArray()) {
+            throw ManifestReadException.invalidContract(
+                    METADATA_PATH, "invalid global metadata document");
         }
     }
 
     private static void validateManifest(DatasetManifest manifest) {
-        if (!manifest.isReady() || manifest.objectCount() < 1
-                || !isSha256(manifest.dataVersion()) || !isSha256(manifest.schemaHash())
-                || manifest.columns() == null || manifest.columnCount() != manifest.columns().size()
-                || manifest.inputs() == null || manifest.path() == null || manifest.path().isBlank()
-                || manifest.path().startsWith("/") || manifest.path().contains("../")) {
-            throw ManifestReadException.invalidContract(METADATA_PATH, "invalid global partition metadata");
+        if (!manifest.isReady()
+                || manifest.objectCount() < 1
+                || !isSha256(manifest.dataVersion())
+                || !isSha256(manifest.schemaHash())
+                || manifest.columns() == null
+                || manifest.columnCount() != manifest.columns().size()
+                || manifest.inputs() == null
+                || manifest.path() == null
+                || manifest.path().isBlank()
+                || manifest.path().startsWith("/")
+                || manifest.path().contains("../")) {
+            throw ManifestReadException.invalidContract(
+                    METADATA_PATH, "invalid global partition metadata");
         }
     }
 

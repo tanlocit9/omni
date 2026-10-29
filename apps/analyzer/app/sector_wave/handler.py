@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 import pandas as pd
+from py_common.storage.atomic_work import cutoff_frame, day_rows, write_day
 from py_common.storage.parquet import ParquetStorage
 
 from app.sector_wave.calculations import (
@@ -47,14 +48,17 @@ class SectorWaveJobHandler:
             features_path,
         )
         eod_frame = await self._parquet_storage.read_dataframe(eod_path)
+        eod_frame = cutoff_frame(eod_frame, message.business_date, require_day=True)
         result = calculate_symbol_features(
             eod_frame,
             symbol_key=message.symbol_key,
             exchange=exchange,
             code=code,
         )
-        await self._parquet_storage.write_dataframe(features_path, result)
-        return len(result)
+        await write_day(
+            self._parquet_storage, features_path, result, message.business_date
+        )
+        return len(day_rows(result, message.business_date))
 
     async def handle_sector_features(self, payload: dict[str, Any]) -> int:
         message = SectorWaveSectorFeatureJobMessage.model_validate(payload)
@@ -70,7 +74,7 @@ class SectorWaveJobHandler:
             )
             frame = await self._parquet_storage.read_optional_dataframe(path)
             if frame is not None and not frame.empty:
-                symbol_frames.append(frame)
+                symbol_frames.append(cutoff_frame(frame, message.business_date))
 
         result = aggregate_sector_features(
             symbol_frames,
@@ -90,12 +94,14 @@ class SectorWaveJobHandler:
             len(members),
             path,
         )
-        await self._parquet_storage.write_dataframe(
+        await write_day(
+            self._parquet_storage,
             path,
             result,
+            message.business_date,
             schema=SECTOR_FEATURES_SCHEMA,
         )
-        return len(result)
+        return len(day_rows(result, message.business_date))
 
     async def handle_sector_rotation_backtest(self, payload: dict[str, Any]) -> int:
         message = SectorRotationBacktestJobMessage.model_validate(payload)
@@ -108,7 +114,7 @@ class SectorWaveJobHandler:
             )
             frame = await self._parquet_storage.read_optional_dataframe(path)
             if frame is not None and not frame.empty:
-                sector_frames.append(frame)
+                sector_frames.append(cutoff_frame(frame, message.business_date))
 
         result = calculate_sector_rotation_backtest(
             sector_frames,
@@ -128,8 +134,8 @@ class SectorWaveJobHandler:
             message.sector_codes,
             path,
         )
-        await self._parquet_storage.write_dataframe(path, result)
-        return len(result)
+        await write_day(self._parquet_storage, path, result, message.business_date)
+        return len(day_rows(result, message.business_date))
 
     async def _load_sector_members(self, sector_code: str, sector_level: int):
         members = []

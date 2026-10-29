@@ -8,10 +8,7 @@ import java.util.UUID;
 public interface NotificationOutboxRepositoryCustom {
 
     List<NotificationOutboxClaim> claimPending(
-            Instant now,
-            String claimedBy,
-            Duration leaseDuration,
-            int batchSize);
+            Instant now, String claimedBy, Duration leaseDuration, int batchSize);
 
     boolean markSent(UUID messageId, UUID claimToken, String claimedBy, Instant sentAt);
 

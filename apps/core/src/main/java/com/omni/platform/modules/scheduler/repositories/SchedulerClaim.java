@@ -9,5 +9,4 @@ public record SchedulerClaim(
         String claimedBy,
         Instant claimedAt,
         Instant claimUntil,
-        Instant scheduledFor) {
-}
+        Instant scheduledFor) {}

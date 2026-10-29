@@ -22,16 +22,20 @@ public record NotificationRequest(
         if (kind == null) {
             throw new IllegalArgumentException("Notification kind is required");
         }
-        if (kind == NotificationKind.SIGNAL_CHANGED && !(structuredContent instanceof SignalChangedContent)) {
+        if (kind == NotificationKind.SIGNAL_CHANGED
+                && !(structuredContent instanceof SignalChangedContent)) {
             throw new IllegalArgumentException("SIGNAL_CHANGED requires SignalChangedContent");
         }
-        if (kind == NotificationKind.SIGNAL_DIGEST && !(structuredContent instanceof SignalDigestContent)) {
+        if (kind == NotificationKind.SIGNAL_DIGEST
+                && !(structuredContent instanceof SignalDigestContent)) {
             throw new IllegalArgumentException("SIGNAL_DIGEST requires SignalDigestContent");
         }
-        if (kind != NotificationKind.SIGNAL_CHANGED && structuredContent instanceof SignalChangedContent) {
+        if (kind != NotificationKind.SIGNAL_CHANGED
+                && structuredContent instanceof SignalChangedContent) {
             throw new IllegalArgumentException(kind + " does not accept SignalChangedContent");
         }
-        if (kind != NotificationKind.SIGNAL_DIGEST && structuredContent instanceof SignalDigestContent) {
+        if (kind != NotificationKind.SIGNAL_DIGEST
+                && structuredContent instanceof SignalDigestContent) {
             throw new IllegalArgumentException(kind + " does not accept SignalDigestContent");
         }
     }
@@ -66,11 +70,10 @@ public record NotificationRequest(
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "contentType")
     @JsonSubTypes({
-            @JsonSubTypes.Type(value = SignalChangedContent.class, name = "signalChanged"),
-            @JsonSubTypes.Type(value = SignalDigestContent.class, name = "signalDigest")
+        @JsonSubTypes.Type(value = SignalChangedContent.class, name = "signalChanged"),
+        @JsonSubTypes.Type(value = SignalDigestContent.class, name = "signalDigest")
     })
-    public sealed interface StructuredContent permits SignalChangedContent, SignalDigestContent {
-    }
+    public sealed interface StructuredContent permits SignalChangedContent, SignalDigestContent {}
 
     public record SignalChangedContent(
             String symbolKey,
@@ -82,8 +85,8 @@ public record NotificationRequest(
             List<String> reasonCodes,
             String strategy,
             String timeframe,
-            Instant createdAt) implements StructuredContent {
-    }
+            Instant createdAt)
+            implements StructuredContent {}
 
     public record SignalDigestContent(
             String strategy,
@@ -92,7 +95,8 @@ public record NotificationRequest(
             List<SignalDigestEntry> items,
             Instant createdAt,
             int pageNumber,
-            int pageCount) implements StructuredContent {
+            int pageCount)
+            implements StructuredContent {
         public SignalDigestContent(
                 String strategy,
                 String timeframe,
@@ -112,8 +116,7 @@ public record NotificationRequest(
             Object score,
             List<String> reasonCodes,
             String strategy,
-            String timeframe) {
-    }
+            String timeframe) {}
 
     public enum NotificationSeverity {
         INFO,

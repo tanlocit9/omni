@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
+from py_common.storage.atomic_work import cutoff_frame
 from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
@@ -29,6 +30,7 @@ class SignalOutcomeEvaluator:
         async def _load_eod(symbol_key: str) -> pd.DataFrame:
             exchange, code = symbol_key.split("-", maxsplit=1)
             eod_path = self._settings.stock_data_paths.eod(exchange, code)
-            return await self._parquet_storage.read_dataframe(eod_path)
+            frame = await self._parquet_storage.read_dataframe(eod_path)
+            return cutoff_frame(frame, message.business_date)
 
         return await self._history_repository.update_outcomes(history_path, _load_eod)

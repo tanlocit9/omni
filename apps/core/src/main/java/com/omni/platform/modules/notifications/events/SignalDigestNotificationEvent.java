@@ -12,5 +12,4 @@ public record SignalDigestNotificationEvent(
         int totalChildren,
         int changedCount,
         List<SignalDigestItem> items,
-        Map<String, Object> metadata) {
-}
+        Map<String, Object> metadata) {}

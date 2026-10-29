@@ -41,9 +41,10 @@ public class NotificationOutboxDispatcher {
         this.outboxProperties = outboxProperties;
         this.telegramProperties = telegramProperties;
         this.metrics = metrics;
-        this.instanceId = instanceId == null || instanceId.isBlank()
-                ? "platform-" + Integer.toHexString(System.identityHashCode(this))
-                : instanceId;
+        this.instanceId =
+                instanceId == null || instanceId.isBlank()
+                        ? "platform-" + Integer.toHexString(System.identityHashCode(this))
+                        : instanceId;
     }
 
     @Scheduled(fixedDelayString = "${app.notifications.outbox.fixed-delay:5000}")
@@ -53,8 +54,9 @@ public class NotificationOutboxDispatcher {
 
     void dispatchBatch(Instant now) {
         var claim = outboxProperties.resolvedClaim();
-        List<NotificationOutboxClaim> claims = outboxStore.claimPending(
-                now, instanceId, claim.resolvedLeaseDuration(), claim.resolvedBatchSize());
+        List<NotificationOutboxClaim> claims =
+                outboxStore.claimPending(
+                        now, instanceId, claim.resolvedLeaseDuration(), claim.resolvedBatchSize());
         for (NotificationOutboxClaim message : claims) {
             dispatchOne(message, now);
         }
@@ -62,13 +64,22 @@ public class NotificationOutboxDispatcher {
 
     private void dispatchOne(NotificationOutboxClaim claim, Instant now) {
         var sample = metrics.start();
-        if (!outboxStore.acquireProviderPermit(claim.provider(), now, telegramProperties.resolvedRateLimit())) {
-            boolean updated = outboxStore.scheduleRetry(
-                    claim, now.plus(telegramProperties.resolvedRateLimit()), "provider_rate_limited");
+        if (!outboxStore.acquireProviderPermit(
+                claim.provider(), now, telegramProperties.resolvedRateLimit())) {
+            boolean updated =
+                    outboxStore.scheduleRetry(
+                            claim,
+                            now.plus(telegramProperties.resolvedRateLimit()),
+                            "provider_rate_limited");
             if (updated) {
                 metrics.rateLimited(sample);
-                log.info("Notification delivery rate limited messageId={} provider={} channel={} kind={} attempt={}",
-                        claim.messageId(), claim.provider(), claim.channel(), claim.kind(), claim.attempts());
+                log.info(
+                        "Notification delivery rate limited messageId={} provider={} channel={} kind={} attempt={}",
+                        claim.messageId(),
+                        claim.provider(),
+                        claim.channel(),
+                        claim.kind(),
+                        claim.attempts());
             } else {
                 logStaleClaim(claim, "rate_limit_retry");
             }
@@ -80,37 +91,49 @@ public class NotificationOutboxDispatcher {
         } catch (RuntimeException exception) {
             if (outboxStore.markDead(claim, now, "payload_decode_failure")) {
                 metrics.dead(sample);
-                log.warn("Notification marked dead messageId={} provider={} channel={} kind={} attempt={} category={}",
-                        claim.messageId(), claim.provider(), claim.channel(), claim.kind(), claim.attempts(),
+                log.warn(
+                        "Notification marked dead messageId={} provider={} channel={} kind={} attempt={} category={}",
+                        claim.messageId(),
+                        claim.provider(),
+                        claim.channel(),
+                        claim.kind(),
+                        claim.attempts(),
                         "payload_decode_failure");
             } else {
                 logStaleClaim(claim, "payload_decode_failure");
             }
             return;
         }
-        boolean updated = switch (result.outcome()) {
-            case DELIVERED -> {
-                boolean sent = outboxStore.markDelivered(claim, Instant.now());
-                if (sent) {
-                    metrics.delivered(sample);
-                }
-                yield sent;
-            }
-            case PERMANENT_FAILURE -> {
-                boolean dead = outboxStore.markDead(claim, now, result.errorCategory());
-                if (dead) {
-                    metrics.dead(sample);
-                }
-                yield dead;
-            }
-            case RETRYABLE -> retryOrDead(claim, now, result, sample);
-        };
+        boolean updated =
+                switch (result.outcome()) {
+                    case DELIVERED -> {
+                        boolean sent = outboxStore.markDelivered(claim, Instant.now());
+                        if (sent) {
+                            metrics.delivered(sample);
+                        }
+                        yield sent;
+                    }
+                    case PERMANENT_FAILURE -> {
+                        boolean dead = outboxStore.markDead(claim, now, result.errorCategory());
+                        if (dead) {
+                            metrics.dead(sample);
+                        }
+                        yield dead;
+                    }
+                    case RETRYABLE -> retryOrDead(claim, now, result, sample);
+                };
         if (!updated) {
             logStaleClaim(claim, result.outcome().name().toLowerCase());
             return;
         }
-        log.info("Notification delivery resolved messageId={} provider={} channel={} kind={} attempt={} outcome={} category={}",
-                claim.messageId(), claim.provider(), claim.channel(), claim.kind(), claim.attempts(), result.outcome(),
+        log.info(
+                "Notification delivery resolved messageId={} provider={} channel={} kind={} attempt={} outcome={} category={}",
+                claim.messageId(),
+                claim.provider(),
+                claim.channel(),
+                claim.kind(),
+                claim.attempts(),
+                result.outcome(),
                 result.errorCategory());
     }
 
@@ -120,7 +143,8 @@ public class NotificationOutboxDispatcher {
             DeliveryResult result,
             io.micrometer.core.instrument.Timer.Sample sample) {
         if (claim.attempts() >= outboxProperties.resolvedMaxAttempts()) {
-            boolean updated = outboxStore.markDead(claim, now, "max_attempts_" + result.errorCategory());
+            boolean updated =
+                    outboxStore.markDead(claim, now, "max_attempts_" + result.errorCategory());
             if (updated) {
                 metrics.dead(sample);
             }
@@ -140,14 +164,23 @@ public class NotificationOutboxDispatcher {
         long maxMillis = retry.resolvedMaxDelay().toMillis();
         int exponent = Math.min(Math.max(0, attempts - 1), 20);
         long largestSafeInitial = maxMillis >> exponent;
-        long bounded = initialMillis > largestSafeInitial ? maxMillis : Math.min(maxMillis, initialMillis << exponent);
+        long bounded =
+                initialMillis > largestSafeInitial
+                        ? maxMillis
+                        : Math.min(maxMillis, initialMillis << exponent);
         long jitterBound = bounded / 4;
         long jitter = jitterBound <= 0 ? 0 : ThreadLocalRandom.current().nextLong(jitterBound + 1);
         return Duration.ofMillis(bounded >= maxMillis - jitter ? maxMillis : bounded + jitter);
     }
 
     private void logStaleClaim(NotificationOutboxClaim claim, String outcome) {
-        log.warn("Notification claim lost before state transition messageId={} provider={} channel={} kind={} attempt={} outcome={}",
-                claim.messageId(), claim.provider(), claim.channel(), claim.kind(), claim.attempts(), outcome);
+        log.warn(
+                "Notification claim lost before state transition messageId={} provider={} channel={} kind={} attempt={} outcome={}",
+                claim.messageId(),
+                claim.provider(),
+                claim.channel(),
+                claim.kind(),
+                claim.attempts(),
+                outcome);
     }
 }

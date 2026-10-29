@@ -48,7 +48,8 @@ public class TelegramTransport {
         payload.put("parse_mode", HTML_PARSE_MODE);
         payload.put("disable_notification", rendered.disableNotification());
         try {
-            telegramRestClient.post()
+            telegramRestClient
+                    .post()
                     .uri("/bot{token}/sendMessage", properties.botToken())
                     .body(payload)
                     .retrieve()
@@ -56,7 +57,8 @@ public class TelegramTransport {
             return DeliveryResult.delivered();
         } catch (RestClientResponseException exception) {
             int status = exception.getStatusCode().value();
-            Optional<Duration> retryAfter = parseRetryAfter(exception.getResponseHeaders(), Instant.now());
+            Optional<Duration> retryAfter =
+                    parseRetryAfter(exception.getResponseHeaders(), Instant.now());
             if (status == 429 || status >= 500) {
                 return DeliveryResult.retryable("telegram_http_" + status, retryAfter);
             }
@@ -78,15 +80,19 @@ public class TelegramTransport {
             return Optional.of(Duration.ofSeconds(Math.max(0, Long.parseLong(value.trim()))));
         } catch (NumberFormatException ignored) {
             try {
-                Instant retryAt = ZonedDateTime.parse(value.trim(), DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
-                return Optional.of(retryAt.isAfter(now) ? Duration.between(now, retryAt) : Duration.ZERO);
+                Instant retryAt =
+                        ZonedDateTime.parse(value.trim(), DateTimeFormatter.RFC_1123_DATE_TIME)
+                                .toInstant();
+                return Optional.of(
+                        retryAt.isAfter(now) ? Duration.between(now, retryAt) : Duration.ZERO);
             } catch (DateTimeParseException invalidDate) {
                 return Optional.empty();
             }
         }
     }
 
-    public record DeliveryResult(Outcome outcome, String errorCategory, Optional<Duration> retryAfter) {
+    public record DeliveryResult(
+            Outcome outcome, String errorCategory, Optional<Duration> retryAfter) {
         static DeliveryResult delivered() {
             return new DeliveryResult(Outcome.DELIVERED, null, Optional.empty());
         }
@@ -101,6 +107,8 @@ public class TelegramTransport {
     }
 
     public enum Outcome {
-        DELIVERED, RETRYABLE, PERMANENT_FAILURE
+        DELIVERED,
+        RETRYABLE,
+        PERMANENT_FAILURE
     }
 }

@@ -24,10 +24,13 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "job_definitions", uniqueConstraints = @UniqueConstraint(name = "uq_job_definition_source_type", columnNames = {
-        "source",
-        "job_type",
-        "cron_expr" }), indexes = @Index(name = "idx_job_definition_next_run", columnList = "next_run, is_active"))
+@Table(
+        name = "job_definitions",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_job_definition_source_type",
+                        columnNames = {"source", "job_type", "cron_expr"}),
+        indexes = @Index(name = "idx_job_definition_next_run", columnList = "next_run, is_active"))
 @Getter
 @Setter
 public class JobDefinition extends AuditableEntity {
@@ -76,7 +79,13 @@ public class JobDefinition extends AuditableEntity {
     private List<JobExecutionHistory> executionHistory = new ArrayList<>();
 
     public enum DataSource {
-        VCI, VNSTOCK, TCBS, SSI, FIREANT, VND, ANALYZER
+        VCI,
+        VNSTOCK,
+        TCBS,
+        SSI,
+        FIREANT,
+        VND,
+        ANALYZER
     }
 
     public enum JobType {

@@ -1,11 +1,7 @@
 package com.omni.platform.modules.scheduler.planning;
 
 /** Mutually exclusive scheduler-outbox counts for one dispatch scope. */
-public record BacklogCounts(
-        long pending,
-        long dispatchable,
-        long retryDelayed,
-        long inFlight) {
+public record BacklogCounts(long pending, long dispatchable, long retryDelayed, long inFlight) {
 
     public BacklogCounts {
         if (pending < 0 || dispatchable < 0 || retryDelayed < 0 || inFlight < 0) {

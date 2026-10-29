@@ -7,7 +7,5 @@ package com.omni.platform.modules.scheduler.dependencies.models;
  */
 public record ColumnMetadata(
         String name,
-        String type,        // "BIGINT", "DOUBLE", "VARCHAR", "TIMESTAMP", "BOOLEAN"
-        boolean nullable
-) {
-}
+        String type, // "BIGINT", "DOUBLE", "VARCHAR", "TIMESTAMP", "BOOLEAN"
+        boolean nullable) {}

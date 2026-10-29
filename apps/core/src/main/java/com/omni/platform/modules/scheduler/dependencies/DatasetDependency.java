@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Represents a single dataset dependency declaration from job config.
- * 
+ *
  * <p>Parsed from job config JSON like:
  * <pre>
  * {
@@ -16,16 +16,15 @@ import java.util.Map;
  *   "mode": "ENFORCED"
  * }
  * </pre>
- * 
+ *
  * <p>Immutable value object.
  */
 public record DatasetDependency(
-    DatasetRef datasetRef,
-    List<DependencyCondition> conditions,
-    Map<String, Object> parameters,
-    DependencyMode mode
-) {
-    
+        DatasetRef datasetRef,
+        List<DependencyCondition> conditions,
+        Map<String, Object> parameters,
+        DependencyMode mode) {
+
     /**
      * Dependency enforcement mode.
      */
@@ -36,7 +35,7 @@ public record DatasetDependency(
          * Use during migration phase.
          */
         DOCUMENTATION_ONLY,
-        
+
         /**
          * Enforced mode: Block execution if dependency is not satisfied.
          * Job enters BLOCKED state and is retried with exponential backoff.
@@ -44,10 +43,10 @@ public record DatasetDependency(
          */
         ENFORCED
     }
-    
+
     /**
      * Parse a dependency from job config map.
-     * 
+     *
      * <p>Expected structure:
      * <pre>
      * {
@@ -69,48 +68,48 @@ public record DatasetDependency(
         if (dataset == null) {
             throw new IllegalArgumentException("Dataset dependency missing 'dataset' field");
         }
-        
+
         // Optional: partition (defaults to empty)
-        Map<String, String> partition = (Map<String, String>) config.getOrDefault("partition", Map.of());
+        Map<String, String> partition =
+                (Map<String, String>) config.getOrDefault("partition", Map.of());
         DatasetRef datasetRef = DatasetRef.of(dataset, partition);
-        
+
         // Required: conditions
         List<String> conditionNames = (List<String>) config.get("conditions");
         if (conditionNames == null || conditionNames.isEmpty()) {
             throw new IllegalArgumentException("Dataset dependency missing 'conditions' field");
         }
-        
-        List<DependencyCondition> conditions = conditionNames.stream()
-            .map(DependencyCondition::valueOf)
-            .toList();
-        
+
+        List<DependencyCondition> conditions =
+                conditionNames.stream().map(DependencyCondition::valueOf).toList();
+
         // Optional: mode (defaults to DOCUMENTATION_ONLY for safe migration)
         String modeName = (String) config.getOrDefault("mode", "DOCUMENTATION_ONLY");
         DependencyMode mode = DependencyMode.valueOf(modeName);
-        
+
         // Parameters: pass through all config keys for condition-specific params
         Map<String, Object> parameters = Map.copyOf(config);
-        
+
         return new DatasetDependency(datasetRef, conditions, parameters, mode);
     }
-    
+
     /**
      * Check if this dependency should block execution when not satisfied.
      */
     public boolean isEnforced() {
         return mode == DependencyMode.ENFORCED;
     }
-    
+
     /**
      * Check if this dependency is documentation-only (log warnings but don't block).
      */
     public boolean isDocumentationOnly() {
         return mode == DependencyMode.DOCUMENTATION_ONLY;
     }
-    
+
     /**
      * Get a condition-specific parameter.
-     * 
+     *
      * <p>Examples:
      * - minRowCount for MIN_ROW_COUNT condition
      * - maxFreshnessLag for MAX_FRESHNESS_LAG condition

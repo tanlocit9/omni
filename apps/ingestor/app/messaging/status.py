@@ -27,6 +27,14 @@ def build_status(
         "totalRecords": total_records,
     }
 
+    meta_json.update(
+        {
+            k: payload[k]
+            for k in ("jobType", "businessDate", "parameters", "atomicWorkId")
+            if payload.get(k) is not None
+        }
+    )
+
     return JobStatusMessage(
         job_definition_id=_optional_str(payload.get("jobDefinitionId")),
         execution_id=_optional_str(payload.get("executionId")),

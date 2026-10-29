@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -122,7 +123,13 @@ class SignalHistoryRepository:
 
         async def _persist() -> SignalTransition:
             history = await self._read_history(history_path)
-            previous_signal = self._previous_signal(history, symbol_key)
+            previous_history = history
+            if result.signal_date and not history.empty and "signal_date" in history:
+                dates = pd.to_datetime(history["signal_date"], errors="raise").dt.date
+                previous_history = history.loc[
+                    dates <= pd.Timestamp(result.signal_date).date()
+                ]
+            previous_signal = self._previous_signal(previous_history, symbol_key)
             history = self._ensure_schema(history)
             signal_changed = (
                 result.signal != MarketSignal.NO_DECISION
@@ -266,6 +273,7 @@ class SignalHistoryRepository:
         symbol_key: str,
         timeframe: str,
         strategy: str,
+        as_of_date: date | None = None,
     ) -> SignalResult | None:
         history = await self._read_history(history_path)
         required = {"symbol_key", "timeframe", "strategy", "signal", "signal_date"}
@@ -276,6 +284,9 @@ class SignalHistoryRepository:
             & (history["timeframe"].astype(str) == timeframe)
             & (history["strategy"].astype(str).str.upper() == strategy)
         ].dropna(subset=["signal_date"])
+        if as_of_date is not None:
+            dates = pd.to_datetime(matches["signal_date"], errors="raise").dt.date
+            matches = matches.loc[dates <= as_of_date]
         if matches.empty:
             return None
         row = matches.sort_values("signal_date").iloc[-1]

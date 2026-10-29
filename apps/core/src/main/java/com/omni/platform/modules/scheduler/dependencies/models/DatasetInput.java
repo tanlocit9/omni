@@ -8,9 +8,4 @@ import java.util.Map;
  * Captures which upstream dataset version was consumed when producing
  * this dataset, enabling CURRENT_INPUTS checks to detect stale data.
  */
-public record DatasetInput(
-        String dataset,
-        Map<String, String> partition,
-        String dataVersion
-) {
-}
+public record DatasetInput(String dataset, Map<String, String> partition, String dataVersion) {}

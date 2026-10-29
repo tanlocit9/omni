@@ -12,6 +12,7 @@ from py_common.messaging import (
     calculate_duration_ms,
     utc_now,
 )
+from py_common.messaging.atomic_work import carry_work_status
 from py_common.storage.metadata_sync import MetadataSyncEmptyError
 
 from app.metadata.handler import MetadataSyncJobHandler
@@ -97,5 +98,6 @@ class MetadataSyncKafkaService(JobStatusKafkaService):
                 error_message=error_message,
             )
 
+        status = carry_work_status(status, raw)
         await self.publish_status(status)
         return status

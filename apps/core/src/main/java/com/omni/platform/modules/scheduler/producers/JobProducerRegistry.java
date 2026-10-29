@@ -20,9 +20,12 @@ public class JobProducerRegistry {
             JobProducer previous = byType.putIfAbsent(jobType, producer);
             if (previous != null) {
                 throw new IllegalStateException(
-                        "Duplicate JobProducer registration for jobType " + jobType
-                                + ": " + previous.getClass().getSimpleName()
-                                + " and " + producer.getClass().getSimpleName());
+                        "Duplicate JobProducer registration for jobType "
+                                + jobType
+                                + ": "
+                                + previous.getClass().getSimpleName()
+                                + " and "
+                                + producer.getClass().getSimpleName());
             }
         }
         this.producers = Map.copyOf(byType);

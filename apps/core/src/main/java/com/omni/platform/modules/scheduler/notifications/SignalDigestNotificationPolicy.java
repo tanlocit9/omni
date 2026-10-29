@@ -37,16 +37,18 @@ public class SignalDigestNotificationPolicy implements JobNotificationPolicy {
             return defaultPolicy.buildNotification(context);
         }
 
-        List<SignalDigestItem> changedItems = context.children().stream()
-                .filter(child -> child.getStatus() == JobStatus.SUCCESS)
-                .filter(child -> isEligible(child.getMetaJson()))
-                .map(this::toSignalDigestItem)
-                .filter(item -> item.symbolKey() != null && !item.symbolKey().isBlank())
-                .filter(item -> !"NO_DECISION".equalsIgnoreCase(item.newSignal()))
-                .sorted(Comparator.comparing(SignalDigestItem::symbolKey)
-                        .thenComparing(item -> defaultText(item.strategy()))
-                        .thenComparing(item -> defaultText(item.timeframe())))
-                .toList();
+        List<SignalDigestItem> changedItems =
+                context.children().stream()
+                        .filter(child -> child.getStatus() == JobStatus.SUCCESS)
+                        .filter(child -> isEligible(child.getMetaJson()))
+                        .map(this::toSignalDigestItem)
+                        .filter(item -> item.symbolKey() != null && !item.symbolKey().isBlank())
+                        .filter(item -> !"NO_DECISION".equalsIgnoreCase(item.newSignal()))
+                        .sorted(
+                                Comparator.comparing(SignalDigestItem::symbolKey)
+                                        .thenComparing(item -> defaultText(item.strategy()))
+                                        .thenComparing(item -> defaultText(item.timeframe())))
+                        .toList();
         if (changedItems.isEmpty()) {
             return defaultPolicy.buildNotification(context);
         }
@@ -58,15 +60,18 @@ public class SignalDigestNotificationPolicy implements JobNotificationPolicy {
             MetadataUtils.putIfPresent(metadata, "jobType", parent.getJob().getJobType());
         }
 
-        return Optional.of(new SignalDigestNotificationEvent(
-                parent.getId(),
-                jobTitle(parent),
-                firstNonBlank(changedItems.stream().map(SignalDigestItem::strategy).toList()),
-                firstNonBlank(changedItems.stream().map(SignalDigestItem::timeframe).toList()),
-                context.children().size(),
-                changedItems.size(),
-                changedItems,
-                metadata));
+        return Optional.of(
+                new SignalDigestNotificationEvent(
+                        parent.getId(),
+                        jobTitle(parent),
+                        firstNonBlank(
+                                changedItems.stream().map(SignalDigestItem::strategy).toList()),
+                        firstNonBlank(
+                                changedItems.stream().map(SignalDigestItem::timeframe).toList()),
+                        context.children().size(),
+                        changedItems.size(),
+                        changedItems,
+                        metadata));
     }
 
     private SignalDigestItem toSignalDigestItem(JobExecutionHistory child) {
@@ -105,9 +110,7 @@ public class SignalDigestNotificationPolicy implements JobNotificationPolicy {
             return List.of();
         }
         if (value instanceof List<?> values) {
-            return values.stream()
-                    .map(String::valueOf)
-                    .toList();
+            return values.stream().map(String::valueOf).toList();
         }
         return List.of(String.valueOf(value));
     }

@@ -13,6 +13,7 @@ from py_common.messaging import (
     calculate_duration_ms,
     utc_now,
 )
+from py_common.messaging.atomic_work import carry_work_status
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.messages import IndicatorJobMessage
@@ -80,6 +81,7 @@ class IndicatorKafkaService(JobStatusKafkaService):
                 error_message=str(exc),
             )
 
+        status = carry_work_status(status, raw)
         await self.publish_status(status)
         return status
 

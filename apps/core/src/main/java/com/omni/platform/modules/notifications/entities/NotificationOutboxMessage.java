@@ -16,9 +16,12 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "notification_outbox_messages", uniqueConstraints = @UniqueConstraint(
-        name = "uq_notification_outbox_delivery",
-        columnNames = { "provider", "channel", "deduplication_key" }))
+@Table(
+        name = "notification_outbox_messages",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_notification_outbox_delivery",
+                        columnNames = {"provider", "channel", "deduplication_key"}))
 @Getter
 @Setter
 public class NotificationOutboxMessage extends AbstractClaimableOutboxMessage {
@@ -56,6 +59,8 @@ public class NotificationOutboxMessage extends AbstractClaimableOutboxMessage {
     }
 
     public enum Status {
-        PENDING, SENT, DEAD
+        PENDING,
+        SENT,
+        DEAD
     }
 }

@@ -1,7 +1,7 @@
 package com.omni.platform;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static com.omni.platform.JobRunCrossServiceIntegrationTest.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,15 +10,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
+
+import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
+import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
-import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
-import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
-import io.minio.GetObjectArgs;
+import tools.jackson.databind.JsonNode;
 
 /** Deterministic adverse interleaving of real workers on their shared canonical dataset. */
 @EnabledIfEnvironmentVariable(named = "OMNI_P14_E2E", matches = "1")
@@ -63,7 +68,7 @@ class JobRunSharedAncestorIntegrationTest {
 
         // Both runs are alive: B's real stock ancestors overwrite the same EOD
         // path while A's indicator command has already been approved/published.
-        Files.writeString(control.resolve("second-generation"), "181");
+        Files.writeString(control.resolve("second-generation"), "same-day-correction");
         UUID second = prepare(JobType.SYNC_INDICATORS),
                 secondRun = run(second),
                 secondWork = child(second);
@@ -79,7 +84,7 @@ class JobRunSharedAncestorIntegrationTest {
         completeAncestors(secondRun, dispatcher);
         finish(prepare(JobType.SYNC_METADATA), dispatcher);
         var replacement = eod();
-        assertThat(replacement.path("rowCount").asInt()).isEqualTo(181);
+        assertThat(replacement.path("rowCount").asInt()).isEqualTo(180);
         assertThat(replacement.path("dataVersion").asText()).isNotEqualTo(approvedFirst);
         Files.writeString(control.resolve("release-indicators"), "release");
         await(
@@ -108,7 +113,10 @@ class JobRunSharedAncestorIntegrationTest {
         context.getBean(KafkaPublisher.class)
                 .publishSerializedAndWait(
                         original.get("topic").toString(), original.get("message_key").toString(),
-                        original.get("payload").toString(), Duration.ofSeconds(15));
+                        context.getBean(SchedulerOutboxService.class)
+                                .boundPayload(jdbc.queryForObject(
+                                        "SELECT id FROM scheduler_outbox_messages WHERE execution_id=?",
+                                        UUID.class, firstWork)), Duration.ofSeconds(15));
         await(
                 () -> {
                     try {
@@ -136,7 +144,7 @@ class JobRunSharedAncestorIntegrationTest {
         evidence.put("firstApprovedVersion", approvedFirst);
         evidence.put("secondApprovedVersion", approvedSecond);
         evidence.put("initialRows", 180);
-        evidence.put("replacementRows", 181);
+        evidence.put("replacementRows", 180);
         evidence.put("replacementVersion", replacement.path("dataVersion").asText());
         evidence.put("firstStatus", firstAck.path("status").asText());
         evidence.put("secondStatus", secondAck.path("status").asText());
@@ -195,14 +203,14 @@ class JobRunSharedAncestorIntegrationTest {
                         .path("approvedInputs");
         // JobService stringifies metadata when applying terminal statuses.
         if (values.isArray()) return values.get(0).path("dataVersion").asText();
-        var match = java.util.regex.Pattern.compile("sha256:[0-9a-f]{64}").matcher(values.asText());
+        var match = Pattern.compile("sha256:[0-9a-f]{64}").matcher(values.asText());
         assertThat(match.find()).isTrue();
         return match.group();
     }
 
-    static tools.jackson.databind.JsonNode eod() throws Exception {
+    static JsonNode eod() throws Exception {
         try (var input =
-                context.getBean("minioClient", io.minio.MinioClient.class)
+                context.getBean("minioClient", MinioClient.class)
                         .getObject(
                                 GetObjectArgs.builder()
                                         .bucket(bucket)
@@ -218,22 +226,17 @@ class JobRunSharedAncestorIntegrationTest {
         }
     }
 
-    static tools.jackson.databind.JsonNode marker(Path control, String prefix, UUID work)
-            throws Exception {
+    static JsonNode marker(Path control, String prefix, UUID work) throws Exception {
         return JSON.readTree(Files.readString(control.resolve(prefix + "-" + work + ".json")));
     }
 
-    static tools.jackson.databind.JsonNode output(
-            Path control, UUID work, tools.jackson.databind.JsonNode ack) throws Exception {
+    static JsonNode output(Path control, UUID work, JsonNode ack) throws Exception {
         return "SUCCESS".equals(ack.path("status").asText())
                 ? marker(control, "output", work)
                 : JSON.readTree("{}");
     }
 
-    static boolean consistent(
-            tools.jackson.databind.JsonNode ack,
-            tools.jackson.databind.JsonNode output,
-            String approved) {
+    static boolean consistent(JsonNode ack, JsonNode output, String approved) {
         return !"SUCCESS".equals(ack.path("status").asText())
                 || (output.path("inputVersions").size() == 1
                         && approved.equals(output.path("inputVersions").get(0).asText()));

@@ -1,5 +1,18 @@
 # Sector Wave Flow
 
+Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
+I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
+Common preparation now persists atomic dated work and sends the additive
+`jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
+snapshots; matching Java/Python rollout is required even on the legacy scheduler.
+Consumers preserve other dates and retain lookback; catalog/metadata are current
+snapshots only. Writer and shared ancestors remain deferred. EOD-to-indicator
+execution binding is implemented; broader version/concurrency guarantees remain
+deferred.
+The original I8 delivery ran no checks; later verification and repair evidence
+is recorded in Plan 030. This supersedes earlier design-only I8/I9 statements.
+See [contract, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+
 Sector Wave precomputes symbol-level and sector-level analytical datasets so sector ranking and rotation backtests can run from stable Parquet inputs.
 
 ## Flow

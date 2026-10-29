@@ -2,21 +2,23 @@ package com.omni.platform.modules.scheduler.runs;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.Objects;
 
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
 import com.omni.platform.shared.executions.WorkIdentity;
-
 import jakarta.persistence.EntityManager;
+import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Transaction-local, bounded fan-out builder. No thread-local or authoritative process cache. */
@@ -26,8 +28,10 @@ public final class JobRunWorkContext {
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
     private final int limit;
+    private boolean preview;
     private final List<JobExecutionHistory> children = new ArrayList<>();
-    private final Set<WorkIdentity> identities = new HashSet<>();
+    private final Map<UUID, JobExecutionHistory> childrenById = new HashMap<>();
+    private final Set<String> identities = new HashSet<>();
 
     public JobRunWorkContext(
             JobExecutionHistory parent,
@@ -43,11 +47,25 @@ public final class JobRunWorkContext {
         this.limit = limit;
     }
 
+    /** Detached, read-only expansion context. It cannot persist executions or enqueue intent. */
+    public static JobRunWorkContext preview(
+            JobExecutionHistory parent, JdbcTemplate jdbc, JsonMapper json) {
+        return preview(parent, jdbc, json, 5000);
+    }
+
+    public static JobRunWorkContext preview(
+            JobExecutionHistory parent, JdbcTemplate jdbc, JsonMapper json, int limit) {
+        var context = new JobRunWorkContext(parent, null, jdbc, json, limit);
+        context.preview = true;
+        return context;
+    }
+
     public JobExecutionHistory child(
             WorkIdentity identity, Map<String, Object> metadata, Instant now) {
         if (children.size() >= limit)
             throw new IllegalArgumentException("JOB_RUN_WORK_BOUND_EXCEEDED");
-        if (!identities.add(identity)) throw new IllegalArgumentException("JOB_RUN_DUPLICATE_WORK");
+        if (!identities.add(identity + ":" + metadata.get("workBusinessDate")))
+            throw new IllegalArgumentException("JOB_RUN_DUPLICATE_WORK");
         JobExecutionHistory child = new JobExecutionHistory();
         child.setJob(parent.getJob());
         child.setUsedSource(parent.getUsedSource());
@@ -64,9 +82,21 @@ public final class JobRunWorkContext {
         values.put("businessDate", parent.getMetaJson().get("businessDate"));
         values.put("runPreparationVersion", "1");
         child.setMetaJson(values);
-        entities.persist(child);
+        if (preview) child.setId(UUID.randomUUID());
+        else entities.persist(child);
         children.add(child);
+        childrenById.put(child.getId(), child);
         return child;
+    }
+
+    public void snapshot(UUID executionId, Map<String, Object> snapshot, String source) {
+        var child = Objects.requireNonNull(childrenById.get(executionId), "Unknown child");
+        Map<String, Object> meta = new LinkedHashMap<>(child.getMetaJson());
+        meta.put("workExpansion", snapshot);
+        meta.put("workBusinessDate", snapshot.get("businessDate"));
+        meta.put("workIdentity", snapshot.get("atomicWorkId"));
+        child.setUsedSource(JobDefinition.DataSource.valueOf(source));
+        child.setMetaJson(meta);
     }
 
     public List<JobExecutionHistory> children() {
@@ -132,7 +162,7 @@ public final class JobRunWorkContext {
         List<Object> parameters = new ArrayList<>();
         parameters.add(parent.getJob().getId());
         symbols.forEach(symbol -> parameters.add(symbol.symbolKey()));
-        String placeholders = String.join(",", java.util.Collections.nCopies(symbols.size(), "?"));
+        String placeholders = String.join(",", Collections.nCopies(symbols.size(), "?"));
         Map<String, String> offsets = new HashMap<>();
         jdbc.query(
                 """

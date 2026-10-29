@@ -5,7 +5,6 @@ unified expansion -> graph composition/shared ancestor work/definition consolida
 I9.a/b/c are internal checkpoints. See [current handoff](plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29);
 the [registry](plans/roadmap/implementation-increments.md#increment-registry) owns status.
 
-
 This registry covers every non-ADR content document under `docs/`. The navigation files `README.md` and `INDEX.md` are intentionally unnumbered. Each subject folder has an independent zero-padded sequence starting at `001`, and each content filename starts with its folder-local number, while architecture decisions retain their separate [`ADR-NNN` registry](adr/README.md).
 
 ## How to Use This Index

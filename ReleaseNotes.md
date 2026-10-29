@@ -1,5 +1,84 @@
 # Omni Release Notes
 
+## 2026-10-30 — P14 preparation and execution-context repairs
+
+Resolve and budget-check closed work before persistence, then materialize without
+a second expansion. Update stale I8 fixtures/assertions while retaining rollback,
+history, cadence and immutability checks. Project metadata-child partial warnings
+onto successful parents.
+
+Bind published indicator commands to the first approved EOD version, retain that
+context across retry/replay, and validate the exact Parquet bytes decoded before
+output. Storage paths, applied migrations, flags and writer activation are unchanged.
+
+Platform: 476 tests / zero failures / two opt-in skips; budget regression 2.33 s.
+Shared Python: 200 pass / four skips; Ingestor: 73 pass; Analyzer: 153 pass.
+Cross-service and shared-ancestor/replay integration passed. The invalidated
+overlap attempts/replay fail before output; no unapproved-version SUCCESS remains.
+Recorded repair gate: `P14-I8-I9a-repair-ac1f800` PASS 6/6. This is local functional
+repair evidence, not complete I8/I9.a closure; graph branch coverage remains 67%.
+I8 remains `verification_pending`; I9 remains `in_progress`. See
+[repair scope and evidence](docs/plans/030-static-graph-dispatch-planner.md#preparation-diagnostics-and-eod-binding-repairs--2026-10-30).
+
+## 2026-10-29 — P14-I9.a read-only graph expansion development
+
+Added an internal graph planning API using active definitions and the real I8
+producer boundary without persistence/outbox/Kafka writes. It returns immutable
+atomic work, definition provenance and dependency instances with scope/date/input
+projection, effective signal-strategy edges, deterministic within-plan coalescing
+and explicit bounds. Existing scheduling, frozen paths, payloads and flags retain
+their behavior; durable shared ownership remains I9.b.
+
+I9 is `in_progress`; I9.a verification is pending, I8 remains
+`verification_pending`. Owner directed this source continuation despite the open
+I8 gate. The approved Platform coverage rerun compiled source/tests and ran 471
+tests with the same eight existing failures and two skips. Six graph-composer and
+three route cases passed; the complete gate remains FAIL, with coverage and
+transaction-level API integration still pending. No formatter/lint/build,
+integration rerun, CI or activation pass is claimed. See
+[implementation and impact](docs/plans/030-static-graph-dispatch-planner.md#i9a-read-only-graph-expansion-development--2026-10-29).
+
+## 2026-10-29 — Additional P14-I8 unit coverage
+
+Added atomic-envelope/storage, stock failure/legacy and Java request/snapshot
+regressions. Shared Python: 190 pass / four opt-in Kafka skips; Ingestor: 73 pass.
+Atomic-contract line/branch coverage is 94.3%/90.4%; atomic storage and stock
+handler are 100%/100%. All eight WorkExpansion cases passed; the full Platform
+coverage rerun still failed (464 tests, eight existing failures, two skips).
+Known full-suite, metadata parent diagnostics and approved-version integration
+failures remain open; I8 stays `verification_pending`.
+
+Owner requested amend/force-push of the I8 change, then I9.a source development
+without representing I8 as completed or enabling preparation. See
+[scope and evidence](docs/plans/030-static-graph-dispatch-planner.md#additional-i8-unit-coverage-and-owner-directed-i9a-continuation--2026-10-29).
+
+## 2026-10-29 — P14-I8 review repairs
+
+Restore cold/new-symbol stock lookback through the requested atomic day; initialized
+outputs still replace only that day. Remove integration-only history seeding.
+Make Python decimal canonicalization independent of context precision and add shared
+Java/Python numeric regression vectors. Replace inline Java qualified class names
+with imports and format the I8 source/test files.
+
+Local repair gate `P14-I8-review-fixes-20261029`: PASS 3/3, comprising 59 Ingestor,
+9 focused py-common and 5 WorkExpansion tests. Scoped Java formatting and Python
+lint-fix/format passed. Integration, migrations and the complete I8 gate were not
+run; I8 remains `verification_pending`. See [repair evidence and limits](docs/plans/030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+
+## 2026-10-29 — P14-I8 atomic work expansion source delivery
+
+Unified legacy/internal-manual/JobRun preparation into bounded scope/day expansion,
+with immutable accepted membership/configuration, V16 forward guards and additive
+Java/Python work identity. Workers cut inputs through the atomic day and preserve
+other output dates. Added regression source and updated disposable integration
+fixtures for explicit lookback and same-day version replacement.
+
+I8 is `verification_pending`; no build/test/lint/format/migration/coverage was run
+at owner request. I7 evidence stays unchanged; I9 and writer remain deferred.
+Coordinated Platform/worker rollout is necessary even with preparation disabled;
+version binding and concurrent mutable-object writes remain activation blockers.
+See [delivery and handoff](docs/plans/030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+
 ## 2026-10-29 - Reconcile P14 I8/I9 registration and writer planning
 
 Added the missing canonical pending I8/I9 rows and reciprocal I7 -> I8 -> I9
@@ -16,7 +95,6 @@ writer rollout, version binding, concurrency and flags remain out of scope.
 Static documentation audit only; no new test/build/lint/format/coverage, I7
 re-verification, owner attestation, deployment or I8/I9 implementation is claimed.
 Graph impact/change-detection tools unavailable; limitation recorded in Plan 030.
-
 
 ## 2026-10-28 - P14-I7 isolated local completion
 
@@ -38,7 +116,6 @@ context in validated operation intents. Writer derives output writeKey, dedups
 intentId and publishes terminal status only after required outputs are durable.
 Actual writer and durable-intent commit loop remain deferred; version binding
 is unresolved. Documentation only, no source/test/coverage/activation or I7 closure.
-
 
 ## 2026-10-28 - P14 expansion-first revision and writer reuse
 

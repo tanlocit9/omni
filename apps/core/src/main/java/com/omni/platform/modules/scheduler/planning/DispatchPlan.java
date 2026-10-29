@@ -38,11 +38,7 @@ public record DispatchPlan(
     }
 
     public record Selection(
-            TopologyNodeKey root,
-            DispatchScope scope,
-            int quota,
-            Reason reason,
-            int order) {
+            TopologyNodeKey root, DispatchScope scope, int quota, Reason reason, int order) {
 
         public Selection {
             Objects.requireNonNull(root, "root");

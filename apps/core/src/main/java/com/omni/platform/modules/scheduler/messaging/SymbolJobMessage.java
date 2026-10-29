@@ -16,5 +16,5 @@ public record SymbolJobMessage(
         String symbolKey,
         Instant fromOffset,
         Instant toOffset,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

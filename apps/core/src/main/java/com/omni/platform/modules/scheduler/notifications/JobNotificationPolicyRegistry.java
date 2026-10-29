@@ -29,9 +29,12 @@ public class JobNotificationPolicyRegistry {
             JobNotificationPolicy previous = byType.putIfAbsent(jobType, policy);
             if (previous != null) {
                 throw new IllegalStateException(
-                        "Duplicate JobNotificationPolicy registration for jobType " + jobType
-                                + ": " + previous.getClass().getSimpleName()
-                                + " and " + policy.getClass().getSimpleName());
+                        "Duplicate JobNotificationPolicy registration for jobType "
+                                + jobType
+                                + ": "
+                                + previous.getClass().getSimpleName()
+                                + " and "
+                                + policy.getClass().getSimpleName());
             }
         }
         this.policies = Map.copyOf(byType);
@@ -39,7 +42,10 @@ public class JobNotificationPolicyRegistry {
 
     public Optional<Object> buildNotification(JobNotificationContext context) {
         JobDefinition job = context.execution().getJob();
-        JobNotificationPolicy policy = job == null ? defaultPolicy : policies.getOrDefault(job.getJobType(), defaultPolicy);
+        JobNotificationPolicy policy =
+                job == null
+                        ? defaultPolicy
+                        : policies.getOrDefault(job.getJobType(), defaultPolicy);
         return policy.buildNotification(context);
     }
 }

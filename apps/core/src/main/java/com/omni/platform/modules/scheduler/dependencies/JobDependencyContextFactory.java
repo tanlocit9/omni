@@ -47,21 +47,21 @@ public class JobDependencyContextFactory {
         }
         if ("SYMBOL".equalsIgnoreCase(workType)) {
             return new JobExecutionContext(
-                    job,
-                    executionId,
-                    Map.of(),
-                    List.of(eodDependency(workKey)));
+                    job, executionId, Map.of(), List.of(eodDependency(workKey)));
         }
 
         Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SyncIndicatorsConfig indicatorsConfig = JobConfigMapper.toIndicatorsConfig(config);
         List<String> sectorCodes = indicatorsConfig.filters().sectorCodes();
         int sectorLevel = indicatorsConfig.filters().sectorLevel();
-        List<Map<String, Object>> dependencies = symbolRepository.findBySectorCodesAndLevel(
-                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
-                sectorLevel).stream()
-                .map(JobDependencyContextFactory::eodDependency)
-                .toList();
+        List<Map<String, Object>> dependencies =
+                symbolRepository
+                        .findBySectorCodesAndLevel(
+                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
+                                sectorLevel)
+                        .stream()
+                        .map(JobDependencyContextFactory::eodDependency)
+                        .toList();
 
         return new JobExecutionContext(job, executionId, Map.of(), dependencies);
     }
@@ -85,10 +85,14 @@ public class JobDependencyContextFactory {
 
     private static Map<String, Object> eodDependency(String exchange, String code) {
         return Map.of(
-                "dataset", EOD_DATASET,
-                "partition", Map.of("exchange", exchange, "code", code),
-                "conditions", List.of("EXISTS", "READY"),
-                "mode", "ENFORCED");
+                "dataset",
+                EOD_DATASET,
+                "partition",
+                Map.of("exchange", exchange, "code", code),
+                "conditions",
+                List.of("EXISTS", "READY"),
+                "mode",
+                "ENFORCED");
     }
 
     private static String normalize(String value) {

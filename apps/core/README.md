@@ -7,6 +7,8 @@ Use `SchedulerOutboxService.boundPayload` for explicit replay of a stored intent
 
 I9.a internal planning: `JobRunPreparationService.planGraphExpansion` uses active
 definitions and real producer previews in a repeatable-read, read-only transaction.
+Planning opens its own transaction even inside a writable caller; it sees committed
+configuration, suspends the caller transaction and restores it afterward.
 It returns immutable atomic work/dependencies without execution, outbox or Kafka
 writes. Existing scheduled/manual preparation is not switched to this planning API.
 

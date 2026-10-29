@@ -2,6 +2,8 @@
 
 Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
 I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
+Its [local planning gate](../030-static-graph-dispatch-planner.md#i9a-acceptance-hardening--2026-10-30)
+passes with attributable coverage; the I8 completion prerequisite remains open.
 Common preparation now persists atomic dated work and sends the additive
 `jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
 snapshots; matching Java/Python rollout is required even on the legacy scheduler.

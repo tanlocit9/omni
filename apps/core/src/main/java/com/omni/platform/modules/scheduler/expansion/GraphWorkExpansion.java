@@ -180,7 +180,8 @@ public final class GraphWorkExpansion {
         Set<String> keys = switch (upstream) {
             case SYNC_INDICATORS -> Set.of("timeframe", "indicatorSource");
             case SYNC_SIGNALS -> Set.of("timeframe");
-            case PRECOMPUTE_SYMBOL_FEATURES, PRECOMPUTE_SECTOR_FEATURES -> Set.of("timeframe");
+            case PRECOMPUTE_SYMBOL_FEATURES -> Set.of("timeframe");
+            case PRECOMPUTE_SECTOR_FEATURES -> Set.of("timeframe", "sectorLevel");
             default -> Set.of();
         };
         for (String key : keys)

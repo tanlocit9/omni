@@ -1,5 +1,78 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## I9.a acceptance hardening — 2026-10-30
+
+`planGraphExpansion` starts a separate read-only repeatable-read transaction, so a
+writable/read-committed caller cannot weaken the planning snapshot. The caller's
+transaction is suspended and restored; planning does not see its uncommitted
+configuration changes. Call the Spring service proxy, not a self-invoked method.
+No scheduler, preparation or dispatch route is switched to this internal API.
+
+Sector-feature projection now carries the dependent's `sectorLevel` along with
+`timeframe`. A level-1 analysis must not depend on level-2 feature work from the
+upstream preset. Tests keep levels 1/2 as distinct atomic identities and verify
+that projection does not mutate that preset's configuration.
+
+Additional regressions cover exchange-to-symbol and strategy selection, global
+sector ancestors, timeframe/classification-level projection, immutable definition
+provenance, duplicate/oversized/wrong-type expansions, malformed symbol keys,
+date mismatches and the distinct-expansion bound. Real PostgreSQL/Spring cases exercise preview parity,
+weekday ranges/current catalog dates, unchanged cadence/leases/no durable intent,
+failure without partial work, concurrent committed catalog changes, and isolation
+from an existing writable caller transaction.
+
+Local planning gate: **PASS `P14-I9a-8219aff`, required=1/pass=1** through
+`nx run platform:coverage --skip-nx-cache`, read with
+`python tools/check_result.py conclusion --increment P14-I9a-8219aff`.
+The final run executed 486 tests with zero failures/errors and two opt-in skips;
+`GraphWorkExpansionTest` passed 12/12 and `JobRunPreparationPostgresTest` 36/36.
+All 295 tracked Java production/test files matched the hashes captured before that
+run. HEAD was `69f1154`; the gate suffix retains this task's starting `8219aff`.
+Copied JUnit/JaCoCo reports, source binding and detailed impact/test matrix are in
+`.agent/check-results/P14-I9a-8219aff/`. The initial attempt's repository-spy setup
+failure was repaired and rerun; no failing check was waived. Existing closed-test-
+container/Hikari shutdown warnings persist, with final Gradle/Nx exit code zero.
+
+| Criterion / source | Executed evidence | Line / branch |
+| --- | --- | --- |
+| Graph composition, scope/strategy/date/projection, provenance, invalid membership and bounds: `GraphWorkExpansion` | 12 composer cases, including classification levels 1/2 and distinct-expansion budget | 92.7% / 84.2% |
+| Immutable work/plan: `GraphWorkExpansion.Work` / `.Plan` | Composer identity rejection and immutable collection/provenance cases | 100% / 100% where branches exist |
+| Existing static edges/presets: `StaticTopologyDeclaration` / `StaticDefinitionDependencies` | Composer strategies plus existing topology/path suites | 100% / 100% |
+| Shared I8 producer boundary: `JobProducer` | `ExpansionRoutesTest`, real producer/date/sector parity and existing producer/preparation suites | 94.3% / 83.1% |
+| Detached preview/context: `JobRunWorkContext` | Preview no-write route, PostgreSQL parity and existing preparation suites | 87.3% / 94.4% |
+| Date/default/atomic identity: `WorkExpansion` | Composer, route, work-expansion and PostgreSQL suites | 96.9% / 87.2% |
+| Snapshot/isolation/no durable side effects: `JobRunPreparationService` | Four `graphPlanning*` PostgreSQL cases; concurrent catalog commit, writable caller, leases/failure and real producer/sector parity | 99.4% / 91.9% |
+
+`planGraphExpansion` and its producer/membership callbacks have 100% line coverage;
+they contain no instrumented branch counter. These results supersede the earlier
+I9.a 67% branch and unexecuted-transaction limitations below. Source and local
+planning acceptance are verified; checkpoint completion still depends on the
+unclosed I8 prerequisite. I8 stays `verification_pending`, I9 `in_progress`.
+No build/lint/format, cross-service integration rerun, CI, deployment, activation
+or owner attestation is claimed by this continuation.
+
+Blast radius: Platform planning transaction/projection/tests only. The real
+producer preview and membership query execute within one database snapshot;
+persisted JobRun, execution/outbox, definitions, schema, flags and production scheduling are unchanged.
+Analyzer, Ingestor, Query Service, Console and shared libraries/contracts have no
+source or transport changes in this continuation. No worker/storage/provider or
+deployment behavior changes, and no integration result is carried forward as proof
+of the changed planning transaction. Writer, durable dedup/completion and definition
+retirement remain I9.b/c or Plan 027 scope. I8/I9 status is unchanged.
+
+Documentation scope: this plan, ReleaseNotes, registry continuation note and Platform
+guide own the new evidence/transaction semantics. Existing architecture, ADR, flows,
+Kafka/lake/database, deployment, ownership/index and agent guidance remain accurate:
+there is no new runtime route, wire/schema/storage/configuration or workflow policy.
+
+Static documentation consistency audit: CONSISTENT for the touched plan, release
+notes, registry, roadmap index and Platform guide. IDs, statuses/dependencies,
+required plan sections, owned links/anchors, contract boundaries and evidence
+wording agree; historical results remain historical. Graph change detection against
+`69f1154` covers nine files/18 symbols with four heuristic test gaps; the executed
+source/test matrix above covers those planner/projection symbols. Graph hints are
+not test evidence. No additional concrete defect was found in the scoped self-review.
+
 ## Preparation, diagnostics and EOD binding repairs — 2026-10-30
 
 The eight failing Platform cases and two integration findings recorded below are
@@ -672,11 +745,11 @@ No runtime checks/coverage are executed by this planning revision.
 
 #### Acceptance Criteria
 
-- [ ] Static graph plus existing definitions derives ancestors through explicit
+- [x] Static graph plus existing definitions derives ancestors through explicit
       scope/parameter mapping and I8 expansion without another config catalog.
-- [ ] Strategy-specific edges use effective strategy instead of cron identity;
+- [x] Strategy-specific edges use effective strategy instead of cron identity;
       graph adaptation preserves all existing distinctions.
-- [ ] Projected upstream parameters share equivalent work despite target-only
+- [x] Projected upstream parameters share equivalent work despite target-only
       differences; real source/strategy/scope/day/parameter differences stay distinct.
 - [ ] Atomic DB acquisition/shared ownership handles concurrent overlapping scopes/
       ranges, joins, failures, retry/refresh and multiple-request cancellation.

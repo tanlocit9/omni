@@ -43,6 +43,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Bounded atomic preparation only. FIFO is not a predecessor-completion barrier: leave disabled until I4. */
@@ -92,7 +93,8 @@ public class JobRunPreparationService {
      * I9.a read-only planning API, using the same I8 producer expansion as every creation route.
      * It does not acquire work, persist attempts or activate the scheduler's preparation path.
      */
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ,
+            propagation = Propagation.REQUIRES_NEW)
     public GraphWorkExpansion.Plan planGraphExpansion(
             UUID target, Map<String, Object> request, Instant acceptedAt) {
         Map<String, Boolean> membership = new HashMap<>();

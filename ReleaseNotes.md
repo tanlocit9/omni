@@ -1,5 +1,21 @@
 # Omni Release Notes
 
+## 2026-10-30 — P14-I9.a planning acceptance hardening
+
+Isolate graph planning in its own read-only repeatable-read transaction even when
+called by a writable transaction. Add strategy/scope/date, membership-validation,
+planning-budget and real PostgreSQL snapshot/no-write/producer-parity regressions.
+Project `sectorLevel` to sector-feature ancestors so level-1 analysis cannot
+silently plan level-2 feature inputs; keep both levels' work identities distinct.
+Local planning gate `P14-I9a-8219aff` PASS: Platform coverage executed 486 tests,
+zero failures/errors, two opt-in skips; composer 12/12 and PostgreSQL suite 36/36.
+Graph composer coverage is 92.7% line / 84.2% branch; planning/membership callbacks
+are 100% line. Java source hashes are unchanged across the final run.
+I9.a local acceptance is verified; its I8 completion prerequisite remains open.
+I8 remains `verification_pending`, I9 `in_progress`; I9.b/c are not implemented.
+No formatter/build/lint, integration rerun, CI, activation, commit or push is claimed.
+See [checkpoint evidence](docs/plans/030-static-graph-dispatch-planner.md#i9a-acceptance-hardening--2026-10-30).
+
 ## 2026-10-30 — P14 preparation and execution-context repairs
 
 Resolve and budget-check closed work before persistence, then materialize without

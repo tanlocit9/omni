@@ -1,5 +1,12 @@
 # Dependency-Ordered Implementation Increments
 
+I9.a acceptance hardening (2026-10-30) adds isolated read-only snapshot planning,
+sector-level projection and executed-coverage reconciliation. Local planning gate
+`P14-I9a-8219aff` PASS: 486 tests, zero failures/errors, two opt-in skips; graph
+coverage 92.7% line / 84.2% branch. I9.a completion still awaits I8 closure;
+I8/I9 increment statuses and dependency gates are unchanged.
+See [checkpoint evidence](../030-static-graph-dispatch-planner.md#i9a-acceptance-hardening--2026-10-30).
+
 Current owner-directed continuation (2026-10-29): I8 remains
 `verification_pending`; I9 is `in_progress` for I9.a read-only graph planning.
 Owner explicitly allowed source development after the I8 test amendment without

@@ -124,6 +124,31 @@ public abstract class JobProducer {
         return messages.size();
     }
 
+    /** Persist a single graph descriptor without resolving membership a second time. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public JobExecutionHistory persistAtomicRunStep(JobExecutionHistory parent,
+            ExpandedJobMessage accepted, Map<String,Object> configuration,
+            Instant now, JobRunWorkContext context) {
+        if (getJobType() != JobType.valueOf(accepted.jobType()))
+            throw new IllegalArgumentException("Atomic producer mismatch");
+        Map<String,Object> metadata = new LinkedHashMap<>(accepted.metadata());
+        metadata.put("workBusinessDate", accepted.businessDate().toString());
+        var child = context.child(WorkIdentity.of(accepted.workType(), accepted.workKey()), metadata, now);
+        Map<String,Object> snapshot = WorkExpansion.freeze(Map.of(
+                "jobType", accepted.jobType(), "workType", accepted.workType().name(),
+                "workKey", accepted.workKey(), "businessDate", accepted.businessDate().toString(),
+                "parameters", accepted.parameters(), "atomicWorkId", accepted.atomicWorkId(),
+                "configuration", configuration));
+        context.snapshot(child.getId(), snapshot, accepted.source());
+        var command = copyIdentity(accepted.command(), child.getId(), parent.getId(),
+                accepted.businessDate(), accepted.metadata());
+        var message = new ExpandedJobMessage(command, accepted.jobType(), accepted.businessDate(),
+                accepted.parameters(), accepted.atomicWorkId());
+        jobService.enqueueRunDispatch(parent, getTopic(),
+                List.of(new KafkaMessage(accepted.workKey(), message)), now, context.children());
+        return child;
+    }
+
     protected JobExecutionHistory createChild(
             JobRunWorkContext context,
             JobExecutionHistory parent,

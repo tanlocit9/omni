@@ -56,6 +56,12 @@ public class JobDefinition extends AuditableEntity {
     @Column(name = "is_active")
     private Boolean isActive = true;
 
+    @Column(name = "schedule_enabled", nullable = false)
+    private Boolean scheduleEnabled = true;
+
+    @Column(name = "canonical_definition_id")
+    private UUID canonicalDefinitionId;
+
     @Column(name = "next_run")
     private Instant nextRun;
 

@@ -68,7 +68,7 @@ public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryC
                 .createNativeQuery(
                         """
                 SELECT id FROM scheduler_outbox_messages
-                WHERE status = 'PENDING' AND available_at <= :now
+                WHERE status = 'PENDING' AND atomic_work_admissible(execution_id) AND available_at <= :now
                   AND (claim_until IS NULL OR claim_until <= :now)
                 ORDER BY available_at ASC, created_at ASC, id ASC
                 LIMIT :candidateLimit
@@ -88,7 +88,7 @@ public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryC
                                 """
                 SELECT execution_id, topic, message_key, payload, attempts
                 FROM scheduler_outbox_messages
-                WHERE id = :messageId AND status = 'PENDING' AND available_at <= :now
+                WHERE id = :messageId AND status = 'PENDING' AND atomic_work_admissible(execution_id) AND available_at <= :now
                   AND (claim_until IS NULL OR claim_until <= :now)
                 FOR UPDATE SKIP LOCKED
                 """)
@@ -141,7 +141,7 @@ public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryC
                 SELECT id, execution_id, topic, message_key, payload, attempts
                 FROM scheduler_outbox_messages
                 WHERE status = 'PENDING'
-                  AND available_at <= :now
+                  AND atomic_work_admissible(execution_id) AND available_at <= :now
                   AND (claim_until IS NULL OR claim_until <= :now)
                 ORDER BY available_at ASC, created_at ASC, id ASC
                 FOR UPDATE SKIP LOCKED
@@ -195,8 +195,10 @@ public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryC
                         .createNativeQuery(
                                 """
                 UPDATE scheduler_outbox_messages
-                SET available_at = :availableAt, dependency_reason = :reason, updated_at = CURRENT_TIMESTAMP
-                WHERE id = :messageId AND status = 'PENDING' AND claim_token IS NULL
+                SET available_at = :availableAt, dependency_reason = :reason, updated_at = CURRENT_TIMESTAMP,
+                    claim_token=NULL, claimed_by=NULL, claim_until=NULL
+                WHERE id = :messageId AND status = 'PENDING'
+                  AND (claim_token IS NULL OR claim_until <= CURRENT_TIMESTAMP)
                 """)
                         .setParameter("availableAt", availableAt)
                         .setParameter("reason", reason)
@@ -214,7 +216,7 @@ public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryC
                 UPDATE scheduler_outbox_messages o
                 SET status = 'BLOCKED', dependency_reason = :reason,
                     claim_token = NULL, claimed_by = NULL, claim_until = NULL, updated_at = :blockedAt
-                WHERE o.id = :messageId AND o.status = 'PENDING' AND o.claim_token IS NULL
+                WHERE o.id = :messageId AND o.status = 'PENDING' AND (o.claim_token IS NULL OR o.claim_until <= :blockedAt)
                 """)
                         .setParameter("reason", reason)
                         .setParameter("blockedAt", blockedAt)
@@ -250,7 +252,8 @@ public class SchedulerOutboxRepositoryImpl implements SchedulerOutboxRepositoryC
                         .createNativeQuery(
                                 """
                 UPDATE scheduler_outbox_messages SET claim_until=:until,updated_at=:at
-                WHERE id=:message AND status='PENDING' AND claim_token=:token AND claimed_by=:owner
+                WHERE id=:message AND status='PENDING' AND atomic_work_admissible(execution_id)
+                  AND claim_token=:token AND claimed_by=:owner
                   AND claim_until > :at
                 """)
                         .setParameter("until", at.plus(lease))

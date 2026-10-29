@@ -167,7 +167,10 @@ public final class JobRunWorkContext {
         jdbc.query(
                 """
                 SELECT DISTINCT ON (meta_json ->> 'workKey') meta_json ->> 'workKey' AS work_key, new_offset
-                FROM job_execution_histories WHERE job_id = ? AND new_offset IS NOT NULL
+                FROM job_execution_histories WHERE job_id IN (
+                    SELECT history.definition_id FROM job_definition_history_aliases history
+                    JOIN job_definition_history_aliases requested ON history.retained_definition_id=requested.retained_definition_id
+                    WHERE requested.definition_id = ?) AND new_offset IS NOT NULL
                   AND meta_json ->> 'workType' = 'SYMBOL' AND meta_json ->> 'workKey' IN (
                 """
                         + placeholders

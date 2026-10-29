@@ -52,7 +52,7 @@ public class JobRunDispatchStore {
                 SELECT r.id FROM job_runs r WHERE r.state IN ('PREPARED','RUNNING')
                   AND (CAST(:after AS uuid) IS NULL OR r.id > :after)
                   AND EXISTS (SELECT 1 FROM job_execution_histories h JOIN scheduler_outbox_messages o ON o.execution_id=h.id
-                    WHERE h.job_run_id=r.id AND o.status='PENDING' AND o.available_at <= :now
+                    WHERE h.job_run_id=r.id AND o.status='PENDING' AND atomic_work_admissible(o.execution_id) AND o.available_at <= :now
                       AND (o.claim_until IS NULL OR o.claim_until <= :now))
                 ORDER BY r.id LIMIT :limit
                 """,
@@ -65,7 +65,7 @@ public class JobRunDispatchStore {
                             """
                     SELECT r.id FROM job_runs r WHERE r.state IN ('PREPARED','RUNNING') AND r.id <= :after
                       AND EXISTS (SELECT 1 FROM job_execution_histories h JOIN scheduler_outbox_messages o ON o.execution_id=h.id
-                        WHERE h.job_run_id=r.id AND o.status='PENDING' AND o.available_at <= :now
+                        WHERE h.job_run_id=r.id AND o.status='PENDING' AND atomic_work_admissible(o.execution_id) AND o.available_at <= :now
                           AND (o.claim_until IS NULL OR o.claim_until <= :now))
                     ORDER BY r.id LIMIT :limit
                     """,
@@ -91,7 +91,7 @@ public class JobRunDispatchStore {
                 JOIN job_run_steps s ON s.job_run_id=h.job_run_id AND s.step_index=h.job_run_step_index
                 WHERE s.job_run_id=:run AND s.step_index=:step AND s.job_definition_id=:definition
                   AND s.scope_type=:type AND s.scope_key=:key AND s.business_date=:date
-                  AND o.status='PENDING' AND o.available_at <= :now
+                  AND o.status='PENDING' AND atomic_work_admissible(o.execution_id) AND o.available_at <= :now
                   AND (o.claim_until IS NULL OR o.claim_until <= :now)
                 ORDER BY o.available_at,o.created_at,o.id LIMIT :limit
                 """;
@@ -103,7 +103,7 @@ public class JobRunDispatchStore {
                 jdbc.queryForList(
                         """
                 SELECT o.id FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id
-                WHERE h.job_run_id IS NULL AND o.status='PENDING' AND o.available_at <= :now
+                WHERE h.job_run_id IS NULL AND o.status='PENDING' AND atomic_work_admissible(o.execution_id) AND o.available_at <= :now
                   AND (o.claim_until IS NULL OR o.claim_until <= :now)
                 ORDER BY o.available_at,o.created_at,o.id LIMIT :limit
                 """,
@@ -178,7 +178,7 @@ public class JobRunDispatchStore {
                         """
                 SELECT o.id FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id
                 WHERE o.id=:message AND h.job_run_id=:run AND h.job_run_step_index=:step
-                  AND o.status='PENDING' AND o.available_at <= :now
+                  AND o.status='PENDING' AND atomic_work_admissible(o.execution_id) AND o.available_at <= :now
                   AND (o.claim_until IS NULL OR o.claim_until <= :now)
                 FOR UPDATE OF o SKIP LOCKED
                 """,
@@ -268,7 +268,7 @@ public class JobRunDispatchStore {
                     o.available_at,o.created_at FROM scheduler_outbox_messages o
                 JOIN job_execution_histories h ON h.id=o.execution_id
                 LEFT JOIN job_run_steps s ON s.job_run_id=h.job_run_id AND s.step_index=h.job_run_step_index
-                WHERE o.status='PENDING' AND o.available_at <= :now
+                WHERE o.status='PENDING' AND atomic_work_admissible(o.execution_id) AND o.available_at <= :now
                   AND (o.claim_until IS NULL OR o.claim_until <= :now)
                 """
                         + comparison

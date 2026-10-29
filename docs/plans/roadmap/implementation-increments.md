@@ -1,5 +1,13 @@
 # Dependency-Ordered Implementation Increments
 
+Current I9 delivery (2026-10-30): I9.a/b/c runtime/source are present and I9 is
+`verification_pending`; I8 remains `verification_pending`. Owner requested all I9
+source development before later local review. No new verification/coverage,
+activation, retained migration or completion is claimed. See
+[full source handoff](../030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+Prior I9.a-only evidence below is historical and does not verify this continuation.
+
+
 I9.a acceptance hardening (2026-10-30) adds isolated read-only snapshot planning,
 sector-level projection and executed-coverage reconciliation. Local planning gate
 `P14-I9a-8219aff` PASS: 486 tests, zero failures/errors, two opt-in skips; graph
@@ -7,11 +15,11 @@ coverage 92.7% line / 84.2% branch. I9.a completion still awaits I8 closure;
 I8/I9 increment statuses and dependency gates are unchanged.
 See [checkpoint evidence](../030-static-graph-dispatch-planner.md#i9a-acceptance-hardening--2026-10-30).
 
-Current owner-directed continuation (2026-10-29): I8 remains
+Historical owner-directed continuation (2026-10-29; superseded by full I9 delivery above): I8 remains
 `verification_pending`; I9 is `in_progress` for I9.a read-only graph planning.
 Owner explicitly allowed source development after the I8 test amendment without
-waiving I8/I9 completion or activation gates. I9.b/c stay unimplemented and are
-not automatically selected by this exception. See
+waiving I8/I9 completion or activation gates. I9.b/c were unimplemented at that point and were
+not automatically selected by that narrower exception. See
 [I9.a implementation and evidence](../030-static-graph-dispatch-planner.md#i9a-read-only-graph-expansion-development--2026-10-29).
 
 ## Current P14 registration reconciliation — 2026-10-29
@@ -137,7 +145,7 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I6 | Merged into P14-I5 (historical read-model handoff)                 | superseded           | high     | []                    | []                                  | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I7 | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | [P14-I8]                            | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I8 | Unified work expansion                                             | verification_pending | critical | [P14-I7]              | [P14-I9]                            | [apps/core, apps/analyzer, apps/ingestor, libs/py-common, libs/contracts, database, configs, docs]                                        | autonomous        | false                   | null                                      | null                                     |
-| P14-I9 | Graph-driven expansion and definition consolidation                | in_progress          | critical | [P14-I8]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
+| P14-I9 | Graph-driven expansion and definition consolidation                | verification_pending          | critical | [P14-I8]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
 
 I7 local completion — 2026-10-25: source-bound gate PASS 8/8, 444 tests /
 67 suites, ten migration/upgrade/concurrency cases and all 31 critical Java
@@ -378,7 +386,7 @@ Owner-approved order (2026-10-15): P14-I1 (done) → I2 static contract → I3 J
 | 6     | P14-I6    | `superseded`           | Scope completed under consolidated P14-I5; historical ID retained; no separate scheduling gate.                                                                                                                                                                                                      |
 | 7     | P14-I7    | `completed`            | After I4/I5: inventory and normalize historical outbox parent/child aliases, prove preservation/rollback, then retire compatibility; no I6 dependency or active NULL-JobRun removal.                                                                                                                 |
 | 8     | P14-I8    | `verification_pending`              | Common expansion across existing creation routes, explicit atomic units/dates/parameters and consumer semantics; no second outbox fan-out. Plan 030 owns acceptance and readiness.                                                                                                                   |
-| 9     | P14-I9    | `in_progress`              | After I8: I9.a graph composition, I9.b shared ancestor work, I9.c definition consolidation with history/offset/migration/rollback evidence; all checkpoint gates required.                                                                                                                           |
+| 9     | P14-I9    | `verification_pending`              | After I8: I9.a graph composition, I9.b shared ancestor work, I9.c definition consolidation with history/offset/migration/rollback evidence; all checkpoint gates required.                                                                                                                           |
 | 10    | P13-I1    | `pending`              | After P14-I4 and P7-I3, establish truthful worker timing evidence and stage model.                                                                                                                                                                                                                   |
 | 11    | P13-I2    | `pending`              | After P13-I1, basic Job Operations; graph-specific read model requires appropriate I5 handoff.                                                                                                                                                                                                       |
 | 12    | P13-I4    | `pending`              | After P13-I2, operator-first shell independent of graph-specific extras.                                                                                                                                                                                                                             |

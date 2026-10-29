@@ -40,7 +40,7 @@ public class JobDefinitionRepositoryImpl implements JobDefinitionClaimRepository
                                 """
                 SELECT id, next_run
                 FROM job_definitions
-                WHERE is_active = TRUE
+                WHERE is_active = TRUE AND schedule_enabled = TRUE
                 AND (next_run <= :now OR next_run IS NULL)
                 AND (claim_until IS NULL OR claim_until <= :now)
                 %s

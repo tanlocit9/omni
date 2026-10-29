@@ -1,20 +1,18 @@
 # Omni Roadmap Diagram
 
-Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
-I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
-Common preparation now persists atomic dated work and sends the additive
-`jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
-snapshots; matching Java/Python rollout is required even on the legacy scheduler.
-Consumers preserve other dates and retain lookback; catalog/metadata are current
-snapshots only. Writer and shared ancestors remain deferred. EOD-to-indicator
-execution binding is implemented; broader version/concurrency guarantees remain
-deferred.
-The original I8 delivery ran no checks; later verification and repair evidence
-is recorded in Plan 030. This supersedes earlier design-only I8/I9 statements.
-See [contract, impact matrix and local handoff](../030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
+shared in-flight attempts and exact dependency barriers, plus reversible scheduled
+preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
+existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
+work diagnostics are additive; writer and broader output/version exclusion remain
+deferred. Prior indicator approval/byte-binding evidence remains historical.
+No verification ran for this continuation; defaults remain unactivated. See
+[full contract, impact and review handoff](../030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
 
-The current P14 continuation is I7 completed -> I8 unified expansion pending ->
-I9 graph composition/shared ancestors/definition consolidation pending. I9.a/b/c
+
+The historical pre-implementation P14 continuation was I7 completed -> I8 expansion
+-> I9 graph/shared work/consolidation; current I8/I9 status is verification_pending. I9.a/b/c
 are internal gates. This adds no dependency to P13/P12 and changes no runtime flag.
 See [registry](implementation-increments.md#increment-registry) and
 [handoff](../030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).

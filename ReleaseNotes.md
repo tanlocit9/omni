@@ -1,5 +1,23 @@
 # Omni Release Notes
 
+## 2026-10-30 — P14-I9 full source delivery for owner review
+
+Connect JobType graph expansion to opt-in scheduled/internal-manual preparation.
+Persist independent one-work JobRuns, database acquisition, exact immutable
+upstream-attempt bindings and shared requester membership. Gate every outbox
+candidate/claim/renew path, reconcile failure/completion and isolate cancellation.
+Explicit retry/refresh creates new attempts; replay retains its original graph.
+
+Add forward V17/V18 migrations, reviewed preset union/consolidation with schedule
+retirement, seeder/history/offset compatibility, conflict-checked rollback and
+read-only authenticated diagnostics. Repair expired-token WAITING/BLOCKED writes.
+All default activation flags stay off. Added regression source; **no verification
+was run** in this continuation. I9 becomes verification_pending, I8 remains so;
+prior I9.a/worker-binding reports do not verify the changed runtime source.
+Writer/concurrency/public manual/backfill scope remains deferred. See
+[policies, impact matrix, rollout and flow](docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+
+
 ## 2026-10-30 — P14-I9.a planning acceptance hardening
 
 Isolate graph planning in its own read-only repeatable-read transaction even when

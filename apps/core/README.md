@@ -1,5 +1,10 @@
 # Platform / Core Service
 
+Planned P14 handoff — 2026-10-29: Pending I8/I9 are planning extensions, not current runtime. Common expansion comes before graph-driven ancestors/shared ownership and definition consolidation; existing definitions remain config/presets and I9.a/b/c are internal gates.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Platform is the Java/Spring Boot control-plane service for Omni. Its Nx project name is `platform` and its source path is [`apps/core`](.).
 
 ## Responsibility

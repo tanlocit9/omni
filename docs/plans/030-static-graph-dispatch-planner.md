@@ -1,6 +1,56 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed. Preparation remains disabled; no retained rollout or deployment is claimed.
+## Current I8/I9 handoff — 2026-10-29
+
+Canonical scheduling is I7 completed -> I8 pending -> I9 pending in the
+[increment registry](roadmap/implementation-increments.md#increment-registry).
+I8 first unifies request-to-atomic-work expansion and dated consumer semantics.
+I9 then delivers graph composition (a), shared ancestor work (b), and definition
+consolidation including history/offset/migration/diagnostics/rollback (c).
+Definitions remain the single configuration/preset source; neither full cron
+removal nor definition-free runtime nor a second configuration catalog is scope.
+
+The [isolated I7 local completion](#i7-isolated-local-completion--2026-10-28)
+records the latest source-bound gate; the old cloud download failure is historical.
+This audit reads that recorded evidence, not a fresh test/coverage execution or
+owner attestation. Pending does not mean I7 is incomplete; I8 still needs normal
+readiness/contract-task handoff review before autonomous selection.
+
+Writer consumes computed result plus unchanged work identity/execution context in
+a future validated intent. Work key, logical output writeKey and operation
+intentId remain distinct, as specified in the
+[handoff](#i9-checkpoints-and-writer-result-handoff--2026-10-28) and
+[Plan 027](027-concurrent-workers-and-writer-batching.md#p14-expansion-reuse-boundary--2026-10-28).
+The writer does not expand requests or resolve static graph. P12, concurrency,
+public manual APIs, version binding and default preparation activation remain
+outside this documentation change. The core normalized day/work identity is
+prepared by I8/I9; actual durable-intent publication and both writer offset
+boundaries are later writer implementation, not a prerequisite to finish I8.
+
+### Documentation reconciliation boundary
+
+Scope: registry/order, Plan 030/027, roadmap/index, field inventory, writer debt,
+architecture/flow/data/development ownership and service guides. Current planned
+notes are distinct from historical source/test records. I7 counts/gate evidence
+and historical failed attempts are preserved rather than rewritten as new PASS.
+No production source, schema, generated contract, configuration or flag changes.
+Platform/Analyzer/Ingestor and shared contracts are planned I8/I9 impact; Query
+Service/Console remain compatibility review unless output/read contracts change.
+Future writer and shared output ownership remain deferred to their existing plan.
+
+AGENTS.md, CLAUDE.md and .roo/rules were reviewed: no update needed because this
+change adds no new tool, permission, source ownership or verification rule.
+ADR-007 remains the current runtime boundary; planned changes link here rather
+than silently changing an accepted lease policy. Deployment runbook keeps
+retained-data/activation gates; backfill Plan 028 and operator Plan 029 remain
+separately scoped. No extra service or dataset readiness authority is introduced.
+Static review checks current IDs/status/dependencies, required I8/I9 sections,
+writer contracts, relevant links and introduced claims. Graph tools are unavailable:
+no graph impact/change-detection PASS, executable test/lint/build/format,
+numeric coverage, CI, deployment or increment completion is claimed by this audit.
+
+
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8/I9 are registered pending. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -221,8 +271,10 @@ No runtime checks/coverage are executed by this planning revision.
 | Consumer | day cutoff/lookback and output compatibility; HIGH | I8.d dated worker adaptation |
 | Evidence | executed regression/coverage, docs/rollback | I8.e verification gate |
 
-I8 depends on I7; pending while prerequisite re-verification/readiness and graph/
-documentation gaps remain. This registration starts no implementation.
+I8 depends on completed I7. The isolated 2026-10-28 gate below supersedes the
+earlier cloud bootstrap failure; that failure is not a current dependency blocker.
+I8 remains pending until normal readiness/module-conflict and contract-task
+handoff review is recorded. This documentation change starts no implementation.
 
 ### P14-I9 — Graph-driven expansion and definition consolidation
 

@@ -1,5 +1,10 @@
 # System Overview
 
+Planned P14 handoff — 2026-10-29: Pending I8 common atomic-work expansion precedes I9 graph composition, shared ancestors and definition consolidation. Existing definitions stay the single config source; no new graph/config catalog or writer service is introduced.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 ## Cross-service contract ownership
 
 Versioned Kafka and service-to-service Proto3 schemas are owned by the [`contracts`](../../libs/contracts) Nx project. The schemas generate deterministic Java and Python boundary types from one source, while application domain models remain independent. Persisted dataset manifests continue to use JSON and physical object-store paths remain outside business Kafka routing contracts.

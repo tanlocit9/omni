@@ -1,5 +1,10 @@
 # Where to Change
 
+Planned P14 handoff — 2026-10-29: For pending I8, start with common expansion and all producer/creation-route adapters plus dated worker semantics. For I9.a/b/c, compose static mapping, implement shared work, then consolidate definitions only after parity. Outbox publication must not expand stored work twice.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Use this guide after reading [System overview](../architecture/001-system-overview.md). It maps common product or architecture changes to the first place to inspect.
 
 ## Quick Navigation

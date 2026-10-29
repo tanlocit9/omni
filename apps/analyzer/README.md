@@ -1,5 +1,10 @@
 # Analyzer Service
 
+Planned P14 handoff — 2026-10-29: Pending I8 requires explicit day/cutoff/lookback and atomic identity semantics. Future compute results retain work/execution identity when sent to writer; existing terminal-status commit loop does not already implement durable write-intent acknowledgement.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Analyzer is the Python analytical worker/API service for indicators, signals, signal evaluation, and Sector Wave calculations. Its Nx project name is `analyzer` and its source path is [`apps/analyzer`](.).
 
 ## Responsibility

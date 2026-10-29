@@ -1,5 +1,15 @@
 # py-common Library
 
+Current P14 scheduling reconciliation (2026-10-29): I8 and I9 are now explicitly
+registered pending after completed I7, with I9.a/b/c internal checkpoints.
+Reuse atomic work/execution envelope, accepted parameter snapshots, validation
+and storage/status helpers. Result + work identity reaches writer through a
+future durable operation intent; output writeKey and deterministic intentId stay
+separate. Writer does not resolve graph or expand; actual handoff/offset loops
+remain deferred P12 work. This is no implementation or readiness/version-safety PASS.
+See [current handoff](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 ## I9 checkpoint and result-handoff alignment — 2026-10-28
 
 P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,

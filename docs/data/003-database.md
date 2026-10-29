@@ -1,5 +1,10 @@
 # Database
 
+Planned P14 handoff — 2026-10-29: I8 inventories current accepted-work/membership snapshots before forward additions. I9.b plans unique acquisition and durable shared request/dependency ownership; I9.c retains historical definition FKs, offsets, frozen-path/fingerprint compatibility and V15 strict outbox identity.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 PostgreSQL stores Platform-owned operational state. It is not the analytical data lake; market and analytical datasets live in MinIO/S3 as Parquet files.
 
 Flyway migrations under [`database/migrations`](../../database/migrations) are the source of truth for active Platform schema. Reference or older schema material may exist under [`database/refs`](../../database/refs), but it should not be treated as the active migration chain.

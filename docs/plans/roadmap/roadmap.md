@@ -1,5 +1,12 @@
 # Omni Roadmap Diagram
 
+The current P14 continuation is I7 completed -> I8 unified expansion pending ->
+I9 graph composition/shared ancestors/definition consolidation pending. I9.a/b/c
+are internal gates. This adds no dependency to P13/P12 and changes no runtime flag.
+See [registry](implementation-increments.md#increment-registry) and
+[handoff](../030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 Current I7 checkpoint — 2026-10-28: isolated local verification against c20d9cb
 completed under `P14-I7-reverify-20261028`. V15 and strict-work identity changes
 are separate from future expansion plans and worker/readiness follow-ups. The verified commit keeps I5/I6
@@ -16,7 +23,7 @@ flowchart TD
     P1 --> P2["P2 Contracts — foundation complete"]
     P1 --> P3["P3 Data contracts — date normalization complete"]
     P3 --> P4["P4 Dependency guard — foundation complete; P4-I3 superseded"]
-    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I5 complete; I7 locally complete"]
+    P4 --> P14["P14 Static Graph and DispatchPlanner — I1–I5 complete; I7 locally complete; I8/I9 pending"]
     P4 --> P5["P5 Deployment — superseded/deferred"]
     P5 --> P6["P6 Console expansion — superseded/deferred"]
     P4 --> P7["P7 Job operations ✅"]

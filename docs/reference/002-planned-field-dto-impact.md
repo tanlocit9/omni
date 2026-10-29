@@ -1,5 +1,15 @@
 # Planned Field and DTO Impact Inventory
 
+Current P14 inventory reconciliation — 2026-10-29: I8/I9 are registered pending.
+I8 request/atomic-work snapshots and day/parameter contracts are ADD/SEMANTIC HIGH
+across Java producers, Python consumers and persistence; exact fields/encoding,
+defaults and legacy handling freeze in I8.a. I9.a maps graph scope/parameters,
+I9.b adds atomic shared membership, I9.c preserves history/offsets while reducing
+redundant definitions. Future writer result/operation/intent envelope remains
+separate from output exclusion and work dedup; no new config catalog or writer.
+See [canonical scope](../plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+
 ## I9 checkpoint and result-handoff alignment — 2026-10-28
 
 P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,

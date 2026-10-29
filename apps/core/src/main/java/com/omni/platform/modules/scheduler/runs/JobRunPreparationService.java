@@ -64,6 +64,9 @@ public class JobRunPreparationService {
     private final JsonMapper json;
     private final boolean enabled;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.work.GraphWorkRequestService graphWork;
+
     public JobRunPreparationService(
             JobRunRepository runs,
             JobDefinitionRepository definitions,
@@ -111,6 +114,8 @@ public class JobRunPreparationService {
     }
 
     public boolean supports(JobDefinition definition) {
+        if (enabled && graphWork != null && graphWork.isEnabled())
+            return Boolean.TRUE.equals(definition.getIsActive());
         return enabled
                 && definition.getCronExpr() != null
                 && !definition.getCronExpr().isBlank()
@@ -127,7 +132,7 @@ public class JobRunPreparationService {
         // Historical/range intraday overrides retain the existing manual route until its I3.d
         // cutover.
         return supports(definition)
-                && (definition.getJobType() != JobType.SYNC_INTRADAY_EOD || parameters.isEmpty());
+                && ((graphWork != null && graphWork.isEnabled()) || definition.getJobType() != JobType.SYNC_INTRADAY_EOD || parameters.isEmpty());
     }
 
     @Transactional(timeout = 60)
@@ -172,6 +177,8 @@ public class JobRunPreparationService {
             Instant now,
             Map<String, Object> metadata) {
         if (!enabled) throw new IllegalStateException("JOB_RUN_PREPARATION_DISABLED");
+        if (graphWork != null && graphWork.isEnabled())
+            return graphWork.prepare(request, targetId, claim, now, metadata);
         if (!targetId.equals(claim.jobDefinitionId()))
             throw new IllegalArgumentException("JobRun claim target mismatch");
         var existing = runs.findByRequest(request);

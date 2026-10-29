@@ -1,5 +1,217 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## I9 full source delivery and review handoff — 2026-10-30
+
+**I9 verification_pending: I9.a/b/c source delivered, verification not run.** Owner
+requested latest branch plus all remaining I9 implementation and a commit, with
+implementation decisions recorded for later review. The previous owner-local
+verification preference remains in force. This authorizes source development over
+I8's still-open closure prerequisite; it does not close I8 or any I9 acceptance/
+coverage/deployment gate. Base: `5eb0cbc`. Earlier local I9.a and indicator-binding
+PASS evidence below is preserved and does not verify these runtime changes.
+
+### Goal and outcome
+
+Compose the existing JobType graph with I8, make each atomic ancestor an independent
+one-step JobRun, acquire matching in-flight attempts once, attach request membership
+and dependencies, and consolidate equivalent scheduled presets in the existing
+`job_definitions` catalog. No second definition catalog or physical dataset path.
+The existing definition-scoped V1 route remains available when the new flag is off.
+
+### Dataset, metadata and algorithm outputs
+
+No new analytical dataset, discovery document, algorithm feature or strategy.
+Operational outputs are V17 atomic work slots/attempts, immutable upstream-attempt
+bindings, accepted request graph/membership, requester execution status and V18
+consolidation inventories/history aliases. SYNC_METADATA remains discovery owner.
+I8 worker semantics, logical paths and READY-last/exact-version guards are reused.
+Metadata publication remains independently scheduled/triggered: graph completion
+does not refresh discovery. Operators must retain discovery refresh after writes;
+WAITING on stale/missing READY metadata is deliberate, not a graph success bypass.
+
+### I9.a runtime graph composition
+
+`GraphWorkRequestService` uses the existing `GraphWorkExpansion` and real producer
+preview to capture descriptors once; `persistAtomicRunStep` allocates real execution
+IDs without a second expansion/catalog-membership read. Strategy, timeframe,
+classification level, date/current catalog and scope projections remain owned by
+existing static rules/presets. Definitions are locked in UUID order for one accepted
+configuration/catalog snapshot; these deliberately coarse locks serialize competing
+preparations until commit. A transaction-level SHARE lock on symbols freezes membership/classification through
+all projected previews, including inserts. This temporarily blocks catalog writers;
+measure retained-catalog latency/contention before activation. Membership is
+materialized once per expansion.
+The existing graph bounds (20,000 works, 100,000 edges, 1,024 expansions and 200,000
+candidate visits), transaction timeout and provider/current-snapshot limits apply;
+large retained catalog/latency behavior still needs local performance evidence.
+JPA tracking clears after each closed one-work run to avoid graph-wide dirty checks.
+
+Each work gets a one-step V1 JobRun with its original definition identity/scope/day,
+parent, one child and one outbox command. Existing V12/V13 closure and path checks
+still apply. Cross-work dependency instances live in V17, without rewriting old
+frozen paths/fingerprints. A requester has a separate execution and accepted graph;
+its returned execution UUID remains usable by the existing status endpoint.
+The separate read-only `planGraphExpansion` API remains a preview and does not acquire.
+
+### I9.b acquisition, completion, cancellation and retry decisions
+
+- Work identity remains the unchanged I8 hash. Attempt UUID, execution UUID and
+  requester UUID have separate meanings. A slot row locks acquisition; sorted slot
+  locking plus atomic DB transactions prevents duplicate overlapping acquisitions.
+- Policy is **IN_FLIGHT_ONLY**: reuse PENDING/RUNNING work only when the exact sorted
+  upstream attempt UUID list also matches and no upstream has failed. Completed,
+  failed or differently bound work creates a new attempt. There is no permanent
+  SUCCESS/freshness cache and no automatic in-place retry of an immutable attempt.
+- A request freezes target IDs, definition provenance and its attempt membership.
+  Exact idempotency replay returns that request's original execution, including
+  FAILED/CANCELLED; changed target/parameters under the same key is rejected.
+  Internal `retry` requires an owned terminal request and a new manual key; it
+  prepares a new graph with `retryOf` correlation. Scheduled refresh uses the next
+  due key. Old dependent attempts never switch to a newer ancestor attempt.
+- V17 guards prohibit changing/deleting accepted bindings/membership and require
+  both graph and attempt closure before commit. Reuse is execution sharing, never
+  dataset READY, approved-version safety or writer exclusion by itself.
+- `atomic_work_admissible` is applied before candidate limits in planned, legacy,
+  disabled-planner and fallback paths and again at claim/publish renewal. It checks
+  an active requester and SUCCESS of the exact referenced upstream child attempts.
+  Existing JobRun checks, DependencyRegistry, approval binding and fenced outbox
+  claims remain separate and mandatory.
+- Cancel is owner-scoped and removes only the request's interest. Other owners keep
+  the work eligible. No in-flight worker is killed; already-publishing work may
+  finish. Unpublished work without an active requester is parked, not deleted;
+  a later matching request may reattach. Operator cleanup is a separate retention
+  concern. No public manual/cancel/retry command API is enabled here.
+- The bounded reconciler propagates upstream FAILED/ERROR/BLOCKED to unpublished
+  dependents, closes atomic parents/runs, and aggregates target status into requester
+  executions. Request pages use a rotating advisory cursor; cursor loss on restart
+  does not change durable membership. Parent/run/failure pages are bounded to 100.
+- Expired leases retaining tokens can now save WAITING/retry and BLOCKED decisions;
+  live claim tokens remain fenced. This removes the reviewed stale-token persistence
+  gap in source; READY-row progress and failure propagation still need execution.
+
+### I9.c definition inventory, consolidation and rollback decisions
+
+`DefinitionConsolidationService.inventory` groups active scheduled presets only
+when source, JobType, fallback order and all non-selector configuration match.
+Strategy, classification, readiness policy and global output universe differences
+stay separate. SYMBOL and sector-feature presets may union `sectorCodes`; an empty
+selector means the full universe and absorbs subsets. Global writers require exact
+configuration equality. Groups of one are retained unchanged.
+
+The retained definition is deterministic by cron string then UUID; the first next_run
+is the earliest former next_run (or immediate if any was null), then its retained
+cron governs the combined scope. Former staggered cron cadence is intentionally
+consolidated, not claimed equivalent. Inventory records every old source/type/cron,
+config/fallback, schedule flag and next_run for review. Active leases reject the
+operation. `schedule_enabled=false` and `canonical_definition_id` retire scheduling
+on redundant rows while preserving their original configs, IDs, cron, active/manual
+capability, history FKs and frozen paths. No old rows are deleted or reparented.
+Graph ancestor selection uses retained presets; explicit internal manual targeting
+of an old row keeps its original subset preset. Scheduler selects terminal JobTypes
+from the active catalog; metadata remains independently eligible. This affects only
+the opt-in graph route; legacy terminal-definition selection remains unchanged.
+
+Seeder synchronization preserves applied retained/retired presets. Historical
+`findLastOffset` includes the alias group, keeping offsets available from retired
+IDs; I8 atomic dates remain the execution authority. `rollback(changeId)` restores
+preset config/schedule links only if config/source/type/cron/fallback/lease state
+still matches the inventory. It does not rewind next_run or alter past executions.
+Conflicting operator edits fail explicitly. V18 is additive and changes no schedules
+by itself; `consolidate` is explicit or enabled by the startup flag below. No retained
+consolidation or rollback was executed in this task.
+
+### Contract and cross-service impact
+
+| Owner / source | Impact and local evidence to obtain |
+| --- | --- |
+| Platform graph/producer/preparation | New runtime materialization and returned requester status; existing composer/route tests plus `GraphWorkRequestsPostgresTest` overlap, concurrent acquire, exact replay, failure/refresh/rollback and status cases. |
+| Platform outbox/planner/claims | Atomic barrier on every candidate/claim/renew path, terminal JobType scheduling and expired-token repair; planned/fallback/disabled/retry and stale/live lease cases must run. |
+| Platform definition/catalog/seeder/offset readers | Canonical selector union, stopped redundant schedules, preserved seed/manual/history/offset behavior; `DefinitionConsolidationTest` and PostgreSQL migration/consolidation/rollback cases. |
+| Platform operations/security | Additive authenticated GET `/api/v1/jobs/atomic-work/requests/{id}` and `/consolidations` (last 100); existing status endpoint retained. Request UUID is in request execution metadata. No public mutation API; auth/not-found/diagnostic regression required. |
+| Database | Forward V17/V18 only; guards, FKs, deferred closure and alias view. V1–V16 checksums/data/paths unchanged. Latest migration-count assertions move to 18. Upgrade, dirty-data, rollback-conflict and concurrent isolation checks required. |
+| Analyzer/Ingestor/py-common/contracts | No source or wire change in I9: unchanged atomic envelope/approval/status fields; actual workers must be exercised with shared attempts. Existing indicator READY/approved metadata plus exact-byte binding repair remains, not broader version safety. |
+| Query Service/MinIO | No read schema/path/owner changes; concurrent different identities can still target the same object. Container integration/READY/lineage remains required; no writer exclusion claim. |
+| Console | Existing definition/execution DTOs unchanged; requester execution reports aggregate status. New diagnostic endpoints are additive; no new UI. Old rows remain active presets even when scheduling is disabled; inspect consolidation inventory rather than infer scheduling from active alone. |
+| Configuration/deployment/writer | Opt-in flags below; writer/result intents, physical output writeKey, intentId and durable writer offset loops stay Plan 027/P12. Accepted work identity/execution context is reusable unchanged. |
+
+The code-review graph connector is unavailable in this environment. Source impact
+and post-edit analysis use direct Java/SQL/Kafka/status/storage/deployment ownership
+inspection; no graph impact/change-detection PASS is claimed. No test/build/lint/
+format, migration, provider, container, coverage or CI command ran in this delivery.
+New test source is NOT execution evidence. Existing I9.a/I8 repair reports are
+historical source-bound evidence; they do not cover these edits. Require the full
+criterion/source/test matrix and >=80% attributable line/branch coverage for every
+critical changed/directly impacted component before closing I9.
+
+### Flags, rollout and rollback
+
+Defaults remain preparation=false, planning=true, graph-expansion=false and
+consolidation=false. Set `app.scheduler.job-run.graph-expansion-enabled` (env
+`APP_SCHEDULER_JOB_RUN_GRAPH_EXPANSION_ENABLED`) only with preparation and planning;
+invalid combinations fail startup. Definition consolidation is explicitly separate:
+`app.scheduler.job-run.definition-consolidation-enabled` (env
+`APP_SCHEDULER_DEFINITION_CONSOLIDATION_ENABLED`) applies after seeding at startup.
+Prefer a maintenance window with scheduler claims paused; active leases reject
+consolidation. Baseline graph checks do not activate retained environments.
+
+Deploy V17/V18 with the matching Platform build; keep matching I8 workers. To stop
+new graph requests while draining existing ones, pause scheduler scanning externally
+and keep graph reconciliation, preparation and guarded dispatch configured; graph
+requires preparation at startup. Do not set an invalid flag combination. Disable graph only after active graph requests drain/cancel;
+otherwise the graph-only reconciler stops. Old V1 runs continue on the existing
+path. Keep V17/V18 functions and snapshot-aware build while graph outbox/work remains;
+rolling back to binaries that omit the atomic barrier can publish downstream early.
+Rollback consolidation through the stored change IDs before returning to old catalog
+scheduling. Do not drop migrations, rewrite frozen paths or re-expand old requests.
+
+### Owner-local verification handoff and documentation audit
+
+Recommended **NOT RUN** targets: `nx run platform:test`, `platform:coverage`,
+`platform:build`, project Java format target, `platform:test-integration` and
+`platform:test-overlap`; re-run impacted `py-common`, Ingestor, Analyzer and Query
+Service targets through their declared Nx projects. Cover graph flags/default
+compatibility, all job types/strategies/scopes, concurrent overlap, restart,
+idempotency conflicts, immutable/missing closures, failures and retry, cancellation
+before/after publish, no-owner parking, stale/live leases, fairness with READY work,
+upgrade from V16, existing V1 snapshots and seed/consolidation/offset/rollback parity.
+The overlap probe must retain all version/lineage assertions. Do not infer PASS from
+source, fixture counts, previous gates or commit/push.
+
+Record each required local check with `tools/check_result.py init` and `run` or
+`import-log` under P14-I9, then summarize and confirm the compact conclusion is
+ready. Agent reads only `python tools/check_result.py conclusion --increment P14-I9`.
+No completion/attestation was fabricated. I8 remains verification_pending; I9 is
+verification_pending until owner-local full acceptance and documentation closure.
+
+Documentation synchronization covers registry, plan, release notes, architecture,
+execution/data/database/Kafka flows, deployment, ownership, index, Platform and
+worker guides plus Plan 027/writer debt/field inventory. ADR lease/outbox/READY
+policies are retained; AGENTS/CLAUDE/editor rules require no tool/permission change.
+Plan 028 backfill and Plan 029 ETA/UI are not activated. Static audit checks IDs,
+statuses/dependencies, source paths and links, graph/request/attempt distinctions,
+writer boundaries and deployment warnings; executable/graph audit remains unavailable.
+
+### Review flow — old and new
+
+```mermaid
+flowchart TD
+    due["OLD: Scheduler due and definition claim"] --> flag{"NEW I9: Graph route enabled?"}
+    flag -->|No| legacy["OLD: Existing definition-scoped route"]
+    flag -->|Yes| graphPlan["NEW I9.a: JobType graph and preset projection"]
+    graphPlan --> expand["EXISTING I8: Atomic scope, day and parameters"]
+    expand --> acquire{"NEW I9.b: Matching in-flight attempt and dependencies?"}
+    acquire -->|Yes| attach["NEW: Attach request to existing attempt"]
+    acquire -->|No| createRun["NEW: Independent one-work JobRun and outbox"]
+    attach --> barrier["NEW: Exact upstream attempts must succeed"]
+    createRun --> barrier
+    barrier --> guard["OLD: Dataset READY, version guard and fenced claim"]
+    legacy --> guard
+    guard --> kafka["OLD: Kafka JSON and worker"]
+    kafka --> status["OLD: Output and execution status"]
+    status --> aggregate["NEW: Complete shared attempts and requester status"]
+    consolidate["NEW I9.c: Consolidate scheduled presets; preserve history"] --> due
+```
+
 ## I9.a acceptance hardening — 2026-10-30
 
 `planGraphExpansion` starts a separate read-only repeatable-read transaction, so a
@@ -410,7 +622,7 @@ unavailable/not run and increment closure is explicitly deferred.
 
 ## Current I8/I9 handoff — 2026-10-29
 
-Canonical scheduling is I7 completed -> I8 verification_pending -> I9 in_progress in the
+Canonical scheduling is I7 completed -> I8 verification_pending -> I9 verification_pending in the
 [increment registry](roadmap/implementation-increments.md#increment-registry).
 I8 first unifies request-to-atomic-work expansion and dated consumer semantics.
 I9 then delivers graph composition (a), shared ancestor work (b), and definition
@@ -457,7 +669,7 @@ writer contracts, relevant links and introduced claims. Graph tools are unavaila
 no graph impact/change-detection PASS, executable test/lint/build/format,
 numeric coverage, CI, deployment or increment completion is claimed by this audit.
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 is verification_pending; I9 is in_progress for owner-directed I9.a planning development. Preparation remains disabled; no retained rollout or deployment is claimed.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 is verification_pending; I9 is verification_pending with I9.a/b/c source delivered for owner review. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -775,16 +987,16 @@ No runtime checks/coverage are executed by this planning revision.
 | History     | preserved FKs/path fingerprints/offset semantics; HIGH           | I9.c migration/read/rollback     |
 | Evidence    | diagnostics/source-test/coverage/docs                            | Each checkpoint; final I9.c gate |
 
-I9 depends on I8; owner-directed I9.a source development is in_progress while both
-increments retain their completion gates. Full cron removal, definition-free runtime,
+I9 depends on I8; owner-directed I9.a/b/c source is delivered and verification_pending
+while both increments retain their completion gates. Full cron removal, definition-free runtime,
 writer, public manual/backfill platform and historical deletion are outside scope.
 
 ### I9 checkpoints and writer result handoff — 2026-10-28
 
-I9 is delivered sequentially as I9.a -> I9.b -> I9.c after completed I8.
+I9 checkpoints are ordered I9.a -> I9.b -> I9.c. Owner authorized all three source
+steps while I8 closure remains open; acceptance still requires its prerequisite.
 These suffixes are internal checkpoints, not new scheduled increment IDs or a
-reason to mark I9 completed early. Registry I9 is in_progress for I9.a source
-development; each checkpoint has its own source/test/coverage, compatibility and
+reason to mark I9 completed early. Registry I9 is verification_pending after full source delivery; each checkpoint has its own source/test/coverage, compatibility and
 documentation gate. Overall I9 closes only after all three gates pass.
 
 #### I9.a — Graph-driven expansion

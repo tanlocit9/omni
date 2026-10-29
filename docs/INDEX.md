@@ -1,9 +1,10 @@
 # Numbered Documentation Registry
 
-Plan 030 now includes registered pending P14-I8/I9 after locally completed I7:
-unified expansion -> graph composition/shared ancestor work/definition consolidation.
-I9.a/b/c are internal checkpoints. See [current handoff](plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29);
-the [registry](plans/roadmap/implementation-increments.md#increment-registry) owns status.
+Plan 030 I9.a/b/c source is delivered for owner-local review: I8 and I9 remain
+`verification_pending`. Opt-in shared atomic JobRuns and reversible preset
+consolidation are documented in the
+[full handoff](plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+No new executed verification or default activation is claimed.
 
 This registry covers every non-ADR content document under `docs/`. The navigation files `README.md` and `INDEX.md` are intentionally unnumbered. Each subject folder has an independent zero-padded sequence starting at `001`, and each content filename starts with its folder-local number, while architecture decisions retain their separate [`ADR-NNN` registry](adr/README.md).
 

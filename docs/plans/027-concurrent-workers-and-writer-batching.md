@@ -1,17 +1,15 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
-Current P14 status (2026-10-30): **I8 verification_pending; I9 in_progress**.
-I9.a adds read-only graph/atomic planning; it does not acquire or dispatch work.
-Common preparation now persists atomic dated work and sends the additive
-`jobType`/`businessDate`/`parameters`/`atomicWorkId` envelope. V16 protects accepted
-snapshots; matching Java/Python rollout is required even on the legacy scheduler.
-Consumers preserve other dates and retain lookback; catalog/metadata are current
-snapshots only. Writer and shared ancestors remain deferred. EOD-to-indicator
-execution binding is implemented; broader version/concurrency guarantees remain
-deferred.
-The original I8 delivery ran no checks; later verification and repair evidence
-is recorded in Plan 030. This supersedes earlier design-only I8/I9 statements.
-See [contract, impact matrix and local handoff](030-static-graph-dispatch-planner.md#i8-source-delivery-and-local-verification-handoff--2026-10-29).
+Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
+shared in-flight attempts and exact dependency barriers, plus reversible scheduled
+preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
+existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
+work diagnostics are additive; writer and broader output/version exclusion remain
+deferred. Prior indicator approval/byte-binding evidence remains historical.
+No verification ran for this continuation; defaults remain unactivated. See
+[full contract, impact and review handoff](030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+
 
 Original P14 registration (superseded by current status above): I8 and I9 were
 registered pending after completed I7, with I9.a/b/c internal checkpoints.

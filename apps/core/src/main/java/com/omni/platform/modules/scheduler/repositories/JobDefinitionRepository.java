@@ -18,7 +18,7 @@ public interface JobDefinitionRepository
     @Query(
             """
             SELECT j FROM JobDefinition j
-            WHERE j.isActive = true
+            WHERE j.isActive = true AND j.scheduleEnabled = true
             AND (j.nextRun <= :now OR j.nextRun IS NULL)
             ORDER BY CASE WHEN j.nextRun IS NULL THEN 0 ELSE 1 END ASC,
             j.nextRun ASC,
@@ -28,4 +28,10 @@ public interface JobDefinitionRepository
 
     Optional<JobDefinition> findBySourceAndJobTypeAndCronExpr(
             JobDefinition.DataSource source, JobDefinition.JobType jobType, String cronExpr);
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM job_definition_consolidations c "
+            + "WHERE c.state='APPLIED' AND (c.retained_definition_id=:id "
+            + "OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.inventory_json) v WHERE v->>'id'=CAST(:id AS text))))",
+            nativeQuery = true)
+    boolean isConsolidatedPreset(@Param("id") java.util.UUID id);
+
 }

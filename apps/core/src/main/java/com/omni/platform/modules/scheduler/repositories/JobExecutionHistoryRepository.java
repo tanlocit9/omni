@@ -48,7 +48,10 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
             value =
                     """
             SELECT new_offset FROM job_execution_histories
-            WHERE job_id = :jobId
+            WHERE job_id IN (SELECT history.definition_id FROM job_definition_history_aliases history
+                JOIN job_definition_history_aliases requested
+                  ON history.retained_definition_id=requested.retained_definition_id
+                WHERE requested.definition_id=:jobId)
             AND meta_json ->> 'workType' = 'SYMBOL'
             AND meta_json ->> 'workKey' = :workKey
             AND new_offset IS NOT NULL

@@ -43,6 +43,9 @@ app:
       planning-enabled: ${APP_SCHEDULER_JOB_RUN_PLANNING_ENABLED:true}
       # Staged I3.c only. FIFO enqueue is not a predecessor-completion barrier; keep off until I4.
       preparation-enabled: false
+      # I9 stays opt-in; requires preparation and guarded planning.
+      graph-expansion-enabled: ${APP_SCHEDULER_JOB_RUN_GRAPH_EXPANSION_ENABLED:false}
+      definition-consolidation-enabled: ${APP_SCHEDULER_DEFINITION_CONSOLIDATION_ENABLED:false}
     instance-id: ${APP_SCHEDULER_INSTANCE_ID:}
     claim:
       lease-duration: ${APP_SCHEDULER_CLAIM_LEASE_DURATION:PT2M}

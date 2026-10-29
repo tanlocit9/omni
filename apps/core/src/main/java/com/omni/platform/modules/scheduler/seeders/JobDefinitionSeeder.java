@@ -72,6 +72,10 @@ public class JobDefinitionSeeder implements CommandLineRunner {
                 .findBySourceAndJobTypeAndCronExpr(seed.source(), seed.jobType(), seed.cronExpr())
                 .map(
                         existing -> {
+                            if (jobDefinitionRepository.isConsolidatedPreset(existing.getId())) {
+                                log.info("Preserving consolidated preset {}", existing.getId());
+                                return existing;
+                            }
                             existing.setTitle(seed.title());
                             existing.setFallbackSources(seed.fallbackSources());
                             existing.setConfigJson(seed.config());

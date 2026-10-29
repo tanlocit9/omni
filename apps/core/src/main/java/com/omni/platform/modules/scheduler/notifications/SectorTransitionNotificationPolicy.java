@@ -34,23 +34,34 @@ public class SectorTransitionNotificationPolicy implements JobNotificationPolicy
         }
 
         Map<String, Object> metadata = mergedMetadata(context);
-        String message = String.join("\n",
-                "Focus: " + displayValue(metadata, "focusSectorCodes", displayValue(metadata, "sectorCodes", "UNKNOWN")),
-                "Evaluation date: " + displayValue(metadata, "evaluationDate", "UNKNOWN"),
-                "Timeframe: " + displayValue(metadata, "timeframe", "UNKNOWN"),
-                "Strategy: " + displayValue(metadata, "strategy", "UNKNOWN"),
-                "Horizons: " + horizons(metadata.get("predictionHorizons")),
-                "",
-                "Reason:",
-                reason(context, metadata),
-                "",
-                "Progress: " + context.success() + " succeeded / " + context.failed() + " failed");
+        String message =
+                String.join(
+                        "\n",
+                        "Focus: "
+                                + displayValue(
+                                        metadata,
+                                        "focusSectorCodes",
+                                        displayValue(metadata, "sectorCodes", "UNKNOWN")),
+                        "Evaluation date: " + displayValue(metadata, "evaluationDate", "UNKNOWN"),
+                        "Timeframe: " + displayValue(metadata, "timeframe", "UNKNOWN"),
+                        "Strategy: " + displayValue(metadata, "strategy", "UNKNOWN"),
+                        "Horizons: " + horizons(metadata.get("predictionHorizons")),
+                        "",
+                        "Reason:",
+                        reason(context, metadata),
+                        "",
+                        "Progress: "
+                                + context.success()
+                                + " succeeded / "
+                                + context.failed()
+                                + " failed");
 
-        return Optional.of(new OperationalNotificationEvent(
-                NotificationSeverity.ERROR,
-                "Sector Transition analysis failed",
-                message,
-                Map.of()));
+        return Optional.of(
+                new OperationalNotificationEvent(
+                        NotificationSeverity.ERROR,
+                        "Sector Transition analysis failed",
+                        message,
+                        Map.of()));
     }
 
     private Map<String, Object> mergedMetadata(JobNotificationContext context) {
@@ -60,13 +71,17 @@ public class SectorTransitionNotificationPolicy implements JobNotificationPolicy
         }
         if (context.children() != null) {
             context.children().stream()
-                    .filter(child -> child.getStatus() == JobStatus.FAILED || child.getStatus() == JobStatus.ERROR)
+                    .filter(
+                            child ->
+                                    child.getStatus() == JobStatus.FAILED
+                                            || child.getStatus() == JobStatus.ERROR)
                     .findFirst()
-                    .ifPresent(child -> {
-                        if (child.getMetaJson() != null) {
-                            metadata.putAll(child.getMetaJson());
-                        }
-                    });
+                    .ifPresent(
+                            child -> {
+                                if (child.getMetaJson() != null) {
+                                    metadata.putAll(child.getMetaJson());
+                                }
+                            });
         }
         metadata.put("total", context.total());
         metadata.put("success", context.success());
@@ -92,9 +107,7 @@ public class SectorTransitionNotificationPolicy implements JobNotificationPolicy
             return fallback;
         }
         if (value instanceof Collection<?> collection) {
-            return collection.stream()
-                    .map(String::valueOf)
-                    .collect(Collectors.joining(", "));
+            return collection.stream().map(String::valueOf).collect(Collectors.joining(", "));
         }
         return String.valueOf(value);
     }
@@ -104,9 +117,7 @@ public class SectorTransitionNotificationPolicy implements JobNotificationPolicy
             return "UNKNOWN";
         }
         if (value instanceof Collection<?> collection) {
-            return collection.stream()
-                    .map(item -> "T" + item)
-                    .collect(Collectors.joining(", "));
+            return collection.stream().map(item -> "T" + item).collect(Collectors.joining(", "));
         }
         return String.valueOf(value);
     }

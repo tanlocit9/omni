@@ -17,26 +17,28 @@ public class PlatformDependencyRegistry implements DependencyRegistry {
     private final JobDependencyContextFactory contextFactory;
 
     public PlatformDependencyRegistry(
-            JobDependencyGuard guard,
-            JobDependencyContextFactory contextFactory) {
+            JobDependencyGuard guard, JobDependencyContextFactory contextFactory) {
         this.guard = guard;
         this.contextFactory = contextFactory;
     }
 
     @Override
     public DependencyDecision evaluate(DependencyRequest request) {
-        var context = contextFactory.create(
-                request.jobDefinition(),
-                request.executionId().toString(),
-                request.workType(),
-                request.workKey());
+        var context =
+                contextFactory.create(
+                        request.jobDefinition(),
+                        request.executionId().toString(),
+                        request.workType(),
+                        request.workKey());
         var result = guard.checkDependencies(context);
         if (result.canExecute()) {
             return DependencyDecision.ready(result.approvedInputVersions());
         }
-        boolean terminal = result.checks().stream().anyMatch(check ->
-                check.getStatus() == DependencyStatus.INVALID_SCHEMA);
-        String reason = result.blockReason() == null ? "dependency not ready" : result.blockReason();
+        boolean terminal =
+                result.checks().stream()
+                        .anyMatch(check -> check.getStatus() == DependencyStatus.INVALID_SCHEMA);
+        String reason =
+                result.blockReason() == null ? "dependency not ready" : result.blockReason();
         if (terminal) {
             return DependencyDecision.blocked("DEPENDENCY_INCOMPATIBLE", reason);
         }

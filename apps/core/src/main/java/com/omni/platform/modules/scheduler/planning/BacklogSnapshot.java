@@ -25,13 +25,14 @@ public record BacklogSnapshot(
             throw new IllegalArgumentException("Snapshot entries exceed groupLimit");
         }
         TreeMap<DispatchScope, BacklogCounts> sorted = new TreeMap<>();
-        entries.forEach((scope, counts) -> {
-            Objects.requireNonNull(scope, "scope");
-            Objects.requireNonNull(counts, "counts");
-            if (sorted.putIfAbsent(scope, counts) != null) {
-                throw new IllegalArgumentException("Duplicate dispatch scope: " + scope);
-            }
-        });
+        entries.forEach(
+                (scope, counts) -> {
+                    Objects.requireNonNull(scope, "scope");
+                    Objects.requireNonNull(counts, "counts");
+                    if (sorted.putIfAbsent(scope, counts) != null) {
+                        throw new IllegalArgumentException("Duplicate dispatch scope: " + scope);
+                    }
+                });
         entries = Collections.unmodifiableMap(new LinkedHashMap<>(sorted));
     }
 

@@ -13,7 +13,8 @@ import com.omni.platform.modules.notifications.dtos.NotificationRequest.Notifica
 import com.omni.platform.modules.notifications.events.SignalChangedNotificationEvent;
 
 @Component
-public class SignalChangedNotificationTemplate extends AbstractNotificationTemplate<SignalChangedNotificationEvent> {
+public class SignalChangedNotificationTemplate
+        extends AbstractNotificationTemplate<SignalChangedNotificationEvent> {
 
     @Override
     public NotificationRequest render(SignalChangedNotificationEvent event) {
@@ -30,18 +31,32 @@ public class SignalChangedNotificationTemplate extends AbstractNotificationTempl
         metadata.put("strategy", event.strategy());
         metadata.put("timeframe", event.timeframe());
         metadata.put("createdAt", event.createdAt());
-        String deterministicIdentity = event.executionId() + ":" + event.symbolKey() + ":" + event.newSignal()
-                + ":" + event.createdAt();
+        String deterministicIdentity =
+                event.executionId()
+                        + ":"
+                        + event.symbolKey()
+                        + ":"
+                        + event.newSignal()
+                        + ":"
+                        + event.createdAt();
         return new NotificationRequest(
                 NotificationChannel.SIGNALS,
                 NotificationType.SIGNAL,
                 NotificationKind.SIGNAL_CHANGED,
                 NotificationSeverity.INFO,
                 "Signal changed: " + event.symbolKey(),
-                event.symbolKey() + ": " + defaultText(event.previousSignal(), "BASELINE") + " -> "
-                        + event.newSignal() + " @ " + valueOrDefault(event.price(), "n/a")
-                        + " (" + defaultText(event.signalDate(), "no date") + ", score="
-                        + valueOrDefault(event.score(), "n/a") + ")",
+                event.symbolKey()
+                        + ": "
+                        + defaultText(event.previousSignal(), "BASELINE")
+                        + " -> "
+                        + event.newSignal()
+                        + " @ "
+                        + valueOrDefault(event.price(), "n/a")
+                        + " ("
+                        + defaultText(event.signalDate(), "no date")
+                        + ", score="
+                        + valueOrDefault(event.score(), "n/a")
+                        + ")",
                 metadata,
                 defaultText(event.deliveryIdentity(), deterministicIdentity),
                 new SignalChangedContent(

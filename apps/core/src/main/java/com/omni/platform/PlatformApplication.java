@@ -10,18 +10,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableAsync
 @EnableScheduling
 @Modulith(
-		sharedModules = {"shared"},
-		additionalPackages = {"modules"}
-)
-@EntityScan(basePackages = {
-		"com.omni.platform.modules",
-		"org.springframework.modulith.events.jpa"
-})
+        sharedModules = {"shared"},
+        additionalPackages = {"modules"})
+@EntityScan(basePackages = {"com.omni.platform.modules", "org.springframework.modulith.events.jpa"})
 @SpringBootApplication(scanBasePackages = "com.omni.platform")
 public class PlatformApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(PlatformApplication.class, args);
-	}
-
+    public static void main(String[] args) {
+        SpringApplication.run(PlatformApplication.class, args);
+    }
 }

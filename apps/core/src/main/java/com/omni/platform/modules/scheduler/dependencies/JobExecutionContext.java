@@ -18,11 +18,10 @@ import java.util.Map;
  * <p>Immutable and thread-safe.
  */
 public record JobExecutionContext(
-    JobDefinition jobDefinition,
-    String executionId,
-    Map<DatasetRef, String> upstreamVersions,
-    List<Map<String, Object>> runtimeDependencies
-) {
+        JobDefinition jobDefinition,
+        String executionId,
+        Map<DatasetRef, String> upstreamVersions,
+        List<Map<String, Object>> runtimeDependencies) {
 
     public JobExecutionContext(
             JobDefinition jobDefinition,

@@ -59,6 +59,7 @@ async def process_sync_symbols_message(
     try:
         payload = decode_json_object_payload(raw_msg, "Symbols sync job")
         message = SyncSymbolsJobMessage.model_validate(payload)
+        message.require_current_snapshot()
         payload = message.status_payload
         exchange = message.exchange
         metadata = message.metadata

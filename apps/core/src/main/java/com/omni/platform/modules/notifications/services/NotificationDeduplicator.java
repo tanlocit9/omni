@@ -14,10 +14,12 @@ import com.omni.platform.modules.notifications.dtos.NotificationRequest;
 
 final class NotificationDeduplicator {
 
-    private static final Pattern UUID_PATTERN = Pattern.compile(
-            "(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\b");
-    private static final Pattern TIMESTAMP_PATTERN = Pattern.compile(
-            "(?i)\\b\\d{4}-\\d{2}-\\d{2}(?:[t\\s]\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?(?:z|[+-]\\d{2}:?\\d{2})?)?\\b");
+    private static final Pattern UUID_PATTERN =
+            Pattern.compile(
+                    "(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\b");
+    private static final Pattern TIMESTAMP_PATTERN =
+            Pattern.compile(
+                    "(?i)\\b\\d{4}-\\d{2}-\\d{2}(?:[t\\s]\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d+)?)?(?:z|[+-]\\d{2}:?\\d{2})?)?\\b");
     private static final Pattern NUMERIC_RUN_PATTERN = Pattern.compile("\\d+");
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
@@ -36,24 +38,29 @@ final class NotificationDeduplicator {
 
     Admission admit(NotificationRequest request) {
         Instant now = clock.instant();
-        String identity = request.deduplicationKey() == null || request.deduplicationKey().isBlank()
-                ? normalizeTitle(request.title())
-                : request.deduplicationKey();
-        NotificationKey key = new NotificationKey(request.channel(), request.type(), request.severity(), identity);
+        String identity =
+                request.deduplicationKey() == null || request.deduplicationKey().isBlank()
+                        ? normalizeTitle(request.title())
+                        : request.deduplicationKey();
+        NotificationKey key =
+                new NotificationKey(
+                        request.channel(), request.type(), request.severity(), identity);
         AtomicReference<Admission> result = new AtomicReference<>();
 
-        entries.compute(key, (ignored, current) -> {
-            if (current == null) {
-                result.set(Admission.retained(0));
-                return new Entry(now, 0);
-            }
-            if (!now.isBefore(current.retainedAt().plus(cooldown))) {
-                result.set(Admission.retained(current.suppressedCount()));
-                return new Entry(now, 0);
-            }
-            result.set(Admission.suppressed(current.suppressedCount() + 1));
-            return new Entry(current.retainedAt(), current.suppressedCount() + 1);
-        });
+        entries.compute(
+                key,
+                (ignored, current) -> {
+                    if (current == null) {
+                        result.set(Admission.retained(0));
+                        return new Entry(now, 0);
+                    }
+                    if (!now.isBefore(current.retainedAt().plus(cooldown))) {
+                        result.set(Admission.retained(current.suppressedCount()));
+                        return new Entry(now, 0);
+                    }
+                    result.set(Admission.suppressed(current.suppressedCount() + 1));
+                    return new Entry(current.retainedAt(), current.suppressedCount() + 1);
+                });
 
         evictIfRequired(now, key);
         return result.get();
@@ -76,13 +83,18 @@ final class NotificationDeduplicator {
             return;
         }
 
-        entries.entrySet().removeIf(entry -> !entry.getKey().equals(currentKey)
-                && !now.isBefore(entry.getValue().retainedAt().plus(cooldown)));
+        entries.entrySet()
+                .removeIf(
+                        entry ->
+                                !entry.getKey().equals(currentKey)
+                                        && !now.isBefore(
+                                                entry.getValue().retainedAt().plus(cooldown)));
         while (entries.size() > maxCacheSize) {
-            Map.Entry<NotificationKey, Entry> oldest = entries.entrySet().stream()
-                    .filter(entry -> !entry.getKey().equals(currentKey))
-                    .min(Comparator.comparing(entry -> entry.getValue().retainedAt()))
-                    .orElse(null);
+            Map.Entry<NotificationKey, Entry> oldest =
+                    entries.entrySet().stream()
+                            .filter(entry -> !entry.getKey().equals(currentKey))
+                            .min(Comparator.comparing(entry -> entry.getValue().retainedAt()))
+                            .orElse(null);
             if (oldest == null || !entries.remove(oldest.getKey(), oldest.getValue())) {
                 break;
             }
@@ -104,9 +116,7 @@ final class NotificationDeduplicator {
             com.omni.platform.modules.notifications.dtos.NotificationChannel channel,
             NotificationRequest.NotificationType type,
             NotificationRequest.NotificationSeverity severity,
-            String identity) {
-    }
+            String identity) {}
 
-    private record Entry(Instant retainedAt, long suppressedCount) {
-    }
+    private record Entry(Instant retainedAt, long suppressedCount) {}
 }

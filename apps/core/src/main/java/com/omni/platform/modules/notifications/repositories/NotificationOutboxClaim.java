@@ -15,5 +15,4 @@ public record NotificationOutboxClaim(
         NotificationKind kind,
         int schemaVersion,
         String payload,
-        int attempts) {
-}
+        int attempts) {}

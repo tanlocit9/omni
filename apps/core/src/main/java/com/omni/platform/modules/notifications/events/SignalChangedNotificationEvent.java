@@ -35,7 +35,20 @@ public record SignalChangedNotificationEvent(
             String timeframe,
             Instant createdAt,
             Map<String, Object> metadata) {
-        this(executionId, parentExecutionId, symbolKey, previousSignal, newSignal, price, signalDate,
-                reasonCodes, score, strategy, timeframe, createdAt, metadata, null);
+        this(
+                executionId,
+                parentExecutionId,
+                symbolKey,
+                previousSignal,
+                newSignal,
+                price,
+                signalDate,
+                reasonCodes,
+                score,
+                strategy,
+                timeframe,
+                createdAt,
+                metadata,
+                null);
     }
 }

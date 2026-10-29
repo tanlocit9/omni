@@ -30,7 +30,8 @@ public class SectorSeeder implements CommandLineRunner {
         }
 
         if (sectorRepository.count() > 0) {
-            log.info("Sector table is not empty, preserving database mapping as runtime source of truth.");
+            log.info(
+                    "Sector table is not empty, preserving database mapping as runtime source of truth.");
             return;
         }
 

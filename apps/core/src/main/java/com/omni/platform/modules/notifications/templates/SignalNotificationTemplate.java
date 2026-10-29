@@ -17,7 +17,8 @@ import com.omni.platform.modules.notifications.dtos.NotificationRequest.Notifica
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
 
 @Component
-public class SignalNotificationTemplate extends AbstractNotificationTemplate<SignalDigestNotificationEvent> {
+public class SignalNotificationTemplate
+        extends AbstractNotificationTemplate<SignalDigestNotificationEvent> {
 
     @Override
     public NotificationRequest render(SignalDigestNotificationEvent event) {
@@ -26,14 +27,24 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
 
     public List<NotificationRequest> pages(SignalDigestNotificationEvent event) {
         List<com.omni.platform.modules.notifications.events.SignalDigestItem> sorted =
-                (event.items() == null ? List.<com.omni.platform.modules.notifications.events.SignalDigestItem>of()
-                        : event.items()).stream()
-                        .filter(item -> item != null && item.symbolKey() != null)
-                        .sorted(Comparator.comparing(
-                                com.omni.platform.modules.notifications.events.SignalDigestItem::symbolKey)
-                                .thenComparing(item -> defaultText(item.strategy(), ""))
-                                .thenComparing(item -> defaultText(item.timeframe(), "")))
-                        .toList();
+                (event.items() == null
+                                ? List
+                                        .<com.omni.platform.modules.notifications.events
+                                                        .SignalDigestItem>
+                                                of()
+                                : event.items())
+                        .stream()
+                                .filter(item -> item != null && item.symbolKey() != null)
+                                .sorted(
+                                        Comparator.comparing(
+                                                        com.omni.platform.modules.notifications
+                                                                        .events.SignalDigestItem
+                                                                ::symbolKey)
+                                                .thenComparing(
+                                                        item -> defaultText(item.strategy(), ""))
+                                                .thenComparing(
+                                                        item -> defaultText(item.timeframe(), "")))
+                                .toList();
         if (sorted.isEmpty()) {
             throw new IllegalArgumentException("Signal digest requires at least one eligible item");
         }
@@ -78,20 +89,22 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
                 event.items() == null ? List.of() : event.items();
         items.stream()
                 .limit(20)
-                .forEach(item -> message.append(System.lineSeparator())
-                        .append("- ")
-                        .append(item.symbolKey())
-                        .append(": ")
-                        .append(defaultText(item.previousSignal(), "BASELINE"))
-                        .append(" -> ")
-                        .append(item.newSignal())
-                        .append(" @ ")
-                        .append(defaultText(item.price(), "n/a"))
-                        .append(" (")
-                        .append(defaultText(item.signalDate(), "no date"))
-                        .append(", score=")
-                        .append(defaultText(item.score(), "n/a"))
-                        .append(")"));
+                .forEach(
+                        item ->
+                                message.append(System.lineSeparator())
+                                        .append("- ")
+                                        .append(item.symbolKey())
+                                        .append(": ")
+                                        .append(defaultText(item.previousSignal(), "BASELINE"))
+                                        .append(" -> ")
+                                        .append(item.newSignal())
+                                        .append(" @ ")
+                                        .append(defaultText(item.price(), "n/a"))
+                                        .append(" (")
+                                        .append(defaultText(item.signalDate(), "no date"))
+                                        .append(", score=")
+                                        .append(defaultText(item.score(), "n/a"))
+                                        .append(")"));
 
         if (items.size() > 20) {
             message.append(System.lineSeparator())
@@ -108,18 +121,21 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
             List<com.omni.platform.modules.notifications.events.SignalDigestItem> pageItems,
             int pageNumber,
             int pageCount) {
-        List<SignalDigestEntry> items = pageItems.stream()
-                .map(item -> new SignalDigestEntry(
-                        item.symbolKey(),
-                        item.previousSignal(),
-                        item.newSignal(),
-                        item.price(),
-                        item.signalDate(),
-                        item.score(),
-                        item.reasonCodes(),
-                        item.strategy(),
-                        item.timeframe()))
-                .toList();
+        List<SignalDigestEntry> items =
+                pageItems.stream()
+                        .map(
+                                item ->
+                                        new SignalDigestEntry(
+                                                item.symbolKey(),
+                                                item.previousSignal(),
+                                                item.newSignal(),
+                                                item.price(),
+                                                item.signalDate(),
+                                                item.score(),
+                                                item.reasonCodes(),
+                                                item.strategy(),
+                                                item.timeframe()))
+                        .toList();
         return new SignalDigestContent(
                 event.strategy(),
                 event.timeframe(),
@@ -139,7 +155,9 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
             value = metadata.get("generatedAt");
         }
         try {
-            return value instanceof Instant instant ? instant : value == null ? null : Instant.parse(String.valueOf(value));
+            return value instanceof Instant instant
+                    ? instant
+                    : value == null ? null : Instant.parse(String.valueOf(value));
         } catch (RuntimeException ignored) {
             return null;
         }
@@ -154,5 +172,4 @@ public class SignalNotificationTemplate extends AbstractNotificationTemplate<Sig
         metadata.put("changedCount", event.changedCount());
         return metadata;
     }
-
 }

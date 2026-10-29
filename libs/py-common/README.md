@@ -1,5 +1,10 @@
 # py-common Library
 
+Execution input context uses `messaging.approved_inputs.approved_input_version`.
+`ParquetStorage.read_bound_dataframe` verifies a canonical version against the same
+bytes decoded. These helpers preserve work identity and dataset paths; they do not
+provide a writer service, historical object retention or all-writer exclusion.
+
 Current P14 scheduling reconciliation (2026-10-29): I8 and I9 are now explicitly
 registered pending after completed I7, with I9.a/b/c internal checkpoints.
 Reuse atomic work/execution envelope, accepted parameter snapshots, validation
@@ -8,7 +13,6 @@ future durable operation intent; output writeKey and deterministic intentId stay
 separate. Writer does not resolve graph or expand; actual handoff/offset loops
 remain deferred P12 work. This is no implementation or readiness/version-safety PASS.
 See [current handoff](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
-
 
 ## I9 checkpoint and result-handoff alignment — 2026-10-28
 
@@ -33,8 +37,6 @@ Current terminal-status commit loop is not the future durable-intent handoff loo
 Preserve source-after-intent and writer-after-output/status commit boundaries.
 No implementation, new test/coverage PASS, version-binding solution or default
 activation is claimed. See [I9 checkpoints and handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
-
-
 
 P14 planned scope revision (2026-10-28): I8 — Unified work expansion first;
 then I9 — Graph-driven expansion and definition consolidation. Both are pending.

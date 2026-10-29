@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any
 
 import pandas as pd
+from py_common.storage.atomic_work import cutoff_frame
 from py_common.storage.parquet import ParquetStorage
 
 from app.sector_transition.calculations import (
@@ -32,6 +34,7 @@ class SectorTransitionJobHandler:
             message.timeframe,
             message.sector_level,
             message.sector_codes,
+            message.business_date,
         )
         result = calculate_sector_transition_analysis(
             sector_frames,
@@ -139,6 +142,10 @@ class SectorTransitionJobHandler:
             message.timeframe,
             message.sector_level,
             message.sector_codes,
+            message.business_date,
+        )
+        predictions = cutoff_frame(
+            predictions, message.business_date, column="evaluation_date"
         )
         outcomes = evaluate_sector_transition_outcomes(
             predictions,
@@ -175,6 +182,7 @@ class SectorTransitionJobHandler:
         timeframe: str,
         sector_level: int,
         sector_codes: list[str],
+        business_date: date | None = None,
     ) -> list[pd.DataFrame]:
         frames: list[pd.DataFrame] = []
         for sector_code in sector_codes:
@@ -185,7 +193,7 @@ class SectorTransitionJobHandler:
             )
             frame = await self._parquet_storage.read_optional_dataframe(path)
             if frame is not None and not frame.empty:
-                frames.append(frame)
+                frames.append(cutoff_frame(frame, business_date))
         return frames
 
     async def _write_merged(

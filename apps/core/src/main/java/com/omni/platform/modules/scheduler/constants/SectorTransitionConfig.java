@@ -19,16 +19,18 @@ public record SectorTransitionConfig(
 
     public SectorTransitionConfig {
         filters = filters == null ? SectorJobFilterConfig.defaults() : filters;
-        timeframe = timeframe == null || timeframe.isBlank()
-                ? JobDefinitionConfig.INDICATOR_TIMEFRAME_1D
-                : timeframe.trim();
-        strategy = strategy == null || strategy.isBlank()
-                ? DEFAULT_STRATEGY
-                : strategy.trim().toUpperCase();
-            evaluationDate = evaluationDate == null ? defaultEvaluationDate() : evaluationDate;
-            predictionHorizons = normalizeHorizons(predictionHorizons);
-            focusSectorCodes = normalizeCodes(focusSectorCodes);
-        }
+        timeframe =
+                timeframe == null || timeframe.isBlank()
+                        ? JobDefinitionConfig.INDICATOR_TIMEFRAME_1D
+                        : timeframe.trim();
+        strategy =
+                strategy == null || strategy.isBlank()
+                        ? DEFAULT_STRATEGY
+                        : strategy.trim().toUpperCase();
+        evaluationDate = evaluationDate == null ? defaultEvaluationDate() : evaluationDate;
+        predictionHorizons = normalizeHorizons(predictionHorizons);
+        focusSectorCodes = normalizeCodes(focusSectorCodes);
+    }
 
     public static LocalDate defaultEvaluationDate() {
         return LocalDate.now(defaultClock());
@@ -46,11 +48,12 @@ public record SectorTransitionConfig(
         if (values == null || values.isEmpty()) {
             return DEFAULT_PREDICTION_HORIZONS;
         }
-        List<Integer> normalized = values.stream()
-                .filter(value -> value != null && value > 0)
-                .distinct()
-                .sorted()
-                .toList();
+        List<Integer> normalized =
+                values.stream()
+                        .filter(value -> value != null && value > 0)
+                        .distinct()
+                        .sorted()
+                        .toList();
         return normalized.isEmpty() ? DEFAULT_PREDICTION_HORIZONS : normalized;
     }
 

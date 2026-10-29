@@ -7,11 +7,11 @@ import java.util.Map;
 
 public final class JobConfigMapper {
 
-    private JobConfigMapper() {
-    }
+    private JobConfigMapper() {}
 
     public static SyncStockPriceConfig toStockPriceConfig(Map<String, Object> config) {
-        return new SyncStockPriceConfig(readFilters(config, SectorJobFilterConfig.DEFAULT_SECTOR_LEVEL));
+        return new SyncStockPriceConfig(
+                readFilters(config, SectorJobFilterConfig.DEFAULT_SECTOR_LEVEL));
     }
 
     public static SyncIndicatorsConfig toIndicatorsConfig(Map<String, Object> config) {
@@ -46,7 +46,8 @@ public final class JobConfigMapper {
                 readStringList(config, JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES));
     }
 
-    private static SectorJobFilterConfig readFilters(Map<String, Object> config, int defaultSectorLevel) {
+    private static SectorJobFilterConfig readFilters(
+            Map<String, Object> config, int defaultSectorLevel) {
         return new SectorJobFilterConfig(
                 readStringList(config, JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES),
                 readInt(config, JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, defaultSectorLevel));
@@ -83,9 +84,7 @@ public final class JobConfigMapper {
         if (!(value instanceof List<?> list)) {
             return List.of();
         }
-        return list.stream()
-                .map(item -> item == null ? null : item.toString())
-                .toList();
+        return list.stream().map(item -> item == null ? null : item.toString()).toList();
     }
 
     public static List<Integer> readIntegerList(Map<String, Object> config, String key) {
@@ -96,9 +95,7 @@ public final class JobConfigMapper {
         if (!(value instanceof List<?> list)) {
             return List.of();
         }
-        return list.stream()
-                .map(JobConfigMapper::toInteger)
-                .toList();
+        return list.stream().map(JobConfigMapper::toInteger).toList();
     }
 
     private static Integer toInteger(Object value) {

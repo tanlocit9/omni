@@ -10,6 +10,4 @@ public record SchedulerOutboxClaim(
         String topic,
         String key,
         String payload,
-        int attempts) {
-}
-
+        int attempts) {}

@@ -15,9 +15,9 @@ public record DatasetManifest(
         int version,
         String dataset,
         Map<String, String> partition,
-        String status,                      // "READY", "PROCESSING", "FAILED"
-        String dataVersion,                 // "sha256:..."
-        String path,                        // Parquet data path
+        String status, // "READY", "PROCESSING", "FAILED"
+        String dataVersion, // "sha256:..."
+        String path, // Parquet data path
         int objectCount,
         long totalBytes,
         long rowCount,
@@ -25,12 +25,12 @@ public record DatasetManifest(
         List<ColumnMetadata> columns,
         int schemaVersion,
         String schemaHash,
-        String minTimestamp,                // nullable - ISO 8601 UTC
-        String maxTimestamp,                // nullable - ISO 8601 UTC
-        List<DatasetInput> inputs,          // nullable - upstream lineage
-        String sourceExecutionId,           // nullable - job execution ID
-        String generatedAt                  // ISO 8601 UTC
-) {
+        String minTimestamp, // nullable - ISO 8601 UTC
+        String maxTimestamp, // nullable - ISO 8601 UTC
+        List<DatasetInput> inputs, // nullable - upstream lineage
+        String sourceExecutionId, // nullable - job execution ID
+        String generatedAt // ISO 8601 UTC
+        ) {
     /**
      * Dataset is ready for consumption.
      */

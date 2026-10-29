@@ -12,7 +12,9 @@ public record SyncIndicatorsConfig(
     public SyncIndicatorsConfig {
         filters = filters == null ? SectorJobFilterConfig.defaults() : filters;
         timeframe = normalizeOrDefault(timeframe, JobDefinitionConfig.INDICATOR_TIMEFRAME_1D);
-        indicatorSource = normalizeOrDefault(indicatorSource, JobDefinitionConfig.CONFIG_KEY_INDICATOR_SOURCE_CLOSE);
+        indicatorSource =
+                normalizeOrDefault(
+                        indicatorSource, JobDefinitionConfig.CONFIG_KEY_INDICATOR_SOURCE_CLOSE);
         indicators = normalizeIndicators(indicators);
     }
 
@@ -27,12 +29,13 @@ public record SyncIndicatorsConfig(
         if (values == null || values.isEmpty()) {
             return JobDefinitionConfig.SUPPORTED_INDICATORS;
         }
-        List<String> normalized = values.stream()
-                .filter(Objects::nonNull)
-                .map(value -> value.toString().trim())
-                .filter(value -> !value.isBlank())
-                .map(String::toUpperCase)
-                .toList();
+        List<String> normalized =
+                values.stream()
+                        .filter(Objects::nonNull)
+                        .map(value -> value.toString().trim())
+                        .filter(value -> !value.isBlank())
+                        .map(String::toUpperCase)
+                        .toList();
         return normalized.equals(JobDefinitionConfig.SUPPORTED_INDICATORS)
                 ? normalized
                 : JobDefinitionConfig.SUPPORTED_INDICATORS;

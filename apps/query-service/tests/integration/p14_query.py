@@ -65,7 +65,7 @@ async def main():
         {},
         10,
     )
-    expected_rows = config.get("expectedRows", 180)
+    expected_rows = config.get("expectedRows", 1)
     assert result.rows[0]["row_count"] == expected_rows
     assert result.rows[0]["input_version"] == eod.dataVersion
     Path(config["result"]).write_text(

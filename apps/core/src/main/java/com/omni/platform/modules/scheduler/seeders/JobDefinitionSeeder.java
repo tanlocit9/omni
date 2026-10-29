@@ -30,54 +30,69 @@ public class JobDefinitionSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (!seedEnabled) {
-            log.info("Job definition seeding disabled (app.seed.job-definitions.enabled=false), skipping.");
+            log.info(
+                    "Job definition seeding disabled (app.seed.job-definitions.enabled=false), skipping.");
             return;
         }
 
-        log.info("Starting two-phase job definition seeding (title/fallback/config synchronization mode)...");
+        log.info(
+                "Starting two-phase job definition seeding (title/fallback/config synchronization mode)...");
 
-        List<JobDefinition> bootstrapJobs = JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.stream()
-                .map(this::upsert)
-                .toList();
-        boolean bootstrapRequired = bootstrapJobs.stream()
-                .anyMatch(job -> job.getNextRun() == null);
-        Instant deferredNextRun = bootstrapRequired
-                ? Instant.now().plus(1, ChronoUnit.DAYS)
-                : null;
+        List<JobDefinition> bootstrapJobs =
+                JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.stream()
+                        .map(this::upsert)
+                        .toList();
+        boolean bootstrapRequired =
+                bootstrapJobs.stream().anyMatch(job -> job.getNextRun() == null);
+        Instant deferredNextRun = bootstrapRequired ? Instant.now().plus(1, ChronoUnit.DAYS) : null;
 
-        JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.forEach(seed -> {
-            JobDefinition job = upsert(seed);
-            if (bootstrapRequired && job.getNextRun() == null) {
-                job.setNextRun(deferredNextRun);
-                jobDefinitionRepository.save(job);
-                log.info("Deferred job definition [{}/{}] until [{}] while bootstrap jobs initialize",
-                        seed.source(), seed.jobType(), deferredNextRun);
-            }
-        });
+        JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.forEach(
+                seed -> {
+                    JobDefinition job = upsert(seed);
+                    if (bootstrapRequired && job.getNextRun() == null) {
+                        job.setNextRun(deferredNextRun);
+                        jobDefinitionRepository.save(job);
+                        log.info(
+                                "Deferred job definition [{}/{}] until [{}] while bootstrap jobs initialize",
+                                seed.source(),
+                                seed.jobType(),
+                                deferredNextRun);
+                    }
+                });
 
-        log.info("Job definition seeding completed. Bootstrap deferral applied: {}", bootstrapRequired);
+        log.info(
+                "Job definition seeding completed. Bootstrap deferral applied: {}",
+                bootstrapRequired);
     }
 
     private JobDefinition upsert(JobDefinitionSeed seed) {
         validateCronExpression(seed);
 
-        return jobDefinitionRepository.findBySourceAndJobTypeAndCronExpr(
-                seed.source(),
-                seed.jobType(),
-                seed.cronExpr()).map(existing -> {
-                    existing.setTitle(seed.title());
-                    existing.setFallbackSources(seed.fallbackSources());
-                    existing.setConfigJson(seed.config());
-                    JobDefinition saved = jobDefinitionRepository.save(existing);
-                    log.info("Synchronized title/fallback_sources/config_json for job definition [{}/{}] with cron [{}]",
-                            seed.source(), seed.jobType(), seed.cronExpr());
-                    return saved;
-                }).orElseGet(() -> {
-                    JobDefinition saved = jobDefinitionRepository.save(seed.toEntity());
-                    log.info("Seeded job definition [{}/{}] with cron [{}]",
-                            seed.source(), seed.jobType(), seed.cronExpr());
-                    return saved;
-                });
+        return jobDefinitionRepository
+                .findBySourceAndJobTypeAndCronExpr(seed.source(), seed.jobType(), seed.cronExpr())
+                .map(
+                        existing -> {
+                            existing.setTitle(seed.title());
+                            existing.setFallbackSources(seed.fallbackSources());
+                            existing.setConfigJson(seed.config());
+                            JobDefinition saved = jobDefinitionRepository.save(existing);
+                            log.info(
+                                    "Synchronized title/fallback_sources/config_json for job definition [{}/{}] with cron [{}]",
+                                    seed.source(),
+                                    seed.jobType(),
+                                    seed.cronExpr());
+                            return saved;
+                        })
+                .orElseGet(
+                        () -> {
+                            JobDefinition saved = jobDefinitionRepository.save(seed.toEntity());
+                            log.info(
+                                    "Seeded job definition [{}/{}] with cron [{}]",
+                                    seed.source(),
+                                    seed.jobType(),
+                                    seed.cronExpr());
+                            return saved;
+                        });
     }
 
     private static void validateCronExpression(JobDefinitionConfig.JobDefinitionSeed seed) {

@@ -24,7 +24,8 @@ public class NotificationOutboxMetrics {
     private final Counter rateLimited;
     private final Timer deliveryDuration;
 
-    public NotificationOutboxMetrics(NotificationOutboxRepository repository, MeterRegistry registry) {
+    public NotificationOutboxMetrics(
+            NotificationOutboxRepository repository, MeterRegistry registry) {
         this.repository = repository;
         this.registry = registry;
         this.sent = registry.counter("notification.outbox.sent");
@@ -32,14 +33,32 @@ public class NotificationOutboxMetrics {
         this.dead = registry.counter("notification.outbox.dead");
         this.rateLimited = registry.counter("notification.delivery.rate.limited");
         this.deliveryDuration = registry.timer("notification.delivery.duration");
-        Gauge.builder("notification.outbox.pending", repository,
-                value -> value.countByStatus(Status.PENDING)).register(registry);
-        Gauge.builder("notification.outbox.dead.current", repository,
-                value -> value.countByStatus(Status.DEAD)).register(registry);
-        Gauge.builder("notification.outbox.oldest.pending.age", repository,
-                value -> value.findOldestPendingCreatedAt()
-                        .map(createdAt -> Math.max(0, Duration.between(createdAt, Instant.now()).toSeconds()))
-                        .orElse(0L)).baseUnit("seconds").register(registry);
+        Gauge.builder(
+                        "notification.outbox.pending",
+                        repository,
+                        value -> value.countByStatus(Status.PENDING))
+                .register(registry);
+        Gauge.builder(
+                        "notification.outbox.dead.current",
+                        repository,
+                        value -> value.countByStatus(Status.DEAD))
+                .register(registry);
+        Gauge.builder(
+                        "notification.outbox.oldest.pending.age",
+                        repository,
+                        value ->
+                                value.findOldestPendingCreatedAt()
+                                        .map(
+                                                createdAt ->
+                                                        Math.max(
+                                                                0,
+                                                                Duration.between(
+                                                                                createdAt,
+                                                                                Instant.now())
+                                                                        .toSeconds()))
+                                        .orElse(0L))
+                .baseUnit("seconds")
+                .register(registry);
     }
 
     public Timer.Sample start() {

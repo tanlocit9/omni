@@ -23,28 +23,43 @@ public class ManualLatestSignalNotificationService {
     public LatestSignalResult findLatest(String symbolKey) {
         String normalized = normalize(symbolKey);
         try {
-            return analyzerRestClient.post()
+            return analyzerRestClient
+                    .post()
                     .uri(builder -> latestUri(builder, normalized))
                     .retrieve()
-                    .onStatus(status -> status.value() == 404, (request, response) -> {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No signal history found");
-                    })
-                    .onStatus(status -> status.value() == 400 || status.value() == 422, (request, response) -> {
-                        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Malformed symbolKey");
-                    })
-                    .onStatus(status -> status.value() == 503, (request, response) -> {
-                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Analyzer latest signal unavailable");
-                    })
-                    .onStatus(status -> status.is5xxServerError(), (request, response) -> {
-                        throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Analyzer request failed");
-                    })
+                    .onStatus(
+                            status -> status.value() == 404,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.NOT_FOUND, "No signal history found");
+                            })
+                    .onStatus(
+                            status -> status.value() == 400 || status.value() == 422,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.UNPROCESSABLE_ENTITY, "Malformed symbolKey");
+                            })
+                    .onStatus(
+                            status -> status.value() == 503,
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.SERVICE_UNAVAILABLE,
+                                        "Analyzer latest signal unavailable");
+                            })
+                    .onStatus(
+                            status -> status.is5xxServerError(),
+                            (request, response) -> {
+                                throw new ResponseStatusException(
+                                        HttpStatus.BAD_GATEWAY, "Analyzer request failed");
+                            })
                     .body(LatestSignalResult.class);
         } catch (ResponseStatusException exc) {
             throw exc;
         } catch (ResourceAccessException exc) {
-            HttpStatus status = hasTimeoutCause(exc)
-                    ? HttpStatus.GATEWAY_TIMEOUT
-                    : HttpStatus.SERVICE_UNAVAILABLE;
+            HttpStatus status =
+                    hasTimeoutCause(exc)
+                            ? HttpStatus.GATEWAY_TIMEOUT
+                            : HttpStatus.SERVICE_UNAVAILABLE;
             throw new ResponseStatusException(status, "Analyzer is unavailable", exc);
         }
     }
@@ -83,6 +98,5 @@ public class ManualLatestSignalNotificationService {
             Object score,
             String strategy,
             String timeframe,
-            String generatedAt) {
-    }
+            String generatedAt) {}
 }

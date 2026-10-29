@@ -3,7 +3,6 @@ package com.omni.platform.modules.scheduler.dependencies;
 import java.time.Instant;
 import java.util.Map;
 
-
 public record DependencyDecision(
         State state,
         String reasonCode,

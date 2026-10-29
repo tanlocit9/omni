@@ -12,9 +12,11 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.shared.repositories.BaseRepository;
 
 @Repository
-public interface JobDefinitionRepository extends BaseRepository<JobDefinition>, JobDefinitionClaimRepository {
+public interface JobDefinitionRepository
+        extends BaseRepository<JobDefinition>, JobDefinitionClaimRepository {
 
-    @Query("""
+    @Query(
+            """
             SELECT j FROM JobDefinition j
             WHERE j.isActive = true
             AND (j.nextRun <= :now OR j.nextRun IS NULL)
@@ -24,7 +26,6 @@ public interface JobDefinitionRepository extends BaseRepository<JobDefinition>, 
             """)
     List<JobDefinition> findJobsDue(@Param("now") Instant now);
 
-    Optional<JobDefinition> findBySourceAndJobTypeAndCronExpr(JobDefinition.DataSource source,
-            JobDefinition.JobType jobType,
-            String cronExpr);
+    Optional<JobDefinition> findBySourceAndJobTypeAndCronExpr(
+            JobDefinition.DataSource source, JobDefinition.JobType jobType, String cronExpr);
 }

@@ -6,10 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app.notifications.outbox")
 public record NotificationOutboxProperties(
-        Duration fixedDelay,
-        Claim claim,
-        int maxAttempts,
-        Retry retry) {
+        Duration fixedDelay, Claim claim, int maxAttempts, Retry retry) {
 
     public Duration resolvedFixedDelay() {
         return positive(fixedDelay, Duration.ofSeconds(5));

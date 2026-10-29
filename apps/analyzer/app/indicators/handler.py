@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from py_common.messaging.approved_inputs import approved_input_version
+from py_common.storage.atomic_work import cutoff_frame, day_rows, write_day
 from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.global_metadata import GlobalMetadataReader
 from py_common.storage.parquet import ParquetStorage
@@ -57,7 +59,16 @@ class IndicatorJobHandler:
             eod_manifest.dataVersion,
             indicators_path,
         )
-        eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
+        approved = approved_input_version(
+            message.metadata, "eod", eod_partition,
+            required=message.atomic_work_id is not None or "approvedInputs" in message.metadata,
+        )
+        if approved is None:
+            # Retained legacy commands without execution bindings keep their old route.
+            eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
+        else:
+            eod_frame = await self._parquet_storage.read_bound_dataframe("eod", eod_manifest, approved)
+        eod_frame = cutoff_frame(eod_frame, message.business_date, require_day=True)
         result = calculate_supported_indicators(
             eod_frame,
             message.indicator_source,
@@ -65,8 +76,10 @@ class IndicatorJobHandler:
             self._settings.scheduler,
         )
         result = result.copy()
-        result["eod_data_version"] = eod_manifest.dataVersion
-        await self._parquet_storage.write_dataframe(indicators_path, result)
+        result["eod_data_version"] = approved or eod_manifest.dataVersion
+        await write_day(
+            self._parquet_storage, indicators_path, result, message.business_date
+        )
         _logger.info(
             "Persisted indicators partition source=%s timeframe=%s "
             "exchange=%s code=%s eodDataVersion=%s",
@@ -77,7 +90,7 @@ class IndicatorJobHandler:
             eod_manifest.dataVersion,
         )
 
-        return len(result)
+        return len(day_rows(result, message.business_date))
 
     def _build_indicators_path(
         self, source: str, timeframe: str, exchange: str, code: str

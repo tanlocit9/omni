@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Any
 
 import pandas as pd
+from py_common.storage.atomic_work import cutoff_frame
 from py_common.storage.exceptions import (
     ManifestInvalidError,
     StorageObjectNotFoundError,
@@ -95,6 +97,8 @@ class SignalJobHandler:
             raise ManifestInvalidError("Signal EOD input must have READY metadata")
         eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
 
+        eod_frame = cutoff_frame(eod_frame, message.business_date, require_day=True)
+
         if message.strategy == CONFIRMED_TREND_EQUALS:
             return await self._handle_confirmed_trend_equals(
                 message.symbol_key,
@@ -104,6 +108,7 @@ class SignalJobHandler:
                 current_path,
                 eod_frame,
                 eod_manifest.dataVersion,
+                message.business_date,
             )
 
         indicator_manifest = document.resolve("indicators", indicator_partition)
@@ -138,6 +143,9 @@ class SignalJobHandler:
                 strategy=message.strategy,
             )
         else:
+            indicators_frame = cutoff_frame(
+                indicators_frame, message.business_date, require_day=True
+            )
             if message.strategy == TREND_MOMENTUM_V1:
                 result = calculate_trend_momentum_v1(eod_frame, indicators_frame)
             elif message.strategy == ICHIMOKU_V1:
@@ -175,6 +183,7 @@ class SignalJobHandler:
         current_path: str,
         eod_frame: pd.DataFrame,
         eod_data_version: str,
+        business_date: date | None = None,
     ) -> SignalTransition:
         component_results = []
         for strategy in (TREND_MOMENTUM_V1, ICHIMOKU_V1):
@@ -188,6 +197,7 @@ class SignalJobHandler:
                 symbol_key,
                 timeframe,
                 strategy,
+                as_of_date=business_date,
             )
             if result is None:
                 result = SignalResult(

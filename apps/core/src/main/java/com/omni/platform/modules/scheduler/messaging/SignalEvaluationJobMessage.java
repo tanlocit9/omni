@@ -15,5 +15,5 @@ public record SignalEvaluationJobMessage(
         String exchange,
         String timeframe,
         String strategy,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

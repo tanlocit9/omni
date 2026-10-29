@@ -3,9 +3,7 @@ package com.omni.platform.modules.scheduler.constants;
 import java.util.List;
 import java.util.Objects;
 
-public record SectorJobFilterConfig(
-        List<String> sectorCodes,
-        int sectorLevel) {
+public record SectorJobFilterConfig(List<String> sectorCodes, int sectorLevel) {
 
     public static final int DEFAULT_SECTOR_LEVEL = 1;
     public static final int MIN_SECTOR_LEVEL = 1;

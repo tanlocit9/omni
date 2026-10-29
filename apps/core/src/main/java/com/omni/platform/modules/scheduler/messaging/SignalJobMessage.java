@@ -15,5 +15,5 @@ public record SignalJobMessage(
         String symbolKey,
         String timeframe,
         String strategy,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

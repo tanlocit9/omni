@@ -11,5 +11,4 @@ public record SignalDigestItem(
         String strategy,
         String timeframe,
         String score,
-        List<String> reasonCodes) {
-}
+        List<String> reasonCodes) {}

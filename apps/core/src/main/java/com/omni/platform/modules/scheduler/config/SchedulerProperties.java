@@ -18,9 +18,7 @@ import jakarta.validation.constraints.NotNull;
 
 @Validated
 @ConfigurationProperties(prefix = "app.scheduler")
-public record SchedulerProperties(
-        @NotBlank String instanceId,
-        @Valid @NotNull Claim claim) {
+public record SchedulerProperties(@NotBlank String instanceId, @Valid @NotNull Claim claim) {
 
     public static final int MAX_CLAIM_BATCH_SIZE = 100;
 
@@ -34,17 +32,22 @@ public record SchedulerProperties(
     }
 
     public record Claim(
-            @NotNull Duration leaseDuration,
-            @Min(1) @Max(MAX_CLAIM_BATCH_SIZE) int batchSize) {
+            @NotNull Duration leaseDuration, @Min(1) @Max(MAX_CLAIM_BATCH_SIZE) int batchSize) {
 
-        @AssertTrue(message = "leaseDuration must be positive and longer than the expected claim-to-prepare transaction")
+        @AssertTrue(
+                message =
+                        "leaseDuration must be positive and longer than the expected claim-to-prepare transaction")
         public boolean isLeaseDurationValid() {
             return leaseDuration != null && leaseDuration.compareTo(Duration.ofSeconds(1)) > 0;
         }
     }
 
     private static String defaultInstanceId() {
-        return "platform-scheduler-" + localHostName() + "-" + ManagementFactory.getRuntimeMXBean().getName() + "-"
+        return "platform-scheduler-"
+                + localHostName()
+                + "-"
+                + ManagementFactory.getRuntimeMXBean().getName()
+                + "-"
                 + UUID.randomUUID();
     }
 

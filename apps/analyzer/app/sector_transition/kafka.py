@@ -14,6 +14,7 @@ from py_common.messaging import (
     calculate_duration_ms,
     utc_now,
 )
+from py_common.messaging.atomic_work import carry_work_status
 from pydantic import BaseModel
 
 from app.sector_transition.handler import SectorTransitionJobHandler
@@ -81,6 +82,7 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
                 error_message=str(exc),
             )
 
+        status = carry_work_status(status, raw)
         await self.publish_status(status)
         return status
 

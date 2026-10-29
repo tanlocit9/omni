@@ -23,12 +23,13 @@ public class NotificationEventListener {
     @EventListener
     public void onOperationalNotification(OperationalNotificationEvent event) {
         try {
-            log.info("Received operational notification event severity={} title={}", event.severity(), event.title());
+            log.info(
+                    "Received operational notification event severity={} title={}",
+                    event.severity(),
+                    event.title());
             notificationService.send(operationalNotificationTemplate.render(event));
         } catch (Exception exc) {
             log.warn("Notification event handling failed: {}", exc.getMessage(), exc);
         }
     }
-
-
 }

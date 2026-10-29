@@ -15,5 +15,5 @@ public record SectorWaveSectorFeatureJobMessage(
         String sectorCode,
         int sectorLevel,
         String timeframe,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

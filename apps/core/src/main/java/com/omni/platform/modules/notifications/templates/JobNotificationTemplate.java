@@ -66,10 +66,7 @@ public class JobNotificationTemplate {
      * @return channel-neutral operational notification event
      */
     public OperationalNotificationEvent parentSucceeded(
-            JobExecutionHistory parent,
-            long total,
-            long success,
-            long failed) {
+            JobExecutionHistory parent, long total, long success, long failed) {
         return new OperationalNotificationEvent(
                 NotificationKind.JOB_DIGEST_SUCCEEDED,
                 NotificationSeverity.INFO,
@@ -89,10 +86,7 @@ public class JobNotificationTemplate {
      * @return channel-neutral operational notification event
      */
     public OperationalNotificationEvent parentFailed(
-            JobExecutionHistory parent,
-            long total,
-            long success,
-            long failed) {
+            JobExecutionHistory parent, long total, long success, long failed) {
         return new OperationalNotificationEvent(
                 NotificationKind.JOB_DIGEST_FAILED,
                 NotificationSeverity.ERROR,
@@ -102,10 +96,7 @@ public class JobNotificationTemplate {
     }
 
     private Map<String, Object> parentMetadata(
-            JobExecutionHistory execution,
-            long total,
-            long success,
-            long failed) {
+            JobExecutionHistory execution, long total, long success, long failed) {
         Map<String, Object> metadata = baseMetadata(execution);
         metadata.put("total", total);
         metadata.put("success", success);
@@ -144,5 +135,4 @@ public class JobNotificationTemplate {
         }
         return "Job failed";
     }
-
 }

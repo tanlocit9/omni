@@ -6,9 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app.analyzer")
 public record AnalyzerClientProperties(
-        String baseUrl,
-        Duration connectTimeout,
-        Duration readTimeout) {
+        String baseUrl, Duration connectTimeout, Duration readTimeout) {
 
     public String resolvedBaseUrl() {
         return baseUrl == null || baseUrl.isBlank() ? "http://localhost:8000" : baseUrl;

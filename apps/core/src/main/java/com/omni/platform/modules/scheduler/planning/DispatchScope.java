@@ -8,9 +8,8 @@ import com.omni.platform.modules.scheduler.topology.TopologyNodeKey;
 
 /** Explicit scheduler scope for one persisted job definition. */
 public record DispatchScope(
-        TopologyNodeKey node,
-        UUID jobDefinitionId,
-        JobDefinitionIdentity definitionIdentity) implements Comparable<DispatchScope> {
+        TopologyNodeKey node, UUID jobDefinitionId, JobDefinitionIdentity definitionIdentity)
+        implements Comparable<DispatchScope> {
 
     public DispatchScope {
         Objects.requireNonNull(node, "node");

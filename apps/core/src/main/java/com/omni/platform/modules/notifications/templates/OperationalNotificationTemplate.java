@@ -7,7 +7,8 @@ import com.omni.platform.modules.notifications.dtos.NotificationRequest.Notifica
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
 
 @Component
-public class OperationalNotificationTemplate extends AbstractNotificationTemplate<OperationalNotificationEvent> {
+public class OperationalNotificationTemplate
+        extends AbstractNotificationTemplate<OperationalNotificationEvent> {
 
     @Override
     public NotificationRequest render(OperationalNotificationEvent event) {

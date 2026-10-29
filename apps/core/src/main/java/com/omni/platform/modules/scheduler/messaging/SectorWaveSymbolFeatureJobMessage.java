@@ -14,5 +14,5 @@ public record SectorWaveSymbolFeatureJobMessage(
         String workKey,
         String symbolKey,
         String timeframe,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

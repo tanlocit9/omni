@@ -1,7 +1,10 @@
 package com.omni.platform.modules.scheduler.runs;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,17 +14,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
-import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.expansion.GraphWorkExpansion;
 import com.omni.platform.modules.scheduler.producers.JobProducerRegistry;
+import com.omni.platform.modules.scheduler.producers.JobProducer;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.repositories.JobRunRepository;
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
@@ -29,16 +28,21 @@ import com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode;
 import com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.modules.scheduler.topology.JobDefinitionIdentity;
-import com.omni.platform.modules.scheduler.topology.RequiredPathResolver;
 import com.omni.platform.modules.scheduler.topology.RequiredPathResolver.Handoff;
 import com.omni.platform.modules.scheduler.topology.RequiredPathResolver.Scope;
 import com.omni.platform.modules.scheduler.topology.RequiredPathResolver.ScopeEdge;
 import com.omni.platform.modules.scheduler.topology.RequiredPathResolver.ScopeType;
 import com.omni.platform.modules.scheduler.topology.RequiredPathResolver.StepKey;
+import com.omni.platform.modules.scheduler.topology.RequiredPathResolver;
 import com.omni.platform.modules.scheduler.topology.StaticJobTopologyProvider;
 import com.omni.platform.modules.scheduler.topology.TopologyNodeKey;
-
 import jakarta.persistence.EntityManager;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Bounded atomic preparation only. FIFO is not a predecessor-completion barrier: leave disabled until I4. */
@@ -82,6 +86,26 @@ public class JobRunPreparationService {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    /**
+     * I9.a read-only planning API, using the same I8 producer expansion as every creation route.
+     * It does not acquire work, persist attempts or activate the scheduler's preparation path.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public GraphWorkExpansion.Plan planGraphExpansion(
+            UUID target, Map<String, Object> request, Instant acceptedAt) {
+        Map<String, Boolean> membership = new HashMap<>();
+        return GraphWorkExpansion.resolve(target, request, acceptedAt, definitions.findAll(),
+                (definition, expansionRequest, instant) -> producers.getProducer(definition.getJobType())
+                        .previewAtomicWork(definition, expansionRequest, instant, jdbc, json),
+                (symbol, sector, level) -> membership.computeIfAbsent(
+                        symbol + ":" + level + ":" + sector,
+                        ignored -> Boolean.TRUE.equals(jdbc.queryForObject(
+                                "SELECT EXISTS (SELECT 1 FROM symbols WHERE is_active=true "
+                                        + "AND exchange || '-' || code=? "
+                                        + "AND meta_json->>CAST(? AS text)=?)",
+                                Boolean.class, symbol, "sectorLv" + level + "Code", sector))));
     }
 
     public boolean supports(JobDefinition definition) {
@@ -128,6 +152,8 @@ public class JobRunPreparationService {
             String reason,
             Map<String, Object> parameters,
             Map<String, Object> metadata) {
+        metadata = new LinkedHashMap<>(metadata);
+        metadata.put("expansionRequest", parameters);
         return prepare(
                 new Request(
                         Mode.MANUAL, actor, key, reason, null, json.writeValueAsString(parameters)),
@@ -204,7 +230,7 @@ public class JobRunPreparationService {
         // Lock before freezing FK-backed steps: taking KEY SHARE references first and then
         // upgrading to FOR UPDATE can deadlock independent runs with common ancestors.
         List<UUID> ids = runs.resolveDefinitions(path).stream().distinct().sorted().toList();
-        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
         jdbc.queryForList(
                 "SELECT id FROM job_definitions WHERE id IN ("
                         + placeholders
@@ -238,6 +264,9 @@ public class JobRunPreparationService {
         }
         int work = 0;
         UUID targetExecution = null;
+        record AcceptedStep(JobDefinition definition, JobExecutionHistory parent,
+                            JobProducer.AcceptedRunWork work) {}
+        List<AcceptedStep> accepted = new ArrayList<>();
         for (int index = 0; index < run.definitionIds().size(); index++) {
             JobDefinition definition = catalog.get(run.definitionIds().get(index));
             if (definition == null || !Boolean.TRUE.equals(definition.getIsActive()))
@@ -265,21 +294,29 @@ public class JobRunPreparationService {
                         "metadataTarget", Map.of("tradingDate", scope.businessDate().toString()));
             parent.setMetaJson(values);
             entities.persist(parent);
-            entities.flush();
             JobRunWorkContext context =
-                    new JobRunWorkContext(
+                    JobRunWorkContext.preview(
                             parent,
-                            entities,
                             jdbc,
                             json,
                             Math.min(MAX_STEP_WORK, MAX_RUN_WORK - work));
-            int messages =
+            var resolved =
                     producers
                             .getProducer(definition.getJobType())
-                            .prepareRunStep(definition, parent, now, context);
-            work += messages;
+                            .acceptRunStep(definition, parent, now, context);
+            work += resolved.messages().size();
             if (work > MAX_RUN_WORK)
                 throw new IllegalArgumentException("JOB_RUN_WORK_BOUND_EXCEEDED");
+            accepted.add(new AcceptedStep(definition, parent, resolved));
+        }
+        // Only closed, budget-checked descriptors may become execution/outbox rows.
+        entities.flush();
+        for (int index = 0; index < accepted.size(); index++) {
+            var step = accepted.get(index);
+            var parent = step.parent();
+            var context = new JobRunWorkContext(parent, entities, jdbc, json, MAX_STEP_WORK);
+            int messages = producers.getProducer(step.definition().getJobType())
+                    .persistAcceptedRunStep(parent, step.work(), now, context);
             entities.flush();
             jdbc.update(
                     """
@@ -291,7 +328,9 @@ public class JobRunPreparationService {
                     parent.getId(),
                     context.children().size(),
                     messages,
-                    java.sql.Timestamp.from(now));
+                    Timestamp.from(now));
+            // Keep dirty checking bounded to one closed step, not the whole fan-out.
+            entities.clear();
             targetExecution = parent.getId();
         }
         jobs.completeRunPreparation(claimed, claim, now, request.mode() == Mode.MANUAL);

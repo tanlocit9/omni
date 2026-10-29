@@ -59,22 +59,9 @@ public final class StaticDefinitionDependencies {
             JobDefinitionIdentity definition = JobDefinitionIdentity.from(seed);
             List<JobType> upstream =
                     switch (definition.jobType()) {
-                        case SYNC_SYMBOLS, SYNC_METADATA -> List.of();
-                        case SYNC_STOCK_PRICE -> List.of(JobType.SYNC_SYMBOLS);
-                        case SYNC_INDICATORS -> List.of(JobType.SYNC_STOCK_PRICE);
                         case SYNC_SIGNALS -> signalPredecessors(definition);
-                        case EVALUATE_SIGNALS ->
-                                List.of(JobType.SYNC_STOCK_PRICE, JobType.SYNC_SIGNALS);
-                        case PRECOMPUTE_SYMBOL_FEATURES, SYNC_INTRADAY_EOD ->
-                                List.of(JobType.SYNC_SYMBOLS, JobType.SYNC_STOCK_PRICE);
-                        case PRECOMPUTE_SECTOR_FEATURES ->
-                                List.of(JobType.PRECOMPUTE_SYMBOL_FEATURES);
-                        case SECTOR_ROTATION_BACKTEST ->
-                                List.of(
-                                        JobType.PRECOMPUTE_SECTOR_FEATURES,
-                                        JobType.SYNC_STOCK_PRICE);
-                        case SECTOR_TRANSITION_ANALYZE, SECTOR_TRANSITION_EVALUATE_OUTCOMES ->
-                                List.of(JobType.PRECOMPUTE_SECTOR_FEATURES);
+                        default -> StaticTopologyDeclaration.upstreamTypes(
+                                definition.jobType(), seed.config());
                     };
             if (types.putIfAbsent(definition, upstream) != null) {
                 throw new IllegalArgumentException("Ambiguous definition mapping: " + definition);

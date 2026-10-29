@@ -33,48 +33,48 @@ public final class TelegramRendering {
 
     public static final int MAX_MESSAGE_LENGTH = 4_096;
     private static final String NEW_BLOCK = "\n\n";
-    private static final Map<String, String> SIGNAL_DESCRIPTIONS = Map.of(
-            "BUY", "Mua",
-            "BULLISH", "Tăng giá",
-            "SELL", "Bán",
-            "BEARISH", "Giảm giá",
-            "HOLD", "Nắm giữ",
-            "NEUTRAL", "Trung lập",
-            "BASELINE", "Mốc cơ sở");
-    private static final Map<String, String> REASON_DESCRIPTIONS = Map.ofEntries(
-            Map.entry("PRICE_ABOVE_MA50", "Giá cao hơn MA50"),
-            Map.entry("PRICE_BELOW_MA50", "Giá thấp hơn MA50"),
-            Map.entry("PRICE_EQUALS_MA50", "Giá bằng MA50"),
-            Map.entry("MA20_ABOVE_MA50", "MA20 cao hơn MA50"),
-            Map.entry("MA20_BELOW_MA50", "MA20 thấp hơn MA50"),
-            Map.entry("MA20_EQUALS_MA50", "MA20 bằng MA50"),
-            Map.entry("RSI14_ABOVE_55", "RSI14 cao hơn 55"),
-            Map.entry("RSI14_BELOW_45", "RSI14 thấp hơn 45"),
-            Map.entry("RSI14_NEUTRAL", "RSI14 ở vùng trung lập"),
-            Map.entry("MACD_ABOVE_SIGNAL", "MACD cao hơn đường tín hiệu"),
-            Map.entry("MACD_BELOW_SIGNAL", "MACD thấp hơn đường tín hiệu"),
-            Map.entry("MACD_EQUALS_SIGNAL", "MACD bằng đường tín hiệu"),
-            Map.entry("PRICE_ABOVE_CLOUD", "Giá cao hơn mây Ichimoku"),
-            Map.entry("PRICE_BELOW_CLOUD", "Giá thấp hơn mây Ichimoku"),
-            Map.entry("PRICE_INSIDE_CLOUD", "Giá nằm trong mây Ichimoku"),
-            Map.entry("TENKAN_ABOVE_KIJUN", "Tenkan cao hơn Kijun"),
-            Map.entry("TENKAN_BELOW_KIJUN", "Tenkan thấp hơn Kijun"),
-            Map.entry("TENKAN_EQUALS_KIJUN", "Tenkan bằng Kijun"),
-            Map.entry("SPAN_A_ABOVE_SPAN_B", "Span A cao hơn Span B"),
-            Map.entry("SPAN_A_BELOW_SPAN_B", "Span A thấp hơn Span B"),
-            Map.entry("SPAN_A_EQUALS_SPAN_B", "Span A bằng Span B"),
-            Map.entry("TREND_MOMENTUM_V1_BULLISH", "Xu hướng và động lượng tăng giá"),
-            Map.entry("TREND_MOMENTUM_V1_NEUTRAL", "Xu hướng và động lượng trung lập"),
-            Map.entry("TREND_MOMENTUM_V1_BEARISH", "Xu hướng và động lượng giảm giá"),
-            Map.entry("ICHIMOKU_V1_BULLISH", "Ichimoku tăng giá"),
-            Map.entry("ICHIMOKU_V1_NEUTRAL", "Ichimoku trung lập"),
-            Map.entry("ICHIMOKU_V1_BEARISH", "Ichimoku giảm giá"));
+    private static final Map<String, String> SIGNAL_DESCRIPTIONS =
+            Map.of(
+                    "BUY", "Mua",
+                    "BULLISH", "Tăng giá",
+                    "SELL", "Bán",
+                    "BEARISH", "Giảm giá",
+                    "HOLD", "Nắm giữ",
+                    "NEUTRAL", "Trung lập",
+                    "BASELINE", "Mốc cơ sở");
+    private static final Map<String, String> REASON_DESCRIPTIONS =
+            Map.ofEntries(
+                    Map.entry("PRICE_ABOVE_MA50", "Giá cao hơn MA50"),
+                    Map.entry("PRICE_BELOW_MA50", "Giá thấp hơn MA50"),
+                    Map.entry("PRICE_EQUALS_MA50", "Giá bằng MA50"),
+                    Map.entry("MA20_ABOVE_MA50", "MA20 cao hơn MA50"),
+                    Map.entry("MA20_BELOW_MA50", "MA20 thấp hơn MA50"),
+                    Map.entry("MA20_EQUALS_MA50", "MA20 bằng MA50"),
+                    Map.entry("RSI14_ABOVE_55", "RSI14 cao hơn 55"),
+                    Map.entry("RSI14_BELOW_45", "RSI14 thấp hơn 45"),
+                    Map.entry("RSI14_NEUTRAL", "RSI14 ở vùng trung lập"),
+                    Map.entry("MACD_ABOVE_SIGNAL", "MACD cao hơn đường tín hiệu"),
+                    Map.entry("MACD_BELOW_SIGNAL", "MACD thấp hơn đường tín hiệu"),
+                    Map.entry("MACD_EQUALS_SIGNAL", "MACD bằng đường tín hiệu"),
+                    Map.entry("PRICE_ABOVE_CLOUD", "Giá cao hơn mây Ichimoku"),
+                    Map.entry("PRICE_BELOW_CLOUD", "Giá thấp hơn mây Ichimoku"),
+                    Map.entry("PRICE_INSIDE_CLOUD", "Giá nằm trong mây Ichimoku"),
+                    Map.entry("TENKAN_ABOVE_KIJUN", "Tenkan cao hơn Kijun"),
+                    Map.entry("TENKAN_BELOW_KIJUN", "Tenkan thấp hơn Kijun"),
+                    Map.entry("TENKAN_EQUALS_KIJUN", "Tenkan bằng Kijun"),
+                    Map.entry("SPAN_A_ABOVE_SPAN_B", "Span A cao hơn Span B"),
+                    Map.entry("SPAN_A_BELOW_SPAN_B", "Span A thấp hơn Span B"),
+                    Map.entry("SPAN_A_EQUALS_SPAN_B", "Span A bằng Span B"),
+                    Map.entry("TREND_MOMENTUM_V1_BULLISH", "Xu hướng và động lượng tăng giá"),
+                    Map.entry("TREND_MOMENTUM_V1_NEUTRAL", "Xu hướng và động lượng trung lập"),
+                    Map.entry("TREND_MOMENTUM_V1_BEARISH", "Xu hướng và động lượng giảm giá"),
+                    Map.entry("ICHIMOKU_V1_BULLISH", "Ichimoku tăng giá"),
+                    Map.entry("ICHIMOKU_V1_NEUTRAL", "Ichimoku trung lập"),
+                    Map.entry("ICHIMOKU_V1_BEARISH", "Ichimoku giảm giá"));
 
-    private TelegramRendering() {
-    }
+    private TelegramRendering() {}
 
-    public record RenderedMessage(String html, boolean disableNotification) {
-    }
+    public record RenderedMessage(String html, boolean disableNotification) {}
 
     public interface Renderer {
         boolean supports(NotificationRequest request);
@@ -89,19 +89,21 @@ public final class TelegramRendering {
 
         public Registry(TelegramNotificationProperties properties) {
             ZoneId displayZone = properties.resolvedDisplayTimeZone();
-            this.renderers = List.of(
-                    new OperationalRenderer(displayZone),
-                    new SignalChangedRenderer(displayZone),
-                    new SignalDigestRenderer(displayZone),
-                    new GenericRenderer());
+            this.renderers =
+                    List.of(
+                            new OperationalRenderer(displayZone),
+                            new SignalChangedRenderer(displayZone),
+                            new SignalDigestRenderer(displayZone),
+                            new GenericRenderer());
             this.soundPolicy = new SoundPolicy(properties.resolvedAudibleOperationalErrors());
         }
 
         public RenderedMessage render(NotificationRequest request, long suppressedCount) {
-            Renderer renderer = renderers.stream()
-                    .filter(candidate -> candidate.supports(request))
-                    .findFirst()
-                    .orElseThrow();
+            Renderer renderer =
+                    renderers.stream()
+                            .filter(candidate -> candidate.supports(request))
+                            .findFirst()
+                            .orElseThrow();
             return new RenderedMessage(
                     renderer.render(request, suppressedCount),
                     soundPolicy.disableNotification(request));
@@ -123,11 +125,12 @@ public final class TelegramRendering {
     }
 
     static final class OperationalRenderer implements Renderer {
-        private static final List<Detail> DETAILS = List.of(
-                new Detail("jobType", "Job"),
-                new Detail("source", "Source"),
-                new Detail("executionId", "Execution"),
-                new Detail("parentExecutionId", "Parent"));
+        private static final List<Detail> DETAILS =
+                List.of(
+                        new Detail("jobType", "Job"),
+                        new Detail("source", "Source"),
+                        new Detail("executionId", "Execution"),
+                        new Detail("parentExecutionId", "Parent"));
         private final ZoneId displayZone;
 
         OperationalRenderer(ZoneId displayZone) {
@@ -146,7 +149,11 @@ public final class TelegramRendering {
         @Override
         public String render(NotificationRequest request, long suppressedCount) {
             Builder builder = new Builder();
-            builder.required(marker(request.severity()) + " <b>" + Html.escape(bound(request.title(), 320, "Untitled notification")) + "</b>");
+            builder.required(
+                    marker(request.severity())
+                            + " <b>"
+                            + Html.escape(bound(request.title(), 320, "Untitled notification"))
+                            + "</b>");
             builder.optional(escapedBound(request.message(), 1_500));
 
             Map<String, Object> metadata = safeMetadata(request.metadata());
@@ -163,7 +170,8 @@ public final class TelegramRendering {
             return builder.build();
         }
 
-        private void appendDetail(List<String> details, Map<String, Object> metadata, Detail detail) {
+        private void appendDetail(
+                List<String> details, Map<String, Object> metadata, Detail detail) {
             Object value = metadata.get(detail.key());
             if (value != null) {
                 details.add("<b>" + detail.label() + ":</b> " + Html.escape(display(value)));
@@ -174,8 +182,11 @@ public final class TelegramRendering {
             String synced = number(metadata.get("recordsSynced"));
             String skipped = number(metadata.get("recordsSkipped"));
             if (synced != null || skipped != null) {
-                details.add("<b>Records:</b> " + (synced == null ? "0" : synced) + " synced"
-                        + (skipped == null ? "" : " - " + skipped + " skipped"));
+                details.add(
+                        "<b>Records:</b> "
+                                + (synced == null ? "0" : synced)
+                                + " synced"
+                                + (skipped == null ? "" : " - " + skipped + " skipped"));
             }
         }
 
@@ -183,7 +194,12 @@ public final class TelegramRendering {
             String failed = number(metadata.get("failed"));
             String total = number(metadata.get("total"));
             if (failed != null || total != null) {
-                details.add("<b>Tasks:</b> " + (failed == null ? "0" : failed) + "/" + (total == null ? "0" : total) + " failed");
+                details.add(
+                        "<b>Tasks:</b> "
+                                + (failed == null ? "0" : failed)
+                                + "/"
+                                + (total == null ? "0" : total)
+                                + " failed");
             }
         }
 
@@ -194,16 +210,23 @@ public final class TelegramRendering {
             }
             try {
                 if (value != null) {
-                    Instant instant = value instanceof Instant item ? item : Instant.parse(String.valueOf(value));
-                    details.add("<i>Updated " + DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH).withZone(zone).format(instant) + "</i>");
+                    Instant instant =
+                            value instanceof Instant item
+                                    ? item
+                                    : Instant.parse(String.valueOf(value));
+                    details.add(
+                            "<i>Updated "
+                                    + DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH)
+                                            .withZone(zone)
+                                            .format(instant)
+                                    + "</i>");
                 }
             } catch (RuntimeException ignored) {
                 // Invalid optional timestamps are omitted rather than guessed.
             }
         }
 
-        private record Detail(String key, String label) {
-        }
+        private record Detail(String key, String label) {}
     }
 
     static final class SignalChangedRenderer implements Renderer {
@@ -225,13 +248,23 @@ public final class TelegramRendering {
             }
             SignalStyle style = signalStyle(signal.newSignal());
             Builder builder = new Builder();
-            builder.required(style.marker() + " <b>" + Html.escape(describeSignal(style.label())) + " · "
-                    + Html.escape(bound(signal.symbolKey(), 120, "Unknown symbol")) + "</b>");
+            builder.required(
+                    style.marker()
+                            + " <b>"
+                            + Html.escape(describeSignal(style.label()))
+                            + " · "
+                            + Html.escape(bound(signal.symbolKey(), 120, "Unknown symbol"))
+                            + "</b>");
             builder.optional(subtitle(signal.strategy(), signal.timeframe()));
             List<String> details = new ArrayList<>();
             details.add("<b>Price:</b> " + formatNumber(signal.price()));
-            details.add("<b>Signal:</b> " + Html.escape(describeSignal(signalName(signal.previousSignal(), "BASELINE")))
-                    + " → " + Html.escape(describeSignal(signalName(signal.newSignal(), "UNKNOWN"))));
+            details.add(
+                    "<b>Signal:</b> "
+                            + Html.escape(
+                                    describeSignal(signalName(signal.previousSignal(), "BASELINE")))
+                            + " → "
+                            + Html.escape(
+                                    describeSignal(signalName(signal.newSignal(), "UNKNOWN"))));
             details.add("<b>Score:</b> " + formatScore(signal.score()));
             details.add("<b>Date:</b> " + formatDate(signal.signalDate()));
             details.add("<b>Reasons:</b>" + formatReasons(signal.reasonCodes()));
@@ -262,8 +295,13 @@ public final class TelegramRendering {
             }
             List<SignalDigestEntry> items = digest.items() == null ? List.of() : digest.items();
             int total = Math.max(0, digest.changedCount());
-            String header = "📊 <b>" + total + " signal " + (total == 1 ? "change" : "changes")
-                    + subtitleInline(digest.strategy(), digest.timeframe()) + "</b>";
+            String header =
+                    "📊 <b>"
+                            + total
+                            + " signal "
+                            + (total == 1 ? "change" : "changes")
+                            + subtitleInline(digest.strategy(), digest.timeframe())
+                            + "</b>";
             String suppression = suppression(suppressedCount);
             int shown = 0;
             List<String> blocks = new ArrayList<>();
@@ -275,8 +313,14 @@ public final class TelegramRendering {
                 }
                 String block = digestItem(item);
                 int proposedShown = shown + 1;
-                String footer = digestFooter(
-                        proposedShown, total, digest.createdAt(), displayZone, digest.pageNumber(), digest.pageCount());
+                String footer =
+                        digestFooter(
+                                proposedShown,
+                                total,
+                                digest.createdAt(),
+                                displayZone,
+                                digest.pageNumber(),
+                                digest.pageCount());
                 int length = joinedLength(header, blocks, block, footer, suppression);
                 if (length > MAX_MESSAGE_LENGTH) {
                     break;
@@ -284,8 +328,14 @@ public final class TelegramRendering {
                 blocks.add(block);
                 shown = proposedShown;
             }
-            String footer = digestFooter(
-                    shown, total, digest.createdAt(), displayZone, digest.pageNumber(), digest.pageCount());
+            String footer =
+                    digestFooter(
+                            shown,
+                            total,
+                            digest.createdAt(),
+                            displayZone,
+                            digest.pageNumber(),
+                            digest.pageCount());
             Builder builder = new Builder();
             builder.required(header);
             blocks.forEach(builder::optional);
@@ -296,10 +346,12 @@ public final class TelegramRendering {
     }
 
     static final class GenericRenderer implements Renderer {
-        private static final Pattern SENSITIVE = Pattern.compile(
-                ".*(credential|token|secret|password|authorization|cookie|stack|payload).*",
-                Pattern.CASE_INSENSITIVE);
-        private static final Set<String> INTERNAL = Set.of("notificationKind", "deliveryIdentity", "deduplicationKey", "manual");
+        private static final Pattern SENSITIVE =
+                Pattern.compile(
+                        ".*(credential|token|secret|password|authorization|cookie|stack|payload).*",
+                        Pattern.CASE_INSENSITIVE);
+        private static final Set<String> INTERNAL =
+                Set.of("notificationKind", "deliveryIdentity", "deduplicationKey", "manual");
 
         @Override
         public boolean supports(NotificationRequest request) {
@@ -310,25 +362,44 @@ public final class TelegramRendering {
         @Override
         public String render(NotificationRequest request, long suppressedCount) {
             Builder builder = new Builder();
-            builder.required(marker(request.severity()) + " <b>" + Html.escape(bound(request.title(), 320, "Untitled notification")) + "</b>");
+            builder.required(
+                    marker(request.severity())
+                            + " <b>"
+                            + Html.escape(bound(request.title(), 320, "Untitled notification"))
+                            + "</b>");
             builder.optional(escapedBound(request.message(), 2_800));
-            List<String> values = safeMetadata(request.metadata()).entrySet().stream()
-                    .filter(entry -> !INTERNAL.contains(entry.getKey()))
-                    .filter(entry -> !SENSITIVE.matcher(entry.getKey()).matches())
-                    .filter(entry -> scalar(entry.getValue()))
-                    .sorted(Comparator.comparing(Map.Entry::getKey))
-                    .limit(8)
-                    .map(entry -> "- " + Html.escape(bound(entry.getKey(), 80, "detail")) + ": "
-                            + Html.escape(bound(String.valueOf(entry.getValue()), 240, "")))
-                    .toList();
-            builder.optional(values.isEmpty() ? null : "<b>Details</b>\n" + String.join("\n", values));
+            List<String> values =
+                    safeMetadata(request.metadata()).entrySet().stream()
+                            .filter(entry -> !INTERNAL.contains(entry.getKey()))
+                            .filter(entry -> !SENSITIVE.matcher(entry.getKey()).matches())
+                            .filter(entry -> scalar(entry.getValue()))
+                            .sorted(Comparator.comparing(Map.Entry::getKey))
+                            .limit(8)
+                            .map(
+                                    entry ->
+                                            "- "
+                                                    + Html.escape(
+                                                            bound(entry.getKey(), 80, "detail"))
+                                                    + ": "
+                                                    + Html.escape(
+                                                            bound(
+                                                                    String.valueOf(
+                                                                            entry.getValue()),
+                                                                    240,
+                                                                    "")))
+                            .toList();
+            builder.optional(
+                    values.isEmpty() ? null : "<b>Details</b>\n" + String.join("\n", values));
             builder.optional(suppression(suppressedCount));
             return builder.build();
         }
 
         private boolean scalar(Object value) {
-            return value instanceof CharSequence || value instanceof Number || value instanceof Boolean
-                    || value instanceof Enum<?> || value instanceof UUID;
+            return value instanceof CharSequence
+                    || value instanceof Number
+                    || value instanceof Boolean
+                    || value instanceof Enum<?>
+                    || value instanceof UUID;
         }
     }
 
@@ -367,8 +438,7 @@ public final class TelegramRendering {
     }
 
     static final class Html {
-        private Html() {
-        }
+        private Html() {}
 
         static String escape(String value) {
             String ampersand = "&" + "amp;";
@@ -405,7 +475,9 @@ public final class TelegramRendering {
     }
 
     private static String signalName(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : bound(value.trim().toUpperCase(Locale.ROOT), 40, fallback);
+        return value == null || value.isBlank()
+                ? fallback
+                : bound(value.trim().toUpperCase(Locale.ROOT), 40, fallback);
     }
 
     private static String formatNumber(Object value) {
@@ -430,7 +502,10 @@ public final class TelegramRendering {
             return "n/a";
         }
         try {
-            BigDecimal decimal = new BigDecimal(String.valueOf(value)).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
+            BigDecimal decimal =
+                    new BigDecimal(String.valueOf(value))
+                            .setScale(2, RoundingMode.HALF_UP)
+                            .stripTrailingZeros();
             return decimal.toPlainString();
         } catch (RuntimeException ignored) {
             return "n/a";
@@ -466,16 +541,18 @@ public final class TelegramRendering {
         if (reasons == null || reasons.isEmpty()) {
             return " n/a";
         }
-        List<String> values = reasons.stream()
-                .filter(value -> value != null && !value.isBlank())
-                .limit(5)
-                .map(TelegramRendering::formatReason)
-                .toList();
+        List<String> values =
+                reasons.stream()
+                        .filter(value -> value != null && !value.isBlank())
+                        .limit(5)
+                        .map(TelegramRendering::formatReason)
+                        .toList();
         String result = values.isEmpty() ? " n/a" : String.join("\n- ", values);
         if (!values.isEmpty()) {
             result = "\n- " + result;
         }
-        if (reasons.stream().filter(value -> value != null && !value.isBlank()).count() > values.size()) {
+        if (reasons.stream().filter(value -> value != null && !value.isBlank()).count()
+                > values.size()) {
             result += "\n- ...";
         }
         return result;
@@ -487,49 +564,85 @@ public final class TelegramRendering {
         if (description == null && code.matches("SCORE_-?\\d+(?:\\.\\d+)?")) {
             description = "Điểm tín hiệu " + code.substring("SCORE_".length());
         } else if (description == null && code.matches("EQUAL_VOTE_SCORE_-?\\d+(?:\\.\\d+)?")) {
-            description = "Điểm đồng thuận trung bình "
-                    + code.substring("EQUAL_VOTE_SCORE_".length());
+            description =
+                    "Điểm đồng thuận trung bình " + code.substring("EQUAL_VOTE_SCORE_".length());
         }
         String displayCode = code.replaceAll("_V\\d+(?=_|$)", "").replace('_', ' ');
         return Html.escape(description == null ? displayCode : displayCode + " — " + description);
     }
 
     private static String updated(Instant instant, ZoneId zone) {
-        return instant == null ? null : "<i>Updated "
-                + DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH).withZone(zone).format(instant) + "</i>";
+        return instant == null
+                ? null
+                : "<i>Updated "
+                        + DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH)
+                                .withZone(zone)
+                                .format(instant)
+                        + "</i>";
     }
 
     private static String digestItem(SignalDigestEntry item) {
         SignalStyle style = signalStyle(item.newSignal());
         String strategy = subtitle(item.strategy(), item.timeframe());
-        StringBuilder block = new StringBuilder(style.marker()).append(" <b>")
-                .append(Html.escape(bound(item.symbolKey(), 120, "Unknown symbol"))).append("</b>  ")
-                .append(Html.escape(describeSignal(signalName(item.previousSignal(), "BASELINE")))).append(" → ")
-                .append(Html.escape(describeSignal(signalName(item.newSignal(), "UNKNOWN")))).append("  @ ")
-                .append(formatNumber(item.price()));
+        StringBuilder block =
+                new StringBuilder(style.marker())
+                        .append(" <b>")
+                        .append(Html.escape(bound(item.symbolKey(), 120, "Unknown symbol")))
+                        .append("</b>  ")
+                        .append(
+                                Html.escape(
+                                        describeSignal(
+                                                signalName(item.previousSignal(), "BASELINE"))))
+                        .append(" → ")
+                        .append(
+                                Html.escape(
+                                        describeSignal(signalName(item.newSignal(), "UNKNOWN"))))
+                        .append("  @ ")
+                        .append(formatNumber(item.price()));
         if (strategy != null) {
             block.append("\n").append(strategy);
         }
         String date = formatDate(item.signalDate());
         String score = formatScore(item.score());
         String reasons = formatReasons(item.reasonCodes());
-        block.append("\n<b>Date:</b> ").append(date).append(" · <b>Score:</b> ").append(score)
-                .append("\n<b>Reasons:</b>").append(reasons);
+        block.append("\n<b>Date:</b> ")
+                .append(date)
+                .append(" · <b>Score:</b> ")
+                .append(score)
+                .append("\n<b>Reasons:</b>")
+                .append(reasons);
         return block.toString();
     }
 
     private static String digestFooter(
             int shown, int total, Instant instant, ZoneId zone, int pageNumber, int pageCount) {
         int omitted = Math.max(0, total - shown);
-        String count = "Page " + Math.max(1, pageNumber) + "/" + Math.max(1, pageCount)
-                + " · " + shown + " on this page · " + total + " total"
-                + (omitted == 0 ? "" : " · " + omitted + " on other pages");
-        String time = instant == null ? null
-                : DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH).withZone(zone).format(instant);
+        String count =
+                "Page "
+                        + Math.max(1, pageNumber)
+                        + "/"
+                        + Math.max(1, pageCount)
+                        + " · "
+                        + shown
+                        + " on this page · "
+                        + total
+                        + " total"
+                        + (omitted == 0 ? "" : " · " + omitted + " on other pages");
+        String time =
+                instant == null
+                        ? null
+                        : DateTimeFormatter.ofPattern("HH:mm z", Locale.ENGLISH)
+                                .withZone(zone)
+                                .format(instant);
         return "<i>" + count + (time == null ? "" : " · Updated " + time) + "</i>";
     }
 
-    private static int joinedLength(String header, List<String> blocks, String candidate, String footer, String suppression) {
+    private static int joinedLength(
+            String header,
+            List<String> blocks,
+            String candidate,
+            String footer,
+            String suppression) {
         int length = header.length() + NEW_BLOCK.length() + footer.length();
         for (String block : blocks) {
             length += NEW_BLOCK.length() + block.length();
@@ -543,8 +656,7 @@ public final class TelegramRendering {
         return length;
     }
 
-    private record SignalStyle(String marker, String label) {
-    }
+    private record SignalStyle(String marker, String label) {}
 
     private static String escapedBound(String value, int maxCodePoints) {
         String bounded = bound(value, maxCodePoints, null);

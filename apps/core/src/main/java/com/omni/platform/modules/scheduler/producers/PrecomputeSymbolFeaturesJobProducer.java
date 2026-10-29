@@ -1,29 +1,28 @@
 package com.omni.platform.modules.scheduler.producers;
 
 import java.time.Instant;
-import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.SectorWaveConfig;
-import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.expansion.WorkExpansion;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.messaging.SectorWaveSymbolFeatureJobMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
 import com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.executions.WorkIdentity;
 import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
-
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
@@ -71,13 +70,19 @@ public class PrecomputeSymbolFeaturesJobProducer extends JobProducer {
         int sectorLevel = config.filters().sectorLevel();
 
         List<SymbolKeyProjection> symbols =
-                context != null
-                        ? context.symbols(
-                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
-                                sectorLevel)
-                        : symbolRepository.findBySectorCodesAndLevel(
-                                sectorCodes.isEmpty() ? null : sectorCodes.toArray(new String[0]),
-                                sectorLevel);
+                WorkExpansion.selectSymbols(
+                        job,
+                        context != null
+                                ? context.symbols(
+                                        sectorCodes.isEmpty()
+                                                ? null
+                                                : sectorCodes.toArray(new String[0]),
+                                        sectorLevel)
+                                : symbolRepository.findBySectorCodesAndLevel(
+                                        sectorCodes.isEmpty()
+                                                ? null
+                                                : sectorCodes.toArray(new String[0]),
+                                        sectorLevel));
 
         log.info(
                 "Precomputing symbol features for {} symbols sectorCodes={} sectorLevel={} timeframe={} jobId={} executionId={}",

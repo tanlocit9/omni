@@ -43,9 +43,12 @@ from py_common.storage.date_contracts import (
     normalize_date_contracts,
 )
 from py_common.storage.exceptions import (
+    ManifestInvalidError,
     ParquetDecodeError,
     StorageObjectNotFoundError,
 )
+from py_common.storage.global_metadata import GlobalPartitionMetadata
+from py_common.storage.manifest import DatasetInput, calculate_data_version
 from py_common.storage.ports import (
     CopyableStorage,
     DeletableStorage,
@@ -194,6 +197,26 @@ class ParquetStorage:
                 cause=exc.cause,
                 object_name=f"{self._bucket}/{object_name}",
             ) from exc.cause
+
+    async def read_bound_dataframe(
+        self, dataset: str, manifest: GlobalPartitionMetadata, expected_version: str
+    ) -> pd.DataFrame:
+        """Validate the exact bytes decoded against an execution's approved version."""
+        if manifest.status != "READY" or manifest.dataVersion != expected_version:
+            raise ManifestInvalidError("Current metadata differs from approved input version")
+        data = await self._readable.read_bytes(self._bucket, manifest.path)
+        checksum = "sha256:" + hashlib.sha256(data).hexdigest()
+        version = calculate_data_version(
+            dataset,
+            {key: str(value).lower() for key, value in manifest.values.items()},
+            manifest.schemaHash,
+            [(manifest.path, checksum)],
+            inputs=[DatasetInput(item.dataset, item.partition, item.dataVersion)
+                    for item in manifest.inputs],
+        )
+        if version != expected_version:
+            raise ManifestInvalidError("Parquet bytes differ from approved input version")
+        return await asyncio.to_thread(ParquetCodec.decode, data)
 
     async def read_optional_dataframe(self, object_name: str) -> pd.DataFrame | None:
         """Download and deserialize a Parquet object, returning ``None`` if absent.

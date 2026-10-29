@@ -19,9 +19,11 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
 
     List<JobExecutionHistory> findAllByParentLogId(UUID parentLogId);
 
-    Optional<JobExecutionHistory> findFirstByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(UUID jobId);
+    Optional<JobExecutionHistory> findFirstByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(
+            UUID jobId);
 
-    List<JobExecutionHistory> findTop20ByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(UUID jobId);
+    List<JobExecutionHistory> findTop20ByJob_IdAndParentLogIdIsNullOrderByTriggeredAtDesc(
+            UUID jobId);
 
     /**
      * Loads a job execution row with a database write lock.
@@ -38,10 +40,13 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
     @Query("select history from JobExecutionHistory history where history.id = :id")
     Optional<JobExecutionHistory> findByIdForUpdate(@Param("id") UUID id);
 
-    @Query("select history from JobExecutionHistory history join fetch history.job where history.id = :id")
+    @Query(
+            "select history from JobExecutionHistory history join fetch history.job where history.id = :id")
     Optional<JobExecutionHistory> findByIdWithJob(@Param("id") UUID id);
 
-    @Query(value = """
+    @Query(
+            value =
+                    """
             SELECT new_offset FROM job_execution_histories
             WHERE job_id = :jobId
             AND meta_json ->> 'workType' = 'SYMBOL'
@@ -49,7 +54,7 @@ public interface JobExecutionHistoryRepository extends BaseRepository<JobExecuti
             AND new_offset IS NOT NULL
             ORDER BY finished_at DESC
             LIMIT 1
-            """, nativeQuery = true)
+            """,
+            nativeQuery = true)
     Optional<String> findLastOffset(@Param("jobId") UUID jobId, @Param("workKey") String workKey);
-
 }

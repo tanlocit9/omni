@@ -17,5 +17,5 @@ public record IndicatorJobMessage(
         String timeframe,
         String indicatorSource,
         List<String> indicators,
-        Map<String, Object> metadata) implements JobMessage {
-}
+        Map<String, Object> metadata)
+        implements JobMessage {}

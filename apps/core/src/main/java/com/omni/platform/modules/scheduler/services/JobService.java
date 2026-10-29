@@ -8,14 +8,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import java.util.Set;
 import java.util.UUID;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.scheduling.support.CronExpression;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.omni.platform.modules.notifications.events.OperationalNotificationEvent;
 import com.omni.platform.modules.notifications.events.SignalDigestNotificationEvent;
@@ -23,8 +18,8 @@ import com.omni.platform.modules.notifications.services.NotificationOutboxServic
 import com.omni.platform.modules.notifications.templates.SignalNotificationTemplate;
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
-import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus;
+import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
 import com.omni.platform.modules.scheduler.messaging.JobStatusMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.notifications.JobNotificationContext;
@@ -34,9 +29,14 @@ import com.omni.platform.modules.scheduler.repositories.JobExecutionHistoryRepos
 import com.omni.platform.modules.scheduler.repositories.SchedulerClaim;
 import com.omni.platform.shared.executions.WorkIdentity;
 import com.omni.platform.shared.utils.MetadataUtils;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.support.CronExpression;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Coordinates scheduler job execution state transitions and job-level
@@ -162,6 +162,19 @@ public class JobService {
     public void enqueueDispatch(
             JobExecutionHistory execution, String topic, List<KafkaMessage> messages, Instant now) {
         schedulerOutboxService.enqueue(execution, topic, messages, now);
+    }
+
+    public void snapshotExpandedWork(
+            UUID executionId, Map<String, Object> snapshot, String source) {
+        var execution = jobExecutionHistoryRepository.findById(executionId).orElseThrow();
+        Map<String, Object> meta =
+                new LinkedHashMap<>(
+                        execution.getMetaJson() == null ? Map.of() : execution.getMetaJson());
+        meta.put("workExpansion", snapshot);
+        meta.put("workBusinessDate", snapshot.get("businessDate"));
+        meta.put("workIdentity", snapshot.get("atomicWorkId"));
+        execution.setUsedSource(JobDefinition.DataSource.valueOf(source));
+        execution.setMetaJson(meta);
     }
 
     public void releaseClaim(SchedulerClaim claim) {
@@ -618,6 +631,19 @@ public class JobService {
         MetadataUtils.putIfPresent(meta, "blockedCount", blockedCount);
         MetadataUtils.putIfPresent(meta, "pendingCount", pendingCount);
         MetadataUtils.putIfPresent(meta, "runningCount", runningCount);
+        if (parent.getJob().getJobType() == JobType.SYNC_METADATA
+                && parentStatus == JobStatus.SUCCESS
+                && children.stream().anyMatch(child -> child.getMetaJson() != null
+                        && "PARTIAL_SUCCESS".equals(String.valueOf(child.getMetaJson().get("result"))))) {
+            long skipped = children.stream().map(JobExecutionHistory::getMetaJson)
+                    .filter(Objects::nonNull).mapToLong(values -> {
+                        try { return Math.max(0, Long.parseLong(String.valueOf(values.getOrDefault("objectsSkipped", 0)))); }
+                        catch (NumberFormatException ignored) { return 0; }
+                    }).sum();
+            meta.put("result", "PARTIAL_SUCCESS");
+            meta.put("objectsSkipped", skipped);
+            meta.put("warning", skipped + " skipped object(s)");
+        }
         parent.setMetaJson(meta);
 
         log.info(
@@ -670,7 +696,20 @@ public class JobService {
             JobExecutionHistory history, JobStatusMessage response) {
         Map<String, Object> meta = new HashMap<>();
         putAllAsStrings(meta, history.getMetaJson());
-        putAllAsStrings(meta, response.metaJson());
+        Map<String, Object> statusMetadata =
+                new LinkedHashMap<>(response.metaJson() == null ? Map.of() : response.metaJson());
+        for (String key :
+                List.of(
+                        "businessDate",
+                        "workBusinessDate",
+                        "workIdentity",
+                        "workExpansion",
+                        "approvedInputs",
+                        "acceptedExpansion",
+                        "expandedWorkIds")) {
+            if (meta.containsKey(key) || key.equals("approvedInputs")) statusMetadata.remove(key);
+        }
+        putAllAsStrings(meta, statusMetadata);
         MetadataUtils.putIfPresent(meta, "workType", response.workType().name());
         MetadataUtils.putIfPresent(meta, "workKey", response.workKey());
         MetadataUtils.putIfPresent(meta, "jobDefinitionId", response.jobDefinitionId());
@@ -843,7 +882,12 @@ public class JobService {
             return;
         }
 
-        source.forEach((key, value) -> MetadataUtils.putIfPresent(target, key, value));
+        source.forEach(
+                (key, value) -> {
+                    if (Set.of("acceptedExpansion", "expandedWorkIds", "workExpansion", "approvedInputs")
+                            .contains(key)) target.put(key, value);
+                    else MetadataUtils.putIfPresent(target, key, value);
+                });
     }
 
     private void updateNextRun(JobDefinition job, Instant now) {

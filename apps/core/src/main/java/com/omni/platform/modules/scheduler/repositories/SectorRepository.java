@@ -16,15 +16,18 @@ public interface SectorRepository extends BaseRepository<Sector> {
 
     Optional<Sector> findByCode(String code);
 
-    Optional<Sector> findByTaxonomyAndTaxonomyLevelAndSourceCode(String taxonomy, Integer taxonomyLevel,
-            String sourceCode);
+    Optional<Sector> findByTaxonomyAndTaxonomyLevelAndSourceCode(
+            String taxonomy, Integer taxonomyLevel, String sourceCode);
 
     boolean existsByCode(String code);
 
     long countByIsActiveTrue();
 
     @Modifying
-    @Query(nativeQuery = true, value = """
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
             INSERT INTO sectors (code, name_vi, name_en, taxonomy, taxonomy_level, source_code, is_active, meta_json)
             SELECT
                 data.code,
@@ -53,7 +56,8 @@ public interface SectorRepository extends BaseRepository<Sector> {
                 is_active = true,
                 meta_json = COALESCE(sectors.meta_json, '{}'::jsonb) || COALESCE(EXCLUDED.meta_json, '{}'::jsonb)
             """)
-    void upsertBatch(@Param("codes") String[] codes,
+    void upsertBatch(
+            @Param("codes") String[] codes,
             @Param("nameVis") String[] nameVis,
             @Param("nameEns") String[] nameEns,
             @Param("taxonomies") String[] taxonomies,
@@ -61,7 +65,10 @@ public interface SectorRepository extends BaseRepository<Sector> {
             @Param("sourceCodes") String[] sourceCodes,
             @Param("metaJsons") String[] metaJsons);
 
-    @Query(nativeQuery = true, value = """
+    @Query(
+            nativeQuery = true,
+            value =
+                    """
             SELECT
                 taxonomy AS taxonomy,
                 taxonomy_level AS level,
@@ -74,6 +81,5 @@ public interface SectorRepository extends BaseRepository<Sector> {
             ORDER BY code
             """)
     java.util.List<SectorMappingProjection> findActiveMappings(
-            @Param("taxonomy") String taxonomy,
-            @Param("level") Integer level);
+            @Param("taxonomy") String taxonomy, @Param("level") Integer level);
 }

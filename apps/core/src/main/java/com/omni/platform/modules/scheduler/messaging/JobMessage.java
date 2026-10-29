@@ -5,11 +5,20 @@ import java.util.UUID;
 
 import com.omni.platform.shared.executions.WorkType;
 
-public sealed interface JobMessage permits SymbolJobMessage, SyncSymbolsJobMessage, IndicatorJobMessage, SignalJobMessage,
-        SignalEvaluationJobMessage, SectorWaveSymbolFeatureJobMessage, SectorWaveSectorFeatureJobMessage,
-        SectorRotationBacktestJobMessage, SectorTransitionAnalyzeJobMessage,
-        SectorTransitionOutcomeEvaluationJobMessage, IntradayEodJobMessage,
-        SyncMetadataJobMessage {
+public sealed interface JobMessage
+        permits SymbolJobMessage,
+                SyncSymbolsJobMessage,
+                IndicatorJobMessage,
+                SignalJobMessage,
+                SignalEvaluationJobMessage,
+                SectorWaveSymbolFeatureJobMessage,
+                SectorWaveSectorFeatureJobMessage,
+                SectorRotationBacktestJobMessage,
+                SectorTransitionAnalyzeJobMessage,
+                SectorTransitionOutcomeEvaluationJobMessage,
+                IntradayEodJobMessage,
+                SyncMetadataJobMessage,
+                ExpandedJobMessage {
     UUID jobDefinitionId();
 
     UUID executionId();

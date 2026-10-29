@@ -2,7 +2,6 @@ package com.omni.platform.modules.scheduler.producers;
 
 import java.time.DayOfWeek;
 import java.time.Instant;
-import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -11,21 +10,22 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
-import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
+import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobExecutionHistory;
+import com.omni.platform.modules.scheduler.expansion.WorkExpansion;
 import com.omni.platform.modules.scheduler.messaging.IntradayEodJobMessage;
 import com.omni.platform.modules.scheduler.messaging.KafkaMessage;
 import com.omni.platform.modules.scheduler.repositories.SymbolRepository;
+import com.omni.platform.modules.scheduler.runs.JobRunWorkContext;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.executions.WorkIdentity;
 import com.omni.platform.shared.executions.WorkType;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SyncIntradayEodJobProducer extends JobProducer {
@@ -65,16 +65,23 @@ public class SyncIntradayEodJobProducer extends JobProducer {
             JobDefinition job, JobExecutionHistory parent, Instant now, JobRunWorkContext context) {
         Map<String, Object> jobConfig =
                 job.getConfigJson() == null ? Map.of() : job.getConfigJson();
-        List<LocalDate> tradingDates = requestedTradingDates(parent, now);
+        List<LocalDate> tradingDates =
+                parent.getMetaJson() != null && parent.getMetaJson().get("workBusinessDate") != null
+                        ? List.of(WorkExpansion.workDay(parent, now))
+                        : requestedTradingDates(parent, now);
 
-        return configuredExchanges(jobConfig).stream()
-                .flatMap(
-                        exchange ->
-                                (context == null
-                                                ? symbolRepository
-                                                        .findAllActiveSymbolKeysByExchange(exchange)
-                                                : context.symbolsByExchange(exchange))
-                                        .stream())
+        var candidates =
+                configuredExchanges(jobConfig).stream()
+                        .flatMap(
+                                exchange ->
+                                        (context == null
+                                                        ? symbolRepository
+                                                                .findAllActiveSymbolKeysByExchange(
+                                                                        exchange)
+                                                        : context.symbolsByExchange(exchange))
+                                                .stream())
+                        .toList();
+        return WorkExpansion.selectSymbols(job, candidates).stream()
                 .flatMap(
                         symbol ->
                                 tradingDates.stream()

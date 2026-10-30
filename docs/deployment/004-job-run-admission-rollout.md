@@ -1,5 +1,16 @@
 # JobRun Admission Rollout and Rollback
 
+Console diagnostic follow-up (source only): deploy matching Platform/Console for
+Work Operations and require V18. Existing trusted proxy must strip client identity
+and inject authenticated X-Omni-User; no new public route. Missing schema/timeouts
+are unavailable (503), not empty healthy output. No scheduler/graph/consolidation
+activation or I10 readiness cutover is part of this change. See
+[bounded read-only API and pending local gates](../../database/diagnostics/p14/v2/README.md).
+
+
+Planned P14-I10 requires additive schema/topic provisioning, paired worker/Platform deployment, metadata backfill and shadow comparison before coordinated PostgreSQL reader cutover. Keep legacy readiness authoritative until all affected gates pass. Retain exact-byte safety and resolve stale writer ownership; do not roll back to stale JSON after DB-only registrations. Watchdog defaults: scan 2 minutes, timeout 30 minutes from publication; reconciliation 12 hours. No rollout is performed here.
+See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes change evaluationDate semantics to as-of day D while saved prediction origins remain T. Deploy matching Analyzer workers after draining old consumers; no message field, migration or activation flag changes. Frozen prediction/outcome rows cannot be safely handed back to the former upsert implementation. No retained rollout or verification ran.
 See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 

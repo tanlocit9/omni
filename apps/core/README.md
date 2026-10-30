@@ -1,5 +1,15 @@
 # Platform / Core Service
 
+## P14 Work Operations diagnostics — source only
+
+Add authenticated GET /api/v1/jobs/atomic-work/snapshot, /published-unfinished and
+/work for Console. Shared packaged SQL also powers psql diagnostics; fixed named
+parameters, <=7-day request windows, bounded pages and read-only repeatable-read
+transactions with query/lock timeouts. Missing schema/query failures return safe 503,
+invalid input 400. No schema migration, scheduler state/flags or Kafka contract change.
+See [full contract and NOT RUN handoff](../../database/diagnostics/p14/v2/README.md).
+
+
 I9 entry correction (source only): strategy-qualified selection preserves
 ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
 standard entries: seven. Partial timeframe/exchange/request coverage keeps a

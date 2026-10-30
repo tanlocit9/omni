@@ -1,5 +1,8 @@
 # Data Lake
 
+Planned P14-I10 replaces MinIO JSON readiness with Platform-owned PostgreSQL registrations after verified reader cutover. Parquet data/paths/analytical ownership stay unchanged. Producers publish metadata arrays after validated writes; exact coverage and byte/version checks remain required. SYNC_METADATA becomes 12-hour reconciliation; legacy readiness remains active until migration, and database fencing alone does not protect mutable MinIO objects.
+See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Sector Transition as-of correction (source, verification pending): outcomes work day
 D scans historical prediction origins T < D and appends only mature, missing rows.
 The dataset keeps evaluation_date=T and resolved_date<=D; paths/keys/columns stay.

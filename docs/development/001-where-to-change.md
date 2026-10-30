@@ -1,5 +1,12 @@
 # Where to Change
 
+For P14 Work Operations, inspect Platform AtomicWorkDiagnosticsService,
+GraphWorkOperationsController and src/main/resources/diagnostics/p14, then Console
+src/operations and App navigation. psql entrypoints include the same packaged SQL.
+No scheduler repair or READY mutation is part of this surface. See
+[ownership, API and local gates](../../database/diagnostics/p14/v2/README.md).
+
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled

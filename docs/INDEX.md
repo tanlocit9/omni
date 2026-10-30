@@ -1,5 +1,12 @@
 # Numbered Documentation Registry
 
+[P14 review / v2 SQL and Console dashboard](../database/diagnostics/p14/v2/README.md)
+are source artifacts outside the numbered docs registry; I8/I9 verification and
+I10 implementation remain open. See the linked review for source findings and limits.
+
+P14-I10 is planned/pending after I9: Kafka output-registration arrays -> Platform PostgreSQL readiness, reader cutover, reconciliation and watchdog. I8/I9 remain verification_pending; no I10 implementation is claimed.
+See [I10 scope and acceptance](plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Plan 030 I9.a/b/c source is delivered for owner-local review: I8 and I9 remain
 `verification_pending`. Opt-in shared atomic JobRuns and reversible preset
 consolidation are documented in the
@@ -75,7 +82,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan       | Group E / Phase 11 / P11-I1-P11-I5 |
 | plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan       | Group F / Phase 12 / P12-I1-P12-I4 |
 | plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Active Phase 13 supporting plan            | Group G / Phase 13 / P13-I1-P13-I4 |
-| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I7           |
+| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I10 (I6 superseded)           |
 
 ## Proposed, Historical, and Compatibility Plans
 

@@ -1,5 +1,370 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## Whole-P14 review and diagnostics preparation — 2026-10-30
+
+Owner requested review of delivered and planned P14 plus SQL/dashboard preparation.
+See [review and findings](../../database/diagnostics/p14/v2/review.md),
+[SELECT-only v2 SQL](../../database/diagnostics/p14/v2/README.md) and
+[offline dashboard](../../database/diagnostics/p14/v2/dashboard.html).
+New source-derived P1: GraphScheduledEntries only proves restricted coverage for
+SYNC_SIGNALS; a narrow non-signal descendant can suppress uncovered scheduled work.
+No runtime fix or new regression execution is included. Existing published-unfinished
+reuse and mutable-output exclusion gaps remain visible; indicator byte binding is
+present and the old failed overlap evidence does not verify current HEAD.
+
+Prepared v2 observes request pages, distinct attempts, shared owners/upstreams,
+publication/leases, identity and definition inventory without changing v1. Dashboard
+is now integrated into Console Work Operations through authenticated bounded GET APIs
+after the owner selected Console. The offline HTML remains optional. Canonical SQL
+is packaged in Platform and shared with psql wrappers. No browser DB connection or
+write controls; worker processing/READY/I10 registration/query traces stay unknown
+or planned. No schema, topic, configuration or default flag change. Source
+review and artifact preparation do not reopen I5 or create a new registry increment.
+I8/I9 remain verification_pending; I10 pending; I6 superseded. No build/test/lint/
+format, SQL/browser/performance checks ran. Added validation/PostgreSQL/HTTP/Console
+regression source is NOT RUN. Graph tools unavailable. Detailed
+cross-service impact, limits and owner-local handoff are in the linked review.
+
+
+## P14-I10 — Output metadata registration and execution watchdog
+
+Status: **pending**, depends on P14-I9. Owner requested this plan on 2026-10-30;
+no I10 source, schema, topic, consumer, rollout or verification is delivered here.
+I8/I9 remain verification_pending. I10.a/b/c below are internal checkpoints, not
+additional registry IDs. P12 writer/concurrency remains deferred.
+Architecture decision: [ADR-008](../adr/008-postgres-output-readiness.md).
+
+### Goal
+
+Replace object-store readiness discovery with Platform-owned PostgreSQL output
+registrations. Producers publish a new metadata topic after durable output writes;
+a new Platform consumer accepts bounded arrays. Preserve work identity and make the
+contract reusable by the later writer without giving workers direct database access.
+
+### Outcome
+
+Readers/admission query exact work/date coverage in PostgreSQL. Normal publication
+no longer waits for periodic SYNC_METADATA. A 12-hour reconciliation job repairs
+missing registrations, while a watchdog scans every 2 minutes (configurable within
+1–5 minutes) for published executions without terminal status after 30 minutes.
+Timeout is an execution outcome, not proof that a worker has stopped writing.
+
+### Dataset Outputs
+
+No analytical dataset output. Existing Parquet paths, analytical ownership, schemas
+and date types remain unchanged; operational readiness ownership moves to Platform.
+
+### Metadata Outputs
+
+Add forward migrations for durable registration events, per-output versions and
+work/date coverage, plus pending terminal-status correlation. Use rows indexed by
+logical dataset/partition, workKey, businessDate and parameter identity, not one
+unbounded date-array cell. A request for a range becomes an exact required-date/work
+set lookup; min/max dates alone never prove complete coverage. Keep schema, row
+count, checksum/fingerprint, exact input lineage and current-version references
+required by existing discovery, admission and Query Service behavior.
+
+Output coverage dates describe actual data, not automatically the work's date.
+Sector outcomes work day D can register origin dates T < D. Historical/object-wide
+coverage is not inferred from a single successful atomic work. Missing output and
+valid-empty output are distinct; valid-empty completion carries an explicit reason
+and grants no invented dataset coverage.
+
+### Algorithm Feature Outputs
+
+No direct algorithm feature output.
+
+### Algorithms Unlocked
+
+Existing algorithms gain immediate, queryable output availability and exact input
+lineage after registration. No new analytical formula or strategy is introduced.
+
+### Contract Impact
+
+- **Kafka/service-to-service protobuf:** add a versioned output-registration contract
+  under libs/contracts/proto and a new logical metadata-updates topic/group in shared
+  topic configuration. Generate boundary types through the contracts project only.
+  Define the paired Java/Python JSON adapters and array validation for the active
+  JSON wire; adding schema does not authorize migrating existing topics to Proto3.
+  The literal topic/group names are frozen during I10.a, not activated by this plan.
+- **Object-storage JSON manifest:** after a verified cutover, PostgreSQL replaces
+  _metadata/metadata.json as readiness authority. Retain the legacy manifest during
+  shadow comparison; stop its readiness reads/writes only after all readers migrate.
+  This is the scoped ADR-008 exception to the existing JSON-manifest baseline.
+- **Storage path/dataset ownership:** no new physical paths or analytical writer.
+  Metadata events use logical dataset/partition references; approved storage builders
+  derive paths. Never send arbitrary object paths/buckets as business-routing fields.
+- **Public Java/Python API:** shared publisher/read-provider ports and a bounded,
+  authenticated Platform metadata lookup API change. Python readers, including Query
+  Service and Analyzer, use that API/provider, never Platform DB credentials. Preserve
+  Console's discovery/schema/partition/query capabilities through compatible DTOs.
+- **Configuration/environment:** topic/group, payload/batch limits, shadow/cutover
+  flags, API authentication/timeouts, reconciliation schedule and watchdog intervals.
+  Keep disabled by default until acceptance; never add worker PostgreSQL credentials.
+
+### I10.a — Registration topic, array consumer and durable completion
+
+1. After writing and validating all required Parquet outputs, Ingestor/Analyzer emit
+   an immutable registration event. Envelope: schemaVersion, eventId and a bounded
+   registrations array. Each item binds executionId/atomicAttemptId, unchanged atomicWorkId,
+   JobType/workType/workKey/work businessDate/parameters identity and a bounded outputs
+   array. Each output has logical dataset/partition, actual coverage dates, version/
+   fingerprint, schema/statistics and exact approved input lineage. Include a complete
+   required-output declaration or explicit valid-empty reason so a partial array cannot
+   complete a work. No output bytes or physical paths travel on this topic.
+2. Separate event/item idempotency from atomicWorkId: repeated refresh attempts have
+   distinct execution attribution. Freeze canonical event/item identities, ordering key,
+   size/count limits and conflict semantics in shared fixtures. Reject changed content
+   under the same immutable identity. Partition by logical output ownership where
+   possible; use DB version/attempt guards for overlap across keys or multi-output events.
+3. A new Platform consumer validates every item against persisted execution/work and
+   output ownership; validates the complete record before mutation and applies it in
+   one bounded transaction. Store inbox identity, output versions and coverage together.
+   Duplicate identical events are no-ops; stale/conflicting events cannot replace a newer
+   READY pointer. Batch acceptance never silently drops an invalid member. Pause/report
+   poison records and retry DB failures without committing past the failing partition
+   offset. Unrelated partitions may progress; no new automatic DLT/discard policy.
+4. Keep the existing terminal-status topic separate. Producers acknowledge registration
+   publication before terminal SUCCESS/source-command completion. Kafka ACK means durable
+   transport, not DB registration. Platform correlates both streams durably: SUCCESS
+   waits for the complete registration set (or explicit valid-empty declaration) before
+   authoritative completion. Either arrival order, duplicates, restart and replay must
+   work. Preserve existing non-migrated/legacy status behavior behind explicit rollout
+   boundaries; missing registration cannot silently fall back to SUCCESS on migrated work.
+5. Publication order is data write -> validation -> acknowledged registration -> terminal
+   status, with Platform completion gated on committed metadata. Storage-success/event-
+   failure leaves no new READY; command replay/reconciliation recovers the registration.
+   Event-success/status-failure remains replayable without duplicate output mutation.
+   Metadata success/failure is independent from the prior READY version: failure never
+   clears the last validated pointer or treats a broken replacement as readable.
+
+### I10.b — PostgreSQL readiness, reader cutover and reconciliation
+
+1. Implement a bounded metadata read provider/API; migrate DependencyRegistry/admission,
+   exact approved-input binding, worker input validation, Query Service and Console
+   discovery. Keep byte-fingerprint validation on actual reads, including indicators.
+   Dataset READY and work SUCCESS remain different claims.
+2. Backfill validated existing metadata/Parquet, compare DB and manifest reads in shadow,
+   then cut over all readers together. Database/API failure fails closed; no mixed-source
+   choice of the newest or most convenient READY. Snapshot/rollback recovery must retain
+   registrations committed after cutover; stale JSON is not a safe automatic fallback.
+3. Repurpose SYNC_METADATA as 12-hour reconciliation/backfill, emitting the same events
+   rather than writing canonical readiness JSON after cutover. Normal output registration
+   is immediate. Scope scans to affected dataset/partitions; require no relevant pending
+   or running mutator and recheck an output generation/ownership fence at commit. An
+   unlocked idle check followed by a scan has a race and is insufficient.
+4. Timed-out workers may still write. Quarantine unresolved output ownership, reject
+   late-attempt pointer replacement and retain operator diagnostics. DB fencing alone
+   cannot stop MinIO mutation: cutover requires existing exact-byte checks plus a proven
+   write-exclusion/version-addressability protocol for affected mutable outputs. If that
+   protocol is unavailable, keep the affected reader on the guarded old route and the
+   cutover gate open; never claim two matching scans prove writer termination.
+5. Recovery scans validate actual dates/schema/bytes/lineage; they cannot invent execution
+   ownership or promote an unproven orphan. Preserve manual recovery for uncertain output.
+
+### I10.c — Timeout watchdog and query diagnostics
+
+Bounded, indexed, multi-instance-safe scans select actual child executions whose outbox
+is PUBLISHED, terminal status is absent and published_at is older than 30 minutes.
+Do not time out unpublished dependency WAITING, infer start from preparation's RUNNING,
+or extend the deadline through mutable updated_at. Transactionally recheck status and
+apply FAILED/EXECUTION_TIMEOUT through normal parent/request/dependency aggregation.
+A received SUCCESS awaiting registration has a separate visible completion-pending reason
+and retains the same bounded published deadline; metadata lag must not wait forever.
+
+Exclude timed-out attempts from in-flight reuse; retries create a new attempt, never
+rebind frozen dependents. Late status/metadata cannot reopen FAILED or overwrite a
+newer attempt's pointer. Do not auto-rerun timed-out workers before write ownership is
+safe. Query diagnostics expose publish age, pending registration/status, output pointers,
+attempt/request owners, consumer lag and unresolved writer ownership. Watchdog cadence
+is 2 minutes by default, timeout 30 minutes; reconciliation is every 12 hours. Make units,
+UTC persistence, timezone for schedule and rollout settings explicit in implementation.
+
+### End-to-end work identity and reserved query tracing
+
+Owner clarification (2026-10-30): work identity must survive every boundary from
+accepted atomic expansion through outbox, worker, future writer, registration,
+Platform persistence and output-version provenance to queries consuming that output.
+Prepare the trace extension contract now; **do not implement tracing in I10**. No
+tracer SDK, span collection/export, query schema migration or new telemetry service
+is authorized by this plan update. I10 registration must preserve provenance; future
+trace instrumentation/persistence remains separately scoped, not an I10 completion gate.
+
+#### Canonical names and current-source mapping
+
+| Meaning | Canonical boundary name | Existing source/storage and planned handling |
+| --- | --- | --- |
+| Immutable atomic work | `atomicWorkId` | I8 JSON/Pydantic alias; Python attribute `atomic_work_id`. Platform snapshot stores the same value as `meta_json.workIdentity` and `meta_json.workExpansion.atomicWorkId`; status helper carries `metaJson.atomicWorkId`. Treat `workIdentity` as the existing persisted alias, not another ID. At I10 boundaries normalize to `atomicWorkId`, compare all present aliases and reject mismatch; do not rewrite old snapshots/triggers. |
+| Atomic attempt | `atomicAttemptId` | Existing graph parent `meta_json.atomicAttemptId` maps to `atomic_work_attempts.id`. Resolve child -> attempt through persisted execution membership; do not assume every current command carries it. Replace the generic proposed I10 `attemptId` with this exact name. |
+| Work day | `businessDate` | Atomic envelope day; persisted/status `workBusinessDate` is the same day. Parent `businessDate` can be a different preparation anchor; output coverage may contain historical T. Never overwrite these meanings. |
+| Executions | `executionId`, `parentExecutionId`, `jobRunId` | Existing execution/run fields; preserve each separately from work hash and attempt. |
+| Accepted graph request | `graphRequestId` | Existing requester metadata; do not overload HTTP `requestId`. Shared work can have multiple graph-request owners. |
+| Diagnostic flow/request | `correlationId`, `requestId` | Plan 024 names; HTTP X-Correlation-ID/X-Request-ID and Kafka x-correlation-id/x-request-id. Diagnostic only, never ownership/dedup/authorization. |
+| Query | `queryId` | Existing Query Service public alias; Python/SQLite/audit use `query_id`. Do not create `queryExecutionId` or equate queryId with a work/execution ID. |
+| Version | `dataVersion` | Existing logical output/input fingerprint; current Query Service persists `data_versions`. Work identity alone cannot identify the exact bytes read. |
+
+The canonical work tuple remains jobType/workType/workKey/businessDate/effective
+parameters. Trace context, query IDs, registration IDs, attempt IDs, cron and definition
+IDs never enter that hash. Re-execution keeps atomicWorkId but gets a new execution/
+atomicAttemptId; transport replay preserves its original attempt. A business-changing
+parameter/date/scope creates a different atomicWorkId. Every registration array member
+and every future writer intent retains its own provenance; no batch-level work ID can
+replace per-member IDs. Output versions may combine several works: preserve many-to-many
+provenance with bounded/paged links, not a single last-writer work ID.
+
+#### Reserved trace context and persistence boundary
+
+Reserve an optional diagnostic `traceContext` extension, with W3C `traceparent` and
+`tracestate` transport semantics; future derived diagnostic field names are `traceId`,
+`spanId`, `parentSpanId`. These are not new business-envelope routing fields. Keep them
+out of parameters, work hashes, writeKey, intentId and dataVersion. Do not generate fake
+trace values or require tracing to dispatch/read/complete work. Preserve existing
+correlation/request header names rather than inventing another debug identifier.
+
+`meta_json` is the physical Platform storage column; `metaJson` is the existing wire
+alias and `meta_json` the Python attribute. Future optional persistence may use
+`meta_json.traceContext` (wire `metaJson.traceContext`) with a structured object, while
+correlationId/requestId and existing identity keys keep their established names.
+Current Platform metadata merge stringifies values, so nested typed context preservation,
+reserved-field validation and delayed outbox propagation need an explicit future adapter/
+migration design; a documented JSON key does not mean the current code preserves it.
+Trace context must not overwrite immutable accepted work or approvedInputs.
+
+A shared ancestor or a physical writer batch can serve several request/trace roots.
+Reserve multiple span/provenance links rather than choosing one root and erasing others.
+Future instrumentation propagates through preparation -> outbox -> Kafka consume ->
+compute -> storage -> writer intent/batch -> registration -> Platform upsert/status.
+Replay records additional processing spans linked to the original attempt, while query
+reads start their own trace and link to producer provenance instead of reusing producer
+trace/span IDs. Optional trace absence leaves an explicit unknown, never inferred ancestry.
+
+#### Query-level persistence extension — reserved, not implemented
+
+Prepare a per-query diagnostic snapshot contract in Query Service's durable query/audit
+boundary, keyed by existing queryId, with optional meta_json/traceContext storage when
+implemented later. QueryStore currently uses SQLite and has no meta_json column;
+QueryAuditEvent already has query_id, sql_hash and data_versions. Do not imply these
+currently persist traces or move query history into Platform PostgreSQL in this plan.
+
+Reserve trace linkage at both the query request and the actual read/statement level:
+metadata lookup, version binding, DuckDB execution, storage read and cache hit. Persist
+query -> exact logical inputs/dataVersion -> registration/provenance -> atomicWorkId +
+executionId + atomicAttemptId where known, and upstream version links. Capture the
+versions actually bound/read during the query; never reconstruct provenance later from
+current READY pointers. Multi-dataset/multi-work queries retain all bounded/paged input
+links; cached responses retain the originating data versions/provenance but have a new
+query invocation/context. Distinguish request context from the producing work context.
+
+Future query diagnostics can record operation, timestamps/duration, result/error, cache
+state and sql_hash alongside optional trace/span context. Never persist raw SQL, provider
+secrets, credentials or arbitrary payloads in trace metadata by default. Define retention,
+size limits, authorized lookup and indexed queryId/work/version linkage when activating
+this work; no high-cardinality trace/work/query IDs in metrics labels. Query tracing must
+cover failures/timeouts/cancellation as well as successful reads. Internal metadata SQL
+calls may have operation spans; they do not borrow Query Service queryId unless invoked
+within that actual query context. No query-level runtime collector/store change now.
+
+### Writer reuse and separation
+
+Consumers publish registrations individually or in bounded arrays now. The future
+Plan 027 writer will collect compatible durable write intents, batch physical output
+writes, then publish the same registration arrays carrying each original execution/work
+identity. Platform remains sole metadata DB owner and performs bounded bulk upserts;
+no writer PostgreSQL access, graph expansion or new definition catalog is needed.
+Carry canonical atomicWorkId/atomicAttemptId and optional diagnostic context per item,
+including all producer links when several works share one physical output batch.
+
+Keep atomic work identity, output writeKey, intentId and registration event/item identity
+separate. Buffering is future P12 work; I10 does not implement a writer or RAM-only durable
+handoff. Plan 027 source-after-intent and writer-after-output/status offset boundaries
+must also include acknowledged registration and Platform's metadata completion gate.
+
+### Cross-service impact and required evidence
+
+Graph discovery/impact/change tools are unavailable in this session. The following is
+manual documentation impact reconciliation, not graph output or executable evidence.
+Refresh graph analysis and concrete source/test inventory at implementation.
+
+| Surface | Planned impact / regression obligation |
+| --- | --- |
+| Platform | New array consumer/inbox, bulk metadata transaction/API, READY provider, pending-status correlation, attempt/terminal fences, watchdog, parent/request/dependency aggregation. |
+| Analyzer | Emit complete validated outputs after storage, preserve as-of/output dates, exact-byte approval checks and no-output reasons; no direct DB access. |
+| Ingestor | Same publisher contract for prices/symbols/other outputs; preserve provider retry, data validation and offsets. |
+| Query Service | Replace manifest discovery/READY provider through authenticated API; preserve bounded DuckDB queries, schema/partition browsing and version checks. Reserve queryId-level durable trace/input-provenance snapshots; no tracing implementation or QueryStore schema change in I10. |
+| Console | Retain discovery and data-health behavior; use existing proxy/auth boundaries, no DB credentials or browser-to-Kafka. |
+| Shared contracts/py-common/configs | Versioned envelope, identity alias fixtures, generated boundary types/adapters, shared publisher/read provider, topics/groups and limits. Reserve optional diagnostic traceContext extension without changing hash or requiring tracing; no hand-edited generated code. |
+| Persistence | Forward-only inbox/version/coverage/completion schema, uniqueness, indexes, transaction/concurrency/migration/backfill and rollback evidence; do not change V1–V18. |
+| Operations/tests | Topic provisioning/ACL/retention, consumer lag, poison recovery, failure/restart/rebalance, idle-scan races, 12-hour/2-minute/30-minute schedules and retained-data rollout. |
+| Writer/P12 | Reuse metadata contract after durable batch writes; independent service/concurrency/buffer/intent implementation stays deferred. |
+
+### Repository Guidance Updates
+
+Plan/registry/roadmap, release notes, ADR-008/ADR registry, architecture, Kafka/data-lake/
+database/flow/deployment docs and documentation indexes record planned scope now.
+AGENTS and plan governance retain current manifest rules with a link to the future scoped
+exception; CLAUDE and .roo rules delegate the boundary to canonical guidance. Existing
+service guides, ownership map, analytical flows and historical metadata Plan 003 remain
+current-runtime references: no source, endpoint, output path or owner changes in this
+planning-only patch. At implementation update each directly impacted guide, source field/
+DTO inventory and API contract, plus operational runbooks; do not present planned behavior
+as implemented. No new verification permissions or tooling workflows are introduced.
+
+### Static documentation review — 2026-10-30
+
+Reviewed I10's unique registry ID, reciprocal I9 dependency, mandatory plan sections,
+contract/ADR exception, canonical links, writer reuse and current-versus-planned
+wording. Identity naming was reconciled against AtomicWorkEnvelope/carry_work_status,
+JobService snapshots/status merging, GraphWorkRequestService and QueryStore/audit.
+This identifies existing aliases and missing nested/query trace persistence, not a
+claim of runtime propagation. Trace reservations are aligned with Plan 024
+correlation/header names, existing no-trace MVP scope and deferred P11/P12 status.
+Registry, roadmap, ADR/indexes, field inventory, release notes and directly
+impacted canonical docs agree on pending I10; no runtime/source completion is claimed.
+CLAUDE delegates to AGENTS and needs no duplicate rule. Static review found no remaining
+contradiction in the changed planning scope. Required graph impact/change detection
+remains unavailable; graph-backed synchronization evidence is incomplete and must be
+refreshed at implementation. No executable checks or link checker were run.
+
+### Verification
+
+No checks are run or authorized by this planning change. At implementation, map every
+changed/directly impacted production symbol and acceptance criterion to executed tests;
+require >=80% attributable line and branch coverage of critical components, not aggregate
+suite totals. Cover Java/Python producer-consumer parity, malformed/oversized arrays,
+empty output, immutable duplicate/conflict, overlapping versions/attempts, both stream
+orders, timeout races/late writes, DB/Kafka/storage outages, partial multi-output writes,
+restart/rebalance/offset prefixes, auth, exact date gaps and READY-last failures. Exercise
+real PostgreSQL migration/bulk upsert/locks and retained-data shadow/cutover/rollback.
+Select concrete approved Nx commands from project targets when implementation is scoped.
+Record required checks through tools/check_result.py under P14-I10 and wait for the owner's
+ready conclusion; no fabricated test, coverage, CI, provider or deployment evidence.
+
+### Acceptance Criteria
+
+- [ ] Versioned topic/array contract, paired producers and Platform consumer agree;
+      bounded size/count, idempotency, validation and partition-offset behavior are proven.
+- [ ] Only durable validated outputs grant exact work/date coverage; valid-empty never
+      fabricates READY, and failed replacement retains the last valid version.
+- [ ] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
+      metadata registration or explicit valid-empty, and failures cannot reopen terminal work.
+- [ ] All applicable readers use PostgreSQL via approved boundaries after verified
+      backfill/shadow/cutover; no silent manifest fallback or weakened byte/lineage checks.
+- [ ] Reconciliation runs every 12 hours on safely quiesced affected outputs; timed-out
+      worker ownership and scan/write races cannot promote unproven data.
+- [ ] Watchdog runs every 2 minutes with a 30-minute published deadline, handles concurrent
+      terminal arrival, excludes unpublished WAITING and preserves normal aggregation/retry.
+- [ ] Late workers/status/events cannot corrupt current readiness or substitute attempts;
+      mutable-object safety is proven before each affected reader cuts over.
+- [ ] End-to-end atomicWorkId and per-output provenance retain execution/atomicAttemptId;
+      aliases normalize consistently and batch/multi-work attribution is not lost.
+- [ ] Optional trace/query extension names, durable query snapshot boundary and
+      multi-root linkage are documented; no tracing implementation is required in I10.
+- [ ] Writer can emit the same metadata arrays after future batches; no P12 activation,
+      direct worker DB access, new topology authority or physical-path business routing.
+- [ ] Source/field/test/coverage matrix, migrations, rollout/recovery, cross-service docs
+      and owner-local verification gates are complete before I10 completion.
+
+
 ## Sector Transition outcomes as-of correction — 2026-10-30
 
 Owner approved: an outcomes command on day **D** scans saved predictions from

@@ -1,5 +1,8 @@
 # Plan 024 — MVP Polyglot Correlation and Sync Failure Logging
 
+Future tracing extension, reserved by P14-I10 (2026-10-30): retain existing correlationId/requestId and header names. Canonical work identity is atomicWorkId; graph attempt is atomicAttemptId; query identity is existing queryId. Reserve optional traceContext with W3C traceparent/tracestate, future traceId/spanId/parentSpanId and durable query-level input-version/provenance snapshots. Shared work/batches use multiple links; query traces remain distinct from producer traces. No trace instrumentation, exporter, metadata migration or P11 reactivation is implemented/required here; existing no-trace MVP scope below remains unchanged.
+See [identity and query tracing reservation](030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
+
 ## Current scheduling override — 2026-10-07
 
 This plan is retained design/historical evidence, deferred under [TD-011](../technical-debt/011-deferred-observability-capacity-and-realtime.md). It is not an automatic next phase. The canonical registry preserves implementation/evidence states but requires owner reactivation. Delivery/dependency wording below is historical proposal context, not authorization to start. Correctness/offset/provider risks remain separately eligible focused fixes; do not require a full logging rollout before data-loss remediation.

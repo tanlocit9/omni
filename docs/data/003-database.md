@@ -1,5 +1,18 @@
 # Database
 
+P14 diagnostic source update: Platform and Console share the v2 request/attempt
+read projection via authenticated GETs. No new tables or DB mutation; SQL and API
+apply explicit page/window/time limits. MVCC pages are separate snapshots, counts
+are sample-only and READY/worker timing remain unknown. See
+[API/SQL handoff](../../database/diagnostics/p14/v2/README.md).
+
+
+I10 trace preparation only: meta_json.workIdentity/workExpansion.atomicWorkId map to canonical atomicWorkId; atomicAttemptId reuses existing graph attempt identity. Reserve optional structured meta_json.traceContext without assuming current stringifying merges preserve objects. Query Service query_id/data_versions are separate SQLite state; future per-query trace/provenance storage needs its own explicit extension, not a claimed existing Platform column.
+See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
+
+Planned P14-I10 adds a Platform-owned registration inbox, output version/work-date coverage and completion correlation through forward migrations. A new Kafka array consumer performs bounded transactional upserts; workers never connect directly. PostgreSQL becomes readiness authority only after backfill, shadow comparison and reader cutover. No I10 tables or migrations exist from this plan update.
+See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled

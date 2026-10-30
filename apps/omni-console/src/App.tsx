@@ -5,12 +5,14 @@ import { DatasetExplorer } from './components/DatasetExplorer';
 import { JobsPanel } from './components/JobsPanel';
 import { SqlConsole } from './components/SqlConsole';
 import { DashboardPage } from './dashboard/DashboardPage';
+import { WorkOperations } from './operations/WorkOperations';
 
-type View = 'explorer' | 'sql' | 'jobs' | 'dashboard';
+type View = 'explorer' | 'sql' | 'jobs' | 'dashboard' | 'work';
 
 const navigation: { id: View; label: string }[] = [
   { id: 'dashboard', label: 'Market Dashboard' },
   { id: 'jobs', label: 'Jobs' },
+  { id: 'work', label: 'Work Operations' },
   { id: 'explorer', label: 'Dataset Explorer' },
   { id: 'sql', label: 'SQL Console' },
 ];
@@ -60,6 +62,7 @@ export function App() {
         {view === 'explorer' && <DatasetExplorer onSelect={selectManifest} />}
         {view === 'sql' && <SqlConsole manifest={manifest} />}
         {view === 'jobs' && <JobsPanel />}
+        {view === 'work' && <WorkOperations />}
         {view === 'dashboard' && <DashboardPage />}
       </div>
     </div>

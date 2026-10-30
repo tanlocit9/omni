@@ -37,6 +37,9 @@ write data -> validate -> publish READY manifest last
 ```
 
 Do not add PostgreSQL/Redis only to cache dataset statistics in V1.
+The planned [ADR-008](../adr/008-postgres-output-readiness.md) / P14-I10
+exception moves authoritative readiness to Platform PostgreSQL via Kafka; it is
+not a statistics cache and does not change current runtime before verified cutover.
 
 If none:
 

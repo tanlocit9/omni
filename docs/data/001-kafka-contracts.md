@@ -1,5 +1,11 @@
 # Kafka Contracts
 
+I10 identity/trace reservation: canonical atomicWorkId and atomicAttemptId survive per array member through future writer output registration. Existing persisted workIdentity is an alias of atomicWorkId, not another identifier. Reserve optional diagnostic traceContext/header propagation outside business parameters; keep correlationId/requestId header names and hash semantics. Trace instrumentation stays deferred.
+See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
+
+Planned P14-I10 introduces a separate versioned metadata-registration topic, bounded registrations/output arrays and a new Platform consumer. Preserve execution/attempt/work identity, logical outputs, exact versions/lineage and real coverage dates. Existing status topic stays separate; Platform must tolerate either arrival order and gate successful completion on durable registration. Topic literal/schema/adapters and limits are implementation deliverables, not deployed configuration.
+See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 ## Approved execution input context — 2026-10-30
 
 Platform publishes `metadata.approvedInputs` from the execution's first persisted

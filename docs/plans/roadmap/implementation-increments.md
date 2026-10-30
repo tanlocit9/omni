@@ -1,5 +1,16 @@
 # Dependency-Ordered Implementation Increments
 
+Whole-P14 review (2026-10-30) prepared [v2 SQL/dashboard and findings](../../../database/diagnostics/p14/v2/review.md).
+Non-signal entry coverage needs a fix/regression. Owner-selected Console diagnostics
+adds bounded read-only Platform HTTP/UI source and unexecuted tests; scheduler
+behavior and activation flags are unchanged. No fresh executed checks.
+Registry statuses/dependencies are unchanged; artifacts do not prove I8/I9 acceptance.
+
+I10 identity clarification (2026-10-30): retain atomicWorkId end to end and canonical atomicAttemptId. Reserve optional traceContext and durable queryId-level version/provenance snapshots; tracing implementation is outside I10 acceptance and does not reactivate P11/P12. I10 remains pending.
+
+Owner requested P14-I10 on 2026-10-30: output metadata registration and execution watchdog. Register pending after I9, with internal I10.a/b/c checkpoints; no I8/I9 completion or P12 reactivation. New metadata topic and Platform array consumer are planned, not implemented.
+See [I10 scope and acceptance](../030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Sector Transition outcomes correction — 2026-10-30: Owner-approved outcomes follow-up separates scan day D from prediction origin T, appends mature missing outcomes and preserves stored predictions/facts. Separate source commit; no new increment, verification or activation. I8/I9 remain verification_pending.
 See [source, impact matrix and local handoff](../030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 
@@ -154,7 +165,8 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I6 | Merged into P14-I5 (historical read-model handoff)                 | superseded           | high     | []                    | []                                  | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I7 | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | [P14-I8]                            | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I8 | Unified work expansion                                             | verification_pending | critical | [P14-I7]              | [P14-I9]                            | [apps/core, apps/analyzer, apps/ingestor, libs/py-common, libs/contracts, database, configs, docs]                                        | autonomous        | false                   | null                                      | null                                     |
-| P14-I9 | Graph-driven expansion and definition consolidation                | verification_pending          | critical | [P14-I8]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
+| P14-I9 | Graph-driven expansion and definition consolidation                | verification_pending          | critical | [P14-I8]              | [P14-I10]                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
+| P14-I10 | Output metadata registration and execution watchdog | pending | critical | [P14-I9] | [] | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous | false | null | null |
 
 I7 local completion — 2026-10-25: source-bound gate PASS 8/8, 444 tests /
 67 suites, ten migration/upgrade/concurrency cases and all 31 critical Java
@@ -465,10 +477,10 @@ Each phase file must express its increments with the template in [`templates/inc
 | Plan 024  | P11-I1, P11-I2, P11-I3, P11-I4, P11-I5                                 | Split contract/logging, HTTP, durable persistence, Kafka propagation, and optional deployment into sequential reviewable increments.                                                                                                                          |
 | Plan 027  | P12-I1, P12-I2, P12-I3, P12-I4                                         | Split offset safety, independent-object concurrency, Platform bulk status updates, and standalone Python writer into sequential increments after Phase 11 and the P13-I1 measurement gate.                                                                    |
 | Plan 029  | P13-I1, P13-I2, P13-I3, P13-I4                                         | Split truthful stage/baseline work, Job Operations metrics, manual EOD Data Health scans, and the operator-first fixed dashboard into separate reviewable increments. Basic operations remain independent; only graph-specific presentation waits for P14-I2. |
-| Plan 030  | P14-I1, P14-I2, P14-I3, P14-I4, P14-I5, P14-I6, P14-I7, P14-I8, P14-I9 | Static topology/contract → JobRun DAG preparation → guarded outbox integration → measured metrics → operator read-model handoff.                                                                                                                              |
+| Plan 030  | P14-I1, P14-I2, P14-I3, P14-I4, P14-I5, P14-I6, P14-I7, P14-I8, P14-I9, P14-I10 | Static topology/contract → JobRun DAG preparation → guarded outbox integration → measured metrics → operator read-model handoff.                                                                                                                              |
 
 Do not combine a data contract migration, scheduler concurrency change, deployment authority change, or UI feature in one pull request.
 
 ## Field/DTO impact and task boundaries — 2026-10-07
 
-[Cross-plan field/DTO inventory](../../reference/002-planned-field-dto-impact.md) records change kinds, LOW/MEDIUM/HIGH impact and candidate contract decisions. Plan 029 separates contract inventory, additive timing, stage read projection, startedAt semantic cutover, baseline, operations API/ETA/heuristics, scanner checks/cache/calendar and fixed UI into bounded tasks. Plan 030 includes P14-I1 through P14-I9 as independently scheduled stories; its internal task suffixes do not create more increments. Existing evidence and statuses remain unchanged. Deferred P10/P11/P12 and proposed Plan 028 remain outside automatic selection.
+[Cross-plan field/DTO inventory](../../reference/002-planned-field-dto-impact.md) records change kinds, LOW/MEDIUM/HIGH impact and candidate contract decisions. Plan 029 separates contract inventory, additive timing, stage read projection, startedAt semantic cutover, baseline, operations API/ETA/heuristics, scanner checks/cache/calendar and fixed UI into bounded tasks. Plan 030 includes P14-I1 through P14-I10 as independently scheduled stories; its internal task suffixes do not create more increments. Existing evidence and statuses remain unchanged. Deferred P10/P11/P12 and proposed Plan 028 remain outside automatic selection.

@@ -1021,3 +1021,19 @@ tbody tr:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.work-operations { display: grid; gap: 18px; }
+.work-panel { padding: 20px; min-width: 0; }
+.work-panel h3 { margin-top: 0; }
+.work-toolbar { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.work-toolbar label { display: grid; gap: 6px; min-width: 190px; }
+.work-stats { margin: 18px 0; }
+.work-clock { color: var(--muted); font: 12px/1.6 monospace; overflow-wrap: anywhere; }
+.work-table { overflow-x: auto; margin: 16px 0; }
+.work-table td { vertical-align: top; }
+.work-table code, .work-link { overflow-wrap: anywhere; font: 11px/1.6 monospace; }
+.work-link { text-align: left; color: var(--accent); background: transparent; border: 0; padding: 4px 0; max-width: 220px; }
+.work-json { overflow: auto; max-height: 480px; padding: 16px; background: var(--panel-2); font-size: 12px; }
+
+.app-shell > nav { overflow-x: auto; white-space: nowrap; }
+.app-shell > nav > button { flex-shrink: 0; }

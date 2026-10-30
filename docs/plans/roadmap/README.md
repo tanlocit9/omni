@@ -1,5 +1,8 @@
 # Omni — Consolidated Implementation Roadmap
 
+P14-I10 is registered pending after I9: output metadata registration through a new topic/Platform array consumer, PostgreSQL readiness, 12-hour reconciliation and a 2-minute/30-minute execution watchdog. I8/I9 remain verification_pending. Future writer reuses the registration contract; P12 stays deferred.
+See [I10 scope and acceptance](../030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
@@ -76,7 +79,7 @@ This table makes the roadmap hierarchy visible in one place. Status values are c
 | Deferred owner-gated                    | P11 — Cross-service observability                 | [Plan 024](../024-polyglot-correlation-structured-logging.md)                                      | `pending`: P11-I1, P11-I2, P11-I3, P11-I4, P11-I5                                  | Deferred under TD-011; not autonomously selectable.                                                                                                                      |
 | Deferred owner-gated                    | P12 — Worker throughput and writer batching       | [Plan 027](../027-concurrent-workers-and-writer-batching.md)                                       | `pending`: P12-I1, P12-I2, P12-I3, P12-I4                                          | Requires owner reactivation and the P13-I1 measurement gate.                                                                                                             |
 | Milestone 1 — Operator trust            | P13 — Operator Trust Console                      | [Plan 029](../029-operator-trust-console.md)                                                       | `pending`: P13-I1, P13-I2, P13-I3, P13-I4                                          | Basic operations/shell remain active; P13-I3 retains its owner-decision gate.                                                                                            |
-| Milestone 1 — Scheduler topology        | P14 — Static Graph & DispatchPlanner              | [Plan 030](../030-static-graph-dispatch-planner.md)                                                | `completed`: P14-I1–I5/I7; I6 superseded; `pending`: P14-I8/I9                     | I2 static contract; I3 JobRun preparation; I4 guarded admission; I5 diagnostics/read-model handoff; I7 legacy cleanup; I8 expansion; I9 graph/shared-work/consolidation. |
+| Milestone 1 — Scheduler topology        | P14 — Static Graph & DispatchPlanner              | [Plan 030](../030-static-graph-dispatch-planner.md)                                                | `completed`: P14-I1–I5/I7; I6 superseded; `verification_pending`: P14-I8/I9; `pending`: P14-I10                     | I2 static contract; I3 JobRun preparation; I4 guarded admission; I5 diagnostics/read-model handoff; I7 legacy cleanup; I8 expansion; I9 graph/shared-work/consolidation; I10 metadata registration/watchdog. |
 
 Rules for reading the catalog:
 
@@ -195,7 +198,7 @@ P9-I5 provider health, arbitrary SQL expansion, broad Dataset Explorer polish, c
 | [`docs/plans/024-polyglot-correlation-structured-logging.md`](../024-polyglot-correlation-structured-logging.md)               | Deferred Phase 11 supporting plan       | P11-I1 through P11-I5; canonical registry owns status and execution order                                       |
 | [`docs/plans/027-concurrent-workers-and-writer-batching.md`](../027-concurrent-workers-and-writer-batching.md)                 | Deferred Phase 12 supporting plan       | P12-I1 through P12-I4; owner reactivation and measured baseline required                                        |
 | [`docs/plans/029-operator-trust-console.md`](../029-operator-trust-console.md)                                                 | Phase 13 supporting implementation plan | P13-I1 through P13-I4; basic operations retain explicit dependencies; JobRun graph presentation consumes P14-I5 |
-| [`docs/plans/030-static-graph-dispatch-planner.md`](../030-static-graph-dispatch-planner.md)                                   | Active Milestone 1 epic                 | P14-I1 through P14-I9; canonical registry owns story status, dependencies, and order                            |
+| [`docs/plans/030-static-graph-dispatch-planner.md`](../030-static-graph-dispatch-planner.md)                                   | Active Milestone 1 epic                 | P14-I1 through P14-I10; canonical registry owns story status, dependencies, and order                            |
 | [`docs/reference/001-algorithm-feature-catalog.md`](../../reference/001-algorithm-feature-catalog.md)                          | Supporting reference                    | Phase 9 and Phase 10 feature naming                                                                             |
 
 ## Deferred follow-ups

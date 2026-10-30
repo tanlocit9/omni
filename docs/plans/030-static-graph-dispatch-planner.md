@@ -1,5 +1,41 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## I9 signal entry correction — 2026-10-30
+
+Fixed the source-only I9 selector introduced in `771d03c`: treating the entire
+SYNC_SIGNALS JobType as covered by TREND evaluation removed standalone ICHIMOKU
+and CONFIRMED entries. `GraphScheduledEntries` now shares the strategy-qualified
+edge predicate in `StaticTopologyDeclaration` with `GraphWorkExpansion`. Only a
+matching evaluator suppresses its signal preset; different timeframe, narrower
+exchange coverage, restricted date/scope or nested request overrides conservatively
+retain a standalone entry. Inactive, schedule-disabled and retired evaluators
+cannot suppress work. Default strategies normalize through JobConfigMapper.
+
+Seed-based expected entry count is **7**, not 5: EVALUATE_SIGNALS, standalone
+ICHIMOKU and CONFIRMED signals, rotation backtest, transition analyze/outcomes and
+metadata. This is a static expectation, not an executed scheduler measurement.
+CONFIRMED retains its intraday ancestor path. Definition consolidation counts and
+atomic identities are unchanged: symbol jobs remain symbol + day + parameters;
+other job types retain their declared EXCHANGE/SECTOR/GLOBAL units.
+
+Regression source: `GraphScheduledEntriesTest` covers seed count, matching/default
+strategies, disabled/retired evaluators and partial timeframe/exchange/request
+coverage. `SchedulerEntryClaimTest` checks the bounded repository handoff;
+`GraphWorkRequestsPostgresTest` adds real claim selection of all seven seed entries.
+These and existing graph/Platform coverage suites are **NOT RUN** at owner request.
+I8/I9 remain verification_pending. No activation or migration changes.
+
+Blast radius: Platform graph predicate, scheduler selection and regression source
+only. Kafka/worker/writer/Query/Console contracts, schema, storage, defaults and
+historical V1 paths are unchanged. Graph tools remain unavailable; direct caller
+inspection supplies the impact boundary, not graph/test evidence. Registry, release
+notes, execution flow and Platform guide carry the corrected selection rule.
+Architecture/data/deployment/ADR/agent guidance need no additional change because
+the correction restores planned strategy coverage within the documented I9 route.
+Static documentation review preserves status/dependencies, links and writer scope;
+no executable checker or fresh coverage claim is made.
+
+
 ## I9 full source delivery and review handoff — 2026-10-30
 
 **I9 verification_pending: I9.a/b/c source delivered, verification not run.** Owner
@@ -107,8 +143,8 @@ operation. `schedule_enabled=false` and `canonical_definition_id` retire schedul
 on redundant rows while preserving their original configs, IDs, cron, active/manual
 capability, history FKs and frozen paths. No old rows are deleted or reparented.
 Graph ancestor selection uses retained presets; explicit internal manual targeting
-of an old row keeps its original subset preset. Scheduler selects terminal JobTypes
-from the active catalog; metadata remains independently eligible. This affects only
+of an old row keeps its original subset preset. Scheduler selects terminal entries with strategy-qualified signal coverage
+from the active scheduled catalog; metadata remains independently eligible. This affects only
 the opt-in graph route; legacy terminal-definition selection remains unchanged.
 
 Seeder synchronization preserves applied retained/retired presets. Historical

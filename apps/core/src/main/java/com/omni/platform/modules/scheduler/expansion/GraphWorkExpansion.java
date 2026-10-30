@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
-import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.messaging.ExpandedJobMessage;
@@ -166,10 +165,8 @@ public final class GraphWorkExpansion {
     }
 
     private static boolean strategyMatches(Work dependent, JobDefinition upstream) {
-        return dependent.jobType() != JobType.EVALUATE_SIGNALS
-                || upstream.getJobType() != JobType.SYNC_SIGNALS
-                || JobConfigMapper.toSignalsConfig(upstream.getConfigJson()).strategy()
-                        .equals(dependent.parameters().get("strategy"));
+        return StaticTopologyDeclaration.matchesUpstream(dependent.jobType(), dependent.parameters(),
+                upstream.getJobType(), upstream.getConfigJson());
     }
 
     private Map<String, Object> project(Work dependent, JobType upstream) {

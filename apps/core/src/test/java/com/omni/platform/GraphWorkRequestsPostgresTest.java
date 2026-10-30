@@ -211,4 +211,14 @@ class GraphWorkRequestsPostgresTest {
         }
     }
 
+    @Test void graphSchedulerClaimsAllUncoveredSeedStrategies() {
+        jdbc.update("UPDATE job_definitions SET next_run=?", java.sql.Timestamp.from(NOW));
+        var selected = claims.claimDueJobs(NOW);
+        assertThat(selected).hasSize(7);
+        var signals = selected.stream().map(lease -> definitions.findById(lease.jobDefinitionId()).orElseThrow())
+                .filter(definition -> definition.getJobType()==JobType.SYNC_SIGNALS)
+                .map(definition -> definition.getConfigJson().get("strategy")).toList();
+        assertThat(signals).containsExactlyInAnyOrder("ICHIMOKU_V1", "CONFIRMED_TREND_EQUALS");
+    }
+
 }

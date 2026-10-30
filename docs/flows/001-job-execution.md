@@ -1,5 +1,12 @@
 # Job Execution Flow
 
+I9 entry correction (source only): strategy-qualified selection preserves
+ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
+standard entries: seven. Partial timeframe/exchange/request coverage keeps a
+standalone entry; atomic symbol/day identity and verification_pending status stay.
+See [correction](../plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
+
+
 Preparation repair (2026-10-30): accept closed descriptors for every step and
 check the whole-run budget before materializing children/outbox. Persisting them
 allocates execution IDs without another expansion. Publish/replay bind the intent

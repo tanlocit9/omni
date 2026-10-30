@@ -1,5 +1,10 @@
 # Dependency-Ordered Implementation Increments
 
+I9 signal-entry correction (2026-10-30): standard seed expectation is seven
+strategy-aware entry targets; no new executed gate. I8/I9 remain
+verification_pending. See [source correction](../030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
+
+
 Current I9 delivery (2026-10-30): I9.a/b/c runtime/source are present and I9 is
 `verification_pending`; I8 remains `verification_pending`. Owner requested all I9
 source development before later local review. No new verification/coverage,

@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.omni.platform.modules.scheduler.constants.JobDefinitionConfig;
+import com.omni.platform.modules.scheduler.constants.JobConfigMapper;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 
 /** Raw immutable declaration validated before a static topology is exposed. */
@@ -39,6 +40,15 @@ public record StaticTopologyDeclaration(
             case SECTOR_TRANSITION_ANALYZE, SECTOR_TRANSITION_EVALUATE_OUTCOMES ->
                     List.of(JobType.PRECOMPUTE_SECTOR_FEATURES);
         };
+    }
+
+    /** Shared strategy-qualified edge rule for graph composition and scheduled-entry selection. */
+    public static boolean matchesUpstream(JobType dependent, Map<String, Object> parameters,
+            JobType upstream, Map<String, Object> upstreamConfig) {
+        if (!upstreamTypes(dependent, parameters).contains(upstream)) return false;
+        return dependent != JobType.EVALUATE_SIGNALS || upstream != JobType.SYNC_SIGNALS
+                || JobConfigMapper.toSignalsConfig(upstreamConfig).strategy()
+                        .equals(JobConfigMapper.toSignalsConfig(parameters).strategy());
     }
 
     public StaticTopologyDeclaration {

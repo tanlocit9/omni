@@ -1,5 +1,12 @@
 # Platform / Core Service
 
+I9 entry correction (source only): strategy-qualified selection preserves
+ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
+standard entries: seven. Partial timeframe/exchange/request coverage keeps a
+standalone entry; atomic symbol/day identity and verification_pending status stay.
+See [correction](../../docs/plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
+
+
 The 2026-10-30 repair checks aggregate work budgets before child/outbox writes,
 materializes accepted work without expanding again, preserves first input approvals
 on publish/replay, and projects metadata-child partial warnings onto parent diagnostics.

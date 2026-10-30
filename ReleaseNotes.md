@@ -1,5 +1,16 @@
 # Omni Release Notes
 
+## 2026-10-30 — Preserve uncovered signal strategies in I9 scheduling
+
+Fix I9 entry selection to share strategy-qualified edges with graph composition.
+TREND evaluation no longer removes standalone ICHIMOKU/CONFIRMED scheduling;
+partial timeframe/exchange coverage and restricted overrides retain standalone
+entries. The standard catalog should expose seven entry targets. Atomic symbol/
+day/parameter identity is unchanged. Added unit/claim/PostgreSQL regression source;
+no checks ran, I8/I9 remain verification_pending and activation flags stay off.
+See [correction and impact](docs/plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
+
+
 ## 2026-10-30 — P14-I9 full source delivery for owner review
 
 Connect JobType graph expansion to opt-in scheduled/internal-manual preparation.

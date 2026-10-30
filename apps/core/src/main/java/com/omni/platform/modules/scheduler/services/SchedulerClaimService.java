@@ -34,15 +34,7 @@ public class SchedulerClaimService {
     @Transactional
     public List<SchedulerClaim> claimDueJobs(Instant now) {
         if (graphExpansionEnabled) {
-            var catalog = jobDefinitionRepository.findAll().stream()
-                    .filter(d -> Boolean.TRUE.equals(d.getIsActive()) && Boolean.TRUE.equals(d.getScheduleEnabled())
-                            && d.getCanonicalDefinitionId() == null).toList();
-            var ancestorTypes = catalog.stream().flatMap(d ->
-                    com.omni.platform.modules.scheduler.topology.StaticTopologyDeclaration.upstreamTypes(
-                            d.getJobType(), d.getConfigJson() == null ? java.util.Map.of() : d.getConfigJson()).stream())
-                    .collect(java.util.stream.Collectors.toSet());
-            var eligible = catalog.stream().filter(d -> !ancestorTypes.contains(d.getJobType()))
-                    .map(JobDefinition::getId).toList();
+            var eligible = GraphScheduledEntries.select(jobDefinitionRepository.findAll());
             return jobDefinitionRepository.claimDueJobs(now, schedulerProperties.instanceId(),
                     schedulerProperties.claim().leaseDuration(), schedulerProperties.claim().batchSize(), eligible);
         }

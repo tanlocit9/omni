@@ -64,4 +64,23 @@ class SchedulerEntryClaimTest {
         assertThat(service.releaseClaim(id, token, "test")).isFalse();
         verify(definitions).releaseClaim(id, token, "test");
     }
+    @Test
+    void graphModeClaimsUncoveredStrategiesThroughTheBoundedRepositoryQuery() {
+        var definitions = mock(JobDefinitionRepository.class);
+        var properties = new SchedulerProperties("test", null);
+        var service = new SchedulerClaimService(definitions, properties, new StaticJobTopologyProvider());
+        ReflectionTestUtils.setField(service, "graphExpansionEnabled", true);
+        var catalog = com.omni.platform.modules.scheduler.constants.JobDefinitionConfig.JOB_DEFINITION_SEEDS.stream()
+                .map(seed -> {
+                    var job = seed.toEntity(); job.setId(UUID.randomUUID()); return job;
+                }).toList();
+        when(definitions.findAll()).thenReturn(catalog);
+        var now = Instant.now();
+        service.claimDueJobs(now);
+        verify(definitions).claimDueJobs(now, "test", properties.claim().leaseDuration(),
+                properties.claim().batchSize(), GraphScheduledEntries.select(catalog));
+        verify(definitions, never()).claimDueJobs(any(), any(), any(), anyInt());
+        assertThat(GraphScheduledEntries.select(catalog)).hasSize(7);
+    }
+
 }

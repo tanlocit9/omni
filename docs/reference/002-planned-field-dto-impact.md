@@ -1,5 +1,9 @@
 # Planned Field and DTO Impact Inventory
 
+Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes: HIGH semantic change, unchanged wire fields. evaluationDate/businessDate is scan day D; output evaluation_date remains origin T. Additive status metadata: resultReason, asOfDate, evaluationDateRole. Analytical paths/keys/columns and atomic hash are unchanged; analysis/realized rows become immutable on sequential replay. Source delivered, verification pending.
+See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled

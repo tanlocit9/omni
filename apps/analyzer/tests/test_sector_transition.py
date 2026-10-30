@@ -312,7 +312,7 @@ def test_evaluate_sector_transition_outcomes_does_not_rewrite_predictions():
     outcomes = evaluate_sector_transition_outcomes(
         analysis.predictions,
         [banks, tech],
-        evaluation_date=date(2026, 1, 7),
+        as_of_date=date(2026, 1, 8),
         sector_codes=["BANKS", "TECH"],
         sector_level=2,
         timeframe="1d",

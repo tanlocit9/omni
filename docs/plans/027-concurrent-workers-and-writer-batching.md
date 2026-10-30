@@ -1,5 +1,9 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
+Sector Transition outcomes correction — 2026-10-30: Sector Transition now preserves sequential prediction/outcome identities and scans historical origins T as of work day D. Future writer receives the unchanged GLOBAL atomic work for D plus result rows keyed by their original T; work day is not the output row key. Read/merge/write checks are not distributed exclusion or a multi-object transaction. P12 remains deferred.
+See [source, impact matrix and local handoff](030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled

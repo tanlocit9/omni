@@ -1,5 +1,9 @@
 # Job Status Empty Output Semantics
 
+Sector Transition outcomes correction — 2026-10-30: Owner approved a bounded valid-empty policy for SECTOR_TRANSITION_EVALUATE_OUTCOMES: missing, ineligible, immature or already evaluated predictions return SUCCESS/0 with resultReason and asOfDate, with no empty output write. Bad feature data and immutable-key conflicts still fail. This does not close the broader empty-output debt or prove READY.
+See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 ## Review — 2026-10-07
 
 | Field           | Assessment                                                                                                                                                               |

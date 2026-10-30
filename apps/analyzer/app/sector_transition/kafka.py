@@ -17,7 +17,7 @@ from py_common.messaging import (
 from py_common.messaging.atomic_work import carry_work_status
 from pydantic import BaseModel
 
-from app.sector_transition.handler import SectorTransitionJobHandler
+from app.sector_transition.handler import OutcomeEvaluationResult, SectorTransitionJobHandler
 from app.sector_transition.messages import (
     SectorTransitionAnalyzeJobMessage,
     SectorTransitionOutcomeEvaluationJobMessage,
@@ -42,7 +42,7 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
         input_topic: str,
         service_name: str,
         model_type: type[BaseModel],
-        handle: Callable[[dict[str, Any]], Awaitable[int]],
+        handle: Callable[[dict[str, Any]], Awaitable[int | OutcomeEvaluationResult]],
     ) -> None:
         self._handler = handler
         self._model_type = model_type
@@ -65,7 +65,8 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
         try:
             raw = decode_json_object_payload(payload, "Sector Transition job")
             message = self._model_type.model_validate(raw)
-            records_processed = await self._handle(raw)
+            result = await self._handle(raw)
+            records_processed = result.records_processed if isinstance(result, OutcomeEvaluationResult) else result
             status = self._build_status(
                 message=message,
                 started_at=started_at,
@@ -73,6 +74,12 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
                 status=JobStatus.SUCCESS,
                 records_processed=records_processed,
             )
+            if isinstance(result, OutcomeEvaluationResult):
+                status = status.model_copy(update={"meta_json": {
+                    **status.meta_json, "resultReason": result.reason,
+                    "asOfDate": result.as_of_date.isoformat(),
+                    "evaluationDateRole": "AS_OF_DATE",
+                }})
         except Exception as exc:
             _logger.exception("Sector Transition job failed")
             status = build_job_error_status(
@@ -122,6 +129,9 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
         payload = dict(raw)
         metadata = dict(raw.get("metaJson") or {})
         metadata.update(self._raw_sector_transition_metadata(raw))
+        if self._model_type is SectorTransitionOutcomeEvaluationJobMessage:
+            metadata["asOfDate"] = raw.get("businessDate") or raw.get("evaluationDate")
+            metadata["evaluationDateRole"] = "AS_OF_DATE"
         metadata["recordsProcessed"] = 0
         metadata["errorMessage"] = error_message
         payload["metaJson"] = metadata
@@ -144,6 +154,9 @@ class SectorTransitionKafkaService(JobStatusKafkaService):
             "strategy": message.strategy,
             "predictionHorizons": message.prediction_horizons,
         }
+        if isinstance(message, SectorTransitionOutcomeEvaluationJobMessage):
+            metadata["asOfDate"] = (message.business_date or message.evaluation_date).isoformat()
+            metadata["evaluationDateRole"] = "AS_OF_DATE"
         if error_message:
             metadata["errorMessage"] = error_message
         return metadata

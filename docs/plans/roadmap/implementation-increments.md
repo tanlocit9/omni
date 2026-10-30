@@ -1,5 +1,9 @@
 # Dependency-Ordered Implementation Increments
 
+Sector Transition outcomes correction — 2026-10-30: Owner-approved outcomes follow-up separates scan day D from prediction origin T, appends mature missing outcomes and preserves stored predictions/facts. Separate source commit; no new increment, verification or activation. I8/I9 remain verification_pending.
+See [source, impact matrix and local handoff](../030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 I9 signal-entry correction (2026-10-30): standard seed expectation is seven
 strategy-aware entry targets; no new executed gate. I8/I9 remain
 verification_pending. See [source correction](../030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).

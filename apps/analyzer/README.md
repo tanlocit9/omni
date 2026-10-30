@@ -1,5 +1,9 @@
 # Analyzer Service
 
+Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes now use evaluationDate/businessDate as scan day D, score saved origins T < D only when horizons mature, and append missing outcomes. Zero-row scans expose resultReason/asOfDate; prediction/outcome replay is immutable and conflicting analysis values fail before output writes. No tests ran for this source change.
+See [source, impact matrix and local handoff](../../docs/plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 Atomic indicators now validate the execution's matching EOD approval and the exact
 bytes read before output. Stale/missing bindings fail closed; the error path does
 not publish a replacement dataset. Legacy unbound commands retain compatibility.

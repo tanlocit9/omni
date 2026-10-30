@@ -55,6 +55,8 @@ class SectorTransitionAnalyzeJobMessage(JobMessage):
 
 
 class SectorTransitionOutcomeEvaluationJobMessage(JobMessage):
+    """evaluationDate/businessDate is scan day D; stored predictions keep their origin T."""
+
     evaluation_date: date = Field(alias="evaluationDate")
     sector_codes: list[str] = Field(alias="sectorCodes")
     focus_sector_codes: list[str] = Field(

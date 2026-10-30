@@ -1,5 +1,83 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## Sector Transition outcomes as-of correction — 2026-10-30
+
+Owner approved: an outcomes command on day **D** scans saved predictions from
+origins **T < D**, scores every configured horizon with sufficient subsequent
+trading-session observations available by D, and appends only missing outcomes.
+ANALYZE remains independent; the outcomes graph still depends on sector features,
+not ANALYZE, and never generates missing predictions itself.
+
+Wire fields and atomic identity are unchanged. For outcomes specifically,
+`businessDate` and existing `evaluationDate` mean scan/as-of day D; for ANALYZE,
+`evaluationDate` still means forecast origin T. Output `evaluation_date` remains
+that original T, `resolved_date` is the horizon's realized session date <= D, and
+`target_date` preserves the saved prediction value or resolves a missing target
+from the observed horizon. One GLOBAL work for D can append many T/horizon rows.
+Legacy JSON without the atomic envelope also uses its evaluationDate as D.
+
+The worker filters strategy/timeframe/classification/universe/focus/horizons,
+excludes saved outcome identities before loading features, and cuts all feature
+reads and calculation inputs at D. Horizons count distinct observed sessions,
+not calendar-day offsets. Duplicate sessions, missing origin history/sector rows
+within an otherwise mature session window, non-finite returns and malformed keys
+are errors; they are not silently converted into zero-return observations.
+No external market-calendar completeness guarantee is added by observed-session
+validation. Immature horizons remain pending for a later day.
+
+Valid no-op jobs return SUCCESS with recordsProcessed=0, no output write, and
+`metaJson.resultReason`: NO_PREDICTIONS, NO_ELIGIBLE_PREDICTIONS,
+NO_MATURED_PREDICTIONS or ALREADY_EVALUATED. A successful append uses
+OUTCOMES_APPENDED and counts only newly inserted rows. Status also carries
+`asOfDate` and `evaluationDateRole=AS_OF_DATE`; genuine failures remain ERROR with
+as-of/domain context. SUCCESS alone does not assert an outcomes dataset exists or
+is READY. This is an explicit valid-empty policy for this job, not global closure
+of the separate empty-output debt.
+
+Prediction, decision and probability writes now use immutable identity merges:
+identical replay is a no-op, changed stored values under the same key are rejected.
+All three analysis outputs are checked for conflicts before any is written.
+Outcome appends also reject conflicts at the final re-read/merge, retain old facts
+and never revise an already evaluated row after historical feature corrections.
+Paths, row keys, analytical columns, metadata discovery ownership and canonical
+Parquet business-date types stay unchanged. There is no retained-data rewrite.
+Existing malformed/duplicate identities fail explicitly and need a separate repair;
+there is no automatic historical dedup or destructive migration.
+
+This remains application-level read/merge/write. It does not provide distributed
+writer exclusion, atomic publication across the three analysis objects, new model
+version management or protection from unrelated external object writers. Coordinate
+Analyzer rollout/drain old workers because outcomes date semantics and append
+behavior change; do not roll back to an upsert writer over frozen predictions.
+Future Plan 027 writer can reuse result + unchanged atomic identity/execution
+context, with its own output writeKey/intentId and durable output guarantees.
+
+| Impact/source | Regression source and owner-local evidence needed |
+| --- | --- |
+| Analyzer calculations/selection | Multiple historical origins, 1/5/10-session maturity, D cutoff/future poison, origin preservation, legacy prediction aliases, invalid sessions/returns: `test_sector_transition_as_of.py`, existing calculation suites. |
+| Analyzer handler/records merge | Atomic/legacy command interpretation, missing predictions and immutable replay/append/conflict, no writes for valid-empty or error, preserved facts: new as-of suite and adapted `test_sector_transition_handler.py`. |
+| Analyzer Kafka/message model | SUCCESS reasons/asOfDate/role and unchanged atomic attribution; real-error status; analyze status remains compatible. |
+| Platform/graph/Ingestor/shared contracts/py-common | No production/wire/schema/graph changes. GLOBAL work day D and existing feature ancestors are reused; no new Java fields or protobuf/generated output. Uses existing py-common cutoff and date contracts. |
+| Storage/Query/Console | Same paths/keys/columns and existing authenticated execution status; additive status metadata. No Query/Console API/UI edits. Discovery remains SYNC_METADATA. |
+| Writer/deployment/operations | Sequential immutability only, coordinated worker rollout, no migrated environment, writer/P12 remains deferred. |
+
+New and adapted regression source is **NOT RUN** under the owner's local-verification
+preference. I8/I9 remain verification_pending; no closure, coverage, attestation,
+provider/container/CI or deployment PASS is claimed. Recommended owner targets:
+`nx run analyzer:test`, `nx run analyzer:coverage` plus declared Analyzer lint/build
+and scoped Platform/worker integration replay/metadata gates. Require attributable
+coverage for calculations/selection, immutable merge, handler and Kafka branches
+rather than broad totals. Record required checks with `tools/check_result.py` under
+P14-I9, summarize and confirm the conclusion is ready before agent consumption.
+
+Documentation synchronization: this plan, registry, release notes, Sector Wave flow,
+Kafka/data-lake contracts, Analyzer guide, deployment, empty-output debt and writer
+boundary/field inventory are updated. Architecture, database, indexes, ADR and agent
+rules need no change: same services/ownership/paths/schema, no tool or permission
+change and no new increment. Graph tools remain unavailable; direct caller/contract
+review and static link/status consistency review are not executed verification.
+
+
 ## I9 signal entry correction — 2026-10-30
 
 Fixed the source-only I9 selector introduced in `771d03c`: treating the entire

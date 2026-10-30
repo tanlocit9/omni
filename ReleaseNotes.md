@@ -1,5 +1,20 @@
 # Omni Release Notes
 
+## 2026-10-30 — Score historical Sector Transition outcomes as of work day
+
+Outcomes day D scans saved prediction origins T < D, appends only newly mature
+horizons and preserves prior facts. ANALYZE stays independent. Valid-empty jobs
+return SUCCESS/0 with reason/asOfDate; bad sessions/returns remain ERROR.
+Prediction/decision/probability replay is append-only with conflict rejection
+before analysis writes. Kafka fields/atomic identity, dataset paths/keys/columns
+and Platform graph remain unchanged; matching Analyzer rollout is required.
+
+Added/adapted calculation, immutable-merge, handler and status regression source.
+No build/test/lint/format/migration/coverage checks ran; I8/I9 remain
+verification_pending. Application checks do not implement writer exclusion or
+multi-object atomicity. See [contract and handoff](docs/plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 ## 2026-10-30 — Preserve uncovered signal strategies in I9 scheduling
 
 Fix I9 entry selection to share strategy-qualified edges with graph composition.

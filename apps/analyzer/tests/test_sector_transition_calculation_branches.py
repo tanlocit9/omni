@@ -82,7 +82,7 @@ def test_legacy_prediction_schema_and_incomplete_horizon_are_compatible() -> Non
     outcomes = evaluate_sector_transition_outcomes(
         legacy,
         [history()],
-        evaluation_date=date(2026, 1, 8),
+        as_of_date=date(2026, 1, 9),
         sector_codes=["BANKS"],
         sector_level=2,
         timeframe="1d",
@@ -96,7 +96,7 @@ def test_empty_predictions_return_stable_outcome_schema() -> None:
     outcomes = evaluate_sector_transition_outcomes(
         pd.DataFrame(),
         [history()],
-        evaluation_date=date(2026, 1, 8),
+        as_of_date=date(2026, 1, 8),
         sector_codes=["BANKS"],
         sector_level=2,
         timeframe="1d",

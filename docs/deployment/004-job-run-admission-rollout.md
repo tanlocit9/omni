@@ -1,5 +1,9 @@
 # JobRun Admission Rollout and Rollback
 
+Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes change evaluationDate semantics to as-of day D while saved prediction origins remain T. Deploy matching Analyzer workers after draining old consumers; no message field, migration or activation flag changes. Frozen prediction/outcome rows cannot be safely handed back to the former upsert implementation. No retained rollout or verification ran.
+See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 2026-10-30 input-binding repair: deploy matching Platform, py-common and Analyzer
 code before relying on atomic indicator input-version validation. Replay tooling
 must use `SchedulerOutboxService.boundPayload`, preserving the first stored

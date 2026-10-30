@@ -1,5 +1,12 @@
 # Sector Wave Flow
 
+Current outcomes correction (source, verification pending): day D scans stored
+predictions T < D, uses feature sessions through D and appends missing mature
+outcomes. ANALYZE is independent; zero eligible/mature predictions is SUCCESS
+with a reason and no write. Predictions and evaluated facts are not upserted.
+See [contract, source matrix and rollout](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
@@ -178,7 +185,7 @@ Every run starts from an explicit trading date T. Inputs must describe the analy
 
 Rules:
 
-- `evaluationDate` is the anchor for what was knowable at T.
+- ANALYZE `evaluationDate` is the anchor for what was knowable at T. For EVALUATE_OUTCOMES it is as-of scan day D; stored predictions retain origin T and only horizons mature by D are scored.
 - `sectorLevel` defines the taxonomy boundary.
 - `sectorCodes` remains a list and defines the Sector Transition universe filter only for Sector Transition jobs; an empty list resolves to all eligible sectors at `sectorLevel` before Kafka publication.
 - `focusSectorCodes` controls focused prediction, decision, and outcome rows only; an empty list resolves to the full universe and a non-empty list must be a subset of the resolved universe.

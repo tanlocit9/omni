@@ -83,35 +83,26 @@ async def test_evaluate_outcomes_blocks_without_predictions() -> None:
 
     count = await handler.handle_evaluate_outcomes(payload())
 
-    assert count == 0
+    assert count.records_processed == 0
+    assert count.reason == "NO_PREDICTIONS"
     storage.write_dataframe.assert_not_awaited()
 
 
 @pytest.mark.anyio
-async def test_evaluate_outcomes_preserves_lineage_and_merges_retry() -> None:
+async def test_evaluate_outcomes_skips_saved_identity_without_rewriting() -> None:
     storage = AsyncMock()
     existing = result_frame(1)
-    replacement = result_frame(2)
-    storage.read_optional_dataframe.side_effect = [
-        result_frame(0),
-        pd.DataFrame({"sector_code": ["BANKS"]}),
-        pd.DataFrame({"sector_code": ["TECH"]}),
-        existing,
-    ]
-    storage.write_dataframe = AsyncMock()
+    existing["evaluation_date"] = "2026-01-07"
+    predictions = result_frame(0)
+    predictions["evaluation_date"] = "2026-01-07"
+    storage.read_optional_dataframe.side_effect = [predictions, existing]
     handler = SectorTransitionJobHandler(AppSettings(), storage)
-
-    with patch(
-        "app.sector_transition.handler.evaluate_sector_transition_outcomes",
-        return_value=replacement,
-    ) as evaluate:
-        count = await handler.handle_evaluate_outcomes(payload())
-
-    assert count == 1
-    assert evaluate.call_args.kwargs["evaluation_date"].isoformat() == "2026-01-08"
-    written = storage.write_dataframe.await_args.args[1]
-    assert len(written) == 1
-    assert written.iloc[0]["value"] == 2
+    with patch("app.sector_transition.handler.evaluate_sector_transition_outcomes") as evaluate:
+        result = await handler.handle_evaluate_outcomes(payload())
+    assert result.records_processed == 0
+    assert result.reason == "ALREADY_EVALUATED"
+    evaluate.assert_not_called()
+    storage.write_dataframe.assert_not_awaited()
 
 
 @pytest.mark.anyio
@@ -127,4 +118,4 @@ async def test_write_merged_preserves_existing_when_retry_has_no_rows() -> None:
         key_columns=["evaluation_date"],
     )
 
-    pd.testing.assert_frame_equal(storage.write_dataframe.await_args.args[1], existing)
+    storage.write_dataframe.assert_not_awaited()

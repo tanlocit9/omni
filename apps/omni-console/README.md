@@ -1,5 +1,17 @@
 # Omni Console
 
+## P14 Work Operations — source delivery, verification pending
+
+Owner selected the dashboard in Console. New **Work Operations** navigation reads
+Platform atomic-work snapshots through the existing authenticated proxy. It shows
+sampled distinct attempts/shared owners/upstream state, leases/retry, publication age,
+request pages, work provenance and a separate old published-unfinished inventory.
+No DB credentials, SQL input, polling or mutation controls. Worker timing and READY
+are unknown; I10 metadata/watchdog and query tracing remain planned/reserved.
+The existing Market Dashboard stays the default view. Added tests are NOT RUN.
+See [API, SQL source and local handoff](../../database/diagnostics/p14/v2/README.md).
+
+
 Omni Console is the private React operations UI for dataset metadata, read-only
 queries, and Platform-owned job operations.
 

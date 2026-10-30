@@ -1,5 +1,11 @@
 # Plan 029 — Operator Trust Console
 
+P14 review preparation (2026-10-30): [v2 SQL and offline dashboard](../../database/diagnostics/p14/v2/README.md)
+were extended at owner request into a Console Work Operations view with authenticated
+Platform snapshot/publication/work GETs. This source delivery does not complete
+Phase 13 or activate I10; worker processing, READY, metadata lag and query traces
+remain unknown/planned. SQL/API/Console regression source is added but not run.
+
 Current availability (I3.d owner decision, 2026-10-21): operator job triggering
 is deferred under TD-017; read-only jobs/data inspection remains. Existing manual
 service references below are historical or future reactivation context, not

@@ -1,5 +1,31 @@
 # Planned Field and DTO Impact Inventory
 
+P14 Console diagnostic source (2026-10-30): additive HTTP v2 DTOs use canonical
+atomicWorkId, atomicAttemptId, graphRequestId, observedAt and explicit pagination/
+truncation. Work owner/upstream links use camelCase aliases, while SQL columns
+retain snake_case. No Kafka/identity hash/schema change. API/UI/tests are present
+but NOT RUN; readiness and trace fields remain unknown/reserved. See
+[read contract](../../database/diagnostics/p14/v2/README.md).
+
+## Planned P14-I10 metadata registration inventory — 2026-10-30
+
+Pending after I9; no fields are implemented or activated by this document change.
+See [I10 contract and checkpoints](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
+| Surface | Change / impact | Owning checkpoint |
+| --- | --- | --- |
+| Kafka registration envelope | ADD HIGH: schemaVersion, immutable event/item IDs, bounded registrations/outputs arrays; preserve execution/atomicAttemptId/atomicWorkId | I10.a |
+| Logical output metadata | ADD HIGH: dataset/partition, actual coverage dates, dataVersion/fingerprint, schema/statistics, exact input lineage, complete output set or valid-empty reason | I10.a |
+| Platform inbox/read model | ADD HIGH: idempotent inbox, version pointers, indexed work/date/parameter coverage, durable status-registration correlation | I10.a/b |
+| Metadata API/provider | ADD/SEMANTIC HIGH: bounded authenticated lookup, existing discovery DTO parity; replace manifest authority only after shadow/cutover | I10.b |
+| Timeout/diagnostics | SEMANTIC HIGH: published_at + 30 minutes, EXECUTION_TIMEOUT, late-attempt guards, registration-pending reason, unresolved writer ownership | I10.c |
+| Configuration | ADD MEDIUM: topic/group/limits/flags, reconciliation 12 hours, watchdog 2 minutes, timeout 30 minutes | I10.a/b/c |
+| Identity normalization | REUSE/SEMANTIC HIGH: atomicWorkId equals existing meta_json.workIdentity/workExpansion.atomicWorkId; atomicAttemptId reuses graph metadata/attempt row; reject conflicting aliases, no hash changes | I10.a |
+| Reserved trace context | PLAN ONLY: optional traceContext, W3C traceparent/tracestate; future traceId/spanId/parentSpanId diagnostics, typed meta_json preservation and multi-root links; no SDK/exporter now | Future separately scoped tracing |
+| Reserved query diagnostics | PLAN ONLY: existing queryId/query_id and data_versions; future durable query metadata snapshots link actual read versions to all producer work/attempts, operation spans and cache provenance; QueryStore has no meta_json today | Future separately scoped tracing |
+| Future writer | REUSE HIGH: publish same metadata arrays after durable batch outputs; preserve per-work attribution and separate writeKey/intentId | P12 remains deferred |
+
+
 Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes: HIGH semantic change, unchanged wire fields. evaluationDate/businessDate is scan day D; output evaluation_date remains origin T. Additive status metadata: resultReason, asOfDate, evaluationDateRole. Analytical paths/keys/columns and atomic hash are unchanged; analysis/realized rows become immutable on sequential replay. Source delivered, verification pending.
 See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 

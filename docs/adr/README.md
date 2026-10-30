@@ -21,6 +21,8 @@ This directory is the canonical numbered index for accepted Omni architecture de
 | 006 | [Use Precomputed Sector Wave Model](006-sector-wave-precompute-model.md)                         | Accepted | Precomputed symbol/sector features, rankings, and rotation backtests                                                                               | Pre-roadmap analytical baseline; Group A Phase 1 stabilization; Group B Phase 3 manifests; Group D extension inputs | [Backend/Core Stabilization](../plans/001-backend-core-stabilization.md), [Dataset Metadata Manifest](../plans/003-dataset-metadata-manifest.md), [Intraday EOD](../plans/013-intraday-eod.md), [Dataset-Component Market Dashboard](../plans/009-dataset-component-market-dashboard.md)                                       |
 | 007 | [Scheduler Claim and Outbox Boundary](007-scheduler-claim-and-outbox-boundary.md)                | Accepted | PostgreSQL leases, fencing, durable execution/outbox preparation, dependency-aware dispatch, terminal blocking, and reusable safe-write invariants | Group A Phase 1; extended by Group B Phase 4; prerequisite for Group C Phase 7 and Phase 11                         | [Backend/Core Stabilization](../plans/001-backend-core-stabilization.md), [Job Dependency Guard](../plans/005-job-dependency-guard.md), [Dependency-aware Outbox Dispatch](../plans/023-dependency-aware-outbox-dispatch.md), [Concurrent Workers and Writer Batching](../plans/027-concurrent-workers-and-writer-batching.md) |
 
+| 008 | [Platform-owned PostgreSQL Output Readiness via Kafka](008-postgres-output-readiness.md) | Accepted for planned target; not implemented | Kafka registration arrays, PostgreSQL readiness, staged manifest retirement; no direct worker DB access | P14-I10 pending after I9; P12 stays deferred | [Plan 030 I10](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog), [Writer plan](../plans/027-concurrent-workers-and-writer-batching.md) |
+
 ## Roadmap View
 
 | Roadmap area                                            | Governing ADRs               |
@@ -29,6 +31,7 @@ This directory is the canonical numbered index for accepted Omni architecture de
 | Group A - Control-plane safety (Phases 0-1)             | 001, 002, 004, 006, 007      |
 | Group B - Deterministic contracts and data (Phases 2-4) | 002, 003, 004, 005, 006, 007 |
 | Group C - Portable operations and product (Phases 5-8)  | 001, 003, 004, 007           |
+| Phase 14 - Output readiness (planned I10) | 002, 003, 004, 005, 008 |
 | Group D - Higher-frequency market data (Phases 9-10)    | 001, 003, 004, 006           |
 
 These mappings indicate architectural relevance, not strict phase dependencies. The [canonical roadmap](../plans/roadmap/README.md) and its phase files remain authoritative for ordering and eligibility.

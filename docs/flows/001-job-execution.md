@@ -1,5 +1,18 @@
 # Job Execution Flow
 
+P14 Work Operations source adds read-only Console -> Platform diagnostics for
+requests/attempts, publications and one-hop work provenance. It does not enter the
+scheduler dispatch/status flow, time out workers or change READY. Captured clocks,
+partial pages and unknown timing are visible. Added regression source is NOT RUN.
+See [read contract](../../database/diagnostics/p14/v2/README.md).
+
+
+Reserved identity/trace path: atomicWorkId flows unchanged from expansion through worker/writer/registration to output-version provenance. Future queryId-scoped snapshots link the actual versions read back to all producing work/attempts, with separate query trace context and links to producer context. No tracing code, collection or query persistence migration is implemented.
+See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
+
+Planned P14-I10: worker writes/validates outputs -> acknowledges metadata registration array on a new topic -> publishes terminal status. Platform independently consumes both streams and completes SUCCESS only after required registrations commit (or explicit valid-empty). Add a 2-minute watchdog for a 30-minute published deadline and 12-hour metadata reconciliation. Existing runtime is unchanged.
+See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 I9 entry correction (source only): strategy-qualified selection preserves
 ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
 standard entries: seven. Partial timeframe/exchange/request coverage keeps a

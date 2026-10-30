@@ -118,6 +118,7 @@ describe('App', () => {
     ['Dataset Explorer', 'Datasets'],
     ['SQL Console', 'SQL Console'],
     ['Jobs', 'Job catalog'],
+    ['Work Operations', 'Work Operations'],
   ])('keeps %s reachable', (buttonName, expectedHeading) => {
     render(<App />);
 

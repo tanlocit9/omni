@@ -1,5 +1,44 @@
 # Omni Release Notes
 
+## 2026-10-30 — Integrate P14 diagnostics into Omni Console
+
+Owner selected Console: add Work Operations navigation, bounded authenticated
+Platform snapshot/publication/work GETs and shared packaged SQL used by psql too.
+Show sample counts, shared ownership, publication age, pagination and provenance;
+keep READY/worker timing unknown and I10/traces planned. No scheduler algorithm,
+flags, migration or Kafka changes. Added validation/PostgreSQL/HTTP/UI test source;
+no build/test/typecheck/browser/SQL verification ran. I8/I9 remain verification_pending.
+See [contract and local handoff](database/diagnostics/p14/v2/README.md).
+
+## 2026-10-30 — Review P14 and prepare atomic-work SQL/dashboard
+
+Static review spans I1–I10, including delivered/source-only/planned scope. Report a
+non-signal entry coverage gap; retain timeout/output exclusion limitations and
+recognize the existing indicator byte-binding repair. Add SELECT-only v2 request/
+attempt, publication and identity diagnostics plus an offline JSON-import dashboard.
+No runtime fix, DB/browser/test execution, migration, deployment or activation.
+I8/I9 remain verification_pending; I10 pending. See [review and handoff](database/diagnostics/p14/v2/review.md).
+
+## 2026-10-30 — Reserve end-to-end work identity and query tracing
+
+Clarify I10 canonical atomicWorkId and atomicAttemptId, existing workIdentity alias,
+per-output/batch provenance and queryId/dataVersion linkage. Reserve optional typed
+traceContext and future durable query-level diagnostics including actual read/version
+snapshots and multi-root links. Update writer/Plan 024/data/flow/ADR/field inventory.
+Planning only: no tracing, source/schema/API changes or verification; I10 pending,
+I8/I9 verification_pending and P11/P12 remain deferred.
+
+## 2026-10-30 — Plan P14-I10 metadata registration and watchdog
+
+Register pending I10 after I9: new metadata topic, bounded array consumer in
+Platform, PostgreSQL readiness and exact work/date coverage. Workers publish after
+validated output writes; Platform correlates registration with terminal status.
+Future writer reuses the same contract after batches. Plan 12-hour reconciliation
+and 2-minute watchdog with 30-minute published timeout, late-attempt safety and
+coordinated reader cutover. ADR-008 records the future manifest exception.
+Docs only: no code, migration, topic deployment, tests or activation. I8/I9 remain
+verification_pending and P12 stays deferred. See [I10 plan](docs/plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 ## 2026-10-30 — Score historical Sector Transition outcomes as of work day
 
 Outcomes day D scans saved prediction origins T < D, appends only newly mature

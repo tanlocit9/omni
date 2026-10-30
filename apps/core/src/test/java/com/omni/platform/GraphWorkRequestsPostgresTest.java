@@ -67,6 +67,66 @@ class GraphWorkRequestsPostgresTest {
     UUID request(UUID execution) { return jdbc.queryForObject("SELECT id FROM atomic_work_requests WHERE execution_id=?",UUID.class,execution); }
     int count(String table) { return jdbc.queryForObject("SELECT count(*) FROM "+table,Integer.class); }
 
+    @Test void diagnosticsPreserveSharedIdentityAndReadOnlyPagination() throws Exception {
+        var indicator=target(JobType.SYNC_INDICATORS);
+        prepare(indicator,"diagnostics-first"); prepare(indicator,"diagnostics-second");
+        var mapper=context.getBean(JsonMapper.class);
+        String sql=new org.springframework.core.io.ClassPathResource("diagnostics/p14/snapshot.sql")
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8)
+                .replaceAll(":'([a-z_]+)'",":$1");
+        var tx=new org.springframework.transaction.support.TransactionTemplate(
+                context.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        tx.setReadOnly(true); tx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        java.util.function.Function<String,tools.jackson.databind.JsonNode> page=cursor->tx.execute(status->{
+            jdbc.execute("SET LOCAL statement_timeout='5s'");
+            return mapper.readTree(new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(jdbc)
+                    .queryForObject(sql,Map.of("since",NOW.minusSeconds(3600).toString(),"until",NOW.plusSeconds(1).toString(),
+                            "observed_at",NOW.plusSeconds(1).toString(),"after_id",cursor,"row_limit",1),String.class));
+        });
+        var first=page.apply("");
+        assertThat(first.get("requests").size()).isEqualTo(1);
+        assertThat(first.get("hasMoreRequests").asBoolean()).isTrue();
+        assertThat(first.get("attempts").size()).isEqualTo(3);
+        for(var attempt:first.get("attempts")) {
+            assertThat(attempt.get("ownerCount").asInt()).isEqualTo(2);
+            assertThat(attempt.get("identityMatches").asBoolean()).isTrue();
+            assertThat(attempt.get("workerProcessing").isNull()).isTrue();
+            assertThat(attempt.get("datasetReady").isNull()).isTrue();
+        }
+        var second=page.apply(first.get("nextCursor").asText());
+        assertThat(second.get("hasMoreRequests").asBoolean()).isFalse();
+        assertThat(second.get("requests").get(0).get("graphRequestId"))
+                .isNotEqualTo(first.get("requests").get(0).get("graphRequestId"));
+        var diagnostics=context.getBean(com.omni.platform.modules.scheduler.work.AtomicWorkDiagnosticsService.class);
+        var detail=diagnostics.work(first.get("attempts").get(0).get("atomicWorkId").asText());
+        assertThat((List<?>)detail.get("attempts")).hasSize(1);
+        assertThat((List<?>)detail.get("owners")).hasSize(2);
+        assertThat(count("atomic_work_attempts")).isEqualTo(3);
+        assertThat(count("atomic_work_requests")).isEqualTo(2);
+    }
+
+    @Test void diagnosticHttpReadsRequireAuthenticationAndKeepEmptyDistinctFromErrors() throws Exception {
+        int port=context.getEnvironment().getRequiredProperty("local.server.port",Integer.class);
+        String base="http://127.0.0.1:"+port+"/api/v1/jobs/atomic-work";
+        try(var client=java.net.http.HttpClient.newHttpClient()) {
+            for(String path:List.of("/snapshot","/published-unfinished","/work?atomicWorkId=work:"+"a".repeat(64))) {
+                var denied=java.net.http.HttpRequest.newBuilder(java.net.URI.create(base+path))
+                        .timeout(Duration.ofSeconds(10)).GET().build();
+                assertThat(client.send(denied,java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
+            }
+            for(String path:List.of("/snapshot","/published-unfinished")) {
+                var allowed=java.net.http.HttpRequest.newBuilder(java.net.URI.create(base+path))
+                        .header("X-Omni-User","test-operator").timeout(Duration.ofSeconds(10)).GET().build();
+                var response=client.send(allowed,java.net.http.HttpResponse.BodyHandlers.ofString());
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(context.getBean(JsonMapper.class).readTree(response.body()).get("version").asInt()).isEqualTo(2);
+            }
+            var invalid=java.net.http.HttpRequest.newBuilder(java.net.URI.create(base+"/snapshot?limit=101"))
+                    .header("X-Omni-User","test-operator").timeout(Duration.ofSeconds(10)).GET().build();
+            assertThat(client.send(invalid,java.net.http.HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(400);
+        }
+    }
+
     @Test void overlappingRequestsShareIndependentAncestorRunsAndCancellationKeepsOtherOwner() {
         var indicator=target(JobType.SYNC_INDICATORS);
         UUID first=prepare(indicator,"first"),second=prepare(indicator,"second");

@@ -1,5 +1,15 @@
 # System Overview
 
+P14 Console diagnostic source (2026-10-30, not verified): Work Operations uses
+existing Console-to-Platform authentication/proxy and bounded snapshot/publication/
+work GETs. SQL is packaged in Platform and reused by manual psql wrappers. No browser
+DB access, worker instrumentation, scheduler mutation or readiness authority change.
+See [contract and impact](../../database/diagnostics/p14/v2/README.md).
+
+
+Planned P14-I10 moves readiness authority to Platform PostgreSQL through a new Kafka metadata-registration topic and array consumer. Ingestor/Analyzer, and later writer, publish after durable output writes; Python readers use an authenticated metadata provider/API. Current runtime still uses the MinIO manifest until coordinated cutover; no direct worker database coupling.
+See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled

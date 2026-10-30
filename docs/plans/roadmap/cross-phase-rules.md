@@ -5,7 +5,10 @@
 - One shared dataset has one logical writer for a given partition/version.
 - Shared contracts and reusable object-oriented abstractions belong in the appropriate shared module or [`py_common`](../../../libs/py-common/py_common); service-specific domain logic remains in its owning service.
 - Generated Proto code is a boundary type, not a domain model.
-- Dataset data is not considered consumable until its READY manifest is published.
+- Dataset data is not considered consumable until its READY manifest is published
+  in the current runtime. Planned [ADR-008](../../adr/008-postgres-output-readiness.md) /
+  P14-I10 replaces that authority with committed PostgreSQL registrations only
+  after verified cutover; READY-last and exact lineage remain required.
 - Missing dependencies block/defer a job; they do not create a fake worker failure.
 - All scheduler state transitions must be transactionally safe and idempotent.
 - Every contract change must check producers, consumers, persistence, tests, configuration, and documentation.

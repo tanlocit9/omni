@@ -1,5 +1,9 @@
 # Scheduler diagnostics v1
 
+For I9 shared atomic requests/attempts, use the separately prepared
+[v2 SQL and offline dashboard](../v2/README.md). V2 is not executed/benchmarked
+and does not replace v1 historical evidence or claim dataset readiness.
+
 Owner: [Plan 030 / P14-I5](../../../../docs/plans/030-static-graph-dispatch-planner.md).
 These SELECT-only scripts observe persisted state. They do not claim messages,
 repair data, evaluate dataset READY, publish, or activate JobRun preparation.

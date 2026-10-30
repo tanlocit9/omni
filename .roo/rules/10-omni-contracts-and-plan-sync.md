@@ -8,7 +8,9 @@ for plan requirements.
   compatibility, and canonical contract docs together; run graph impact analysis.
 - Never edit [`libs/contracts/gen`](../../libs/contracts/gen), reuse protobuf field
   numbers/names, or put physical storage paths in Kafka business messages.
-- Preserve manifest-based readiness, `dataVersion` lineage, and READY-last writes.
+- Preserve current manifest readiness, `dataVersion` lineage and READY-last writes.
+  Planned [ADR-008](../../docs/adr/008-postgres-output-readiness.md) / P14-I10
+  changes authority only after its verified cutover; the plan is not implementation.
 - Operator job triggering is deferred under [TD-017](../../docs/technical-debt/017-manual-request-rejection-audit.md).
   Future approved manual jobs must reuse Platform claims, dependency guards,
   registered producers and outbox; never add force/bypass or browser-to-Kafka.

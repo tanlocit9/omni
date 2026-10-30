@@ -120,7 +120,7 @@ export async function queryServiceRequest<T>(
   return response.json() as Promise<T>;
 }
 
-async function platformRequest<T>(
+export async function platformRequest<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {

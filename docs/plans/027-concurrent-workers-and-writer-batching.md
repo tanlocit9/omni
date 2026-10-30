@@ -1,5 +1,11 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
+Identity/trace extension (plan only): retain canonical atomicWorkId and atomicAttemptId per intent, output and registration member. Preserve multi-work output provenance and reserve optional diagnostic traceContext/multiple links across batches; never replace member identity with a batch ID. Query-level trace snapshots will link actual input dataVersion to producer provenance. No tracing runtime or P12 activation is added.
+See [identity and query tracing reservation](030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
+
+Planned P14-I10 adds a metadata-registration topic and a Platform consumer accepting bounded arrays. Workers emit only after durable output writes; Platform owns PostgreSQL readiness and gates completion on registration plus status. Future writer reuses that array contract after compatible output batches, preserving every execution/work identity and intent offset boundary. This does not reactivate P12 or give writer/worker database access.
+See [I10 scope and acceptance](030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+
 Sector Transition outcomes correction — 2026-10-30: Sector Transition now preserves sequential prediction/outcome identities and scans historical origins T as of work day D. Future writer receives the unchanged GLOBAL atomic work for D plus result rows keyed by their original T; work day is not the output row key. Read/merge/write checks are not distributed exclusion or a multi-object transaction. P12 remains deferred.
 See [source, impact matrix and local handoff](030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 

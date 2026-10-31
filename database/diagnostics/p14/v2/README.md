@@ -1,6 +1,9 @@
 # P14 diagnostics v2 — prepared, not executed
 
 Owner: [Plan 030](../../../../docs/plans/030-static-graph-dispatch-planner.md).
+For a one-shot local execution/outbox and Kafka backlog report compatible with the
+V16 tables, use [`nx run omni:jobs-backlog`](../../../../tools/jobs_backlog.md).
+It is separate from this V17/V18 atomic-request pack and performs no cleanup.
 This additive pack observes I9 attempts/requests under PostgreSQL 16 + V18.
 Keep [I5 v1](../v1/README.md) for frozen JobRun/path/legacy diagnostics and its
 historical benchmark. Owner selected an Omni Console dashboard: source now includes

@@ -1,5 +1,13 @@
 {
   "targets": {
+    "jobs-backlog": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/run-python.cjs tools/jobs_backlog.py",
+        "forwardAllArgs": true
+      }
+    },
     "tools-test": {
       "cache": false,
       "executor": "nx:run-commands",

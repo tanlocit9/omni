@@ -1,5 +1,27 @@
 # Omni Release Notes
 
+## 2026-10-31 — Repair I9 ancestor parameters and rollback lock ordering
+
+Preserve ancestor preset parameters, normalize strategy matching through I8 and
+use PostgreSQL-compatible UUID lock order during consolidation rollback. Add mapping
+and real PostgreSQL lock-contention regressions; include the shared-worker fixture
+and its required clock/provider helpers. Scoped format/Ruff and 38 combined tests
+passed, zero failures/errors/skips. Graph expansion meets 80% line/branch coverage;
+consolidation/request branches remain below threshold. Gate
+P14-I9-review-fixes-20261031 PASS (5/5), including final docs format. No live remediation,
+migration, rollout or increment completion. See [repair evidence](database/diagnostics/p14/v2/i9-review-fixes-evidence.md).
+
+## 2026-10-31 — Add actual I9 shared-attempt worker integration
+
+Add a graph-enabled disposable cross-service scenario for shared atomic ancestors,
+one-step JobRuns, owner cancellation, completion, approved inputs and replay through
+real Kafka workers and Query Service. Keep the original many-step route separately
+graph-disabled. Add `platform:test-atomic-sharing`; combined gate
+P14-I9-atomic-sharing-20261031 PASS: two tests, zero failures/errors/skips after
+correcting an initial skipped invocation. GraphWorkRequestService coverage is
+86.0% line / 60.5% branch; full I9 coverage remains open. No production or live-state changes and no
+increment completion. See [scenario/evidence](database/diagnostics/p14/v2/i9-atomic-sharing-evidence.md).
+
 ## 2026-10-31 — Add read-only local job backlog tool
 
 Add `nx run omni:jobs-backlog`: execution age/status/root-child groups, bounded
@@ -63,7 +85,6 @@ No build/test/lint/format/migration/coverage checks ran; I8/I9 remain
 verification_pending. Application checks do not implement writer exclusion or
 multi-object atomicity. See [contract and handoff](docs/plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 
-
 ## 2026-10-30 — Preserve uncovered signal strategies in I9 scheduling
 
 Fix I9 entry selection to share strategy-qualified edges with graph composition.
@@ -73,7 +94,6 @@ entries. The standard catalog should expose seven entry targets. Atomic symbol/
 day/parameter identity is unchanged. Added unit/claim/PostgreSQL regression source;
 no checks ran, I8/I9 remain verification_pending and activation flags stay off.
 See [correction and impact](docs/plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
-
 
 ## 2026-10-30 — P14-I9 full source delivery for owner review
 
@@ -91,7 +111,6 @@ was run** in this continuation. I9 becomes verification_pending, I8 remains so;
 prior I9.a/worker-binding reports do not verify the changed runtime source.
 Writer/concurrency/public manual/backfill scope remains deferred. See
 [policies, impact matrix, rollout and flow](docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 ## 2026-10-30 — P14-I9.a planning acceptance hardening
 

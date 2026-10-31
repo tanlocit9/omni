@@ -1,5 +1,34 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## I9 review repairs — 2026-10-31
+
+Preserve nested ancestor preset parameters before graph projection and qualify
+strategy from the effective I8 configuration. Align consolidation rollback UUID
+locking with PostgreSQL order. Add focused mapping regressions and a deterministic
+real PostgreSQL lock-contention case, then rerun shared-worker and legacy workflows.
+See [source/impact/test matrix and gate](../../database/diagnostics/p14/v2/i9-review-fixes-evidence.md).
+Final combined run: 38 tests, zero failures/errors/skips, unchanged source bindings.
+GraphWorkExpansion coverage is 93.8% line / 83.5% branch; consolidation/request
+service branch coverage remains 72.0% / 73.3%. Gate P14-I9-review-fixes-20261031
+PASS (5/5), including scoped format/Ruff and final docs format.
+I8/I9 remain verification_pending;
+full critical coverage, retained migration/consolidation and rollout remain open.
+
+## I9 shared-attempt worker scenario — 2026-10-31
+
+Add a distinct graph-enabled real-worker integration story for I9. Three requests
+share the same catalog/stock/indicator attempts and one-step JobRuns; cancelling one
+owner preserves the other two, which must complete through real Kafka statuses.
+The scenario checks atomic plus manifest barriers, frozen approvals, idempotent
+request/command replay, broker counts/commit and Query Service output. The original
+many-step fixture is explicitly graph-disabled and remains a separate regression.
+See [scenario, execution and limits](../../database/diagnostics/p14/v2/i9-atomic-sharing-evidence.md).
+Combined gate P14-I9-atomic-sharing-20261031 PASS (1/1): two executed integration
+tests, zero failures/errors/skips, with unchanged source bindings. GraphWorkRequestService
+coverage is 86.0% line / 60.5% branch in this bounded run. I8/I9 remain
+verification_pending; the later review-repair section above addresses mapping/lock
+order separately, while full coverage and retained migration/rollout gates remain open.
+
 ## Whole-P14 review and diagnostics preparation — 2026-10-30
 
 Owner requested review of delivered and planned P14 plus SQL/dashboard preparation.
@@ -24,7 +53,6 @@ I8/I9 remain verification_pending; I10 pending; I6 superseded. No build/test/lin
 format, SQL/browser/performance checks ran. Added validation/PostgreSQL/HTTP/Console
 regression source is NOT RUN. Graph tools unavailable. Detailed
 cross-service impact, limits and owner-local handoff are in the linked review.
-
 
 ## P14-I10 — Output metadata registration and execution watchdog
 
@@ -88,7 +116,7 @@ lineage after registration. No new analytical formula or strategy is introduced.
   JSON wire; adding schema does not authorize migrating existing topics to Proto3.
   The literal topic/group names are frozen during I10.a, not activated by this plan.
 - **Object-storage JSON manifest:** after a verified cutover, PostgreSQL replaces
-  _metadata/metadata.json as readiness authority. Retain the legacy manifest during
+  \_metadata/metadata.json as readiness authority. Retain the legacy manifest during
   shadow comparison; stop its readiness reads/writes only after all readers migrate.
   This is the scoped ADR-008 exception to the existing JSON-manifest baseline.
 - **Storage path/dataset ownership:** no new physical paths or analytical writer.
@@ -192,16 +220,16 @@ trace instrumentation/persistence remains separately scoped, not an I10 completi
 
 #### Canonical names and current-source mapping
 
-| Meaning | Canonical boundary name | Existing source/storage and planned handling |
-| --- | --- | --- |
-| Immutable atomic work | `atomicWorkId` | I8 JSON/Pydantic alias; Python attribute `atomic_work_id`. Platform snapshot stores the same value as `meta_json.workIdentity` and `meta_json.workExpansion.atomicWorkId`; status helper carries `metaJson.atomicWorkId`. Treat `workIdentity` as the existing persisted alias, not another ID. At I10 boundaries normalize to `atomicWorkId`, compare all present aliases and reject mismatch; do not rewrite old snapshots/triggers. |
-| Atomic attempt | `atomicAttemptId` | Existing graph parent `meta_json.atomicAttemptId` maps to `atomic_work_attempts.id`. Resolve child -> attempt through persisted execution membership; do not assume every current command carries it. Replace the generic proposed I10 `attemptId` with this exact name. |
-| Work day | `businessDate` | Atomic envelope day; persisted/status `workBusinessDate` is the same day. Parent `businessDate` can be a different preparation anchor; output coverage may contain historical T. Never overwrite these meanings. |
-| Executions | `executionId`, `parentExecutionId`, `jobRunId` | Existing execution/run fields; preserve each separately from work hash and attempt. |
-| Accepted graph request | `graphRequestId` | Existing requester metadata; do not overload HTTP `requestId`. Shared work can have multiple graph-request owners. |
-| Diagnostic flow/request | `correlationId`, `requestId` | Plan 024 names; HTTP X-Correlation-ID/X-Request-ID and Kafka x-correlation-id/x-request-id. Diagnostic only, never ownership/dedup/authorization. |
-| Query | `queryId` | Existing Query Service public alias; Python/SQLite/audit use `query_id`. Do not create `queryExecutionId` or equate queryId with a work/execution ID. |
-| Version | `dataVersion` | Existing logical output/input fingerprint; current Query Service persists `data_versions`. Work identity alone cannot identify the exact bytes read. |
+| Meaning                 | Canonical boundary name                        | Existing source/storage and planned handling                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Immutable atomic work   | `atomicWorkId`                                 | I8 JSON/Pydantic alias; Python attribute `atomic_work_id`. Platform snapshot stores the same value as `meta_json.workIdentity` and `meta_json.workExpansion.atomicWorkId`; status helper carries `metaJson.atomicWorkId`. Treat `workIdentity` as the existing persisted alias, not another ID. At I10 boundaries normalize to `atomicWorkId`, compare all present aliases and reject mismatch; do not rewrite old snapshots/triggers. |
+| Atomic attempt          | `atomicAttemptId`                              | Existing graph parent `meta_json.atomicAttemptId` maps to `atomic_work_attempts.id`. Resolve child -> attempt through persisted execution membership; do not assume every current command carries it. Replace the generic proposed I10 `attemptId` with this exact name.                                                                                                                                                               |
+| Work day                | `businessDate`                                 | Atomic envelope day; persisted/status `workBusinessDate` is the same day. Parent `businessDate` can be a different preparation anchor; output coverage may contain historical T. Never overwrite these meanings.                                                                                                                                                                                                                       |
+| Executions              | `executionId`, `parentExecutionId`, `jobRunId` | Existing execution/run fields; preserve each separately from work hash and attempt.                                                                                                                                                                                                                                                                                                                                                    |
+| Accepted graph request  | `graphRequestId`                               | Existing requester metadata; do not overload HTTP `requestId`. Shared work can have multiple graph-request owners.                                                                                                                                                                                                                                                                                                                     |
+| Diagnostic flow/request | `correlationId`, `requestId`                   | Plan 024 names; HTTP X-Correlation-ID/X-Request-ID and Kafka x-correlation-id/x-request-id. Diagnostic only, never ownership/dedup/authorization.                                                                                                                                                                                                                                                                                      |
+| Query                   | `queryId`                                      | Existing Query Service public alias; Python/SQLite/audit use `query_id`. Do not create `queryExecutionId` or equate queryId with a work/execution ID.                                                                                                                                                                                                                                                                                  |
+| Version                 | `dataVersion`                                  | Existing logical output/input fingerprint; current Query Service persists `data_versions`. Work identity alone cannot identify the exact bytes read.                                                                                                                                                                                                                                                                                   |
 
 The canonical work tuple remains jobType/workType/workKey/businessDate/effective
 parameters. Trace context, query IDs, registration IDs, attempt IDs, cron and definition
@@ -285,17 +313,17 @@ Graph discovery/impact/change tools are unavailable in this session. The followi
 manual documentation impact reconciliation, not graph output or executable evidence.
 Refresh graph analysis and concrete source/test inventory at implementation.
 
-| Surface | Planned impact / regression obligation |
-| --- | --- |
-| Platform | New array consumer/inbox, bulk metadata transaction/API, READY provider, pending-status correlation, attempt/terminal fences, watchdog, parent/request/dependency aggregation. |
-| Analyzer | Emit complete validated outputs after storage, preserve as-of/output dates, exact-byte approval checks and no-output reasons; no direct DB access. |
-| Ingestor | Same publisher contract for prices/symbols/other outputs; preserve provider retry, data validation and offsets. |
-| Query Service | Replace manifest discovery/READY provider through authenticated API; preserve bounded DuckDB queries, schema/partition browsing and version checks. Reserve queryId-level durable trace/input-provenance snapshots; no tracing implementation or QueryStore schema change in I10. |
-| Console | Retain discovery and data-health behavior; use existing proxy/auth boundaries, no DB credentials or browser-to-Kafka. |
-| Shared contracts/py-common/configs | Versioned envelope, identity alias fixtures, generated boundary types/adapters, shared publisher/read provider, topics/groups and limits. Reserve optional diagnostic traceContext extension without changing hash or requiring tracing; no hand-edited generated code. |
-| Persistence | Forward-only inbox/version/coverage/completion schema, uniqueness, indexes, transaction/concurrency/migration/backfill and rollback evidence; do not change V1–V18. |
-| Operations/tests | Topic provisioning/ACL/retention, consumer lag, poison recovery, failure/restart/rebalance, idle-scan races, 12-hour/2-minute/30-minute schedules and retained-data rollout. |
-| Writer/P12 | Reuse metadata contract after durable batch writes; independent service/concurrency/buffer/intent implementation stays deferred. |
+| Surface                            | Planned impact / regression obligation                                                                                                                                                                                                                                            |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                           | New array consumer/inbox, bulk metadata transaction/API, READY provider, pending-status correlation, attempt/terminal fences, watchdog, parent/request/dependency aggregation.                                                                                                    |
+| Analyzer                           | Emit complete validated outputs after storage, preserve as-of/output dates, exact-byte approval checks and no-output reasons; no direct DB access.                                                                                                                                |
+| Ingestor                           | Same publisher contract for prices/symbols/other outputs; preserve provider retry, data validation and offsets.                                                                                                                                                                   |
+| Query Service                      | Replace manifest discovery/READY provider through authenticated API; preserve bounded DuckDB queries, schema/partition browsing and version checks. Reserve queryId-level durable trace/input-provenance snapshots; no tracing implementation or QueryStore schema change in I10. |
+| Console                            | Retain discovery and data-health behavior; use existing proxy/auth boundaries, no DB credentials or browser-to-Kafka.                                                                                                                                                             |
+| Shared contracts/py-common/configs | Versioned envelope, identity alias fixtures, generated boundary types/adapters, shared publisher/read provider, topics/groups and limits. Reserve optional diagnostic traceContext extension without changing hash or requiring tracing; no hand-edited generated code.           |
+| Persistence                        | Forward-only inbox/version/coverage/completion schema, uniqueness, indexes, transaction/concurrency/migration/backfill and rollback evidence; do not change V1–V18.                                                                                                               |
+| Operations/tests                   | Topic provisioning/ACL/retention, consumer lag, poison recovery, failure/restart/rebalance, idle-scan races, 12-hour/2-minute/30-minute schedules and retained-data rollout.                                                                                                      |
+| Writer/P12                         | Reuse metadata contract after durable batch writes; independent service/concurrency/buffer/intent implementation stays deferred.                                                                                                                                                  |
 
 ### Repository Guidance Updates
 
@@ -364,7 +392,6 @@ ready conclusion; no fabricated test, coverage, CI, provider or deployment evide
 - [ ] Source/field/test/coverage matrix, migrations, rollout/recovery, cross-service docs
       and owner-local verification gates are complete before I10 completion.
 
-
 ## Sector Transition outcomes as-of correction — 2026-10-30
 
 Owner approved: an outcomes command on day **D** scans saved predictions from
@@ -417,14 +444,14 @@ behavior change; do not roll back to an upsert writer over frozen predictions.
 Future Plan 027 writer can reuse result + unchanged atomic identity/execution
 context, with its own output writeKey/intentId and durable output guarantees.
 
-| Impact/source | Regression source and owner-local evidence needed |
-| --- | --- |
-| Analyzer calculations/selection | Multiple historical origins, 1/5/10-session maturity, D cutoff/future poison, origin preservation, legacy prediction aliases, invalid sessions/returns: `test_sector_transition_as_of.py`, existing calculation suites. |
-| Analyzer handler/records merge | Atomic/legacy command interpretation, missing predictions and immutable replay/append/conflict, no writes for valid-empty or error, preserved facts: new as-of suite and adapted `test_sector_transition_handler.py`. |
-| Analyzer Kafka/message model | SUCCESS reasons/asOfDate/role and unchanged atomic attribution; real-error status; analyze status remains compatible. |
-| Platform/graph/Ingestor/shared contracts/py-common | No production/wire/schema/graph changes. GLOBAL work day D and existing feature ancestors are reused; no new Java fields or protobuf/generated output. Uses existing py-common cutoff and date contracts. |
-| Storage/Query/Console | Same paths/keys/columns and existing authenticated execution status; additive status metadata. No Query/Console API/UI edits. Discovery remains SYNC_METADATA. |
-| Writer/deployment/operations | Sequential immutability only, coordinated worker rollout, no migrated environment, writer/P12 remains deferred. |
+| Impact/source                                      | Regression source and owner-local evidence needed                                                                                                                                                                       |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Analyzer calculations/selection                    | Multiple historical origins, 1/5/10-session maturity, D cutoff/future poison, origin preservation, legacy prediction aliases, invalid sessions/returns: `test_sector_transition_as_of.py`, existing calculation suites. |
+| Analyzer handler/records merge                     | Atomic/legacy command interpretation, missing predictions and immutable replay/append/conflict, no writes for valid-empty or error, preserved facts: new as-of suite and adapted `test_sector_transition_handler.py`.   |
+| Analyzer Kafka/message model                       | SUCCESS reasons/asOfDate/role and unchanged atomic attribution; real-error status; analyze status remains compatible.                                                                                                   |
+| Platform/graph/Ingestor/shared contracts/py-common | No production/wire/schema/graph changes. GLOBAL work day D and existing feature ancestors are reused; no new Java fields or protobuf/generated output. Uses existing py-common cutoff and date contracts.               |
+| Storage/Query/Console                              | Same paths/keys/columns and existing authenticated execution status; additive status metadata. No Query/Console API/UI edits. Discovery remains SYNC_METADATA.                                                          |
+| Writer/deployment/operations                       | Sequential immutability only, coordinated worker rollout, no migrated environment, writer/P12 remains deferred.                                                                                                         |
 
 New and adapted regression source is **NOT RUN** under the owner's local-verification
 preference. I8/I9 remain verification_pending; no closure, coverage, attestation,
@@ -441,7 +468,6 @@ boundary/field inventory are updated. Architecture, database, indexes, ADR and a
 rules need no change: same services/ownership/paths/schema, no tool or permission
 change and no new increment. Graph tools remain unavailable; direct caller/contract
 review and static link/status consistency review are not executed verification.
-
 
 ## I9 signal entry correction — 2026-10-30
 
@@ -477,7 +503,6 @@ Architecture/data/deployment/ADR/agent guidance need no additional change becaus
 the correction restores planned strategy coverage within the documented I9 route.
 Static documentation review preserves status/dependencies, links and writer scope;
 no executable checker or fresh coverage claim is made.
-
 
 ## I9 full source delivery and review handoff — 2026-10-30
 
@@ -601,17 +626,17 @@ consolidation or rollback was executed in this task.
 
 ### Contract and cross-service impact
 
-| Owner / source | Impact and local evidence to obtain |
-| --- | --- |
-| Platform graph/producer/preparation | New runtime materialization and returned requester status; existing composer/route tests plus `GraphWorkRequestsPostgresTest` overlap, concurrent acquire, exact replay, failure/refresh/rollback and status cases. |
-| Platform outbox/planner/claims | Atomic barrier on every candidate/claim/renew path, terminal JobType scheduling and expired-token repair; planned/fallback/disabled/retry and stale/live lease cases must run. |
-| Platform definition/catalog/seeder/offset readers | Canonical selector union, stopped redundant schedules, preserved seed/manual/history/offset behavior; `DefinitionConsolidationTest` and PostgreSQL migration/consolidation/rollback cases. |
-| Platform operations/security | Additive authenticated GET `/api/v1/jobs/atomic-work/requests/{id}` and `/consolidations` (last 100); existing status endpoint retained. Request UUID is in request execution metadata. No public mutation API; auth/not-found/diagnostic regression required. |
-| Database | Forward V17/V18 only; guards, FKs, deferred closure and alias view. V1–V16 checksums/data/paths unchanged. Latest migration-count assertions move to 18. Upgrade, dirty-data, rollback-conflict and concurrent isolation checks required. |
-| Analyzer/Ingestor/py-common/contracts | No source or wire change in I9: unchanged atomic envelope/approval/status fields; actual workers must be exercised with shared attempts. Existing indicator READY/approved metadata plus exact-byte binding repair remains, not broader version safety. |
-| Query Service/MinIO | No read schema/path/owner changes; concurrent different identities can still target the same object. Container integration/READY/lineage remains required; no writer exclusion claim. |
-| Console | Existing definition/execution DTOs unchanged; requester execution reports aggregate status. New diagnostic endpoints are additive; no new UI. Old rows remain active presets even when scheduling is disabled; inspect consolidation inventory rather than infer scheduling from active alone. |
-| Configuration/deployment/writer | Opt-in flags below; writer/result intents, physical output writeKey, intentId and durable writer offset loops stay Plan 027/P12. Accepted work identity/execution context is reusable unchanged. |
+| Owner / source                                    | Impact and local evidence to obtain                                                                                                                                                                                                                                                            |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform graph/producer/preparation               | New runtime materialization and returned requester status; existing composer/route tests plus `GraphWorkRequestsPostgresTest` overlap, concurrent acquire, exact replay, failure/refresh/rollback and status cases.                                                                            |
+| Platform outbox/planner/claims                    | Atomic barrier on every candidate/claim/renew path, terminal JobType scheduling and expired-token repair; planned/fallback/disabled/retry and stale/live lease cases must run.                                                                                                                 |
+| Platform definition/catalog/seeder/offset readers | Canonical selector union, stopped redundant schedules, preserved seed/manual/history/offset behavior; `DefinitionConsolidationTest` and PostgreSQL migration/consolidation/rollback cases.                                                                                                     |
+| Platform operations/security                      | Additive authenticated GET `/api/v1/jobs/atomic-work/requests/{id}` and `/consolidations` (last 100); existing status endpoint retained. Request UUID is in request execution metadata. No public mutation API; auth/not-found/diagnostic regression required.                                 |
+| Database                                          | Forward V17/V18 only; guards, FKs, deferred closure and alias view. V1–V16 checksums/data/paths unchanged. Latest migration-count assertions move to 18. Upgrade, dirty-data, rollback-conflict and concurrent isolation checks required.                                                      |
+| Analyzer/Ingestor/py-common/contracts             | No source or wire change in I9: unchanged atomic envelope/approval/status fields; actual workers must be exercised with shared attempts. Existing indicator READY/approved metadata plus exact-byte binding repair remains, not broader version safety.                                        |
+| Query Service/MinIO                               | No read schema/path/owner changes; concurrent different identities can still target the same object. Container integration/READY/lineage remains required; no writer exclusion claim.                                                                                                          |
+| Console                                           | Existing definition/execution DTOs unchanged; requester execution reports aggregate status. New diagnostic endpoints are additive; no new UI. Old rows remain active presets even when scheduling is disabled; inspect consolidation inventory rather than infer scheduling from active alone. |
+| Configuration/deployment/writer                   | Opt-in flags below; writer/result intents, physical output writeKey, intentId and durable writer offset loops stay Plan 027/P12. Accepted work identity/execution context is reusable unchanged.                                                                                               |
 
 The code-review graph connector is unavailable in this environment. Source impact
 and post-edit analysis use direct Java/SQL/Kafka/status/storage/deployment ownership
@@ -724,15 +749,15 @@ Copied JUnit/JaCoCo reports, source binding and detailed impact/test matrix are 
 failure was repaired and rerun; no failing check was waived. Existing closed-test-
 container/Hikari shutdown warnings persist, with final Gradle/Nx exit code zero.
 
-| Criterion / source | Executed evidence | Line / branch |
-| --- | --- | --- |
-| Graph composition, scope/strategy/date/projection, provenance, invalid membership and bounds: `GraphWorkExpansion` | 12 composer cases, including classification levels 1/2 and distinct-expansion budget | 92.7% / 84.2% |
-| Immutable work/plan: `GraphWorkExpansion.Work` / `.Plan` | Composer identity rejection and immutable collection/provenance cases | 100% / 100% where branches exist |
-| Existing static edges/presets: `StaticTopologyDeclaration` / `StaticDefinitionDependencies` | Composer strategies plus existing topology/path suites | 100% / 100% |
-| Shared I8 producer boundary: `JobProducer` | `ExpansionRoutesTest`, real producer/date/sector parity and existing producer/preparation suites | 94.3% / 83.1% |
-| Detached preview/context: `JobRunWorkContext` | Preview no-write route, PostgreSQL parity and existing preparation suites | 87.3% / 94.4% |
-| Date/default/atomic identity: `WorkExpansion` | Composer, route, work-expansion and PostgreSQL suites | 96.9% / 87.2% |
-| Snapshot/isolation/no durable side effects: `JobRunPreparationService` | Four `graphPlanning*` PostgreSQL cases; concurrent catalog commit, writable caller, leases/failure and real producer/sector parity | 99.4% / 91.9% |
+| Criterion / source                                                                                                 | Executed evidence                                                                                                                  | Line / branch                    |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Graph composition, scope/strategy/date/projection, provenance, invalid membership and bounds: `GraphWorkExpansion` | 12 composer cases, including classification levels 1/2 and distinct-expansion budget                                               | 92.7% / 84.2%                    |
+| Immutable work/plan: `GraphWorkExpansion.Work` / `.Plan`                                                           | Composer identity rejection and immutable collection/provenance cases                                                              | 100% / 100% where branches exist |
+| Existing static edges/presets: `StaticTopologyDeclaration` / `StaticDefinitionDependencies`                        | Composer strategies plus existing topology/path suites                                                                             | 100% / 100%                      |
+| Shared I8 producer boundary: `JobProducer`                                                                         | `ExpansionRoutesTest`, real producer/date/sector parity and existing producer/preparation suites                                   | 94.3% / 83.1%                    |
+| Detached preview/context: `JobRunWorkContext`                                                                      | Preview no-write route, PostgreSQL parity and existing preparation suites                                                          | 87.3% / 94.4%                    |
+| Date/default/atomic identity: `WorkExpansion`                                                                      | Composer, route, work-expansion and PostgreSQL suites                                                                              | 96.9% / 87.2%                    |
+| Snapshot/isolation/no durable side effects: `JobRunPreparationService`                                             | Four `graphPlanning*` PostgreSQL cases; concurrent catalog commit, writable caller, leases/failure and real producer/sector parity | 99.4% / 91.9%                    |
 
 `planGraphExpansion` and its producer/membership callbacks have 100% line coverage;
 they contain no instrumented branch counter. These results supersede the earlier
@@ -875,14 +900,14 @@ candidate rows/visits and depth 32. Candidate expansions are cached by definitio
 and canonical request. Reversed catalog order and transient execution UUIDs do not
 change the logical graph result.
 
-| Area | Impact / no-impact reason | Regression evidence |
-| --- | --- | --- |
-| Platform | New graph composer, shared static edge rules, detached producer preview/context and read-only planning API | `GraphWorkExpansionTest`, `ExpansionRoutesTest`, existing topology/preparation suites |
-| Analyzer, Ingestor | No production changes in I9.a; existing I8 atomic consumers remain authoritative | I8 worker evidence above; no new worker behavior claimed |
-| Query Service, Console | No endpoint, read schema, dataset or UI change | No new application integration claim |
-| Shared contracts/libraries | Existing I8 envelope/hash reused; no Proto/generated/config catalog added | Existing Java/Python fixture evidence retained |
-| Persistence | Read-only catalog/membership snapshot; no new tables, migrations, FKs or attempt ownership | Preview test asserts no service/Kafka writes; transaction integration evidence remains pending |
-| Configuration/operations | Same definitions/presets and flags; no scheduler activation, cron consolidation or rollout change | Existing activation/version gates retained |
+| Area                       | Impact / no-impact reason                                                                                  | Regression evidence                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Platform                   | New graph composer, shared static edge rules, detached producer preview/context and read-only planning API | `GraphWorkExpansionTest`, `ExpansionRoutesTest`, existing topology/preparation suites          |
+| Analyzer, Ingestor         | No production changes in I9.a; existing I8 atomic consumers remain authoritative                           | I8 worker evidence above; no new worker behavior claimed                                       |
+| Query Service, Console     | No endpoint, read schema, dataset or UI change                                                             | No new application integration claim                                                           |
+| Shared contracts/libraries | Existing I8 envelope/hash reused; no Proto/generated/config catalog added                                  | Existing Java/Python fixture evidence retained                                                 |
+| Persistence                | Read-only catalog/membership snapshot; no new tables, migrations, FKs or attempt ownership                 | Preview test asserts no service/Kafka writes; transaction integration evidence remains pending |
+| Configuration/operations   | Same definitions/presets and flags; no scheduler activation, cron consolidation or rollout change          | Existing activation/version gates retained                                                     |
 
 Verification used only the approved `platform:coverage` target. The initial run
 found two test compilation issues, corrected before rerun. The rerun compiled

@@ -70,7 +70,7 @@ class GraphWorkRequestsPostgresTest {
     @Test void diagnosticsPreserveSharedIdentityAndReadOnlyPagination() throws Exception {
         var indicator=target(JobType.SYNC_INDICATORS);
         prepare(indicator,"diagnostics-first"); prepare(indicator,"diagnostics-second");
-        var mapper=context.getBean(JsonMapper.class);
+        var mapper=context.getBean("jsonMapper",JsonMapper.class);
         String sql=new org.springframework.core.io.ClassPathResource("diagnostics/p14/snapshot.sql")
                 .getContentAsString(java.nio.charset.StandardCharsets.UTF_8)
                 .replaceAll(":'([a-z_]+)'",":$1");
@@ -119,7 +119,7 @@ class GraphWorkRequestsPostgresTest {
                         .header("X-Omni-User","test-operator").timeout(Duration.ofSeconds(10)).GET().build();
                 var response=client.send(allowed,java.net.http.HttpResponse.BodyHandlers.ofString());
                 assertThat(response.statusCode()).isEqualTo(200);
-                assertThat(context.getBean(JsonMapper.class).readTree(response.body()).get("version").asInt()).isEqualTo(2);
+                assertThat(context.getBean("jsonMapper",JsonMapper.class).readTree(response.body()).get("version").asInt()).isEqualTo(2);
             }
             var invalid=java.net.http.HttpRequest.newBuilder(java.net.URI.create(base+"/snapshot?limit=101"))
                     .header("X-Omni-User","test-operator").timeout(Duration.ofSeconds(10)).GET().build();

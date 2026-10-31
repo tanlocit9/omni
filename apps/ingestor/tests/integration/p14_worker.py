@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pandas as pd
 from py_common.config.models import KafkaSettings, MinioSettings
+from py_common.messaging import atomic_work as atomic_contract
 
 from app.handlers import stock_prices, symbols
 from app.messaging import consumer
@@ -21,8 +22,9 @@ from app.settings import Settings
 
 
 class FixtureProvider:
-    def __init__(self, control: Path | None = None):
+    def __init__(self, control: Path | None = None, business_date: date | None = None):
         self.control = control
+        self.business_date = business_date
 
     async def fetch_symbols(self, exchange=None, size=100):
         return [
@@ -30,7 +32,7 @@ class FixtureProvider:
         ]
 
     async def fetch_recent_stock(self, symbol, size):
-        today = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
+        today = self.business_date or datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
         revised = self.control and (self.control / "second-generation").exists()
         rows = 180
         frame = pd.DataFrame(
@@ -54,6 +56,18 @@ class FixtureProvider:
 
 async def main():
     config = json.loads(Path(sys.argv[1]).read_text())
+    if "businessDate" in config:
+        day = date.fromisoformat(config["businessDate"])
+
+        class SnapshotClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.now(tz).replace(
+                    year=day.year, month=day.month, day=day.day
+                )
+
+        # A test clock dependency, not a bypass of require_current_snapshot validation.
+        atomic_contract.datetime = SnapshotClock
     settings = Settings(
         kafka=KafkaSettings(bootstrap_servers=config["kafka"]),
         minio=MinioSettings(
@@ -72,7 +86,12 @@ async def main():
     control = (
         Path(config["overlapControlDir"]) if "overlapControlDir" in config else None
     )
-    provider = FixtureProvider(control)
+    provider = FixtureProvider(
+        control,
+        date.fromisoformat(config["businessDate"])
+        if "businessDate" in config
+        else None,
+    )
     consumer.get_or_create_client = lambda *args: provider
     stock_prices.get_or_create_client = lambda *args: provider
     symbols.get_or_create_client = lambda *args: provider

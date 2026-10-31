@@ -6,11 +6,13 @@ import asyncio
 import json
 import logging
 import sys
+from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from py_common.config.models import KafkaSettings, MinioSettings
+from py_common.messaging import atomic_work as atomic_contract
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
@@ -30,6 +32,18 @@ from app.settings import AppSettings
 
 async def main():
     config = json.loads(Path(sys.argv[1]).read_text())
+    if "businessDate" in config:
+        day = date.fromisoformat(config["businessDate"])
+
+        class SnapshotClock(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime.now(tz).replace(
+                    year=day.year, month=day.month, day=day.day
+                )
+
+        # Keep catalog/metadata "current snapshot" checks on the accepted fixture day.
+        atomic_contract.datetime = SnapshotClock
     settings = AppSettings(
         kafka=KafkaSettings(bootstrap_servers=config["kafka"]),
         minio=MinioSettings(
@@ -75,9 +89,11 @@ async def main():
 
         async def gated_handle(payload):
             execution = payload["executionId"]
-            (control / f"entered-{execution}.json").write_text(
-                json.dumps({"executionId": execution})
+            entered = control / f"entered-{execution}.json"
+            attempts = (
+                json.loads(entered.read_text())["attempts"] if entered.exists() else 0
             )
+            write_marker(entered, {"executionId": execution, "attempts": attempts + 1})
             while not (control / "release-indicators").exists():
                 await asyncio.sleep(0.05)
             count = await actual_handle(payload)

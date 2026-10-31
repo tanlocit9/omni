@@ -1,5 +1,15 @@
 # Platform / Core Service
 
+## I9 shared-attempt worker integration
+
+Run `nx run platform:test-atomic-sharing` for the opt-in graph-enabled workflow:
+three requests share catalog/stock/indicator attempts, each on a one-step JobRun;
+two owners complete while one cancellation leaves shared work running. Actual
+Kafka/MinIO/Python workers exercise barriers, input approval, replay, committed
+offsets and Query Service output. Separate disposable containers are required.
+The existing `test-integration` and `test-overlap` fixtures explicitly retain the
+many-step route. See [scenario and execution evidence](../../database/diagnostics/p14/v2/i9-atomic-sharing-evidence.md).
+
 ## P14 Work Operations diagnostics — source only
 
 Add authenticated GET /api/v1/jobs/atomic-work/snapshot, /published-unfinished and
@@ -9,13 +19,11 @@ transactions with query/lock timeouts. Missing schema/query failures return safe
 invalid input 400. No schema migration, scheduler state/flags or Kafka contract change.
 See [full contract and NOT RUN handoff](../../database/diagnostics/p14/v2/README.md).
 
-
 I9 entry correction (source only): strategy-qualified selection preserves
 ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
 standard entries: seven. Partial timeframe/exchange/request coverage keeps a
 standalone entry; atomic symbol/day identity and verification_pending status stay.
 See [correction](../../docs/plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
-
 
 The 2026-10-30 repair checks aggregate work budgets before child/outbox writes,
 materializes accepted work without expanding again, preserves first input approvals
@@ -38,7 +46,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: Pending I8/I9 are planning extensions, not current runtime. Common expansion comes before graph-driven ancestors/shared ownership and definition consolidation; existing definitions remain config/presets and I9.a/b/c are internal gates.
 This note changes no implementation, configuration, preparation flag or existing

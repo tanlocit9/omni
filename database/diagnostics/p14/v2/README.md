@@ -4,6 +4,10 @@ Owner: [Plan 030](../../../../docs/plans/030-static-graph-dispatch-planner.md).
 For a one-shot local execution/outbox and Kafka backlog report compatible with the
 V16 tables, use [`nx run omni:jobs-backlog`](../../../../tools/jobs_backlog.md).
 It is separate from this V17/V18 atomic-request pack and performs no cleanup.
+The [I9 shared-attempt worker scenario](i9-atomic-sharing-evidence.md) separates
+atomic-request end-to-end evidence from the existing many-step JobRun workflow.
+The [I9 review repairs](i9-review-fixes-evidence.md) cover ancestor preset parameters
+and PostgreSQL-compatible consolidation rollback lock order.
 This additive pack observes I9 attempts/requests under PostgreSQL 16 + V18.
 Keep [I5 v1](../v1/README.md) for frozen JobRun/path/legacy diagnostics and its
 historical benchmark. Owner selected an Omni Console dashboard: source now includes
@@ -16,12 +20,12 @@ See [full review](review.md). I8/I9 remain verification_pending, I10 pending.
 
 ## Files and scope
 
-| File | Inputs | Output / bounds |
-| --- | --- | --- |
-| preflight.sql | None | Table/definition-column availability + server version; missing schema means unavailable, never an empty healthy system. |
-| snapshot.sql | since, until, observed_at, after_id, row_limit | JSON v2 for [dashboard.html](dashboard.html); <=100 requests, <=1000 distinct attempts, <=2000 edges; separate truncation flags. |
-| published_unfinished.sql | observed_at, published_before, after_id, row_limit | <=400 messages + lookahead, legacy/I8/I9; not limited by request creation window. |
-| inspect_work.sql | atomic_work_id, observed_at | <=100 attempts + lookahead, <=400 owners, <=1000 upstream links; immutable identity/approval checks and one-hop provenance. |
+| File                     | Inputs                                             | Output / bounds                                                                                                                  |
+| ------------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| preflight.sql            | None                                               | Table/definition-column availability + server version; missing schema means unavailable, never an empty healthy system.          |
+| snapshot.sql             | since, until, observed_at, after_id, row_limit     | JSON v2 for [dashboard.html](dashboard.html); <=100 requests, <=1000 distinct attempts, <=2000 edges; separate truncation flags. |
+| published_unfinished.sql | observed_at, published_before, after_id, row_limit | <=400 messages + lookahead, legacy/I8/I9; not limited by request creation window.                                                |
+| inspect_work.sql         | atomic_work_id, observed_at                        | <=100 attempts + lookahead, <=400 owners, <=1000 upstream links; immutable identity/approval checks and one-hop provenance.      |
 
 SQL statements are SELECT-only. Run through a read-only libpq service/role with
 REPEATABLE READ READ ONLY, statement_timeout=5s and lock_timeout=500ms. File
@@ -93,11 +97,11 @@ trigger/cancel/retry, READY promotion or timeout action is introduced.
 
 Platform GET routes under the existing authenticated /api/v1/jobs/atomic-work boundary:
 
-| Route | Parameters / limits |
-| --- | --- |
-| /snapshot | hours=24 (1..168), optional paired since/until, observedAt, afterId UUID, limit=25 (1..100); explicit windows <=7 days and no later than observedAt. |
-| /published-unfinished | optional observedAt/afterId, limit=50 (1..100); publication older than 30 minutes, no lower creation bound. |
-| /work | atomicWorkId=work:<64 lowercase hex>; <=100 attempts, 400 owners, 1000 upstream links. |
+| Route                 | Parameters / limits                                                                                                                                  |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| /snapshot             | hours=24 (1..168), optional paired since/until, observedAt, afterId UUID, limit=25 (1..100); explicit windows <=7 days and no later than observedAt. |
+| /published-unfinished | optional observedAt/afterId, limit=50 (1..100); publication older than 30 minutes, no lower creation bound.                                          |
+| /work                 | atomicWorkId=work:<64 lowercase hex>; <=100 attempts, 400 owners, 1000 upstream links.                                                               |
 
 Readers use REPEATABLE READ/read-only transactions (10s transaction, 5s JDBC query
 and 500ms local lock timeout). Invalid windows/limits/identity return HTTP 400; missing

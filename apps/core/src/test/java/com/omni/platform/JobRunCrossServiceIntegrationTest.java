@@ -10,21 +10,27 @@ import java.nio.file.Path;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.DayOfWeek;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
-import com.omni.platform.modules.scheduler.JobScheduler;
 import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
+import com.omni.platform.modules.scheduler.dependencies.CachedManifestReader;
+import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
 import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshot;
 import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshotReader;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
+import com.omni.platform.modules.scheduler.producers.JobProducerRegistry;
 import com.omni.platform.modules.scheduler.runs.JobRunPreparationService;
 import com.omni.platform.modules.scheduler.services.SchedulerClaimService;
 import io.minio.GetObjectArgs;
@@ -60,6 +66,15 @@ class JobRunCrossServiceIntegrationTest {
     static Path directory;
     static Path config;
     static String bucket = "p14-integration";
+    static final Instant BUSINESS_CLOCK = workingClock();
+    static final AtomicInteger REQUEST_SEQUENCE = new AtomicInteger();
+
+    static Instant workingClock() {
+        var now = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        while (now.getDayOfWeek() == DayOfWeek.SATURDAY || now.getDayOfWeek() == DayOfWeek.SUNDAY)
+            now = now.minusDays(1);
+        return now.toInstant();
+    }
 
     @BeforeAll
     static void start() throws Exception {
@@ -67,6 +82,10 @@ class JobRunCrossServiceIntegrationTest {
     }
 
     static void start(boolean overlapControls) throws Exception {
+        start(overlapControls, false);
+    }
+
+    static void start(boolean overlapControls, boolean graphExpansion) throws Exception {
         directory = Files.createTempDirectory("omni-p14-integration-");
         int kafkaPort;
         try (var socket = new ServerSocket(0)) {
@@ -123,6 +142,10 @@ class JobRunCrossServiceIntegrationTest {
         properties.put("app.minio.secret-key", secret);
         properties.put("minio.bucket", bucket);
         properties.put("app.minio.bucket", bucket);
+        // Pin the route so external application flags cannot silently change the fixture.
+        properties.put("app.scheduler.job-run.graph-expansion-enabled", graphExpansion);
+        properties.put("app.scheduler.job-run.planning-enabled", true);
+        properties.put("app.scheduler.job-run.definition-consolidation-enabled", false);
         context =
                 PlatformStartupPostgresTest.startApplication(
                         database,
@@ -151,6 +174,9 @@ class JobRunCrossServiceIntegrationTest {
                                 bucket,
                                 "result",
                                 directory.resolve("query-result.json").toString()));
+        environment.put(
+                "businessDate",
+                BUSINESS_CLOCK.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString());
         if (overlapControls) {
             Path control = Files.createDirectory(directory.resolve("control"));
             environment.put("overlapControlDir", control.toString());
@@ -256,6 +282,7 @@ class JobRunCrossServiceIntegrationTest {
                                 "%" + eodVersion + "%"))
                 .isEqualTo(1);
         var storage = context.getBean("minioClient", MinioClient.class);
+        proveLegacyStaleReadyIsAdmittedButAtomicWorkerRejectsIt(storage, dispatch);
         // The fixture provider has no classification endpoint. Existing symbol
         // data permits the actual fallback branch to complete with warnings.
         jdbc.update(
@@ -345,6 +372,7 @@ class JobRunCrossServiceIntegrationTest {
     }
 
     static UUID prepare(JobType type) {
+        Instant acceptedAt = BUSINESS_CLOCK.plusSeconds(REQUEST_SEQUENCE.incrementAndGet());
         JobDefinition definition =
                 context.getBean(JobDefinitionRepository.class).findAll().stream()
                         .filter(d -> d.getJobType() == type)
@@ -361,21 +389,16 @@ class JobRunCrossServiceIntegrationTest {
                 Timestamp.from(Instant.now().plusSeconds(86400)));
         jdbc.update(
                 "UPDATE job_definitions SET next_run=?,claim_token=null,claim_until=null WHERE id=?",
-                Timestamp.from(Instant.now().minusSeconds(1)),
+                Timestamp.from(acceptedAt.minusSeconds(1)),
                 definition.getId());
-        if (type == JobType.SYNC_METADATA) {
-            context.getBean(JobScheduler.class).scan();
-        } else {
-            // The production catalog now schedules terminal definitions only.
-            // Keep this provider-bounded worker scenario explicit; the scheduler
-            // entry policy is exercised separately on the full seeded catalog.
-            var claim =
-                    context.getBean(SchedulerClaimService.class)
-                            .claimJobDefinition(definition.getId(), Instant.now(), "integration")
-                            .orElseThrow();
-            context.getBean(JobRunPreparationService.class)
-                    .prepareScheduled(definition, claim, Instant.now());
-        }
+        // Preparation accepts an explicit clock. Keep the worker/provider fixture on the same
+        // weekday; scheduler entry policy is covered by separate claim integration tests.
+        var claim =
+                context.getBean(SchedulerClaimService.class)
+                        .claimJobDefinition(definition.getId(), acceptedAt, "integration")
+                        .orElseThrow();
+        context.getBean(JobRunPreparationService.class)
+                .prepareScheduled(definition, claim, acceptedAt);
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM job_execution_histories WHERE job_id=? AND parent_log_id IS NULL",
@@ -386,6 +409,101 @@ class JobRunCrossServiceIntegrationTest {
                 "SELECT h.id FROM job_execution_histories h JOIN job_runs r ON r.id=h.job_run_id WHERE h.job_id=? AND h.parent_log_id IS NULL ORDER BY r.requested_at DESC LIMIT 1",
                 UUID.class,
                 definition.getId());
+    }
+
+    private static void proveLegacyStaleReadyIsAdmittedButAtomicWorkerRejectsIt(
+            MinioClient storage, SchedulerOutboxDispatcher dispatch) throws Exception {
+        byte[] eodBefore = objectBytes(storage, "eod/hose/hpg.parquet");
+        byte[] indicatorsBefore = objectBytes(storage, "indicators/ad_close/1d/hose/hpg.parquet");
+        try {
+            launch("analyzer", "p14_stale_input.py", true);
+            finish(prepare(JobType.SYNC_METADATA), dispatch);
+            // Isolate missing-day coverage from the independent 60-second version-cache window.
+            context.getBean(CachedManifestReader.class)
+                    .invalidate(DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg")));
+            var definition =
+                    context.getBean(JobDefinitionRepository.class).findAll().stream()
+                            .filter(job -> job.getJobType() == JobType.SYNC_INDICATORS)
+                            .findFirst()
+                            .orElseThrow();
+            var claim =
+                    context.getBean(SchedulerClaimService.class)
+                            .claimJobDefinition(
+                                    definition.getId(), BUSINESS_CLOCK, "stale-ready-fixture")
+                            .orElseThrow();
+            var claimedDefinition =
+                    context.getBean(JobDefinitionRepository.class)
+                            .findById(definition.getId())
+                            .orElseThrow();
+            // Direct legacy producer route matches the live V16 database (no JobRun barrier).
+            UUID root =
+                    context.getBean(JobProducerRegistry.class)
+                            .getProducer(JobType.SYNC_INDICATORS)
+                            .prepareDispatch(claimedDefinition, claim, BUSINESS_CLOCK);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT job_run_id FROM job_execution_histories WHERE id=?",
+                                    UUID.class,
+                                    root))
+                    .isNull();
+            await(
+                    () -> {
+                        dispatch.dispatch();
+                        return "FAILED".equals(status(root));
+                    },
+                    90,
+                    "legacy stale READY input produces worker ERROR and parent FAILED");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM scheduler_outbox_messages o "
+                                            + "JOIN job_execution_histories h ON h.id=o.execution_id "
+                                            + "WHERE h.parent_log_id=? AND o.status='PUBLISHED'",
+                                    Integer.class,
+                                    root))
+                    .isEqualTo(1);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT error FROM job_execution_histories WHERE parent_log_id=?",
+                                    String.class,
+                                    root))
+                    .startsWith("Input does not cover business date ");
+            assertThat(objectBytes(storage, "indicators/ad_close/1d/hose/hpg.parquet"))
+                    .isEqualTo(indicatorsBefore);
+            var input = JSON.readTree(Files.readString(directory.resolve("stale-eod.json")));
+            assertThat(input.path("latestInputDay").asText())
+                    .isLessThan(input.path("businessDate").asText());
+            Path evidence =
+                    ROOT.resolve(
+                            ".agent/check-results/P14-cross-service-integration/stale-ready-result.json");
+            Files.createDirectories(evidence.getParent());
+            Files.writeString(
+                    evidence,
+                    JSON.writeValueAsString(
+                            Map.of(
+                                    "businessDate",
+                                    input.path("businessDate").asText(),
+                                    "latestInputDay",
+                                    input.path("latestInputDay").asText(),
+                                    "legacyPublishedStaleReady",
+                                    true,
+                                    "workerRejectedMissingDay",
+                                    true,
+                                    "previousOutputPreserved",
+                                    true)));
+        } finally {
+            storage.putObject(
+                    PutObjectArgs.builder().bucket(bucket).object("eod/hose/hpg.parquet").stream(
+                                    new ByteArrayInputStream(eodBefore), eodBefore.length, -1)
+                            .build());
+        }
+        finish(prepare(JobType.SYNC_METADATA), dispatch);
+    }
+
+    private static byte[] objectBytes(MinioClient storage, String path) throws Exception {
+        try (var input =
+                storage.getObject(GetObjectArgs.builder().bucket(bucket).object(path).build())) {
+            return input.readAllBytes();
+        }
     }
 
     static String status(UUID execution) {
@@ -409,7 +527,11 @@ class JobRunCrossServiceIntegrationTest {
                 System.getProperty("os.name").startsWith("Windows")
                         ? ".venv/Scripts/python.exe"
                         : ".venv/bin/python";
-        Path log = directory.resolve(app + ".log");
+        Path log =
+                directory.resolve(
+                        script.equals("p14_stale_input.py")
+                                ? "stale-input-fixture.log"
+                                : app + ".log");
         var process =
                 new ProcessBuilder(
                                 ROOT.resolve(python).toString(),

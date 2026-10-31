@@ -1,5 +1,15 @@
 # Omni Release Notes
 
+## 2026-10-31 — Add read-only local job backlog tool
+
+Add `nx run omni:jobs-backlog`: execution age/status/root-child groups, bounded
+oldest-work samples, outbox counts and separate Kafka partition lag. Text/JSON output
+preserves unavailable and unknown states. Uses existing Docker infrastructure and
+read-only PostgreSQL transactions; no cleanup, worker startup or offset mutation.
+Local verification: 25 tooling unit tests PASS (11 new); the live read-only report
+observed zero unfinished histories and zero Kafka lag/unknown-lag partitions.
+See [usage and limits](tools/jobs_backlog.md). P14 increment statuses are unchanged.
+
 ## 2026-10-30 — Integrate P14 diagnostics into Omni Console
 
 Owner selected Console: add Work Operations navigation, bounded authenticated

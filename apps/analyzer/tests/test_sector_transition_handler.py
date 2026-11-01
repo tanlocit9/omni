@@ -97,7 +97,9 @@ async def test_evaluate_outcomes_skips_saved_identity_without_rewriting() -> Non
     predictions["evaluation_date"] = "2026-01-07"
     storage.read_optional_dataframe.side_effect = [predictions, existing]
     handler = SectorTransitionJobHandler(AppSettings(), storage)
-    with patch("app.sector_transition.handler.evaluate_sector_transition_outcomes") as evaluate:
+    with patch(
+        "app.sector_transition.handler.evaluate_sector_transition_outcomes"
+    ) as evaluate:
         result = await handler.handle_evaluate_outcomes(payload())
     assert result.records_processed == 0
     assert result.reason == "ALREADY_EVALUATED"

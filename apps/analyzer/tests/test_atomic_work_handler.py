@@ -18,8 +18,15 @@ async def test_indicator_handler_reads_lookback_but_not_future_and_preserves_oth
     raw = json.loads(
         (root / "libs/contracts/fixtures/atomic-work-v1.json").read_text()
     )["message"]
-    raw["metadata"] = {"approvedInputs": [{"dataset": "eod", "partition": {
-        "exchange": "hose", "code": "hpg"}, "dataVersion": "v1"}]}
+    raw["metadata"] = {
+        "approvedInputs": [
+            {
+                "dataset": "eod",
+                "partition": {"exchange": "hose", "code": "hpg"},
+                "dataVersion": "v1",
+            }
+        ]
+    }
     frame = pd.DataFrame(
         {
             "date": pd.to_datetime(["2026-10-28", "2026-10-29", "2026-10-30"]),
@@ -69,8 +76,15 @@ async def test_indicator_atomic_missing_day_does_not_publish_output(monkeypatch)
     raw = json.loads(
         (root / "libs/contracts/fixtures/atomic-work-v1.json").read_text()
     )["message"]
-    raw["metadata"] = {"approvedInputs": [{"dataset": "eod", "partition": {
-        "exchange": "hose", "code": "hpg"}, "dataVersion": "v1"}]}
+    raw["metadata"] = {
+        "approvedInputs": [
+            {
+                "dataset": "eod",
+                "partition": {"exchange": "hose", "code": "hpg"},
+                "dataVersion": "v1",
+            }
+        ]
+    }
     storage = AsyncMock()
     storage.read_dataframe.return_value = pd.DataFrame(
         {"date": ["2026-10-28"], "ad_close": [10]}
@@ -98,12 +112,23 @@ async def test_indicator_atomic_missing_day_does_not_publish_output(monkeypatch)
 @pytest.mark.parametrize("binding", [None, "invalid"])
 async def test_atomic_indicator_requires_approved_eod_before_output(binding):
     root = Path(__file__).resolve().parents[3]
-    raw = json.loads((root / "libs/contracts/fixtures/atomic-work-v1.json").read_text())["message"]
+    raw = json.loads(
+        (root / "libs/contracts/fixtures/atomic-work-v1.json").read_text()
+    )["message"]
     raw["metadata"] = {} if binding is None else {"approvedInputs": binding}
     storage = AsyncMock()
-    reader = SimpleNamespace(read=AsyncMock(return_value=SimpleNamespace(
-        resolve=lambda *args: SimpleNamespace(path="eod", status="READY", dataVersion="v1"))))
-    settings = SimpleNamespace(stock_data_paths=SimpleNamespace(indicators=lambda *args: "output"))
+    reader = SimpleNamespace(
+        read=AsyncMock(
+            return_value=SimpleNamespace(
+                resolve=lambda *args: SimpleNamespace(
+                    path="eod", status="READY", dataVersion="v1"
+                )
+            )
+        )
+    )
+    settings = SimpleNamespace(
+        stock_data_paths=SimpleNamespace(indicators=lambda *args: "output")
+    )
     with pytest.raises(ValueError, match="binding"):
         await IndicatorJobHandler(settings, storage, reader).handle(raw)
     storage.read_dataframe.assert_not_awaited()

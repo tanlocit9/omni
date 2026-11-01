@@ -6,6 +6,15 @@ I10 remains planned/pending; no default activation, retained-environment deploym
 PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
 handoffs below record their historical status and do not override this result.
 
+## 2026-11-01 — Format the complete PR scope
+
+Repair the nine files reported by CI, including Console operations, the offline
+diagnostic dashboard and earlier contract/ADR/debt documentation. The prior
+worktree-only formatter did not include files already committed earlier on this
+branch. Run Nx format write/check with the explicit reported-file list and the
+updated evidence documents. Refresh Console/contracts status wording against the
+completed local gate; no runtime behavior, activation or I10 implementation changes.
+
 ## 2026-11-01 — Close I8/I9 local acceptance and prepare I10
 
 Complete the common-expansion and graph/shared-work/consolidation acceptance

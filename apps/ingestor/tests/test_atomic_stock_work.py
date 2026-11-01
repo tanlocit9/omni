@@ -10,7 +10,7 @@ from py_common.messaging.atomic_work import atomic_work_id
 from app.handlers import stock_prices
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize("has_day", [True, False])
 @pytest.mark.parametrize("history", ["existing", "missing", "empty"])
 @pytest.mark.parametrize("source", ["VND", ""])
@@ -85,7 +85,7 @@ async def test_atomic_stock_proves_requested_day_before_write_and_status(
     )
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "failure", ["future", "too_old", "empty", "missing_date", "write"]
 )
@@ -139,7 +139,7 @@ async def test_atomic_stock_failures_never_report_success(monkeypatch, failure):
         client.fetch_recent_stock.assert_not_awaited()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_legacy_empty_stock_output_retains_compatibility(monkeypatch):
     client, storage, publisher = AsyncMock(), AsyncMock(), AsyncMock()
     client.fetch_recent_stock.return_value = []

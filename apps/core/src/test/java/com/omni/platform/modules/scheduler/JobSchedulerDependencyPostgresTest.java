@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,6 +38,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
+import com.omni.platform.modules.scheduler.expansion.WorkExpansion;
 import com.omni.platform.modules.scheduler.dependencies.ManifestReader;
 import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
@@ -420,7 +423,11 @@ class JobSchedulerDependencyPostgresTest {
         job.setTitle("P4-I2 enforced dependency integration");
         job.setIsActive(true);
         job.setNextRun(Instant.now().minusSeconds(60));
-        job.setConfigJson(Map.of());
+        // These tests exercise dependency admission, not weekend zero-work expansion.
+        LocalDate day = LocalDate.now(WorkExpansion.ZONE);
+        while (day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY)
+            day = day.minusDays(1);
+        job.setConfigJson(Map.of("dateFrom", day.toString(), "dateTo", day.toString()));
         return jobRepository.saveAndFlush(job);
     }
 

@@ -1,5 +1,36 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+## I9 worker coverage completion — 2026-11-01
+
+Close the remaining Analyzer handler coverage gaps: indicator and Sector Wave
+100% line/branch; signals 98.88% line/95.83% branch. Eighteen added cases produce
+192 full-suite and 100 focused passing tests. Resolve pre-existing Analyzer Ruff
+issues with scoped format/import-only changes and normalized AST equivalence;
+rerun actual worker workflows on those inputs. See the
+[current coverage matrix and source attribution](../../database/diagnostics/p14/v2/i9-verification-20261031.md#worker-coverage-completion--2026-11-01).
+No thresholds/exclusions change. The follow-up gate is
+`P14-I9-worker-coverage-20261101`. MCP graph tools are not exposed; the installed
+CLI fallback supplies fresh update/impact/change analysis, reconciled with executed
+coverage rather than treating heuristic test links as proof.
+The final follow-up gate PASS (18/18) includes renewed full Platform/shared suites,
+all four worker workflows without skips, all 22 Java thresholds and clean build.
+I8/I9 remain verification_pending, with I8 prerequisite and retained rollout still
+open. This closes the listed worker coverage gaps, not increment completion.
+
+## I9 acceptance verification — 2026-10-31
+
+Extend the bounded repairs with date-range overlap, terminal retry ownership,
+stale claims, cancellation after publication, consolidation lease/operator conflicts
+and V16-to-V18 historical-data preservation. The recorded full local gate,
+attributable coverage and cross-service/documentation matrix are in the
+[I9 verification report](../../database/diagnostics/p14/v2/i9-verification-20261031.md).
+Local gate `P14-I9` PASS (17/17): 69 focused tests, 539 full-suite entries
+(535 executed; four opt-in workflows verified separately), and all 22 critical
+Java components above 80% line/branch. The report preserves whole-worker gaps.
+This supersedes earlier verification wording only where the report supplies fresh
+source-bound results. I8/I9 remain verification_pending; no runtime activation,
+retained-data operation, writer/P12 or I10 implementation is inferred.
+
 ## I9 review repairs — 2026-10-31
 
 Preserve nested ancestor preset parameters before graph projection and qualify
@@ -29,15 +60,113 @@ coverage is 86.0% line / 60.5% branch in this bounded run. I8/I9 remain
 verification_pending; the later review-repair section above addresses mapping/lock
 order separately, while full coverage and retained migration/rollout gates remain open.
 
+## Unfinished-work integration follow-up — 2026-10-31
+
+Owner requested integration checks for the unfinished/backlogged job scenarios.
+[Scenario mapping and limits](../../database/diagnostics/p14/v2/runtime-failure-audit.md#unfinished-work-integration-follow-up--2026-10-31)
+separate broker redelivery, acknowledged ERROR, persisted orphan state and real
+worker recovery. Gate P14-unfinished-integration-20261031 PASS (3/3): five Kafka,
+36 PostgreSQL and three real-worker tests passed, zero failures/errors/skips in the
+final runs. The initial weekend fixture-clock failures were corrected and all three
+worker workflows rerun. Fixture clocks use the latest weekday and preserve the
+accepted business date across restart, without changing production expansion.
+No live database/offset/worker or runtime contract changes. I8/I9 verification and
+I10 recovery/readiness gaps are not closed by this bounded test follow-up.
+
+## Live failure audit and regression scenarios — 2026-10-30
+
+Owner requested read-only database grouping and reconciliation with unit/integration
+tests. The local database has V16 and no JobRuns/I9 atomic tables. The
+[runtime failure audit](../../database/diagnostics/p14/v2/runtime-failure-audit.md)
+records capture limits, full failure categories, backlog versus unfinished state,
+new signal/Sector Wave regressions and the disposable stale-READY cross-service
+scenario. Exact-date admission and terminal-status watchdog gaps remain open.
+Local gates P14-live-error-audit-20261030 (4/4) and P14-live-error-ingestor-20261030
+(1/1) PASS: Analyzer 174, shared 200, Platform focused 55, Ingestor 73 and one
+cross-service workflow passed; four shared Kafka tests skipped. Stale READY
+admission is reproduced, with worker ERROR and preserved output. Whole-handler
+branch coverage remains below the increment threshold (signals 58.3%, Sector Wave
+71.4%); this does not close I8/I9 or implement I10. No live cleanup, offset change,
+provider call, migration or runtime activation. Detailed source/test mapping,
+coverage limits and the independent cache/version window are in the report.
+
+## I9 scheduled coverage correction — 2026-10-30
+
+Owner requested the non-signal P1 repair after the static review below.
+`GraphScheduledEntries` now retains every active, schedule-enabled, non-retired
+non-signal preset as an independent scheduled entry. A JobType edge is not proof
+that a downstream request covers all upstream membership, days and parameters.
+The existing strategy/timeframe/exchange/request checks for signal/evaluation
+selection remain unchanged. Preset consolidation eligibility, graph expansion,
+atomic identities, attempts, leases and batch-size limits are unchanged.
+
+This conservative policy can create more scheduled requests than the old terminal-
+only heuristic; shared-work acquisition still owns reuse. It preserves work when
+coverage is unknown without claiming writer exclusion or lower execution counts.
+The former seven-entry seed expectation is historical. The canonical seed test
+expects all presets except the matching TREND signal covered by evaluation, and
+the database test drains successive bounded claim batches without duplicate IDs.
+
+Regression source: `GraphScheduledEntriesTest` adds narrow symbol/date/nested
+overrides and sector-level/timeframe/source differences; existing signal and
+disabled/retired cases remain. `SchedulerEntryClaimTest` checks the candidate-list
+handoff. `GraphWorkRequestsPostgresTest` proves that an indicator graph containing
+only HOSE-VCB stock work does not remove the broad HOSE stock schedule, and checks
+all seed entries through bounded database claims.
+
+Local gate **PASS `P14-I9-schedule-coverage-fix-20261030`, required=1/pass=1**:
+`nx run platform:test --skip-nx-cache --args="--tests *GraphScheduledEntriesTest --tests *SchedulerEntryClaimTest --tests *GraphWorkRequestsPostgresTest"`.
+Read through `python tools/check_result.py conclusion --increment P14-I9-schedule-coverage-fix-20261030`.
+The final run passed 26 tests with zero failures/errors/skips (7 selector, 3 claim,
+16 PostgreSQL). Source hashes were unchanged during the final run; copied JUnit,
+JaCoCo and source binding are in `.agent/check-results/P14-I9-schedule-coverage-fix-20261030/`.
+The test target also generated JaCoCo: selector 100% line / 92.9% branch and
+`SchedulerClaimService` 100% line / 100% branch. No separate full-Platform coverage,
+build/lint/format, Console/browser, retained environment or deployment pass is claimed.
+The first run failed two existing diagnostics fixture lookups due to ambiguous
+JsonMapper beans; both now explicitly select `jsonMapper`, and the full approved
+scope was rerun without waiving failures. Production diagnostics are unchanged.
+
+| Criterion                                                                             | Source / executed tests                                                                                                                      | Evidence                                  |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Unknown membership/date/parameter coverage retains independent schedules              | `GraphScheduledEntries`; narrow indicator/catalog/date/override and sector/timeframe/source unit cases                                       | 7/7; selector 100% line / 92.9% branch    |
+| Existing signal strategies and inactive/disabled/retired behavior remain              | Existing selector strategy/default/restriction cases                                                                                         | Same passing selector suite               |
+| Candidate list reaches bounded claim query                                            | `SchedulerClaimService`; `SchedulerEntryClaimTest`                                                                                           | 3/3; service 100% line/branch             |
+| Narrow VCB graph does not remove broad HOSE stock schedule; seed claims honor batches | `GraphWorkRequestsPostgresTest.narrowIndicatorGraphDoesNotRemoveTheBroadStockSchedule` and `.graphSchedulerClaimsAllUncoveredSeedStrategies` | Real PostgreSQL; 16/16 suite cases passed |
+
+Blast radius: Platform graph-mode entry selection, scheduler claim candidates and
+regression tests. More requests may reach the existing I9 shared-acquisition path.
+Analyzer, Ingestor, Query Service, Console and shared libraries/contracts require
+no source or wire change; their execution/storage/READY semantics are unchanged.
+No schema/migration, configuration/default flag, outbox payload, public API, dataset
+owner/path, provider or deployment changes. Existing timeout and mutable-output
+exclusion gaps remain separate; I8/I9 stay verification_pending and I10 pending.
+
+Documentation synchronization: registry, release notes, job execution flow,
+Platform guide, index evidence note and diagnostic review/entry-count explanation change. Architecture,
+ADR, Kafka/lake/database, deployment, ownership and agent instructions need
+no change: same services, schema/wire/storage boundaries and existing opt-in path.
+Graph index was refreshed to the current source; bounded impact has unresolved
+Java call sites, so direct selector/claim/graph reconciliation supplies the scope.
+
+Static documentation audit: current statuses/dependencies, mandatory plan sections,
+owned links/anchors, conservative selection rules and evidence scope agree across
+the touched documents. Earlier seven-entry and NOT RUN statements are historical;
+the later bounded gate does not close full-increment acceptance. Post-edit graph
+change detection is analysis only; executed JUnit/JaCoCo supplies test evidence.
+
 ## Whole-P14 review and diagnostics preparation — 2026-10-30
+
+Historical review baseline: the scheduled-coverage repair and its later executed
+scope are recorded above; NOT RUN statements in this section describe that review.
 
 Owner requested review of delivered and planned P14 plus SQL/dashboard preparation.
 See [review and findings](../../database/diagnostics/p14/v2/review.md),
 [SELECT-only v2 SQL](../../database/diagnostics/p14/v2/README.md) and
 [offline dashboard](../../database/diagnostics/p14/v2/dashboard.html).
-New source-derived P1: GraphScheduledEntries only proves restricted coverage for
+Review-baseline P1 (source repair above): GraphScheduledEntries only proved restricted coverage for
 SYNC_SIGNALS; a narrow non-signal descendant can suppress uncovered scheduled work.
-No runtime fix or new regression execution is included. Existing published-unfinished
+That review included no runtime fix or regression execution. Existing published-unfinished
 reuse and mutable-output exclusion gaps remain visible; indicator byte binding is
 present and the old failed overlap evidence does not verify current HEAD.
 
@@ -1467,19 +1596,26 @@ No runtime checks/coverage are executed by this planning revision.
       graph adaptation preserves all existing distinctions.
 - [x] Projected upstream parameters share equivalent work despite target-only
       differences; real source/strategy/scope/day/parameter differences stay distinct.
-- [ ] Atomic DB acquisition/shared ownership handles concurrent overlapping scopes/
+- [x] Atomic DB acquisition/shared ownership handles concurrent overlapping scopes/
       ranges, joins, failures, retry/refresh and multiple-request cancellation.
-- [ ] Definition inventory maps old -> retained source/strategy/default/scope/
+- [x] Definition inventory maps old -> retained source/strategy/default/scope/
       schedule behavior; conflicts fail explicitly.
-- [ ] Consolidation follows graph/expansion parity: stop new scheduling on retired
+- [x] Consolidation follows graph/expansion parity: stop new scheduling on retired
       entries; preserve historical FKs, frozen paths/fingerprints and offset lookups
       through explicit mappings. Do not delete historical data.
-- [ ] Replay never re-expands or silently substitutes an ancestor attempt.
+- [x] Replay never re-expands or silently substitutes an ancestor attempt.
       Work reuse does not imply dataset freshness/READY.
-- [ ] Writer work/output/intent keys stay separate; no writer/concurrency/version
+- [x] Writer work/output/intent keys stay separate; no writer/concurrency/version
       guarantee is added. Existing safety blockers stay visible.
 - [ ] Complete impact/test/coverage, migration/compatibility, diagnostics,
       docs and rollback gates pass before completion.
+
+The checked behaviors have local source-bound evidence in the
+[2026-10-31 verification matrix](../../database/diagnostics/p14/v2/i9-verification-20261031.md).
+The final completion gate remains open: I8 is not closed, and retained-catalog/
+rollout evidence is separate. The listed worker coverage gaps and fresh CLI graph
+analysis are recorded by the November 1 follow-up above. Checking
+the writer boundary records the preserved design limit; it does not implement P12.
 
 #### Field/DTO Inventory and Bounded Delivery
 

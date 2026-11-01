@@ -69,19 +69,20 @@ class JobRunAtomicSharingIntegrationTest {
         UUID first = request(JobType.SYNC_INDICATORS, "first-owner");
         UUID second = request(JobType.SYNC_INDICATORS, "second-owner");
         UUID cancelled = request(JobType.SYNC_INDICATORS, "cancelled-owner");
+        UUID cancelledDuringPublish = request(JobType.SYNC_INDICATORS, "cancelled-during-publish");
         assertThat(first).isNotEqualTo(second).isNotEqualTo(cancelled);
-        assertThat(count("atomic_work_requests")).isEqualTo(3);
+        assertThat(count("atomic_work_requests")).isEqualTo(4);
         assertThat(count("atomic_work_attempts")).isEqualTo(3);
         assertThat(count("scheduler_outbox_messages")).isEqualTo(3);
         assertThat(count("job_runs")).isEqualTo(3);
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM atomic_work_request_members", Integer.class))
-                .isEqualTo(9);
+                .isEqualTo(12);
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM (SELECT attempt_id FROM atomic_work_request_members "
-                                        + "GROUP BY attempt_id HAVING count(DISTINCT request_id)=3) shared",
+                                        + "GROUP BY attempt_id HAVING count(DISTINCT request_id)=4) shared",
                                 Integer.class))
                 .isEqualTo(3);
         assertThat(
@@ -102,7 +103,7 @@ class JobRunAtomicSharingIntegrationTest {
                                 "SELECT count(*) FROM atomic_work_requests r "
                                         + "JOIN job_execution_histories e ON e.id=r.execution_id WHERE e.job_run_id IS NULL",
                                 Integer.class))
-                .isEqualTo(3);
+                .isEqualTo(4);
 
         UUID stock = execution(JobType.SYNC_STOCK_PRICE);
         UUID indicator = execution(JobType.SYNC_INDICATORS);
@@ -153,6 +154,19 @@ class JobRunAtomicSharingIntegrationTest {
         assertThat(marker(control, "entered", indicator).path("attempts").asInt()).isEqualTo(1);
         String approval = approved(indicator);
         assertThat(approval).isEqualTo(eod().path("dataVersion").asText());
+        assertThat(graph.cancel(requestId(cancelledDuringPublish), "i9-e2e", BUSINESS_CLOCK))
+                .isTrue();
+        assertThat(requestState(cancelledDuringPublish)).isEqualTo("CANCELLED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM scheduler_outbox_messages WHERE execution_id=?",
+                                String.class,
+                                indicator))
+                .isEqualTo("PUBLISHED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT atomic_work_admissible(?)", Boolean.class, indicator))
+                .isTrue();
         int attempts = count("atomic_work_attempts");
         int messages = count("scheduler_outbox_messages");
         int executions = count("job_execution_histories");
@@ -170,6 +184,8 @@ class JobRunAtomicSharingIntegrationTest {
         assertThat(status(indicator)).isEqualTo("SUCCESS");
         assertThat(status(cancelled)).isEqualTo("BLOCKED");
         assertThat(requestState(cancelled)).isEqualTo("CANCELLED");
+        assertThat(status(cancelledDuringPublish)).isEqualTo("BLOCKED");
+        assertThat(requestState(cancelledDuringPublish)).isEqualTo("CANCELLED");
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM job_runs WHERE state<>'SUCCESS'",
@@ -238,13 +254,14 @@ class JobRunAtomicSharingIntegrationTest {
         assertThat(query.path("rows").asInt()).isEqualTo(1);
         var result = new LinkedHashMap<String, Object>();
         result.put("graphExpansionEnabled", true);
-        result.put("initialRequests", 3);
+        result.put("initialRequests", 4);
         result.put("initialSharedAttempts", 3);
-        result.put("ownersPerInitialAttempt", 3);
+        result.put("ownersPerInitialAttempt", 4);
         result.put("stepsPerAtomicRun", 1);
         result.put("firstState", requestState(first));
         result.put("secondState", requestState(second));
         result.put("cancelledState", requestState(cancelled));
+        result.put("cancelledDuringPublishState", requestState(cancelledDuringPublish));
         result.put("approvedInput", approval);
         result.put("workerAck", marker(control, "ack", indicator).path("status").asText());
         result.put("replayAckCount", marker(control, "ack", indicator).path("attempts").asInt());

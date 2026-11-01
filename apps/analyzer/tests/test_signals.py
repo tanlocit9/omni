@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
-from py_common.storage.exceptions import StorageObjectNotFoundError
+from py_common.messaging.atomic_work import atomic_work_id
+from py_common.storage.exceptions import (
+    ManifestInvalidError,
+    StorageObjectNotFoundError,
+)
 from py_common.storage.parquet import ParquetWriteResult
 
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
@@ -192,6 +198,50 @@ class FakeProducer:
 
 async def _async(value):
     return value
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "strategy", [TREND_MOMENTUM_V1, ICHIMOKU_V1, CONFIRMED_TREND_EQUALS]
+)
+async def test_atomic_signal_with_stale_ready_eod_reports_error_without_outputs(
+    strategy,
+):
+    """Reproduce the live CLI failure using a READY manifest with pre-target data."""
+    day = date(2026, 10, 30)
+    parameters = {"source": "ANALYZER", "timeframe": "1d", "strategy": strategy}
+    raw = _job_payload(
+        symbolKey="UPCOM-CLI",
+        workKey="UPCOM-CLI",
+        strategy=strategy,
+        jobType="SYNC_SIGNALS",
+        businessDate=day.isoformat(),
+        parameters=parameters,
+        atomicWorkId=atomic_work_id(
+            "SYNC_SIGNALS", "SYMBOL", "UPCOM-CLI", day, parameters
+        ),
+    )
+    storage = FakeParquetStorage(
+        {
+            "eod/upcom/cli.parquet": pd.DataFrame(
+                {"date": pd.to_datetime(["2026-10-27"]), "ad_close": [10.0]}
+            )
+        }
+    )
+    handler = SignalJobHandler(FakeSettings(), storage, FakeMetadataReader())
+    service = SignalKafkaService(FakeSettings(), handler)
+    producer = FakeProducer()
+    service._producer = producer
+
+    status = await service.process_payload(raw)
+
+    assert status.status.value == "ERROR"
+    assert status.error_message == "Input does not cover business date 2026-10-30"
+    assert status.execution_id == raw["executionId"]
+    assert status.work_key == "UPCOM-CLI"
+    assert storage.writes == {}
+    assert storage.replacements == {}
+    assert [topic for topic, _, _ in producer.sent] == ["topic-sync-job-status"]
 
 
 def test_signal_job_message_validates_contract():
@@ -773,6 +823,101 @@ async def test_signal_handler_reads_eod_indicators_and_writes_signal_path():
     assert signals_path in storage.replacements
     assert "signals/trend_momentum_v1/1d/hose/hpg.parquet" in storage.replacements
     assert len(storage.replacements) == 2
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("dataset", ["eod", "indicators"])
+@pytest.mark.parametrize("state", ["MISSING", "PENDING"])
+async def test_signal_unready_metadata_cannot_replace_persisted_output(dataset, state):
+    reader = FakeMetadataReader()
+    resolve = reader.resolve
+    reader.resolve = lambda name, partition: (
+        (None if state == "MISSING" else SimpleNamespace(status=state))
+        if name == dataset
+        else resolve(name, partition)
+    )
+    storage = FakeParquetStorage({"eod/hose/hpg.parquet": _eod_frame()})
+    with pytest.raises(ManifestInvalidError, match="READY metadata"):
+        await SignalJobHandler(FakeSettings(), storage, reader).handle(_job_payload())
+    assert storage.writes == {}
+    assert storage.replacements == {}
+
+
+@pytest.mark.anyio
+async def test_ichimoku_missing_columns_produce_no_decision():
+    storage = FakeParquetStorage(
+        {
+            "eod/hose/hpg.parquet": _eod_frame(),
+            "indicators/ad_close/1d/hose/hpg.parquet": _indicator_frame(),
+        }
+    )
+    transition = await SignalJobHandler(
+        FakeSettings(), storage, FakeMetadataReader()
+    ).handle(_job_payload(strategy=ICHIMOKU_V1))
+    assert transition.new_signal == MarketSignal.NO_DECISION
+    assert any("ICHIMOKU" in reason for reason in transition.metadata["reasonCodes"])
+    assert not transition.persisted
+    assert storage.replacements == {}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("eod_kind", ["missing-columns", "empty", "missing-values"])
+async def test_combined_legacy_signal_without_a_usable_day_does_not_resolve_intraday(
+    eod_kind,
+):
+    frames = {
+        "missing-columns": pd.DataFrame({"other": [1]}),
+        "empty": pd.DataFrame(columns=["date", "ad_close"]),
+        "missing-values": pd.DataFrame({"date": [pd.NaT], "ad_close": [float("nan")]}),
+    }
+    storage = FakeParquetStorage({"eod/hose/hpg.parquet": frames[eod_kind]})
+    resolver = SimpleNamespace(resolve=AsyncMock())
+    transition = await SignalJobHandler(
+        FakeSettings(), storage, FakeMetadataReader(), resolver
+    ).handle(_job_payload(strategy=CONFIRMED_TREND_EQUALS))
+    assert transition.new_signal == MarketSignal.NO_DECISION
+    assert "MISSING_INTRADAY" in transition.metadata["reasonCodes"]
+    assert not transition.persisted
+    resolver.resolve.assert_not_awaited()
+    assert storage.replacements == {}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("invalid_partition", [False, True])
+async def test_combined_signal_handles_unavailable_and_invalid_exact_date_intraday(
+    invalid_partition,
+):
+    storage = FakeParquetStorage({"eod/hose/hpg.parquet": _eod_frame()})
+    dataset = (
+        IntradayDataset(
+            frame=pd.DataFrame({"bad_column": [1]}),
+            dataset="intraday-trades",
+            data_version="version",
+            manifest_version=1,
+            reconciliation_status="READY",
+            manifest_path="manifest.json",
+        )
+        if invalid_partition
+        else None
+    )
+    resolver = SimpleNamespace(
+        resolve=AsyncMock(
+            return_value=IntradayResolution(
+                dataset, [] if invalid_partition else ["MISSING_INTRADAY"]
+            )
+        )
+    )
+    transition = await SignalJobHandler(
+        FakeSettings(), storage, FakeMetadataReader(), resolver
+    ).handle(_job_payload(strategy=CONFIRMED_TREND_EQUALS))
+    resolver.resolve.assert_awaited_once_with(
+        provider="VCI", exchange="HOSE", symbol="HPG", trading_date="2026-03-01"
+    )
+    assert transition.new_signal == MarketSignal.NO_DECISION
+    reason = "INVALID_INTRADAY_PARTITION" if invalid_partition else "MISSING_INTRADAY"
+    assert reason in transition.metadata["reasonCodes"]
+    assert not transition.persisted
+    assert storage.replacements == {}
 
 
 @pytest.mark.anyio

@@ -49,6 +49,10 @@ import com.omni.platform.modules.scheduler.runs.JobRunPreparationService;
 import com.omni.platform.modules.scheduler.services.SchedulerClaimService;
 import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
+import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
+import com.omni.platform.modules.scheduler.dependencies.DependencyRegistry;
+import com.omni.platform.modules.scheduler.planning.JobRunDispatchCoordinator;
+import com.omni.platform.modules.scheduler.config.SchedulerProperties;
 import com.omni.platform.shared.executions.WorkType;
 
 /** Actual JPA/JDBC transactions and real producers, with Kafka/schedulers/object storage isolated. */
@@ -112,35 +116,74 @@ class JobRunPreparationPostgresTest {
     @Test
     void graphPlanningUsesRealProducerDatesAndMembershipWithoutCreatingDurableIntent() {
         var target = target(JobType.SYNC_INDICATORS);
-        var request = Map.<String, Object>of("scope", Map.of("type", "SYMBOL", "key", "HOSE-AAA"),
-                "dateFrom", "2034-12-29", "dateTo", "2035-01-02");
-        var before = jdbc.queryForList("SELECT id, next_run, claim_token, config_json FROM job_definitions ORDER BY id");
+        var request =
+                Map.<String, Object>of(
+                        "scope",
+                        Map.of("type", "SYMBOL", "key", "HOSE-AAA"),
+                        "dateFrom",
+                        "2034-12-29",
+                        "dateTo",
+                        "2035-01-02");
+        var before =
+                jdbc.queryForList(
+                        "SELECT id, next_run, claim_token, config_json FROM job_definitions ORDER BY id");
         var result = preparation.planGraphExpansion(target.getId(), request, NOW);
-        var expected = context.getBean(JobProducerRegistry.class).getProducer(target.getJobType())
-                .previewAtomicWork(target, request, NOW, jdbc, context.getBean("jsonMapper", JsonMapper.class));
-        assertThat(result.targets()).containsExactlyElementsOf(expected.stream()
-                .map(ExpandedJobMessage::atomicWorkId).sorted().toList());
-        assertThat(result.works()).filteredOn(work -> result.targets().contains(work.id()))
+        var expected =
+                context.getBean(JobProducerRegistry.class)
+                        .getProducer(target.getJobType())
+                        .previewAtomicWork(
+                                target,
+                                request,
+                                NOW,
+                                jdbc,
+                                context.getBean("jsonMapper", JsonMapper.class));
+        assertThat(result.targets())
+                .containsExactlyElementsOf(
+                        expected.stream().map(ExpandedJobMessage::atomicWorkId).sorted().toList());
+        assertThat(result.works())
+                .filteredOn(work -> result.targets().contains(work.id()))
                 .extracting(GraphWorkExpansion.Work::businessDate)
-                .containsExactlyInAnyOrder(LocalDate.parse("2034-12-29"),
-                        LocalDate.parse("2035-01-01"), LocalDate.parse("2035-01-02"));
-        assertThat(result.works()).filteredOn(work -> work.jobType() == JobType.SYNC_SYMBOLS)
-                .allSatisfy(work -> assertThat(work.businessDate()).isEqualTo(NOW.atZone(
-                        WorkExpansion.ZONE).toLocalDate()));
+                .containsExactlyInAnyOrder(
+                        LocalDate.parse("2034-12-29"),
+                        LocalDate.parse("2035-01-01"),
+                        LocalDate.parse("2035-01-02"));
+        assertThat(result.works())
+                .filteredOn(work -> work.jobType() == JobType.SYNC_SYMBOLS)
+                .allSatisfy(
+                        work ->
+                                assertThat(work.businessDate())
+                                        .isEqualTo(NOW.atZone(WorkExpansion.ZONE).toLocalDate()));
         assertThat(preparation.planGraphExpansion(target.getId(), request, NOW)).isEqualTo(result);
-        assertThat(jdbc.queryForList("SELECT id, next_run, claim_token, config_json FROM job_definitions ORDER BY id"))
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT id, next_run, claim_token, config_json FROM job_definitions ORDER BY id"))
                 .isEqualTo(before);
-        var sector = jdbc.queryForObject("SELECT meta_json->>'sectorLv2Code' FROM symbols WHERE code='AAA'", String.class);
-        var sectorPlan = preparation.planGraphExpansion(target(JobType.PRECOMPUTE_SECTOR_FEATURES).getId(),
-                Map.of("scope", Map.of("type", "SECTOR", "key", sector)), NOW);
-        assertThat(sectorPlan.works()).filteredOn(work -> work.workType() == WorkType.SECTOR)
-                .singleElement().satisfies(work -> assertThat(work.workKey()).isEqualTo(sector));
-        assertThat(sectorPlan.works()).filteredOn(work -> work.workType() == WorkType.SYMBOL)
-                .isNotEmpty().allSatisfy(work -> assertThat(work.workKey()).isEqualTo("HOSE-AAA"));
-        var levelOne = preparation.planGraphExpansion(target(JobType.SECTOR_TRANSITION_ANALYZE).getId(),
-                Map.of("parameters", Map.of("sectorLevel", 1)), NOW);
-        assertThat(levelOne.works()).filteredOn(work -> work.jobType() == JobType.PRECOMPUTE_SECTOR_FEATURES)
-                .isNotEmpty().allSatisfy(work -> assertThat(work.parameters()).containsEntry("sectorLevel", 1));
+        var sector =
+                jdbc.queryForObject(
+                        "SELECT meta_json->>'sectorLv2Code' FROM symbols WHERE code='AAA'",
+                        String.class);
+        var sectorPlan =
+                preparation.planGraphExpansion(
+                        target(JobType.PRECOMPUTE_SECTOR_FEATURES).getId(),
+                        Map.of("scope", Map.of("type", "SECTOR", "key", sector)),
+                        NOW);
+        assertThat(sectorPlan.works())
+                .filteredOn(work -> work.workType() == WorkType.SECTOR)
+                .singleElement()
+                .satisfies(work -> assertThat(work.workKey()).isEqualTo(sector));
+        assertThat(sectorPlan.works())
+                .filteredOn(work -> work.workType() == WorkType.SYMBOL)
+                .isNotEmpty()
+                .allSatisfy(work -> assertThat(work.workKey()).isEqualTo("HOSE-AAA"));
+        var levelOne =
+                preparation.planGraphExpansion(
+                        target(JobType.SECTOR_TRANSITION_ANALYZE).getId(),
+                        Map.of("parameters", Map.of("sectorLevel", 1)),
+                        NOW);
+        assertThat(levelOne.works())
+                .filteredOn(work -> work.jobType() == JobType.PRECOMPUTE_SECTOR_FEATURES)
+                .isNotEmpty()
+                .allSatisfy(work -> assertThat(work.parameters()).containsEntry("sectorLevel", 1));
         assertEmptyIntent();
     }
 
@@ -151,7 +194,8 @@ class JobRunPreparationPostgresTest {
         jdbc.update("UPDATE job_definitions SET is_active=false WHERE job_type='SYNC_STOCK_PRICE'");
         assertThatThrownBy(() -> preparation.planGraphExpansion(target.getId(), Map.of(), NOW))
                 .hasMessageContaining("Missing scoped ancestor");
-        assertThat(definitions.findById(target.getId()).orElseThrow().getClaimToken()).isEqualTo(lease.claimToken());
+        assertThat(definitions.findById(target.getId()).orElseThrow().getClaimToken())
+                .isEqualTo(lease.claimToken());
         assertEmptyIntent();
     }
 
@@ -161,27 +205,51 @@ class JobRunPreparationPostgresTest {
         var service = AopTestUtils.<JobRunPreparationService>getUltimateTargetObject(preparation);
         var observed = mock(JobDefinitionRepository.class);
         try (var pool = Executors.newSingleThreadExecutor()) {
-            doAnswer(invocation -> {
-                assertThat(TransactionSynchronizationManager.isCurrentTransactionReadOnly()).isTrue();
-                assertThat(jdbc.queryForObject("SHOW transaction_read_only", String.class)).isEqualTo("on");
-                assertThat(jdbc.queryForObject("SHOW transaction_isolation", String.class)).isEqualTo("repeatable read");
-                var snapshot = definitions.findAll();
-                pool.submit(() -> transaction().executeWithoutResult(status -> {
-                    jdbc.update("INSERT INTO symbols(code,exchange,meta_json) SELECT 'BBB',exchange,meta_json FROM symbols WHERE code='AAA'");
-                    jdbc.update("UPDATE job_definitions SET is_active=false WHERE job_type='SYNC_STOCK_PRICE'");
-                })).get(15, TimeUnit.SECONDS);
-                return snapshot;
-            }).when(observed).findAll();
+            doAnswer(
+                            invocation -> {
+                                assertThat(
+                                                TransactionSynchronizationManager
+                                                        .isCurrentTransactionReadOnly())
+                                        .isTrue();
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "SHOW transaction_read_only", String.class))
+                                        .isEqualTo("on");
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "SHOW transaction_isolation", String.class))
+                                        .isEqualTo("repeatable read");
+                                var snapshot = definitions.findAll();
+                                pool.submit(
+                                                () ->
+                                                        transaction()
+                                                                .executeWithoutResult(
+                                                                        status -> {
+                                                                            jdbc.update(
+                                                                                    "INSERT INTO symbols(code,exchange,meta_json) SELECT 'BBB',exchange,meta_json FROM symbols WHERE code='AAA'");
+                                                                            jdbc.update(
+                                                                                    "UPDATE job_definitions SET is_active=false WHERE job_type='SYNC_STOCK_PRICE'");
+                                                                        }))
+                                        .get(15, TimeUnit.SECONDS);
+                                return snapshot;
+                            })
+                    .when(observed)
+                    .findAll();
             ReflectionTestUtils.setField(service, "definitions", observed);
             try {
                 var result = preparation.planGraphExpansion(target.getId(), Map.of(), NOW);
-                assertThat(result.works()).filteredOn(work -> work.workType() == WorkType.SYMBOL)
-                        .isNotEmpty().allSatisfy(work -> assertThat(work.workKey()).isEqualTo("HOSE-AAA"));
+                assertThat(result.works())
+                        .filteredOn(work -> work.workType() == WorkType.SYMBOL)
+                        .isNotEmpty()
+                        .allSatisfy(work -> assertThat(work.workKey()).isEqualTo("HOSE-AAA"));
             } finally {
                 ReflectionTestUtils.setField(service, "definitions", definitions);
             }
         }
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM symbols WHERE code='BBB'", Integer.class)).isOne();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM symbols WHERE code='BBB'", Integer.class))
+                .isOne();
         assertThatThrownBy(() -> preparation.planGraphExpansion(target.getId(), Map.of(), NOW))
                 .hasMessageContaining("Missing scoped ancestor");
         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
@@ -193,22 +261,52 @@ class JobRunPreparationPostgresTest {
         var target = target(JobType.SYNC_INDICATORS);
         var service = AopTestUtils.<JobRunPreparationService>getUltimateTargetObject(preparation);
         var observed = mock(JobDefinitionRepository.class);
-        when(observed.findAll()).thenAnswer(invocation -> {
-            assertThat(TransactionSynchronizationManager.isCurrentTransactionReadOnly()).isTrue();
-            assertThat(jdbc.queryForObject("SHOW transaction_read_only", String.class)).isEqualTo("on");
-            assertThat(jdbc.queryForObject("SHOW transaction_isolation", String.class)).isEqualTo("repeatable read");
-            return definitions.findAll();
-        });
+        when(observed.findAll())
+                .thenAnswer(
+                        invocation -> {
+                            assertThat(
+                                            TransactionSynchronizationManager
+                                                    .isCurrentTransactionReadOnly())
+                                    .isTrue();
+                            assertThat(
+                                            jdbc.queryForObject(
+                                                    "SHOW transaction_read_only", String.class))
+                                    .isEqualTo("on");
+                            assertThat(
+                                            jdbc.queryForObject(
+                                                    "SHOW transaction_isolation", String.class))
+                                    .isEqualTo("repeatable read");
+                            return definitions.findAll();
+                        });
         ReflectionTestUtils.setField(service, "definitions", observed);
         try {
-            transaction().executeWithoutResult(status -> {
-                assertThat(jdbc.queryForObject("SHOW transaction_read_only", String.class)).isEqualTo("off");
-                assertThat(jdbc.queryForObject("SHOW transaction_isolation", String.class)).isEqualTo("read committed");
-                assertThat(preparation.planGraphExpansion(target.getId(), Map.of(), NOW).targets()).isNotEmpty();
-                assertThat(TransactionSynchronizationManager.isCurrentTransactionReadOnly()).isFalse();
-                assertThat(jdbc.queryForObject("SHOW transaction_isolation", String.class)).isEqualTo("read committed");
-                status.setRollbackOnly();
-            });
+            transaction()
+                    .executeWithoutResult(
+                            status -> {
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "SHOW transaction_read_only", String.class))
+                                        .isEqualTo("off");
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "SHOW transaction_isolation", String.class))
+                                        .isEqualTo("read committed");
+                                assertThat(
+                                                preparation
+                                                        .planGraphExpansion(
+                                                                target.getId(), Map.of(), NOW)
+                                                        .targets())
+                                        .isNotEmpty();
+                                assertThat(
+                                                TransactionSynchronizationManager
+                                                        .isCurrentTransactionReadOnly())
+                                        .isFalse();
+                                assertThat(
+                                                jdbc.queryForObject(
+                                                        "SHOW transaction_isolation", String.class))
+                                        .isEqualTo("read committed");
+                                status.setRollbackOnly();
+                            });
         } finally {
             ReflectionTestUtils.setField(service, "definitions", definitions);
         }
@@ -560,9 +658,12 @@ class JobRunPreparationPostgresTest {
                                 target.getId()))
                 .contains("\"businessDate\":\"2035-01-02\"", "2035-01-01T17:00:00Z")
                 .doesNotContain("2030-01-01T00:00:00Z");
-        assertThat(jdbc.queryForObject(
-                "SELECT new_offset FROM job_execution_histories WHERE job_id=? AND status='SUCCESS'",
-                String.class, target.getId())).isEqualTo("2030-01-01");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT new_offset FROM job_execution_histories WHERE job_id=? AND status='SUCCESS'",
+                                String.class,
+                                target.getId()))
+                .isEqualTo("2030-01-01");
     }
 
     @Test
@@ -1404,7 +1505,8 @@ class JobRunPreparationPostgresTest {
                                             identity,
                                             child))
                     .isInstanceOf(DataAccessException.class)
-                    .hasMessageMatching("(?s).*(immutable|Atomic work snapshot identity mismatch).*");
+                    .hasMessageMatching(
+                            "(?s).*(immutable|Atomic work snapshot identity mismatch).*");
         }
         assertThat(
                         jdbc.queryForObject(
@@ -1653,6 +1755,26 @@ class JobRunPreparationPostgresTest {
                                 root))
                 .isEqualTo(before)
                 .isNotEqualTo("SUCCESS");
+        // PUBLISHED rows with no worker status are not revived just by rebuilding the dispatcher.
+        // There is no I10 watchdog here; elapsed time is not evidence of successful computation.
+        org.mockito.Mockito.clearInvocations(kafka);
+        var restarted =
+                new SchedulerOutboxDispatcher(
+                        context.getBean(SchedulerOutboxService.class),
+                        context.getBean(DependencyRegistry.class),
+                        kafka,
+                        new SchedulerProperties(
+                                "integration",
+                                new SchedulerProperties.Claim(Duration.ofMinutes(2), 10)),
+                        context.getBean(JobRunDispatchCoordinator.class));
+        ReflectionTestUtils.invokeMethod(restarted, "dispatchBatch", NOW.plusSeconds(86400));
+        org.mockito.Mockito.verifyNoInteractions(kafka);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                root))
+                .isEqualTo(before);
     }
 
     @Test

@@ -60,14 +60,19 @@ class IndicatorJobHandler:
             indicators_path,
         )
         approved = approved_input_version(
-            message.metadata, "eod", eod_partition,
-            required=message.atomic_work_id is not None or "approvedInputs" in message.metadata,
+            message.metadata,
+            "eod",
+            eod_partition,
+            required=message.atomic_work_id is not None
+            or "approvedInputs" in message.metadata,
         )
         if approved is None:
             # Retained legacy commands without execution bindings keep their old route.
             eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
         else:
-            eod_frame = await self._parquet_storage.read_bound_dataframe("eod", eod_manifest, approved)
+            eod_frame = await self._parquet_storage.read_bound_dataframe(
+                "eod", eod_manifest, approved
+            )
         eod_frame = cutoff_frame(eod_frame, message.business_date, require_day=True)
         result = calculate_supported_indicators(
             eod_frame,

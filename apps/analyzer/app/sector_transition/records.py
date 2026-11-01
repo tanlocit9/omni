@@ -3,14 +3,20 @@
 These checks protect sequential replay; cross-process output exclusion belongs to
 future writer work rather than this read/merge/write helper.
 """
+
 from __future__ import annotations
 
 import pandas as pd
 from py_common.storage.date_contracts import BUSINESS_DATE_COLUMNS
 
 TRANSITION_KEY = [
-    "evaluation_date", "strategy", "timeframe", "sector_level",
-    "from_sector", "to_sector", "horizon_sessions",
+    "evaluation_date",
+    "strategy",
+    "timeframe",
+    "sector_level",
+    "from_sector",
+    "to_sector",
+    "horizon_sessions",
 ]
 
 
@@ -37,7 +43,9 @@ def normalized_rows(frame: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
 
 
 def missing_rows(
-    candidates: pd.DataFrame, existing: pd.DataFrame | None, keys: list[str],
+    candidates: pd.DataFrame,
+    existing: pd.DataFrame | None,
+    keys: list[str],
 ) -> pd.DataFrame:
     """Keep only identities not already durably evaluated."""
     candidates = normalized_rows(candidates, keys)
@@ -45,11 +53,15 @@ def missing_rows(
         return candidates
     saved = normalized_rows(existing, keys)
     index = pd.MultiIndex.from_frame(saved[keys])
-    return candidates.loc[~pd.MultiIndex.from_frame(candidates[keys]).isin(index)].copy()
+    return candidates.loc[
+        ~pd.MultiIndex.from_frame(candidates[keys]).isin(index)
+    ].copy()
 
 
 def append_immutable_rows(
-    existing: pd.DataFrame | None, incoming: pd.DataFrame, keys: list[str],
+    existing: pd.DataFrame | None,
+    incoming: pd.DataFrame,
+    keys: list[str],
 ) -> tuple[pd.DataFrame, int]:
     """Identical replay is a no-op; conflicting values under an existing key fail."""
     incoming = normalized_rows(incoming, keys)

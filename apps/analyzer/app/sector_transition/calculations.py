@@ -70,14 +70,22 @@ def calculate_sector_transition_analysis(
 
 
 def select_outcome_predictions(
-    predictions: pd.DataFrame, *, as_of_date: date, sector_codes: list[str],
-    sector_level: int, timeframe: str, strategy: str,
-    prediction_horizons: list[int], focus_sector_codes: list[str] | None = None,
+    predictions: pd.DataFrame,
+    *,
+    as_of_date: date,
+    sector_codes: list[str],
+    sector_level: int,
+    timeframe: str,
+    strategy: str,
+    prediction_horizons: list[int],
+    focus_sector_codes: list[str] | None = None,
 ) -> pd.DataFrame:
     """Select historical prediction origins T; the job day D is only an as-of bound."""
     if predictions is None or predictions.empty:
         return pd.DataFrame(columns=TRANSITION_KEY)
-    candidates = normalized_rows(_normalize_prediction_schema(predictions), TRANSITION_KEY)
+    candidates = normalized_rows(
+        _normalize_prediction_schema(predictions), TRANSITION_KEY
+    )
     universe = _normalize_codes(sector_codes)
     focus = _resolve_focus(focus_sector_codes, universe)
     return candidates.loc[
@@ -104,13 +112,19 @@ def evaluate_sector_transition_outcomes(
 ) -> pd.DataFrame:
     """Score every mature historical prediction using only sessions available by D."""
     candidates = select_outcome_predictions(
-        predictions, as_of_date=as_of_date, sector_codes=sector_codes,
-        sector_level=sector_level, timeframe=timeframe, strategy=strategy,
+        predictions,
+        as_of_date=as_of_date,
+        sector_codes=sector_codes,
+        sector_level=sector_level,
+        timeframe=timeframe,
+        strategy=strategy,
         prediction_horizons=prediction_horizons,
     )
     if candidates.empty:
         return _empty_outcomes_frame()
-    history = _combine_sector_frames(sector_frames, sector_codes=_normalize_codes(sector_codes))
+    history = _combine_sector_frames(
+        sector_frames, sector_codes=_normalize_codes(sector_codes)
+    )
     history = history.loc[history["date"] <= pd.Timestamp(as_of_date)].copy()
     if history.duplicated(["date", "sector_code"]).any():
         raise ValueError("Duplicate sector sessions cannot establish outcome maturity")
@@ -121,18 +135,29 @@ def evaluate_sector_transition_outcomes(
         origin = row["evaluation_date"]
         to_sector = str(row["to_sector"])
         horizon = int(row["horizon_sessions"])
-        sector_history = history[history["sector_code"] == to_sector].sort_values("date")
+        sector_history = history[history["sector_code"] == to_sector].sort_values(
+            "date"
+        )
         origin_ts = pd.Timestamp(origin)
         if not (sector_history["date"] <= origin_ts).any():
             raise ValueError("Sector history does not cover prediction origin")
-        sessions = history.loc[history["date"] > origin_ts, "date"].drop_duplicates().sort_values().head(horizon)
+        sessions = (
+            history.loc[history["date"] > origin_ts, "date"]
+            .drop_duplicates()
+            .sort_values()
+            .head(horizon)
+        )
         if len(sessions) < horizon:
             continue
         # A missing sector row must not shift a horizon to a later observed session.
         future = sector_history.set_index("date").reindex(sessions).reset_index()
         returns = pd.to_numeric(future["sector_return"], errors="raise")
         predicted_return = float(row["predicted_return"])
-        if returns.isna().any() or not returns.map(isfinite).all() or not isfinite(predicted_return):
+        if (
+            returns.isna().any()
+            or not returns.map(isfinite).all()
+            or not isfinite(predicted_return)
+        ):
             raise ValueError("Non-finite return cannot establish an outcome")
         realized_return = float((1.0 + returns).prod() - 1.0)
         if not isfinite(realized_return):
@@ -143,17 +168,26 @@ def evaluate_sector_transition_outcomes(
             target_date = resolved_date
         predicted_direction = _direction(predicted_return)
         realized_direction = _direction(realized_return)
-        rows.append({
-            "evaluation_date": origin, "resolved_date": resolved_date,
-            "target_date": target_date, "strategy": strategy, "timeframe": timeframe,
-            "sector_level": sector_level, "sector_code": to_sector,
-            "from_sector": str(row["from_sector"]), "to_sector": to_sector,
-            "horizon_sessions": horizon, "predicted_return": predicted_return,
-            "realized_return": realized_return, "predicted_direction": predicted_direction,
-            "realized_direction": realized_direction,
-            "direction_correct": predicted_direction == realized_direction,
-            "model_version": row.get("model_version", MODEL_VERSION),
-        })
+        rows.append(
+            {
+                "evaluation_date": origin,
+                "resolved_date": resolved_date,
+                "target_date": target_date,
+                "strategy": strategy,
+                "timeframe": timeframe,
+                "sector_level": sector_level,
+                "sector_code": to_sector,
+                "from_sector": str(row["from_sector"]),
+                "to_sector": to_sector,
+                "horizon_sessions": horizon,
+                "predicted_return": predicted_return,
+                "realized_return": realized_return,
+                "predicted_direction": predicted_direction,
+                "realized_direction": realized_direction,
+                "direction_correct": predicted_direction == realized_direction,
+                "model_version": row.get("model_version", MODEL_VERSION),
+            }
+        )
     return pd.DataFrame(rows) if rows else _empty_outcomes_frame()
 
 

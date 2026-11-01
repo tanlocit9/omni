@@ -52,6 +52,10 @@ class GraphWorkRequestsPostgresTest {
 
     @BeforeAll
     static void start() {
+        start(true);
+    }
+
+    static void start(boolean graphEnabled) {
         context =
                 PlatformStartupPostgresTest.startApplication(
                         POSTGRES,
@@ -64,7 +68,7 @@ class GraphWorkRequestsPostgresTest {
                                                         "graph-work-test",
                                                         Map.of(
                                                                 "app.scheduler.job-run.graph-expansion-enabled",
-                                                                true))));
+                                                                graphEnabled))));
         jdbc = context.getBean(JdbcTemplate.class);
         preparation = context.getBean(JobRunPreparationService.class);
         graph = context.getBean(GraphWorkRequestService.class);
@@ -1018,6 +1022,175 @@ class GraphWorkRequestsPostgresTest {
                                 String.class,
                                 request(first)))
                 .isEqualTo("CANCELLED");
+    }
+
+    @Test
+    void noOwnerWorkIsParkedAndANewOwnerReattachesWithoutAnotherAttempt() {
+        var target = target(JobType.SYNC_INDICATORS);
+        UUID first = prepare(target, "parking-first"), second = prepare(target, "parking-second");
+        assertThat(graph.cancel(request(first), "operator", NOW)).isTrue();
+        assertThat(graph.cancel(request(second), "operator", NOW)).isTrue();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM atomic_work_attempts WHERE atomic_work_admissible(execution_id)",
+                                Integer.class))
+                .isZero();
+        UUID catalogExecution =
+                jdbc.queryForObject(
+                        "SELECT a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories h ON h.id=a.execution_id JOIN job_definitions d ON d.id=h.job_id WHERE d.job_type='SYNC_SYMBOLS'",
+                        UUID.class);
+        UUID message =
+                jdbc.queryForObject(
+                        "SELECT id FROM scheduler_outbox_messages WHERE execution_id=?",
+                        UUID.class,
+                        catalogExecution);
+        assertThat(
+                        context.getBean(SchedulerOutboxService.class)
+                                .claimEligible(
+                                        message, NOW, "parked", Duration.ofMinutes(1), Map.of()))
+                .isNull();
+        UUID reattached = prepare(target, "parking-new-owner");
+        assertThat(reattached).isNotIn(first, second);
+        assertThat(count("atomic_work_attempts")).isEqualTo(3);
+        assertThat(count("scheduler_outbox_messages")).isEqualTo(3);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT atomic_work_admissible(?)",
+                                Boolean.class,
+                                catalogExecution))
+                .isTrue();
+    }
+
+    @Test
+    void retainedDataRolloutRehearsalDrainsGraphAndRestoresLegacyWithoutRewritingHistory()
+            throws Exception {
+        // This seeds terminal fixture state to test control-plane cutover. Actual worker
+        // completion/offsets are independently exercised by the four real-worker workflows.
+        stop();
+        start(false);
+        try {
+            UUID legacy = prepare(target(JobType.SYNC_INDICATORS), "rollout-retained-v1");
+            UUID legacyRun =
+                    jdbc.queryForObject(
+                            "SELECT job_run_id FROM job_execution_histories WHERE id=?",
+                            UUID.class,
+                            legacy);
+            jdbc.update("UPDATE job_execution_histories SET status='SUCCESS'");
+            jdbc.update(
+                    "UPDATE scheduler_outbox_messages SET status='PUBLISHED',published_at=CURRENT_TIMESTAMP");
+            jdbc.update("UPDATE job_runs SET state='SUCCESS'");
+            String frozen =
+                    jdbc.queryForObject(
+                            "SELECT to_jsonb(r)::text FROM job_runs r WHERE id=?",
+                            String.class,
+                            legacyRun);
+            stop();
+            start(true);
+            var consolidation = context.getBean(DefinitionConsolidationService.class);
+            var changes = consolidation.consolidate(NOW);
+            assertThat(changes).isNotEmpty();
+            String sector = JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst();
+            for (int index = 0; index < 99; index++) {
+                jdbc.update(
+                        "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES (?,'HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
+                        "R" + index,
+                        sector);
+            }
+            var target = target(JobType.SYNC_INDICATORS);
+            Instant began = Instant.now();
+            UUID graphRoot =
+                    preparation.prepareManual(
+                            target,
+                            claim(target),
+                            NOW,
+                            "operator",
+                            "rollout-wide",
+                            "bounded catalog rehearsal",
+                            Map.of(),
+                            Map.of());
+            long elapsed = Duration.between(began, Instant.now()).toMillis();
+            assertThat(elapsed)
+                    .isLessThan(
+                            110_000); // Below the real 120-second preparation transaction budget.
+            int attempts = count("atomic_work_attempts");
+            assertThat(attempts).isGreaterThanOrEqualTo(201);
+            assertThat(
+                            preparation.prepareManual(
+                                    target,
+                                    claim(target),
+                                    NOW,
+                                    "operator",
+                                    "rollout-wide",
+                                    "replay",
+                                    Map.of(),
+                                    Map.of()))
+                    .isEqualTo(graphRoot);
+            assertThat(count("atomic_work_attempts")).isEqualTo(attempts);
+            jdbc.update(
+                    "UPDATE job_execution_histories SET status='SUCCESS' WHERE id IN (SELECT execution_id FROM atomic_work_attempts)");
+            jdbc.update(
+                    "UPDATE scheduler_outbox_messages SET status='PUBLISHED',published_at=CURRENT_TIMESTAMP");
+            for (int pass = 0; pass < 6; pass++) graph.reconcile();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT state FROM atomic_work_requests WHERE execution_id=?",
+                                    String.class,
+                                    graphRoot))
+                    .isEqualTo("SUCCESS");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM job_runs WHERE state NOT IN ('SUCCESS','FAILED')",
+                                    Integer.class))
+                    .isZero();
+            for (UUID id : changes) assertThat(consolidation.rollback(id, NOW)).isTrue();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT to_jsonb(r)::text FROM job_runs r WHERE id=?",
+                                    String.class,
+                                    legacyRun))
+                    .isEqualTo(frozen);
+            stop();
+            start(false);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT to_jsonb(r)::text FROM job_runs r WHERE id=?",
+                                    String.class,
+                                    legacyRun))
+                    .isEqualTo(frozen);
+            int before = count("atomic_work_attempts");
+            UUID fallback = prepare(target(JobType.SYNC_INDICATORS), "rollout-legacy-after-drain");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT job_run_id FROM job_execution_histories WHERE id=?",
+                                    UUID.class,
+                                    fallback))
+                    .isNotNull();
+            assertThat(count("atomic_work_attempts")).isEqualTo(before);
+            var evidence =
+                    Map.of(
+                            "catalogSymbols",
+                            100,
+                            "atomicAttempts",
+                            attempts,
+                            "preparationMs",
+                            elapsed,
+                            "consolidationsRolledBack",
+                            changes.size(),
+                            "legacyFrozenSnapshotPreserved",
+                            true,
+                            "legacyAfterDrainCreated",
+                            true);
+            var path =
+                    java.nio.file.Path.of(
+                            "../../.agent/check-results/P14-I8-I9-close-20261101/local-rollout.json");
+            java.nio.file.Files.createDirectories(path.getParent());
+            java.nio.file.Files.writeString(
+                    path,
+                    context.getBean("jsonMapper", JsonMapper.class).writeValueAsString(evidence));
+        } finally {
+            stop();
+            start(true);
+        }
     }
 
     private void releaseLease(SchedulerClaim lease) {

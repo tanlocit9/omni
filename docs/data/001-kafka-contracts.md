@@ -1,5 +1,11 @@
 # Kafka Contracts
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 I10 identity/trace reservation: canonical atomicWorkId and atomicAttemptId survive per array member through future writer output registration. Existing persisted workIdentity is an alias of atomicWorkId, not another identifier. Reserve optional diagnostic traceContext/header propagation outside business parameters; keep correlationId/requestId header names and hash semantics. Trace instrumentation stays deferred.
 See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
 
@@ -22,7 +28,7 @@ fail closed. Retained legacy commands without atomic identity/bindings keep thei
 compatibility behavior. No physical object paths are added to Kafka payloads, and
 no Proto/generated schema changes are introduced.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -31,7 +37,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: I8 plans explicit workType/workKey/businessDate/effective-parameter semantics across Java/Python, preserving execution/status identity. Future consumers forward computed result plus that identity in validated writer intents; exact wire/hash/compatibility is a contract task, not current wire behavior.
 This note changes no implementation, configuration, preparation flag or existing

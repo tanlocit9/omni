@@ -1,16 +1,21 @@
 # Data Lake
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 Planned P14-I10 replaces MinIO JSON readiness with Platform-owned PostgreSQL registrations after verified reader cutover. Parquet data/paths/analytical ownership stay unchanged. Producers publish metadata arrays after validated writes; exact coverage and byte/version checks remain required. SYNC_METADATA becomes 12-hour reconciliation; legacy readiness remains active until migration, and database fencing alone does not protect mutable MinIO objects.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
-Sector Transition as-of correction (source, verification pending): outcomes work day
+Sector Transition as-of correction (locally verified; activation remains separately gated): outcomes work day
 D scans historical prediction origins T < D and appends only mature, missing rows.
 The dataset keeps evaluation_date=T and resolved_date<=D; paths/keys/columns stay.
 Analysis prediction/decision/probability identities and evaluated outcomes are
 immutable on sequential replay: conflicts reject, zero new rows cause no write.
 These application checks are not distributed writer exclusion or object-level
 transactions. See [behavior/rollout boundary](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
-
 
 EOD-to-indicator repair (2026-10-30): `ParquetStorage.read_bound_dataframe`
 recomputes the canonical dataset version from the same byte buffer it decodes,
@@ -19,7 +24,7 @@ mutable object cannot be relabelled as the approved input. This protects the
 indicator read path; it does not add all-writer exclusion, immutable historical
 versions or equivalent guarantees for other consumers. Paths/owners are unchanged.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -28,7 +33,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: I8/I9 work identity does not change physical partition paths or dataset ownership. Future writer output writeKey is separate from atomic work and intentId; dated work/dedup does not solve approved-version binding or mutable metadata/bytes races.
 This note changes no implementation, configuration, preparation flag or existing
@@ -311,7 +315,7 @@ dual read, per-tick write, or historical rewrite.
 | Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                                        |
 | Consumer        | Analyzer outcome-evaluation jobs and internal research consumers                                                                                                                                                                                |
 | Schema/key      | Focused T-anchored prediction rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; rows also carry trading-session `target_date`, `sample_count`, and `model_version`. |
-| Update strategy | Append missing prediction identities; identical replay is a no-op and conflicting stored values are rejected. Outcomes never rewrite predictions.                                                                                                                                        |
+| Update strategy | Append missing prediction identities; identical replay is a no-op and conflicting stored values are rejected. Outcomes never rewrite predictions.                                                                                               |
 | Ownership       | Analyzer owns research prediction outputs.                                                                                                                                                                                                      |
 
 ### sector-transition-decisions
@@ -323,32 +327,32 @@ dual read, per-tick write, or historical rewrite.
 | Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                     |
 | Consumer        | Internal/private research review only unless product/legal approves exposure.                                                                                                                                                |
 | Schema/key      | Private focused decision rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; decisions include score, confidence, sample count, and model version. |
-| Update strategy | Append immutable research decision identities; reject conflicts and keep visibility as `PRIVATE_INTERNAL`.                                                                                                                                              |
+| Update strategy | Append immutable research decision identities; reject conflicts and keep visibility as `PRIVATE_INTERNAL`.                                                                                                                   |
 | Ownership       | Analyzer owns private research decision outputs.                                                                                                                                                                             |
 
 ### sector-transition-probabilities
 
-| Field           | Value                                                                                                                                                                                                                                              |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Config key      | `sector-transition-probabilities`                                                                                                                                                                                                                  |
-| Path            | `research/sector-transition/probabilities/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                                                         |
-| Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                                           |
-| Consumer        | Internal research diagnostics and model evaluation.                                                                                                                                                                                                |
-| Schema/key      | Full-universe transition probability rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; rows include `target_date`, `probability`, `sample_count`, and `model_version`. |
-| Update strategy | Append immutable probability estimates derived only from data knowable at or before ANALYZE `evaluationDate` T; self-transitions remain normal candidates and per-`from_sector`/horizon probabilities should sum to approximately `1.0` when samples exist.      |
-| Ownership       | Analyzer owns research probability outputs.                                                                                                                                                                                                        |
+| Field           | Value                                                                                                                                                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `sector-transition-probabilities`                                                                                                                                                                                                                           |
+| Path            | `research/sector-transition/probabilities/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                                                                  |
+| Producer        | Analyzer Sector Transition analysis jobs                                                                                                                                                                                                                    |
+| Consumer        | Internal research diagnostics and model evaluation.                                                                                                                                                                                                         |
+| Schema/key      | Full-universe transition probability rows keyed by `evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, and `horizon_sessions`; rows include `target_date`, `probability`, `sample_count`, and `model_version`.          |
+| Update strategy | Append immutable probability estimates derived only from data knowable at or before ANALYZE `evaluationDate` T; self-transitions remain normal candidates and per-`from_sector`/horizon probabilities should sum to approximately `1.0` when samples exist. |
+| Ownership       | Analyzer owns research probability outputs.                                                                                                                                                                                                                 |
 
 ### sector-transition-outcomes
 
-| Field           | Value                                                                                                                                                                                                       |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Config key      | `sector-transition-outcomes`                                                                                                                                                                                |
-| Path            | `research/sector-transition/outcomes/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                       |
-| Producer        | Analyzer Sector Transition outcome-evaluation jobs                                                                                                                                                          |
-| Consumer        | Internal model evaluation, backtesting, and diagnostics.                                                                                                                                                    |
+| Field           | Value                                                                                                                                                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `sector-transition-outcomes`                                                                                                                                                                                                                                                    |
+| Path            | `research/sector-transition/outcomes/{strategy}/{timeframe}/lv{sector_level}.parquet`                                                                                                                                                                                           |
+| Producer        | Analyzer Sector Transition outcome-evaluation jobs                                                                                                                                                                                                                              |
+| Consumer        | Internal model evaluation, backtesting, and diagnostics.                                                                                                                                                                                                                        |
 | Schema/key      | Realized focused outcome rows keyed by original prediction identity (`evaluation_date`, `strategy`, `timeframe`, `sector_level`, `from_sector`, `to_sector`, `horizon_sessions`) with `resolved_date` carrying the realized horizon date (not a separate uniqueness dimension). |
-| Update strategy | Append only missing outcomes from origins T < scan day D once their horizon matures by D; preserve saved facts and reject conflicting updates.                                                          |
-| Ownership       | Analyzer owns outcome-evaluation outputs.                                                                                                                                                                   |
+| Update strategy | Append only missing outcomes from origins T < scan day D once their horizon matures by D; preserve saved facts and reject conflicting updates.                                                                                                                                  |
+| Ownership       | Analyzer owns outcome-evaluation outputs.                                                                                                                                                                                                                                       |
 
 ## Canonical Parquet date and timestamp types
 

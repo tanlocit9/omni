@@ -1,5 +1,11 @@
 # JobRun Admission Rollout and Rollback
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 Console diagnostic follow-up (source only): deploy matching Platform/Console for
 Work Operations and require V18. Existing trusted proxy must strip client identity
 and inject authenticated X-Omni-User; no new public route. Missing schema/timeouts
@@ -7,13 +13,11 @@ are unavailable (503), not empty healthy output. No scheduler/graph/consolidatio
 activation or I10 readiness cutover is part of this change. See
 [bounded read-only API and pending local gates](../../database/diagnostics/p14/v2/README.md).
 
-
 Planned P14-I10 requires additive schema/topic provisioning, paired worker/Platform deployment, metadata backfill and shadow comparison before coordinated PostgreSQL reader cutover. Keep legacy readiness authoritative until all affected gates pass. Retain exact-byte safety and resolve stale writer ownership; do not roll back to stale JSON after DB-only registrations. Watchdog defaults: scan 2 minutes, timeout 30 minutes from publication; reconciliation 12 hours. No rollout is performed here.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
 Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes change evaluationDate semantics to as-of day D while saved prediction origins remain T. Deploy matching Analyzer workers after draining old consumers; no message field, migration or activation flag changes. Frozen prediction/outcome rows cannot be safely handed back to the former upsert implementation. No retained rollout or verification ran.
 See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
-
 
 2026-10-30 input-binding repair: deploy matching Platform, py-common and Analyzer
 code before relying on atomic indicator input-version validation. Replay tooling
@@ -22,7 +26,7 @@ approval; raw intent JSON is not the complete publish envelope. Missing/stale
 atomic bindings fail before output. No retained migration, flag activation or
 deployment is recorded by the local repair tests.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -31,7 +35,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 This runbook covers Plan 030 P14-I4's Platform-local planner/admission path.
 It is operational guidance, not evidence that a retained environment was deployed.

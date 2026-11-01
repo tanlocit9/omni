@@ -1,5 +1,11 @@
 # Job Execution Flow
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 P14 Work Operations source adds read-only Console -> Platform diagnostics for
 requests/attempts, publications and one-hop work provenance. It does not enter the
 scheduler dispatch/status flow, time out workers or change READY. Captured clocks,
@@ -32,7 +38,7 @@ with the I8 producer boundary under one read-only database snapshot. Returned wo
 and dependency instances are planning output; durable acquisition, completion and
 retry/cancel ownership belong to I9.b. Outbox replay never invokes this planner.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;

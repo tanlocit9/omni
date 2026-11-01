@@ -1,13 +1,19 @@
 # Numbered Documentation Registry
 
-[P14 review / v2 SQL and Console dashboard](../database/diagnostics/p14/v2/README.md)
-are source artifacts outside the numbered docs registry; I8/I9 verification and
-I10 implementation remain open. See the linked review for source findings and limits.
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
 
-P14-I10 is planned/pending after I9: Kafka output-registration arrays -> Platform PostgreSQL readiness, reader cutover, reconciliation and watchdog. I8/I9 remain verification_pending; no I10 implementation is claimed.
+[P14 review / v2 SQL and Console dashboard](../database/diagnostics/p14/v2/README.md)
+are source artifacts outside the numbered docs registry; I8/I9 local acceptance is recorded above;
+I10 implementation remains open. See the linked review for source findings and limits.
+
+P14-I10 is planned/pending after I9: Kafka output-registration arrays -> Platform PostgreSQL readiness, reader cutover, reconciliation and watchdog. I8/I9 are locally completed; no I10 implementation is claimed.
 See [I10 scope and acceptance](plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
-Plan 030 I9.a/b/c source is delivered for owner-local review: I8 and I9 remain
+Historical October 30 source handoff: I8 and I9 were
 `verification_pending`. Opt-in shared atomic JobRuns and reversible preset
 consolidation are documented in the
 [full handoff](plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
@@ -63,26 +69,26 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 
 ## Roadmap Supporting Plans
 
-| No.       | Document                                                                                              | Classification                             | Roadmap mapping                    |
-| --------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------- |
-| plans/001 | [Backend/Core Stabilization](plans/001-backend-core-stabilization.md)                                 | Supporting implementation plan             | Group A / Phase 1                  |
-| plans/002 | [Cross-Service Proto3 Contracts](plans/002-cross-service-protobuf-contracts.md)                       | Supporting implementation plan             | Group B / Phase 2                  |
-| plans/003 | [Dataset Metadata Manifest](plans/003-dataset-metadata-manifest.md)                                   | Consolidated implementation plan           | Group B / Phase 3                  |
-| plans/004 | [Parquet Date Normalization](plans/004-parquet-date-normalization-increment.md)                       | Increment record                           | Group B / Phase 3                  |
-| plans/005 | [Job Dependency Guard](plans/005-job-dependency-guard.md)                                             | Consolidated implementation plan           | Group B / Phase 4                  |
-| plans/006 | [Job Dependency Guard Progress](plans/006-job-dependency-guard-progress.md)                           | Historical progress record                 | Group B / Phase 4                  |
-| plans/007 | [Portable Docker Deployment](plans/007-portable-docker-deployment.md)                                 | Deferred technical debt                    | Group C / Phase 5                  |
-| plans/008 | [Omni Metadata and Console Execution](plans/008-omni-metadata-console-dashboard-execution-plan.md)    | Deferred technical-debt record             | Group C / Phase 6                  |
-| plans/009 | [Dataset-Component Market Dashboard](plans/009-dataset-component-market-dashboard.md)                 | Deferred technical debt                    | Group C / Phase 6                  |
-| plans/010 | [Telegram Multi-Channel](plans/010-telegram-multi-channel.md)                                         | Supporting implementation plan             | Group C / Phase 8                  |
-| plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation          | Group C / Phase 8                  |
-| plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail                | Group C / Phase 8                  |
-| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Active bounded P9-I1; verification pending | Group D / Phase 9                  |
-| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred owner-gated design                | Group D / Phase 10                 |
-| plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan       | Group E / Phase 11 / P11-I1-P11-I5 |
-| plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan       | Group F / Phase 12 / P12-I1-P12-I4 |
-| plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Active Phase 13 supporting plan            | Group G / Phase 13 / P13-I1-P13-I4 |
-| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I10 (I6 superseded)           |
+| No.       | Document                                                                                              | Classification                             | Roadmap mapping                           |
+| --------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------- |
+| plans/001 | [Backend/Core Stabilization](plans/001-backend-core-stabilization.md)                                 | Supporting implementation plan             | Group A / Phase 1                         |
+| plans/002 | [Cross-Service Proto3 Contracts](plans/002-cross-service-protobuf-contracts.md)                       | Supporting implementation plan             | Group B / Phase 2                         |
+| plans/003 | [Dataset Metadata Manifest](plans/003-dataset-metadata-manifest.md)                                   | Consolidated implementation plan           | Group B / Phase 3                         |
+| plans/004 | [Parquet Date Normalization](plans/004-parquet-date-normalization-increment.md)                       | Increment record                           | Group B / Phase 3                         |
+| plans/005 | [Job Dependency Guard](plans/005-job-dependency-guard.md)                                             | Consolidated implementation plan           | Group B / Phase 4                         |
+| plans/006 | [Job Dependency Guard Progress](plans/006-job-dependency-guard-progress.md)                           | Historical progress record                 | Group B / Phase 4                         |
+| plans/007 | [Portable Docker Deployment](plans/007-portable-docker-deployment.md)                                 | Deferred technical debt                    | Group C / Phase 5                         |
+| plans/008 | [Omni Metadata and Console Execution](plans/008-omni-metadata-console-dashboard-execution-plan.md)    | Deferred technical-debt record             | Group C / Phase 6                         |
+| plans/009 | [Dataset-Component Market Dashboard](plans/009-dataset-component-market-dashboard.md)                 | Deferred technical debt                    | Group C / Phase 6                         |
+| plans/010 | [Telegram Multi-Channel](plans/010-telegram-multi-channel.md)                                         | Supporting implementation plan             | Group C / Phase 8                         |
+| plans/011 | [Telegram Notification Format Modernization](plans/011-telegram-notification-format-modernization.md) | Scheduled/deferred implementation          | Group C / Phase 8                         |
+| plans/012 | [Confirmed Trend Equals MVP](plans/012-confirmed-trend-equals-mvp.md)                                 | P8-I4 MVP supporting detail                | Group C / Phase 8                         |
+| plans/013 | [Intraday EOD](plans/013-intraday-eod.md)                                                             | Active bounded P9-I1; verification pending | Group D / Phase 9                         |
+| plans/014 | [Realtime Per-Tick](plans/014-realtime-per-tick.md)                                                   | Deferred owner-gated design                | Group D / Phase 10                        |
+| plans/024 | [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md)   | Deferred owner-gated supporting plan       | Group E / Phase 11 / P11-I1-P11-I5        |
+| plans/027 | [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md)         | Deferred owner-gated supporting plan       | Group F / Phase 12 / P12-I1-P12-I4        |
+| plans/029 | [Operator Trust Console](plans/029-operator-trust-console.md)                                         | Active Phase 13 supporting plan            | Group G / Phase 13 / P13-I1-P13-I4        |
+| plans/030 | [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md)                          | Active Milestone 1 epic                    | Phase 14 / P14-I1-P14-I10 (I6 superseded) |
 
 ## Proposed, Historical, and Compatibility Plans
 

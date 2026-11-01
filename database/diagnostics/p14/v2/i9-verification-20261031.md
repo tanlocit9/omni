@@ -1,5 +1,11 @@
 # I9 acceptance verification — 2026-10-31
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 Owner: [Plan 030](../../../../docs/plans/030-static-graph-dispatch-planner.md).
 Registry: **P14-I8 and P14-I9 verification_pending; P14-I10 pending**.
 

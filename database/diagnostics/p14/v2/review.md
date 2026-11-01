@@ -1,6 +1,7 @@
 # P14 review — source and planned scope, 2026-10-30
 
-Scope: current feat/P14-WIP workspace including uncommitted I10/identity planning.
+Historical review baseline: feat/P14-WIP including I10/identity planning. The P1
+follow-up below records the later source repair and its bounded executed checks.
 This is static review plus SELECT-only SQL and an owner-selected Omni Console
 dashboard/API source delivery. An offline HTML companion is retained.
 Added test source is NOT RUN: no tests/build/lint/format, SQL execution, browser validation, retained migration,
@@ -9,7 +10,16 @@ Graph tools are unavailable; the service/contract impact below is manual reconci
 
 ## Findings
 
-### [P1] Non-signal terminal selection can suppress uncovered scheduled work
+### [P1, repaired; local regression PASS] Non-signal terminal selection can suppress uncovered scheduled work
+
+Follow-up: owner requested the runtime repair. Non-signal presets now keep their
+independent schedules when coverage is unproved. Narrow symbol/date/parameter and
+sector differences have regression source; real PostgreSQL checks cover claim
+selection and the narrow VCB graph. Local gate `P14-I9-schedule-coverage-fix-20261030`
+PASS: 26 tests, zero failures/errors/skips; selector coverage 100% line / 92.9% branch.
+This does not verify complete I8/I9, deployment, Console or output exclusion.
+See [current repair/evidence](../../../../docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30).
+The description below records the pre-fix review baseline.
 
 Source: [GraphScheduledEntries.java:34](../../../../apps/core/src/main/java/com/omni/platform/modules/scheduler/services/GraphScheduledEntries.java#L34),
 especially line 39; [GraphWorkExpansion.java:174](../../../../apps/core/src/main/java/com/omni/platform/modules/scheduler/expansion/GraphWorkExpansion.java#L174).
@@ -73,24 +83,24 @@ Writer/P12 is still deferred and metadata registration alone does not solve this
 
 ## Increment reconciliation
 
-| Increment | Canonical state | Source/output present | Remaining boundary |
-| --- | --- | --- | --- |
-| I1 | completed | Code-owned topology, traversal/validation. | Preserve declaration authority; no second mutable graph catalog. Historical registry evidence, no fresh execution here. |
-| I2 | completed | Static DAG dispatcher contract and definition mapping. | Old frozen paths keep their version/fingerprint semantics. |
-| I3 | completed | Durable JobRun preparation, target/ancestor steps and closure guards. | preparation remains default false; historical completion is not approval to activate current HEAD. |
-| I4 | completed | Planned admission with DependencyRegistry, exact input approval, fenced outbox/claim/renew. | Graph completion is not dataset READY; guard paths remain required. |
-| I5 | completed | Existing v1 SQL, measured historical benchmark and bounded read-model handoff. | New v2 assets below are unexecuted and not covered by old benchmark evidence. |
-| I6 | superseded | Read-model scope merged into I5. | No separate pending implementation or status promotion. |
-| I7 | completed | Legacy identity cleanup/strict FK migration; recorded local reverify gate. | Retained backup/quiescence/migration gates remain operational obligations. |
-| I8 | verification_pending | Common request/date/scope expansion, atomic JSON envelope, frozen snapshots, worker dated units. | Current-source cross-service regression, attributable coverage, replay/retained migration and rollout still open. |
-| I9.a | part of I9 | Graph-to-expansion composition; one atomic work per independent JobRun. | Historical planning-only PASS does not verify subsequent full runtime. Fix/verify uncovered non-signal entry case. |
-| I9.b | part of I9 | Shared in-flight attempts, fixed upstream attempts, request membership, cancel/retry and reconciler. | Timeout gap, overlap/concurrency/restart/cancellation/lease parity; new SQL is evidence preparation only. |
-| I9.c | part of I9 | Preset consolidation, schedule retirement, history aliases and conflict-checked rollback (V18). | Default off; retained migration/seeder/history/rollback and coarse-lock performance evidence required. |
-| I9 overall | verification_pending | Full a/b/c source and strategy/outcomes follow-ups. | Must close I8 and all I9 behavior/coverage/operational gates, not just compile or count tests. |
-| I10.a | pending | Plan/ADR only: metadata topic, bounded registration arrays, Platform inbox/upsert/status correlation. | No topic/schema/consumer or completion gate implemented. |
-| I10.b | pending | Plan only: PostgreSQL readiness, exact work/date coverage, API/reader cutover, 12h reconciliation. | MinIO manifest remains active; version/write-ownership safety and backfill/shadow/cutover unresolved. |
-| I10.c | pending | Plan only: 2min watchdog, 30min publication deadline, diagnostics/late fencing. | No execution timeout currently applied. |
-| Trace / query provenance | reserved only | Naming/extension plan: atomicWorkId, atomicAttemptId, queryId, optional traceContext. | No tracing collector, query metadata migration or query-level trace persistence. P11/P12 not reactivated. |
+| Increment                | Canonical state      | Source/output present                                                                                 | Remaining boundary                                                                                                      |
+| ------------------------ | -------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| I1                       | completed            | Code-owned topology, traversal/validation.                                                            | Preserve declaration authority; no second mutable graph catalog. Historical registry evidence, no fresh execution here. |
+| I2                       | completed            | Static DAG dispatcher contract and definition mapping.                                                | Old frozen paths keep their version/fingerprint semantics.                                                              |
+| I3                       | completed            | Durable JobRun preparation, target/ancestor steps and closure guards.                                 | preparation remains default false; historical completion is not approval to activate current HEAD.                      |
+| I4                       | completed            | Planned admission with DependencyRegistry, exact input approval, fenced outbox/claim/renew.           | Graph completion is not dataset READY; guard paths remain required.                                                     |
+| I5                       | completed            | Existing v1 SQL, measured historical benchmark and bounded read-model handoff.                        | New v2 assets below are unexecuted and not covered by old benchmark evidence.                                           |
+| I6                       | superseded           | Read-model scope merged into I5.                                                                      | No separate pending implementation or status promotion.                                                                 |
+| I7                       | completed            | Legacy identity cleanup/strict FK migration; recorded local reverify gate.                            | Retained backup/quiescence/migration gates remain operational obligations.                                              |
+| I8                       | verification_pending | Common request/date/scope expansion, atomic JSON envelope, frozen snapshots, worker dated units.      | Current-source cross-service regression, attributable coverage, replay/retained migration and rollout still open.       |
+| I9.a                     | part of I9           | Graph-to-expansion composition; one atomic work per independent JobRun.                               | Historical planning-only PASS does not verify subsequent full runtime. Fix/verify uncovered non-signal entry case.      |
+| I9.b                     | part of I9           | Shared in-flight attempts, fixed upstream attempts, request membership, cancel/retry and reconciler.  | Timeout gap, overlap/concurrency/restart/cancellation/lease parity; new SQL is evidence preparation only.               |
+| I9.c                     | part of I9           | Preset consolidation, schedule retirement, history aliases and conflict-checked rollback (V18).       | Default off; retained migration/seeder/history/rollback and coarse-lock performance evidence required.                  |
+| I9 overall               | verification_pending | Full a/b/c source and strategy/outcomes follow-ups.                                                   | Must close I8 and all I9 behavior/coverage/operational gates, not just compile or count tests.                          |
+| I10.a                    | pending              | Plan/ADR only: metadata topic, bounded registration arrays, Platform inbox/upsert/status correlation. | No topic/schema/consumer or completion gate implemented.                                                                |
+| I10.b                    | pending              | Plan only: PostgreSQL readiness, exact work/date coverage, API/reader cutover, 12h reconciliation.    | MinIO manifest remains active; version/write-ownership safety and backfill/shadow/cutover unresolved.                   |
+| I10.c                    | pending              | Plan only: 2min watchdog, 30min publication deadline, diagnostics/late fencing.                       | No execution timeout currently applied.                                                                                 |
+| Trace / query provenance | reserved only        | Naming/extension plan: atomicWorkId, atomicAttemptId, queryId, optional traceContext.                 | No tracing collector, query metadata migration or query-level trace persistence. P11/P12 not reactivated.               |
 
 ## Identity and version audit
 
@@ -132,14 +142,14 @@ Prepared assets are not a new increment and do not reopen historical I5 completi
 
 ## Cross-service impact and recommended acceptance matrix
 
-| Surface | Review outcome / diagnostics change | Owner-local evidence still needed |
-| --- | --- | --- |
-| Platform topology/preparation/planner/claims | Scheduler behavior unchanged; new diagnostics service/controller GETs with bounds/read-only transactions/timeouts. Selector finding remains unfixed; expired-token WAITING/BLOCKED repair is present. | I8/I9 selection, overlap, fixed bindings, failed upstream, concurrent terminal/cancel/retry, all claim paths and stale leases. |
-| Ingestor / Analyzer / py-common | No production changes. Dated history writes, byte-bound indicator read and outcomes immutable/as-of behavior reviewed. | Paired envelope/canonical identity, date/lookback/history retention, output collision, valid-empty, Kafka/status recovery and approval/bytes mismatch. |
-| Query Service / Console | New Console Work Operations navigation/view/client; existing auth proxy reused. No Query Service/cache/SQLite/trace change. | Version/discovery parity at future I10 cutover; traces reserved only. Browser import/display checks before operational use. |
-| Shared contracts/config | Additive HTTP diagnostic DTOs only; no topic/proto/generated/path/env/flag change. Existing JSON Kafka wire retained. | Future I10 paired producers/consumer, limits, stream orders, auth and alias conflict fixtures. |
-| PostgreSQL / operations | Shared packaged SELECT-only diagnostic SQL + psql wrappers, V18 prerequisite, query/transaction/lock bounds; no migration or query run. | Real PostgreSQL results for empty/shared/failed/partial/legacy states, plans/buffers/timeouts, retained rollout with declared controls. |
-| Documentation | Plan/registry statuses unchanged; link review/v2 read projection and distinguish future I10/trace panels. | Static graph change/impact tools remain unavailable; refresh graph proof later, never claim PASS from manual source alone. |
+| Surface                                      | Review outcome / diagnostics change                                                                                                                                                                   | Owner-local evidence still needed                                                                                                                      |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Platform topology/preparation/planner/claims | Scheduler behavior unchanged; new diagnostics service/controller GETs with bounds/read-only transactions/timeouts. Selector finding remains unfixed; expired-token WAITING/BLOCKED repair is present. | I8/I9 selection, overlap, fixed bindings, failed upstream, concurrent terminal/cancel/retry, all claim paths and stale leases.                         |
+| Ingestor / Analyzer / py-common              | No production changes. Dated history writes, byte-bound indicator read and outcomes immutable/as-of behavior reviewed.                                                                                | Paired envelope/canonical identity, date/lookback/history retention, output collision, valid-empty, Kafka/status recovery and approval/bytes mismatch. |
+| Query Service / Console                      | New Console Work Operations navigation/view/client; existing auth proxy reused. No Query Service/cache/SQLite/trace change.                                                                           | Version/discovery parity at future I10 cutover; traces reserved only. Browser import/display checks before operational use.                            |
+| Shared contracts/config                      | Additive HTTP diagnostic DTOs only; no topic/proto/generated/path/env/flag change. Existing JSON Kafka wire retained.                                                                                 | Future I10 paired producers/consumer, limits, stream orders, auth and alias conflict fixtures.                                                         |
+| PostgreSQL / operations                      | Shared packaged SELECT-only diagnostic SQL + psql wrappers, V18 prerequisite, query/transaction/lock bounds; no migration or query run.                                                               | Real PostgreSQL results for empty/shared/failed/partial/legacy states, plans/buffers/timeouts, retained rollout with declared controls.                |
+| Documentation                                | Plan/registry statuses unchanged; link review/v2 read projection and distinguish future I10/trace panels.                                                                                             | Static graph change/impact tools remain unavailable; refresh graph proof later, never claim PASS from manual source alone.                             |
 
 Recommended checks are NOT RUN. Reuse declared Nx targets and existing
 GraphScheduledEntriesTest, GraphWorkExpansionTest, GraphWorkRequestsPostgresTest,
@@ -167,12 +177,12 @@ or branch mutation is included in this request.
 
 ## Console follow-up source/test matrix — not executed
 
-| Changed surface | Regression source / pending local gate |
-| --- | --- |
-| AtomicWorkDiagnosticsService | ValidationTest: invalid range/limits/future clock/hash rejected before DB; GraphWorkRequestsPostgresTest: actual packaged SQL, shared owner counts, read-only pagination/provenance. DB outage/timeout/schema/truncation cases remain required. |
-| GraphWorkOperationsController / security boundary | GraphWorkRequestsPostgresTest: unauthenticated GETs, authenticated snapshots and invalid limit; no new security bypass. |
-| Canonical resources + psql includes | Same files used by JDBC and CLI, named values only; PG16 execution/aggregate/legacy/error/performance cases pending. |
-| Console App/api/operations/types/view/styles | WorkOperations.test.tsx: unknown/empty/errors, window-preserving pagination, selected work; App.test.tsx navigation. API request encoding, out-of-order/unmount response, browser responsive/accessibility and broad Console regression still need executed evidence. |
+| Changed surface                                   | Regression source / pending local gate                                                                                                                                                                                                                                |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AtomicWorkDiagnosticsService                      | ValidationTest: invalid range/limits/future clock/hash rejected before DB; GraphWorkRequestsPostgresTest: actual packaged SQL, shared owner counts, read-only pagination/provenance. DB outage/timeout/schema/truncation cases remain required.                       |
+| GraphWorkOperationsController / security boundary | GraphWorkRequestsPostgresTest: unauthenticated GETs, authenticated snapshots and invalid limit; no new security bypass.                                                                                                                                               |
+| Canonical resources + psql includes               | Same files used by JDBC and CLI, named values only; PG16 execution/aggregate/legacy/error/performance cases pending.                                                                                                                                                  |
+| Console App/api/operations/types/view/styles      | WorkOperations.test.tsx: unknown/empty/errors, window-preserving pagination, selected work; App.test.tsx navigation. API request encoding, out-of-order/unmount response, browser responsive/accessibility and broad Console regression still need executed evidence. |
 
 Recommended local commands (NOT RUN): nx run platform:test; nx run platform:coverage;
 nx run omni-console:test; nx run omni-console:typecheck; nx run omni-console:lint;

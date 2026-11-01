@@ -548,5 +548,117 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         return config.load();
     }
 
+    @Test
+    void v16UpgradePreservesFrozenV1PathsOffsetsHistoryAndAllDeliveryStates() {
+        flyway("16").migrate();
+        Work frozen = row("PENDING", true, false);
+        row("PUBLISHED", false, false);
+        row("BLOCKED", false, false);
+        jdbc.update(
+                "UPDATE job_execution_histories SET new_offset='retained-offset',records_synced=17 WHERE id=?",
+                frozen.child());
+        UUID definition =
+                jdbc.queryForObject(
+                        "SELECT job_id FROM job_execution_histories WHERE id=?",
+                        UUID.class,
+                        frozen.parent());
+        UUID run =
+                new TransactionTemplate(new DataSourceTransactionManager(dataSource))
+                        .execute(
+                                tx -> {
+                                    UUID id =
+                                            jdbc.queryForObject(
+                                                    "INSERT INTO job_runs(mode,actor,idempotency_key,reason,request_json,"
+                                                            + "target_definition_id,scope_type,scope_key,business_date,path_contract_version,path_fingerprint,step_count) "
+                                                            + "VALUES ('MANUAL','v16-fixture','frozen-upgrade','compatibility','{}',?,'EXCHANGE','HOSE','2035-01-02',1,?,1) RETURNING id",
+                                                    UUID.class,
+                                                    definition,
+                                                    "b".repeat(64));
+                                    jdbc.update(
+                                            "INSERT INTO job_run_steps(job_run_id,step_index,job_definition_id,definition_source,definition_job_type,definition_cron,scope_type,scope_key,business_date) "
+                                                    + "SELECT ?,0,id,source,job_type,cron_expr,'EXCHANGE','HOSE','2035-01-02' FROM job_definitions WHERE id=?",
+                                            id,
+                                            definition);
+                                    jdbc.update(
+                                            "UPDATE job_runs SET state='PREPARED' WHERE id=?", id);
+                                    jdbc.update(
+                                            "UPDATE job_execution_histories SET job_run_id=?,job_run_step_index=0,meta_json=meta_json || "
+                                                    + "'{\"runPreparationVersion\":\"1\",\"businessDate\":\"2035-01-02\",\"workType\":\"GLOBAL\",\"workKey\":\"SYNC_SYMBOLS\"}'::jsonb WHERE id=?",
+                                            id,
+                                            frozen.parent());
+                                    jdbc.update(
+                                            "UPDATE job_execution_histories SET job_run_id=?,job_run_step_index=0 WHERE id=?",
+                                            id,
+                                            frozen.child());
+                                    jdbc.update(
+                                            "INSERT INTO job_run_step_preparations(job_run_id,step_index,parent_execution_id,child_count,message_count,closed_at) VALUES (?,0,?,1,1,now())",
+                                            id,
+                                            frozen.parent());
+                                    return id;
+                                });
+        Map<String, String> before = new HashMap<>();
+        for (String table :
+                List.of(
+                        "job_runs",
+                        "job_run_steps",
+                        "job_run_step_predecessors",
+                        "job_run_step_preparations",
+                        "job_execution_histories",
+                        "scheduler_outbox_messages")) {
+            before.put(
+                    table,
+                    jdbc.queryForObject(
+                            "SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text)::text FROM "
+                                    + table
+                                    + " r",
+                            String.class));
+        }
+        String definitions =
+                jdbc.queryForObject(
+                        "SELECT jsonb_agg(to_jsonb(d) ORDER BY id)::text FROM job_definitions d",
+                        String.class);
+        assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(2);
+        for (var entry : before.entrySet()) {
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text)::text FROM "
+                                            + entry.getKey()
+                                            + " r",
+                                    String.class))
+                    .as(entry.getKey())
+                    .isEqualTo(entry.getValue());
+        }
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT jsonb_agg(to_jsonb(d)-'schedule_enabled'-'canonical_definition_id' ORDER BY id)::text FROM job_definitions d",
+                                String.class))
+                .isEqualTo(definitions);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM job_definitions WHERE NOT schedule_enabled OR canonical_definition_id IS NOT NULL",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT atomic_work_admissible(?)", Boolean.class, frozen.child()))
+                .isTrue();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM atomic_work_attempts", Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT path_fingerprint FROM job_runs WHERE id=?",
+                                String.class,
+                                run))
+                .isEqualTo("b".repeat(64));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT new_offset FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                frozen.child()))
+                .isEqualTo("retained-offset");
+        assertThat(flyway(null).migrate().migrationsExecuted).isZero();
+        flyway(null).validate();
+    }
+
     private record Work(UUID message, UUID parent, UUID child) {}
 }

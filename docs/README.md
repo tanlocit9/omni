@@ -1,8 +1,12 @@
 # Omni Documentation
 
 [P14 whole-scope review, SQL and Console Work Operations](../database/diagnostics/p14/v2/README.md)
-adds source findings and authenticated read-only request/attempt inspection; no new executed checks,
-activation or I8/I9 completion is claimed.
+adds source findings and authenticated read-only request/attempt inspection.
+The later [scheduled-coverage repair](plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30)
+has a bounded local regression PASS. The later
+[I9 acceptance report](../database/diagnostics/p14/v2/i9-verification-20261031.md)
+records the expanded source-bound checks and remaining gates; activation and I8/I9
+completion remain unverified.
 
 P14-I10 is planned (pending after I9): metadata registration arrays on a new topic, Platform-owned PostgreSQL readiness, reconciliation and execution watchdog. I8/I9 remain verification_pending; current manifest runtime and deferred P12 writer are unchanged.
 See [I10 scope and acceptance](plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
@@ -16,7 +20,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Original P14 continuation plan (superseded by current status above): I8 unifies expansion, then I9.a/b/c
 compose graph, share ancestor work and consolidate definitions. I7 has recorded

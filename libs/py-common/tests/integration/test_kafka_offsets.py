@@ -237,3 +237,60 @@ async def test_output_and_status_ack_then_commit_survive_consumer_restart(broker
     finally:
         await restarted.stop()
         await observer.stop()
+
+
+@pytest.mark.asyncio
+async def test_acknowledged_error_is_committed_and_not_automatically_retried(broker):
+    topic, group = "jobs-" + uuid.uuid4().hex, "group-" + uuid.uuid4().hex
+    status_topic = "status-" + uuid.uuid4().hex
+    sent = await publish_command(broker, topic)
+    tp = TopicPartition(topic, sent.partition)
+    consumer = KafkaClientFactory.create_consumer(broker, topic, group)
+    producer = KafkaClientFactory.create_producer(broker)
+    await consumer.start()
+    await producer.start()
+    publisher = JobStatusPublisher(producer, status_topic)
+
+    async def handle(record):
+        result = JobStatusMessage(
+            execution_id="00000000-0000-0000-0000-000000000001",
+            work_type="GLOBAL",
+            work_key="test",
+            status="ERROR",
+            started_at=utc_now(),
+            finished_at=utc_now(),
+            error_message="fixture failure",
+        )
+        await publisher.publish(result)
+        return result
+
+    task = asyncio.create_task(consume_job_records(consumer, handle))
+    try:
+        deadline = time.monotonic() + 30
+        while await consumer.committed(tp) != sent.offset + 1:
+            assert not task.done(), "ERROR status failed before acknowledged commit"
+            assert time.monotonic() < deadline
+            await asyncio.sleep(0.1)
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        await consumer.stop()
+        await producer.stop()
+
+    restarted = KafkaClientFactory.create_consumer(broker, topic, group)
+    observer = KafkaClientFactory.create_consumer(
+        broker, status_topic, "observer-" + uuid.uuid4().hex
+    )
+    await restarted.start()
+    await observer.start()
+    try:
+        status = await asyncio.wait_for(observer.getone(), 20)
+        assert (
+            JobStatusMessage.model_validate_json(status.value).status.value == "ERROR"
+        )
+        assert await restarted.getmany(timeout_ms=3000) == {}
+        assert await restarted.position(tp) == sent.offset + 1
+    finally:
+        await restarted.stop()
+        await observer.stop()

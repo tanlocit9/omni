@@ -1,5 +1,32 @@
 # Omni Release Notes
 
+## 2026-11-01 — Close I9 worker coverage gaps
+
+Add 18 handler cases covering legacy indicator paths, input metadata guards,
+Ichimoku dispatch, unavailable/invalid intraday confirmation, Sector Wave atomic
+and undated routes, missing members and preservation of non-target dates. Analyzer
+full suite passes 192 tests; focused suite passes 100. Handler coverage is 100%/100%
+for indicator and Sector Wave, 98.88%/95.83% for signals (line/branch). Full Analyzer
+Ruff passes after scoped cleanup of existing style issues, with normalized AST
+equivalence recorded. See [follow-up gate, scenarios and limits](database/diagnostics/p14/v2/i9-verification-20261031.md#worker-coverage-completion--2026-11-01).
+I8/I9 remain verification_pending; no live-state operation or activation.
+Final gate `P14-I9-worker-coverage-20261101` PASS (18/18): full Platform 535
+executed tests, four separately executed worker workflows, shared 200 tests plus
+five real-broker cases, all 22 Java thresholds and clean build. Formatting covers
+all intended Java/Python/Markdown commit inputs; no generated contracts change.
+
+## 2026-10-31 — Extend I9 acceptance and verification
+
+Add overlapping-date/cancelled replay, retry ownership, stale-claim, consolidation
+lease/operator/startup policy and V16-to-V18 history/offset preservation tests.
+Extend the real shared-attempt scenario to four owners with cancellation before
+dispatch and after publication. Correct historical-schema and weekend-sensitive
+test fixtures. See the [current gate, source bindings and coverage matrix](database/diagnostics/p14/v2/i9-verification-20261031.md).
+No commit, live state operation, runtime activation or increment promotion.
+Local gate `P14-I9` PASS (17/17): 69 acceptance tests, 535 executed full-suite tests,
+four separately executed worker workflows, and 22 Java components above 80%
+line/branch. I8 closure, whole-worker coverage and retained rollout remain open.
+
 ## 2026-10-31 — Repair I9 ancestor parameters and rollback lock ordering
 
 Preserve ancestor preset parameters, normalize strategy matching through I8 and
@@ -31,6 +58,45 @@ read-only PostgreSQL transactions; no cleanup, worker startup or offset mutation
 Local verification: 25 tooling unit tests PASS (11 new); the live read-only report
 observed zero unfinished histories and zero Kafka lag/unknown-lag partitions.
 See [usage and limits](tools/jobs_backlog.md). P14 increment statuses are unchanged.
+
+## 2026-10-31 — Exercise unfinished-job restart and acknowledged-error semantics
+
+Add a disposable full-worker crash/resume and completed-command replay scenario,
+real-broker ERROR-commit/no-auto-retry test, and PostgreSQL publication-without-
+terminal-status assertions after dispatcher reconstruction. Align fixture/provider
+business dates and snapshot-validation clocks to the latest weekday. Local gate
+P14-unfinished-integration-20261031 PASS (3/3): 44 integration tests (5 Kafka,
+36 PostgreSQL, 3 real-worker), zero failures/errors/skips in the final runs after
+correcting the initial weekend fixture-clock failures. Crash/resume and completed
+replay preserve identity/input/output counts; stale READY admission and orphan
+recovery gaps remain. No live remediation, migration, flag,
+production or increment-status changes. See [scenarios and evidence](database/diagnostics/p14/v2/runtime-failure-audit.md#unfinished-work-integration-follow-up--2026-10-31).
+
+## 2026-10-30 — Audit live failure groups and add stale-input regressions
+
+Read local execution/outbox state and Kafka committed lag without modifying live
+data. Separate October 30 missing-day failures from historical provider/date errors
+and published unfinished rows. Add parameterized signal/Sector Wave no-write tests
+and a disposable Kafka/PostgreSQL/MinIO stale-READY scenario. Local gates PASS
+(4/4 audit plus 1/1 Ingestor): 503 passing tests, four opt-in skips. Legacy dispatch
+still admits stale READY; the atomic worker rejects missing-day input and preserves
+output. Whole-handler branch coverage, exact-date admission/watchdog, I8/I9
+completion and real provider recovery remain open. No live remediation was applied.
+See [observations, scenarios and remaining work](database/diagnostics/p14/v2/runtime-failure-audit.md).
+
+## 2026-10-30 — Retain graph schedules when upstream coverage is unknown
+
+Fix the reviewed P1: non-signal upstream presets keep independent schedules even
+when a narrower downstream JobType can reach them. Preserve the existing signal-
+specific checks and bounded claim queries. Seed selection is no longer fixed at
+seven terminal entries; tests cover narrow symbol/date/parameter requests, sector
+differences and PostgreSQL claims across multiple batches. The approved three-suite
+gate `P14-I9-schedule-coverage-fix-20261030` PASS: 26 tests, zero failures/errors/skips.
+Selector coverage is 100% line / 92.9% branch; claim service is 100% line/branch.
+Two diagnostics test fixtures now select the named JsonMapper bean; their earlier
+setup failures were rerun successfully. I8/I9 remain verification_pending; no activation, writer,
+schema, Kafka/worker contract, migration, commit or push is included.
+See [repair and evidence](docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30).
 
 ## 2026-10-30 — Integrate P14 diagnostics into Omni Console
 

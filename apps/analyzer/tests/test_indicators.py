@@ -271,6 +271,45 @@ async def test_indicator_handler_changed_eod_version_changes_persisted_lineage()
     assert versions[0] != versions[1]
 
 
+@pytest.mark.anyio
+async def test_indicator_legacy_path_adapter_preserves_source_and_input_lineage():
+    handler, storage, _ = _indicator_handler()
+
+    class LegacyPaths:
+        indicators_base = "indicators/"
+
+        def indicators(self, timeframe, exchange, code):
+            return f"indicators/{timeframe}/{exchange}/{code}.parquet"
+
+        def _normalize_path_part(self, value, field):
+            return value.strip().lower()
+
+    handler._settings = SimpleNamespace(
+        stock_data_paths=LegacyPaths(), scheduler=SchedulerSettings()
+    )
+    assert await handler.handle(_job_payload()) == 60
+    path, frame = storage.write_dataframe.await_args.args
+    assert path == "indicators/ad_close/1d/hose/hpg.parquet"
+    assert set(frame["eod_data_version"]) == {_eod_manifest().dataVersion}
+
+
+@pytest.mark.anyio
+async def test_indicator_path_configuration_error_is_not_retried_as_legacy():
+    handler, storage, _ = _indicator_handler()
+    paths = SimpleNamespace(indicators=AsyncMock())
+
+    def invalid_path(*args):
+        raise TypeError("invalid indicator path configuration")
+
+    paths.indicators = invalid_path
+    handler._settings = SimpleNamespace(stock_data_paths=paths)
+    with pytest.raises(TypeError, match="invalid indicator path configuration"):
+        await handler.handle(_job_payload())
+    storage.read_dataframe.assert_not_awaited()
+    storage.read_bound_dataframe.assert_not_awaited()
+    storage.write_dataframe.assert_not_awaited()
+
+
 def test_calculate_ichimoku_keeps_shape_and_omni_schema_for_short_series():
     result = calculate_supported_indicators(
         _eod_frame(rows=40),

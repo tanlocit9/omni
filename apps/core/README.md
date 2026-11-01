@@ -3,27 +3,31 @@
 ## I9 shared-attempt worker integration
 
 Run `nx run platform:test-atomic-sharing` for the opt-in graph-enabled workflow:
-three requests share catalog/stock/indicator attempts, each on a one-step JobRun;
-two owners complete while one cancellation leaves shared work running. Actual
+four requests share catalog/stock/indicator attempts, each on a one-step JobRun;
+two owners complete while cancellation before dispatch and after publication leaves
+their shared work running. Actual
 Kafka/MinIO/Python workers exercise barriers, input approval, replay, committed
 offsets and Query Service output. Separate disposable containers are required.
 The existing `test-integration` and `test-overlap` fixtures explicitly retain the
 many-step route. See [scenario and execution evidence](../../database/diagnostics/p14/v2/i9-atomic-sharing-evidence.md).
 
-## P14 Work Operations diagnostics — source only
+## P14 Work Operations diagnostics
 
 Add authenticated GET /api/v1/jobs/atomic-work/snapshot, /published-unfinished and
 /work for Console. Shared packaged SQL also powers psql diagnostics; fixed named
 parameters, <=7-day request windows, bounded pages and read-only repeatable-read
 transactions with query/lock timeouts. Missing schema/query failures return safe 503,
 invalid input 400. No schema migration, scheduler state/flags or Kafka contract change.
-See [full contract and NOT RUN handoff](../../database/diagnostics/p14/v2/README.md).
+See [full contract and bounded verification](../../database/diagnostics/p14/v2/README.md).
+The [expanded I9 evidence](../../database/diagnostics/p14/v2/i9-verification-20261031.md)
+records later HTTP/Console checks separately from activation and increment closure.
 
-I9 entry correction (source only): strategy-qualified selection preserves
-ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
-standard entries: seven. Partial timeframe/exchange/request coverage keeps a
-standalone entry; atomic symbol/day identity and verification_pending status stay.
-See [correction](../../docs/plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
+I9 entry correction: all active scheduled non-retired non-signal presets retain
+independent schedules because JobType reachability cannot prove complete upstream
+work coverage. Existing signal/evaluation strategy, timeframe, exchange and request
+checks remain. More entries are claimed through the same bounded batches; graph
+acquisition still owns work reuse. No fixed seven-entry expectation or flag change.
+See [correction and verification](../../docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30).
 
 The 2026-10-30 repair checks aggregate work budgets before child/outbox writes,
 materializes accepted work without expanding again, preserves first input approvals
@@ -126,7 +130,7 @@ The earlier I4.a inactive description is checkpoint history. See
 | Entry point                                                                                                                                                                                | Purpose                              |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ |
 | [`src/main/java/com/omni/platform/PlatformApplication.java`](src/main/java/com/omni/platform/PlatformApplication.java)                                                                     | Spring Boot application entry point. |
-| [`src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/SyncJobScheduler.java)                                       | Scheduled job trigger.               |
+| [`src/main/java/com/omni/platform/modules/scheduler/JobScheduler.java`](src/main/java/com/omni/platform/modules/scheduler/JobScheduler.java)                                               | Scheduled job trigger.               |
 | [`src/main/java/com/omni/platform/modules/scheduler/services/JobService.java`](src/main/java/com/omni/platform/modules/scheduler/services/JobService.java)                                 | Job orchestration service.           |
 | [`src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java`](src/main/java/com/omni/platform/modules/scheduler/controllers/JobOperationsController.java) | Private job operations HTTP API.     |
 

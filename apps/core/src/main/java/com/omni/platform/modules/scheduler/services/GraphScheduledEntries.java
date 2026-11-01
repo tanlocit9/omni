@@ -13,37 +13,50 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.topology.StaticTopologyDeclaration;
 
-/** Pure scheduled-entry selection. JobType alone cannot prove signal-preset coverage. */
+/** Pure scheduled-entry selection. JobType reachability does not prove preset work coverage. */
 public final class GraphScheduledEntries {
     private GraphScheduledEntries() {}
 
     public static List<UUID> select(List<JobDefinition> definitions) {
-        List<JobDefinition> scheduled = definitions.stream()
-                .filter(job -> Boolean.TRUE.equals(job.getIsActive())
-                        && Boolean.TRUE.equals(job.getScheduleEnabled())
-                        && job.getCanonicalDefinitionId() == null)
-                .toList();
+        List<JobDefinition> scheduled =
+                definitions.stream()
+                        .filter(
+                                job ->
+                                        Boolean.TRUE.equals(job.getIsActive())
+                                                && Boolean.TRUE.equals(job.getScheduleEnabled())
+                                                && job.getCanonicalDefinitionId() == null)
+                        .toList();
         return scheduled.stream()
-                .filter(upstream -> scheduled.stream().noneMatch(dependent ->
-                        !dependent.getId().equals(upstream.getId()) && covers(dependent, upstream)))
+                .filter(
+                        upstream ->
+                                scheduled.stream()
+                                        .noneMatch(
+                                                dependent ->
+                                                        !dependent.getId().equals(upstream.getId())
+                                                                && covers(dependent, upstream)))
                 .map(JobDefinition::getId)
                 .sorted()
                 .toList();
     }
 
     private static boolean covers(JobDefinition dependent, JobDefinition upstream) {
+        // Other edge types do not yet prove complete membership/date/parameter coverage.
+        // Keep their independent schedules even when the graph can reach the upstream type.
+        if (upstream.getJobType() != JobType.SYNC_SIGNALS) return false;
         Map<String, Object> downstreamConfig = config(dependent);
         Map<String, Object> upstreamConfig = config(upstream);
-        if (!StaticTopologyDeclaration.matchesUpstream(dependent.getJobType(), downstreamConfig,
-                upstream.getJobType(), upstreamConfig)) return false;
-        if (upstream.getJobType() != JobType.SYNC_SIGNALS) return true;
-
+        if (!StaticTopologyDeclaration.matchesUpstream(
+                dependent.getJobType(), downstreamConfig, upstream.getJobType(), upstreamConfig))
+            return false;
         // Keep a standalone entry unless the evaluator covers its entire configured work.
-        // Restricted requests and nested overrides need resolved atomic membership to prove coverage.
+        // Restricted requests and nested overrides need resolved atomic membership to prove
+        // coverage.
         for (String field : List.of("scope", "dateFrom", "dateTo", "parameters")) {
-            if (downstreamConfig.containsKey(field) || upstreamConfig.containsKey(field)) return false;
+            if (downstreamConfig.containsKey(field) || upstreamConfig.containsKey(field))
+                return false;
         }
-        return JobConfigMapper.toSignalsConfig(downstreamConfig).timeframe()
+        return JobConfigMapper.toSignalsConfig(downstreamConfig)
+                        .timeframe()
                         .equals(JobConfigMapper.toSignalsConfig(upstreamConfig).timeframe())
                 && exchanges(downstreamConfig).containsAll(exchanges(upstreamConfig));
     }
@@ -55,7 +68,8 @@ public final class GraphScheduledEntries {
     private static Set<String> exchanges(Map<String, Object> config) {
         List<String> values = JobConfigMapper.readStringList(config, "exchanges");
         if (values.isEmpty()) values = JobDefinitionConfig.VIETNAM_EXCHANGES;
-        return values.stream().map(value -> value.strip().toUpperCase(Locale.ROOT))
+        return values.stream()
+                .map(value -> value.strip().toUpperCase(Locale.ROOT))
                 .collect(Collectors.toSet());
     }
 }

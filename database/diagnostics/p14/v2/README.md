@@ -1,6 +1,10 @@
-# P14 diagnostics v2 — prepared, not executed
+# P14 diagnostics v2 — prepared, bounded local checks
 
 Owner: [Plan 030](../../../../docs/plans/030-static-graph-dispatch-planner.md).
+The [November 1 worker coverage follow-up](i9-verification-20261031.md#worker-coverage-completion--2026-11-01)
+closes the three known Analyzer handler gaps without changing runtime contracts.
+See the [I9 acceptance verification follow-up](i9-verification-20261031.md) for the
+current source binding, expanded tests, full gate and remaining acceptance limits.
 For a one-shot local execution/outbox and Kafka backlog report compatible with the
 V16 tables, use [`nx run omni:jobs-backlog`](../../../../tools/jobs_backlog.md).
 It is separate from this V17/V18 atomic-request pack and performs no cleanup.
@@ -8,15 +12,21 @@ The [I9 shared-attempt worker scenario](i9-atomic-sharing-evidence.md) separates
 atomic-request end-to-end evidence from the existing many-step JobRun workflow.
 The [I9 review repairs](i9-review-fixes-evidence.md) cover ancestor preset parameters
 and PostgreSQL-compatible consolidation rollback lock order.
+The separate [runtime failure audit](runtime-failure-audit.md) groups the existing
+V16 database and reconciles errors with bounded tests. It does not make these
+V17/V18 operational queries compatible with V16 or record live remediation.
 This additive pack observes I9 attempts/requests under PostgreSQL 16 + V18.
 Keep [I5 v1](../v1/README.md) for frozen JobRun/path/legacy diagnostics and its
 historical benchmark. Owner selected an Omni Console dashboard: source now includes
 a read-only Platform adapter and Console Work Operations view. No migration, grants
 or scheduler flag changes.
 
-Prepared for review on 2026-10-30. SQL, Platform API and Console dashboard are source artifacts only;
-no query, browser check, regression, performance or retained-data run was performed.
-See [full review](review.md). I8/I9 remain verification_pending, I10 pending.
+Initially prepared for review on 2026-10-30 without execution. A later scheduler
+repair ran GraphWorkRequestsPostgresTest, including snapshot/work SQL and bounded
+HTTP/authentication cases, within the 26-test passing local gate. This is not full
+SQL/API acceptance, Console/browser, performance or retained-data verification.
+See [repair scope/evidence](../../../../docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30)
+and [full review](review.md). I8/I9 remain verification_pending, I10 pending.
 
 ## Files and scope
 
@@ -66,9 +76,10 @@ Separate exports taken while writers run are separate snapshots, not an atomic i
   dataset/bytes check runs here. workerProcessing/datasetReady are unknown.
 - firstPublishedAt and age are transport evidence. Over 30 minutes is a review
   threshold only; watchdog FAILED/EXECUTION_TIMEOUT is planned I10, not implemented.
-- Definition totals cover the stored catalog, outside the request window. Schedule-
-  enabled presets are not terminal entries; seed expectation seven is source context,
-  never a live SQL count or a fixed invariant for edited configurations.
+- Definition totals cover the stored catalog, outside the request window. Graph-mode
+  selection retains active scheduled non-retired non-signal presets independently;
+  signal/evaluation suppression has separate coverage checks. The earlier seven-
+  entry expectation is historical, never a live SQL count or a fixed invariant.
 - No flag state is inferred from tables or activity. Inspect active Platform config
   separately. Metadata-registration lag, consumer lag, actual worker start/heartbeat,
   READY and query traces cannot be derived from these tables.
@@ -127,9 +138,15 @@ exercise empty/missing-schema/invalid input, shared attempts, pagination/truncat
 expired leases, upstream failure, success-with-blocked-outbox, legacy publications,
 unknown status, date boundaries and synthetic malicious JSON display. Reconcile
 results with actual status/claim rules; never treat script presence as a pass.
-Graph discovery/change tooling remains unavailable; refresh at implementation.
+The original diagnostics delivery had no graph tooling. The later scheduled-
+coverage repair refreshed graph analysis for selector/claim scope; full diagnostics
+acceptance still requires its own impact and execution evidence.
 
-### Added regression source — NOT RUN
+### Added regression source — partial local execution
+
+GraphWorkRequestsPostgresTest passed in the later bounded scheduler repair gate
+above. Other suites/targets below remain NOT RUN; the complete diagnostics or
+increment gate is not inferred from this partial execution.
 
 GraphWorkRequestsPostgresTest now includes packaged SQL pagination/shared-owner/identity
 and authenticated HTTP empty/error cases. AtomicWorkDiagnosticsValidationTest covers

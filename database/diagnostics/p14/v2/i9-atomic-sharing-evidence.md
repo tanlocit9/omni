@@ -1,5 +1,9 @@
 # I9 shared-attempt cross-service scenario
 
+The [full I9 verification follow-up](i9-verification-20261031.md) extends this
+scenario to four initial owners and cancellation after publication. Counts in the
+original gate below remain historical and do not bind the extended source.
+
 Owner: [Plan 030](../../../../docs/plans/030-static-graph-dispatch-planner.md).
 Source: `JobRunAtomicSharingIntegrationTest`, opt-in `OMNI_P14_E2E=1`.
 The original many-step `JobRunCrossServiceIntegrationTest` remains a separate V1/I8
@@ -14,19 +18,21 @@ explicitly enabled; definition consolidation is disabled. Legacy fixtures explic
 disable graph expansion, independent of ambient application flags.
 
 1. Retain one active preset per required type, one exchange and one symbol in the
-   disposable database. Create three differently keyed indicator graph requests
+   disposable database. Create four differently keyed indicator graph requests
    before dispatch. Each request binds the same three immutable attempt IDs: symbol
-   catalog, stock EOD and indicator. Assert three attempts, three commands, nine
+   catalog, stock EOD and indicator. Assert three attempts, three commands, twelve
    request memberships, three one-step JobRuns and one child/message per run.
 2. Assert stock admission is false while its actual catalog ancestor is unfinished.
-   Cancel the third request through the owner-scoped service; keep the other two
+   Cancel the third request through the owner-scoped service; keep the other
    owners active. No worker is killed and no execution status is fabricated.
 3. Dispatch actual workers. After stock SUCCESS, the atomic barrier is satisfied
    but indicator publication still waits for global metadata. Run actual metadata
    sync, then pause the single admitted indicator command inside the real handler.
 4. Assert accepted EOD approval and exact request-key replay with no new attempt or
-   command. Release the worker. Both active requesters must aggregate to SUCCESS;
-   the cancelled requester remains CANCELLED/BLOCKED. All atomic runs close SUCCESS.
+   command. Cancel the fourth owner after indicator publication, require the outbox
+   to remain PUBLISHED and the other owners' work to remain admissible. Release the
+   worker. Both active requesters aggregate to SUCCESS; both cancelled requesters
+   remain CANCELLED/BLOCKED. All atomic runs close SUCCESS.
 5. Replay the original bound indicator payload through the actual publisher port.
    Require a second actual SUCCESS ACK, one dated output row with the same approved
    input, and unchanged attempt/history/outbox counts. Broker log ends prove one
@@ -35,7 +41,7 @@ disable graph expansion, independent of ambient application flags.
 6. Refresh discovery through another real metadata request and query through the
    Query Service fixture, requiring one indicator row with its normal lineage checks.
 
-## Verification
+## Historical three-owner verification
 
 Approved combined check, recorded under `P14-I9-atomic-sharing-20261031`:
 

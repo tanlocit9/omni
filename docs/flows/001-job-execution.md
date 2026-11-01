@@ -3,9 +3,10 @@
 P14 Work Operations source adds read-only Console -> Platform diagnostics for
 requests/attempts, publications and one-hop work provenance. It does not enter the
 scheduler dispatch/status flow, time out workers or change READY. Captured clocks,
-partial pages and unknown timing are visible. Added regression source is NOT RUN.
+partial pages and unknown timing are visible. The later scheduler repair exercised
+the PostgreSQL/HTTP subset. Later diagnostics/Console checks and remaining gates are
+tracked in the [I9 acceptance report](../../database/diagnostics/p14/v2/i9-verification-20261031.md).
 See [read contract](../../database/diagnostics/p14/v2/README.md).
-
 
 Reserved identity/trace path: atomicWorkId flows unchanged from expansion through worker/writer/registration to output-version provenance. Future queryId-scoped snapshots link the actual versions read back to all producing work/attempts, with separate query trace context and links to producer context. No tracing code, collection or query persistence migration is implemented.
 See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
@@ -13,12 +14,12 @@ See [identity and query tracing reservation](../plans/030-static-graph-dispatch-
 Planned P14-I10: worker writes/validates outputs -> acknowledges metadata registration array on a new topic -> publishes terminal status. Platform independently consumes both streams and completes SUCCESS only after required registrations commit (or explicit valid-empty). Add a 2-minute watchdog for a 30-minute published deadline and 12-hour metadata reconciliation. Existing runtime is unchanged.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
-I9 entry correction (source only): strategy-qualified selection preserves
-ICHIMOKU/CONFIRMED signals when only TREND evaluation is configured. Expected
-standard entries: seven. Partial timeframe/exchange/request coverage keeps a
-standalone entry; atomic symbol/day identity and verification_pending status stay.
-See [correction](../plans/030-static-graph-dispatch-planner.md#i9-signal-entry-correction--2026-10-30).
-
+I9 entry correction: every active scheduled non-retired non-signal preset remains
+independently eligible. A narrow descendant graph cannot suppress its broader
+upstream schedule solely through JobType reachability. Existing signal/evaluation
+coverage checks remain, and claims still honor batch limits. Shared acquisition
+owns overlapping-work reuse; this change does not provide writer exclusion.
+See [correction and verification](../plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30).
 
 Preparation repair (2026-10-30): accept closed descriptors for every step and
 check the whole-run budget before materializing children/outbox. Persisting them
@@ -40,7 +41,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: I8 plans normalize/expand/persist/enqueue once for every creation route; outbox planned/legacy/fallback/retry/replay delivers stored membership without another fan-out. I9 then composes graph and shared ancestor ownership.
 This note changes no implementation, configuration, preparation flag or existing

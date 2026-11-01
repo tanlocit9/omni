@@ -207,9 +207,16 @@ def test_invalid_atomic_input_dates_are_rejected(dates):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "history",
-    [None, pd.DataFrame(), pd.DataFrame({"other": [1]}), pd.DataFrame({"date": [None]})],
+    [
+        None,
+        pd.DataFrame(),
+        pd.DataFrame({"other": [1]}),
+        pd.DataFrame({"date": [None]}),
+    ],
 )
-async def test_day_write_initializes_output_and_rejects_invalid_existing_history(history):
+async def test_day_write_initializes_output_and_rejects_invalid_existing_history(
+    history,
+):
     from unittest.mock import AsyncMock
 
     storage = AsyncMock()

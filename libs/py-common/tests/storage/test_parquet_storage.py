@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import io
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pandas as pd
@@ -29,7 +30,6 @@ from py_common.storage.exceptions import (
     StorageWriteError,
 )
 from py_common.storage.manifest import calculate_data_version
-from types import SimpleNamespace
 from py_common.storage.parquet import ParquetCodec, ParquetStorage
 from py_common.storage.ports import (
     CopyableStorage,
@@ -93,14 +93,27 @@ def _encode(df: pd.DataFrame) -> bytes:
 async def test_bound_read_checks_the_same_bytes_it_decodes(change):
     frame = pd.DataFrame({"date": [date(2026, 10, 29)], "close": [1]})
     original = _encode(frame)
-    readable, writable = AsyncMock(spec=ReadableStorage), AsyncMock(spec=WritableStorage)
+    readable, writable = (
+        AsyncMock(spec=ReadableStorage),
+        AsyncMock(spec=WritableStorage),
+    )
     path = "eod/hose/hpg.parquet"
     values = {"exchange": "hose", "code": "hpg"}
     schema = "sha256:" + "1" * 64
-    version = calculate_data_version("eod", values, schema,
-            [(path, "sha256:" + hashlib.sha256(original).hexdigest())])
-    manifest = SimpleNamespace(path=path, values=values, schemaHash=schema,
-            dataVersion=version, inputs=[], status="READY")
+    version = calculate_data_version(
+        "eod",
+        values,
+        schema,
+        [(path, "sha256:" + hashlib.sha256(original).hexdigest())],
+    )
+    manifest = SimpleNamespace(
+        path=path,
+        values=values,
+        schemaHash=schema,
+        dataVersion=version,
+        inputs=[],
+        status="READY",
+    )
     readable.read_bytes.return_value = original
     if change == "metadata":
         manifest.dataVersion = "sha256:" + "2" * 64
@@ -108,8 +121,11 @@ async def test_bound_read_checks_the_same_bytes_it_decodes(change):
         readable.read_bytes.return_value = _encode(frame.assign(close=2))
     elif change == "not_ready":
         manifest.status = "FAILED"
-    storage = ParquetStorage(registry=_make_registry(readable, writable),
-            provider=StorageProvider.MINIO, bucket="test")
+    storage = ParquetStorage(
+        registry=_make_registry(readable, writable),
+        provider=StorageProvider.MINIO,
+        bucket="test",
+    )
     if change == "none":
         result = await storage.read_bound_dataframe("eod", manifest, version)
         pd.testing.assert_frame_equal(result, frame)

@@ -6,6 +6,24 @@ I10 remains planned/pending; no default activation, retained-environment deploym
 PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
 handoffs below record their historical status and do not override this result.
 
+## 2026-11-01 — Repair package-isolated CI checks
+
+Add `omni:ci-fix` to plan and run supported failed Python jobs from a GitHub jobs
+snapshot matching HEAD. Reuse locked sync, existing lint-fix/lint/test/build and
+check_result; use separate environments to expose dev-plugin contamination.
+Keep unknown jobs and aggregate-only failures unresolved. No remote CI operation
+or automatic behavioral patch is part of the tool.
+
+Hosted run 41299947184 exposed eighteen Ingestor async tests using an undeclared
+pytest-asyncio plugin and nine py-common Ruff errors. Use the existing AnyIO marker
+and the existing Ruff pipeline; no application logic, dependencies or checks change.
+See [runner and evidence boundaries](tools/ci_fix.md).
+
+Local repair gate PASS 9/9 in isolated package environments: Ingestor 90 unit
+tests, shared Python 200 tests (five broker cases skipped), both lint/build checks
+and locked sync. Tooling regression passes 32 tests. Hosted green still needs the
+next CI run; original increment test hashes remain historical, not rebound.
+
 ## 2026-11-01 — Format the complete PR scope
 
 Repair the nine files reported by CI, including Console operations, the offline

@@ -160,6 +160,11 @@ When changing storage layout:
 
 ## Verification
 
+For failed Python CI jobs, use the source-bound
+[CI repair runner](../../tools/ci_fix.md), exposed as `nx run omni:ci-fix`.
+It reuses declared Nx targets/check_result, isolates each package environment and
+does not turn a local repair into hosted CI or increment-completion evidence.
+
 ### Formatting scope
 
 Repository tooling regressions run through `nx run omni:tools-test`,

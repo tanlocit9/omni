@@ -9,6 +9,40 @@ does not trigger it. Manual dispatch requires a previous full commit SHA and sel
 all stacks. New pushes cancel older runs for the same PR/ref. Runner jobs have
 explicit timeouts, including the job inside the reusable Python workflow.
 
+## Source-bound CI repair runner — 2026-11-01
+
+For the bounded local repair runner, use
+[`nx run omni:ci-fix`](../../tools/ci_fix.md). It validates a source-bound GitHub
+jobs snapshot, plans without mutation by default, and runs declared Python
+sync/lint/test/build targets with `--apply`. Each project uses an isolated locked
+environment; unknown failures remain unresolved. This supplements CI policy and
+check_result rather than bypassing the required hosted gate.
+
+November 1 hosted run [41299947184](https://github.com/tanlocit9/omni/actions/runs/41299947184)
+at `75e92f2` passed formatting, contracts, Java, Console, Analyzer, Query Service and
+Ingestor publication integration. Ingestor unit tests failed eighteen async cases
+because pytest-asyncio is a py-common dev dependency, not an Ingestor CI plugin;
+switch those tests to the existing AnyIO marker. py-common failed nine Ruff
+diagnostics before its tests/build. The repair does not add dependencies, ignore
+lint, change workflow selection or equate shared-.venv success with package CI.
+
+Local runner gate `CI-REPAIR-41299947184-75e92f2` PASS 9/9: isolated locked sync,
+lint/test/build for both failed projects, plus py-common lint-fix. Ingestor passes
+90 unit cases without pytest-asyncio; its two publication integration tests are
+separate and already passed on the cited hosted run. py-common passes 200 cases
+with five opt-in broker cases skipped; no broker rerun is claimed. Tooling tests
+pass 32 cases. Local Python is 3.14.5 and uv is 0.10.3; the hosted workflow's pinned
+uv/Ubuntu environment is not claimed to have rerun. Hosted green remains pending.
+
+Blast radius: Platform, Analyzer, Query Service and Console runtime behavior is
+unchanged; shared Python source changes are formatting/import organization only,
+and Ingestor changes only async test markers. Contracts, Kafka messages, storage
+paths/ownership, persistence, service credentials and deployment are unchanged.
+The new root Nx target runs existing project targets and check_result. CI workflow
+selection, locked dependency policy and failure gates remain intact. Plans/ADR/
+architecture/data/service/agent rules need no changes beyond the linked P14
+verification follow-up: no runtime or ownership contract changes.
+
 ## CI environment repair — 2026-10-25
 
 Both workflows set `NX_NO_CLOUD=true`, including the reusable Python workflow,

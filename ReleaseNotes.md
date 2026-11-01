@@ -1,5 +1,15 @@
 # Omni Release Notes
 
+## 2026-11-01 - Start I10 shadow registration checkpoint
+
+Add paired JSON adapters, canonical schema/shared fixture, shared acknowledged publisher seam, V19 immutable shadow inbox and an opt-in Platform consumer with unlimited retry rather than record discard. Tests are source only, NOT RUN. Worker handlers, durable SUCCESS correlation, READY pointers, reader cutover, watchdog and reconciliation remain open. No flags or runtime services were activated. See [checkpoint](docs/reference/004-p14-i10-registration-checkpoint.md).
+
+## 2026-11-01 ? Reconcile P14 I10 and unconfirmed I11 against main
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
+Documentation only; no runtime changes or executed verification. Historical evidence is preserved.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

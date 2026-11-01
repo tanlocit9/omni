@@ -1,5 +1,7 @@
 # Omni Console
 
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 ## P14 Work Operations — locally verified, activation separately gated
 
 Owner selected the dashboard in Console. New **Work Operations** navigation reads

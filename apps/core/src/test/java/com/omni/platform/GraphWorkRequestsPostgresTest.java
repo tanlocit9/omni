@@ -1193,6 +1193,64 @@ class GraphWorkRequestsPostgresTest {
         }
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void outputRegistrationShadowIsAtomicIdempotentAndCannotChangeExecutionReadiness() {
+        prepare(target(JobType.SYNC_STOCK_PRICE), "registration-shadow");
+        var row = jdbc.queryForMap("SELECT a.id,a.execution_id,a.work_id,e.meta_json::text AS metadata "
+                + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id LIMIT 1");
+        var mapper = context.getBean(JsonMapper.class);
+        Map<String,Object> metadata = mapper.readValue(row.get("metadata").toString(), Map.class);
+        Map<String,Object> expansion = (Map<String,Object>) metadata.get("workExpansion");
+        var item = new java.util.LinkedHashMap<String,Object>();
+        item.put("registrationId", UUID.randomUUID().toString());
+        item.put("executionId", row.get("execution_id").toString());
+        item.put("atomicAttemptId", row.get("id").toString());
+        item.put("atomicWorkId", row.get("work_id"));
+        for (String field : List.of("jobType", "workType", "workKey", "businessDate", "parameters"))
+            item.put(field, expansion.get(field));
+        item.put("requiredOutputs", List.of());
+        item.put("outputs", List.of());
+        item.put("validEmptyReason", "NO_PROVIDER_OUTPUT");
+        var event = new java.util.LinkedHashMap<String,Object>();
+        event.put("schemaVersion", 1);
+        event.put("eventId", UUID.randomUUID().toString());
+        event.put("registrations", List.of(item));
+        var store = context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class);
+        String before = jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?",
+                String.class, row.get("execution_id"));
+        int originalEvents = count("output_registration_events");
+        int originalMembers = count("output_registrations");
+        String payload = mapper.writeValueAsString(event);
+        store.accept(payload);
+        store.accept(payload);
+        assertThat(count("output_registration_events")).isEqualTo(originalEvents + 1);
+        assertThat(count("output_registrations")).isEqualTo(originalMembers + 1);
+        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?",
+                String.class, row.get("execution_id"))).isEqualTo(before);
+
+        item.put("validEmptyReason", "CHANGED_IMMUTABLE_ITEM");
+        assertThatThrownBy(() -> store.accept(mapper.writeValueAsString(event)))
+                .isInstanceOf(IllegalArgumentException.class);
+        event.put("eventId", UUID.randomUUID().toString());
+        assertThatThrownBy(() -> store.accept(mapper.writeValueAsString(event)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(count("output_registration_events")).isEqualTo(originalEvents + 1);
+
+        item.put("validEmptyReason", "NO_PROVIDER_OUTPUT");
+        var unknown = new java.util.LinkedHashMap<>(item);
+        unknown.put("registrationId", UUID.randomUUID().toString());
+        unknown.put("executionId", UUID.randomUUID().toString());
+        unknown.put("atomicAttemptId", UUID.randomUUID().toString());
+        event.put("registrations", List.of(item, unknown));
+        assertThatThrownBy(() -> store.accept(mapper.writeValueAsString(event)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(count("output_registration_events")).isEqualTo(originalEvents + 1);
+        assertThat(count("output_registrations")).isEqualTo(originalMembers + 1);
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM output_registrations WHERE execution_id=?", row.get("execution_id")))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class);
+    }
+
     private void releaseLease(SchedulerClaim lease) {
         new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
                 .executeWithoutResult(tx -> context.getBean(JobService.class).releaseClaim(lease));

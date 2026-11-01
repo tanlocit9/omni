@@ -1,5 +1,7 @@
 # Omni Query Service
 
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Private, read-only server-side query boundary for Omni Console. It resolves
 logical dataset references through canonical `READY` manifests and executes
 bounded SQL with native DuckDB. Object-storage credentials and physical paths

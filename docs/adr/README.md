@@ -31,7 +31,7 @@ This directory is the canonical numbered index for accepted Omni architecture de
 | Group A - Control-plane safety (Phases 0-1)             | 001, 002, 004, 006, 007      |
 | Group B - Deterministic contracts and data (Phases 2-4) | 002, 003, 004, 005, 006, 007 |
 | Group C - Portable operations and product (Phases 5-8)  | 001, 003, 004, 007           |
-| Phase 14 - Output readiness (planned I10) | 002, 003, 004, 005, 008 |
+| Phase 14 - Output readiness (planned I10)               | 002, 003, 004, 005, 008      |
 | Group D - Higher-frequency market data (Phases 9-10)    | 001, 003, 004, 006           |
 
 These mappings indicate architectural relevance, not strict phase dependencies. The [canonical roadmap](../plans/roadmap/README.md) and its phase files remain authoritative for ordering and eligibility.

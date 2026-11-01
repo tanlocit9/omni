@@ -1,6 +1,11 @@
 # Omni Cross-Service Contracts
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Current local acceptance (2026-11-01): **I8/I9 completed**. Canonical proto is
+unchanged; pinned generation/artifact checks are recorded in the
+[closure evidence](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending, and current runtime transport remains JSON.
+
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -9,7 +14,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 This Nx project owns Omni's versioned Protocol Buffer schemas for Kafka and other service-to-service boundaries.
 

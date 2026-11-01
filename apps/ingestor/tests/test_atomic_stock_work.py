@@ -124,7 +124,8 @@ async def test_atomic_stock_failures_never_report_success(monkeypatch, failure):
         storage.write_dataframe.side_effect = OSError("write failed")
     monkeypatch.setattr(stock_prices, "get_or_create_client", lambda *args: client)
     monkeypatch.setattr(
-        stock_prices, "settings",
+        stock_prices,
+        "settings",
         SimpleNamespace(get_eod_path=lambda *args: "logical-stock"),
     )
     status = await stock_prices.process_stock_price_message(
@@ -144,12 +145,17 @@ async def test_legacy_empty_stock_output_retains_compatibility(monkeypatch):
     client.fetch_recent_stock.return_value = []
     storage.read_optional_dataframe.return_value = None
     monkeypatch.setattr(
-        stock_prices, "settings",
+        stock_prices,
+        "settings",
         SimpleNamespace(get_eod_path=lambda *args: "logical-stock"),
     )
     raw = {
-        "jobDefinitionId": "job", "executionId": "execution", "source": "",
-        "workType": "SYMBOL", "workKey": "HOSE-HPG", "symbolKey": "HOSE-HPG",
+        "jobDefinitionId": "job",
+        "executionId": "execution",
+        "source": "",
+        "workType": "SYMBOL",
+        "workKey": "HOSE-HPG",
+        "symbolKey": "HOSE-HPG",
     }
     status = await stock_prices.process_stock_price_message(
         raw, publisher, client, storage

@@ -1,13 +1,18 @@
 # Sector Wave Flow
 
-Current outcomes correction (source, verification pending): day D scans stored
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+Current outcomes correction (locally verified; activation remains separately gated): day D scans stored
 predictions T < D, uses feature sessions through D and appends missing mature
 outcomes. ANALYZE is independent; zero eligible/mature predictions is SUCCESS
 with a reason and no write. Predictions and evaluated facts are not upserted.
 See [contract, source matrix and rollout](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 
-
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -16,7 +21,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Sector Wave precomputes symbol-level and sector-level analytical datasets so sector ranking and rotation backtests can run from stable Parquet inputs.
 

@@ -1,14 +1,19 @@
 # Analyzer Service
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes now use evaluationDate/businessDate as scan day D, score saved origins T < D only when horizons mature, and append missing outcomes. Zero-row scans expose resultReason/asOfDate; prediction/outcome replay is immutable and conflicting analysis values fail before output writes. No tests ran for this source change.
 See [source, impact matrix and local handoff](../../docs/plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
-
 
 Atomic indicators now validate the execution's matching EOD approval and the exact
 bytes read before output. Stale/missing bindings fail closed; the error path does
 not publish a replacement dataset. Legacy unbound commands retain compatibility.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -17,7 +22,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: Pending I8 requires explicit day/cutoff/lookback and atomic identity semantics. Future compute results retain work/execution identity when sent to writer; existing terminal-status commit loop does not already implement durable write-intent acknowledgement.
 This note changes no implementation, configuration, preparation flag or existing

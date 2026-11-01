@@ -382,6 +382,10 @@ def normalize_symbols_dataframe(
         else:
             preserve_previous_classification(df, previous_df)
             apply_sector_level_codes(df)
+    elif include_sector:
+        # With no fresh mapping, retain the advertised stale snapshot.
+        preserve_previous_classification(df, previous_df)
+        apply_sector_level_codes(df)
 
     for column in CLASSIFICATION_COLUMNS:
         if column not in df.columns:

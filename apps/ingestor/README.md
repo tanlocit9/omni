@@ -1,11 +1,21 @@
 # Ingestor Service
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+Symbols classification repair: provider sector lookup failure preserves previous
+classification and reports the existing partial warning; it does not replace stale
+classification with nulls or turn partial data into a blocking failure.
+
 Atomic stock bootstrap repair (2026-10-29): missing/empty output retains fetched
 history through the requested day (provider limit 10,000); existing output updates
 only that day. Missing requested-day data fails before write. Disposable integration
-no longer seeds EOD history before running ingestion. I8 remains verification pending.
+no longer seeds EOD history before running ingestion. This was the historical I8 verification-pending handoff; the current closure is linked above.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -14,7 +24,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: Pending I8 covers supported per-job atomic scope and dated-provider semantics. SYNC_SYMBOLS remains exchange-scoped; exact historical capability cannot be inferred from recent-record fetches. I9 keeps source/config/offset compatibility during consolidation.
 This note changes no implementation, configuration, preparation flag or existing

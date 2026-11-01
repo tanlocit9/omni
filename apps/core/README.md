@@ -1,5 +1,11 @@
 # Platform / Core Service
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 ## I9 shared-attempt worker integration
 
 Run `nx run platform:test-atomic-sharing` for the opt-in graph-enabled workflow:
@@ -41,7 +47,7 @@ configuration, suspends the caller transaction and restores it afterward.
 It returns immutable atomic work/dependencies without execution, outbox or Kafka
 writes. Existing scheduled/manual preparation is not switched to this planning API.
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;

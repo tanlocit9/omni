@@ -1,5 +1,11 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 Identity/trace extension (plan only): retain canonical atomicWorkId and atomicAttemptId per intent, output and registration member. Preserve multi-work output provenance and reserve optional diagnostic traceContext/multiple links across batches; never replace member identity with a batch ID. Query-level trace snapshots will link actual input dataVersion to producer provenance. No tracing runtime or P12 activation is added.
 See [identity and query tracing reservation](030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
 
@@ -9,8 +15,7 @@ See [I10 scope and acceptance](030-static-graph-dispatch-planner.md#p14-i10--out
 Sector Transition outcomes correction — 2026-10-30: Sector Transition now preserves sequential prediction/outcome identities and scans historical origins T as of work day D. Future writer receives the unchanged GLOBAL atomic work for D plus result rows keyed by their original T; work day is not the output row key. Read/merge/write checks are not distributed exclusion or a multi-object transaction. P12 remains deferred.
 See [source, impact matrix and local handoff](030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 
-
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -19,7 +24,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Original P14 registration (superseded by current status above): I8 and I9 were
 registered pending after completed I7, with I9.a/b/c internal checkpoints.

@@ -1,13 +1,18 @@
 # Where to Change
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 For P14 Work Operations, inspect Platform AtomicWorkDiagnosticsService,
 GraphWorkOperationsController and src/main/resources/diagnostics/p14, then Console
 src/operations and App navigation. psql entrypoints include the same packaged SQL.
 No scheduler repair or READY mutation is part of this surface. See
 [ownership, API and local gates](../../database/diagnostics/p14/v2/README.md).
 
-
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -16,7 +21,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: For pending I8, start with common expansion and all producer/creation-route adapters plus dated worker semantics. For I9.a/b/c, compose static mapping, implement shared work, then consolidate definitions only after parity. Outbox publication must not expand stored work twice.
 This note changes no implementation, configuration, preparation flag or existing

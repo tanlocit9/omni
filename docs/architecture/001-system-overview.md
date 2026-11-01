@@ -1,16 +1,21 @@
 # System Overview
 
-P14 Console diagnostic source (2026-10-30, not verified): Work Operations uses
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+Historical P14 Console source handoff (2026-10-30, then unverified): Work Operations uses
 existing Console-to-Platform authentication/proxy and bounded snapshot/publication/
 work GETs. SQL is packaged in Platform and reused by manual psql wrappers. No browser
 DB access, worker instrumentation, scheduler mutation or readiness authority change.
 See [contract and impact](../../database/diagnostics/p14/v2/README.md).
 
-
 Planned P14-I10 moves readiness authority to Platform PostgreSQL through a new Kafka metadata-registration topic and array consumer. Ingestor/Analyzer, and later writer, publish after durable output writes; Python readers use an authenticated metadata provider/API. Current runtime still uses the MinIO manifest until coordinated cutover; no direct worker database coupling.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -19,7 +24,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: Pending I8 common atomic-work expansion precedes I9 graph composition, shared ancestors and definition consolidation. Existing definitions stay the single config source; no new graph/config catalog or writer service is introduced.
 This note changes no implementation, configuration, preparation flag or existing

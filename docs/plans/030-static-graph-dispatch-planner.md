@@ -1,5 +1,11 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 ## I9 worker coverage completion — 2026-11-01
 
 Close the remaining Analyzer handler coverage gaps: indicator and Sector Wave
@@ -187,7 +193,7 @@ cross-service impact, limits and owner-local handoff are in the linked review.
 
 Status: **pending**, depends on P14-I9. Owner requested this plan on 2026-10-30;
 no I10 source, schema, topic, consumer, rollout or verification is delivered here.
-I8/I9 remain verification_pending. I10.a/b/c below are internal checkpoints, not
+I8/I9 have local acceptance completion recorded above. I10.a/b/c are internal checkpoints, not
 additional registry IDs. P12 writer/concurrency remains deferred.
 Architecture decision: [ADR-008](../adr/008-postgres-output-readiness.md).
 
@@ -337,6 +343,53 @@ attempt/request owners, consumer lag and unresolved writer ownership. Watchdog c
 is 2 minutes by default, timeout 30 minutes; reconciliation is every 12 hours. Make units,
 UTC persistence, timezone for schedule and rollout settings explicit in implementation.
 
+### I10 implementation handoff — 2026-11-01
+
+Execute I10.a -> I10.b -> I10.c as internal checkpoints of one increment. Do not
+start reader cutover merely because I10.a accepts events. Keep registration/shadow,
+readiness cutover and watchdog enablement separately configurable and disabled by
+default. I10 is planned source work; the commands below are proposed, not run for I10.
+
+| Checkpoint | Bounded delivery and owners                                                                                                                                                                                                                                                                                                                                             | Verification required before advancing                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I10.a      | Contracts/shared config: freeze topic/group, immutable event/item IDs, ordering key, bounded counts/bytes and canonical JSON fixtures. Platform: forward inbox/version/coverage/completion migration, transactional consumer and durable status correlation. py-common/Ingestor/Analyzer: shared registration publisher after validated writes, before terminal status. | Cross-language round trip; exact coverage and explicit valid-empty; whole-record rejection without partial mutation; duplicate/conflicting/stale attempts; both status/event orders, DB/ACK failures, restart and per-partition offset replay. Real worker -> registration -> Platform completion fixture.                                                           |
+| I10.b      | Platform metadata API/provider and admission; shared reader port; Analyzer, Query Service and Console adapters; validated backfill/shadow comparison; SYNC_METADATA reconciliation every 12 hours.                                                                                                                                                                      | Auth, bounded reads, exact lineage/bytes/coverage holes, API failure closed, output D versus origin T, concurrent scan/commit fencing, all-reader parity and rollback retaining post-cutover registrations. A stale worker that can still overwrite mutable bytes blocks that output's cutover; record the ownership/version-addressability prerequisite explicitly. |
+| I10.c      | Platform bounded multi-instance watchdog and diagnostics, two-minute scan and thirty-minute published deadline; normal failure/request aggregation; no automatic unsafe rerun.                                                                                                                                                                                          | Clock-controlled deadline edges; unpublished WAITING excluded; status/registration race; duplicate scans, restart, late status/event cannot reopen FAILED; new retry attempt cannot rebind frozen dependents; visible completion-pending and quarantined ownership.                                                                                                  |
+
+Cross-service impact: Platform owns schema/consumer/API/watchdog; Ingestor and
+Analyzer own actual output declarations and registration publication; py-common
+owns reusable publisher/read ports; contracts owns schemas/fixtures; Query Service
+and Console preserve discovery/schema/partition/query behavior through the provider.
+Database indexes/transactions, shared Kafka config, deployment authentication,
+topic provisioning, backfill/shadow/drain runbooks and diagnostics all change.
+Reconcile fresh graph impact with these owners before editing shared boundaries.
+P12 workers/writer/concurrency and trace/query-snapshot implementation stay deferred.
+
+Proposed Nx verification, after the relevant source exists:
+
+```text
+nx run contracts:test --skip-nx-cache
+nx run platform:coverage --skip-nx-cache
+nx run analyzer:coverage --skip-nx-cache
+nx run ingestor:coverage --skip-nx-cache
+nx run py-common:coverage --skip-nx-cache
+nx run py-common:test-integration --skip-nx-cache
+nx run query-service:test --skip-nx-cache
+nx run omni-console:test --skip-nx-cache
+nx run platform:test-integration --skip-nx-cache
+nx run platform:test-atomic-sharing --skip-nx-cache
+nx run platform:test-overlap --skip-nx-cache
+nx run platform:build --skip-nx-cache --args="-x test"
+```
+
+Add focused tests for the new I10 consumer/readiness/watchdog symbols through the
+existing platform:test target; establish the exact names after implementation.
+Require attributable >=80% line/branch, a source/criterion/test matrix, graph change
+detection, docs synchronization and a complete I10 check_result manifest. Native
+Windows compiler prerequisites must be resolved or an equivalent pinned generation
+fallback explicitly recorded. Broad I8/I9 PASS is not I10 evidence. Commit each
+checkpoint only when separately authorized; no runtime activation is authorized here.
+
 ### End-to-end work identity and reserved query tracing
 
 Owner clarification (2026-10-30): work identity must survive every boundary from
@@ -423,7 +476,7 @@ within that actual query context. No query-level runtime collector/store change 
 
 ### Writer reuse and separation
 
-Consumers publish registrations individually or in bounded arrays now. The future
+After I10 implementation, consumers publish registrations individually or in bounded arrays. The future
 Plan 027 writer will collect compatible durable write intents, batch physical output
 writes, then publish the same registration arrays carrying each original execution/work
 identity. Platform remains sole metadata DB owner and performs bounded bulk upserts;
@@ -1255,7 +1308,7 @@ unavailable/not run and increment closure is explicitly deferred.
 
 ## Current I8/I9 handoff — 2026-10-29
 
-Canonical scheduling is I7 completed -> I8 verification_pending -> I9 verification_pending in the
+Historical October 29 scheduling was I7 completed -> I8 verification_pending -> I9 verification_pending in the
 [increment registry](roadmap/implementation-increments.md#increment-registry).
 I8 first unifies request-to-atomic-work expansion and dated consumer semantics.
 I9 then delivers graph composition (a), shared ancestor work (b), and definition
@@ -1302,7 +1355,7 @@ writer contracts, relevant links and introduced claims. Graph tools are unavaila
 no graph impact/change-detection PASS, executable test/lint/build/format,
 numeric coverage, CI, deployment or increment completion is claimed by this audit.
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 is verification_pending; I9 is verification_pending with I9.a/b/c source delivered for owner review. Preparation remains disabled; no retained rollout or deployment is claimed.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 and I9 are locally completed with source-bound acceptance, coverage and rollback evidence; I10 is pending. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 
@@ -1497,20 +1550,20 @@ No runtime checks/coverage are executed by this planning revision.
 
 #### Acceptance Criteria
 
-- [ ] Route matrix covers JobScheduler/JobProducer.prepareDispatch,
+- [x] Route matrix covers JobScheduler/JobProducer.prepareDispatch,
       prepareManualDispatch, JobRunPreparationService.prepareScheduled/prepareManual
       and every concrete JobType producer; no public manual endpoint activation.
-- [ ] All creation routes use one boundary; planned/NULL-run/fallback/retry/replay
+- [x] All creation routes use one boundary; planned/NULL-run/fallback/retry/replay
       outbox dispatch never performs a second fan-out.
-- [ ] Per-type atomic scope/default/override/date capability is explicit;
+- [x] Per-type atomic scope/default/override/date capability is explicit;
       unsupported units/provider history fail. Existing graph/definition selection stays.
-- [ ] Same effective input produces same work; closed membership/parameters/dates
+- [x] Same effective input produces same work; closed membership/parameters/dates
       survive restart and mutable configuration changes.
-- [ ] Inclusive weekday expansion and Vietnam defaults are verified alongside
+- [x] Inclusive weekday expansion and Vietnam defaults are verified alongside
       actual consumer date cutoff/lookback, not just labels.
-- [ ] Zero/oversized/partial work, transactions, cancellation and output/status
+- [x] Zero/oversized/partial work, transactions, cancellation and output/status
       failures retain coherent membership, identity and commit ordering.
-- [ ] Producer/consumer fixtures, impact/coverage, required checks, docs and
+- [x] Producer/consumer fixtures, impact/coverage, required checks, docs and
       rollout/rollback evidence pass before completion.
 
 #### Field/DTO Inventory and Bounded Delivery
@@ -1523,10 +1576,7 @@ No runtime checks/coverage are executed by this planning revision.
 | Consumer      | day cutoff/lookback and output compatibility; HIGH                                 | I8.d dated worker adaptation       |
 | Evidence      | executed regression/coverage, docs/rollback                                        | I8.e verification gate             |
 
-I8 depends on completed I7. The isolated 2026-10-28 gate below supersedes the
-earlier cloud bootstrap failure; that failure is not a current dependency blocker.
-I8 remains pending until normal readiness/module-conflict and contract-task
-handoff review is recorded. This documentation change starts no implementation.
+I8 depends on completed I7. All I8.a-e criteria are locally verified in the November 1 closure report above; the old cloud bootstrap failure and missing I8 manifest are superseded by the fresh complete gate. No default flag activation is included.
 
 ### P14-I9 — Graph-driven expansion and definition consolidation
 
@@ -1607,15 +1657,10 @@ No runtime checks/coverage are executed by this planning revision.
       Work reuse does not imply dataset freshness/READY.
 - [x] Writer work/output/intent keys stay separate; no writer/concurrency/version
       guarantee is added. Existing safety blockers stay visible.
-- [ ] Complete impact/test/coverage, migration/compatibility, diagnostics,
+- [x] Complete impact/test/coverage, migration/compatibility, diagnostics,
       docs and rollback gates pass before completion.
 
-The checked behaviors have local source-bound evidence in the
-[2026-10-31 verification matrix](../../database/diagnostics/p14/v2/i9-verification-20261031.md).
-The final completion gate remains open: I8 is not closed, and retained-catalog/
-rollout evidence is separate. The listed worker coverage gaps and fresh CLI graph
-analysis are recorded by the November 1 follow-up above. Checking
-the writer boundary records the preserved design limit; it does not implement P12.
+All I9.a-c criteria have local source-bound evidence in the November 1 closure report above, including the I8 prerequisite, retained-state rehearsal, migration/rollback, diagnostics and component coverage. The earlier October 31 report is historical. Live retained-environment activation and all-writer/version exclusion are separate gates; this closure does not implement P12.
 
 #### Field/DTO Inventory and Bounded Delivery
 
@@ -1627,8 +1672,7 @@ the writer boundary records the preserved design limit; it does not implement P1
 | History     | preserved FKs/path fingerprints/offset semantics; HIGH           | I9.c migration/read/rollback     |
 | Evidence    | diagnostics/source-test/coverage/docs                            | Each checkpoint; final I9.c gate |
 
-I9 depends on I8; owner-directed I9.a/b/c source is delivered and verification_pending
-while both increments retain their completion gates. Full cron removal, definition-free runtime,
+I9 depends on completed I8; I9.a/b/c and the complete local acceptance gate are completed. Full cron removal, definition-free runtime,
 writer, public manual/backfill platform and historical deletion are outside scope.
 
 ### I9 checkpoints and writer result handoff — 2026-10-28
@@ -1636,7 +1680,7 @@ writer, public manual/backfill platform and historical deletion are outside scop
 I9 checkpoints are ordered I9.a -> I9.b -> I9.c. Owner authorized all three source
 steps while I8 closure remains open; acceptance still requires its prerequisite.
 These suffixes are internal checkpoints, not new scheduled increment IDs or a
-reason to mark I9 completed early. Registry I9 is verification_pending after full source delivery; each checkpoint has its own source/test/coverage, compatibility and
+reason to mark I9 completed early. At the October 28 source-only handoff, registry I9 was verification_pending; each checkpoint has its own source/test/coverage, compatibility and
 documentation gate. Overall I9 closes only after all three gates pass.
 
 #### I9.a — Graph-driven expansion

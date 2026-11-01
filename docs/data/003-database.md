@@ -1,11 +1,16 @@
 # Database
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 P14 diagnostic source update: Platform and Console share the v2 request/attempt
 read projection via authenticated GETs. No new tables or DB mutation; SQL and API
 apply explicit page/window/time limits. MVCC pages are separate snapshots, counts
 are sample-only and READY/worker timing remain unknown. See
 [API/SQL handoff](../../database/diagnostics/p14/v2/README.md).
-
 
 I10 trace preparation only: meta_json.workIdentity/workExpansion.atomicWorkId map to canonical atomicWorkId; atomicAttemptId reuses existing graph attempt identity. Reserve optional structured meta_json.traceContext without assuming current stringifying merges preserve objects. Query Service query_id/data_versions are separate SQLite state; future per-query trace/provenance storage needs its own explicit extension, not a claimed existing Platform column.
 See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
@@ -13,7 +18,7 @@ See [identity and query tracing reservation](../plans/030-static-graph-dispatch-
 Planned P14-I10 adds a Platform-owned registration inbox, output version/work-date coverage and completion correlation through forward migrations. A new Kafka array consumer performs bounded transactional upserts; workers never connect directly. PostgreSQL becomes readiness authority only after backfill, shadow comparison and reader cutover. No I10 tables or migrations exist from this plan update.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -22,7 +27,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Planned P14 handoff — 2026-10-29: I8 inventories current accepted-work/membership snapshots before forward additions. I9.b plans unique acquisition and durable shared request/dependency ownership; I9.c retains historical definition FKs, offsets, frozen-path/fingerprint compatibility and V15 strict outbox identity.
 This note changes no implementation, configuration, preparation flag or existing

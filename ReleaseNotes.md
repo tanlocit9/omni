@@ -1,5 +1,32 @@
 # Omni Release Notes
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+## 2026-11-01 — Close I8/I9 local acceptance and prepare I10
+
+Complete the common-expansion and graph/shared-work/consolidation acceptance
+matrix, replacing the missing I8 manifest and stale source-only status. Verify
+all twelve producer adapters, worker capability/status boundaries, all-owner
+cancellation/re-attachment, historical migration and a 100-symbol retained-state
+drain/restart/consolidation rollback rehearsal on disposable infrastructure.
+
+Fix classification loss in the real Ingestor symbols normalizer when sector lookup
+fails; retain the previous snapshot and the partial warning. The regression fails
+before the repair and passes afterward. Full execution records 543 Platform tests
+plus four separately executed worker workflows, Analyzer 237, Ingestor 92, shared
+200 plus five broker cases, Query Service 40 and Console 34. All 34 critical Java
+and 29 critical Python components pass 80% line/branch without threshold changes.
+Source hashes, exact checks, coverage and operational limits are linked above.
+
+I10 stays pending: add the concrete I10.a registration/completion, I10.b guarded
+reader cutover/reconciliation and I10.c watchdog delivery/verification plan. Its
+I9 dependency is satisfied; normal readiness/module-conflict review precedes
+implementation. No I10 source, flags, writer/P12 or live rollout is activated.
+
 ## 2026-11-01 — Close I9 worker coverage gaps
 
 Add 18 handler cases covering legacy indicator paths, input metadata guards,

@@ -1,5 +1,11 @@
 # Planned Field and DTO Impact Inventory
 
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
 P14 Console diagnostic source (2026-10-30): additive HTTP v2 DTOs use canonical
 atomicWorkId, atomicAttemptId, graphRequestId, observedAt and explicit pagination/
 truncation. Work owner/upstream links use camelCase aliases, while SQL columns
@@ -12,25 +18,23 @@ but NOT RUN; readiness and trace fields remain unknown/reserved. See
 Pending after I9; no fields are implemented or activated by this document change.
 See [I10 contract and checkpoints](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
-| Surface | Change / impact | Owning checkpoint |
-| --- | --- | --- |
-| Kafka registration envelope | ADD HIGH: schemaVersion, immutable event/item IDs, bounded registrations/outputs arrays; preserve execution/atomicAttemptId/atomicWorkId | I10.a |
-| Logical output metadata | ADD HIGH: dataset/partition, actual coverage dates, dataVersion/fingerprint, schema/statistics, exact input lineage, complete output set or valid-empty reason | I10.a |
-| Platform inbox/read model | ADD HIGH: idempotent inbox, version pointers, indexed work/date/parameter coverage, durable status-registration correlation | I10.a/b |
-| Metadata API/provider | ADD/SEMANTIC HIGH: bounded authenticated lookup, existing discovery DTO parity; replace manifest authority only after shadow/cutover | I10.b |
-| Timeout/diagnostics | SEMANTIC HIGH: published_at + 30 minutes, EXECUTION_TIMEOUT, late-attempt guards, registration-pending reason, unresolved writer ownership | I10.c |
-| Configuration | ADD MEDIUM: topic/group/limits/flags, reconciliation 12 hours, watchdog 2 minutes, timeout 30 minutes | I10.a/b/c |
-| Identity normalization | REUSE/SEMANTIC HIGH: atomicWorkId equals existing meta_json.workIdentity/workExpansion.atomicWorkId; atomicAttemptId reuses graph metadata/attempt row; reject conflicting aliases, no hash changes | I10.a |
-| Reserved trace context | PLAN ONLY: optional traceContext, W3C traceparent/tracestate; future traceId/spanId/parentSpanId diagnostics, typed meta_json preservation and multi-root links; no SDK/exporter now | Future separately scoped tracing |
-| Reserved query diagnostics | PLAN ONLY: existing queryId/query_id and data_versions; future durable query metadata snapshots link actual read versions to all producer work/attempts, operation spans and cache provenance; QueryStore has no meta_json today | Future separately scoped tracing |
-| Future writer | REUSE HIGH: publish same metadata arrays after durable batch outputs; preserve per-work attribution and separate writeKey/intentId | P12 remains deferred |
-
+| Surface                     | Change / impact                                                                                                                                                                                                                  | Owning checkpoint                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Kafka registration envelope | ADD HIGH: schemaVersion, immutable event/item IDs, bounded registrations/outputs arrays; preserve execution/atomicAttemptId/atomicWorkId                                                                                         | I10.a                            |
+| Logical output metadata     | ADD HIGH: dataset/partition, actual coverage dates, dataVersion/fingerprint, schema/statistics, exact input lineage, complete output set or valid-empty reason                                                                   | I10.a                            |
+| Platform inbox/read model   | ADD HIGH: idempotent inbox, version pointers, indexed work/date/parameter coverage, durable status-registration correlation                                                                                                      | I10.a/b                          |
+| Metadata API/provider       | ADD/SEMANTIC HIGH: bounded authenticated lookup, existing discovery DTO parity; replace manifest authority only after shadow/cutover                                                                                             | I10.b                            |
+| Timeout/diagnostics         | SEMANTIC HIGH: published_at + 30 minutes, EXECUTION_TIMEOUT, late-attempt guards, registration-pending reason, unresolved writer ownership                                                                                       | I10.c                            |
+| Configuration               | ADD MEDIUM: topic/group/limits/flags, reconciliation 12 hours, watchdog 2 minutes, timeout 30 minutes                                                                                                                            | I10.a/b/c                        |
+| Identity normalization      | REUSE/SEMANTIC HIGH: atomicWorkId equals existing meta_json.workIdentity/workExpansion.atomicWorkId; atomicAttemptId reuses graph metadata/attempt row; reject conflicting aliases, no hash changes                              | I10.a                            |
+| Reserved trace context      | PLAN ONLY: optional traceContext, W3C traceparent/tracestate; future traceId/spanId/parentSpanId diagnostics, typed meta_json preservation and multi-root links; no SDK/exporter now                                             | Future separately scoped tracing |
+| Reserved query diagnostics  | PLAN ONLY: existing queryId/query_id and data_versions; future durable query metadata snapshots link actual read versions to all producer work/attempts, operation spans and cache provenance; QueryStore has no meta_json today | Future separately scoped tracing |
+| Future writer               | REUSE HIGH: publish same metadata arrays after durable batch outputs; preserve per-work attribution and separate writeKey/intentId                                                                                               | P12 remains deferred             |
 
 Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes: HIGH semantic change, unchanged wire fields. evaluationDate/businessDate is scan day D; output evaluation_date remains origin T. Additive status metadata: resultReason, asOfDate, evaluationDateRole. Analytical paths/keys/columns and atomic hash are unchanged; analysis/realized rows become immutable on sequential replay. Source delivered, verification pending.
 See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
 
-
-Current P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
 shared in-flight attempts and exact dependency barriers, plus reversible scheduled
 preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
@@ -39,7 +43,6 @@ work diagnostics are additive; writer and broader output/version exclusion remai
 deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
 
 Historical P14 inventory reconciliation — 2026-10-29: I8/I9 are registered pending.
 I8 request/atomic-work snapshots and day/parameter contracts are ADD/SEMANTIC HIGH

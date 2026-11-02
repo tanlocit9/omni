@@ -1,5 +1,32 @@
 # Data Lake
 
+## I10 immutable output snapshots — owner approved 2026-11-02
+
+Existing EOD/indicator/signal workers can additionally publish immutable byte
+snapshots with OUTPUT_SNAPSHOTS_ENABLED=false by default. Shared configured route:
+`_output-snapshots/{dataset}/{partition_hash}/{data_version}.parquet`. partition_hash
+is SHA-256 of the normalized partition JSON (sorted keys, compact separators);
+data_version is the SHA-256 hex suffix of the canonical dataset dataVersion.
+Canonical version hashing still uses the trusted original logical object identity,
+its checksum/schema and persisted lineage, not the new physical snapshot filename.
+No physical paths are added to Kafka business messages.
+
+Snapshot publication validates encoded/read-back bytes before the canonical write;
+existing conflicting snapshot bytes fail closed. Version reads recheck identity,
+bytes/checksum/length/schema/lineage. All conforming same-version writers publish
+identical bytes; no S3 Object Lock/WORM or external-writer exclusion is claimed.
+Existing READY/manifests remain authoritative until coordinated reader cutover.
+This API creates no READY/latest pointer and no recovery journal, automatic repair
+or GC. Lost ACK can leave an orphan and a reported failure. Additional durable
+worker recovery is explicitly deferred by the owner. Sector/intraday publication
+protocols are unchanged. Source/tests are NOT RUN; see the current handoff below.
+
+I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](../reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

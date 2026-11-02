@@ -38,6 +38,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from py_common.config.paths import StockDataPaths
+
 from py_common.storage.date_contracts import (
     canonicalize_arrow_schema,
     normalize_date_contracts,
@@ -48,7 +50,11 @@ from py_common.storage.exceptions import (
     StorageObjectNotFoundError,
 )
 from py_common.storage.global_metadata import GlobalPartitionMetadata
-from py_common.storage.manifest import DatasetInput, calculate_data_version
+from py_common.storage.manifest import (
+    DatasetInput, calculate_data_version, calculate_schema_hash, extract_schema_from_dataframe,
+)
+from py_common.storage.output_lineage import extract_output_lineage
+from py_common.storage.output_snapshots import OutputSnapshot, OutputSnapshotIdentity, OutputSnapshotStore
 from py_common.storage.ports import (
     CopyableStorage,
     DeletableStorage,
@@ -71,6 +77,7 @@ class ParquetWriteResult:
     checksum: str
     total_bytes: int
     temporary_object_name: str | None = None
+    snapshot: OutputSnapshot | None = None
 
 
 class ParquetCodec:
@@ -160,6 +167,7 @@ class ParquetStorage:
         registry: StorageProviderRegistry,
         provider: StorageProvider,
         bucket: str,
+        snapshot_paths: StockDataPaths | None = None,
     ) -> None:
         self._readable: ReadableStorage = registry.get_port(provider, ReadableStorage)
         self._writable: WritableStorage = registry.get_port(provider, WritableStorage)
@@ -169,6 +177,9 @@ class ParquetStorage:
             DeletableStorage,
         )
         self._bucket = bucket
+        self._snapshot_store = OutputSnapshotStore(
+            self._readable, self._writable, bucket, snapshot_paths or StockDataPaths.from_config({})
+        )
 
     # ------------------------------------------------------------------
     # Read operations
@@ -263,6 +274,7 @@ class ParquetStorage:
         *,
         index: bool = False,
         schema: pa.Schema | None = None,
+        snapshot_identity: OutputSnapshotIdentity | None = None,
     ) -> ParquetWriteResult:
         """Serialize a DataFrame and upload it as a Parquet object.
 
@@ -287,6 +299,7 @@ class ParquetStorage:
             index=index,
             schema=schema,
         )
+        snapshot = await self._snapshot_bytes(object_name, data, snapshot_identity)
         await self._writable.write_bytes(
             bucket=self._bucket,
             object_name=object_name,
@@ -298,6 +311,7 @@ class ParquetStorage:
             object_name=object_name,
             checksum=f"sha256:{hashlib.sha256(data).hexdigest()}",
             total_bytes=len(data),
+            snapshot=snapshot,
         )
         logger.debug(
             "Wrote DataFrame (%d rows, %d cols, %d bytes) to '%s/%s'",
@@ -309,6 +323,38 @@ class ParquetStorage:
         )
         return result
 
+    async def _snapshot_bytes(
+        self, canonical_object_name: str, data: bytes, identity: OutputSnapshotIdentity | None,
+    ) -> OutputSnapshot | None:
+        if identity is None:
+            return None
+        # Describe the encoded byte buffer, not the pre-serialization DataFrame.
+        frame = await asyncio.to_thread(ParquetCodec.decode, data)
+        if frame.empty:
+            raise ManifestInvalidError("Cannot publish an empty output snapshot")
+        columns = extract_schema_from_dataframe(frame)
+        lineage = extract_output_lineage(identity.dataset, frame, identity.partition)
+        return await self._snapshot_store.publish(
+            identity=identity, canonical_object_name=canonical_object_name, data=data,
+            schema_hash=calculate_schema_hash(columns),
+            inputs=tuple(DatasetInput(item.dataset, item.partition, item.dataVersion) for item in lineage),
+        )
+
+    async def read_output_snapshot(
+        self, identity: OutputSnapshotIdentity, snapshot: OutputSnapshot,
+    ) -> pd.DataFrame:
+        data = await self._snapshot_store.read(identity, snapshot)
+        frame = await asyncio.to_thread(ParquetCodec.decode, data)
+        if calculate_schema_hash(extract_schema_from_dataframe(frame)) != snapshot.schema_hash:
+            raise ManifestInvalidError("Snapshot schema differs from its registered schema")
+        lineage = tuple(DatasetInput(item.dataset, item.partition, item.dataVersion)
+                        for item in extract_output_lineage(identity.dataset, frame, identity.partition))
+        if set((item.dataset, tuple(sorted(item.partition.items())), item.dataVersion) for item in lineage) != set(
+            (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion) for item in snapshot.inputs
+        ):
+            raise ManifestInvalidError("Snapshot lineage differs from its registered lineage")
+        return frame
+
     async def replace_dataframe(
         self,
         object_name: str,
@@ -317,6 +363,7 @@ class ParquetStorage:
         index: bool = False,
         temp_object_name: str | None = None,
         validate: Callable[[pd.DataFrame], None] | None = None,
+        snapshot_identity: OutputSnapshotIdentity | None = None,
     ) -> ParquetWriteResult:
         """Best-effort atomic replacement for a Parquet object.
 
@@ -351,6 +398,13 @@ class ParquetStorage:
             if validate is not None:
                 validate(staged)
 
+            snapshot = None
+            if snapshot_identity is not None:
+                staged_bytes = await self._readable.read_bytes(self._bucket, temp_name)
+                if "sha256:" + hashlib.sha256(staged_bytes).hexdigest() != staged_result.checksum:
+                    raise ManifestInvalidError("Staged bytes changed before snapshot publication")
+                snapshot = await self._snapshot_bytes(object_name, staged_bytes, snapshot_identity)
+
             await self._copyable.copy_object(
                 bucket=self._bucket,
                 source_object_name=temp_name,
@@ -376,6 +430,7 @@ class ParquetStorage:
             checksum=staged_result.checksum,
             total_bytes=staged_result.total_bytes,
             temporary_object_name=temp_name,
+            snapshot=snapshot,
         )
 
     def _build_temp_object_name(self, object_name: str) -> str:

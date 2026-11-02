@@ -1,5 +1,18 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+Owner revision (2026-11-02): immutable output snapshots are approved within I10;
+additional durable worker publication recovery is deferred. No recovery journal,
+new writer service, batching or concurrency activation. Existing duplicate safety,
+durable Platform completion correlation and failure/late-attempt guards remain.
+Snapshot source is opt-in/NOT RUN; worker registration and READY/readers remain open.
+See [current scope and matrix](../reference/005-p14-i10-completion-watchdog-handoff.md).
+
+I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](../reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+
+I10 implementation started (2026-11-01): shadow registration contract/inbox source is present, NOT RUN. See [checkpoint and remaining acceptance](../reference/004-p14-i10-registration-checkpoint.md). Current increment is `in_progress`; I10.a is incomplete and readiness/watchdog remain planned. Earlier pending statements below are dated baseline history.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -191,8 +204,9 @@ cross-service impact, limits and owner-local handoff are in the linked review.
 
 ## P14-I10 — Output metadata registration and execution watchdog
 
-Status: **pending**, depends on P14-I9. Owner requested this plan on 2026-10-30;
-no I10 source, schema, topic, consumer, rollout or verification is delivered here.
+Status: **in_progress**, depends on P14-I9. Registration/completion/watchdog source is present;
+worker registration, READY/readers, verification and rollout remain open; additional durable worker recovery is owner-deferred.
+See the current November 2 handoff above; the acceptance criteria below are unchanged.
 I8/I9 have local acceptance completion recorded above. I10.a/b/c are internal checkpoints, not
 additional registry IDs. P12 writer/concurrency remains deferred.
 Architecture decision: [ADR-008](../adr/008-postgres-output-readiness.md).
@@ -214,8 +228,9 @@ Timeout is an execution outcome, not proof that a worker has stopped writing.
 
 ### Dataset Outputs
 
-No analytical dataset output. Existing Parquet paths, analytical ownership, schemas
-and date types remain unchanged; operational readiness ownership moves to Platform.
+No new logical analytical dataset. Canonical paths, analytical ownership, schemas
+and date types remain; owner-approved immutable physical snapshot copies are added.
+Operational readiness moves to Platform only after the verified cutover.
 
 ### Metadata Outputs
 
@@ -254,9 +269,11 @@ lineage after registration. No new analytical formula or strategy is introduced.
   \_metadata/metadata.json as readiness authority. Retain the legacy manifest during
   shadow comparison; stop its readiness reads/writes only after all readers migrate.
   This is the scoped ADR-008 exception to the existing JSON-manifest baseline.
-- **Storage path/dataset ownership:** no new physical paths or analytical writer.
+- **Storage path/dataset ownership:** owner-approved immutable output snapshot paths
+  under `_output-snapshots/{dataset}/{partition_hash}/{data_version}.parquet`; retain
+  logical ownership/canonical version semantics. No new analytical writer service.
   Metadata events use logical dataset/partition references; approved storage builders
-  derive paths. Never send arbitrary object paths/buckets as business-routing fields.
+  derive snapshot paths. Never send arbitrary object paths/buckets as business-routing fields.
 - **Public Java/Python API:** shared publisher/read-provider ports and a bounded,
   authenticated Platform metadata lookup API change. Python readers, including Query
   Service and Analyzer, use that API/provider, never Platform DB credentials. Preserve
@@ -296,8 +313,10 @@ lineage after registration. No new analytical formula or strategy is introduced.
    boundaries; missing registration cannot silently fall back to SUCCESS on migrated work.
 5. Publication order is data write -> validation -> acknowledged registration -> terminal
    status, with Platform completion gated on committed metadata. Storage-success/event-
-   failure leaves no new READY; command replay/reconciliation recovers the registration.
-   Event-success/status-failure remains replayable without duplicate output mutation.
+   failure leaves no new READY and reports explicit failure/pending until bounded
+   timeout or operator resolution. Additional durable worker recovery/journaling is
+   owner-deferred. Identical event/status redelivery remains idempotent; do not claim
+   automatic crash recovery or silently promote an unproven orphan.
    Metadata success/failure is independent from the prior READY version: failure never
    clears the last validated pointer or treats a broken replacement as readable.
 

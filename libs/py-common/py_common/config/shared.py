@@ -96,6 +96,7 @@ class BaseAppSettings(BaseSettings):
     )
 
     shared_config_root: Path | None = Field(default=None, exclude=True)
+    output_snapshots_enabled: bool = Field(default=False)
 
     _shared_topics: dict[str, Any] = PrivateAttr(default_factory=dict)
     _shared_s3_paths: dict[str, Any] = PrivateAttr(default_factory=dict)

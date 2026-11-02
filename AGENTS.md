@@ -116,7 +116,7 @@ increment explicitly requires those delivery gates.
   [`docs/data/001-kafka-contracts.md`](docs/data/001-kafka-contracts.md) together.
 - Kafka business messages carry logical dataset references, never physical object
   paths. Storage builders use [`configs/shared/s3-paths.yaml`](configs/shared/s3-paths.yaml).
-- Current runtime keeps manifest readiness. Planned [ADR-008](docs/adr/008-postgres-output-readiness.md) / P14-I10 defines a future Kafka-to-Platform PostgreSQL cutover; do not treat that plan as implemented or bypass current guards.
+- Current runtime keeps manifest readiness. P14-I10 has partial registration/completion/watchdog source; [current handoff](docs/reference/005-p14-i10-completion-watchdog-handoff.md) records missing worker/recovery/READY-reader gates. [ADR-008](docs/adr/008-postgres-output-readiness.md) cutover remains unimplemented; opt-in immutable snapshots are owner-approved, additional durable worker recovery is deferred. Do not bypass current guards or treat registration/snapshot acceptance as dataset READY.
 - Dataset producers write and validate Parquet only. `SYNC_METADATA` is the sole
   writer of the canonical `_metadata/metadata.json` discovery document.
 - Dataset dependencies use global metadata and exact `dataVersion` lineage; cron

@@ -17,7 +17,9 @@ class SignalOutcomeEvaluator:
     def __init__(self, settings: AppSettings, parquet_storage: ParquetStorage) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
-        self._history_repository = SignalHistoryRepository(parquet_storage)
+        self._history_repository = SignalHistoryRepository(
+            parquet_storage, snapshots_enabled=getattr(settings, "output_snapshots_enabled", False) is True
+        )
 
     async def evaluate(self, payload: dict[str, Any]) -> SignalOutcomeEvaluation:
         message = SignalEvaluationJobMessage.model_validate(payload)

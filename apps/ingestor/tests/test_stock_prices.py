@@ -14,6 +14,32 @@ from app.handlers.stock_prices import (
 )
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_eod_snapshot_identity_is_opt_in_and_publication_failure_cannot_report_success(monkeypatch, enabled):
+    from py_common.storage.output_snapshots import OutputSnapshotIdentity
+
+    client = AsyncMock()
+    client.fetch_recent_stock.return_value = [{"date": "2026-11-02", "close": 10}]
+    parquet = AsyncMock()
+    parquet.read_optional_dataframe.return_value = None
+    statuses = AsyncMock()
+    monkeypatch.setattr(stock_prices, "settings", SimpleNamespace(
+        get_eod_path=lambda *_: "eod/hose/hpg.parquet", output_snapshots_enabled=enabled
+    ))
+    payload = {"jobDefinitionId": "job-1", "executionId": "execution-1", "workType": "SYMBOL",
+               "workKey": "HOSE-HPG", "symbolKey": "HOSE-HPG"}
+    result = await process_stock_price_message(payload, statuses, client, parquet)
+    assert result.status == JobStatus.SUCCESS
+    options = parquet.write_dataframe.await_args.kwargs
+    assert options == ({"snapshot_identity": OutputSnapshotIdentity("eod", {"exchange": "hose", "code": "hpg"})}
+                       if enabled else {})
+    parquet.write_dataframe.side_effect = RuntimeError("snapshot read-back failed")
+    result = await process_stock_price_message(payload, statuses, client, parquet)
+    assert result.status == JobStatus.ERROR
+    assert parquet.write_dataframe.await_count == 2  # One attempt per command; no hidden recovery loop.
+
+
 def test_normalize_stock_price_dataframe_columns_converts_minio_columns_to_snake_case():
     df = pd.DataFrame(
         [

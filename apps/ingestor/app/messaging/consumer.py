@@ -135,6 +135,7 @@ class IngestorKafkaRoutingService:
             registry=registry,
             provider=StorageProvider.MINIO,
             bucket=self._settings.minio.bucket,
+            snapshot_paths=self._settings.stock_data_paths,
         )
         publisher = ImmutableDatasetPublisher(
             registry.get_port(StorageProvider.MINIO, ReadableStorage),

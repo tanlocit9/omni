@@ -8,6 +8,7 @@ from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher,
 from py_common.storage.atomic_work import cutoff_frame, day_rows
 from py_common.storage.date_contracts import normalize_date_contracts
 from py_common.storage.parquet import ParquetStorage
+from py_common.storage.output_snapshots import OutputSnapshotIdentity
 
 from app.messaging.messages import SymbolJobMessage
 from app.messaging.status import build_status
@@ -108,7 +109,12 @@ async def process_stock_price_message(
             )
             combined = combined.sort_values("date")
 
-        await parquet_storage.write_dataframe(object_name, combined)
+        snapshot_options = {}
+        if getattr(settings, "output_snapshots_enabled", False) is True:
+            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
+                "eod", {"exchange": exchange.lower(), "code": code.lower()}
+            )
+        await parquet_storage.write_dataframe(object_name, combined, **snapshot_options)
 
         status = build_status(
             payload,

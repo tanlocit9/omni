@@ -99,6 +99,7 @@ async def startup_event(app: FastAPI) -> None:
         registry=app.state.storage_registry,
         provider=StorageProvider.MINIO,
         bucket=settings.minio.bucket,
+        snapshot_paths=settings.stock_data_paths,
     )
     readable = app.state.storage_registry.get_port(
         StorageProvider.MINIO, ReadableStorage

@@ -22,6 +22,13 @@ import tools.jackson.databind.json.JsonMapper;
 
 class WorkExpansionTest {
     @Test
+    void metadataReconciliationIncludesCurrentWeekendButMarketJobsDoNot() {
+        var sunday=Instant.parse("2026-11-01T05:00:00Z");
+        assertThat(WorkExpansion.resolve(job(JobDefinition.JobType.SYNC_METADATA,Map.of()),parent(Map.of()),sunday).days())
+                .containsExactly(LocalDate.parse("2026-11-01"));
+        assertThat(WorkExpansion.resolve(job(JobDefinition.JobType.SYNC_INDICATORS,Map.of()),parent(Map.of()),sunday).days()).isEmpty();
+    }
+    @Test
     void rejectsMalformedRequestObjectsAndScopeBeforePreparation() {
         var definition = job(JobDefinition.JobType.SYNC_INDICATORS, Map.of());
         for (var request : List.of(

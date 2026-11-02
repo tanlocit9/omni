@@ -284,6 +284,13 @@ class MetadataSynchronizer:
             ],
         )
         minimum, maximum = extract_timestamp_range(frame)
+        date_column = "signal_date" if definition.name == "signals" else "date"
+        coverage = []
+        if date_column in frame:
+            dates = pd.to_datetime(frame[date_column], errors="raise").dt.date
+            if dates.isna().any():
+                raise ManifestInvalidError("Cannot publish coverage with missing calendar dates")
+            coverage = [day.isoformat() for day in sorted(set(dates))]
         return GlobalPartitionMetadata(
             values=values,
             status="READY",
@@ -304,6 +311,7 @@ class MetadataSynchronizer:
             inputs=lineage,
             generatedAt=generated_at,
             sourceExecutionId=execution_id,
+            coverageDates=coverage,
         )
 
 

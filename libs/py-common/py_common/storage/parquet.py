@@ -223,7 +223,7 @@ class ParquetStorage:
             dataset,
             {key: str(value).lower() for key, value in manifest.values.items()},
             manifest.schemaHash,
-            [(manifest.path, checksum)],
+            [(getattr(manifest, "canonicalPath", None) or manifest.path, checksum)],
             inputs=[
                 DatasetInput(item.dataset, item.partition, item.dataVersion)
                 for item in manifest.inputs
@@ -233,7 +233,14 @@ class ParquetStorage:
             raise ManifestInvalidError(
                 "Parquet bytes differ from approved input version"
             )
-        return await asyncio.to_thread(ParquetCodec.decode, data)
+        frame = await asyncio.to_thread(ParquetCodec.decode, data)
+        if calculate_schema_hash(extract_schema_from_dataframe(frame)) != manifest.schemaHash:
+            raise ManifestInvalidError("Parquet schema differs from approved input schema")
+        actual_inputs = extract_output_lineage(dataset, frame, manifest.values)
+        identity = lambda item: (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion)
+        if {identity(item) for item in actual_inputs} != {identity(item) for item in manifest.inputs}:
+            raise ManifestInvalidError("Parquet lineage differs from approved input lineage")
+        return frame
 
     async def read_optional_dataframe(self, object_name: str) -> pd.DataFrame | None:
         """Download and deserialize a Parquet object, returning ``None`` if absent.
@@ -262,6 +269,16 @@ class ParquetStorage:
                 object_name,
             )
             return None
+
+    async def snapshot_bound_output(self, dataset: str, manifest: GlobalPartitionMetadata):
+        """Backfill exact validated bytes; a concurrent mutable replacement fails closed."""
+        await self.read_bound_dataframe(dataset, manifest, manifest.dataVersion)
+        data = await self._readable.read_bytes(self._bucket, manifest.path)
+        identity = OutputSnapshotIdentity(dataset, manifest.values)
+        snapshot = await self._snapshot_bytes(manifest.path, data, identity)
+        if snapshot is None or snapshot.data_version != manifest.dataVersion:
+            raise ManifestInvalidError("Output changed while creating backfill snapshot")
+        return snapshot, await self.read_output_snapshot(identity, snapshot)
 
     # ------------------------------------------------------------------
     # Write operations
@@ -313,6 +330,9 @@ class ParquetStorage:
             total_bytes=len(data),
             snapshot=snapshot,
         )
+        if snapshot is not None:
+            from py_common.messaging.output_publication import record_output
+            record_output(snapshot_identity, snapshot, await asyncio.to_thread(ParquetCodec.decode, data))
         logger.debug(
             "Wrote DataFrame (%d rows, %d cols, %d bytes) to '%s/%s'",
             len(dataframe),
@@ -416,6 +436,10 @@ class ParquetStorage:
             raise
 
         await self._delete_temp_safely(temp_name)
+
+        if snapshot is not None:
+            from py_common.messaging.output_publication import record_output
+            record_output(snapshot_identity, snapshot, await self.read_output_snapshot(snapshot_identity, snapshot))
 
         logger.debug(
             "Replaced DataFrame (%d rows, %d cols) at '%s/%s' via temp '%s'",

@@ -276,8 +276,9 @@ class SignalHistoryRepository:
         timeframe: str,
         strategy: str,
         as_of_date: date | None = None,
+        history_frame: pd.DataFrame | None = None,
     ) -> SignalResult | None:
-        history = await self._read_history(history_path)
+        history = await self._read_history(history_path) if history_frame is None else history_frame
         required = {"symbol_key", "timeframe", "strategy", "signal", "signal_date"}
         if history.empty or not required.issubset(history.columns):
             return None

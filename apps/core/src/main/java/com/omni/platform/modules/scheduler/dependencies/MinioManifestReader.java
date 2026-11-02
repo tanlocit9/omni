@@ -27,6 +27,28 @@ public class MinioManifestReader implements ManifestReader {
     private final String bucketName;
     private final ObjectMapper objectMapper;
 
+    @Override
+    public boolean coversDate(DatasetRef ref, String version, java.time.LocalDate day) {
+        try (InputStream stream = minioClient.getObject(
+                GetObjectArgs.builder().bucket(bucketName).object(METADATA_PATH).build())) {
+            JsonNode root = objectMapper.readTree(stream);
+            validateRoot(root);
+            for (JsonNode dataset : root.path("datasets")) {
+                if (!ref.getDataset().equals(dataset.path("name").asText())) continue;
+                for (JsonNode partition : dataset.path("partitions")) {
+                    if (!ref.getPartition().equals(stringMap(partition.path("values")))) continue;
+                    if (!version.equals(partition.path("dataVersion").asText())) return false;
+                    for (JsonNode value : partition.path("coverageDates")) {
+                        if (day.toString().equals(value.asText())) return true;
+                    }
+                }
+            }
+            return false;
+        } catch (Exception exception) {
+            throw ManifestReadException.ioError(METADATA_PATH, exception);
+        }
+    }
+
     public MinioManifestReader(
             MinioClient minioClient, String bucketName, ObjectMapper objectMapper) {
         this.minioClient = minioClient;

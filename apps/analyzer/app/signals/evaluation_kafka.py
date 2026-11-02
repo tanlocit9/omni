@@ -13,6 +13,7 @@ from py_common.messaging import (
     utc_now,
 )
 from py_common.messaging.atomic_work import carry_work_status
+from py_common.messaging.output_publication import capture_output_publication
 
 from app.settings import AppSettings
 from app.signals.evaluator import SignalOutcomeEvaluator
@@ -37,6 +38,7 @@ class SignalEvaluationKafkaService(JobStatusKafkaService):
             service_name="analyzer-signal-evaluation",
         )
         self._evaluator = evaluator
+        self._settings = settings
 
     async def process_payload(
         self,
@@ -62,7 +64,13 @@ class SignalEvaluationKafkaService(JobStatusKafkaService):
             return None
 
         try:
-            evaluation = await self._evaluator.evaluate(raw)
+            with capture_output_publication(raw, getattr(self._settings, "output_snapshots_enabled", False) is True) as publication:
+                evaluation = await self._evaluator.evaluate(raw)
+                if publication.contract is not None and evaluation.metadata.get("missingEodCount", 0):
+                    raise ValueError("Outcome evaluation has missing EOD inputs; repair required")
+                if publication.contract is not None:
+                    empty = ("OUTPUT_UNCHANGED" if evaluation.records_updated == 0 and evaluation.records_scanned > 0 else None)
+                    await publication.publish(self._producer, valid_empty_reason=empty)
             status = self._build_status(message, started_at, utc_now(), evaluation)
         except Exception as exc:
             status = build_job_error_status(

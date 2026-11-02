@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Self
 
-from pydantic import Field, PrivateAttr, model_validator
+from pydantic import Field, PrivateAttr, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from py_common.config.loader import load_yaml
@@ -97,6 +97,11 @@ class BaseAppSettings(BaseSettings):
 
     shared_config_root: Path | None = Field(default=None, exclude=True)
     output_snapshots_enabled: bool = Field(default=False)
+    output_readiness_mode: str = "manifest"
+    output_readiness_api_url: str = ""
+    output_readiness_api_token: SecretStr = Field(default_factory=lambda: SecretStr(""))
+    output_readiness_reconcile_token: SecretStr = Field(default_factory=lambda: SecretStr(""))
+    output_readiness_backfill_enabled: bool = False
 
     _shared_topics: dict[str, Any] = PrivateAttr(default_factory=dict)
     _shared_s3_paths: dict[str, Any] = PrivateAttr(default_factory=dict)
@@ -112,6 +117,10 @@ class BaseAppSettings(BaseSettings):
         self._apply_s3_paths_config()
         self._apply_app_config()
         self._apply_flat_environment_overrides()
+        if self.output_readiness_mode not in {"manifest", "shadow", "postgres"}:
+            raise ValueError("Unsupported output_readiness_mode")
+        if self.output_readiness_mode == "postgres" and self.output_readiness_backfill_enabled:
+            raise ValueError("Historical backfill must finish before PostgreSQL reader cutover")
         return self
 
     @property

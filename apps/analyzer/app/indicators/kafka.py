@@ -14,6 +14,7 @@ from py_common.messaging import (
     utc_now,
 )
 from py_common.messaging.atomic_work import carry_work_status
+from py_common.messaging.output_publication import capture_output_publication
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.messages import IndicatorJobMessage
@@ -62,7 +63,9 @@ class IndicatorKafkaService(JobStatusKafkaService):
 
         try:
             message = IndicatorJobMessage.model_validate(raw)
-            records_processed = await self._handler.handle(raw)
+            with capture_output_publication(raw, getattr(self._settings, "output_snapshots_enabled", False) is True) as publication:
+                records_processed = await self._handler.handle(raw)
+                await publication.publish(self._producer)
             status = self._build_status(
                 message=message,
                 started_at=started_at,

@@ -64,6 +64,10 @@ public class JobService {
 
     @Autowired
     private com.omni.platform.modules.scheduler.metadata.OutputCompletionGate outputCompletionGate;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputReadinessStore outputReadinessStore;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputReconciliationPolicy outputReconciliationPolicy;
 
     @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
     private String schedulerZone;
@@ -510,6 +514,8 @@ public class JobService {
                 history.getParentLogId(),
                 history.getMetaJson() == null ? null : history.getMetaJson().keySet());
         jobExecutionHistoryRepository.saveAndFlush(history);
+        if (incomingStatus == JobStatus.SUCCESS && outputReadinessStore != null)
+            outputReadinessStore.promote(executionId);
         log.info(
                 "Saved job status child executionId={} txActive={}",
                 executionId,
@@ -920,7 +926,8 @@ public class JobService {
             return;
         }
 
-        CronExpression cron = CronExpression.parse(job.getCronExpr());
+        CronExpression cron = CronExpression.parse(outputReconciliationPolicy == null
+                ? job.getCronExpr() : outputReconciliationPolicy.cron(job));
         ZoneId zone = ZoneId.of(schedulerZone);
 
         LocalDateTime nextRun = cron.next(LocalDateTime.ofInstant(now, zone));

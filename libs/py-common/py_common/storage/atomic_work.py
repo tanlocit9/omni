@@ -23,7 +23,12 @@ def cutoff_frame(
     if dates.isna().any():
         raise ValueError("Atomic input contains missing dates")
     if require_day and not dates.eq(business_date).any():
-        raise ValueError(f"Input does not cover business date {business_date}")
+        latest = dates.max() if not dates.empty else None
+        raise ValueError(
+            f"Input does not cover business date {business_date}; "
+            f"latestAvailableDate={latest}; reason=INPUT_DATE_NOT_COVERED; "
+            "missing data is not evidence of no trading"
+        )
     return frame.loc[dates <= business_date].copy()
 
 

@@ -149,7 +149,8 @@ public final class WorkExpansion {
         config.put("source", config.getOrDefault("source", job.getSource().name()));
         List<LocalDate> days = new ArrayList<>();
         for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1))
-            if (day.getDayOfWeek() != DayOfWeek.SATURDAY && day.getDayOfWeek() != DayOfWeek.SUNDAY)
+            if (job.getJobType() == JobType.SYNC_METADATA
+                    || (day.getDayOfWeek() != DayOfWeek.SATURDAY && day.getDayOfWeek() != DayOfWeek.SUNDAY))
                 days.add(day);
         Map<String, Object> accepted = new LinkedHashMap<>();
         accepted.put("membershipPolicy", "CURRENT_ACTIVE_AT_ACCEPTANCE");

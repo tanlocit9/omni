@@ -1,5 +1,9 @@
 # Omni Release Notes
 
+## 2026-11-02 - I10 enrollment and READY integration
+
+Add opt-in production declarations/enrollment, acknowledged worker registration, generation-fenced READY pointers, private provider/read adapters, owner-approved NULL-provenance historical baselines, fenced backfill and explicit shadow/reconciliation modes. Exact-date admission keeps missing inputs pending for repair; signal reads validate approved versions and retain require_day. Platform and four Python suites passed locally; contracts generation remains blocked by Windows debug runtime dependencies. Critical component coverage and the full-lineage transport decision remain open; I10 is in_progress. No retained migration, cutover, deployment, worker recovery, tracing or P12 activation is claimed. See [source and gates](docs/reference/006-p14-i10-ready-integration.md).
+
 ## 2026-11-02 - Owner-approved immutable snapshots, recovery deferred
 
 Add configured immutable output byte snapshots within existing EOD/indicator/signal workers, disabled by default. Snapshot publication and reading validate exact bytes, canonical version, schema and persisted lineage; publication failure preserves the prior canonical bytes before replacement. Signal replacement snapshots use final identity rather than staging paths. Reuse shared lineage extraction. No READY pointer, recovery journal/service, automatic repair or P12 activation. Source regression cases added; all checks NOT RUN pending verification-command approval. I10 remains in_progress with registration/READY-reader integration open. See [scope revision and matrix](docs/reference/005-p14-i10-completion-watchdog-handoff.md).

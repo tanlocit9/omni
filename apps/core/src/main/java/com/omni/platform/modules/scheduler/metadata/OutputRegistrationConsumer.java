@@ -4,7 +4,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
-/** Disabled shadow collection only. Exceptions must reach the partition error handler. */
+/** Opt-in collection; only separately enrolled executions gain completion authority. */
 @Component
 @ConditionalOnProperty(name = "app.output-registration.shadow-enabled", havingValue = "true")
 public class OutputRegistrationConsumer {

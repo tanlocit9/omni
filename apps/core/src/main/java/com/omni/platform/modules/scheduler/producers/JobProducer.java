@@ -129,9 +129,16 @@ public abstract class JobProducer {
     public JobExecutionHistory persistAtomicRunStep(JobExecutionHistory parent,
             ExpandedJobMessage accepted, Map<String,Object> configuration,
             Instant now, JobRunWorkContext context) {
+        return persistAtomicRunStep(parent, accepted, configuration, now, context, Map.of());
+    }
+
+    public JobExecutionHistory persistAtomicRunStep(JobExecutionHistory parent,
+            ExpandedJobMessage accepted, Map<String,Object> configuration,
+            Instant now, JobRunWorkContext context, Map<String,Object> completionMetadata) {
         if (getJobType() != JobType.valueOf(accepted.jobType()))
             throw new IllegalArgumentException("Atomic producer mismatch");
         Map<String,Object> metadata = new LinkedHashMap<>(accepted.metadata());
+        metadata.putAll(completionMetadata);
         metadata.put("workBusinessDate", accepted.businessDate().toString());
         var child = context.child(WorkIdentity.of(accepted.workType(), accepted.workKey()), metadata, now);
         Map<String,Object> snapshot = WorkExpansion.freeze(Map.of(
@@ -141,7 +148,7 @@ public abstract class JobProducer {
                 "configuration", configuration));
         context.snapshot(child.getId(), snapshot, accepted.source());
         var command = copyIdentity(accepted.command(), child.getId(), parent.getId(),
-                accepted.businessDate(), accepted.metadata());
+                accepted.businessDate(), metadata);
         var message = new ExpandedJobMessage(command, accepted.jobType(), accepted.businessDate(),
                 accepted.parameters(), accepted.atomicWorkId());
         jobService.enqueueRunDispatch(parent, getTopic(),

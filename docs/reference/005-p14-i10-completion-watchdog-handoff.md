@@ -1,5 +1,7 @@
 # P14-I10 completion and watchdog continuation
 
+Source-state superseded by [READY integration](006-p14-i10-ready-integration.md). Earlier NOT RUN and missing-source statements below describe this historical checkpoint; its open runtime and migration gates remain.
+
 ## Delivery branch
 
 The owner authorized creating and publishing `codex/p14-i10-snapshots` on

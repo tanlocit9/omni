@@ -68,6 +68,12 @@ public class OutputRegistrationStore {
             Object alias = metadata.get("atomicWorkId");
             OutputRegistrationEvent.require(alias == null || alias.equals(item.atomicWorkId()), "atomicWorkId alias mismatch");
             Object expansion = metadata.get("workExpansion");
+            if (metadata.get("outputCompletion") instanceof Map<?,?> declaration) {
+                OutputRegistrationEvent.require(item.registrationId().toString().equals(declaration.get("registrationId"))
+                        && event.eventId().toString().equals(declaration.get("eventId"))
+                        && item.atomicAttemptId().toString().equals(declaration.get("atomicAttemptId")),
+                        "Registration identities differ from server declaration");
+            }
             if (expansion instanceof Map<?, ?> map) {
                 OutputRegistrationEvent.require(item.atomicWorkId().equals(map.get("atomicWorkId")), "Expansion work alias mismatch");
             }

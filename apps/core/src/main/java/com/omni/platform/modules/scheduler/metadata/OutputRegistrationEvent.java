@@ -29,6 +29,13 @@ public record OutputRegistrationEvent(int schemaVersion, UUID eventId, List<Regi
             var outputs = member.get("outputs");
             require(outputs != null && outputs.isArray(), "Missing outputs");
             for (var output : outputs) {
+                validateOutputWire(output);
+            }
+        }
+    }
+
+    public static void validateOutputWire(tools.jackson.databind.JsonNode output) {
+                require(output != null && output.isObject(), "Missing output");
                 integer(output, "rowCount", false);
                 integer(output, "totalBytes", false);
                 integer(output, "schemaVersion", true);
@@ -39,8 +46,6 @@ public record OutputRegistrationEvent(int schemaVersion, UUID eventId, List<Regi
                 require(columns != null && columns.isArray(), "Missing columns");
                 for (var column : columns) require(column.has("nullable") && column.get("nullable").isBoolean(),
                         "Column nullable must be a boolean");
-            }
-        }
     }
 
     private static void integer(tools.jackson.databind.JsonNode node, String field, boolean int32) {

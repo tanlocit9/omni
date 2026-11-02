@@ -6,8 +6,10 @@ from datetime import UTC, datetime
 
 import httpx
 
+from py_common.config.paths import StockDataPaths
 from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
 from py_common.storage.exceptions import ManifestInvalidError
+from py_common.storage.output_snapshots import OutputSnapshotIdentity, snapshot_object_name
 from py_common.storage.global_metadata import (
     GlobalColumnMetadata, GlobalDatasetInput, GlobalDatasetMetadata,
     GlobalMetadataDocument, GlobalMetadataReader, GlobalPartitionMetadata,
@@ -15,20 +17,22 @@ from py_common.storage.global_metadata import (
 
 
 class PostgresMetadataReader:
-    def __init__(self, url: str, token: str, *, transport=None) -> None:
+    def __init__(self, url: str, token: str, *, paths: StockDataPaths | None = None, transport=None) -> None:
         if not url.startswith(("http://", "https://")) or not token:
             raise ValueError("PostgreSQL metadata requires an authenticated private API URL")
         self._url, self._token = url, token
         self._transport = transport
+        self._paths = paths if paths is not None else StockDataPaths.from_config({})
 
     async def read(self) -> GlobalMetadataDocument:
         partitions: dict[str, list[GlobalPartitionMetadata]] = {
             definition.name: [] for definition in OMNI_DATASET_REGISTRY.all()
         }
         revision = None
+        offset = 0
         try:
             async with httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False, transport=self._transport) as client:
-                for offset in range(0, 100001, 200):
+                for _ in range(100001):
                     params = {"offset": offset, "limit": 200}
                     if revision is not None:
                         params["revision"] = revision
@@ -43,15 +47,26 @@ class PostgresMetadataReader:
                     revision = page["revision"]
                     if not isinstance(page["items"], list) or len(page["items"]) > 200 or type(page["hasMore"]) is not bool:
                         raise ManifestInvalidError("Invalid readiness page")
+                    next_offset = page.get("nextOffset", offset + len(page["items"]))
+                    if (type(next_offset) is not int or next_offset != offset + len(page["items"])
+                            or next_offset > 100000 or (page["hasMore"] and next_offset == offset)):
+                        raise ManifestInvalidError("Invalid readiness page cursor")
                     for item in page["items"]:
                         raw = dict(item["manifest"])
                         if not raw.get("canonicalPath") or not raw.get("coverageDates"):
                             raise ManifestInvalidError("READY requires snapshot identity and exact coverage")
+                        expected_path = snapshot_object_name(
+                            OutputSnapshotIdentity(item["dataset"], raw["values"]),
+                            raw["dataVersion"], self._paths,
+                        )
+                        if raw["path"] != expected_path or raw["path"] == raw["canonicalPath"]:
+                            raise ManifestInvalidError("READY path differs from immutable snapshot identity")
                         raw["columns"] = [GlobalColumnMetadata(**column) for column in raw["columns"]]
                         raw["inputs"] = [GlobalDatasetInput(**value) for value in raw["inputs"]]
                         partitions[item["dataset"]].append(GlobalPartitionMetadata(**raw))
                     if not page["hasMore"]:
                         break
+                    offset = next_offset
                 else:
                     raise ManifestInvalidError("Readiness catalog exceeds bounded read")
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
@@ -94,9 +109,11 @@ def metadata_reader(settings, readable):
         return GlobalMetadataReader(readable, settings.minio.bucket)
     if settings.output_readiness_mode == "postgres":
         return PostgresMetadataReader(settings.output_readiness_api_url,
-                                      settings.output_readiness_api_token.get_secret_value())
+                                      settings.output_readiness_api_token.get_secret_value(),
+                                      paths=settings.stock_data_paths)
     if settings.output_readiness_mode == "shadow":
         return ShadowMetadataReader(GlobalMetadataReader(readable, settings.minio.bucket),
                                     PostgresMetadataReader(settings.output_readiness_api_url,
-                                        settings.output_readiness_api_token.get_secret_value()))
+                                        settings.output_readiness_api_token.get_secret_value(),
+                                        paths=settings.stock_data_paths))
     raise ValueError("Unsupported output_readiness_mode")

@@ -7,7 +7,7 @@ durable Platform completion correlation and failure/late-attempt guards remain.
 Snapshot/registration/READY integration has opt-in source; local and runtime gates remain open.
 See [current scope and matrix](../reference/005-p14-i10-completion-watchdog-handoff.md).
 
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+I10 READY integration (updated 2026-11-03 UTC+7): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 I10 implementation started (2026-11-01): shadow registration contract/inbox source is present, NOT RUN. See [checkpoint and remaining acceptance](../reference/004-p14-i10-registration-checkpoint.md). Current increment is `in_progress`; I10.a is incomplete and readiness/watchdog remain planned. Earlier pending statements below are dated baseline history.
 
@@ -205,8 +205,10 @@ cross-service impact, limits and owner-local handoff are in the linked review.
 ## P14-I10 — Output metadata registration and execution watchdog
 
 Status: **in_progress**, depends on P14-I9. Registration/completion/watchdog source is present;
-worker registration, READY/readers, verification and rollout remain open; additional durable worker recovery is owner-deferred.
-See the current November 2 handoff above; the acceptance criteria below are unchanged.
+worker registration and READY/readers now have opt-in source; full verification
+and rollout remain open. Additional durable worker recovery is owner-deferred.
+See the current handoff above, including the November 3 paired-contract review;
+the acceptance criteria below are unchanged.
 I8/I9 have local acceptance completion recorded above. I10.a/b/c are internal checkpoints, not
 additional registry IDs. P12 writer/concurrency remains deferred.
 Architecture decision: [ADR-008](../adr/008-postgres-output-readiness.md).

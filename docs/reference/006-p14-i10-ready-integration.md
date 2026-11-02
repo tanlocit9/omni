@@ -1,6 +1,213 @@
 # P14-I10 enrollment, READY integration and exact-date admission
 
+## Contract review — 2026-11-03 (UTC+7)
+
+Continuation of owner commit `7a6699e8f08de5ae72d5fb52d8b89bd84aa1ad25`
+on `codex/p14-i10-snapshots`. I10 remains **in_progress**; the full-lineage
+owner decision and complete acceptance gate remain open. The November 2 results
+below are historical Windows evidence. This section records fresh Linux checks
+under `P14-I10-cloud-20261103`, without replacing the required-check manifest.
+
+### Corrected private API contract
+
+The private GET response is `{revision, items, hasMore, nextOffset}`. Pages are
+bounded by both 200 items and 4 MiB serialized UTF-8 bytes. Large valid metadata
+can produce a shorter page even when more rows exist. Platform reserves space for
+the envelope and stops before the byte budget; an individual oversized item fails
+with HTTP 413. Python advances by the returned item count, validates `nextOffset`
+against that count, rejects non-progress/skipping cursors, and sends the same
+revision on continuation. An absent cursor remains compatible with earlier v1
+responses by deriving it from the actual count. Deploy the provider and all
+Python cursor-aware readers together before postgres/shadow use: earlier readers
+that step by a fixed 200 can skip byte-shortened pages. Revision changes and malformed
+pages fail closed, without a JSON-manifest fallback.
+
+PostgreSQL readers now derive the expected snapshot address from the logical
+identity and exact dataVersion using the configured StockDataPaths. A mutable
+canonical path, wrong version address or traversal path cannot become a query
+binding merely because the API returned it. Canonical identity remains separate
+for byte/schema/lineage hashing; this adds no physical paths to Kafka messages.
+Both postgres and shadow reader factories propagate the shared path configuration.
+Platform also rejects snapshot templates that omit dataset, partition hash or
+dataVersion placeholders, matching the Python writer/reader requirement.
+Public Query Service/Console DTOs remain unchanged.
+
+Strict snapshot lineage also requires both persisted trend_momentum_v1 and
+ichimoku_v1 references for every CONFIRMED_TREND_EQUALS row. Previously an absent,
+empty or partial registeredComponents value could produce an EOD-only snapshot
+claim. Immutable publication, snapshot reads and snapshot-backed approved reads
+now reject it. Historical manifest discovery retains its compatibility behavior;
+that compatibility is not proof for a baseline/snapshot. Backfill runs through the
+strict snapshot path and cannot grant READY to incomplete historical provenance.
+Unknown execution provenance may remain NULL; required input lineage is not waived.
+
+The shared fixture
+[output-readiness-page-v1.json](../../libs/contracts/fixtures/output-readiness-page-v1.json)
+freezes Java-provider/Python-reader dates, schema, version addresses and NULL
+historical provenance. Its symbolic byte/version values are wire evidence, not a
+claim that real Parquet was read. Separate lineage tests perform a real Parquet
+encode/decode and validate persisted component versions. Contracts generation now
+also checks Java and Python output-registration artifacts (11 artifacts total).
+No protobuf field, registration limit, migration or runtime default changed.
+
+### Source / test matrix for this continuation
+
+| Production boundary | Executed regression evidence |
+| --- | --- |
+| Platform OutputReadinessProvider.page | OutputReadinessProviderTest: shared fixture, revision/bounds, empty terminal cursor, large byte-bounded page, unsafe/missing identity path configuration, derived routes and known producer provenance. |
+| Shared PostgresMetadataReader and metadata_reader | test_output_readiness: short-page continuation, cursor failure/non-progress, 4 MiB rejection, mutable/wrong path rejection, configured layout, four authority modes; existing auth/revision/failure/shadow cases. |
+| Platform OutputDeclarations | OutputDeclarationsTest: disabled/unsupported protocols, all four supported logical declarations, malformed identity/typed parameters, server IDs and absence of physical paths. |
+| Worker OutputPublication | test_output_publication: complete dates, wrong partition/symbol, server IDs, ACK failure, missing publisher, context cleanup, outcome origin dates. |
+| Shared lineage and immutable store | test_output_lineage: real Parquet component lineage, deduplication, malformed/wrong-partition/version evidence rejection and strict two-component completeness with legacy compatibility; test_output_snapshots: namespace/version/schema/empty/unsafe input rejection without writes, existing duplicate/concurrent/read-back/ACK cases, real backfill scan/mutation, semantic schema/lineage mismatch and empty-output rejection. |
+| Generated Java/Python contracts | contracts:test generates from canonical proto, builds schemas and checks both output-registration artifacts; generated sources remain ignored. |
+
+### Fresh checks and remaining gates
+
+Executed on Linux from owner commit plus this continuation:
+
+| Target | Fresh result |
+| --- | --- |
+| py-common:coverage | PASS: 338 passed, 5 opt-in real-Kafka tests skipped. |
+| analyzer:coverage | PASS: 242 passed after locked dependency sync. |
+| ingestor:coverage | PASS: 94 passed. |
+| query-service:test | PASS: 40 passed. |
+| contracts:test | PASS: canonical generation/schema build, 11 artifact checks. |
+| platform:coverage | PASS: 591 test entries, 4 skipped, zero failures/errors; JaCoCo generated. |
+| platform:test (focused) | PASS: 11 provider/declaration tests, no skips. |
+| python-impact-coverage | PASS: all eight named shared components >=80% line/branch. |
+| impact-coverage (Java) | FAIL: remaining I10 components below required thresholds; never treated as acceptance PASS. |
+
+Attributable Python coverage (line / branch): OutputPublication 100% / 100%;
+output_readiness 98.73% / 96.43%; output_lineage 98.15% / 97.06%; output_snapshots
+98.59% / 95%; output_registration 95.62% / 86.54%; output_reconciliation
+98.04% / 94.44%; approved_inputs 100% / 92.86%; parquet 98.70% / 96.43%.
+The directly impacted read_bound_dataframe, snapshot_bound_output, _snapshot_bytes
+and read_output_snapshot methods each have 100% executed line/branch coverage
+(16/16 and 8/8; 8/8 and 2/2; 9/9 and 4/4; 9/9 and 4/4 respectively).
+Reports are local under `coverage/libs/py-common/coverage.xml`. Backfill race cases
+control in-memory storage reads; HTTP boundaries are mocked. Real Parquet codec
+round trips are exercised, but live object storage/Kafka is not established.
+These values do not establish all-worker, Platform or full-increment coverage.
+Earlier environment/bootstrap, Java compilation and fixture/type failures were
+diagnosed rather than hidden as passes. The Java shared fixture now compares the
+serialized HTTP JSON, avoiding an in-memory Integer/Long node equality artifact.
+
+Fresh Java attributable coverage (line / branch):
+
+| Component | Line | Branch |
+| --- | ---: | ---: |
+| OutputReadinessProvider | 98.61% | 83.93% |
+| OutputDeclarations | 100% | 100% |
+| OutputReadinessStore | 100% | 80% |
+| OutputWriteAdmission / OutputReconciliationPolicy | 100% | 100% |
+| OutputBackfillService | 97.14% | 56.52% |
+| OutputCompletionGate | 100% | 61.36% |
+| OutputRegistrationStore | 95.16% | 58.82% |
+| ExecutionTimeoutWatchdog | 94.74% | 53.85% |
+| OutputRegistrationEvent | 100% | 64.13% |
+| OutputBackfillController | 25% | 0% |
+| OutputCompletionDiagnostics | 7.14% | 0% |
+| OutputRegistrationConsumer / OutputRegistrationKafkaConfig | 0% | N/A (no branch counter) |
+| OutputReadinessController | 50% | N/A (no branch counter) |
+
+The last three straight-line components fail their line gate regardless of the
+threshold helper's missing-branch counter handling. Report:
+`apps/core/build/reports/jacoco/test/jacocoTestReport.xml`.
+Compact conclusion: `FAIL P14-I10-cloud-20261103 check=other/impact-coverage
+source=exit_code code=1`. Full-lineage decision, worker-to-query integration and
+rollout remain unrecorded/unmet required checks as well. No owner attestation.
+The 02:00 review should prioritize these coverage gaps and the full integration
+matrix, preserving the owner's transport/migration decisions for the final report.
+Test shutdown also logs Modulith/Hikari cleanup warnings after disposable database
+teardown; the final Gradle target exits zero with no test failures, not proof of
+production lifecycle behavior.
+
+Dependency bootstrap used declared Nx sync-ci targets with the lockfile and
+`--inexact` to retain other services in the shared environment. Missing pinned
+native grpc-tools assets required `npm rebuild grpc-tools` because no Nx dependency
+bootstrap target exists. No schema/compiler replacement or generated-source edit.
+`NX_GRADLE_DISABLE=true` disables automatic project-graph Gradle inference only;
+the explicit Platform coverage target still executes Java/Gradle tests. The existing
+check_python_coverage.py/check_jacoco_coverage.py helpers supply increment-specific
+threshold analysis; no equivalent Nx target exists. Java
+networking uses the session proxy. No lint, format, deployment or retained upgrade
+is implied by these unit/contract checks.
+
+Graph CLI 2.3.9 was installed in an isolated workspace tool environment. The fresh
+minimal build indexed 644 files, 4944 nodes and 69796 edges (flows skipped).
+Depth-2 impact for provider/reader/publication found 104 impacted nodes and eight
+additional files; storage/lineage analysis found 83 nodes and eight additional
+files. Result lists are bounded and unresolved call sites remain; these are
+navigation evidence. Installation happened after the initial pagination edit and
+cannot retroactively satisfy its missed pre-edit graph step. Subsequent snapshot
+identity and lineage work used the fresh graph before edits. The cross-service
+matrix below remains authoritative beyond graph hops.
+
+### Documentation audit and ownership reconciliation
+
+| Area reviewed | Update or concrete no-update reason |
+| --- | --- |
+| Plan 030, increment registry, roadmap/index, release notes | Record current source/evidence, preserve in_progress and owner-decision=true, label pending-era statements historical; correct stale plan and milestone summary. |
+| Data lake, contracts README, Platform and Query Service guides | Document byte/item pagination, cursor compatibility and configured immutable address validation; link paired fixture/evidence. |
+| Architecture and ADR-008 | No ownership/authority amendment: existing approved snapshot path and coordinated cutover decision apply; bounds enforcement implements that decision. |
+| Execution/indicator/stock flows; Kafka contract | Stock/indicator guides now describe opt-in worker publication and origin-date behavior; Kafka planning-era wording is explicitly historical. No business wire/order change: logical refs only, ACK precedes SUCCESS, READY commits last. Execution guide already links here. New fixture is private HTTP. |
+| Database | Label old no-tables planning paragraph historical; no schema/migration delta. V19–V22 and retained V20 identity gate remain unchanged. |
+| Deployment and developer ownership | Add matched provider/cursor-reader deployment requirement and incomplete-history exclusion. No new flag, secret, routing owner or service; existing drain/shadow/cutover guards apply. Bootstrap exception is local only. |
+| Analyzer/Ingestor/Console guides | Existing handoff links remain valid; shared-library tests strengthen their current protocol. No application ownership or public DTO change. |
+| AGENTS, CLAUDE, Roo and governance | No policy change: graph, source/test attribution, verification authorization and deferred recovery boundaries remain authoritative. |
+
+Static audit: Plan 030 retains all ten mandatory sections; P14-I10 has one active
+registry row, remains in_progress after completed I9, and no downstream increment
+is promoted. Directly changed links resolve to existing files and the review
+heading. Current and historical results remain distinguished. Graph refresh after
+staging included new Java/Python tests. The post-doc report covered
+27 changed files and 65 symbols; five heuristic gaps remain (three provider
+symbols, two storage methods reached only through callers). Executed test mapping
+and measured coverage are recorded separately above. Flows were skipped, so zero
+detected flows is not zero cross-service impact. Final post-document change
+detection repeated after final evidence edits: same 27 files / 65 symbols, risk
+0.40 and five heuristic candidates. Static audit is CONSISTENT within the changed
+document/claim scope; full acceptance is FAIL/INCOMPLETE as recorded above.
+Static consistency does not supply missing acceptance evidence.
+
+### Questions to collect after the 02:00 review
+
+1. For histories exceeding 128 input-version links, 4096 dates or the 256 KiB
+   registration envelope, choose a paged/finalized transport or explicitly keep
+   oversized datasets outside the cutover. No truncation or implicit limit increase.
+2. Confirmed-signal history without persisted component versions stays excluded
+   from snapshot backfill. Decide whether to rebuild it from validated inputs or
+   keep it excluded for cutover; do not invent historical versions.
+3. Before a retained migration, reconcile the original V20 identity/checksum with
+   the deployed Flyway history. Disposable database tests cannot answer that.
+
+The scheduled review is 2026-11-03 02:00 Asia/Bangkok (UTC+7), with latest-head
+review/fixes and a consolidated question report. Durable worker recovery remains
+deferred. Full worker → Kafka → Platform → storage/API → Query integration,
+attributable coverage for every impacted critical component, retained upgrade,
+shadow parity and coordinated rollout/rollback remain acceptance gates.
+
+### Follow-up review after the interrupted delivery
+
+The first large GitHub tree upload did not return a completed response. On resume
+after 03:00 UTC+7, local HEAD remained 7a6699e, the staged source tree was unchanged,
+and remote HEAD still matched the owner baseline; no push had been confirmed.
+The one-shot 02:00 task records last_run_time 2026-11-02T18:55:32Z but has no
+recorded run/result body. That timestamp does not prove a successful review or
+report delivery. No automatic-run findings or test results are inferred.
+
+The foreground follow-up re-read cursor/identity validation, strict component
+lineage and provider template bounds, reconciled the preserved check conclusion,
+and found no further actionable defect in those corrected paths. Checks were not
+repeated for this static review because production source remained unchanged.
+The known coverage and full-integration gates above still prevent I10 completion;
+the collected owner questions remain the three listed above. Delivery uses
+individual blob uploads and a guarded branch update to preserve owner changes.
+
 ## Current state
+
+The following source baseline and November 2 measurements are retained for
+history; fresh November 3 results are above.
 
 P14-I10 remains **in_progress**. This continuation supersedes the source-state
 inventory in [handoff 005](005-p14-i10-completion-watchdog-handoff.md), not its

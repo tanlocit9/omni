@@ -1,5 +1,24 @@
 # Omni Release Notes
 
+## 2026-11-03 - I10 private reader contract and regression coverage (UTC+7)
+
+Continue owner commit `7a6699e` on `codex/p14-i10-snapshots`. Bound Platform
+readiness pages by 4 MiB as well as 200 items; Python follows validated actual-count
+cursors under one revision. Derive and verify immutable snapshot addresses with
+shared path configuration before query binding. Reject confirmed-signal snapshots
+with missing/partial persisted component lineage while preserving legacy manifest
+compatibility. Add a shared Java/Python HTTP
+fixture, worker failure/date/context regression cases and real Parquet lineage
+round-trip tests. Contracts generation now checks output registration in both
+languages. Fresh Linux suite/coverage results, graph limitations and unresolved
+acceptance are in the [current review](docs/reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+I10 remains in_progress; full-lineage transport, complete impact coverage and live
+integration/retained rollout gates remain open. No new migration, protobuf wire
+change, runtime activation or durable worker recovery. A follow-up review is
+scheduled for 02:00 UTC+7 on November 3. A trigger timestamp exists without a
+recorded automation result; the foreground follow-up after interrupted delivery
+is documented in the handoff, together with the collected questions.
+
 ## 2026-11-02 - I10 enrollment and READY integration
 
 Add opt-in production declarations/enrollment, acknowledged worker registration, generation-fenced READY pointers, private provider/read adapters, owner-approved NULL-provenance historical baselines, fenced backfill and explicit shadow/reconciliation modes. Exact-date admission keeps missing inputs pending for repair; signal reads validate approved versions and retain require_day. Platform and four Python suites passed locally; contracts generation remains blocked by Windows debug runtime dependencies. Critical component coverage and the full-lineage transport decision remain open; I10 is in_progress. No retained migration, cutover, deployment, worker recovery, tracing or P12 activation is claimed. See [source and gates](docs/reference/006-p14-i10-ready-integration.md).

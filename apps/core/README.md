@@ -1,5 +1,11 @@
 # Platform / Core Service
 
+The private output-readiness GET is bounded to 200 items and 4 MiB UTF-8 bytes.
+A byte-shortened page returns `nextOffset = offset + items.size()` and `hasMore`;
+a single oversized item returns HTTP 413. Consumers keep the revision fixed and
+advance by the returned count. The shared Java/Python page fixture and fresh
+verification are in the [current handoff](../../docs/reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
 I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.

@@ -13,7 +13,7 @@ from py_common.storage.global_metadata import GlobalDatasetInput
 
 
 def extract_output_lineage(
-    dataset: str, frame: pd.DataFrame, values: Mapping[str, Any]
+    dataset: str, frame: pd.DataFrame, values: Mapping[str, Any], *, require_complete_components: bool = False
 ) -> list[GlobalDatasetInput]:
     if dataset == "eod":
         return []
@@ -45,6 +45,7 @@ def extract_output_lineage(
             }
             candidates = [("eod", partition, row.get("eod_data_version"))]
             versions = row.get("input_versions")
+            component_strategies: set[str] = set()
             if isinstance(versions, dict) and versions.get("registeredComponents") is not None:
                 references = versions["registeredComponents"]
                 if not isinstance(references, (list, tuple)):
@@ -61,6 +62,10 @@ def extract_output_lineage(
                             or component_partition.get("strategy") not in {"trend_momentum_v1", "ichimoku_v1"}:
                         raise ManifestInvalidError("Signal component provenance differs from logical partition")
                     candidates.append(("signals", component_partition, reference.get("dataVersion")))
+                    component_strategies.add(component_partition["strategy"])
+            if (require_complete_components and str(values.get("strategy", "")).upper() == "CONFIRMED_TREND_EQUALS"
+                    and component_strategies != {"trend_momentum_v1", "ichimoku_v1"}):
+                raise ManifestInvalidError("Confirmed signal lacks complete persisted component lineage")
             if str(values.get("strategy", "")).upper() != "CONFIRMED_TREND_EQUALS":
                 candidates.append(
                     (

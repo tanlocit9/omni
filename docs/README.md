@@ -1,6 +1,6 @@
 # Omni Documentation
 
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+I10 READY integration (updated 2026-11-03 UTC+7): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
 
@@ -19,7 +19,7 @@ has a bounded local regression PASS. The later
 [I9 acceptance report](../database/diagnostics/p14/v2/i9-verification-20261031.md)
 records the earlier checks and historical gaps; use the current closure above for I8/I9 acceptance. Activation remains separately gated.
 
-P14-I10 is planned (pending after I9): metadata registration arrays on a new topic, Platform-owned PostgreSQL readiness, reconciliation and execution watchdog. I8/I9 are locally completed; current manifest runtime and deferred P12 writer are unchanged.
+Historical I10 planning baseline (superseded by the current handoff above): metadata registration arrays on a new topic, Platform-owned PostgreSQL readiness, reconciliation and execution watchdog. I8/I9 are locally completed; current manifest runtime and deferred P12 writer are unchanged.
 See [I10 scope and acceptance](plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
 Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.

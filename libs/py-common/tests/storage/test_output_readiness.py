@@ -13,7 +13,7 @@ def anyio_backend():
 def page(revision=1):
     return {"revision": revision, "hasMore": False, "items": [{"dataset": "eod", "manifest": {
         "values": {"exchange": "upcom", "code": "hd6"}, "status": "READY",
-        "path": "_output-snapshots/eod/partition/version.parquet", "canonicalPath": "eod/upcom/hd6.parquet",
+        "path": shared_page_fixture()["items"][0]["manifest"]["path"], "canonicalPath": "eod/upcom/hd6.parquet",
         "dataVersion": "sha256:" + "a" * 64, "schemaVersion": 1, "schemaHash": "sha256:" + "b" * 64,
         "objectCount": 1, "totalBytes": 128, "rowCount": 2, "columnCount": 1,
         "columns": [{"name": "date", "type": "DATE", "nullable": False}], "inputs": [],
@@ -108,3 +108,136 @@ async def test_shadow_compares_exact_versions_and_keeps_legacy_authority(differe
 def test_private_api_configuration_is_required(url,token):
     with pytest.raises(ValueError,match="authenticated private API"):
         PostgresMetadataReader(url,token)
+
+
+def shared_page_fixture():
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[3] / "contracts/fixtures/output-readiness-page-v1.json"
+    return json.loads(path.read_text())
+
+
+@pytest.mark.anyio
+async def test_java_python_shared_ready_page_fixture_preserves_wire_contract():
+    payload = shared_page_fixture()
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    document = await reader.read()
+    manifest = document.resolve("eod", {"exchange": "upcom", "code": "hd6"})
+    wire = payload["items"][0]["manifest"]
+    assert manifest.path == wire["path"]
+    assert manifest.canonicalPath == wire["canonicalPath"]
+    assert manifest.coverageDates == wire["coverageDates"]
+    assert manifest.sourceExecutionId is None
+    assert manifest.dataVersion == wire["dataVersion"]
+
+
+@pytest.mark.anyio
+async def test_short_byte_bounded_pages_advance_by_returned_items_not_requested_limit():
+    from py_common.config.paths import StockDataPaths
+    from py_common.storage.output_snapshots import OutputSnapshotIdentity, snapshot_object_name
+
+    offsets = []
+    def respond(request):
+        offset = int(request.url.params["offset"])
+        offsets.append(offset)
+        result = shared_page_fixture()
+        result["hasMore"] = offset == 0
+        result["nextOffset"] = offset + 1
+        if offset:
+            assert request.url.params["revision"] == "7"
+            raw = result["items"][0]["manifest"]
+            raw["values"]["code"] = "hd7"
+            raw["canonicalPath"] = "eod/upcom/hd7.parquet"
+            raw["path"] = snapshot_object_name(OutputSnapshotIdentity("eod", raw["values"]),
+                                                raw["dataVersion"], StockDataPaths.from_config({}))
+        return httpx.Response(200, json=result)
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+                                     transport=httpx.MockTransport(respond))
+    catalog = await reader.read()
+    assert offsets == [0, 1]
+    assert {p.values["code"] for p in catalog.dataset("eod").partitions} == {"hd6", "hd7"}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("cursor", [True, "1", -1, 0, 2, 100001])
+async def test_malformed_or_skipping_ready_cursor_fails_closed(cursor):
+    payload = shared_page_fixture()
+    payload["hasMore"] = True
+    payload["nextOffset"] = cursor
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    with pytest.raises(ManifestInvalidError, match="page cursor"):
+        await reader.read()
+
+
+@pytest.mark.anyio
+async def test_empty_continuation_page_cannot_loop_forever():
+    payload = {"revision": 7, "items": [], "hasMore": True, "nextOffset": 0}
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    with pytest.raises(ManifestInvalidError, match="page cursor"):
+        await reader.read()
+
+
+@pytest.mark.anyio
+async def test_ready_page_cannot_exceed_the_shared_four_mib_budget():
+    payload = shared_page_fixture()
+    payload["padding"] = "x" * (4 * 1024 * 1024)
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    with pytest.raises(ManifestInvalidError, match="size limit"):
+        await reader.read()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("path", ["eod/upcom/hd6.parquet", "../snapshot.parquet",
+                                 "_output-snapshots/eod/wrong/version.parquet"])
+async def test_ready_api_cannot_redirect_queries_to_mutable_or_wrong_snapshot(path):
+    payload = shared_page_fixture()
+    payload["items"][0]["manifest"]["path"] = path
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    with pytest.raises(ManifestInvalidError, match="immutable snapshot identity"):
+        await reader.read()
+
+
+@pytest.mark.anyio
+async def test_ready_reader_uses_the_same_configured_snapshot_layout_as_writers():
+    from py_common.config.paths import StockDataPaths
+    from py_common.storage.output_snapshots import OutputSnapshotIdentity, snapshot_object_name
+
+    paths = StockDataPaths.from_config({"paths": {"output-snapshots": {"base": "versions/"}}})
+    payload = shared_page_fixture()
+    raw = payload["items"][0]["manifest"]
+    raw["path"] = snapshot_object_name(OutputSnapshotIdentity("eod", raw["values"]), raw["dataVersion"], paths)
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token", paths=paths,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload)))
+    assert (await reader.read()).dataset("eod").partitions[0].path.startswith("versions/")
+
+
+@pytest.mark.parametrize("mode", ["manifest", "shadow", "postgres", "invalid"])
+def test_authority_selection_keeps_explicit_mode_and_shared_path_configuration(mode):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from pydantic import SecretStr
+    from py_common.config.paths import StockDataPaths
+    from py_common.storage.global_metadata import GlobalMetadataReader
+    from py_common.storage.output_readiness import metadata_reader
+
+    paths = StockDataPaths.from_config({"paths": {"output-snapshots": {"base": "versions/"}}})
+    settings = SimpleNamespace(output_readiness_mode=mode, minio=SimpleNamespace(bucket="stock-data"),
+        output_readiness_api_url="http://platform/readiness", output_readiness_api_token=SecretStr("reader"),
+        stock_data_paths=paths)
+    if mode == "invalid":
+        with pytest.raises(ValueError, match="Unsupported"):
+            metadata_reader(settings, Mock())
+        return
+    reader = metadata_reader(settings, Mock())
+    if mode == "manifest":
+        assert isinstance(reader, GlobalMetadataReader)
+    else:
+        postgres = reader._postgres if mode == "shadow" else reader
+        assert isinstance(postgres, PostgresMetadataReader)
+        assert postgres._paths is paths

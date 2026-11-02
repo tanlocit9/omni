@@ -1,5 +1,17 @@
 # Data Lake
 
+## Private PostgreSQL snapshot reads
+
+The private readiness API has 200-item / 4 MiB byte-bounded pages; readers advance
+by `nextOffset` (actual returned count), never the requested limit. Revision stays
+fixed across the catalog read. Python derives the snapshot path from the configured
+logical dataset/partition/dataVersion and rejects mutable or mismatched addresses
+before binding queries. Exact bytes/schema/lineage validation remains required. Confirmed-signal
+snapshots require both persisted component references on every row; incomplete
+historical provenance cannot be backfilled as READY. Legacy manifest compatibility
+does not waive this strict snapshot gate.
+See [paired contract and current evidence](../reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
 ## I10 immutable output snapshots — owner approved 2026-11-02
 
 Existing EOD/indicator/signal workers can additionally publish immutable byte
@@ -19,7 +31,8 @@ Existing READY/manifests remain authoritative until coordinated reader cutover.
 This API creates no READY/latest pointer and no recovery journal, automatic repair
 or GC. Lost ACK can leave an orphan and a reported failure. Additional durable
 worker recovery is explicitly deferred by the owner. Sector/intraday publication
-protocols are unchanged. Source/tests are NOT RUN; see the current handoff below.
+protocols are unchanged. Fresh local verification and remaining gates are recorded
+in the current handoff below; the earlier source-only checkpoint is historical.
 
 I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 

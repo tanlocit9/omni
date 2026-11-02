@@ -1,5 +1,18 @@
 # JobRun Admission Rollout and Rollback
 
+## I10 paired private-reader deployment
+
+Deploy the byte-bounded Platform readiness provider together with the py-common
+cursor-aware reader used by Analyzer, Ingestor and Query Service before enabling
+postgres authority or collecting shadow parity evidence. Earlier Python readers
+advanced by a fixed 200 and can skip rows when a valid page is shortened by the
+4 MiB budget; a mixed provider/reader revision is not a supported cutover.
+Current readers accept earlier v1 pages without nextOffset by deriving the actual
+count. Keep the revision fixed and fail closed on cursor/path/lineage mismatch.
+Confirmed histories lacking both persisted component versions stay excluded from
+snapshot backfill until explicitly rebuilt from validated inputs. See the
+[contract review and operational gates](../reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
 I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.

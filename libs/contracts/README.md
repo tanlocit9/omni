@@ -56,3 +56,16 @@ as compatibility validation. The target is uncached because the baseline changes
 independently of the working tree. See the [CI policy](../../docs/development/004-ci-quality-gate.md).
 
 This increment defines contracts only. Existing JSON Kafka producers and consumers are migrated through adapters and compatibility tests in later increments.
+
+## I10 paired private HTTP fixture
+
+`fixtures/output-readiness-page-v1.json` is shared by Platform
+`OutputReadinessProviderTest` and py-common `test_output_readiness`. It freezes the
+private readiness page shape, exact coverage, snapshot/canonical identity and NULL
+historical provenance. Pages allow at most 200 items and 4 MiB UTF-8 bytes;
+`nextOffset` equals request offset plus returned item count. Byte-bounded pages may
+be shorter than the requested limit. Keep revision fixed across pages and fail
+closed on invalid/non-progress cursors. This fixture is an internal HTTP JSON
+contract, separate from Kafka/protobuf; it does not change registration bounds.
+`contracts:test` also requires generated OutputRegistrationEvent.java and
+output_registration_pb2.py. Never hand-edit generated artifacts.

@@ -94,6 +94,11 @@ class FakeParquetStorage:
             raise FileNotFoundError(path)
         return self.frames[path]
 
+    async def read_bound_dataframe(self, dataset, manifest, approved_version):
+        if manifest.dataVersion != approved_version:
+            raise ManifestInvalidError("Current metadata differs from approved input version")
+        return await self.read_dataframe(manifest.path)
+
     async def write_dataframe(self, path: str, frame: pd.DataFrame) -> None:
         self.writes[path] = frame
         self.frames[path] = frame
@@ -252,6 +257,8 @@ async def test_atomic_signal_with_stale_ready_eod_reports_error_without_outputs(
         atomicWorkId=atomic_work_id(
             "SYNC_SIGNALS", "SYMBOL", "UPCOM-CLI", day, parameters
         ),
+        metadata={"approvedInputs": [{"dataset": "eod", "partition": {"exchange": "upcom", "code": "cli"},
+                                      "dataVersion": "sha256:" + "a" * 64}]},
     )
     storage = FakeParquetStorage(
         {
@@ -268,7 +275,8 @@ async def test_atomic_signal_with_stale_ready_eod_reports_error_without_outputs(
     status = await service.process_payload(raw)
 
     assert status.status.value == "ERROR"
-    assert status.error_message == "Input does not cover business date 2026-10-30"
+    assert "Input does not cover business date 2026-10-30" in status.error_message
+    assert "INPUT_DATE_NOT_COVERED" in status.error_message
     assert status.execution_id == raw["executionId"]
     assert status.work_key == "UPCOM-CLI"
     assert storage.writes == {}

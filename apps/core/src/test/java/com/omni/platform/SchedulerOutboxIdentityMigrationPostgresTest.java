@@ -100,14 +100,14 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         assertThat(flyway(null).migrate().migrationsExecuted).isZero();
         flyway(null).validate();
         assertThat(intentsWithoutForeignKey()).isEqualTo(after);
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("18");
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("22");
         // A separate disposable schema exercises V1 through V18 from an empty install.
         String original = schema;
         var originalSource = dataSource;
         try {
             schema = "i7_" + UUID.randomUUID().toString().replace("-", "");
             dataSource = source(schema);
-            assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(18);
+            assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(22);
             assertThat(
                             new JdbcTemplate(dataSource)
                                     .queryForObject(
@@ -347,7 +347,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                                                                 "spring.datasource.url",
                                                                 dataSource.getUrl()))))) {
             assertThat(application.getBean(Flyway.class).info().current().getVersion().toString())
-                    .isEqualTo("18");
+                    .isEqualTo("22");
             var outbox = application.getBean(SchedulerOutboxService.class);
             var store = application.getBean(JobRunDispatchStore.class);
             var approved = Map.of(DatasetRef.of("eod", Map.of("exchange", "HOSE")), "v1");
@@ -617,7 +617,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                 jdbc.queryForObject(
                         "SELECT jsonb_agg(to_jsonb(d) ORDER BY id)::text FROM job_definitions d",
                         String.class);
-        assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(6);
         for (var entry : before.entrySet()) {
             assertThat(
                             jdbc.queryForObject(

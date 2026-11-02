@@ -4,10 +4,10 @@ Owner revision (2026-11-02): immutable output snapshots are approved within I10;
 additional durable worker publication recovery is deferred. No recovery journal,
 new writer service, batching or concurrency activation. Existing duplicate safety,
 durable Platform completion correlation and failure/late-attempt guards remain.
-Snapshot source is opt-in/NOT RUN; worker registration and READY/readers remain open.
+Snapshot/registration/READY integration has opt-in source; local and runtime gates remain open.
 See [current scope and matrix](../reference/005-p14-i10-completion-watchdog-handoff.md).
 
-I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](../reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 I10 implementation started (2026-11-01): shadow registration contract/inbox source is present, NOT RUN. See [checkpoint and remaining acceptance](../reference/004-p14-i10-registration-checkpoint.md). Current increment is `in_progress`; I10.a is incomplete and readiness/watchdog remain planned. Earlier pending statements below are dated baseline history.
 
@@ -1374,7 +1374,7 @@ writer contracts, relevant links and introduced claims. Graph tools are unavaila
 no graph impact/change-detection PASS, executable test/lint/build/format,
 numeric coverage, CI, deployment or increment completion is claimed by this audit.
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 and I9 are locally completed with source-bound acceptance, coverage and rollback evidence; I10 is pending. Preparation remains disabled; no retained rollout or deployment is claimed.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 and I9 are locally completed with source-bound acceptance, coverage and rollback evidence; I10 is in_progress. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 

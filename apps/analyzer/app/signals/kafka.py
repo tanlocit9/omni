@@ -15,6 +15,7 @@ from py_common.messaging import (
     utc_now,
 )
 from py_common.messaging.atomic_work import carry_work_status
+from py_common.messaging.output_publication import capture_output_publication
 from pydantic import ValidationError
 
 from app.settings import AppSettings
@@ -62,7 +63,9 @@ class SignalKafkaService(JobStatusKafkaService):
 
         try:
             message = SignalJobMessage.model_validate(raw)
-            transition = await self._handler.handle(raw)
+            with capture_output_publication(raw, getattr(self._settings, "output_snapshots_enabled", False) is True) as publication:
+                transition = await self._handler.handle(raw)
+                await publication.publish(self._producer)
             status = self._build_status(message, started_at, utc_now(), transition)
             status = carry_work_status(status, raw)
             await self.publish_status(status)

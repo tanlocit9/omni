@@ -31,6 +31,11 @@ public class CachedManifestReader implements ManifestReader {
     private final ManifestReader delegate;
     private final Cache<DatasetRef, Optional<DatasetManifest>> cache;
 
+    @Override
+    public boolean coversDate(DatasetRef ref, String version, java.time.LocalDate day) {
+        return delegate.coversDate(ref, version, day);
+    }
+
     /**
      * Create a cached reader with default TTL (60s) and max size (500).
      */

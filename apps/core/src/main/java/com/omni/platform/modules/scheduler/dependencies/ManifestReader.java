@@ -31,6 +31,11 @@ public interface ManifestReader {
      */
     Optional<DatasetManifest> readManifest(DatasetRef datasetRef) throws ManifestReadException;
 
+    /** Exact coverage for the SAME approved version; min/max timestamps are insufficient. */
+    default boolean coversDate(DatasetRef ref, String version, java.time.LocalDate day) {
+        return false;
+    }
+
     /**
      * Check if a manifest exists without fully parsing it.
      *

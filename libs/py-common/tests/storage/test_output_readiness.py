@@ -1,0 +1,110 @@
+import httpx
+import pytest
+
+from py_common.storage.exceptions import ManifestInvalidError
+from py_common.storage.output_readiness import PostgresMetadataReader, ShadowMetadataReader
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
+def page(revision=1):
+    return {"revision": revision, "hasMore": False, "items": [{"dataset": "eod", "manifest": {
+        "values": {"exchange": "upcom", "code": "hd6"}, "status": "READY",
+        "path": "_output-snapshots/eod/partition/version.parquet", "canonicalPath": "eod/upcom/hd6.parquet",
+        "dataVersion": "sha256:" + "a" * 64, "schemaVersion": 1, "schemaHash": "sha256:" + "b" * 64,
+        "objectCount": 1, "totalBytes": 128, "rowCount": 2, "columnCount": 1,
+        "columns": [{"name": "date", "type": "DATE", "nullable": False}], "inputs": [],
+        "coverageDates": ["2026-10-30", "2026-11-02"], "generatedAt": "2026-11-02T12:00:00Z",
+        "sourceExecutionId": None,
+    }}]}
+
+
+@pytest.mark.anyio
+async def test_ready_api_preserves_snapshot_coverage_and_unknown_provenance():
+    def respond(request):
+        assert request.headers["Authorization"] == "Bearer test-token"
+        return httpx.Response(200, json=page())
+    reader = PostgresMetadataReader("http://platform/api/v1/jobs/output-readiness", "test-token",
+                                    transport=httpx.MockTransport(respond))
+    manifest = (await reader.read()).resolve("eod", {"exchange": "upcom", "code": "hd6"})
+    assert manifest.canonicalPath == "eod/upcom/hd6.parquet"
+    assert manifest.sourceExecutionId is None
+    assert manifest.coverageDates == ["2026-10-30", "2026-11-02"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("status", [401, 409, 500])
+async def test_api_errors_fail_closed_without_manifest_fallback(status):
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(status)))
+    with pytest.raises(ManifestInvalidError, match="no manifest fallback"):
+        await reader.read()
+
+
+@pytest.mark.anyio
+async def test_catalog_revision_cannot_change_across_pages():
+    def respond(request):
+        result = page(1 if request.url.params["offset"] == "0" else 2)
+        result["hasMore"] = request.url.params["offset"] == "0"
+        return httpx.Response(200, json=result)
+    reader = PostgresMetadataReader("http://platform/readiness", "test-token", transport=httpx.MockTransport(respond))
+    with pytest.raises(ManifestInvalidError, match="Inconsistent readiness revision"):
+        await reader.read()
+
+
+@pytest.mark.anyio
+async def test_shadow_mismatch_keeps_manifest_authority_explicitly():
+    from unittest.mock import AsyncMock
+    from py_common.storage.global_metadata import GlobalMetadataDocument
+    manifest = GlobalMetadataDocument(1, "2026-11-02T12:00:00Z", [])
+    baseline = AsyncMock(read=AsyncMock(return_value=manifest))
+    unavailable = AsyncMock(read=AsyncMock(side_effect=ManifestInvalidError("unavailable")))
+    reader = ShadowMetadataReader(baseline, unavailable)
+    assert await reader.read() is manifest
+    assert reader.last_comparison == {"compared": False, "matches": False, "reason": "POSTGRES_UNAVAILABLE"}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("change",["revision","items","more","coverage","identity","unknown-dataset","json"])
+async def test_malformed_provider_data_cannot_grant_ready(change):
+    payload=page()
+    if change=="revision": payload["revision"]="1"
+    elif change=="items": payload["items"]={}
+    elif change=="more": payload["hasMore"]=1
+    elif change=="coverage": payload["items"][0]["manifest"]["coverageDates"]=[]
+    elif change=="identity": payload["items"][0]["manifest"].pop("canonicalPath")
+    elif change=="unknown-dataset": payload["items"][0]["dataset"]="unknown"
+    def respond(request):
+        return httpx.Response(200,content=b"not json") if change=="json" else httpx.Response(200,json=payload)
+    reader=PostgresMetadataReader("http://platform/readiness","test-token",transport=httpx.MockTransport(respond))
+    with pytest.raises(ManifestInvalidError):
+        await reader.read()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("different",[False,True])
+async def test_shadow_compares_exact_versions_and_keeps_legacy_authority(different):
+    from unittest.mock import AsyncMock
+    from dataclasses import replace
+    reader=PostgresMetadataReader("http://platform/readiness","test-token",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200,json=page())))
+    manifest=await reader.read()
+    postgres=manifest
+    if different:
+        eod=manifest.dataset("eod")
+        changed=replace(eod,partitions=[replace(eod.partitions[0],dataVersion="sha256:"+"c"*64)])
+        postgres=replace(manifest,datasets=[changed])
+    shadow=ShadowMetadataReader(AsyncMock(read=AsyncMock(return_value=manifest)),
+                                AsyncMock(read=AsyncMock(return_value=postgres)))
+    assert await shadow.read() is manifest
+    assert shadow.last_comparison["matches"] is (not different)
+    assert shadow.last_comparison["mismatchCount"]==(1 if different else 0)
+
+
+@pytest.mark.parametrize("url,token",[("","secret"),("file:///metadata","secret"),("http://platform","")])
+def test_private_api_configuration_is_required(url,token):
+    with pytest.raises(ValueError,match="authenticated private API"):
+        PostgresMetadataReader(url,token)

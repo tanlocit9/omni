@@ -18,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/v1/jobs/output-registrations")
 public class OutputCompletionDiagnostics {
     private final JdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Value("${app.output-registration.reader-enabled:false}")
+    private boolean postgres;
     public OutputCompletionDiagnostics(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     @GetMapping("/executions/{execution}")
@@ -41,9 +43,11 @@ public class OutputCompletionDiagnostics {
                 ? "COMPLETION_RECONCILIATION_REQUIRED"
                 : row.get("success_received_at") != null ? "PENDING_REGISTRATION" : "PENDING_STATUS";
         row.put("completionState", state);
-        row.put("readinessAuthority", "MANIFEST");
+        row.put("readinessAuthority", postgres ? "POSTGRES" : "MANIFEST");
         // Never imply that registration acceptance validates immutable bytes or grants READY.
-        row.put("datasetReadyEstablished", false);
+        row.put("datasetReadyEstablished", Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM output_ready_pointers p JOIN output_registrations r USING(registration_id) "
+                + "WHERE r.execution_id=?)", Boolean.class, execution)));
         row.put("outbox", jdbc.queryForList("SELECT status,published_at,"
                 + "EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP-published_at)) AS publish_age_seconds "
                 + "FROM scheduler_outbox_messages WHERE execution_id=? ORDER BY message_index LIMIT 32", execution));

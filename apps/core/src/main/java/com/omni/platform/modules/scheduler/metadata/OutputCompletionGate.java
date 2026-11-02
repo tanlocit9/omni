@@ -89,6 +89,12 @@ public class OutputCompletionGate {
                     "SELECT valid_empty_reasons ?? ? FROM output_completion_contracts WHERE execution_id=?",
                     Boolean.class, item.validEmptyReason(), item.executionId())), "Unapproved valid-empty reason");
         } else {
+            for (var output : item.outputs()) {
+                OutputRegistrationEvent.require(output.schemaVersion()==1, "Unsupported enrolled output schema");
+                OutputRegistrationEvent.require(item.jobType().name().equals("EVALUATE_SIGNALS")
+                        || output.coverageDates().contains(item.businessDate()),
+                        "Output does not cover enrolled work date");
+            }
             // JSONB containment in both directions makes declaration ordering irrelevant.
             String required = json.writeValueAsString(item.requiredOutputs());
             OutputRegistrationEvent.require(Boolean.TRUE.equals(jdbc.queryForObject(

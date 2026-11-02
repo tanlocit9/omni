@@ -22,6 +22,10 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 @Component
 public class TrustedOperatorHeaderFilter extends OncePerRequestFilter {
+    @org.springframework.beans.factory.annotation.Value("${app.output-registration.reader-token:}")
+    private String readerToken = "";
+    @org.springframework.beans.factory.annotation.Value("${app.output-registration.reconcile-token:}")
+    private String reconcileToken = "";
     public static final String OPERATOR_HEADER = "X-Omni-User";
 
     @Override
@@ -34,6 +38,21 @@ public class TrustedOperatorHeaderFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String actor = request.getHeader(OPERATOR_HEADER);
+        String authorization = request.getHeader("Authorization");
+        if ("GET".equals(request.getMethod())
+                && "/api/v1/jobs/output-readiness".equals(request.getRequestURI())
+                && !readerToken.isBlank() && authorization != null
+                && java.security.MessageDigest.isEqual(
+                        ("Bearer " + readerToken).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        authorization.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
+            actor = "metadata-reader";
+        }
+        if ("POST".equals(request.getMethod()) && java.util.List.of(
+                "/api/v1/jobs/output-readiness/backfill", "/api/v1/jobs/output-readiness/backfill/fence")
+                .contains(request.getRequestURI()) && !reconcileToken.isBlank() && authorization != null
+                && java.security.MessageDigest.isEqual(
+                        ("Bearer " + reconcileToken).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        authorization.getBytes(java.nio.charset.StandardCharsets.UTF_8))) actor = "metadata-reconciler";
         if (actor == null || actor.isBlank() || actor.trim().length() > 200) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);

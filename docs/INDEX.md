@@ -1,6 +1,6 @@
 # Numbered Documentation Registry
 
-I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
@@ -44,7 +44,8 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | reference/002 | [Planned Field and DTO Impact Inventory](reference/002-planned-field-dto-impact.md) | Design impact reference; not a schedule | Active/deferred reviewed plans | [Plan standard](governance/001-implementation-plan-standard.md), [increment registry](plans/roadmap/implementation-increments.md) |
 | reference/003 | [P14 main source reconciliation](reference/003-p14-main-source-reconciliation.md) | Historical source baseline | P14 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 | reference/004 | [I10 registration checkpoint](reference/004-p14-i10-registration-checkpoint.md) | Source and verification handoff; not a schedule | P14-I10 | [Registry](plans/roadmap/implementation-increments.md) |
-| reference/005 | [I10 completion and watchdog continuation](reference/005-p14-i10-completion-watchdog-handoff.md) | Current source, impact matrix and unresolved gates | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/005 | [I10 completion and watchdog continuation](reference/005-p14-i10-completion-watchdog-handoff.md) | Historical completion/watchdog checkpoint; current source in reference/006 | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/006 | [I10 READY integration](reference/006-p14-i10-ready-integration.md) | Enrollment, READY adapters, baseline decision, checks and cutover gates | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 
 ## Flow References
 

@@ -54,6 +54,10 @@ public class GraphWorkRequestService {
     private final JobService jobs;
     private final boolean enabled;
     private UUID reconcileCursor;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputDeclarations outputDeclarations;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputCompletionGate completionGate;
 
     public GraphWorkRequestService(JdbcTemplate jdbc, EntityManager entities, JsonMapper json,
             JobDefinitionRepository definitions, JobProducerRegistry producers,
@@ -174,13 +178,16 @@ public class GraphWorkRequestService {
     }
 
     private Attempt acquire(GraphWorkExpansion.Work work, Template template, List<UUID> upstream, Instant now) {
+        var requiredOutputs = outputDeclarations == null ? List.<com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.LogicalOutput>of()
+                : outputDeclarations.required(template.message());
         String binding = json.writeValueAsString(upstream.stream().map(UUID::toString).toList());
         var reusable = jdbc.queryForList("SELECT a.id,a.execution_id FROM atomic_work_attempts a "
                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
                 + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
                 + "AND NOT EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
                 + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
-                + "ORDER BY a.created_at DESC,a.id LIMIT 1", work.id(), binding);
+                + "AND (?=false OR EXISTS(SELECT 1 FROM output_completion_contracts c WHERE c.execution_id=e.id)) "
+                + "ORDER BY a.created_at DESC,a.id LIMIT 1", work.id(), binding, !requiredOutputs.isEmpty());
         if (!reusable.isEmpty()) return new Attempt((UUID)reusable.getFirst().get("id"),
                 (UUID)reusable.getFirst().get("execution_id"));
         UUID attemptId = UUID.randomUUID();
@@ -197,7 +204,8 @@ public class GraphWorkRequestService {
         entities.persist(parent); entities.flush();
         var context = new JobRunWorkContext(parent, entities, jdbc, json, 1);
         var child = producers.getProducer(work.jobType()).persistAtomicRunStep(
-                parent, template.message(), template.configuration(), now, context);
+                parent, template.message(), template.configuration(), now, context,
+                requiredOutputs.isEmpty() ? Map.of() : outputDeclarations.metadata(attemptId, requiredOutputs));
         entities.flush();
         jdbc.update("INSERT INTO job_run_step_preparations(job_run_id,step_index,parent_execution_id,child_count,message_count,closed_at) "
                 + "VALUES (?,0,?,1,1,?)", run.id(), parent.getId(), Timestamp.from(now));
@@ -205,6 +213,8 @@ public class GraphWorkRequestService {
                 + "VALUES (?,?,?,?,?,?::jsonb,?)", attemptId, work.id(), run.id(), parent.getId(), child.getId(), binding, Timestamp.from(now));
         for (UUID id : upstream) jdbc.update("INSERT INTO atomic_work_dependencies(attempt_id,upstream_attempt_id) VALUES (?,?)", attemptId, id);
         jdbc.update("UPDATE atomic_work_attempts SET sealed=true WHERE id=?", attemptId);
+        if (!requiredOutputs.isEmpty()) completionGate.enroll(child.getId(), attemptId, requiredOutputs,
+                work.jobType().name().equals("EVALUATE_SIGNALS") ? List.of("OUTPUT_UNCHANGED") : List.of());
         return new Attempt(attemptId, child.getId());
     }
 

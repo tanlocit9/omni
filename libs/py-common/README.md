@@ -1,5 +1,7 @@
 # py-common Library
 
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
 Execution input context uses `messaging.approved_inputs.approved_input_version`.
 `ParquetStorage.read_bound_dataframe` verifies a canonical version against the same
 bytes decoded. These helpers preserve work identity and dataset paths; they do not

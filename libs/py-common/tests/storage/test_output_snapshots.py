@@ -68,6 +68,23 @@ CANONICAL = "eod/hose/hpg.parquet"
 
 
 @pytest.mark.anyio
+async def test_confirmed_snapshot_preserves_exact_component_versions_after_parquet_roundtrip():
+    parquet = storage(MemoryPorts())
+    partition = {"exchange": "hose", "timeframe": "1d", "strategy": "confirmed_trend_equals"}
+    reference = {"dataset": "signals", "partition": {**partition, "strategy": "trend_momentum_v1"},
+                 "dataVersion": "sha256:" + "b" * 64}
+    frame = pd.DataFrame({"signal_date": [date(2026, 11, 2)], "symbol_key": ["HOSE-HPG"],
+                          "eod_data_version": ["sha256:" + "a" * 64],
+                          "input_versions": [{"registeredComponents": [reference]}]})
+    identity = OutputSnapshotIdentity("signals", partition)
+    written = await parquet.write_dataframe("signals/confirmed_trend_equals/1d/hose.parquet", frame,
+                                             snapshot_identity=identity)
+    assert {(i.dataset, i.dataVersion) for i in written.snapshot.inputs} == {
+        ("eod", "sha256:" + "a" * 64), ("signals", "sha256:" + "b" * 64)}
+    await parquet.read_output_snapshot(identity, written.snapshot)
+
+
+@pytest.mark.anyio
 async def test_late_mutable_write_cannot_change_an_addressed_old_snapshot():
     ports = MemoryPorts()
     parquet = storage(ports)

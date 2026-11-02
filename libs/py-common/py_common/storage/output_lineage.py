@@ -44,6 +44,23 @@ def extract_output_lineage(
                 **partition,
             }
             candidates = [("eod", partition, row.get("eod_data_version"))]
+            versions = row.get("input_versions")
+            if isinstance(versions, dict) and versions.get("registeredComponents") is not None:
+                references = versions["registeredComponents"]
+                if not isinstance(references, (list, tuple)):
+                    # Arrow may materialize list-of-struct values as numpy arrays.
+                    references = references.tolist() if hasattr(references, "tolist") else None
+                if references is None:
+                    raise ManifestInvalidError("Invalid persisted signal component provenance")
+                for reference in references:
+                    if not isinstance(reference, dict) or reference.get("dataset") != "signals":
+                        raise ManifestInvalidError("Invalid persisted signal component provenance")
+                    component_partition = reference.get("partition")
+                    if not isinstance(component_partition, dict) or component_partition.get("exchange") != values["exchange"] \
+                            or component_partition.get("timeframe") != values["timeframe"] \
+                            or component_partition.get("strategy") not in {"trend_momentum_v1", "ichimoku_v1"}:
+                        raise ManifestInvalidError("Signal component provenance differs from logical partition")
+                    candidates.append(("signals", component_partition, reference.get("dataVersion")))
             if str(values.get("strategy", "")).upper() != "CONFIRMED_TREND_EQUALS":
                 candidates.append(
                     (

@@ -84,7 +84,7 @@ class GraphWorkRequestsPostgresTest {
     @BeforeEach
     void reset() {
         jdbc.execute(
-                "TRUNCATE job_runs,job_execution_histories,symbols,atomic_work_slots,job_definition_consolidations,output_registration_events CASCADE");
+                "TRUNCATE job_runs,job_execution_histories,symbols,atomic_work_slots,job_definition_consolidations,output_registration_events,output_ready_baselines CASCADE");
         jdbc.update(
                 "UPDATE job_definitions SET is_active=true,schedule_enabled=true,canonical_definition_id=NULL,"
                         + "claim_token=NULL,claimed_by=NULL,claimed_at=NULL,claim_until=NULL,next_run='2035-02-01'");
@@ -106,6 +106,8 @@ class GraphWorkRequestsPostgresTest {
     JobDefinition target(JobType type) {
         return definitions.findAll().stream()
                 .filter(d -> d.getJobType() == type)
+                .filter(d -> type != JobType.SYNC_STOCK_PRICE || com.omni.platform.modules.scheduler.constants.JobConfigMapper
+                        .toStockPriceConfig(d.getConfigJson()).filters().sectorCodes().contains(JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()))
                 .findFirst()
                 .orElseThrow();
     }
@@ -1198,8 +1200,9 @@ class GraphWorkRequestsPostgresTest {
     void outputRegistrationShadowIsAtomicIdempotentAndCannotChangeExecutionReadiness() {
         prepare(target(JobType.SYNC_STOCK_PRICE), "registration-shadow");
         var row = jdbc.queryForMap("SELECT a.id,a.execution_id,a.work_id,e.meta_json::text AS metadata "
-                + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id LIMIT 1");
-        var mapper = context.getBean(JsonMapper.class);
+                + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_STOCK_PRICE' LIMIT 1");
+        var mapper = context.getBean("jsonMapper", JsonMapper.class);
         Map<String,Object> metadata = mapper.readValue(row.get("metadata").toString(), Map.class);
         Map<String,Object> expansion = (Map<String,Object>) metadata.get("workExpansion");
         var item = new java.util.LinkedHashMap<String,Object>();
@@ -1258,8 +1261,9 @@ class GraphWorkRequestsPostgresTest {
     private CompletionFixture completionFixture(String key, boolean empty) {
         prepare(target(JobType.SYNC_STOCK_PRICE), key);
         var row = jdbc.queryForMap("SELECT a.id,a.execution_id,a.work_id,e.parent_log_id,e.job_id,e.meta_json::text AS metadata "
-                + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id LIMIT 1");
-        var mapper = context.getBean(JsonMapper.class);
+                + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_STOCK_PRICE' LIMIT 1");
+        var mapper = context.getBean("jsonMapper", JsonMapper.class);
         Map<String,Object> metadata = mapper.readValue(row.get("metadata").toString(), Map.class);
         Map<String,Object> expansion = (Map<String,Object>) metadata.get("workExpansion");
         var logical = new com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.LogicalOutput(
@@ -1389,7 +1393,7 @@ class GraphWorkRequestsPostgresTest {
         var jobs = context.getBean(JobService.class);
         jobs.applyStatus(f.status());
         var watchdog = new com.omni.platform.modules.scheduler.metadata.ExecutionTimeoutWatchdog(jdbc,
-                context.getBean(JsonMapper.class), jobs, context.getBean(PlatformTransactionManager.class),
+                context.getBean("jsonMapper", JsonMapper.class), jobs, context.getBean(PlatformTransactionManager.class),
                 Duration.ofMinutes(30), 120000, 10);
         assertThat(watchdog.scan(NOW.plus(Duration.ofDays(1)))).isZero(); // Unpublished WAITING is excluded.
         jdbc.update("UPDATE scheduler_outbox_messages SET status='PUBLISHED',published_at=? WHERE execution_id=?",
@@ -1404,6 +1408,64 @@ class GraphWorkRequestsPostgresTest {
         assertThat(completionState(f.execution())).isEqualTo("FAILED");
         assertThat(jdbc.queryForObject("SELECT ownership_state FROM output_attempt_timeouts WHERE execution_id=?",
                 String.class, f.execution())).isEqualTo("UNCERTAIN");
+    }
+
+    @Test
+    void productionEnrollmentFreezesIdsBeforeOutboxCanDispatch() {
+        var original = context.getBean(com.omni.platform.modules.scheduler.metadata.OutputDeclarations.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(graph, "outputDeclarations",
+                new com.omni.platform.modules.scheduler.metadata.OutputDeclarations(true,true));
+        try {
+            prepare(target(JobType.SYNC_STOCK_PRICE), "enrolled-production");
+            assertThat(count("output_completion_contracts")).isEqualTo(1);
+            var row=jdbc.queryForMap("SELECT o.payload::jsonb->'metadata'->'outputCompletion' AS declaration,o.status,c.atomic_attempt_id "
+                    + "FROM scheduler_outbox_messages o JOIN output_completion_contracts c ON c.execution_id=o.execution_id");
+            assertThat(row.get("declaration").toString()).contains("eventId","registrationId",row.get("atomic_attempt_id").toString());
+            assertThat(row.get("status")).isEqualTo("PENDING");
+            var first=jdbc.queryForObject("SELECT execution_id FROM output_completion_contracts",UUID.class);
+            var admission=new com.omni.platform.modules.scheduler.metadata.OutputWriteAdmission(jdbc,true);
+            assertThat(admission.waiting(first)).isFalse();
+            var other=jdbc.queryForMap("SELECT a.id,a.execution_id FROM atomic_work_attempts a "
+                    + "WHERE a.execution_id<>? LIMIT 1",first);
+            var logical=new com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.LogicalOutput("eod",Map.of("exchange","hose","code","aaa"));
+            context.getBean(com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class).enroll(
+                    (UUID)other.get("execution_id"),(UUID)other.get("id"),List.of(logical),List.of());
+            assertThat(admission.waiting((UUID)other.get("execution_id"))).isTrue();
+            jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id=?",first);
+            assertThat(admission.waiting((UUID)other.get("execution_id"))).isFalse();
+            jdbc.update("INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
+                    first,java.sql.Timestamp.from(NOW),java.sql.Timestamp.from(NOW.plusSeconds(1800)));
+            assertThat(admission.waiting((UUID)other.get("execution_id"))).isTrue();
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(graph, "outputDeclarations", original);
+        }
+    }
+
+    @Test
+    void baselineHasNullProvenanceAndCannotReplaceRegisteredReady() {
+        var mapper=context.getBean("jsonMapper", JsonMapper.class);
+        var backfill=context.getBean(com.omni.platform.modules.scheduler.metadata.OutputBackfillService.class);
+        var provider=context.getBean(com.omni.platform.modules.scheduler.metadata.OutputReadinessProvider.class);
+        var partition=Map.of("exchange","hose","code","aaa");
+        var output=new com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.Output("eod",partition,
+                "sha256:"+"c".repeat(64),List.of(java.time.LocalDate.of(2035,1,2)),1,128,1,"sha256:"+"b".repeat(64),
+                List.of(new com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.Column("date","DATE",false)),List.of());
+        long fence=backfill.begin();
+        backfill.commit(new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(fence,UUID.randomUUID(),output));
+        var ref=com.omni.platform.modules.scheduler.dependencies.DatasetRef.of("eod",partition);
+        assertThat(provider.readManifest(ref).orElseThrow().sourceExecutionId()).isNull();
+        assertThat(provider.coversDate(ref,output.dataVersion(),java.time.LocalDate.of(2035,1,2))).isTrue();
+        assertThat(provider.coversDate(ref,output.dataVersion(),java.time.LocalDate.of(2035,1,3))).isFalse();
+        var f=completionFixture("baseline-precedence",false);
+        assertThatThrownBy(() -> backfill.commit(new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(
+                fence,UUID.randomUUID(),output))).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("generation changed");
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class).accept(f.event());
+        context.getBean(JobService.class).applyStatus(f.status());
+        var promotion=new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(jdbc,true,true);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(f.execution()));
+        assertThat(provider.readManifest(ref).orElseThrow().sourceExecutionId()).isEqualTo(f.execution().toString());
+        backfill.commit(new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(backfill.begin(),UUID.randomUUID(),output));
+        assertThat(provider.readManifest(ref).orElseThrow().dataVersion()).isEqualTo("sha256:"+"a".repeat(64));
     }
 
     private void releaseLease(SchedulerClaim lease) {

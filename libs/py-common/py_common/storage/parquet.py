@@ -236,7 +236,8 @@ class ParquetStorage:
         frame = await asyncio.to_thread(ParquetCodec.decode, data)
         if calculate_schema_hash(extract_schema_from_dataframe(frame)) != manifest.schemaHash:
             raise ManifestInvalidError("Parquet schema differs from approved input schema")
-        actual_inputs = extract_output_lineage(dataset, frame, manifest.values)
+        actual_inputs = extract_output_lineage(dataset, frame, manifest.values,
+                                               require_complete_components=bool(getattr(manifest, "canonicalPath", None)))
         identity = lambda item: (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion)
         if {identity(item) for item in actual_inputs} != {identity(item) for item in manifest.inputs}:
             raise ManifestInvalidError("Parquet lineage differs from approved input lineage")
@@ -353,7 +354,7 @@ class ParquetStorage:
         if frame.empty:
             raise ManifestInvalidError("Cannot publish an empty output snapshot")
         columns = extract_schema_from_dataframe(frame)
-        lineage = extract_output_lineage(identity.dataset, frame, identity.partition)
+        lineage = extract_output_lineage(identity.dataset, frame, identity.partition, require_complete_components=True)
         return await self._snapshot_store.publish(
             identity=identity, canonical_object_name=canonical_object_name, data=data,
             schema_hash=calculate_schema_hash(columns),
@@ -368,7 +369,8 @@ class ParquetStorage:
         if calculate_schema_hash(extract_schema_from_dataframe(frame)) != snapshot.schema_hash:
             raise ManifestInvalidError("Snapshot schema differs from its registered schema")
         lineage = tuple(DatasetInput(item.dataset, item.partition, item.dataVersion)
-                        for item in extract_output_lineage(identity.dataset, frame, identity.partition))
+                        for item in extract_output_lineage(identity.dataset, frame, identity.partition,
+                                                            require_complete_components=True))
         if set((item.dataset, tuple(sorted(item.partition.items())), item.dataVersion) for item in lineage) != set(
             (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion) for item in snapshot.inputs
         ):

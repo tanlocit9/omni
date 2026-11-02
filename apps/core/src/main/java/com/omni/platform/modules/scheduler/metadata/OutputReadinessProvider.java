@@ -23,6 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Snapshot-backed reads only. No manifest fallback and no mutable physical paths. */
 @Service
 public class OutputReadinessProvider {
+    public static final int MAX_PAGE_BYTES = 4 * 1024 * 1024;
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
     private final Environment environment;
@@ -68,6 +69,7 @@ public class OutputReadinessProvider {
                 + "ORDER BY p.dataset,p.partition_values::text LIMIT ? OFFSET ?",
                 limit + 1, offset);
         List<Map<String, Object>> items = new ArrayList<>();
+        int pageBytes = 1024; // Reserve the bounded revision/cursor/envelope overhead.
         for (var row : rows.stream().limit(limit).toList()) {
             var output = json.readValue(row.get("payload").toString(), OutputRegistrationEvent.Output.class);
             Map<String, Object> manifest = new LinkedHashMap<>();
@@ -81,9 +83,19 @@ public class OutputReadinessProvider {
             manifest.put("minTimestamp", timestampBound(output,false)); manifest.put("maxTimestamp", timestampBound(output,true));
             manifest.put("generatedAt", ((java.sql.Timestamp)row.get("promoted_at")).toInstant().toString());
             manifest.put("sourceExecutionId", row.get("execution_id") == null ? null : row.get("execution_id").toString());
-            items.add(Map.of("dataset", output.dataset(), "manifest", manifest));
+            Map<String, Object> item = Map.of("dataset", output.dataset(), "manifest", manifest);
+            int itemBytes = json.writeValueAsBytes(item).length + 1;
+            if (pageBytes + itemBytes > MAX_PAGE_BYTES) {
+                if (items.isEmpty()) throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE,
+                        "One READY item exceeds the page byte limit");
+                break;
+            }
+            items.add(item);
+            pageBytes += itemBytes;
         }
-        return Map.of("revision", current, "items", items, "hasMore", rows.size() > limit);
+        return Map.of("revision", current, "items", items, "hasMore", rows.size() > items.size(),
+                "nextOffset", offset + items.size());
     }
 
     private String canonicalPath(OutputRegistrationEvent.Output output) {
@@ -105,10 +117,15 @@ public class OutputReadinessProvider {
 
     private String snapshotPath(OutputRegistrationEvent.Output output) {
         try {
+            String pattern = environment.getProperty("stock-data.paths.output-snapshots.pattern",
+                    "{dataset}/{partition_hash}/{data_version}.parquet");
+            if (List.of("dataset", "partition_hash", "data_version").stream()
+                    .anyMatch(field -> !pattern.contains("{" + field + "}")))
+                throw new IllegalArgumentException("Snapshot layout must include dataset, partition_hash and data_version");
             String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(
                     WorkExpansion.canonical(output.partition()).getBytes(StandardCharsets.UTF_8)));
             return render(environment.getProperty("stock-data.paths.output-snapshots.base", "_output-snapshots/")
-                    + environment.getProperty("stock-data.paths.output-snapshots.pattern", "{dataset}/{partition_hash}/{data_version}.parquet"),
+                    + pattern,
                     Map.of("dataset", output.dataset(), "partition_hash", hash, "data_version", output.dataVersion().substring(7)));
         } catch (java.security.NoSuchAlgorithmException exception) { throw new IllegalStateException(exception); }
     }

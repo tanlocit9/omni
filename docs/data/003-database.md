@@ -21,7 +21,7 @@ are sample-only and READY/worker timing remain unknown. See
 I10 trace preparation only: meta_json.workIdentity/workExpansion.atomicWorkId map to canonical atomicWorkId; atomicAttemptId reuses existing graph attempt identity. Reserve optional structured meta_json.traceContext without assuming current stringifying merges preserve objects. Query Service query_id/data_versions are separate SQLite state; future per-query trace/provenance storage needs its own explicit extension, not a claimed existing Platform column.
 See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
 
-Planned P14-I10 adds a Platform-owned registration inbox, output version/work-date coverage and completion correlation through forward migrations. A new Kafka array consumer performs bounded transactional upserts; workers never connect directly. PostgreSQL becomes readiness authority only after backfill, shadow comparison and reader cutover. No I10 tables or migrations exist from this plan update.
+Historical planning baseline (2026-10-30; superseded by the current source handoff above): P14-I10 adds a Platform-owned registration inbox, output version/work-date coverage and completion correlation through forward migrations. A new Kafka array consumer performs bounded transactional upserts; workers never connect directly. PostgreSQL becomes readiness authority only after backfill, shadow comparison and reader cutover. No I10 tables or migrations exist from this plan update.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
 Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.

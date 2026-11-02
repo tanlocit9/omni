@@ -1,5 +1,18 @@
 # Indicator and Signal Flow
 
+## I10 opt-in output publication
+
+Enrolled indicator/signal/outcome workers capture validated immutable snapshots and
+ACK registration before SUCCESS; Platform commits READY only after completion
+correlation. Inputs retain exact approved versions and actual-date coverage.
+Signal work cannot use another symbol's row to claim its own day. Confirmed-signal
+snapshots require both persisted component versions per row; historical unknown
+provenance remains excluded from snapshot backfill. Outcome updates
+retain signal origin dates T, without inventing coverage for evaluation day D;
+explicit OUTPUT_UNCHANGED grants no new pointer. Shared signal-history writer
+constraints remain unchanged. Default readers still use manifests until coordinated
+cutover. See [current source, tests and deferred recovery](../reference/006-p14-i10-ready-integration.md).
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

@@ -1,5 +1,14 @@
 # Stock Sync Flow
 
+## I10 opt-in output publication
+
+For enrolled EOD attempts, the Ingestor writes and validates an immutable snapshot,
+then awaits output-registration Kafka acknowledgement before publishing SUCCESS.
+Platform correlates registration with terminal status and commits READY last.
+ACK/snapshot/date failure follows ERROR and preserves the previous READY pointer;
+missing EOD on the exact work date never means no-trade. Manifest authority remains
+the default until coordinated cutover. See [current source and paired contracts](../reference/006-p14-i10-ready-integration.md).
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

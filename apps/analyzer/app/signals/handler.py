@@ -51,7 +51,9 @@ class SignalJobHandler:
         self._parquet_storage = parquet_storage
         self._metadata_reader = metadata_reader
         self._intraday_resolver = intraday_resolver
-        self._signal_repository = SignalHistoryRepository(parquet_storage)
+        self._signal_repository = SignalHistoryRepository(
+            parquet_storage, snapshots_enabled=getattr(settings, "output_snapshots_enabled", False) is True
+        )
 
     async def handle(self, payload: dict[str, Any]) -> SignalTransition:
         message = SignalJobMessage.model_validate(payload)

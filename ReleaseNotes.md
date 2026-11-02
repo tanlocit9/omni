@@ -1,5 +1,23 @@
 # Omni Release Notes
 
+## 2026-11-02 - Owner-approved immutable snapshots, recovery deferred
+
+Add configured immutable output byte snapshots within existing EOD/indicator/signal workers, disabled by default. Snapshot publication and reading validate exact bytes, canonical version, schema and persisted lineage; publication failure preserves the prior canonical bytes before replacement. Signal replacement snapshots use final identity rather than staging paths. Reuse shared lineage extraction. No READY pointer, recovery journal/service, automatic repair or P12 activation. Source regression cases added; all checks NOT RUN pending verification-command approval. I10 remains in_progress with registration/READY-reader integration open. See [scope revision and matrix](docs/reference/005-p14-i10-completion-watchdog-handoff.md).
+
+## 2026-11-02 - Continue I10 completion and watchdog source
+
+Reproduce the tracked dc424b7 registration checkpoint on the local 4cc0011 baseline. Add a new candidate V20 with server-owned completion contracts, durable first-SUCCESS correlation, normalized output/date evidence and immutable timeout evidence. Serialize status/registration/timeout on execution locks, add opt-in bounded watchdog and authenticated completion diagnostics, and tighten paired JSON validation. Focused regression source added; all verification NOT RUN. Original uncommitted V20 was unavailable, so reconcile migration identity before any retained upgrade. Worker publication/recovery, PostgreSQL READY/provider/readers and reconciliation remain missing; I10 stays in_progress. No flags/deployment or I11/P12 activation. See [current source and blockers](docs/reference/005-p14-i10-completion-watchdog-handoff.md).
+
+## 2026-11-01 - Start I10 shadow registration checkpoint
+
+Add paired JSON adapters, canonical schema/shared fixture, shared acknowledged publisher seam, V19 immutable shadow inbox and an opt-in Platform consumer with unlimited retry rather than record discard. Tests are source only, NOT RUN. Worker handlers, durable SUCCESS correlation, READY pointers, reader cutover, watchdog and reconciliation remain open. No flags or runtime services were activated. See [checkpoint](docs/reference/004-p14-i10-registration-checkpoint.md).
+
+## 2026-11-01 ? Reconcile P14 I10 and unconfirmed I11 against main
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
+Documentation only; no runtime changes or executed verification. Historical evidence is preserved.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

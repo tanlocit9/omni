@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 from py_common.storage.exceptions import StorageObjectNotFoundError
 from py_common.storage.parquet import ParquetStorage, ParquetWriteResult
+from py_common.storage.output_snapshots import OutputSnapshotIdentity
 
 from app.signals.strategy import MarketSignal, SignalResult
 
@@ -102,9 +103,10 @@ class SignalHistoryRepository:
     processes must not mutate the same history path concurrently.
     """
 
-    def __init__(self, parquet_storage: ParquetStorage) -> None:
+    def __init__(self, parquet_storage: ParquetStorage, *, snapshots_enabled: bool = False) -> None:
         self._parquet_storage = parquet_storage
         self._locks = _SIGNAL_HISTORY_LOCKS
+        self._snapshots_enabled = snapshots_enabled
 
     async def persist_transition(
         self,
@@ -349,10 +351,20 @@ class SignalHistoryRepository:
     async def _replace_history(
         self, path: str, frame: pd.DataFrame
     ) -> ParquetWriteResult:
+        snapshot_options = {}
+        if self._snapshots_enabled:
+            partition = {}
+            for key in ("strategy", "timeframe", "exchange"):
+                values = frame[key].dropna().astype(str).str.lower().unique()
+                if len(values) != 1 or frame[key].isna().any():
+                    raise ValueError("Snapshot signal history must have one complete logical partition")
+                partition[key] = values[0]
+            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity("signals", partition)
         return await self._parquet_storage.replace_dataframe(
             path,
             self._sort_history(self._ensure_schema(frame)),
             validate=self._validate_history_frame,
+            **snapshot_options,
         )
 
     def _upsert_signal_row(

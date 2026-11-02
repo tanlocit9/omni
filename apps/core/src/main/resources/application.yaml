@@ -27,6 +27,12 @@ spring:
       auto-offset-reset: earliest
 
 app:
+  output-registration:
+    shadow-enabled: ${APP_OUTPUT_REGISTRATION_SHADOW_ENABLED:false}
+    watchdog-enabled: ${APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED:false}
+    watchdog-delay-ms: ${APP_OUTPUT_REGISTRATION_WATCHDOG_DELAY_MS:120000}
+    watchdog-batch-size: ${APP_OUTPUT_REGISTRATION_WATCHDOG_BATCH_SIZE:100}
+    timeout: ${APP_OUTPUT_REGISTRATION_TIMEOUT:PT30M}
   analyzer:
     base-url: ${ANALYZER_BASE_URL:http://localhost:8000}
     connect-timeout: ${ANALYZER_CONNECT_TIMEOUT:PT2S}

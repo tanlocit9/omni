@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package omni.contracts.job.v1;
+
+import "google/protobuf/struct.proto";
+
+option java_multiple_files = true;
+option java_package = "com.omni.contracts.job.v1";
+
+// I10 versioned schema; active transport uses the paired JSON adapters.
+// Shadow collection is not READY. No physical object paths are carried here.
+message OutputRegistrationEvent {
+  uint32 schema_version = 1;
+  string event_id = 2;
+  repeated OutputRegistration registrations = 3;
+}
+
+// registration_id is immutable and reused on replay; it is not a work hash.
+message OutputRegistration {
+  string registration_id = 1;
+  string execution_id = 2;
+  string atomic_attempt_id = 3;
+  string atomic_work_id = 4;
+  string job_type = 5;
+  string work_type = 6;
+  string work_key = 7;
+  string business_date = 8;
+  google.protobuf.Struct parameters = 9;
+  repeated RegistrationOutputRef required_outputs = 10;
+  repeated RegisteredOutput outputs = 11;
+  optional string valid_empty_reason = 12;
+}
+
+message RegistrationOutputRef {
+  string dataset = 1;
+  map<string, string> partition = 2;
+}
+
+message RegisteredOutput {
+  string dataset = 1;
+  map<string, string> partition = 2;
+  string data_version = 3;
+  repeated string coverage_dates = 4;
+  int64 row_count = 5;
+  int64 total_bytes = 6;
+  uint32 schema_version = 7;
+  string schema_hash = 8;
+  repeated RegisteredColumn columns = 9;
+  repeated RegisteredInput inputs = 10;
+}
+
+message RegisteredColumn {
+  string name = 1;
+  string type = 2;
+  bool nullable = 3;
+}
+
+message RegisteredInput {
+  string dataset = 1;
+  map<string, string> partition = 2;
+  string data_version = 3;
+}

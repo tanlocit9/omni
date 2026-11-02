@@ -1,5 +1,9 @@
 # Omni Query Service
 
+I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](../../docs/reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Private, read-only server-side query boundary for Omni Console. It resolves
 logical dataset references through canonical `READY` manifests and executes
 bounded SQL with native DuckDB. Object-storage credentials and physical paths

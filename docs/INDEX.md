@@ -1,5 +1,7 @@
 # Numbered Documentation Registry
 
+I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -39,8 +41,10 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | data/003         | [Database](data/003-database.md)                                               | Canonical operational-schema reference  | Pre-roadmap; Group A / Phases 0-1; Group B / Phase 4 | [Job execution](flows/001-job-execution.md), [ADR-007](adr/007-scheduler-claim-and-outbox-boundary.md)                                                    |
 | reference/001    | [Algorithm Feature Catalog](reference/001-algorithm-feature-catalog.md)        | Canonical analytical-feature index      | Pre-roadmap; Groups B-D                              | [Data Lake](data/002-data-lake.md), [Indicator and Signal Flow](flows/003-indicator-signal.md), [Sector Wave Flow](flows/004-sector-wave.md)              |
 | governance/001   | [Implementation Plan Standard](governance/001-implementation-plan-standard.md) | Canonical planning policy               | Groups A-D                                           | [roadmap](plans/roadmap/README.md), [documentation registry](README.md)                                                                                   |
-
 | reference/002 | [Planned Field and DTO Impact Inventory](reference/002-planned-field-dto-impact.md) | Design impact reference; not a schedule | Active/deferred reviewed plans | [Plan standard](governance/001-implementation-plan-standard.md), [increment registry](plans/roadmap/implementation-increments.md) |
+| reference/003 | [P14 main source reconciliation](reference/003-p14-main-source-reconciliation.md) | Historical source baseline | P14 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/004 | [I10 registration checkpoint](reference/004-p14-i10-registration-checkpoint.md) | Source and verification handoff; not a schedule | P14-I10 | [Registry](plans/roadmap/implementation-increments.md) |
+| reference/005 | [I10 completion and watchdog continuation](reference/005-p14-i10-completion-watchdog-handoff.md) | Current source, impact matrix and unresolved gates | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 
 ## Flow References
 

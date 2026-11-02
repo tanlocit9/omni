@@ -1,5 +1,18 @@
 # ADR-008: Platform-owned PostgreSQL Output Readiness via Kafka
 
+Owner amendment (2026-11-02): immutable output byte snapshots are approved inside
+existing workers, with configured physical version addresses and canonical
+logical dataVersion semantics. No new writer service or durable worker recovery
+subsystem is approved; recovery is deferred. Snapshot source is opt-in/NOT RUN;
+this does not establish READY, activate a reader cutover, or prove storage-level
+write exclusion. Durable Platform status/registration correlation remains in scope.
+
+I10 continuation (2026-11-02): **in_progress, NOT RUN**. [New V20 completion/timeout source and open gates](../reference/005-p14-i10-completion-watchdog-handoff.md) supersedes earlier source-state notes below. Status/registration correlation, exact-date evidence, opt-in watchdog and diagnostics have new source; immutable snapshots have opt-in worker source; registration enrollment and PostgreSQL READY/readers remain incomplete. Additional durable worker recovery is owner-deferred. Manifest authority is unchanged; no flags or deployment were activated.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 ## Status
 
 Accepted for the planned P14-I10 target on 2026-10-30; **not implemented**.

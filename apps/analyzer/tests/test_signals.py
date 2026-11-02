@@ -152,6 +152,38 @@ class FakeSettings:
         bootstrap_servers = "localhost:9092"
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_signal_repository_snapshots_use_the_full_logical_partition(enabled):
+    from py_common.storage.output_snapshots import OutputSnapshotIdentity
+
+    class CapturingStorage(FakeParquetStorage):
+        seen = None
+
+        async def replace_dataframe(self, path, frame, **kwargs):
+            self.seen = kwargs.get("snapshot_identity")
+            return await super().replace_dataframe(path, frame, **kwargs)
+
+    storage = CapturingStorage()
+    repository = SignalHistoryRepository(storage, snapshots_enabled=enabled)
+    path = "signals/trend_momentum_v1/1d/hose.parquet"
+    result = calculate_trend_momentum_v1(_eod_frame(), _indicator_frame())
+    await repository.persist_transition(path, path, "HOSE-HPG", "1d", result, exchange="HOSE")
+    assert storage.seen == (OutputSnapshotIdentity(
+        "signals", {"strategy": "trend_momentum_v1", "timeframe": "1d", "exchange": "hose"}
+    ) if enabled else None)
+
+
+@pytest.mark.anyio
+async def test_signal_snapshot_rejects_mixed_partitions_before_storage_mutation():
+    storage = FakeParquetStorage()
+    repository = SignalHistoryRepository(storage, snapshots_enabled=True)
+    mixed = pd.DataFrame({"strategy": ["a", "b"], "timeframe": ["1d", "1d"], "exchange": ["HOSE", "HOSE"]})
+    with pytest.raises(ValueError, match="one complete logical partition"):
+        await repository._replace_history("signals/a/1d/hose.parquet", mixed)
+    assert not storage.replacements
+
+
 class FakeMetadataReader:
     async def read(self):
         return self

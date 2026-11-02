@@ -32,6 +32,7 @@ import com.omni.platform.shared.utils.MetadataUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,9 @@ public class JobService {
     private final SchedulerOutboxService schedulerOutboxService;
     private final NotificationOutboxService notificationOutboxService;
     private final SignalNotificationTemplate signalNotificationTemplate;
+
+    @Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputCompletionGate outputCompletionGate;
 
     @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
     private String schedulerZone;
@@ -428,7 +432,8 @@ public class JobService {
         }
 
         JobExecutionHistory history =
-                jobExecutionHistoryRepository.findById(executionId).orElse(null);
+                (outputCompletionGate == null ? jobExecutionHistoryRepository.findById(executionId)
+                        : jobExecutionHistoryRepository.findByIdForUpdate(executionId)).orElse(null);
         if (history == null) {
             log.warn("Ignoring job status message for unknown execution: {}", executionId);
             return;
@@ -468,6 +473,25 @@ public class JobService {
                         incomingStatus);
             }
             return;
+        }
+
+        validateMessageParentExecutionId(response, history.getParentLogId(), executionId);
+        if (outputCompletionGate != null && outputCompletionGate.enrolled(executionId)) {
+            if (response.parentExecutionId() != null
+                    && !Objects.equals(response.parentExecutionId(),
+                            history.getParentLogId() == null ? null : history.getParentLogId().toString())) {
+                throw new IllegalArgumentException("Enrolled status parent execution mismatch");
+            }
+            if (!Objects.equals(response.jobDefinitionId(), history.getJob().getId().toString())) {
+                throw new IllegalArgumentException("Enrolled status job definition mismatch");
+            }
+        }
+        if (incomingStatus == JobStatus.SUCCESS && outputCompletionGate != null) {
+            if (!outputCompletionGate.allowSuccess(response)) return;
+            if (outputCompletionGate.enrolled(executionId)) {
+                response = outputCompletionGate.pending(executionId);
+                recordsProcessed = resolveRecordsProcessed(response);
+            }
         }
 
         history.setStatus(incomingStatus);

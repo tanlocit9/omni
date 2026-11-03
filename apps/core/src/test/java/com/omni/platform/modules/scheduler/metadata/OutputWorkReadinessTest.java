@@ -41,11 +41,11 @@ class OutputWorkReadinessTest {
     @Test
     void enrollmentCannotFallBackToPartitionWhenFrozenWorkIsMissingOrAmbiguous() {
         when(jdbc.queryForObject(anyString(),eq(Boolean.class),eq(execution))).thenReturn(true);
-        when(jdbc.queryForList(anyString(),eq(execution),anyString(),anyString(),anyString())).thenReturn(List.of());
+        when(jdbc.queryForList(anyString(),eq(execution),anyString(),anyString())).thenReturn(List.of());
         assertThat(service.bind(execution,Map.of(ref,"v1"))).isNull();
         var row=Map.<String,Object>of("atomic_work_id","work:"+"a".repeat(64),
-                "business_date",LocalDate.of(2026,11,3),"atomic_attempt_id",UUID.randomUUID());
-        when(jdbc.queryForList(anyString(),eq(execution),anyString(),anyString(),anyString())).thenReturn(List.of(row,row));
+                "business_date",LocalDate.of(2026,11,3),"atomic_attempt_id",UUID.randomUUID(),"data_version","v1");
+        when(jdbc.queryForList(anyString(),eq(execution),anyString(),anyString())).thenReturn(List.of(row,row));
         assertThat(service.bind(execution,Map.of(ref,"v1"))).isNull();
     }
 
@@ -54,8 +54,8 @@ class OutputWorkReadinessTest {
         when(jdbc.queryForObject(anyString(),eq(Boolean.class),eq(execution))).thenReturn(true);
         var attempt=UUID.randomUUID();
         var work="work:"+"a".repeat(64);
-        when(jdbc.queryForList(anyString(),eq(execution),anyString(),anyString(),anyString())).thenReturn(List.of(
-                Map.of("atomic_work_id",work,"business_date",LocalDate.of(2026,11,3),"atomic_attempt_id",attempt)));
+        when(jdbc.queryForList(anyString(),eq(execution),anyString(),anyString())).thenReturn(List.of(
+                Map.of("atomic_work_id",work,"business_date",LocalDate.of(2026,11,3),"atomic_attempt_id",attempt,"data_version","v1")));
         var result=service.bind(execution,Map.of(ref,"v1"));
         var bound=result.keySet().iterator().next();
         assertThat(bound.approvedInput(result.get(bound))).containsEntry("atomicWorkId",work)

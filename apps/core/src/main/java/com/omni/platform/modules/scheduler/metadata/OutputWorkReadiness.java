@@ -40,24 +40,42 @@ public class OutputWorkReadiness {
         }).toList();
     }
 
+    public boolean enrolled(UUID execution) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM output_completion_contracts WHERE execution_id=?)", Boolean.class, execution));
+    }
+
     @Transactional(readOnly=true)
     public Map<DatasetRef,String> bind(UUID execution, Map<DatasetRef,String> versions) {
         if (!Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT EXISTS(SELECT 1 FROM output_completion_contracts WHERE execution_id=?)", Boolean.class, execution)))
             return versions; // Explicit legacy boundary, never a fallback for enrolled work.
+        Map<DatasetRef,String> references = new LinkedHashMap<>(versions);
+        for (var row : jdbc.queryForList("SELECT DISTINCT expected->>'dataset' AS dataset,(expected->'partition')::text AS partition "
+                + "FROM atomic_work_attempts target JOIN atomic_work_dependencies d ON d.attempt_id=target.id "
+                + "JOIN atomic_work_attempts upstream ON upstream.id=d.upstream_attempt_id "
+                + "JOIN output_completion_contracts declaration ON declaration.execution_id=upstream.execution_id "
+                + "CROSS JOIN LATERAL jsonb_array_elements(declaration.required_outputs) expected WHERE target.execution_id=?", execution))
+            references.put(DatasetRef.of(row.get("dataset").toString(), json.readValue(row.get("partition").toString(), Map.class)), "work-scope");
         Map<DatasetRef,String> bindings = new LinkedHashMap<>();
-        for (var entry : versions.entrySet()) {
+        for (var entry : references.entrySet()) {
             var ref = entry.getKey();
-            var rows = jdbc.queryForList("SELECT p.atomic_work_id,p.business_date,p.atomic_attempt_id "
+            var rows = jdbc.queryForList("SELECT p.atomic_work_id,p.business_date,p.atomic_attempt_id,p.data_version "
                     + "FROM atomic_work_attempts target JOIN atomic_work_dependencies d ON d.attempt_id=target.id "
-                    + "JOIN output_work_ready_catalog p ON p.atomic_attempt_id=d.upstream_attempt_id "
-                    + "WHERE target.execution_id=? AND p.dataset=? AND p.partition_values=?::jsonb AND p.data_version=?",
-                    execution, ref.getDataset(), json.writeValueAsString(ref.getPartition()), entry.getValue());
-            if (rows.size()!=1) return null; // Missing, replaced or ambiguous identity cannot grant READY.
-            var row = rows.getFirst();
-            bindings.put(ref.bindWork(row.get("atomic_work_id").toString(),
+                    + "JOIN atomic_work_attempts upstream ON upstream.id=d.upstream_attempt_id "
+                    + "JOIN output_completion_contracts declaration ON declaration.execution_id=upstream.execution_id "
+                    + "CROSS JOIN LATERAL jsonb_array_elements(declaration.required_outputs) expected "
+                    + "LEFT JOIN output_work_ready_catalog p ON p.atomic_attempt_id=d.upstream_attempt_id "
+                    + "AND p.dataset=expected->>'dataset' AND p.partition_values=expected->'partition' "
+                    + "WHERE target.execution_id=? AND expected->>'dataset'=? AND expected->'partition'=?::jsonb",
+                    execution, ref.getDataset(), json.writeValueAsString(ref.getPartition()));
+            if (rows.isEmpty()) return null; // Every declared dependency needs a frozen READY upstream.
+            for (var row : rows) {
+                if (row.get("atomic_work_id")==null) return null;
+                var bound = ref.bindWork(row.get("atomic_work_id").toString(),
                     java.time.LocalDate.parse(row.get("business_date").toString()),
-                    UUID.fromString(row.get("atomic_attempt_id").toString())), entry.getValue());
+                    UUID.fromString(row.get("atomic_attempt_id").toString()));
+                if (bindings.putIfAbsent(bound, row.get("data_version").toString())!=null) return null;
+            }
         }
         return Map.copyOf(bindings);
     }

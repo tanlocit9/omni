@@ -20,7 +20,7 @@ flowchart TD
     registration --> status["Worker gửi SUCCESS"]
     registration --> completion["I10.a: Platform lưu và đối chiếu cả hai luồng"]
     status --> completion
-    completion --> ready["I10.b: commit READY theo atomicWorkId, attempt và version"]
+    completion --> ready["I10.b: commit READY theo atomicWorkId + row scope + version"]
     ready -.->|"Cho downstream"| admission
     dispatch -.-> watchdog["I10.c: quá hạn published mà chưa hoàn thành"]
     watchdog --> timeout["FAILED; ownership UNCERTAIN; chặn late READY"]
@@ -35,10 +35,12 @@ flowchart TD
    I4 checks predecessor completion, leases/budget and dependency admission. I10.b
    additionally requires the frozen upstream identity/attempt/version, not merely
    a READY file partition. Missing proof defers pending dispatch without rebinding.
-3. Workers validate approved input bytes/schema/date/version before calculation and
+3. Workers validate approved input rows/schema/date/version before calculation and
    validate writes before publishing registration. Broker ACK is transport evidence;
-   it is not Platform commit or READY. Snapshot/ACK/validation failure follows ERROR
+   it is not Platform commit or READY. Write/ACK/validation failure follows ERROR
    and does not grant new READY; prior validated evidence is not silently replaced.
+   Scope is date for EOD/indicators and symbol_key + signal_date for signals;
+   outcome evaluation registers only changed rows with their original dates.
 4. Registration and SUCCESS use separate Kafka streams and may reach Platform in
    either order. Durable correlation, immutable identities and generation/timeout
    guards ensure completion/READY occurs only when all required evidence is committed.
@@ -53,8 +55,9 @@ flowchart TD
 
 The unapplied I10 schema is one
 [V19 migration](../../database/migrations/V19__output_registration_and_work_readiness.sql).
-Partition catalog discovery, full-file fingerprint limitations, retained snapshot
-prerequisites and the missing full worker/API E2E gate remain as described in the
+Row-scoped versions keep other days/symbols independent of the shared Parquet file.
+New enrollment no longer requires whole-file snapshots. Range/historical coverage
+and the missing full worker/API E2E gate remain as described in the
 [current identity handoff](../reference/007-p14-i10-work-identity.md).
 
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream

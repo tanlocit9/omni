@@ -25,6 +25,7 @@ class ResolvedDataset:
     manifest: GlobalPartitionMetadata
     paths: list[str]
     include_filename: bool = False
+    frame: Any = None
 
 
 def create_storage_registry(settings: QueryServiceSettings) -> StorageProviderRegistry:
@@ -56,17 +57,24 @@ class DatasetResolver:
                 raise ValueError(
                     f"Dataset {ref.dataset!r} current version no longer matches request"
                 )
+            frame = None
             if getattr(manifest, "canonicalPath", None) is not None:
                 if self._settings.query_storage_scheme != "s3":
                     raise ValueError("PostgreSQL snapshot authority requires the S3 reader; local-file cutover is not supported")
                 if self._parquet_storage is None:
                     raise ValueError("Snapshot validation is unavailable")
-                await self._parquet_storage.read_bound_dataframe(ref.dataset, manifest, manifest.dataVersion)
+                frame = await self._parquet_storage.read_bound_dataframe(ref.dataset, manifest, manifest.dataVersion)
+                if manifest.workScope or manifest.workProofs:
+                    from py_common.storage.work_rows import select_rows
+                    scopes = [p["workScope"] for p in manifest.workProofs] or [manifest.workScope]
+                    keys = {tuple(sorted(k.items())) for scope in scopes for k in scope["rowKeys"]}
+                    frame = select_rows(ref.dataset, frame, {"rowKeys": [dict(k) for k in sorted(keys)]})
             resolved.append(
                 ResolvedDataset(
                     view_name=ref.view_name,
                     manifest=manifest,
                     paths=[self._physical_path(manifest.path)],
+                    frame=frame,
                 )
             )
         return resolved

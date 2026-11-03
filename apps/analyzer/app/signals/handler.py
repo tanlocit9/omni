@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from py_common.storage.output_readiness import read_input_document
+
 import logging
 from datetime import date
 from dataclasses import replace
 from typing import Any
 
 import pandas as pd
-from py_common.messaging.approved_inputs import approved_input_version
+from py_common.messaging.approved_inputs import approved_manifest_version
 from py_common.storage.atomic_work import cutoff_frame
 from py_common.storage.exceptions import (
     ManifestInvalidError,
@@ -95,7 +97,7 @@ class SignalJobHandler:
             eod_path,
             indicators_path,
         )
-        document = await self._metadata_reader.read()
+        document = await read_input_document(self._metadata_reader, message.metadata)
         eod_manifest = document.resolve("eod", eod_partition)
         if eod_manifest is None or eod_manifest.status != "READY":
             raise ManifestInvalidError("Signal EOD input must have READY metadata")
@@ -183,8 +185,8 @@ class SignalJobHandler:
         )
 
     async def _read_input(self, message, dataset, partition, manifest):
-        approved = approved_input_version(
-            message.metadata, dataset, partition,
+        approved = approved_manifest_version(
+            message.metadata, dataset, partition, manifest,
             required=message.atomic_work_id is not None or "approvedInputs" in message.metadata,
         )
         try:

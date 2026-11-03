@@ -1,5 +1,12 @@
 # Ingestor Service
 
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;

@@ -8,6 +8,7 @@ import pytest
 
 from py_common.messaging.atomic_work import atomic_work_id
 from py_common.messaging.output_publication import capture_output_publication, record_output
+from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.manifest import calculate_schema_hash, extract_schema_from_dataframe
 from py_common.storage.output_snapshots import OutputSnapshotIdentity
 
@@ -40,7 +41,7 @@ async def test_missing_day_never_publishes_registration_or_invents_valid_empty()
     producer = AsyncMock()
     frame = pd.DataFrame({"date": [date(2026, 10, 30)], "close": [10]})
     with capture_output_publication(work(), True) as publication:
-        with pytest.raises(ValueError, match="does not cover work/date"):
+        with pytest.raises(ManifestInvalidError, match="does not cover work/date"):
             record_output(OutputSnapshotIdentity("eod", {"exchange": "upcom", "code": "hd6"}), evidence(frame), frame)
         with pytest.raises(ValueError, match="every required output"):
             await publication.publish(producer)
@@ -58,14 +59,13 @@ async def test_registration_uses_server_ids_and_only_actual_coverage():
     import json
     event = json.loads(producer.send_and_wait.await_args.args[1])
     assert event["eventId"] == raw["metadata"]["outputCompletion"]["eventId"]
-    assert event["registrations"][0]["outputs"][0]["coverageDates"] == ["2026-10-30", "2026-11-02"]
+    assert event["registrations"][0]["outputs"][0]["coverageDates"] == ["2026-11-02"]
     assert "2026-10-31" not in str(event)
 
 
-def test_enrollment_rejects_disabled_snapshots_before_writes():
-    with pytest.raises(ValueError, match="requires immutable snapshots"):
-        with capture_output_publication(work(), False):
-            pytest.fail("Handler must not start")
+def test_enrollment_does_not_require_whole_file_snapshots():
+    with capture_output_publication(work(), False) as publication:
+        assert publication.contract is not None
 
 
 @pytest.mark.anyio
@@ -85,7 +85,7 @@ async def test_registration_ack_failure_propagates_and_context_does_not_leak():
 def test_incomplete_calendar_evidence_cannot_register(dates):
     frame = pd.DataFrame({"close": [10]}) if dates is None else pd.DataFrame({"date": dates})
     with capture_output_publication(work(), True):
-        with pytest.raises(ValueError, match="complete calendar-date coverage"):
+        with pytest.raises(ManifestInvalidError, match="complete calendar-date coverage"):
             record_output(OutputSnapshotIdentity("eod", {"exchange": "upcom", "code": "hd6"}), evidence(frame), frame)
 
 
@@ -145,5 +145,5 @@ def test_signal_day_for_another_symbol_cannot_cover_current_work():
     raw["metadata"]["outputCompletion"]["requiredOutputs"] = [{"dataset": "signals", "partition": partition}]
     frame = pd.DataFrame({"signal_date": [date(2026, 11, 2)], "symbol_key": ["UPCOM-HD7"]})
     with capture_output_publication(raw, True):
-        with pytest.raises(ValueError, match="does not cover work/date"):
+        with pytest.raises(ManifestInvalidError, match="does not cover work/date"):
             record_output(OutputSnapshotIdentity("signals", partition), evidence(frame), frame)

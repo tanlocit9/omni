@@ -85,4 +85,30 @@ class OutputRegistrationEventTest {
                 .isInstanceOf(RuntimeException.class);
         verifyNoInteractions(jdbc);
     }
+    @Test
+    void sharedWorkRowsFixtureMatchesPythonAndRejectsInvalidCoordinates() throws Exception {
+        Path path=Path.of("../../libs/contracts/fixtures/output-registration-work-rows-v1.json");
+        if (!Files.exists(path)) path=Path.of("libs/contracts/fixtures/output-registration-work-rows-v1.json");
+        var raw=json.readTree(Files.readString(path));
+        OutputRegistrationEvent.validateWire(raw);
+        var event=json.treeToValue(raw,OutputRegistrationEvent.class);
+        assertThat(json.readTree(json.writeValueAsString(event))).isEqualTo(raw);
+        for (String change : java.util.List.of("identity","count","coverage","date","coordinate","type")) {
+            var invalid=(tools.jackson.databind.node.ObjectNode) json.readTree(Files.readString(path));
+            var output=(tools.jackson.databind.node.ObjectNode) invalid.get("registrations").get(0).get("outputs").get(0);
+            var scope=(tools.jackson.databind.node.ObjectNode) output.get("workScope");
+            var row=(tools.jackson.databind.node.ObjectNode) scope.get("rowKeys").get(0);
+            switch(change) {
+                case "identity" -> scope.put("atomicWorkId","work:"+"0".repeat(64));
+                case "count" -> output.put("rowCount",2);
+                case "coverage" -> row.put("date","2035-01-03");
+                case "date" -> row.put("date","20350102");
+                case "coordinate" -> row.put("symbol_key","HOSE-VCI");
+                case "type" -> row.put("date",20350102);
+            }
+            assertThatThrownBy(() -> { OutputRegistrationEvent.validateWire(invalid); json.treeToValue(invalid,OutputRegistrationEvent.class); })
+                    .isInstanceOf(RuntimeException.class);
+        }
+    }
+
 }

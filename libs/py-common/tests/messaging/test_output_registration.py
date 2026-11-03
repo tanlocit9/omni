@@ -149,3 +149,23 @@ def test_byte_limit_applies_to_utf8_before_send():
     )
     with pytest.raises(ValueError, match="256 KiB"):
         OutputRegistrationEvent.model_validate(raw).wire_bytes()
+
+
+def test_shared_work_row_scope_fixture_round_trip():
+    path = Path(__file__).resolve().parents[3] / "contracts/fixtures/output-registration-work-rows-v1.json"
+    raw = json.loads(path.read_text())
+    event = OutputRegistrationEvent.model_validate(raw)
+    assert json.loads(event.wire_bytes()) == raw
+    for change in ("identity", "duplicate", "count", "coverage", "date", "keys", "empty"):
+        invalid = deepcopy(raw)
+        output = invalid["registrations"][0]["outputs"][0]
+        scope = output["workScope"]
+        if change=="identity": scope["atomicWorkId"]="work:"+"0"*64
+        if change=="duplicate": scope["rowKeys"]*=2
+        if change=="count": output["rowCount"]=2
+        if change=="coverage": output["coverageDates"]=["2035-01-03"]
+        if change=="date": scope["rowKeys"][0]["date"]="20350102"
+        if change=="keys": scope["rowKeys"][0]["symbol_key"]="HOSE-VCI"
+        if change=="empty": scope["rowKeys"][0]["date"]=""
+        with pytest.raises(ValueError):
+            OutputRegistrationEvent.model_validate(invalid)

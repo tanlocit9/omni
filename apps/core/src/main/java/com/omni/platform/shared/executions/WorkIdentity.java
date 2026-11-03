@@ -2,6 +2,7 @@ package com.omni.platform.shared.executions;
 
 import java.util.Objects;
 
+/** Legacy routing coordinates only. Graph/READY identity is the canonical atomicWorkId including day and parameters. */
 public record WorkIdentity(WorkType type, String key) {
 
     public WorkIdentity {

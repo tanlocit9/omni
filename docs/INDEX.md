@@ -1,5 +1,12 @@
 # Numbered Documentation Registry
 
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Candidate V23 and the private work lookup
+are documented in the [current identity handoff](reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
 I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
@@ -45,7 +52,8 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | reference/003 | [P14 main source reconciliation](reference/003-p14-main-source-reconciliation.md) | Historical source baseline | P14 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 | reference/004 | [I10 registration checkpoint](reference/004-p14-i10-registration-checkpoint.md) | Source and verification handoff; not a schedule | P14-I10 | [Registry](plans/roadmap/implementation-increments.md) |
 | reference/005 | [I10 completion and watchdog continuation](reference/005-p14-i10-completion-watchdog-handoff.md) | Historical completion/watchdog checkpoint; current source in reference/006 | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
-| reference/006 | [I10 READY integration](reference/006-p14-i10-ready-integration.md) | Enrollment, READY adapters, baseline decision, checks and cutover gates | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/006 | [Historical I10 READY integration](reference/006-p14-i10-ready-integration.md) | Snapshot/provider baseline and prior checks; current work identity in reference/007 | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/007 | [I10 canonical work identity](reference/007-p14-i10-work-identity.md) | Current work READY, graph lineage, V23, checks and compatibility boundaries | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 
 ## Flow References
 

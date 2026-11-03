@@ -1464,6 +1464,27 @@ class GraphWorkRequestsPostgresTest {
         var promotion=new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(jdbc,true,true);
         new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(f.execution()));
         assertThat(provider.readManifest(ref).orElseThrow().sourceExecutionId()).isEqualTo(f.execution().toString());
+        var workId=jdbc.queryForObject("SELECT work_id FROM atomic_work_attempts WHERE id=?",String.class,f.attempt());
+        var identities=context.getBean(com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+        assertThat(identities.read(workId)).singleElement().satisfies(item -> {
+            assertThat(item).containsEntry("atomicWorkId",workId).containsEntry("businessDate","2035-01-02")
+                    .containsEntry("atomicAttemptId",f.attempt().toString()).containsEntry("dataVersion","sha256:"+"a".repeat(64));
+        });
+        assertThat(identities.read("work:"+"f".repeat(64))).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_work_ready WHERE atomic_work_id=?",Integer.class,workId)).isEqualTo(1);
+        // A frozen approval whose upstream work/version is unavailable cannot inherit partition READY.
+        String before=jdbc.queryForObject("SELECT meta_json::text FROM job_execution_histories WHERE id=?",String.class,f.execution());
+        var stale=Map.of("dataset","eod","partition",partition,"dataVersion","sha256:"+"f".repeat(64),
+                "atomicWorkId","work:"+"f".repeat(64),"businessDate","2035-01-02","atomicAttemptId",UUID.randomUUID().toString());
+        jdbc.update("UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{approvedInputs}',?::jsonb) WHERE id=?",
+                mapper.writeValueAsString(List.of(stale)),f.execution());
+        assertThat(identities.read(workId)).isEmpty();
+        jdbc.update("UPDATE job_execution_histories SET meta_json=?::jsonb WHERE id=?",before,f.execution());
+        assertThat(identities.read(workId)).hasSize(1);
+        jdbc.update("DELETE FROM output_ready_pointers WHERE dataset='eod' AND partition_values=?::jsonb",mapper.writeValueAsString(partition));
+        assertThat(identities.read(workId)).isEmpty();
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(f.execution()));
+        assertThat(identities.read(workId)).hasSize(1);
         backfill.commit(new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(backfill.begin(),UUID.randomUUID(),output));
         assertThat(provider.readManifest(ref).orElseThrow().dataVersion()).isEqualTo("sha256:"+"a".repeat(64));
     }

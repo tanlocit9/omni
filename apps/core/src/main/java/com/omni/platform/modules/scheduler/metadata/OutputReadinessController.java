@@ -12,6 +12,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class OutputReadinessController {
     private final OutputReadinessProvider provider;
     public OutputReadinessController(OutputReadinessProvider provider) { this.provider = provider; }
+    @org.springframework.beans.factory.annotation.Autowired
+    private OutputWorkReadiness workReadiness;
+
+    @GetMapping("/work")
+    public Map<String,Object> work(@RequestParam String atomicWorkId) {
+        return Map.of("atomicWorkId", atomicWorkId, "items", workReadiness.read(atomicWorkId));
+    }
 
     @GetMapping
     public Map<String,Object> page(@RequestParam(defaultValue="0") int offset,

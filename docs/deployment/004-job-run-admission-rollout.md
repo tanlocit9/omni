@@ -1,5 +1,12 @@
 # JobRun Admission Rollout and Rollback
 
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Candidate V23 and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
 ## I10 paired private-reader deployment
 
 Deploy the byte-bounded Platform readiness provider together with the py-common

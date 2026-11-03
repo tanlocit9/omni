@@ -1259,7 +1259,12 @@ class GraphWorkRequestsPostgresTest {
 
     @SuppressWarnings("unchecked")
     private CompletionFixture completionFixture(String key, boolean empty) {
-        prepare(target(JobType.SYNC_STOCK_PRICE), key);
+        return completionFixture(key,empty,target(JobType.SYNC_STOCK_PRICE));
+    }
+
+    @SuppressWarnings("unchecked")
+    private CompletionFixture completionFixture(String key, boolean empty, JobDefinition requested) {
+        prepare(requested, key);
         var row = jdbc.queryForMap("SELECT a.id,a.execution_id,a.work_id,e.parent_log_id,e.job_id,e.meta_json::text AS metadata "
                 + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
                 + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_STOCK_PRICE' LIMIT 1");
@@ -1281,12 +1286,14 @@ class GraphWorkRequestsPostgresTest {
             item.put(field, expansion.get(field));
         item.put("requiredOutputs", empty ? List.of() : List.of(logical));
         item.put("validEmptyReason", empty ? "TEST_VALID_EMPTY" : null);
-        item.put("outputs", empty ? List.of() : List.of(Map.of(
+        item.put("outputs", empty ? List.of() : List.of(new java.util.LinkedHashMap<>(Map.of(
                 "dataset", "eod", "partition", logical.partition(),
                 "dataVersion", "sha256:" + "a".repeat(64), "coverageDates", List.of("2035-01-02"),
                 "rowCount", 1, "totalBytes", 128, "schemaVersion", 1,
                 "schemaHash", "sha256:" + "b".repeat(64),
-                "columns", List.of(Map.of("name", "date", "type", "DATE", "nullable", false)), "inputs", List.of())));
+                "columns", List.of(Map.of("name", "date", "type", "DATE", "nullable", false)), "inputs", List.of()))));
+        if (!empty) ((Map<String,Object>) ((List<?>) item.get("outputs")).getFirst()).put("workScope",
+                Map.of("atomicWorkId", row.get("work_id"), "rowKeys", List.of(Map.of("date", "2035-01-02"))));
         String event = mapper.writeValueAsString(Map.of("schemaVersion", 1, "eventId", UUID.randomUUID().toString(),
                 "registrations", List.of(item)));
         var status = new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
@@ -1370,7 +1377,7 @@ class GraphWorkRequestsPostgresTest {
         var f = completionFixture("completion-declaration", false);
         var store = context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class);
         assertThatThrownBy(() -> store.accept(f.event().replace("\"eod\"", "\"signals\"")))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(RuntimeException.class);
         assertThat(count("output_registration_events")).isZero();
         assertThat(count("output_registrations")).isZero();
     }
@@ -1478,15 +1485,84 @@ class GraphWorkRequestsPostgresTest {
                 "atomicWorkId","work:"+"f".repeat(64),"businessDate","2035-01-02","atomicAttemptId",UUID.randomUUID().toString());
         jdbc.update("UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{approvedInputs}',?::jsonb) WHERE id=?",
                 mapper.writeValueAsString(List.of(stale)),f.execution());
-        assertThat(identities.read(workId)).isEmpty();
+        // Provenance is separate from availability: changing an approval does not erase output rows.
+        assertThat(identities.read(workId)).hasSize(1);
         jdbc.update("UPDATE job_execution_histories SET meta_json=?::jsonb WHERE id=?",before,f.execution());
         assertThat(identities.read(workId)).hasSize(1);
         jdbc.update("DELETE FROM output_ready_pointers WHERE dataset='eod' AND partition_values=?::jsonb",mapper.writeValueAsString(partition));
+        assertThat(identities.read(workId)).hasSize(1); // Physical catalog pointer is not work READY authority.
+        jdbc.update("DELETE FROM output_ready_rows WHERE dataset='eod' AND partition_values=?::jsonb",mapper.writeValueAsString(partition));
         assertThat(identities.read(workId)).isEmpty();
         new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(f.execution()));
         assertThat(identities.read(workId)).hasSize(1);
+        var readyRow=jdbc.queryForMap("SELECT * FROM output_work_ready WHERE atomic_work_id=?",workId);
+        jdbc.update("INSERT INTO output_registration_outputs(registration_id,output_index,dataset,partition_values,data_version,payload) "
+                + "SELECT registration_id,1,dataset,partition_values,data_version,payload FROM output_registration_outputs WHERE registration_id=? AND output_index=0",
+                readyRow.get("registration_id"));
+        jdbc.update("INSERT INTO output_ready_rows(dataset,partition_values,row_key,registration_id,output_index,generation) "
+                + "VALUES ('eod',?::jsonb,'{\"date\":\"2035-01-03\"}'::jsonb,?,1,999)",mapper.writeValueAsString(partition),readyRow.get("registration_id"));
+        assertThat(identities.read(workId)).hasSize(1); // Another date cannot invalidate this work.
+        jdbc.update("UPDATE output_ready_rows SET output_index=1 WHERE dataset='eod' AND partition_values=?::jsonb "
+                + "AND row_key='{\"date\":\"2035-01-02\"}'::jsonb",mapper.writeValueAsString(partition));
+        assertThat(identities.read(workId)).isEmpty(); // Its own coordinate was superseded.
+        jdbc.update("UPDATE output_ready_rows SET output_index=0 WHERE dataset='eod' AND partition_values=?::jsonb "
+                + "AND row_key='{\"date\":\"2035-01-02\"}'::jsonb",mapper.writeValueAsString(partition));
         backfill.commit(new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(backfill.begin(),UUID.randomUUID(),output));
         assertThat(provider.readManifest(ref).orElseThrow().dataVersion()).isEqualTo("sha256:"+"a".repeat(64));
+    }
+
+
+    @Test
+    void scopedCompletionRejectsMissingScopeAndUnapprovedInputsBeforeMutation() {
+        var fixture=completionFixture("scope-contract",false);
+        var mapper=context.getBean("jsonMapper",JsonMapper.class);
+        var store=context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class);
+        for (String change : List.of("missing-scope","other-date","unapproved-input")) {
+            var root=(tools.jackson.databind.node.ObjectNode) mapper.readTree(fixture.event());
+            var output=(tools.jackson.databind.node.ObjectNode) root.get("registrations").get(0).get("outputs").get(0);
+            if (change.equals("missing-scope")) output.remove("workScope");
+            if (change.equals("other-date")) {
+                output.set("coverageDates",mapper.valueToTree(List.of("2035-01-03")));
+                ((tools.jackson.databind.node.ObjectNode) output.get("workScope").get("rowKeys").get(0)).put("date","2035-01-03");
+            }
+            if (change.equals("unapproved-input")) output.set("inputs",mapper.valueToTree(List.of(Map.of(
+                    "dataset","eod","partition",Map.of("exchange","hose","code","aaa"),"dataVersion","sha256:"+"d".repeat(64)))));
+            assertThatThrownBy(() -> store.accept(mapper.writeValueAsString(root))).isInstanceOf(RuntimeException.class);
+            assertThat(count("output_registration_events")).isZero();
+            assertThat(count("output_registrations")).isZero();
+        }
+    }
+
+
+    @Test
+    void frozenInputBindingAndPrivateCatalogUseWorkRowsAfterThePhysicalPointerChanges() {
+        var f=completionFixture("frozen-row-proof",false,target(JobType.SYNC_INDICATORS));
+        var child=jdbc.queryForMap("SELECT a.id,a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_INDICATORS' LIMIT 1");
+        var partition=Map.of("exchange","hose","code","aaa");
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class).enroll(
+                (UUID) child.get("execution_id"),(UUID) child.get("id"),List.of(
+                    new com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.LogicalOutput("indicators",
+                        Map.of("exchange","hose","code","aaa","source","ad_close","timeframe","1d"))),List.of());
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class).accept(f.event());
+        context.getBean(JobService.class).applyStatus(f.status());
+        var promotion=new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(jdbc,true,true);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(f.execution()));
+        var provider=context.getBean(com.omni.platform.modules.scheduler.metadata.OutputReadinessProvider.class);
+        var page=provider.page(0,200,null);
+        assertThat((List<?>) page.get("items")).hasSize(1);
+        assertThat(page.toString()).contains("workScope", "eod/hose/aaa.parquet").doesNotContain("_output-snapshots/");
+        var mapper=context.getBean("jsonMapper",JsonMapper.class);
+        jdbc.update("DELETE FROM output_ready_pointers WHERE dataset='eod' AND partition_values=?::jsonb",mapper.writeValueAsString(partition));
+        var readiness=context.getBean(com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+        var ref=com.omni.platform.modules.scheduler.dependencies.DatasetRef.of("eod",partition);
+        var bindings=readiness.bind((UUID) child.get("execution_id"),Map.of(ref,"obsolete-whole-file-version"));
+        assertThat(bindings).hasSize(1).containsValue("sha256:"+"a".repeat(64));
+        var bound=bindings.keySet().iterator().next();
+        assertThat(bound.approvedInput(bindings.get(bound))).containsEntry("atomicAttemptId",f.attempt().toString())
+                .containsEntry("businessDate","2035-01-02");
+        jdbc.update("DELETE FROM output_ready_rows WHERE dataset='eod' AND partition_values=?::jsonb",mapper.writeValueAsString(partition));
+        assertThat(readiness.bind((UUID) child.get("execution_id"),Map.of(ref,"anything"))).isNull();
     }
 
     private void releaseLease(SchedulerClaim lease) {

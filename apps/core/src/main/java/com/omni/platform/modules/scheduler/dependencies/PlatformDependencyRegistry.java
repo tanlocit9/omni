@@ -45,6 +45,19 @@ public class PlatformDependencyRegistry implements DependencyRegistry {
         if (workDate != null && request.jobDefinition().getJobType().name().equals("SYNC_SIGNALS")) {
             context = signalContext(request, context);
         }
+        if (workReadiness != null && workReadiness.enrolled(request.executionId())) {
+            var declared = guard.parseDependencies(context);
+            if (declared.stream().filter(DatasetDependency::isEnforced).anyMatch(d -> d.conditions().stream()
+                    .anyMatch(c -> !java.util.Set.of(DependencyCondition.EXISTS, DependencyCondition.READY,
+                            DependencyCondition.PARTITION_MATCH).contains(c))))
+                return DependencyDecision.blocked("WORK_SCOPE_POLICY_UNSUPPORTED", "Dependency policy requires an explicit work-scope adapter");
+            Map<DatasetRef,String> refs = new java.util.LinkedHashMap<>();
+            for (var dependency : declared) if (dependency.isEnforced()) refs.put(dependency.datasetRef(), "work-scope");
+            var bindings = workReadiness.bind(request.executionId(), refs);
+            if (bindings == null) return DependencyDecision.waiting("UPSTREAM_IDENTITY_NOT_READY",
+                    "Frozen upstream work rows are not READY", request.evaluatedAt().plus(WAIT_RETRY));
+            return DependencyDecision.ready(bindings);
+        }
         var result = guard.checkDependencies(context);
         if (result.canExecute()) {
             if (workDate != null && java.util.List.of("SYNC_INDICATORS", "SYNC_SIGNALS")

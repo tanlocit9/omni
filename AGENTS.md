@@ -119,7 +119,7 @@ increment explicitly requires those delivery gates.
 - Default runtime keeps manifest readiness. P14-I10 has opt-in enrollment, worker registration, completion/watchdog and PostgreSQL READY/read adapters; [current handoff](docs/reference/007-p14-i10-work-identity.md) records source, owner-approved NULL-provenance historical baselines and unresolved verification/cutover gates. [ADR-008](docs/adr/008-postgres-output-readiness.md) requires verified coordinated cutover; additional durable worker recovery and tracing remain deferred. Never infer no-trade from missing-date EOD or treat registration/snapshot acceptance alone as dataset READY.
 - Dataset producers write and validate Parquet only. `SYNC_METADATA` is the sole
   writer of the canonical `_metadata/metadata.json` discovery document.
-- Enrolled I10 READY uses canonical atomicWorkId (including day and parameters),
+- Enrolled I10 READY covers exact registered rows already in canonical Parquet, not the whole file; whole-file snapshots are not an enrollment prerequisite. It uses canonical atomicWorkId (including day and parameters),
   exact frozen upstream attempts and approved versions. Dataset/partition is physical
   ownership/discovery, not a substitute work identity; see the current handoff.
 - Dataset dependencies use global metadata and exact `dataVersion` lineage; cron

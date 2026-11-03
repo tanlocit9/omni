@@ -1,9 +1,66 @@
 # Job Execution Flow
 
+## Current graph and I10 flow
+
+This is the implemented opt-in graph/I10 path, not evidence that production flags
+or PostgreSQL reader cutover are active. I1-I9 below refer to P14 increments;
+I10.a/b/c are internal checkpoints of P14-I10, which remains in_progress.
+
+```mermaid
+flowchart TD
+    scheduled["Scheduler: definition đến hạn"] --> topology["I1-I2: static graph và contract"]
+    topology --> prepare["I3 + I8-I9: chốt work/ngày, identity, attempt và upstream"]
+    prepare --> intents["PostgreSQL: executions và pending outbox"]
+    intents --> admission{"I4 + I10.b: upstream SUCCESS và đúng identity/version READY?"}
+    admission -->|"Chưa đủ"| waiting["Giữ PENDING, xét lại sau"]
+    waiting --> admission
+    admission -->|"Đủ"| dispatch["I4: lock/claim rồi publish Kafka command"]
+    dispatch --> worker["I8 + I10.a: worker đọc approvedInputs, tính và ghi/validate output"]
+    worker --> registration["I10.a: gửi registration, chờ Kafka ACK"]
+    registration --> status["Worker gửi SUCCESS"]
+    registration --> completion["I10.a: Platform lưu và đối chiếu cả hai luồng"]
+    status --> completion
+    completion --> ready["I10.b: commit READY theo atomicWorkId, attempt và version"]
+    ready -.->|"Cho downstream"| admission
+    dispatch -.-> watchdog["I10.c: quá hạn published mà chưa hoàn thành"]
+    watchdog --> timeout["FAILED; ownership UNCERTAIN; chặn late READY"]
+    ready -.-> diagnostics["I5 + I10.c: diagnostics và work lookup"]
+    timeout -.-> diagnostics
+```
+
+1. Identity is the existing hash of jobType, workType, workKey, businessDate and
+   canonical parameters. Each graph node has its own identity; attempts/executions
+   distinguish retries. A logical output version reference is (atomicWorkId,dataVersion).
+2. I9 freezes the exact upstream attempts and shares only eligible in-flight work.
+   I4 checks predecessor completion, leases/budget and dependency admission. I10.b
+   additionally requires the frozen upstream identity/attempt/version, not merely
+   a READY file partition. Missing proof defers pending dispatch without rebinding.
+3. Workers validate approved input bytes/schema/date/version before calculation and
+   validate writes before publishing registration. Broker ACK is transport evidence;
+   it is not Platform commit or READY. Snapshot/ACK/validation failure follows ERROR
+   and does not grant new READY; prior validated evidence is not silently replaced.
+4. Registration and SUCCESS use separate Kafka streams and may reach Platform in
+   either order. Durable correlation, immutable identities and generation/timeout
+   guards ensure completion/READY occurs only when all required evidence is committed.
+   Valid-empty completion does not invent date coverage.
+5. The watchdog runs on the configured two-minute cadence with a default thirty-minute
+   deadline from published_at. Timeout cannot prove worker termination, so ownership
+   remains uncertain and later overlapping writers/late READY stay blocked.
+6. Diagnostics joins work -> attempts -> execution/outbox -> registration/output/READY;
+   frozen dependency edges connect different work IDs. This is business correlation,
+   not complete distributed log/span tracing. I7 is the legacy outbox cleanup foundation;
+   I6 is superseded, and no I11 scope is invented here.
+
+The unapplied I10 schema is one
+[V19 migration](../../database/migrations/V19__output_registration_and_work_readiness.sql).
+Partition catalog discovery, full-file fingerprint limitations, retained snapshot
+prerequisites and the missing full worker/API E2E gate remain as described in the
+[current identity handoff](../reference/007-p14-i10-work-identity.md).
+
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Candidate V23 and the private work lookup
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 

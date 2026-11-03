@@ -74,7 +74,7 @@ this continuation. Historical claims of 49 Python/34 Java passes do not verify i
 
 ## Source delivered
 
-- [V20](../../database/migrations/V20__output_completion_and_timeout.sql): additive
+- [V20](https://github.com/tanlocit9/omni/blob/5204939adf6d486811ab647bcdaa06fbdaf0020f/database/migrations/V20__output_completion_and_timeout.sql): additive
   completion contracts, first-SUCCESS inbox, immutable timeout evidence, normalized
   per-output provenance/exact-date coverage, composite attempt/execution integrity
   and a published-deadline index. No historical work is implicitly enrolled; no

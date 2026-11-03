@@ -38,6 +38,7 @@ public class OutputBackfillService {
         };
         OutputRegistrationEvent.require(output.partition().keySet().equals(keys) && output.schemaVersion()==1,
                 "Unsupported baseline partition/schema");
+        OutputRegistrationEvent.require(output.workScope()==null, "Historical baseline cannot invent work readiness");
         String dateColumn=output.dataset().equals("signals") ? "signal_date" : "date";
         OutputRegistrationEvent.require(output.columns().stream().anyMatch(c -> c.name().equals(dateColumn)),
                 "Baseline has no date column");

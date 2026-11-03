@@ -170,6 +170,8 @@ class GlobalPartitionMetadata:
     sourceExecutionId: str | None = None
     canonicalPath: str | None = None
     coverageDates: list[str] = field(default_factory=list)
+    workScope: dict | None = None
+    workProofs: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not isinstance(self.values, dict):
@@ -414,6 +416,8 @@ def _document_dict(document: GlobalMetadataDocument) -> dict[str, Any]:
                         **({"canonicalPath": partition.canonicalPath}
                            if partition.canonicalPath is not None else {}),
                         **({"coverageDates": partition.coverageDates} if partition.coverageDates else {}),
+                        **({"workScope": partition.workScope} if partition.workScope else {}),
+                        **({"workProofs": partition.workProofs} if partition.workProofs else {}),
                     }
                     for partition in dataset.partitions
                 ],

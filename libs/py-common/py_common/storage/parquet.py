@@ -177,6 +177,7 @@ class ParquetStorage:
             DeletableStorage,
         )
         self._bucket = bucket
+        self._paths = snapshot_paths or StockDataPaths.from_config({})
         self._snapshot_store = OutputSnapshotStore(
             self._readable, self._writable, bucket, snapshot_paths or StockDataPaths.from_config({})
         )
@@ -218,6 +219,19 @@ class ParquetStorage:
                 "Current metadata differs from approved input version"
             )
         data = await self._readable.read_bytes(self._bucket, manifest.path)
+        if getattr(manifest, "workScope", None) or getattr(manifest, "workProofs", None):
+            from py_common.storage.work_rows import select_rows, work_version
+            frame = await asyncio.to_thread(ParquetCodec.decode, data)
+            proofs = manifest.workProofs or [{"workScope": manifest.workScope, "schemaHash": manifest.schemaHash,
+                "columns": [vars(c) for c in manifest.columns], "inputs": [vars(i) for i in manifest.inputs],
+                "dataVersion": manifest.dataVersion}]
+            for proof in proofs:
+                rows = select_rows(dataset, frame, proof["workScope"], [c["name"] for c in proof["columns"]])
+                if calculate_schema_hash(extract_schema_from_dataframe(rows)) != proof["schemaHash"]:
+                    raise ManifestInvalidError("Parquet work schema differs from approved schema")
+                if work_version(dataset, manifest.values, proof["workScope"], rows, proof["schemaHash"], proof["inputs"]) != proof["dataVersion"]:
+                    raise ManifestInvalidError("Parquet work data differs from approved version")
+            return frame
         checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         version = calculate_data_version(
             dataset,
@@ -285,6 +299,31 @@ class ParquetStorage:
     # Write operations
     # ------------------------------------------------------------------
 
+    def _work_publication(self, object_name):
+        from py_common.messaging.output_publication import active_publication
+        publication = active_publication()
+        if publication is None:
+            return None, None
+        for item in publication.contract["requiredOutputs"]:
+            identity = OutputSnapshotIdentity(item["dataset"], item["partition"])
+            builder = getattr(self._paths, identity.dataset, None)
+            if builder is not None and builder(**identity.partition) == object_name:
+                return publication, identity
+        return None, None
+
+    async def _record_work(self, publication, identity, object_name, expected, before):
+        if publication is None:
+            return
+        from py_common.storage.work_rows import scope_for_work, select_rows
+        scope, rows = scope_for_work(publication.raw, identity.dataset, expected, before)
+        # Read after canonical publication, before emitting registration/worker SUCCESS.
+        actual = await self.read_dataframe(object_name)
+        selected = select_rows(identity.dataset, actual, scope, rows.columns)
+        if ParquetCodec.encode(selected) != ParquetCodec.encode(rows):
+            raise ManifestInvalidError("Canonical Parquet does not contain the published work data")
+        publication.record(identity, None, expected, before=before,
+                           total_bytes=len(ParquetCodec.encode(selected)))
+
     async def write_dataframe(
         self,
         object_name: str,
@@ -317,7 +356,14 @@ class ParquetStorage:
             index=index,
             schema=schema,
         )
-        snapshot = await self._snapshot_bytes(object_name, data, snapshot_identity)
+        publication, work_identity = self._work_publication(object_name)
+        before = await self.read_optional_dataframe(object_name) if publication else None
+        work_frame = await asyncio.to_thread(ParquetCodec.decode, data) if publication else None
+        if publication:
+            from py_common.storage.work_rows import scope_for_work, validate_replacement
+            scope, _ = scope_for_work(publication.raw, work_identity.dataset, work_frame, before)
+            validate_replacement(work_identity.dataset, before, work_frame, scope)
+        snapshot = None if publication else await self._snapshot_bytes(object_name, data, snapshot_identity)
         await self._writable.write_bytes(
             bucket=self._bucket,
             object_name=object_name,
@@ -325,6 +371,8 @@ class ParquetStorage:
             content_type=_PARQUET_CONTENT_TYPE,
         )
 
+        if publication:
+            await self._record_work(publication, work_identity, object_name, work_frame, before)
         result = ParquetWriteResult(
             object_name=object_name,
             checksum=f"sha256:{hashlib.sha256(data).hexdigest()}",
@@ -412,6 +460,8 @@ class ParquetStorage:
             StorageWriteError: Temporary write or final copy fails.
             Any exception raised by ``validate``.
         """
+        publication, work_identity = self._work_publication(object_name)
+        before = await self.read_optional_dataframe(object_name) if publication else None
         temp_name = temp_object_name or self._build_temp_object_name(object_name)
 
         staged_result = await self.write_dataframe(temp_name, dataframe, index=index)
@@ -421,7 +471,11 @@ class ParquetStorage:
                 validate(staged)
 
             snapshot = None
-            if snapshot_identity is not None:
+            if publication:
+                from py_common.storage.work_rows import scope_for_work, validate_replacement
+                scope, _ = scope_for_work(publication.raw, work_identity.dataset, staged, before)
+                validate_replacement(work_identity.dataset, before, staged, scope)
+            if snapshot_identity is not None and publication is None:
                 staged_bytes = await self._readable.read_bytes(self._bucket, temp_name)
                 if "sha256:" + hashlib.sha256(staged_bytes).hexdigest() != staged_result.checksum:
                     raise ManifestInvalidError("Staged bytes changed before snapshot publication")
@@ -439,6 +493,7 @@ class ParquetStorage:
 
         await self._delete_temp_safely(temp_name)
 
+        await self._record_work(publication, work_identity, object_name, staged, before)
         if snapshot is not None:
             from py_common.messaging.output_publication import record_output
             record_output(snapshot_identity, snapshot, await self.read_output_snapshot(snapshot_identity, snapshot))

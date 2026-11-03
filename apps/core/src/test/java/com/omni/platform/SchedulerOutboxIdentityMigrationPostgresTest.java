@@ -67,7 +67,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         for (String table : List.of("output_registration_events","output_registrations","output_registration_outputs",
                 "output_registration_coverage","output_completion_contracts","output_completion_statuses",
                 "output_attempt_timeouts","output_ready_pointers","output_ready_baselines",
-                "output_baseline_pointers","output_work_ready")) {
+                "output_baseline_pointers","output_work_ready","output_ready_rows")) {
             assertThat(jdbc.queryForObject("SELECT count(*) FROM " + table,Integer.class)).isZero();
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM output_work_ready_catalog",Integer.class)).isZero();

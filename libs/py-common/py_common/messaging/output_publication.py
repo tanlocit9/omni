@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -14,6 +13,8 @@ from py_common.messaging.output_registration import (
     RegisteredColumn, RegisteredInput, RegisteredOutput,
 )
 from py_common.storage.manifest import extract_schema_from_dataframe
+from py_common.storage.manifest import calculate_schema_hash
+from py_common.storage.work_rows import scope_for_work, work_version
 
 _active: ContextVar[OutputPublication | None] = ContextVar("output_publication", default=None)
 
@@ -23,37 +24,32 @@ class OutputPublication:
         self.raw = raw
         self.contract = (raw.get("metadata") or {}).get("outputCompletion")
         self.outputs: dict[str, RegisteredOutput] = {}
-        if self.contract is not None and not snapshots_enabled:
-            raise ValueError("Enrolled output requires immutable snapshots")
 
-    def record(self, identity: Any, snapshot: Any, frame: pd.DataFrame) -> None:
-        if self.contract is None or identity is None or snapshot is None:
+    def record(self, identity: Any, snapshot: Any, frame: pd.DataFrame, *, before=None, total_bytes=None) -> None:
+        if self.contract is None or identity is None:
             return
         logical = LogicalOutput(dataset=identity.dataset, partition=identity.partition)
         required = [LogicalOutput.model_validate(item) for item in self.contract["requiredOutputs"]]
         if logical not in required:
-            raise ValueError("Worker wrote an undeclared snapshot output")
+            raise ValueError("Worker wrote an undeclared output")
+        scope, work_rows = scope_for_work(self.raw, identity.dataset, frame, before)
         column = "signal_date" if identity.dataset == "signals" else "date"
-        if column not in frame or frame[column].isna().any():
-            raise ValueError("Output has no complete calendar-date coverage")
-        dates = sorted(set(pd.to_datetime(frame[column], errors="raise").dt.date))
-        business_date = date.fromisoformat(str(self.raw["businessDate"]))
-        work_rows = frame
-        if identity.dataset == "signals":
-            work_rows = frame.loc[frame["symbol_key"].astype(str) == self.raw["workKey"]]
-        if self.raw["jobType"] != "EVALUATE_SIGNALS" and (
-            work_rows.empty or not pd.to_datetime(work_rows[column]).dt.date.eq(business_date).any()
-        ):
-            raise ValueError(f"Output does not cover work/date {self.raw['workKey']}/{business_date}")
-        columns = extract_schema_from_dataframe(frame)
+        dates = sorted(set(pd.to_datetime(work_rows[column], errors="raise").dt.date))
+        columns = extract_schema_from_dataframe(work_rows)
+        inputs = [RegisteredInput(dataset=i["dataset"], partition=i["partition"], dataVersion=i["dataVersion"])
+                  for i in self.raw.get("metadata", {}).get("approvedInputs", [])]
+        # Only the direct inputs used by this work, never all versions from file history.
+        inputs = list({i.identity(): i for i in inputs}.values())
+        schema_hash = calculate_schema_hash(columns)
+        version = work_version(identity.dataset, identity.partition, scope, work_rows, schema_hash,
+                               [i.model_dump(mode="json", by_alias=True) for i in inputs])
         self.outputs[logical.identity()] = RegisteredOutput(
             dataset=identity.dataset, partition=identity.partition,
-            dataVersion=snapshot.data_version, coverageDates=dates,
-            rowCount=len(frame), totalBytes=snapshot.total_bytes, schemaVersion=1,
-            schemaHash=snapshot.schema_hash,
+            dataVersion=version, coverageDates=dates, workScope=scope,
+            rowCount=len(work_rows), totalBytes=total_bytes or getattr(snapshot, "total_bytes", 1), schemaVersion=1,
+            schemaHash=schema_hash,
             columns=[RegisteredColumn(name=c.name, type=c.type, nullable=c.nullable) for c in columns],
-            inputs=[RegisteredInput(dataset=i.dataset, partition=i.partition, dataVersion=i.dataVersion)
-                    for i in snapshot.inputs],
+            inputs=inputs,
         )
 
     async def publish(self, producer: Any, *, valid_empty_reason: str | None = None) -> None:
@@ -89,3 +85,8 @@ def record_output(identity: Any, snapshot: Any, frame: pd.DataFrame) -> None:
     publication = _active.get()
     if publication is not None:
         publication.record(identity, snapshot, frame)
+
+
+def active_publication():
+    publication = _active.get()
+    return publication if publication is not None and publication.contract is not None else None

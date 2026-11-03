@@ -39,6 +39,16 @@ public record OutputRegistrationEvent(int schemaVersion, UUID eventId, List<Regi
                 integer(output, "rowCount", false);
                 integer(output, "totalBytes", false);
                 integer(output, "schemaVersion", true);
+                var scope = output.get("workScope");
+                if (scope != null && !scope.isNull()) {
+                    require(scope.isObject() && scope.has("atomicWorkId") && scope.get("atomicWorkId").isString(), "Invalid work scope");
+                    var keys = scope.get("rowKeys");
+                    require(keys != null && keys.isArray(), "Invalid row keys");
+                    for (var key : keys) {
+                        require(key.isObject(), "Invalid row key");
+                        for (var value : key) require(value.isString(), "Row coordinates must be strings");
+                    }
+                }
                 var dates = output.get("coverageDates");
                 require(dates != null && dates.isArray(), "Missing coverage dates");
                 for (var date : dates) calendarDate(date);
@@ -101,9 +111,23 @@ public record OutputRegistrationEvent(int schemaVersion, UUID eventId, List<Regi
         }
     }
 
+    public record WorkScope(String atomicWorkId, List<Map<String,String>> rowKeys) {
+        public WorkScope {
+            require(atomicWorkId != null && atomicWorkId.matches("work:[0-9a-f]{64}"), "Invalid scope identity");
+            bounded(rowKeys, 1, 4096);
+            require(new HashSet<>(rowKeys).size()==rowKeys.size(), "Duplicate row coordinates");
+            rowKeys = rowKeys.stream().map(Map::copyOf).toList();
+        }
+    }
+
     public record Output(String dataset, Map<String, String> partition, String dataVersion,
                          List<LocalDate> coverageDates, long rowCount, long totalBytes,
-                         int schemaVersion, String schemaHash, List<Column> columns, List<Input> inputs) {
+                         int schemaVersion, String schemaHash, List<Column> columns, List<Input> inputs,
+                         @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) WorkScope workScope) {
+        public Output(String dataset, Map<String,String> partition, String dataVersion, List<LocalDate> coverageDates,
+                      long rowCount, long totalBytes, int schemaVersion, String schemaHash, List<Column> columns, List<Input> inputs) {
+            this(dataset,partition,dataVersion,coverageDates,rowCount,totalBytes,schemaVersion,schemaHash,columns,inputs,null);
+        }
         public Output {
             var logical = new LogicalOutput(dataset, partition);
             partition = logical.partition();
@@ -113,6 +137,20 @@ public record OutputRegistrationEvent(int schemaVersion, UUID eventId, List<Regi
             require(coverageDates.equals(coverageDates.stream().distinct().sorted().toList()),
                     "coverageDates must be sorted and unique");
             require(columns.stream().map(Column::name).distinct().count() == columns.size(), "Duplicate columns");
+            if (workScope != null) {
+                var keys = dataset.equals("signals") ? Set.of("symbol_key", "signal_date") : Set.of("date");
+                require(Set.of("eod","indicators","signals").contains(dataset), "Unsupported work dataset");
+                require(workScope.rowKeys().size()==rowCount, "Work row count differs from scope");
+                var days = new java.util.TreeSet<LocalDate>();
+                for (var key : workScope.rowKeys()) {
+                    require(key.keySet().equals(keys), "Invalid work coordinates");
+                    require(key.values().stream().allMatch(v -> v!=null && !v.isBlank()), "Empty work coordinates");
+                    String day = key.get(dataset.equals("signals") ? "signal_date" : "date");
+                    require(day.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}"), "Invalid row date");
+                    days.add(LocalDate.parse(day));
+                }
+                require(List.copyOf(days).equals(coverageDates), "Work coverage differs from coordinates");
+            }
             coverageDates = List.copyOf(coverageDates); columns = List.copyOf(columns); inputs = List.copyOf(inputs);
         }
         public LogicalOutput identity() { return new LogicalOutput(dataset, partition); }
@@ -142,6 +180,8 @@ public record OutputRegistrationEvent(int schemaVersion, UUID eventId, List<Regi
             } else {
                 require(!required.isEmpty() && required.equals(new HashSet<>(actual)), "Incomplete outputs");
             }
+            require(outputs.stream().allMatch(o -> o.workScope()==null || atomicWorkId.equals(o.workScope().atomicWorkId())),
+                    "Output scope belongs to another work");
             requiredOutputs = List.copyOf(requiredOutputs); outputs = List.copyOf(outputs);
         }
     }

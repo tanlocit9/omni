@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from dataclasses import replace
+import hashlib
+import json
 
 import httpx
 
@@ -55,12 +58,10 @@ class PostgresMetadataReader:
                         raw = dict(item["manifest"])
                         if not raw.get("canonicalPath") or not raw.get("coverageDates"):
                             raise ManifestInvalidError("READY requires snapshot identity and exact coverage")
-                        expected_path = snapshot_object_name(
-                            OutputSnapshotIdentity(item["dataset"], raw["values"]),
-                            raw["dataVersion"], self._paths,
-                        )
-                        if raw["path"] != expected_path or raw["path"] == raw["canonicalPath"]:
-                            raise ManifestInvalidError("READY path differs from immutable snapshot identity")
+                        if raw.get("workScope"):
+                            self._validate_work_path(item["dataset"], raw)
+                        else:
+                            self._validate_snapshot_path(item["dataset"], raw)
                         raw["columns"] = [GlobalColumnMetadata(**column) for column in raw["columns"]]
                         raw["inputs"] = [GlobalDatasetInput(**value) for value in raw["inputs"]]
                         partitions[item["dataset"]].append(GlobalPartitionMetadata(**raw))
@@ -71,13 +72,94 @@ class PostgresMetadataReader:
                     raise ManifestInvalidError("Readiness catalog exceeds bounded read")
         except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
             raise ManifestInvalidError("PostgreSQL readiness read failed; no manifest fallback") from exc
-        return GlobalMetadataDocument(
-            version=1, generatedAt=datetime.now(UTC).isoformat(),
-            datasets=[GlobalDatasetMetadata(
-                name=d.name, label=d.label, dataPrefix=d.data_prefix,
-                partitionKeys=list(d.partition_keys), partitions=partitions[d.name],
-            ) for d in OMNI_DATASET_REGISTRY.all()],
-        )
+        return self._document(partitions)
+
+    def _validate_snapshot_path(self, dataset, raw):
+        expected_path = snapshot_object_name(OutputSnapshotIdentity(dataset, raw["values"]), raw["dataVersion"], self._paths)
+        if raw["path"] != expected_path or raw["path"] == raw["canonicalPath"]:
+            raise ManifestInvalidError("READY path differs from immutable snapshot identity")
+
+    def _validate_work_path(self, dataset, raw):
+        from py_common.messaging.output_registration import WorkRowScope
+        WorkRowScope.model_validate(raw["workScope"])
+        from py_common.messaging.output_registration import RegisteredOutput
+        RegisteredOutput.model_validate({"dataset": dataset, "partition": raw["values"],
+            **{k: raw[k] for k in ("dataVersion","coverageDates","rowCount","totalBytes","schemaVersion","schemaHash","columns","inputs","workScope")}})
+        expected = getattr(self._paths, dataset)(**raw["values"])
+        if raw["path"] != expected or raw["canonicalPath"] != expected:
+            raise ManifestInvalidError("Work READY path differs from configured canonical path")
+
+    @staticmethod
+    def _document(partitions):
+        # The private page lists work proofs. Public discovery still has one item per partition.
+        grouped = {}
+        for dataset, manifests in partitions.items():
+            values = {}
+            for manifest in manifests:
+                key = tuple(sorted(manifest.values.items()))
+                values.setdefault(key, []).append(manifest)
+            grouped[dataset] = []
+            for manifests in values.values():
+                scoped = [m for m in manifests if m.workScope]
+                if not scoped:
+                    if len(manifests)!=1:
+                        raise ManifestInvalidError("Duplicate legacy partition readiness")
+                    grouped[dataset].append(manifests[0])
+                    continue
+                proofs = [{"workScope": m.workScope, "schemaHash": m.schemaHash,
+                           "columns": [vars(c) for c in m.columns], "inputs": [vars(i) for i in m.inputs],
+                           "dataVersion": m.dataVersion} for m in scoped]
+                if len({p["workScope"]["atomicWorkId"] for p in proofs})!=len(proofs):
+                    raise ManifestInvalidError("Duplicate work readiness proof")
+                if len(scoped)==1:
+                    grouped[dataset].append(scoped[0])
+                    continue
+                version = "sha256:" + hashlib.sha256(json.dumps(sorted(proofs, key=lambda p: p["workScope"]["atomicWorkId"]),
+                    sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                grouped[dataset].append(replace(scoped[0], dataVersion=version, workScope=None, workProofs=proofs,
+                    coverageDates=sorted({d for m in scoped for d in m.coverageDates}), rowCount=sum(m.rowCount for m in scoped),
+                    inputs=[], sourceExecutionId=None))
+        return GlobalMetadataDocument(version=1, generatedAt=datetime.now(UTC).isoformat(),
+            datasets=[GlobalDatasetMetadata(name=d.name, label=d.label, dataPrefix=d.data_prefix,
+                partitionKeys=list(d.partition_keys), partitions=grouped[d.name]) for d in OMNI_DATASET_REGISTRY.all()])
+
+    async def read_for(self, metadata):
+        if "outputCompletion" not in metadata:
+            return await self.read()
+        from py_common.messaging.approved_inputs import approved_input_bindings
+        bindings = approved_input_bindings(metadata)
+        partitions = {d.name: [] for d in OMNI_DATASET_REGISTRY.all()}
+        try:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False, transport=self._transport) as client:
+                for binding in bindings:
+                    response = await client.get(self._url.rstrip("/")+"/work", params={"atomicWorkId": binding["atomicWorkId"]},
+                        headers={"Authorization": f"Bearer {self._token}"})
+                    response.raise_for_status()
+                    if len(response.content)>4*1024*1024:
+                        raise ManifestInvalidError("Work readiness response exceeds size limit")
+                    body = response.json()
+                    matches = [x for x in body["items"] if x["output"]["dataset"]==binding["dataset"]
+                               and x["output"]["partition"]==binding["partition"]]
+                    if len(matches)!=1:
+                        raise ManifestInvalidError("Approved work output is not READY")
+                    item = matches[0]
+                    if any(item.get(k)!=binding[k] for k in ("atomicWorkId","atomicAttemptId","businessDate","dataVersion")):
+                        raise ManifestInvalidError("Current work proof differs from approved binding")
+                    from py_common.messaging.output_registration import RegisteredOutput
+                    output = RegisteredOutput.model_validate(item["output"]).model_dump(mode="json", by_alias=True)
+                    if not output["workScope"] or output["workScope"]["atomicWorkId"]!=binding["atomicWorkId"]:
+                        raise ManifestInvalidError("Work proof lacks matching data scope")
+                    path = getattr(self._paths,binding["dataset"])(**binding["partition"])
+                    raw = dict(values=output["partition"],status="READY",path=path,canonicalPath=path,
+                        dataVersion=output["dataVersion"],schemaVersion=output["schemaVersion"],schemaHash=output["schemaHash"],
+                        objectCount=1,totalBytes=output["totalBytes"],rowCount=output["rowCount"],columnCount=len(output["columns"]),
+                        columns=[GlobalColumnMetadata(**c) for c in output["columns"]],
+                        inputs=[GlobalDatasetInput(**i) for i in output["inputs"]],coverageDates=output["coverageDates"],
+                        workScope=output["workScope"],generatedAt=datetime.now(UTC).isoformat(),sourceExecutionId=item["executionId"])
+                    partitions[binding["dataset"]].append(GlobalPartitionMetadata(**raw))
+        except (httpx.HTTPError,KeyError,TypeError,ValueError) as exc:
+            raise ManifestInvalidError("Approved work readiness read failed; no manifest fallback") from exc
+        return self._document(partitions)
 
 
 class ShadowMetadataReader:
@@ -117,3 +199,11 @@ def metadata_reader(settings, readable):
                                         settings.output_readiness_api_token.get_secret_value(),
                                         paths=settings.stock_data_paths))
     raise ValueError("Unsupported output_readiness_mode")
+
+
+async def read_input_document(reader, metadata):
+    if "outputCompletion" in metadata:
+        if not isinstance(reader, PostgresMetadataReader):
+            raise ManifestInvalidError("Enrolled work requires PostgreSQL work readiness reader")
+        return await reader.read_for(metadata)
+    return await reader.read()

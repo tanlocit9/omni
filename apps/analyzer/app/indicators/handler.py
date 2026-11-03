@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from py_common.storage.output_readiness import read_input_document
+
 import logging
 from typing import Any
 
-from py_common.messaging.approved_inputs import approved_input_version
+from py_common.messaging.approved_inputs import approved_manifest_version
 from py_common.storage.atomic_work import cutoff_frame, day_rows, write_day
 from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.global_metadata import GlobalMetadataReader
@@ -36,7 +38,7 @@ class IndicatorJobHandler:
         exchange = raw_exchange.lower()
         code = raw_code.lower()
         eod_partition = {"exchange": exchange, "code": code}
-        document = await self._metadata_reader.read()
+        document = await read_input_document(self._metadata_reader, message.metadata)
         eod_manifest = document.resolve("eod", eod_partition)
         if eod_manifest is None or eod_manifest.status != "READY":
             status = eod_manifest.status if eod_manifest is not None else "MISSING"
@@ -60,10 +62,11 @@ class IndicatorJobHandler:
             eod_manifest.dataVersion,
             indicators_path,
         )
-        approved = approved_input_version(
+        approved = approved_manifest_version(
             message.metadata,
             "eod",
             eod_partition,
+            eod_manifest,
             required=message.atomic_work_id is not None
             or "approvedInputs" in message.metadata,
         )

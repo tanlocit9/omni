@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from py_common.storage.output_readiness import read_input_document
+
 from typing import Any
 
 import pandas as pd
@@ -33,10 +35,10 @@ class SignalOutcomeEvaluator:
         async def _load_eod(symbol_key: str) -> pd.DataFrame:
             exchange, code = symbol_key.split("-", maxsplit=1)
             eod_path = self._settings.stock_data_paths.eod(exchange, code)
-            if getattr(self._settings, "output_readiness_mode", "manifest") == "postgres":
+            if "outputCompletion" in message.metadata or getattr(self._settings, "output_readiness_mode", "manifest") == "postgres":
                 if self._metadata_reader is None:
                     raise ValueError("PostgreSQL EOD reader unavailable")
-                document = await self._metadata_reader.read()
+                document = await read_input_document(self._metadata_reader, message.metadata)
                 manifest = document.resolve("eod", {"exchange": exchange.lower(), "code": code.lower()})
                 if manifest is None:
                     raise ValueError("EOD partition is not READY")

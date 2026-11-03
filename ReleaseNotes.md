@@ -1,5 +1,19 @@
 # Omni Release Notes
 
+## 2026-11-03 - READY covers work data inside Parquet
+
+Owner clarifies READY as availability of a work's data, not the complete file.
+Add exact workScope row coordinates, scoped dataVersion fingerprints, canonical
+write/read-back registration without a snapshot prerequisite, row ownership in
+unapplied V19, frozen work-proof input reads and Query execution on validated READY
+rows. Unrelated appends preserve prior day/symbol proof; overlapping changes
+supersede it. Keep direct approvals as provenance, separate from recursive freshness.
+Old unscoped artifact/backfill contracts remain explicit compatibility boundaries.
+Fresh tests/evidence and remaining cutover limits are in the
+[current handoff](docs/reference/007-p14-i10-work-identity.md).
+No flags, retained migrations, deployment, writer service or durable recovery enabled.
+I10 remains in_progress pending full acceptance.
+
 ## 2026-11-03 - Consolidate unapplied I10 migrations into V19
 
 Owner confirms V19/V20 were never applied. Replace the unshipped V19-V23 sequence

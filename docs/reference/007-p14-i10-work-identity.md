@@ -11,63 +11,79 @@ not the identity of a dated graph work.
 
 ## Outcome and boundaries
 
-- A logical version reference is (atomicWorkId,dataVersion); the content digest
-  is not required to become another identity hash.
-- atomicWorkId identifies a logical work; atomicAttemptId/executionId identify a
-  particular run; dataVersion identifies its output content evidence. A retry does
-  not change the work identity, and a different day/key/parameter set does.
-- Dataset/partition identifies physical output ownership and catalog discovery.
-  It must still serialize writers sharing a file; it is not a work READY key.
-- Work lineage follows frozen atomic_work_dependencies and the approved input
-  tuple (atomicWorkId, businessDate, atomicAttemptId, dataset, partition, dataVersion).
-  Do not flatten every ancestor into the child's causal lineage.
-- The v1 output.inputs fingerprint still describes the persisted file artifact;
-  it is separate compatibility/integrity evidence, not graph work lineage. The
-  earlier 128-history-links/paging proposal is not an approved work-lineage design.
-  Artifact payload bounds remain fail-closed; normalizing that retained v1 format
-  is still a verification/cutover concern, not authorization for paging.
-- Canonical writes still overwrite existing paths. Existing optional physical
-  byte snapshots remain storage evidence under the prior flag; this change does
-  not make a snapshot filename or an entire history file into a work identity.
-  Enrollment's existing snapshot flag prerequisite is not removed here.
+READY means **the registered work's data exists in canonical Parquet**, not that
+an entire history file belongs to that work. Identity remains the existing
+atomicWorkId (job type, work type/key, business date, parameters). Attempts and
+executions distinguish runs; (atomicWorkId,dataVersion) identifies a work output.
+
+The additive `workScope` contains `atomicWorkId` and exact `rowKeys`:
+
+- EOD and indicators: date, inside the logical exchange/code partition.
+- Signals: symbol_key + signal_date, inside strategy/timeframe/exchange.
+- EVALUATE_SIGNALS: only rows whose outcomes changed, retaining origin signal
+  dates rather than inventing coverage on the evaluation date. An unchanged
+  evaluation uses the existing approved OUTPUT_UNCHANGED completion.
+
+WORK_ROWS_V1 fingerprints the logical dataset/partition, work scope, schema,
+canonical encoded scoped rows and direct approved input versions. It excludes
+other days/symbols, physical path and the container checksum. schemaVersion stays
+1; `workScope` distinguishes this fingerprint domain from old artifact versions.
+New enrolled outputs require a scope; legacy shadow/baseline evidence can omit it.
+The paired Java/Python registration fixture covers both compatibility branches.
+
+Appending day D+1 leaves day D's version/READY intact. Overwriting an overlapping
+coordinate supersedes the previous proof; deleting/corrupting scoped data causes
+reader validation to fail. A retry has the same work identity but can publish a
+new version/attempt. Canonical paths remain overwritten; enrolled writers no
+longer require or create whole-file snapshots. The optional snapshot feature
+remains available to legacy storage/backfill paths, independently of work READY.
+
+READY is availability. Frozen upstream attempts and approvedInputs describe
+provenance; they are not a recursive assertion of perpetual upstream freshness.
+Completed downstream data does not disappear merely because an upstream work is
+rerun. Recalculation/freshness policy is separate. No durable worker recovery,
+writer service, tracing, automatic replay or I11 scope is added.
 
 ## Source and persistence
 
-The owner confirmed I10 migrations have not been applied. The former V19-V23
-development sequence is consolidated into
+The unapplied schema remains one
 [V19__output_registration_and_work_readiness.sql](../../database/migrations/V19__output_registration_and_work_readiness.sql).
-V1-V18 are unchanged. output_work_ready
-is keyed by (atomic_work_id,dataset,partition_values); multiple outputs remain
-attributable to one work. Generation monotonicity applies within that work key.
-The older partition pointer remains a projection of the current physical version.
-No intermediate pointer copy is needed on this first I10 installation. No
-synthetic work/date or attempt is created for NULL-provenance historical baselines.
+V1-V18 are unchanged. output_work_ready is keyed by work/dataset/partition.
+output_ready_rows records current ownership of exact row coordinates, with
+monotonic generation fencing. output_work_ready_catalog requires every coordinate
+in the work's scope to retain that ownership; it does not join the latest physical
+file version. The partition pointer remains a legacy/discovery projection.
+Promoting rows, work pointer and revision is transactional and READY-last, after
+registration + SUCCESS, excluding timed-out attempts. Replays cannot regress a
+newer generation. Out-of-order promotions of non-overlapping rows still advance
+the discovery revision when their work proofs change.
 
-output_work_ready_catalog exposes the exact identity/attempt/date/version only
-when the physical partition projection still has that version. Recursive frozen
-upstream approval checks prevent a replaced upstream attempt/version from leaving
-a descendant falsely READY. A physical overwrite/version replacement can therefore
-make older work unreadable; no per-row hash or automatic rebind is invented.
-Execution SUCCESS remains immutable history; it is not perpetual work READY.
-This conservative v1 file-fingerprint limitation remains explicit, especially for
-multiple symbols sharing signal history. A missing READY identity waits for
-explicitly valid upstream work; it never silently substitutes the newest partition.
+Enrolled admission resolves exact frozen upstream work attempts and their scoped
+versions, without consulting the latest file version/date. Multiple upstream
+symbols/dates may share a physical partition. Built-in EXISTS/READY/PARTITION_MATCH
+policies are adapted; an enforced policy requiring an unadapted range, schema
+range, freshness or CURRENT_INPUTS rule fails closed as WORK_SCOPE_POLICY_UNSUPPORTED.
+It is never silently evaluated against a different file-wide version. Legacy
+unenrolled admission retains its existing manifest policies.
 
-OutputReadinessStore promotes both work evidence and the physical projection in
-the existing completion transaction. OutputWorkReadiness.bind resolves approvals
-only from the graph's accepted upstream attempts, with exact dataset/partition and
-version equality. Missing/ambiguous/replaced bindings return waiting with
-UPSTREAM_IDENTITY_NOT_READY for enrolled work. Legacy unenrolled work retains its
-explicit manifest boundary. SchedulerOutboxService and JobService serialize the
-same DatasetRef.approvedInput shape; publication retries preserve first approval.
+Workers fetch approved tuples through private GET
+/api/v1/jobs/output-readiness/work?atomicWorkId=work:... and verify work ID,
+attempt, business date, output version and scope. Partial or superseded proofs
+fail closed without manifest fallback. Registration inputs must match execution
+approvals, independently of the historical lineage columns in a shared file.
+Reader/reconciler token scopes are unchanged; Kafka still contains logical
+references only, with configured paths derived by storage/API adapters.
 
-The private GET /api/v1/jobs/output-readiness/work?atomicWorkId=work:... returns
-matching output evidence, approvedInputs and frozen upstreamWorks. Reader bearer
-tokens may GET this exact route; reconciler tokens cannot, and reader tokens cannot
-POST it. The old paged catalog remains partition discovery, never proof that an
-arbitrary work/date succeeded. Python approved_input_version requires the complete
-work/date/attempt tuple and SHA-256 version for enrolled bindings; partial identity
-is rejected. Unenrolled legacy bindings stay compatible.
+Workers decode the canonical bytes once and verify scoped rows/schema/version.
+They retain history through the work date for algorithm lookback; a day-scoped
+proof does **not** certify that entire lookback range or its freshness. Range
+readiness needs an explicit range contract before such a guarantee is claimed.
+The private paged catalog lists current work proofs; Python aggregates proofs per
+partition with a distinct inventory fingerprint. Query Service exposes only the
+union of registered READY rows and executes the validated in-memory data, avoiding
+a second mutable-path read. Public SQL/catalog DTO shapes remain unchanged.
+Historical NULL-provenance baselines remain artifact evidence, never invented
+work identities. They cannot bootstrap an enrolled frozen upstream work.
 
 ## Matched deployment boundary
 
@@ -84,23 +100,85 @@ not executed deployment actions.
 
 ## Contract impact and blast radius
 
-| Owner | Impact / concrete boundary |
+| Owner | Impact / boundary |
 | --- | --- |
-| Platform | Work-keyed READY persistence, exact frozen upstream approvals, additive authenticated work lookup and unified approval serialization. |
-| Analyzer | Shared approval validation now checks complete upstream identity for enrolled indicator/signal reads. Handler ownership and calculations unchanged. |
-| Ingestor | Existing atomicWorkId registration stays authoritative; EOD normally has no analytical approved inputs. Shared validation remains compatible with legacy commands. |
-| Query Service | Partition catalog is discovery for ad-hoc queries, not atomic-work readiness. Existing public SQL/catalog DTOs unchanged; byte/version checks remain. |
-| Console | No new public UI or browser secret; still uses existing Query Service DTOs. |
-| Shared contracts/library | Existing Kafka registration already carries canonical work/attempt/date and validates against frozen execution metadata. No new protobuf field, physical path in Kafka, or generated-source edit. Approval metadata is additive for legacy commands and mandatory-complete for enrolled inputs. |
-| Persistence | Consolidated, unapplied V19; no retained migration, ledger repair or production data change. Baselines cannot invent work identities. |
-| Config/operations | No flag enabled. Deploy matched Platform/shared Python code and review V19 before opting in. Enrolled dependencies require promoted upstream identity evidence; baselines or manifest rows alone cannot satisfy them. Existing drain, timeout ownership, cutover and rollback gates remain. |
+| Platform | Scoped registration validation, current row projection, generation/revision fencing, work-based admission and private work/catalog reads. |
+| Analyzer | Indicator/signal/evaluation inputs resolve frozen work proofs; calculations retain historical context. Shared canonical writer captures scoped output after read-back. |
+| Ingestor | EOD canonical writer captures day-scoped output independently of snapshot flag; provider/algorithm unchanged. |
+| Query Service | Aggregate work-proof inventory, scoped validation/filtering and execution on the validated buffer. Public DTO shape unchanged. |
+| Console | Existing SQL/catalog DTOs unchanged; returned availability/count/version now describes READY rows in PostgreSQL mode. No new UI or browser credentials. |
+| Shared contracts/library | Additive proto work_scope=11, Java/Python adapters, generated contracts through Nx; row hashing, validation, scoped publication and read helpers. Old unscoped fixture retained. |
+| Persistence | Row ownership added within unapplied V19; V1-V18 unchanged, no retained migration or ledger repair. |
+| Config/operations | Defaults remain manifest/off. Paired deployment/drain required; snapshot flag no longer a prerequisite for new enrollment. Custom enforced policies and historical/range coverage require explicit cutover proof. |
 
-Graph analysis before edits: readiness/provider/shared approval scope found 26
-impacted nodes/four files; DatasetRef/registry/dispatch/JobService scope found 84
-nodes/four files at depth two. These bounded reports do not prove cross-language
-isolation. The manual matrix above covers the missing boundaries.
+Pre-edit graph impact across metadata/shared readers/Query found 45 changed nodes,
+47 impacted nodes and 18 additional files within depth two, with 139 unresolved
+call sites and truncated edges. A prior wrong-path query returned an unindexed
+zero; it is not used as no-impact evidence. The manual matrix above follows
+cross-language Kafka/storage/HTTP boundaries beyond graph reachability.
 
-## Migration consolidation and current verification
+## Scoped-data revision verification — 2026-11-03
+
+Gate `P14-I10-rows-20261103`: PASS, eight required checks recorded from executed
+commands. This is a source regression gate, not whole-I10 acceptance. Earlier
+results below are historical; I10 remains in_progress, without owner attestation.
+
+| Executed check | Result |
+| --- | --- |
+| Platform full coverage suite | 619 entries, 4 opt-in skips, zero failures/errors. |
+| Final focused Platform metadata/graph/migration suite | 95 tests, no skips, zero failures/errors. |
+| Final scope/baseline/revision unit suite | 2 tests, no skips, zero failures/errors. |
+| py-common coverage | 370 passed, 5 opt-in Kafka skips. |
+| Analyzer coverage | 248 passed. |
+| Ingestor coverage | 94 passed. |
+| Query Service tests with resolver/executor coverage | 46 passed. |
+| Contracts test/generation | 12 generated Java/Python artifacts verified, including RegisteredWorkScope. |
+
+Attributable coverage from the actual reports (line/branch): OutputPublication
+100/100%; work_rows 95.38/91.18%; approved_inputs 96.49/92.11%; readiness reader
+88.39/80.65%; ParquetStorage 98.03/94.23%; Analyzer indicator/evaluator 100/100%,
+signal handler 88.14/80.56%. Query DatasetResolver is 38/41 lines and 18/22
+branches (92.68/81.82%); its dataset registration method is 19/19 lines and 8/8
+branches. These Query numbers are attributed to source ranges, not the entire
+storage module's older catalog code.
+
+The final focused Java report records OutputWorkReadiness 97.37/95%,
+OutputReadinessStore 100/80%, PlatformDependencyRegistry 100/96.30% and
+OutputReadinessProvider 98.65/85%. CompletionGate (96.49/66.67%) and historical
+backfill (97.22/56%) still miss the branch threshold, as do older registration
+validation branches. The final two-case report additionally exercises the scoped
+baseline rejection; reports are kept separately, without inventing a merged
+percentage. Thus suite success does not close whole-I10 coverage acceptance.
+Static documentation audit is consistent within this revision: current semantics,
+contracts, migration and flow agree; dated earlier evidence remains historical.
+Post-edit graph detection found 52 tracked changed files, 79 symbols and heuristic
+test gaps; flows were not built, so zero reported flows is not impact evidence.
+Full/focused JaCoCo reports and counts are retained under the ignored local gate
+artifacts. The initial Query run hit the previously observed asynchronous audit
+assertion race; the final isolated full Query run passed. No production audit
+behavior was changed.
+
+| Behavior | Source / regression mapping |
+| --- | --- |
+| Append/unrelated row cannot invalidate day proof; owned mutation/missing/duplicate/schema fails | work_rows, ParquetStorage; test_work_rows scoped reader and preservation tests. |
+| Canonical READY-last without snapshots, staged/copy path, no historical scope expansion | OutputPublication/ParquetStorage; test_work_rows writer and output-publication cases. |
+| Outcome rows retain original dates and only changed symbols | scope_for_work; test_work_rows outcome case, Analyzer outcome/repository suite. |
+| Matching Java/Python scope contract and old fixture compatibility | OutputRegistrationEvent/RegisteredOutput/proto; shared old/new fixtures and contract generation. |
+| Exact frozen identity lookup and shared partition proofs | OutputWorkReadiness/PostgresMetadataReader/approved_inputs; work lookup, aggregation, rejection and admission cases. |
+| Transactional work/row promotion independent of physical pointer | V19/OutputReadinessStore; real PostgreSQL GraphWorkRequests test including unrelated-date and overlapping-row cases. |
+| Query reads checked data buffer and filters to READY rows | DatasetResolver/DuckDBExecutor; storage/executor regression cases. |
+
+Documentation synchronization covers plan/registry/release notes, ADR,
+architecture, flow, Kafka/data-lake/database, rollout, ownership, service guides,
+indexes and AGENTS. No new service/deployment variable, public UI/SQL DTO shape, storage
+layout or scheduled job is introduced; documents describing those unchanged
+surfaces need only the linked semantic amendment. No retained deployment,
+migration or complete real worker→Kafka→Platform→Query E2E has been executed.
+Existing whole-I10 coverage, timeout ownership resolution, custom policy and
+historical/range cutover gates remain open. Direct-input/scope/envelope limits
+remain bounded and fail closed; this change does not introduce lineage paging.
+
+## Historical migration consolidation verification before scoped data revision
 
 Owner authorized consolidating the unapplied I10 sequence. Registration,
 completion/timeout, physical projection, baselines and work READY remain separate

@@ -1760,3 +1760,44 @@ async def test_signal_kafka_service_publishes_error_status_for_valid_execution_i
     assert status.status.value == "ERROR"
     assert status.execution_id == "execution-id"
     assert producer.sent
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("case", ["work", "postgres", "no-reader", "missing-partition", "manifest-mismatch"])
+async def test_outcome_loader_uses_frozen_work_readiness_and_cutoff(case):
+    from py_common.storage.output_readiness import PostgresMetadataReader
+    day=date(2026,11,2)
+    settings=FakeSettings()
+    settings.output_readiness_mode="manifest" if case in {"work","manifest-mismatch"} else "postgres"
+    storage=AsyncMock()
+    frame=pd.DataFrame({"date":[date(2026,10,30),day,date(2026,11,3)],"ad_close":[1,2,999]})
+    storage.read_bound_dataframe.return_value=frame
+    parameters={"source":"ANALYZER","timeframe":"1d","strategy":"TREND_MOMENTUM_V1"}
+    payload={"jobDefinitionId":"definition","executionId":"execution","source":"ANALYZER",
+        "jobType":"EVALUATE_SIGNALS","workType":"EXCHANGE","workKey":"HOSE","exchange":"HOSE",
+        "timeframe":"1d","strategy":"TREND_MOMENTUM_V1","businessDate":day.isoformat(),"parameters":parameters,
+        "atomicWorkId":atomic_work_id("EVALUATE_SIGNALS","EXCHANGE","HOSE",day,parameters)}
+    proof=SimpleNamespace(path="canonical-eod",status="READY",dataVersion="sha256:"+"a"*64)
+    document=SimpleNamespace(resolve=lambda *args:None if case=="missing-partition" else proof)
+    reader=None if case=="no-reader" else SimpleNamespace(read=AsyncMock(return_value=document))
+    if case=="work":
+        payload["metadata"]={"outputCompletion":{},"approvedInputs":[]}
+        reader=PostgresMetadataReader("http://platform/api/v1/jobs/output-readiness","test")
+        reader.read=AsyncMock(side_effect=AssertionError("Latest partition must not be used"))
+        reader.read_for=AsyncMock(return_value=document)
+    if case=="manifest-mismatch":
+        payload["metadata"]={"outputCompletion":{}}
+    evaluator=SignalOutcomeEvaluator(settings,storage,reader)
+    async def evaluate_history(path,loader):
+        selected=await loader("HOSE-HPG")
+        assert selected["ad_close"].tolist()==[1,2]
+        return SignalOutcomeEvaluation(1,0,{})
+    evaluator._history_repository.update_outcomes=AsyncMock(side_effect=evaluate_history)
+    if case in {"no-reader","missing-partition","manifest-mismatch"}:
+        with pytest.raises((ValueError,ManifestInvalidError)):
+            await evaluator.evaluate(payload)
+        storage.read_bound_dataframe.assert_not_awaited()
+    else:
+        await evaluator.evaluate(payload)
+        storage.read_bound_dataframe.assert_awaited_once_with("eod",proof,proof.dataVersion)
+        storage.read_dataframe.assert_not_awaited()

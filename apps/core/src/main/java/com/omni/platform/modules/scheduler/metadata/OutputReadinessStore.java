@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-/** READY-last for enrolled snapshot writers only; shadow evidence never promotes. */
+/** READY-last for enrolled scoped writers only; shadow evidence never promotes. */
 @Service
 public class OutputReadinessStore {
     private final JdbcTemplate jdbc;
@@ -36,7 +36,14 @@ public class OutputReadinessStore {
             // Shared history writers and competing attempts serialize the pointer transaction.
             jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 1))",
                     output.get("dataset") + ":" + output.get("partition"));
-            jdbc.update("INSERT INTO output_work_ready(atomic_work_id,dataset,partition_values,registration_id,output_index,generation) "
+            int rowsChanged = jdbc.update("INSERT INTO output_ready_rows(dataset,partition_values,row_key,registration_id,output_index,generation) "
+                    + "SELECT o.dataset,o.partition_values,k,o.registration_id,o.output_index,? "
+                    + "FROM output_registration_outputs o CROSS JOIN LATERAL jsonb_array_elements(o.payload->'workScope'->'rowKeys') k "
+                    + "WHERE o.registration_id=? AND o.output_index=? "
+                    + "ON CONFLICT(dataset,partition_values,row_key) DO UPDATE SET registration_id=excluded.registration_id,"
+                    + "output_index=excluded.output_index,generation=excluded.generation WHERE output_ready_rows.generation<excluded.generation",
+                    output.get("generation"), output.get("registration_id"), output.get("output_index"));
+            int worksChanged = jdbc.update("INSERT INTO output_work_ready(atomic_work_id,dataset,partition_values,registration_id,output_index,generation) "
                     + "VALUES (?,?,?::jsonb,?,?,?) ON CONFLICT(atomic_work_id,dataset,partition_values) DO UPDATE SET "
                     + "registration_id=excluded.registration_id,output_index=excluded.output_index,"
                     + "generation=excluded.generation,promoted_at=CURRENT_TIMESTAMP "
@@ -50,7 +57,7 @@ public class OutputReadinessStore {
                     + "WHERE output_ready_pointers.generation<excluded.generation",
                     output.get("dataset"), output.get("partition"), output.get("registration_id"),
                     output.get("output_index"), output.get("generation"));
-            if (changed > 0) jdbc.update("UPDATE output_ready_revision SET revision=revision+1 WHERE id=1");
+            if (changed + rowsChanged + worksChanged > 0) jdbc.update("UPDATE output_ready_revision SET revision=revision+1 WHERE id=1");
         }
     }
 

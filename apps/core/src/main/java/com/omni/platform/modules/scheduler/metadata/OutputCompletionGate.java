@@ -13,6 +13,9 @@ import tools.jackson.databind.json.JsonMapper;
 /** Durable correlation. Call only while owning the execution row write lock. */
 @Service
 public class OutputCompletionGate {
+    private static final class MapType {
+        static final tools.jackson.core.type.TypeReference<java.util.Map<String,String>> TYPE = new tools.jackson.core.type.TypeReference<>() {};
+    }
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
 
@@ -91,10 +94,28 @@ public class OutputCompletionGate {
         } else {
             for (var output : item.outputs()) {
                 OutputRegistrationEvent.require(output.schemaVersion()==1, "Unsupported enrolled output schema");
+                OutputRegistrationEvent.require(output.workScope()!=null, "Enrolled output requires work-row scope");
+                if (item.jobType().name().equals("EVALUATE_SIGNALS")) {
+                    OutputRegistrationEvent.require(output.dataset().equals("signals") && output.workScope().rowKeys().stream().allMatch(k ->
+                        k.get("symbol_key").startsWith(item.workKey()+"-")
+                        && !java.time.LocalDate.parse(k.get("signal_date")).isAfter(item.businessDate())), "Outcome scope outside work exchange/date");
+                } else {
+                    OutputRegistrationEvent.require(output.coverageDates().equals(List.of(item.businessDate())), "Scope outside work date");
+                    if (output.dataset().equals("signals"))
+                        OutputRegistrationEvent.require(output.dataset().equals("signals") && output.workScope().rowKeys().stream().allMatch(k -> item.workKey().equals(k.get("symbol_key"))),
+                                "Scope outside work symbol");
+                }
                 OutputRegistrationEvent.require(item.jobType().name().equals("EVALUATE_SIGNALS")
                         || output.coverageDates().contains(item.businessDate()),
                         "Output does not cover enrolled work date");
             }
+            var metadata = jdbc.queryForObject("SELECT coalesce(meta_json->'approvedInputs','[]'::jsonb)::text FROM job_execution_histories WHERE id=?",
+                    String.class, item.executionId());
+            var approved = new java.util.HashSet<OutputRegistrationEvent.Input>();
+            for (var binding : json.readTree(metadata)) approved.add(new OutputRegistrationEvent.Input(
+                    binding.get("dataset").asText(), json.convertValue(binding.get("partition"), MapType.TYPE), binding.get("dataVersion").asText()));
+            for (var output : item.outputs()) OutputRegistrationEvent.require(new java.util.HashSet<>(output.inputs()).equals(approved),
+                    "Registered inputs differ from execution approvals");
             // JSONB containment in both directions makes declaration ordering irrelevant.
             String required = json.writeValueAsString(item.requiredOutputs());
             OutputRegistrationEvent.require(Boolean.TRUE.equals(jdbc.queryForObject(

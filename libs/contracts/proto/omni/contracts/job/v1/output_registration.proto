@@ -47,6 +47,13 @@ message RegisteredOutput {
   string schema_hash = 8;
   repeated RegisteredColumn columns = 9;
   repeated RegisteredInput inputs = 10;
+  RegisteredWorkScope work_scope = 11;
+}
+
+// Coordinates of the data covered by this work, not the entire Parquet object.
+message RegisteredWorkScope {
+  string atomic_work_id = 1;
+  repeated google.protobuf.Struct row_keys = 2;
 }
 
 message RegisteredColumn {

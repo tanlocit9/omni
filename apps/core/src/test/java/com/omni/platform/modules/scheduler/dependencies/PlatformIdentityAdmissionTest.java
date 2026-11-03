@@ -124,4 +124,28 @@ class PlatformIdentityAdmissionTest {
         assertThat(legacy.evaluate(request(Map.of("workBusinessDate","2026-11-03"))).reasonCode())
                 .isEqualTo("INPUT_DATE_NOT_COVERED");
     }
+    @Test
+    void enrolledWorkDoesNotReadTheLatestFileVersionOrDate() {
+        when(identities.enrolled(execution)).thenReturn(true);
+        when(guard.parseDependencies(any())).thenReturn(List.of(new DatasetDependency(eod,
+                List.of(DependencyCondition.EXISTS,DependencyCondition.READY),Map.of(),DatasetDependency.DependencyMode.ENFORCED)));
+        var bound=eod.bindWork("work:"+"a".repeat(64),LocalDate.of(2026,11,3),UUID.randomUUID());
+        when(identities.bind(eq(execution),anyMap())).thenReturn(Map.of(bound,"scoped-version"));
+        var result=registry.evaluate(request(Map.of("workBusinessDate","2026-11-03")));
+        assertThat(result.approvedInputVersions()).containsEntry(bound,"scoped-version");
+        verify(guard,never()).checkDependencies(any());
+        verifyNoInteractions(metadata);
+        when(identities.bind(eq(execution),anyMap())).thenReturn(null);
+        assertThat(registry.evaluate(request(Map.of())).reasonCode()).isEqualTo("UPSTREAM_IDENTITY_NOT_READY");
+    }
+
+    @Test
+    void enrolledWorkCannotSilentlyIgnoreAnUnadaptedPolicy() {
+        when(identities.enrolled(execution)).thenReturn(true);
+        when(guard.parseDependencies(any())).thenReturn(List.of(new DatasetDependency(eod,
+                List.of(DependencyCondition.CURRENT_INPUTS),Map.of(),DatasetDependency.DependencyMode.ENFORCED)));
+        assertThat(registry.evaluate(request(Map.of())).reasonCode()).isEqualTo("WORK_SCOPE_POLICY_UNSUPPORTED");
+        verify(identities,never()).bind(any(),anyMap());
+    }
+
 }

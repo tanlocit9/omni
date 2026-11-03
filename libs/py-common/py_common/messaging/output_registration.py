@@ -71,6 +71,11 @@ class RegisteredColumn(WireModel):
     nullable: bool = Field(strict=True)
 
 
+class WorkRowScope(WireModel):
+    atomic_work_id: str = Field(alias="atomicWorkId", pattern=r"^work:[0-9a-f]{64}$")
+    row_keys: list[dict[str, str]] = Field(alias="rowKeys", min_length=1, max_length=4096)
+
+
 class RegisteredOutput(LogicalOutput):
     data_version: Fingerprint = Field(alias="dataVersion")
     coverage_dates: list[date] = Field(
@@ -82,6 +87,7 @@ class RegisteredOutput(LogicalOutput):
     schema_hash: Fingerprint = Field(alias="schemaHash")
     columns: list[RegisteredColumn] = Field(min_length=1, max_length=256)
     inputs: list[RegisteredInput] = Field(max_length=128)
+    work_scope: WorkRowScope | None = Field(default=None, alias="workScope")
 
     @model_validator(mode="after")
     def validate_sets(self):
@@ -89,6 +95,18 @@ class RegisteredOutput(LogicalOutput):
             raise ValueError("coverageDates must be sorted and unique")
         if len({column.name for column in self.columns}) != len(self.columns):
             raise ValueError("Duplicate output columns")
+        if self.work_scope is not None:
+            from py_common.storage.work_rows import key_columns
+            names = key_columns(self.dataset)
+            keys = self.work_scope.row_keys
+            if len(keys) != self.row_count or any(set(k) != set(names) for k in keys):
+                raise ValueError("Work scope differs from output row count/coordinates")
+            if any(any(not v for v in k.values()) or date.fromisoformat(k[names[-1]]).isoformat()!=k[names[-1]] for k in keys):
+                raise ValueError("Invalid work coordinates/date")
+            if len({json.dumps(k, sort_keys=True) for k in keys}) != len(keys):
+                raise ValueError("Duplicate work-row coordinates")
+            if sorted({date.fromisoformat(k[names[-1]]) for k in keys}) != self.coverage_dates:
+                raise ValueError("Work coverage differs from scoped rows")
         return self
 
 
@@ -119,6 +137,8 @@ class OutputRegistration(WireModel):
         )
         if self.atomic_work_id != expected:
             raise ValueError("atomicWorkId does not match the immutable work tuple")
+        if any(o.work_scope is not None and o.work_scope.atomic_work_id != self.atomic_work_id for o in self.outputs):
+            raise ValueError("Output scope belongs to another work")
         required = [item.identity() for item in self.required_outputs]
         actual = [
             LogicalOutput(dataset=item.dataset, partition=item.partition).identity()
@@ -161,7 +181,12 @@ class OutputRegistrationEvent(WireModel):
         validated = type(self).model_validate(
             self.model_dump(mode="json", by_alias=True)
         )
-        payload = validated.model_dump_json(by_alias=True).encode("utf-8")
+        raw = validated.model_dump(mode="json", by_alias=True)
+        for item in raw["registrations"]:
+            for output in item["outputs"]:
+                if output.get("workScope") is None:
+                    output.pop("workScope", None)
+        payload = json.dumps(raw, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
         if len(payload) > MAX_EVENT_BYTES:
             raise ValueError("Registration event exceeds 256 KiB")
         return payload

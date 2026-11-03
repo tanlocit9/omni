@@ -20,7 +20,7 @@ import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import com.omni.platform.modules.scheduler.expansion.WorkExpansion;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Snapshot-backed reads only. No manifest fallback and no mutable physical paths. */
+/** Explicit work-row authority with legacy snapshot baseline compatibility; no manifest fallback. */
 @Service
 public class OutputReadinessProvider {
     public static final int MAX_PAGE_BYTES = 4 * 1024 * 1024;
@@ -65,8 +65,11 @@ public class OutputReadinessProvider {
         if (revision != null && revision != current)
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                     "READY changed while paging; restart the read");
-        var rows = jdbc.queryForList("SELECT payload::text,execution_id,promoted_at FROM output_ready_catalog p "
-                + "ORDER BY p.dataset,p.partition_values::text LIMIT ? OFFSET ?",
+        var rows = jdbc.queryForList("SELECT payload::text,execution_id,promoted_at FROM ("
+                + "SELECT dataset,partition_values,payload,execution_id,promoted_at,atomic_work_id AS sort_id FROM output_work_ready_catalog "
+                + "UNION ALL SELECT dataset,partition_values,payload,execution_id,promoted_at,'' AS sort_id FROM output_ready_catalog "
+                + "WHERE payload->'workScope' IS NULL) p "
+                + "ORDER BY p.dataset,p.partition_values::text,p.sort_id LIMIT ? OFFSET ?",
                 limit + 1, offset);
         List<Map<String, Object>> items = new ArrayList<>();
         int pageBytes = 1024; // Reserve the bounded revision/cursor/envelope overhead.
@@ -79,6 +82,7 @@ public class OutputReadinessProvider {
             manifest.put("schemaHash", output.schemaHash()); manifest.put("objectCount", 1);
             manifest.put("totalBytes", output.totalBytes()); manifest.put("rowCount", output.rowCount());
             manifest.put("columnCount", output.columns().size()); manifest.put("columns", output.columns());
+            if (output.workScope()!=null) manifest.put("workScope", output.workScope());
             manifest.put("inputs", output.inputs()); manifest.put("coverageDates", output.coverageDates());
             manifest.put("minTimestamp", timestampBound(output,false)); manifest.put("maxTimestamp", timestampBound(output,true));
             manifest.put("generatedAt", ((java.sql.Timestamp)row.get("promoted_at")).toInstant().toString());
@@ -116,6 +120,7 @@ public class OutputReadinessProvider {
     }
 
     private String snapshotPath(OutputRegistrationEvent.Output output) {
+        if (output.workScope()!=null) return canonicalPath(output);
         try {
             String pattern = environment.getProperty("stock-data.paths.output-snapshots.pattern",
                     "{dataset}/{partition_hash}/{data_version}.parquet");

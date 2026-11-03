@@ -1,5 +1,12 @@
 # Data Lake
 
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;

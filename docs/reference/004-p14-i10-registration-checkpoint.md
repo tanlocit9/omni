@@ -18,7 +18,7 @@ is authorized or performed by this implementation handoff.
   [shared JSON fixture](../../libs/contracts/fixtures/output-registration-v1.json),
   [Python adapter/publisher](../../libs/py-common/py_common/messaging/output_registration.py)
   and [Java adapter](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/metadata/OutputRegistrationEvent.java).
-- [V19](../../database/migrations/V19__output_registration_shadow.sql) adds immutable
+- [V19](https://github.com/tanlocit9/omni/blob/5204939adf6d486811ab647bcdaa06fbdaf0020f/database/migrations/V19__output_registration_shadow.sql) adds immutable
   event/member shadow evidence, unique event/registration/execution identities,
   attempt/execution foreign keys and work lookup index. No READY pointer table,
   backfill or completion schema is supplied by this migration.

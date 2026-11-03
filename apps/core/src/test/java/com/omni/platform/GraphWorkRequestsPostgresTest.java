@@ -1360,7 +1360,7 @@ class GraphWorkRequestsPostgresTest {
         context.getBean(JobService.class).applyStatus(f.status());
         store.accept(f.event());
         assertThat(completionState(f.execution())).isEqualTo("SUCCESS");
-        // V20 provides no READY pointer and valid-empty supplies no output coverage.
+        // Registration acceptance alone is not READY; valid-empty supplies no output coverage.
         assertThat(jdbc.queryForObject("SELECT jsonb_array_length(payload->'outputs') FROM output_registrations "
                 + "WHERE execution_id=?", Integer.class, f.execution())).isZero();
     }

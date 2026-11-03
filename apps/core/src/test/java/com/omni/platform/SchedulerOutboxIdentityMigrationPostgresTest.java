@@ -59,6 +59,28 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
     }
 
     @Test
+    void v18UpgradeInstallsOneCompleteI10SchemaWithoutInventingReadyHistory() {
+        flyway("18").migrate();
+        String before=jdbc.queryForObject("SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",String.class);
+        assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(1);
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("19");
+        for (String table : List.of("output_registration_events","output_registrations","output_registration_outputs",
+                "output_registration_coverage","output_completion_contracts","output_completion_statuses",
+                "output_attempt_timeouts","output_ready_pointers","output_ready_baselines",
+                "output_baseline_pointers","output_work_ready")) {
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + table,Integer.class)).isZero();
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_work_ready_catalog",Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_ready_catalog",Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT revision FROM output_ready_revision WHERE id=1",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT is_identity FROM information_schema.columns WHERE table_schema=? "
+                + "AND table_name='output_completion_contracts' AND column_name='generation'",String.class,schema)).isEqualTo("YES");
+        assertThat(jdbc.queryForObject("SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",String.class)).isEqualTo(before);
+        flyway(null).validate();
+        assertThat(flyway(null).migrate().migrationsExecuted).isZero();
+    }
+
+    @Test
     void upgradePreservesEveryIntentHistoryAndDeliveryFieldAcrossStatesAndLeases() {
         for (String status : List.of("PENDING", "PUBLISHED", "BLOCKED")) {
             for (boolean leased : List.of(true, false)) row(status, leased, true);
@@ -100,14 +122,14 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         assertThat(flyway(null).migrate().migrationsExecuted).isZero();
         flyway(null).validate();
         assertThat(intentsWithoutForeignKey()).isEqualTo(after);
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("23");
-        // A separate disposable schema exercises V1 through V23 from an empty install.
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("19");
+        // A separate disposable schema exercises V1 through V19 from an empty install.
         String original = schema;
         var originalSource = dataSource;
         try {
             schema = "i7_" + UUID.randomUUID().toString().replace("-", "");
             dataSource = source(schema);
-            assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(23);
+            assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(19);
             assertThat(
                             new JdbcTemplate(dataSource)
                                     .queryForObject(
@@ -347,7 +369,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                                                                 "spring.datasource.url",
                                                                 dataSource.getUrl()))))) {
             assertThat(application.getBean(Flyway.class).info().current().getVersion().toString())
-                    .isEqualTo("23");
+                    .isEqualTo("19");
             var outbox = application.getBean(SchedulerOutboxService.class);
             var store = application.getBean(JobRunDispatchStore.class);
             var approved = Map.of(DatasetRef.of("eod", Map.of("exchange", "HOSE")), "v1");
@@ -617,7 +639,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                 jdbc.queryForObject(
                         "SELECT jsonb_agg(to_jsonb(d) ORDER BY id)::text FROM job_definitions d",
                         String.class);
-        assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(7);
+        assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(3);
         for (var entry : before.entrySet()) {
             assertThat(
                             jdbc.queryForObject(

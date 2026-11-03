@@ -1,5 +1,15 @@
 # Omni Release Notes
 
+## 2026-11-03 - Consolidate unapplied I10 migrations into V19
+
+Owner confirms V19/V20 were never applied. Replace the unshipped V19-V23 sequence
+with one V19__output_registration_and_work_readiness.sql containing the same final
+registration/completion/timeout, catalog/baseline and canonical work READY schema.
+Keep V1-V18 intact, define generation/FK directly, and remove the empty intermediate
+pointer copy. Preserve advisory-lock protocol keys and runtime behavior. Update
+fresh/V16/V18 upgrade tests and canonical flow/increment documentation. No retained
+migration, Flyway repair, flags or deployment executed; full I10 E2E/cutover remains open.
+
 ## 2026-11-03 - Reconcile I10 around canonical work identity
 
 Use graph atomicWorkId for work READY, preserve execution/attempt/version separately,

@@ -33,12 +33,15 @@ not the identity of a dated graph work.
 
 ## Source and persistence
 
-V23 is a new candidate forward migration; V18-V22 are unchanged. output_work_ready
+The owner confirmed I10 migrations have not been applied. The former V19-V23
+development sequence is consolidated into
+[V19__output_registration_and_work_readiness.sql](../../database/migrations/V19__output_registration_and_work_readiness.sql).
+V1-V18 are unchanged. output_work_ready
 is keyed by (atomic_work_id,dataset,partition_values); multiple outputs remain
 attributable to one work. Generation monotonicity applies within that work key.
 The older partition pointer remains a projection of the current physical version.
-Only previously promoted pointers are carried forward; no synthetic work/date or
-attempt is created for NULL-provenance historical baselines.
+No intermediate pointer copy is needed on this first I10 installation. No
+synthetic work/date or attempt is created for NULL-provenance historical baselines.
 
 output_work_ready_catalog exposes the exact identity/attempt/date/version only
 when the physical partition projection still has that version. Recursive frozen
@@ -71,7 +74,7 @@ is rejected. Unenrolled legacy bindings stay compatible.
 Drain previously enrolled queued commands before installing strict identity readers.
 Their first approvedInputs payload is immutable; legacy partition/version approvals
 must not be patched into invented graph identities. Deploy matching Platform and
-shared Python code, and review V23/retained checksums before any rollout. Enable
+shared Python code, and review consolidated V19 before first I10 deployment. Enable
 READY promotion with enrollment for new supported chains so upstream identity
 proofs exist before dependent work is admitted. A validated historical file/baseline
 alone cannot satisfy a missing work identity; prepare a legitimate new work attempt
@@ -89,15 +92,57 @@ not executed deployment actions.
 | Query Service | Partition catalog is discovery for ad-hoc queries, not atomic-work readiness. Existing public SQL/catalog DTOs unchanged; byte/version checks remain. |
 | Console | No new public UI or browser secret; still uses existing Query Service DTOs. |
 | Shared contracts/library | Existing Kafka registration already carries canonical work/attempt/date and validates against frozen execution metadata. No new protobuf field, physical path in Kafka, or generated-source edit. Approval metadata is additive for legacy commands and mandatory-complete for enrolled inputs. |
-| Persistence | Candidate V23; no retained migration, ledger repair or production data change. Baselines cannot invent work identities. |
-| Config/operations | No flag enabled. Deploy matched Platform/shared Python code and review V23 before opting in. Enrolled dependencies require promoted upstream identity evidence; baselines or manifest rows alone cannot satisfy them. Existing drain, timeout ownership, cutover and rollback gates remain. |
+| Persistence | Consolidated, unapplied V19; no retained migration, ledger repair or production data change. Baselines cannot invent work identities. |
+| Config/operations | No flag enabled. Deploy matched Platform/shared Python code and review V19 before opting in. Enrolled dependencies require promoted upstream identity evidence; baselines or manifest rows alone cannot satisfy them. Existing drain, timeout ownership, cutover and rollback gates remain. |
 
 Graph analysis before edits: readiness/provider/shared approval scope found 26
 impacted nodes/four files; DatasetRef/registry/dispatch/JobService scope found 84
 nodes/four files at depth two. These bounded reports do not prove cross-language
 isolation. The manual matrix above covers the missing boundaries.
 
-## Verification
+## Migration consolidation and current verification
+
+Owner authorized consolidating the unapplied I10 sequence. Registration,
+completion/timeout, physical projection, baselines and work READY remain separate
+responsibilities inside one V19. Generation and registration-attempt FK are defined
+in their final CREATE TABLE statements. The composite attempt/execution prerequisite
+on the existing V17 table remains necessary. The empty intermediate work-pointer
+backfill is removed. Advisory lock (21410,22) stays unchanged: it is a protocol
+coordination key shared with Java, not a Flyway version number.
+
+The older V20 checksum question is resolved by the owner's confirmation that it
+was never applied; no ledger repair or retained database changes are performed.
+Current narrow consolidation gate is P14-I10-squash-20261103. Fresh checks:
+
+| Check | Result |
+| --- | --- |
+| Platform full coverage target | PASS: 615 test entries, 4 opt-in workflow skips, zero failures/errors; JaCoCo generated. |
+| Focused migration/graph suites | PASS: 47 tests, no skips; fresh installs, V16/V18 upgrade and existing I10 registration/completion/READY behavior. |
+| Documentation | Static consistency audit plus post-edit graph change analysis; no executable link checker, deployment or migration against retained data. |
+
+The single V18-to-V19 upgrade test validates one migration, all I10 evidence tables
+initially empty, both catalog views empty, revision zero, generation identity,
+Flyway validate and an idempotent restart. Existing retained-fixture tests preserve
+old V1 paths, offsets, execution/outbox delivery states and immutable membership.
+The schema is semantically the former final I10 schema; no Java/Python runtime,
+Kafka/protobuf fields, storage paths or feature flag defaults changed. Analyzer,
+Ingestor, Query Service, Console and shared-library runtime targets were not rerun
+for this SQL/docs-only consolidation; previous results above/below are historical.
+
+Static reconciliation covered the plan/registry/release notes, ADR/architecture,
+flow/data/database, deployment/ownership, service guides and indexes. V1-V18 and
+the canonical atomicWorkId contract are unchanged. Former migration links in the
+historical 004/005 handoffs now point to their exact pre-squash Git commit; current
+links point to the consolidated V19. No active V20-V23 remains in migrations.
+Post-edit graph analysis reports 31 changed files, 22 symbols and heuristic SQL
+test-gap candidates; bounded graph reachability/flows skipped is not behavioral
+proof. Executed PostgreSQL tests supply the migration evidence. Static audit is
+CONSISTENT in the changed scope; the whole I10 E2E/coverage/cutover gate remains
+open and no owner attestation/completion is recorded.
+The current opt-in execution flow is in
+[Job execution flow](../flows/001-job-execution.md#current-graph-and-i10-flow).
+
+## Historical identity revision verification before consolidation
 
 New gate: P14-I10-identity-20261103. No earlier passing result is reused for changed
 source. Focused Java/Python cases cover canonical date/key/parameter separation,
@@ -109,10 +154,10 @@ exercise duplicate status/registration, generation guards and retained upgrade.
 | --- | --- |
 | Canonical identity and input serialization | WorkExpansion.identity, DatasetRef; OutputWorkReadinessTest and DatasetRefIdentityTest (date/attempt separation, immutable coordinates, legacy wire). |
 | Frozen upstream binding, missing/ambiguous work | OutputWorkReadiness.bind; OutputWorkReadinessTest; full Platform suite. |
-| Real promotion/work lookup and NULL baseline exclusion | V23/OutputReadinessStore/OutputWorkReadiness.read; GraphWorkRequestsPostgresTest.baselineHasNullProvenanceAndCannotReplaceRegisteredReady. |
+| Real promotion/work lookup and NULL baseline exclusion | Consolidated V19/OutputReadinessStore/OutputWorkReadiness.read; GraphWorkRequestsPostgresTest.baselineHasNullProvenanceAndCannotReplaceRegisteredReady. |
 | Auth scopes | TrustedOperatorHeaderFilter; OutputReadinessTokenTest. |
 | Worker identity/date/attempt/version validation | approved_inputs; test_approved_inputs plus affected worker suites. |
-| Fresh and retained forward schema | SchedulerOutboxIdentityMigrationPostgresTest now expects V23. |
+| Fresh and retained forward schema | SchedulerOutboxIdentityMigrationPostgresTest now expects V19, one migration from V18 and three from V16. |
 
 Fresh Python/contract results: py-common:coverage PASS 343 passed / 5 opt-in Kafka
 skips; analyzer:coverage PASS 242; ingestor:coverage PASS 94; query-service:test

@@ -40,7 +40,7 @@ public class TrustedOperatorHeaderFilter extends OncePerRequestFilter {
         String actor = request.getHeader(OPERATOR_HEADER);
         String authorization = request.getHeader("Authorization");
         if ("GET".equals(request.getMethod())
-                && "/api/v1/jobs/output-readiness".equals(request.getRequestURI())
+                && java.util.Set.of("/api/v1/jobs/output-readiness", "/api/v1/jobs/output-readiness/work").contains(request.getRequestURI())
                 && !readerToken.isBlank() && authorization != null
                 && java.security.MessageDigest.isEqual(
                         ("Bearer " + readerToken).getBytes(java.nio.charset.StandardCharsets.UTF_8),

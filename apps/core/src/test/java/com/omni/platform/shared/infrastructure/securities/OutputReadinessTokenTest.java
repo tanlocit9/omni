@@ -12,6 +12,9 @@ class OutputReadinessTokenTest {
     @ParameterizedTest
     @CsvSource({
         "GET,/api/v1/jobs/output-readiness,read,200",
+        "GET,/api/v1/jobs/output-readiness/work,read,200",
+        "POST,/api/v1/jobs/output-readiness/work,read,401",
+        "GET,/api/v1/jobs/output-readiness/work,reconcile,401",
         "POST,/api/v1/jobs/output-readiness/backfill,read,401",
         "POST,/api/v1/jobs/output-readiness/backfill,reconcile,200",
         "POST,/api/v1/jobs/output-readiness/backfill/fence,reconcile,200",
@@ -28,5 +31,18 @@ class OutputReadinessTokenTest {
         filter.doFilter(request,response,new MockFilterChain());
         assertThat(response.getStatus()).isEqualTo(status);
         assertThat(org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
+    void workReadCannotAuthenticateWithDisabledSecretOrMissingBearer(boolean disabled) throws Exception {
+        var filter=new TrustedOperatorHeaderFilter();
+        ReflectionTestUtils.setField(filter,"readerToken",disabled ? "" : "read");
+        ReflectionTestUtils.setField(filter,"reconcileToken","reconcile");
+        var request=new MockHttpServletRequest("GET","/api/v1/jobs/output-readiness/work");
+        if (disabled) request.addHeader("Authorization","Bearer read");
+        var response=new MockHttpServletResponse();
+        filter.doFilter(request,response,new MockFilterChain());
+        assertThat(response.getStatus()).isEqualTo(401);
     }
 }

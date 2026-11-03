@@ -24,7 +24,7 @@ public class OutputReadinessStore {
     @Transactional(propagation = Propagation.MANDATORY)
     public void promote(UUID execution) {
         if (!enabled) return;
-        var outputs = jdbc.queryForList("SELECT o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation "
+        var outputs = jdbc.queryForList("SELECT r.atomic_work_id,o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation "
                 + "FROM output_registration_outputs o JOIN output_registrations r USING(registration_id) "
                 + "JOIN output_completion_contracts c ON c.execution_id=r.execution_id AND c.atomic_attempt_id=r.atomic_attempt_id "
                 + "JOIN output_completion_statuses s ON s.execution_id=c.execution_id "
@@ -36,6 +36,13 @@ public class OutputReadinessStore {
             // Shared history writers and competing attempts serialize the pointer transaction.
             jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 1))",
                     output.get("dataset") + ":" + output.get("partition"));
+            jdbc.update("INSERT INTO output_work_ready(atomic_work_id,dataset,partition_values,registration_id,output_index,generation) "
+                    + "VALUES (?,?,?::jsonb,?,?,?) ON CONFLICT(atomic_work_id,dataset,partition_values) DO UPDATE SET "
+                    + "registration_id=excluded.registration_id,output_index=excluded.output_index,"
+                    + "generation=excluded.generation,promoted_at=CURRENT_TIMESTAMP "
+                    + "WHERE output_work_ready.generation<excluded.generation",
+                    output.get("atomic_work_id"), output.get("dataset"), output.get("partition"),
+                    output.get("registration_id"), output.get("output_index"), output.get("generation"));
             int changed = jdbc.update("INSERT INTO output_ready_pointers(dataset,partition_values,registration_id,output_index,generation) "
                     + "VALUES (?,?::jsonb,?,?,?) ON CONFLICT(dataset,partition_values) DO UPDATE SET "
                     + "registration_id=excluded.registration_id,output_index=excluded.output_index,"

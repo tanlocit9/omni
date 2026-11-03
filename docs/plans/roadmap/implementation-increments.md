@@ -1,5 +1,12 @@
 # Dependency-Ordered Implementation Increments
 
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Candidate V23 and the private work lookup
+are documented in the [current identity handoff](../../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
 I10 READY integration (updated 2026-11-03 UTC+7): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
 Historical I10 checkpoint (2026-11-01): `in_progress` on `docs/p14-i10-i11-sync`; shadow registration source is unverified. [Checkpoint and remaining gates](../../reference/004-p14-i10-registration-checkpoint.md). Dependencies and unchecked acceptance are unchanged. Earlier dated pending statements are historical.
@@ -196,7 +203,7 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I7  | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | [P14-I8]                            | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I8  | Unified work expansion                                             | completed            | critical | [P14-I7]              | [P14-I9]                            | [apps/core, apps/analyzer, apps/ingestor, libs/py-common, libs/contracts, database, configs, docs]                                        | autonomous        | false                   | null                                      | null                                     |
 | P14-I9  | Graph-driven expansion and definition consolidation                | completed            | critical | [P14-I8]              | [P14-I10]                           | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
-| P14-I10 | Output metadata registration and execution watchdog                | in_progress          | critical | [P14-I9]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | true                    | null                                      | null                                     |
+| P14-I10 | Output metadata registration and execution watchdog                | in_progress          | critical | [P14-I9]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
 
 I7 local completion — 2026-10-25: source-bound gate PASS 8/8, 444 tests /
 67 suites, ten migration/upgrade/concurrency cases and all 31 critical Java

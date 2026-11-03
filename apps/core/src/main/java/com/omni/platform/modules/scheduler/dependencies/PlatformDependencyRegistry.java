@@ -20,6 +20,8 @@ public class PlatformDependencyRegistry implements DependencyRegistry {
     private ManifestReader metadataReader;
     @org.springframework.beans.factory.annotation.Autowired
     private com.omni.platform.modules.scheduler.metadata.OutputWriteAdmission outputWriteAdmission;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness workReadiness;
 
     public PlatformDependencyRegistry(
             JobDependencyGuard guard, JobDependencyContextFactory contextFactory) {
@@ -55,7 +57,11 @@ public class PlatformDependencyRegistry implements DependencyRegistry {
                                 request.evaluatedAt().plus(WAIT_RETRY));
                 }
             }
-            return DependencyDecision.ready(result.approvedInputVersions());
+            var bindings = workReadiness == null ? result.approvedInputVersions()
+                    : workReadiness.bind(request.executionId(), result.approvedInputVersions());
+            if (bindings == null) return DependencyDecision.waiting("UPSTREAM_IDENTITY_NOT_READY",
+                    "Frozen upstream work/attempt/version is not READY", request.evaluatedAt().plus(WAIT_RETRY));
+            return DependencyDecision.ready(bindings);
         }
         boolean terminal =
                 result.checks().stream()

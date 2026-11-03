@@ -112,13 +112,7 @@ public class JobService {
                             approvedInputVersions.entrySet().stream()
                                     .map(
                                             entry ->
-                                                    Map.<String, Object>of(
-                                                            "dataset",
-                                                            entry.getKey().getDataset(),
-                                                            "partition",
-                                                            entry.getKey().getPartition(),
-                                                            "dataVersion",
-                                                            entry.getValue()))
+                                                    entry.getKey().approvedInput(entry.getValue()))
                                     .toList()));
             jobExecutionHistoryRepository.save(execution);
         }
@@ -147,10 +141,7 @@ public class JobService {
                     approvedInputVersions.entrySet().stream()
                             .map(
                                     entry ->
-                                            Map.<String, Object>of(
-                                                    "dataset", entry.getKey().getDataset(),
-                                                    "partition", entry.getKey().getPartition(),
-                                                    "dataVersion", entry.getValue()))
+                                            entry.getKey().approvedInput(entry.getValue()))
                             .toList());
         }
         metadata.putAll(manualTriggerMetadata);

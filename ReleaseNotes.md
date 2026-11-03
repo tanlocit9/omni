@@ -1,5 +1,16 @@
 # Omni Release Notes
 
+## 2026-11-03 - Reconcile I10 around canonical work identity
+
+Use graph atomicWorkId for work READY, preserve execution/attempt/version separately,
+and bind enrolled approvals to frozen upstream identities rather than the latest
+partition. Add candidate V23 without rewriting V18-V22, an authenticated work lookup,
+and shared complete-identity validation. Partition catalog/writer exclusion and
+artifact fingerprints remain distinct physical concerns. The earlier history-lineage
+paging decision is superseded for work lineage; no paging protocol is introduced.
+No I11 scope or runtime flag/migration activation. See [source, compatibility limits
+and fresh verification](docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress.
+
 ## 2026-11-03 - I10 private reader contract and regression coverage (UTC+7)
 
 Continue owner commit `7a6699e` on `codex/p14-i10-snapshots`. Bound Platform

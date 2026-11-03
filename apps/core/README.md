@@ -1,5 +1,12 @@
 # Platform / Core Service
 
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Candidate V23 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
 The private output-readiness GET is bounded to 200 items and 4 MiB UTF-8 bytes.
 A byte-shortened page returns `nextOffset = offset + items.size()` and `hasMore`;
 a single oversized item returns HTTP 413. Consumers keep the revision fixed and

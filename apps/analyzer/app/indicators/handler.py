@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from py_common.storage.output_readiness import read_input_document
-
 import logging
 from typing import Any
 
@@ -9,8 +7,9 @@ from py_common.messaging.approved_inputs import approved_manifest_version
 from py_common.storage.atomic_work import cutoff_frame, day_rows, write_day
 from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.global_metadata import GlobalMetadataReader
-from py_common.storage.parquet import ParquetStorage
+from py_common.storage.output_readiness import read_input_document
 from py_common.storage.output_snapshots import OutputSnapshotIdentity
+from py_common.storage.parquet import ParquetStorage
 
 from app.calculations.indicators import calculate_supported_indicators
 from app.indicators.messages import IndicatorJobMessage
@@ -89,11 +88,19 @@ class IndicatorJobHandler:
         snapshot_options = {}
         if getattr(self._settings, "output_snapshots_enabled", False) is True:
             snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
-                "indicators", {"source": message.indicator_source.lower(), "timeframe": message.timeframe.lower(),
-                               **eod_partition}
+                "indicators",
+                {
+                    "source": message.indicator_source.lower(),
+                    "timeframe": message.timeframe.lower(),
+                    **eod_partition,
+                },
             )
         await write_day(
-            self._parquet_storage, indicators_path, result, message.business_date, **snapshot_options
+            self._parquet_storage,
+            indicators_path,
+            result,
+            message.business_date,
+            **snapshot_options,
         )
         _logger.info(
             "Persisted indicators partition source=%s timeframe=%s "

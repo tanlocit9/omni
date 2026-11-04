@@ -4,8 +4,7 @@ import java.util.Map;
 
 public final class MetadataUtils {
 
-    private MetadataUtils() {
-    }
+    private MetadataUtils() {}
 
     public static void putIfPresent(Map<String, Object> meta, String key, Object value) {
         if (value != null) {

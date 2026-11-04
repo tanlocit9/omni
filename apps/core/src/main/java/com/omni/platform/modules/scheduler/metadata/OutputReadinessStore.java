@@ -13,10 +13,12 @@ public class OutputReadinessStore {
     private final JdbcTemplate jdbc;
     private final boolean enabled;
 
-    public OutputReadinessStore(JdbcTemplate jdbc,
+    public OutputReadinessStore(
+            JdbcTemplate jdbc,
             @Value("${app.output-registration.ready-promotion-enabled:false}") boolean enabled,
             @Value("${app.output-registration.enrollment-enabled:false}") boolean enrollment) {
-        if (enabled && !enrollment) throw new IllegalArgumentException("READY promotion requires enrollment");
+        if (enabled && !enrollment)
+            throw new IllegalArgumentException("READY promotion requires enrollment");
         this.jdbc = jdbc;
         this.enabled = enabled;
     }
@@ -24,41 +26,60 @@ public class OutputReadinessStore {
     @Transactional(propagation = Propagation.MANDATORY)
     public void promote(UUID execution) {
         if (!enabled) return;
-        var outputs = jdbc.queryForList("SELECT r.atomic_work_id,o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation "
-                + "FROM output_registration_outputs o JOIN output_registrations r USING(registration_id) "
-                + "JOIN output_completion_contracts c ON c.execution_id=r.execution_id AND c.atomic_attempt_id=r.atomic_attempt_id "
-                + "JOIN output_completion_statuses s ON s.execution_id=c.execution_id "
-                + "JOIN job_execution_histories e ON e.id=c.execution_id "
-                + "WHERE e.id=? AND e.status='SUCCESS' AND NOT EXISTS "
-                + "(SELECT 1 FROM output_attempt_timeouts t WHERE t.execution_id=e.id) "
-                + "ORDER BY o.dataset,o.partition_values::text", execution);
+        var outputs =
+                jdbc.queryForList(
+                        "SELECT r.atomic_work_id,o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation "
+                                + "FROM output_registration_outputs o JOIN output_registrations r USING(registration_id) "
+                                + "JOIN output_completion_contracts c ON c.execution_id=r.execution_id AND c.atomic_attempt_id=r.atomic_attempt_id "
+                                + "JOIN output_completion_statuses s ON s.execution_id=c.execution_id "
+                                + "JOIN job_execution_histories e ON e.id=c.execution_id "
+                                + "WHERE e.id=? AND e.status='SUCCESS' AND NOT EXISTS "
+                                + "(SELECT 1 FROM output_attempt_timeouts t WHERE t.execution_id=e.id) "
+                                + "ORDER BY o.dataset,o.partition_values::text",
+                        execution);
         for (var output : outputs) {
             // Shared history writers and competing attempts serialize the pointer transaction.
-            jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 1))",
+            jdbc.queryForList(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(?, 1))",
                     output.get("dataset") + ":" + output.get("partition"));
-            int rowsChanged = jdbc.update("INSERT INTO output_ready_rows(dataset,partition_values,row_key,registration_id,output_index,generation) "
-                    + "SELECT o.dataset,o.partition_values,k,o.registration_id,o.output_index,? "
-                    + "FROM output_registration_outputs o CROSS JOIN LATERAL jsonb_array_elements(o.payload->'workScope'->'rowKeys') k "
-                    + "WHERE o.registration_id=? AND o.output_index=? "
-                    + "ON CONFLICT(dataset,partition_values,row_key) DO UPDATE SET registration_id=excluded.registration_id,"
-                    + "output_index=excluded.output_index,generation=excluded.generation WHERE output_ready_rows.generation<excluded.generation",
-                    output.get("generation"), output.get("registration_id"), output.get("output_index"));
-            int worksChanged = jdbc.update("INSERT INTO output_work_ready(atomic_work_id,dataset,partition_values,registration_id,output_index,generation) "
-                    + "VALUES (?,?,?::jsonb,?,?,?) ON CONFLICT(atomic_work_id,dataset,partition_values) DO UPDATE SET "
-                    + "registration_id=excluded.registration_id,output_index=excluded.output_index,"
-                    + "generation=excluded.generation,promoted_at=CURRENT_TIMESTAMP "
-                    + "WHERE output_work_ready.generation<excluded.generation",
-                    output.get("atomic_work_id"), output.get("dataset"), output.get("partition"),
-                    output.get("registration_id"), output.get("output_index"), output.get("generation"));
-            int changed = jdbc.update("INSERT INTO output_ready_pointers(dataset,partition_values,registration_id,output_index,generation) "
-                    + "VALUES (?,?::jsonb,?,?,?) ON CONFLICT(dataset,partition_values) DO UPDATE SET "
-                    + "registration_id=excluded.registration_id,output_index=excluded.output_index,"
-                    + "generation=excluded.generation,promoted_at=CURRENT_TIMESTAMP "
-                    + "WHERE output_ready_pointers.generation<excluded.generation",
-                    output.get("dataset"), output.get("partition"), output.get("registration_id"),
-                    output.get("output_index"), output.get("generation"));
-            if (changed + rowsChanged + worksChanged > 0) jdbc.update("UPDATE output_ready_revision SET revision=revision+1 WHERE id=1");
+            int rowsChanged =
+                    jdbc.update(
+                            "INSERT INTO output_ready_rows(dataset,partition_values,row_key,registration_id,output_index,generation) "
+                                    + "SELECT o.dataset,o.partition_values,k,o.registration_id,o.output_index,? "
+                                    + "FROM output_registration_outputs o CROSS JOIN LATERAL jsonb_array_elements(o.payload->'workScope'->'rowKeys') k "
+                                    + "WHERE o.registration_id=? AND o.output_index=? "
+                                    + "ON CONFLICT(dataset,partition_values,row_key) DO UPDATE SET registration_id=excluded.registration_id,"
+                                    + "output_index=excluded.output_index,generation=excluded.generation WHERE output_ready_rows.generation<excluded.generation",
+                            output.get("generation"),
+                            output.get("registration_id"),
+                            output.get("output_index"));
+            int worksChanged =
+                    jdbc.update(
+                            "INSERT INTO output_work_ready(atomic_work_id,dataset,partition_values,registration_id,output_index,generation) "
+                                    + "VALUES (?,?,?::jsonb,?,?,?) ON CONFLICT(atomic_work_id,dataset,partition_values) DO UPDATE SET "
+                                    + "registration_id=excluded.registration_id,output_index=excluded.output_index,"
+                                    + "generation=excluded.generation,promoted_at=CURRENT_TIMESTAMP "
+                                    + "WHERE output_work_ready.generation<excluded.generation",
+                            output.get("atomic_work_id"),
+                            output.get("dataset"),
+                            output.get("partition"),
+                            output.get("registration_id"),
+                            output.get("output_index"),
+                            output.get("generation"));
+            int changed =
+                    jdbc.update(
+                            "INSERT INTO output_ready_pointers(dataset,partition_values,registration_id,output_index,generation) "
+                                    + "VALUES (?,?::jsonb,?,?,?) ON CONFLICT(dataset,partition_values) DO UPDATE SET "
+                                    + "registration_id=excluded.registration_id,output_index=excluded.output_index,"
+                                    + "generation=excluded.generation,promoted_at=CURRENT_TIMESTAMP "
+                                    + "WHERE output_ready_pointers.generation<excluded.generation",
+                            output.get("dataset"),
+                            output.get("partition"),
+                            output.get("registration_id"),
+                            output.get("output_index"),
+                            output.get("generation"));
+            if (changed + rowsChanged + worksChanged > 0)
+                jdbc.update("UPDATE output_ready_revision SET revision=revision+1 WHERE id=1");
         }
     }
-
 }

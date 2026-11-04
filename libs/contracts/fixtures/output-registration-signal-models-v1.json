@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "eventId": "00000000-0000-0000-0000-000000000004",
+  "registrations": [
+    {
+      "registrationId": "00000000-0000-0000-0000-000000000003",
+      "executionId": "00000000-0000-0000-0000-000000000001",
+      "atomicAttemptId": "00000000-0000-0000-0000-000000000002",
+      "atomicWorkId": "work:9c285f4d4de55af8385d9e3cb2882fa01cc0a5764b6cdd6d457678bf09c4fd93",
+      "jobType": "SYNC_SIGNALS",
+      "workType": "SYMBOL",
+      "workKey": "HOSE-HPG",
+      "businessDate": "2035-01-02",
+      "parameters": {
+        "strategy": "CONFIRMED_TREND_EQUALS",
+        "timeframe": "1d"
+      },
+      "requiredOutputs": [
+        {
+          "dataset": "signals",
+          "partition": {
+            "exchange": "hose",
+            "strategy": "confirmed_trend_equals",
+            "timeframe": "1d"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "dataset": "signals",
+          "partition": {
+            "exchange": "hose",
+            "strategy": "confirmed_trend_equals",
+            "timeframe": "1d"
+          },
+          "dataVersion": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "coverageDates": ["2035-01-02"],
+          "rowCount": 3,
+          "totalBytes": 128,
+          "schemaVersion": 1,
+          "schemaHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "columns": [
+            {
+              "name": "signal_date",
+              "type": "DATE",
+              "nullable": false
+            },
+            {
+              "name": "symbol_key",
+              "type": "string",
+              "nullable": false
+            },
+            {
+              "name": "model_version",
+              "type": "string",
+              "nullable": true
+            }
+          ],
+          "inputs": [],
+          "workScope": {
+            "atomicWorkId": "work:9c285f4d4de55af8385d9e3cb2882fa01cc0a5764b6cdd6d457678bf09c4fd93",
+            "rowKeys": [
+              {
+                "symbol_key": "HOSE-HPG",
+                "signal_date": "2035-01-02"
+              },
+              {
+                "symbol_key": "HOSE-HPG",
+                "signal_date": "2035-01-02",
+                "model_version": "CONFIRMED_TREND_EQUALS_V1"
+              },
+              {
+                "symbol_key": "HOSE-HPG",
+                "signal_date": "2035-01-02",
+                "model_version": "CONFIRMED_TREND_EQUALS_V2"
+              }
+            ]
+          }
+        }
+      ],
+      "validEmptyReason": null
+    }
+  ]
+}

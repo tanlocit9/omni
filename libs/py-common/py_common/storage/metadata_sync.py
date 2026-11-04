@@ -289,7 +289,9 @@ class MetadataSynchronizer:
         if date_column in frame:
             dates = pd.to_datetime(frame[date_column], errors="raise").dt.date
             if dates.isna().any():
-                raise ManifestInvalidError("Cannot publish coverage with missing calendar dates")
+                raise ManifestInvalidError(
+                    "Cannot publish coverage with missing calendar dates"
+                )
             coverage = [day.isoformat() for day in sorted(set(dates))]
         return GlobalPartitionMetadata(
             values=values,
@@ -367,7 +369,6 @@ def _object_for_partition(
     raise ManifestInvalidError(
         f"Dataset {definition.name!r} has no trusted path builder"
     )
-
 
 
 def _diff(

@@ -25,8 +25,8 @@ class BacklogSnapshotServiceTest {
     private static final Instant SNAPSHOT_AT = Instant.parse("2026-10-11T00:00:00Z");
 
     private final SchedulerOutboxRepository repository = mock(SchedulerOutboxRepository.class);
-    private final BacklogSnapshotService service = new BacklogSnapshotService(
-            repository, new StaticJobTopologyProvider());
+    private final BacklogSnapshotService service =
+            new BacklogSnapshotService(repository, new StaticJobTopologyProvider());
 
     @Test
     void mapsBoundedRepositoryGroupsToExplicitTopologyScopes() {
@@ -38,19 +38,24 @@ class BacklogSnapshotServiceTest {
         BacklogSnapshot snapshot = service.capture(SNAPSHOT_AT, 10);
 
         assertThat(snapshot.complete()).isTrue();
-        assertThat(snapshot.entries().entrySet()).singleElement().satisfies(entry -> {
-            assertThat(entry.getKey().jobDefinitionId()).isEqualTo(definitionId);
-            assertThat(entry.getKey().node())
-                    .isEqualTo(TopologyNodeKey.forJobType(JobType.SYNC_SYMBOLS));
-            assertThat(entry.getValue()).isEqualTo(new BacklogCounts(6, 3, 2, 1));
-        });
+        assertThat(snapshot.entries().entrySet())
+                .singleElement()
+                .satisfies(
+                        entry -> {
+                            assertThat(entry.getKey().jobDefinitionId()).isEqualTo(definitionId);
+                            assertThat(entry.getKey().node())
+                                    .isEqualTo(TopologyNodeKey.forJobType(JobType.SYNC_SYMBOLS));
+                            assertThat(entry.getValue()).isEqualTo(new BacklogCounts(6, 3, 2, 1));
+                        });
     }
 
     @Test
     void marksSnapshotIncompleteAndRetainsOnlyTheConfiguredGroupLimit() {
-        when(repository.findBacklogGroups(SNAPSHOT_AT, 1)).thenReturn(List.of(
-                group(UUID.randomUUID(), seed(JobType.SYNC_SYMBOLS), 1, 1, 0, 0),
-                group(UUID.randomUUID(), seed(JobType.SYNC_METADATA), 1, 1, 0, 0)));
+        when(repository.findBacklogGroups(SNAPSHOT_AT, 1))
+                .thenReturn(
+                        List.of(
+                                group(UUID.randomUUID(), seed(JobType.SYNC_SYMBOLS), 1, 1, 0, 0),
+                                group(UUID.randomUUID(), seed(JobType.SYNC_METADATA), 1, 1, 0, 0)));
 
         BacklogSnapshot snapshot = service.capture(SNAPSHOT_AT, 1);
 
@@ -60,21 +65,28 @@ class BacklogSnapshotServiceTest {
 
     @Test
     void rejectsUnknownPersistedDefinitionsAndInvalidCountPartitions() {
-        SchedulerBacklogGroup unknown = new SchedulerBacklogGroup(
-                UUID.randomUUID(), DataSource.ANALYZER, JobType.SYNC_SYMBOLS,
-                "0 59 23 * * *", 1, 1, 0, 0);
+        SchedulerBacklogGroup unknown =
+                new SchedulerBacklogGroup(
+                        UUID.randomUUID(),
+                        DataSource.ANALYZER,
+                        JobType.SYNC_SYMBOLS,
+                        "0 59 23 * * *",
+                        1,
+                        1,
+                        0,
+                        0);
         when(repository.findBacklogGroups(SNAPSHOT_AT, 10)).thenReturn(List.of(unknown));
 
         assertThatThrownBy(() -> service.capture(SNAPSHOT_AT, 10))
                 .hasMessageContaining("Unknown job definition mapping");
 
         JobDefinitionSeed seed = seed(JobType.SYNC_SYMBOLS);
-        when(repository.findBacklogGroups(SNAPSHOT_AT, 10)).thenReturn(List.of(
-                group(UUID.randomUUID(), seed, 2, 2, 1, 0)));
+        when(repository.findBacklogGroups(SNAPSHOT_AT, 10))
+                .thenReturn(List.of(group(UUID.randomUUID(), seed, 2, 2, 1, 0)));
         assertThatThrownBy(() -> service.capture(SNAPSHOT_AT, 10))
                 .hasMessageContaining("Pending count must equal");
-        assertThatThrownBy(() -> service.capture(
-                SNAPSHOT_AT, BacklogSnapshotService.MAX_GROUPS + 1))
+        assertThatThrownBy(
+                        () -> service.capture(SNAPSHOT_AT, BacklogSnapshotService.MAX_GROUPS + 1))
                 .hasMessageContaining("groupLimit");
         assertThatThrownBy(() -> service.capture(null, 10))
                 .isInstanceOf(NullPointerException.class);

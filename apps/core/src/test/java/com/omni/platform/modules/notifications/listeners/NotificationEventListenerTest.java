@@ -24,24 +24,26 @@ import com.omni.platform.modules.notifications.templates.OperationalNotification
 @ExtendWith(MockitoExtension.class)
 class NotificationEventListenerTest {
 
-    @Mock
-    private NotificationService notificationService;
+    @Mock private NotificationService notificationService;
 
-    private final OperationalNotificationTemplate operationalNotificationTemplate = new OperationalNotificationTemplate();
+    private final OperationalNotificationTemplate operationalNotificationTemplate =
+            new OperationalNotificationTemplate();
 
     @Test
     void onOperationalNotificationBuildsOperationalNotificationRequest() {
-        OperationalNotificationEvent event = new OperationalNotificationEvent(
-                NotificationSeverity.ERROR,
-                "Consumer failed",
-                "Failed to process message",
-                Map.of("topic", "topic-sync-job-status"));
+        OperationalNotificationEvent event =
+                new OperationalNotificationEvent(
+                        NotificationSeverity.ERROR,
+                        "Consumer failed",
+                        "Failed to process message",
+                        Map.of("topic", "topic-sync-job-status"));
 
         var listener = listener();
 
         listener.onOperationalNotification(event);
 
-        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        ArgumentCaptor<NotificationRequest> captor =
+                ArgumentCaptor.forClass(NotificationRequest.class);
         verify(notificationService).send(captor.capture());
         verifyNoMoreInteractions(notificationService);
 
@@ -55,11 +57,12 @@ class NotificationEventListenerTest {
 
     @Test
     void onOperationalNotificationSwallowsNotificationServiceFailure() {
-        OperationalNotificationEvent event = new OperationalNotificationEvent(
-                NotificationSeverity.ERROR,
-                "Consumer failed",
-                "Failed to process message",
-                Map.of());
+        OperationalNotificationEvent event =
+                new OperationalNotificationEvent(
+                        NotificationSeverity.ERROR,
+                        "Consumer failed",
+                        "Failed to process message",
+                        Map.of());
         doThrow(new IllegalStateException("telegram down")).when(notificationService).send(any());
 
         var listener = listener();
@@ -78,5 +81,4 @@ class NotificationEventListenerTest {
     private NotificationEventListener listener() {
         return new NotificationEventListener(notificationService, operationalNotificationTemplate);
     }
-
 }

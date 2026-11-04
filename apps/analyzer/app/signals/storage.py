@@ -9,8 +9,8 @@ from typing import Any
 
 import pandas as pd
 from py_common.storage.exceptions import StorageObjectNotFoundError
-from py_common.storage.parquet import ParquetStorage, ParquetWriteResult
 from py_common.storage.output_snapshots import OutputSnapshotIdentity
+from py_common.storage.parquet import ParquetStorage, ParquetWriteResult
 
 from app.signals.strategy import MarketSignal, SignalResult
 
@@ -103,7 +103,9 @@ class SignalHistoryRepository:
     processes must not mutate the same history path concurrently.
     """
 
-    def __init__(self, parquet_storage: ParquetStorage, *, snapshots_enabled: bool = False) -> None:
+    def __init__(
+        self, parquet_storage: ParquetStorage, *, snapshots_enabled: bool = False
+    ) -> None:
         self._parquet_storage = parquet_storage
         self._locks = _SIGNAL_HISTORY_LOCKS
         self._snapshots_enabled = snapshots_enabled
@@ -278,7 +280,11 @@ class SignalHistoryRepository:
         as_of_date: date | None = None,
         history_frame: pd.DataFrame | None = None,
     ) -> SignalResult | None:
-        history = await self._read_history(history_path) if history_frame is None else history_frame
+        history = (
+            await self._read_history(history_path)
+            if history_frame is None
+            else history_frame
+        )
         required = {"symbol_key", "timeframe", "strategy", "signal", "signal_date"}
         if history.empty or not required.issubset(history.columns):
             return None
@@ -358,9 +364,14 @@ class SignalHistoryRepository:
             for key in ("strategy", "timeframe", "exchange"):
                 values = frame[key].dropna().astype(str).str.lower().unique()
                 if len(values) != 1 or frame[key].isna().any():
-                    raise ValueError("Snapshot signal history must have one complete logical partition")
+                    raise ValueError(
+                        "Snapshot signal history must have "
+                        "one complete logical partition"
+                    )
                 partition[key] = values[0]
-            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity("signals", partition)
+            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
+                "signals", partition
+            )
         return await self._parquet_storage.replace_dataframe(
             path,
             self._sort_history(self._ensure_schema(frame)),

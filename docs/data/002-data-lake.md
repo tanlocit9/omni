@@ -6,7 +6,6 @@ row-based versions preserve unrelated days/symbols; new enrollment does not requ
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
 
-
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
@@ -314,15 +313,15 @@ dual read, per-tick write, or historical rewrite.
 
 ### signals
 
-| Field           | Value                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Config key      | `signals` and compatibility alias `signal-current`                                                                                 |
-| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                                                |
-| Producer        | Analyzer signal jobs                                                                                                               |
-| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                                            |
-| Schema/key      | Strategy/timeframe/exchange-level signal history. Versioned combined rows include symbol, signal date, and model version identity. |
-| Update strategy | Upsert matching model-version rows while preserving historical V1 rows; latest state is derived from history.                      |
-| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status.                  |
+| Field           | Value                                                                                                                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `signals` and compatibility alias `signal-current`                                                                                                                                                                            |
+| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                                                                                                                                           |
+| Producer        | Analyzer signal jobs                                                                                                                                                                                                          |
+| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                                                                                                                                       |
+| Schema/key      | Strategy/timeframe/exchange-level signal history. Versioned combined rows and I10 row scopes include symbol, signal date, and model_version identity. Omitted model_version in a scope matches only legacy/null-version rows. |
+| Update strategy | Upsert matching model-version rows while preserving historical V1 rows; latest state is derived from history.                                                                                                                 |
+| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status.                                                                                                             |
 
 ### symbol-features
 

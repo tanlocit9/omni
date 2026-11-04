@@ -43,33 +43,44 @@ class SyncIntradayEodJobProducerTest {
     @Test
     void dispatchesActiveSymbolsForAllConfiguredVietnamExchanges() {
         SyncIntradayEodJobProducer producer = producer();
-        JobDefinition job = job(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_EXCHANGES,
-                List.of(" hose ", "HNX", "upcom", "HOSE")));
+        JobDefinition job =
+                job(
+                        Map.of(
+                                JobDefinitionConfig.CONFIG_KEY_EXCHANGES,
+                                List.of(" hose ", "HNX", "upcom", "HOSE")));
         JobExecutionHistory parent = execution(UUID.randomUUID());
         SymbolKeyProjection hose = symbol("HOSE", "HPG");
         SymbolKeyProjection hnx = symbol("HNX", "SHS");
         SymbolKeyProjection upcom = symbol("UPCOM", "ACV");
         when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE")).thenReturn(List.of(hose));
         when(symbolRepository.findAllActiveSymbolKeysByExchange("HNX")).thenReturn(List.of(hnx));
-        when(symbolRepository.findAllActiveSymbolKeysByExchange("UPCOM")).thenReturn(List.of(upcom));
+        when(symbolRepository.findAllActiveSymbolKeysByExchange("UPCOM"))
+                .thenReturn(List.of(upcom));
         stubChild(parent, "HOSE-HPG");
         stubChild(parent, "HNX-SHS");
         stubChild(parent, "UPCOM-ACV");
 
-        List<KafkaMessage> messages = producer.buildMessages(
-                job, parent, Instant.parse("2026-09-11T08:16:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-09-11T08:16:00Z"));
 
-        assertThat(messages).extracting(KafkaMessage::key)
-                .containsExactly("HNX-SHS:2026-09-11", "HOSE-HPG:2026-09-11", "UPCOM-ACV:2026-09-11");
-        assertThat(messages).allSatisfy(message -> {
-            IntradayEodJobMessage payload = (IntradayEodJobMessage) message.payload();
-            assertThat(payload.exchange()).isIn("HOSE", "HNX", "UPCOM");
-            assertThat(payload.tradingDate()).isEqualTo(LocalDate.parse("2026-09-11"));
-            assertThat(payload.provider()).isEqualTo("VCI");
-            assertThat(payload.metadata()).containsEntry(
-                    JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of(payload.exchange()));
-        });
+        assertThat(messages)
+                .extracting(KafkaMessage::key)
+                .containsExactly(
+                        "HNX-SHS:2026-09-11", "HOSE-HPG:2026-09-11", "UPCOM-ACV:2026-09-11");
+        assertThat(messages)
+                .allSatisfy(
+                        message -> {
+                            IntradayEodJobMessage payload =
+                                    (IntradayEodJobMessage) message.payload();
+                            assertThat(payload.exchange()).isIn("HOSE", "HNX", "UPCOM");
+                            assertThat(payload.tradingDate())
+                                    .isEqualTo(LocalDate.parse("2026-09-11"));
+                            assertThat(payload.provider()).isEqualTo("VCI");
+                            assertThat(payload.metadata())
+                                    .containsEntry(
+                                            JobDefinitionConfig.CONFIG_KEY_EXCHANGES,
+                                            List.of(payload.exchange()));
+                        });
     }
 
     @Test
@@ -78,11 +89,12 @@ class SyncIntradayEodJobProducerTest {
         JobDefinition job = job(null);
         JobExecutionHistory parent = execution(UUID.randomUUID());
         for (String exchange : JobDefinitionConfig.VIETNAM_EXCHANGES) {
-            when(symbolRepository.findAllActiveSymbolKeysByExchange(exchange)).thenReturn(List.of());
+            when(symbolRepository.findAllActiveSymbolKeysByExchange(exchange))
+                    .thenReturn(List.of());
         }
 
-        assertThat(producer.buildMessages(
-                job, parent, Instant.parse("2026-09-13T08:16:00Z"))).isEmpty();
+        assertThat(producer.buildMessages(job, parent, Instant.parse("2026-09-13T08:16:00Z")))
+                .isEmpty();
 
         for (String exchange : JobDefinitionConfig.VIETNAM_EXCHANGES) {
             verify(symbolRepository).findAllActiveSymbolKeysByExchange(exchange);
@@ -98,9 +110,11 @@ class SyncIntradayEodJobProducerTest {
         when(symbolRepository.findAllActiveSymbolKeysByExchange("HNX")).thenReturn(List.of(symbol));
         stubChild(parent, "HNX-SHS");
 
-        IntradayEodJobMessage payload = (IntradayEodJobMessage) producer.buildMessages(
-                job, parent, Instant.parse("2026-09-13T08:16:00Z"))
-                .getFirst().payload();
+        IntradayEodJobMessage payload =
+                (IntradayEodJobMessage)
+                        producer.buildMessages(job, parent, Instant.parse("2026-09-13T08:16:00Z"))
+                                .getFirst()
+                                .payload();
 
         assertThat(payload.exchange()).isEqualTo("HNX");
         assertThat(payload.tradingDate()).isEqualTo(LocalDate.parse("2026-09-11"));
@@ -113,11 +127,12 @@ class SyncIntradayEodJobProducerTest {
         JobExecutionHistory parent = execution(UUID.randomUUID());
         parent.setMetaJson(Map.of("metadataTarget", Map.of("tradingDate", "2026-09-07")));
         SymbolKeyProjection symbol = symbol("HOSE", "HPG");
-        when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE")).thenReturn(List.of(symbol));
+        when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE"))
+                .thenReturn(List.of(symbol));
         stubChild(parent, "HOSE-HPG");
 
-        List<KafkaMessage> messages = producer.buildMessages(
-                job, parent, Instant.parse("2026-09-11T08:16:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-09-11T08:16:00Z"));
 
         assertThat(messages).hasSize(1);
         IntradayEodJobMessage payload = (IntradayEodJobMessage) messages.getFirst().payload();
@@ -130,17 +145,23 @@ class SyncIntradayEodJobProducerTest {
         SyncIntradayEodJobProducer producer = producer();
         JobDefinition job = job(Map.of(JobDefinitionConfig.CONFIG_KEY_EXCHANGES, List.of("HOSE")));
         JobExecutionHistory parent = execution(UUID.randomUUID());
-        parent.setMetaJson(Map.of("metadataTarget", Map.of("startDate", "2026-09-04", "endDate", "2026-09-07")));
+        parent.setMetaJson(
+                Map.of(
+                        "metadataTarget",
+                        Map.of("startDate", "2026-09-04", "endDate", "2026-09-07")));
         SymbolKeyProjection symbol = symbol("HOSE", "HPG");
-        when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE")).thenReturn(List.of(symbol));
+        when(symbolRepository.findAllActiveSymbolKeysByExchange("HOSE"))
+                .thenReturn(List.of(symbol));
         stubChild(parent, "HOSE-HPG");
 
-        List<KafkaMessage> messages = producer.buildMessages(
-                job, parent, Instant.parse("2026-09-11T08:16:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-09-11T08:16:00Z"));
 
-        assertThat(messages).extracting(message -> ((IntradayEodJobMessage) message.payload()).tradingDate())
+        assertThat(messages)
+                .extracting(message -> ((IntradayEodJobMessage) message.payload()).tradingDate())
                 .containsExactly(LocalDate.parse("2026-09-04"), LocalDate.parse("2026-09-07"));
-        assertThat(messages).extracting(KafkaMessage::key)
+        assertThat(messages)
+                .extracting(KafkaMessage::key)
                 .containsExactly("HOSE-HPG:2026-09-04", "HOSE-HPG:2026-09-07");
     }
 
@@ -173,10 +194,10 @@ class SyncIntradayEodJobProducerTest {
 
     private void stubChild(JobExecutionHistory parent, String symbolKey) {
         when(jobService.createChildExecution(
-                eq(parent.getId()),
-                eq(WorkIdentity.of(WorkType.SYMBOL, symbolKey)),
-                any(),
-                any()))
+                        eq(parent.getId()),
+                        eq(WorkIdentity.of(WorkType.SYMBOL, symbolKey)),
+                        any(),
+                        any()))
                 .thenReturn(execution(UUID.randomUUID()));
     }
 }

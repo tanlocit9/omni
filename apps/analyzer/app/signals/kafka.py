@@ -63,7 +63,9 @@ class SignalKafkaService(JobStatusKafkaService):
 
         try:
             message = SignalJobMessage.model_validate(raw)
-            with capture_output_publication(raw, getattr(self._settings, "output_snapshots_enabled", False) is True) as publication:
+            with capture_output_publication(
+                raw, getattr(self._settings, "output_snapshots_enabled", False) is True
+            ) as publication:
                 transition = await self._handler.handle(raw)
                 await publication.publish(self._producer)
             status = self._build_status(message, started_at, utc_now(), transition)

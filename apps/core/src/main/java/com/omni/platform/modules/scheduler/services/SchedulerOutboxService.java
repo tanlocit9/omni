@@ -320,9 +320,17 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 repository.claimEligible(messageId, now, instanceId, leaseDuration);
         if (claim != null && !approvedInputVersions.isEmpty())
             persistApprovedInputs(work, approvedInputVersions);
-        return claim == null ? null : new SchedulerOutboxClaim(
-                claim.messageId(), claim.claimToken(), claim.claimedBy(), claim.executionId(),
-                claim.topic(), claim.key(), bindApprovedInputs(claim.payload(), work), claim.attempts());
+        return claim == null
+                ? null
+                : new SchedulerOutboxClaim(
+                        claim.messageId(),
+                        claim.claimToken(),
+                        claim.claimedBy(),
+                        claim.executionId(),
+                        claim.topic(),
+                        claim.key(),
+                        bindApprovedInputs(claim.payload(), work),
+                        claim.attempts());
     }
 
     /** Reconstruct the exact logical publish envelope from durable intent and its first binding. */
@@ -334,12 +342,16 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     }
 
     private String bindApprovedInputs(String payload, JobExecutionHistory work) {
-        Object approved = work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
+        Object approved =
+                work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
         if (approved == null) return payload;
-        if (!(approved instanceof List<?>)) throw new IllegalStateException("Invalid approved input binding");
+        if (!(approved instanceof List<?>))
+            throw new IllegalStateException("Invalid approved input binding");
         ObjectNode body = (ObjectNode) jsonMapper.readTree(payload);
-        ObjectNode metadata = body.get("metadata") instanceof ObjectNode object
-                ? object : jsonMapper.createObjectNode();
+        ObjectNode metadata =
+                body.get("metadata") instanceof ObjectNode object
+                        ? object
+                        : jsonMapper.createObjectNode();
         metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
         body.set("metadata", metadata);
         return jsonMapper.writeValueAsString(body);
@@ -395,9 +407,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         metadata.put(
                 "approvedInputs",
                 approvedInputVersions.entrySet().stream()
-                        .map(
-                                entry ->
-                                        entry.getKey().approvedInput(entry.getValue()))
+                        .map(entry -> entry.getKey().approvedInput(entry.getValue()))
                         .toList());
         execution.setMetaJson(metadata);
     }

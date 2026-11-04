@@ -11,10 +11,15 @@ import org.springframework.stereotype.Component;
 public class DefinitionConsolidationStartup {
     private final DefinitionConsolidationService consolidation;
     private final boolean enabled;
-    public DefinitionConsolidationStartup(DefinitionConsolidationService consolidation,
-            @Value("${app.scheduler.job-run.definition-consolidation-enabled:false}") boolean enabled) {
-        this.consolidation=consolidation; this.enabled=enabled;
+
+    public DefinitionConsolidationStartup(
+            DefinitionConsolidationService consolidation,
+            @Value("${app.scheduler.job-run.definition-consolidation-enabled:false}")
+                    boolean enabled) {
+        this.consolidation = consolidation;
+        this.enabled = enabled;
     }
+
     @EventListener(ApplicationReadyEvent.class)
     public void apply() {
         if (enabled) consolidation.consolidate(Instant.now());

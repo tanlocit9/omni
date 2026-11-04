@@ -1,5 +1,12 @@
 # Omni Cross-Service Contracts
 
+I10 review correction (2026-11-04): signal row coordinates include model_version
+when non-null; omission identifies only a legacy/null-version row. Existing
+row_keys Struct fields carry the distinction without new protobuf fields. The
+shared output-registration-signal-models-v1.json fixture covers legacy/V1/V2
+coexistence in both JSON adapters. Deploy paired Java/Python adapters; see
+[compatibility and verification](../../docs/reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;

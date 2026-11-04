@@ -80,14 +80,14 @@ symbols; incremental refresh indexed only one tracked file. New untracked source
 is not proven indexed by that output. Do not read its zero risk/gap count as safety
 or coverage evidence; manual review remains necessary.
 
-| Source/criterion | Test source | Execution/coverage |
-| --- | --- | --- |
-| Paired JSON identity, exact dates, invalid/partial/duplicate fields, valid-empty | `libs/py-common/tests/messaging/test_output_registration.py`; `OutputRegistrationEventTest` | NOT RUN; no numeric coverage |
-| Registration ACK before status; metadata ACK failure prevents SUCCESS | Python publisher tests | NOT RUN |
+| Source/criterion                                                                               | Test source                                                                                                 | Execution/coverage                |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Paired JSON identity, exact dates, invalid/partial/duplicate fields, valid-empty               | `libs/py-common/tests/messaging/test_output_registration.py`; `OutputRegistrationEventTest`                 | NOT RUN; no numeric coverage      |
+| Registration ACK before status; metadata ACK failure prevents SUCCESS                          | Python publisher tests                                                                                      | NOT RUN                           |
 | Migration/inbox replay, conflicting immutable ID, multi-member rollback, no execution mutation | `GraphWorkRequestsPostgresTest.outputRegistrationShadowIsAtomicIdempotentAndCannotChangeExecutionReadiness` | NOT RUN; real PostgreSQL required |
-| Kafka offset/restart/rebalance, poisoned partition and independent progress | Required new real-Kafka fixture | MISSING |
-| Existing workers actually produce validated declarations and durable retry identities | Ingestor/Analyzer handler and integration tests | MISSING; handlers not connected |
-| Durable status/event correlation, output ownership, stale version fencing | Required Platform integration tests | MISSING; implementation pending |
+| Kafka offset/restart/rebalance, poisoned partition and independent progress                    | Required new real-Kafka fixture                                                                             | MISSING                           |
+| Existing workers actually produce validated declarations and durable retry identities          | Ingestor/Analyzer handler and integration tests                                                             | MISSING; handlers not connected   |
+| Durable status/event correlation, output ownership, stale version fencing                      | Required Platform integration tests                                                                         | MISSING; implementation pending   |
 
 Platform owns the new adapter/store/listener; existing JobService/DependencyRegistry
 are unchanged. Database receives only forward additive shadow tables. Shared

@@ -106,6 +106,7 @@ async def test_ingestor_routing_service_dispatches_stock_price_topic():
 
 def kafka_settings():
     from py_common.config.paths import StockDataPaths
+
     return SimpleNamespace(
         stock_data_paths=StockDataPaths.from_config({}),
         topic_sync_symbols="topic-sync-symbols",

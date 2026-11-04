@@ -81,7 +81,9 @@ def test_envelope_version_rejects_numeric_coercion(value):
         OutputRegistrationEvent.model_validate(raw)
 
 
-@pytest.mark.parametrize("value", ["1-1-1-1-1", "00000000000000000000000000000004", 4, None])
+@pytest.mark.parametrize(
+    "value", ["1-1-1-1-1", "00000000000000000000000000000004", 4, None]
+)
 def test_noncanonical_uuid_is_rejected(value):
     raw = fixture()
     raw["eventId"] = value
@@ -144,28 +146,69 @@ def test_byte_limit_applies_to_utf8_before_send():
     raw["registrations"][0]["parameters"] = {"oversized": "x" * MAX_EVENT_BYTES}
     item = raw["registrations"][0]
     item["atomicWorkId"] = atomic_work_id(
-        item["jobType"], item["workType"], item["workKey"],
-        date(2035, 1, 2), item["parameters"],
+        item["jobType"],
+        item["workType"],
+        item["workKey"],
+        date(2035, 1, 2),
+        item["parameters"],
     )
     with pytest.raises(ValueError, match="256 KiB"):
         OutputRegistrationEvent.model_validate(raw).wire_bytes()
 
 
 def test_shared_work_row_scope_fixture_round_trip():
-    path = Path(__file__).resolve().parents[3] / "contracts/fixtures/output-registration-work-rows-v1.json"
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "contracts/fixtures/output-registration-work-rows-v1.json"
+    )
     raw = json.loads(path.read_text())
     event = OutputRegistrationEvent.model_validate(raw)
     assert json.loads(event.wire_bytes()) == raw
-    for change in ("identity", "duplicate", "count", "coverage", "date", "keys", "empty"):
+    for change in (
+        "identity",
+        "duplicate",
+        "count",
+        "coverage",
+        "date",
+        "keys",
+        "empty",
+    ):
         invalid = deepcopy(raw)
         output = invalid["registrations"][0]["outputs"][0]
         scope = output["workScope"]
-        if change=="identity": scope["atomicWorkId"]="work:"+"0"*64
-        if change=="duplicate": scope["rowKeys"]*=2
-        if change=="count": output["rowCount"]=2
-        if change=="coverage": output["coverageDates"]=["2035-01-03"]
-        if change=="date": scope["rowKeys"][0]["date"]="20350102"
-        if change=="keys": scope["rowKeys"][0]["symbol_key"]="HOSE-VCI"
-        if change=="empty": scope["rowKeys"][0]["date"]=""
+        if change == "identity":
+            scope["atomicWorkId"] = "work:" + "0" * 64
+        if change == "duplicate":
+            scope["rowKeys"] *= 2
+        if change == "count":
+            output["rowCount"] = 2
+        if change == "coverage":
+            output["coverageDates"] = ["2035-01-03"]
+        if change == "date":
+            scope["rowKeys"][0]["date"] = "20350102"
+        if change == "keys":
+            scope["rowKeys"][0]["symbol_key"] = "HOSE-VCI"
+        if change == "empty":
+            scope["rowKeys"][0]["date"] = ""
+        with pytest.raises(ValueError):
+            OutputRegistrationEvent.model_validate(invalid)
+
+
+def test_shared_signal_model_coordinates_round_trip_and_reject_duplicates():
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "contracts/fixtures/output-registration-signal-models-v1.json"
+    )
+    raw = json.loads(path.read_text())
+    assert json.loads(OutputRegistrationEvent.model_validate(raw).wire_bytes()) == raw
+    for kind in ("duplicate", "blank", "unknown-coordinate"):
+        invalid = deepcopy(raw)
+        keys = invalid["registrations"][0]["outputs"][0]["workScope"]["rowKeys"]
+        if kind == "duplicate":
+            keys[2] = dict(keys[1])
+        elif kind == "blank":
+            keys[1]["model_version"] = " "
+        else:
+            keys[1]["model"] = keys[1].pop("model_version")
         with pytest.raises(ValueError):
             OutputRegistrationEvent.model_validate(invalid)

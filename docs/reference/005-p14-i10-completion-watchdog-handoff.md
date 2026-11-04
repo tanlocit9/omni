@@ -175,34 +175,34 @@ and post-edit discovery cannot substitute for graph impact/change analysis; that
 gate remains unavailable. Targeted source and canonical-document reads establish
 the following manual boundary reconciliation, not executed coverage.
 
-| Area | Impact / boundary |
-| --- | --- |
-| Platform | Registration validation/persistence, enrolled status correlation, child locks, timeout failure, authenticated diagnostics; normal parent/request aggregation remains owner. |
-| Ingestor | EOD has opt-in snapshot publication through shared ParquetStorage. Intraday/catalog protocols are unchanged; registration/enrollment still needs integration. |
-| Analyzer | Indicators and signal history/outcome writes gain opt-in snapshots. Shared lineage is reused by metadata sync. Sector and intraday output protocols are unchanged; registration/READY integration is still open. |
-| Query Service | No runtime/source change; continues manifest discovery/exact-byte safeguards. PostgreSQL reader migration is missing. |
-| Console | No runtime/source change; no UI integration of the new diagnostics endpoint, no READY-authority claim. |
+| Area                       | Impact / boundary                                                                                                                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                   | Registration validation/persistence, enrolled status correlation, child locks, timeout failure, authenticated diagnostics; normal parent/request aggregation remains owner.                                                            |
+| Ingestor                   | EOD has opt-in snapshot publication through shared ParquetStorage. Intraday/catalog protocols are unchanged; registration/enrollment still needs integration.                                                                          |
+| Analyzer                   | Indicators and signal history/outcome writes gain opt-in snapshots. Shared lineage is reused by metadata sync. Sector and intraday output protocols are unchanged; registration/READY integration is still open.                       |
+| Query Service              | No runtime/source change; continues manifest discovery/exact-byte safeguards. PostgreSQL reader migration is missing.                                                                                                                  |
+| Console                    | No runtime/source change; no UI integration of the new diagnostics endpoint, no READY-authority claim.                                                                                                                                 |
 | Shared contracts/libraries | New snapshot descriptors/publisher/read API, optional ParquetStorage arguments/result field, shared lineage extraction and configured address builder. Registration schema/wire unchanged by snapshots; no generated artifacts edited. |
-| Persistence | Candidate V19/V20 are additive source; normalized coverage uses actual registered dates, not automatic work-date inference. Migration/upgrade/retained-data evidence is missing. |
-| Configuration | Topic key and snapshot layout added; OUTPUT_SNAPSHOTS_ENABLED, shadow and watchdog default false. Timeout PT30M, delay 120000 ms, batch 100. No running environment flags changed. |
-| Operations | Poison event still retries without discard; watchdog marks write ownership uncertain. No deployment, automatic repair, rerun or reader cutover. |
+| Persistence                | Candidate V19/V20 are additive source; normalized coverage uses actual registered dates, not automatic work-date inference. Migration/upgrade/retained-data evidence is missing.                                                       |
+| Configuration              | Topic key and snapshot layout added; OUTPUT_SNAPSHOTS_ENABLED, shadow and watchdog default false. Timeout PT30M, delay 120000 ms, batch 100. No running environment flags changed.                                                     |
+| Operations                 | Poison event still retries without discard; watchdog marks write ownership uncertain. No deployment, automatic repair, rerun or reader cutover.                                                                                        |
 
 ## Feature/source/test matrix
 
 All tests below are **NOT RUN**, with no attributable numeric coverage claim.
 
-| Criterion | Source / test source |
-| --- | --- |
-| Strict cross-language counters/nullability/UUID/calendar dates | OutputRegistrationEvent/Store; OutputRegistrationEventTest; py-common test_output_registration |
-| Either arrival order, duplicate status/event, first-status durability | OutputCompletionGate/Listener/JobService; GraphWorkRequestsPostgresTest.completionRequiresBothStreamsInEitherOrderAndRetainsReplay |
-| Concurrent stream acceptance | Same components; concurrentRegistrationAndStatusConvergeOnOneCompletion |
-| Server declarations and approved valid-empty | Gate/Store; workerCannotReplaceServerRequiredOutputs; validEmptyCompletesOnlyForAnApprovedServerReason |
-| Invalid parent leaves no pending SUCCESS | JobService; invalidParentCannotCreatePendingCompletionEvidence |
-| Immutable provenance and exact date rows | V20/Store; completionRequiresBothStreamsInEitherOrderAndRetainsReplay |
-| Published deadline, unpublished exclusion, deadline edge, repeat scan, late event/status | Watchdog/JobService; watchdogUsesPublishedDeadlineAndLateStreamsCannotReopenTimeout |
-| Whole-envelope rollback/idempotency and immutable history | V19/V20/Store; existing outputRegistrationShadowIsAtomicIdempotentAndCannotChangeExecutionReadiness |
-| Diagnostics authorization, API/database failure, multi-instance watchdog contention, deployment defaults | Required additional test/evidence; not claimed covered |
-| Real workers -> durable outputs -> Kafka -> completion -> READY -> Query | Missing implementation/evidence, not satisfied by the PostgreSQL tests |
+| Criterion                                                                                                | Source / test source                                                                                                               |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Strict cross-language counters/nullability/UUID/calendar dates                                           | OutputRegistrationEvent/Store; OutputRegistrationEventTest; py-common test_output_registration                                     |
+| Either arrival order, duplicate status/event, first-status durability                                    | OutputCompletionGate/Listener/JobService; GraphWorkRequestsPostgresTest.completionRequiresBothStreamsInEitherOrderAndRetainsReplay |
+| Concurrent stream acceptance                                                                             | Same components; concurrentRegistrationAndStatusConvergeOnOneCompletion                                                            |
+| Server declarations and approved valid-empty                                                             | Gate/Store; workerCannotReplaceServerRequiredOutputs; validEmptyCompletesOnlyForAnApprovedServerReason                             |
+| Invalid parent leaves no pending SUCCESS                                                                 | JobService; invalidParentCannotCreatePendingCompletionEvidence                                                                     |
+| Immutable provenance and exact date rows                                                                 | V20/Store; completionRequiresBothStreamsInEitherOrderAndRetainsReplay                                                              |
+| Published deadline, unpublished exclusion, deadline edge, repeat scan, late event/status                 | Watchdog/JobService; watchdogUsesPublishedDeadlineAndLateStreamsCannotReopenTimeout                                                |
+| Whole-envelope rollback/idempotency and immutable history                                                | V19/V20/Store; existing outputRegistrationShadowIsAtomicIdempotentAndCannotChangeExecutionReadiness                                |
+| Diagnostics authorization, API/database failure, multi-instance watchdog contention, deployment defaults | Required additional test/evidence; not claimed covered                                                                             |
+| Real workers -> durable outputs -> Kafka -> completion -> READY -> Query                                 | Missing implementation/evidence, not satisfied by the PostgreSQL tests                                                             |
 
 ## Verification handoff
 

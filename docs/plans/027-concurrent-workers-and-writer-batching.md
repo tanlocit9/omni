@@ -1,5 +1,17 @@
 # Plan 027 — Single-Instance Concurrent Workers and Writer Batching
 
+## Writer review TODOs from I10 — 2026-11-04
+
+Before owner-approved P12-I4 activation, apply the
+[I10 writer checklist](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04):
+model-aware signal coordinates, all-member preflight before the first canonical
+mutation, bounded row/input/wire evidence, durable replay across copy/read-back/
+registration/status failures, offset safety and stale-writer exclusion. Exercise
+the resulting READY union and catalog timestamp/null semantics through Query.
+The I10 fixes do not implement batching, paging, durable recovery or a writer
+service; P12 remains deferred and owner-gated. Earlier I10 planning notes below
+are historical for the source now described in that handoff.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

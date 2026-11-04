@@ -64,12 +64,23 @@ class SignalEvaluationKafkaService(JobStatusKafkaService):
             return None
 
         try:
-            with capture_output_publication(raw, getattr(self._settings, "output_snapshots_enabled", False) is True) as publication:
+            with capture_output_publication(
+                raw, getattr(self._settings, "output_snapshots_enabled", False) is True
+            ) as publication:
                 evaluation = await self._evaluator.evaluate(raw)
-                if publication.contract is not None and evaluation.metadata.get("missingEodCount", 0):
-                    raise ValueError("Outcome evaluation has missing EOD inputs; repair required")
+                if publication.contract is not None and evaluation.metadata.get(
+                    "missingEodCount", 0
+                ):
+                    raise ValueError(
+                        "Outcome evaluation has missing EOD inputs; repair required"
+                    )
                 if publication.contract is not None:
-                    empty = ("OUTPUT_UNCHANGED" if evaluation.records_updated == 0 and evaluation.records_scanned > 0 else None)
+                    empty = (
+                        "OUTPUT_UNCHANGED"
+                        if evaluation.records_updated == 0
+                        and evaluation.records_scanned > 0
+                        else None
+                    )
                     await publication.publish(self._producer, valid_empty_reason=empty)
             status = self._build_status(message, started_at, utc_now(), evaluation)
         except Exception as exc:

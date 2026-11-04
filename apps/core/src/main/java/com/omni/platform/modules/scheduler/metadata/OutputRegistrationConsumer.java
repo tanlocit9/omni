@@ -10,9 +10,15 @@ import org.springframework.stereotype.Component;
 public class OutputRegistrationConsumer {
     private final OutputRegistrationStore store;
 
-    public OutputRegistrationConsumer(OutputRegistrationStore store) { this.store = store; }
+    public OutputRegistrationConsumer(OutputRegistrationStore store) {
+        this.store = store;
+    }
 
-    @KafkaListener(topics = "topic-register-output-metadata-v1", groupId = "platform-output-registration-shadow-v1",
+    @KafkaListener(
+            topics = "topic-register-output-metadata-v1",
+            groupId = "platform-output-registration-shadow-v1",
             containerFactory = "outputRegistrationKafkaListenerContainerFactory")
-    public void accept(String payload) { store.accept(payload); }
+    public void accept(String payload) {
+        store.accept(payload);
+    }
 }

@@ -40,20 +40,41 @@ class SchedulerOutboxCandidateTest {
         var row = row(work, Map.of());
         row.setId(UUID.randomUUID());
         String original = row.getPayload();
-        var claim = new SchedulerOutboxClaim(row.getId(), UUID.randomUUID(), "owner",
-                work.getId(), "topic", "key", original, 1);
+        var claim =
+                new SchedulerOutboxClaim(
+                        row.getId(),
+                        UUID.randomUUID(),
+                        "owner",
+                        work.getId(),
+                        "topic",
+                        "key",
+                        original,
+                        1);
         when(repository.findById(row.getId())).thenReturn(Optional.of(row));
         when(histories.findByIdWithJob(work.getId())).thenReturn(Optional.of(work));
-        when(repository.claimEligible(row.getId(), NOW, "owner", Duration.ofSeconds(30))).thenReturn(claim);
+        when(repository.claimEligible(row.getId(), NOW, "owner", Duration.ofSeconds(30)))
+                .thenReturn(claim);
         var input = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg"));
-        var first = service.claimEligible(row.getId(), NOW, "owner", Duration.ofSeconds(30), Map.of(input, "v1"));
-        assertThat(json.readTree(first.payload()).path("metadata").path("approvedInputs").get(0)
-                .path("dataVersion").asText()).isEqualTo("v1");
-        var retry = service.claimEligible(row.getId(), NOW, "owner", Duration.ofSeconds(30), Map.of(input, "v2"));
+        var first =
+                service.claimEligible(
+                        row.getId(), NOW, "owner", Duration.ofSeconds(30), Map.of(input, "v1"));
+        assertThat(
+                        json.readTree(first.payload())
+                                .path("metadata")
+                                .path("approvedInputs")
+                                .get(0)
+                                .path("dataVersion")
+                                .asText())
+                .isEqualTo("v1");
+        var retry =
+                service.claimEligible(
+                        row.getId(), NOW, "owner", Duration.ofSeconds(30), Map.of(input, "v2"));
         assertThat(json.readTree(retry.payload())).isEqualTo(json.readTree(first.payload()));
-        assertThat(json.readTree(service.boundPayload(row.getId()))).isEqualTo(json.readTree(first.payload()));
+        assertThat(json.readTree(service.boundPayload(row.getId())))
+                .isEqualTo(json.readTree(first.payload()));
         assertThat(row.getPayload()).isEqualTo(original);
     }
+
     private static final Instant NOW = Instant.parse("2035-01-02T12:00:00Z");
     private final SchedulerOutboxRepository repository = mock(SchedulerOutboxRepository.class);
     private final JobExecutionHistoryRepository histories =

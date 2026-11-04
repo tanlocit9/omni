@@ -51,27 +51,31 @@ class NotificationOutboxDispatcherTest {
         metrics = mock(NotificationOutboxMetrics.class);
         sample = mock(Timer.Sample.class);
         when(metrics.start()).thenReturn(sample);
-        dispatcher = new NotificationOutboxDispatcher(
-                store,
-                transport,
-                new NotificationOutboxProperties(
-                        Duration.ofSeconds(5),
-                        new NotificationOutboxProperties.Claim(Duration.ofMinutes(2), 10),
-                        3,
-                        new NotificationOutboxProperties.Retry(Duration.ofSeconds(5), Duration.ofMinutes(1))),
-                telegramProperties(),
-                metrics,
-                "platform-a");
+        dispatcher =
+                new NotificationOutboxDispatcher(
+                        store,
+                        transport,
+                        new NotificationOutboxProperties(
+                                Duration.ofSeconds(5),
+                                new NotificationOutboxProperties.Claim(Duration.ofMinutes(2), 10),
+                                3,
+                                new NotificationOutboxProperties.Retry(
+                                        Duration.ofSeconds(5), Duration.ofMinutes(1))),
+                        telegramProperties(),
+                        metrics,
+                        "platform-a");
     }
 
     @Test
     void deliveredClaimIsMarkedSentAndMeasured() {
         NotificationOutboxClaim claim = claim(1);
         NotificationRequest request = request();
-        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10)).thenReturn(List.of(claim));
+        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10))
+                .thenReturn(List.of(claim));
         when(store.acquireProviderPermit(Provider.TELEGRAM, NOW, RATE_LIMIT)).thenReturn(true);
         when(store.decode(claim)).thenReturn(request);
-        when(transport.deliver(request)).thenReturn(result(Outcome.DELIVERED, null, Optional.empty()));
+        when(transport.deliver(request))
+                .thenReturn(result(Outcome.DELIVERED, null, Optional.empty()));
         when(store.markDelivered(eq(claim), any(Instant.class))).thenReturn(true);
 
         dispatcher.dispatchBatch(NOW);
@@ -86,7 +90,8 @@ class NotificationOutboxDispatcherTest {
     void retryableFailureUsesBoundedBackoffAndMeasuresRetry() {
         NotificationOutboxClaim claim = claim(2);
         prepareDelivery(claim, result(Outcome.RETRYABLE, "telegram_http_503", Optional.empty()));
-        when(store.scheduleRetry(eq(claim), any(Instant.class), eq("telegram_http_503"))).thenReturn(true);
+        when(store.scheduleRetry(eq(claim), any(Instant.class), eq("telegram_http_503")))
+                .thenReturn(true);
 
         dispatcher.dispatchBatch(NOW);
 
@@ -98,7 +103,12 @@ class NotificationOutboxDispatcherTest {
     @Test
     void retryAfterOverridesExponentialBackoff() {
         NotificationOutboxClaim claim = claim(1);
-        prepareDelivery(claim, result(Outcome.RETRYABLE, "telegram_http_429", Optional.of(Duration.ofSeconds(37))));
+        prepareDelivery(
+                claim,
+                result(
+                        Outcome.RETRYABLE,
+                        "telegram_http_429",
+                        Optional.of(Duration.ofSeconds(37))));
         when(store.scheduleRetry(claim, NOW.plusSeconds(37), "telegram_http_429")).thenReturn(true);
 
         dispatcher.dispatchBatch(NOW);
@@ -123,7 +133,8 @@ class NotificationOutboxDispatcherTest {
     @Test
     void permanentFailureBecomesDeadWithoutRetry() {
         NotificationOutboxClaim claim = claim(1);
-        prepareDelivery(claim, result(Outcome.PERMANENT_FAILURE, "telegram_http_400", Optional.empty()));
+        prepareDelivery(
+                claim, result(Outcome.PERMANENT_FAILURE, "telegram_http_400", Optional.empty()));
         when(store.markDead(claim, NOW, "telegram_http_400")).thenReturn(true);
 
         dispatcher.dispatchBatch(NOW);
@@ -136,9 +147,11 @@ class NotificationOutboxDispatcherTest {
     @Test
     void unavailableProviderPermitDefersWithoutCallingTransport() {
         NotificationOutboxClaim claim = claim(1);
-        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10)).thenReturn(List.of(claim));
+        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10))
+                .thenReturn(List.of(claim));
         when(store.acquireProviderPermit(Provider.TELEGRAM, NOW, RATE_LIMIT)).thenReturn(false);
-        when(store.scheduleRetry(claim, NOW.plus(RATE_LIMIT), "provider_rate_limited")).thenReturn(true);
+        when(store.scheduleRetry(claim, NOW.plus(RATE_LIMIT), "provider_rate_limited"))
+                .thenReturn(true);
 
         dispatcher.dispatchBatch(NOW);
 
@@ -151,7 +164,8 @@ class NotificationOutboxDispatcherTest {
     @Test
     void payloadDecodeFailureBecomesDeadWithoutProviderCall() {
         NotificationOutboxClaim claim = claim(1);
-        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10)).thenReturn(List.of(claim));
+        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10))
+                .thenReturn(List.of(claim));
         when(store.acquireProviderPermit(Provider.TELEGRAM, NOW, RATE_LIMIT)).thenReturn(true);
         when(store.decode(claim)).thenThrow(new IllegalArgumentException("unsupported schema"));
         when(store.markDead(claim, NOW, "payload_decode_failure")).thenReturn(true);
@@ -167,10 +181,12 @@ class NotificationOutboxDispatcherTest {
     void staleFencingResultDoesNotRecordSuccessfulOutcomeMetrics() {
         NotificationOutboxClaim delivered = claim(1);
         NotificationRequest request = request();
-        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10)).thenReturn(List.of(delivered));
+        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10))
+                .thenReturn(List.of(delivered));
         when(store.acquireProviderPermit(Provider.TELEGRAM, NOW, RATE_LIMIT)).thenReturn(true);
         when(store.decode(delivered)).thenReturn(request);
-        when(transport.deliver(request)).thenReturn(result(Outcome.DELIVERED, null, Optional.empty()));
+        when(transport.deliver(request))
+                .thenReturn(result(Outcome.DELIVERED, null, Optional.empty()));
         when(store.markDelivered(eq(delivered), any(Instant.class))).thenReturn(false);
 
         dispatcher.dispatchBatch(NOW);
@@ -194,9 +210,10 @@ class NotificationOutboxDispatcherTest {
         when(store.decode(decodeFailure)).thenThrow(new IllegalArgumentException("bad payload"));
         when(store.decode(permanent)).thenReturn(request());
         when(store.decode(retryable)).thenReturn(request());
-        when(transport.deliver(any())).thenReturn(
-                result(Outcome.PERMANENT_FAILURE, "telegram_http_400", Optional.empty()),
-                result(Outcome.RETRYABLE, "telegram_http_503", Optional.empty()));
+        when(transport.deliver(any()))
+                .thenReturn(
+                        result(Outcome.PERMANENT_FAILURE, "telegram_http_400", Optional.empty()),
+                        result(Outcome.RETRYABLE, "telegram_http_503", Optional.empty()));
 
         dispatcher.dispatchBatch(NOW);
 
@@ -211,35 +228,43 @@ class NotificationOutboxDispatcherTest {
 
     @Test
     void blankInstanceIdUsesGeneratedPlatformIdentity() {
-        dispatcher = new NotificationOutboxDispatcher(
-                store,
-                transport,
-                new NotificationOutboxProperties(
-                        Duration.ofSeconds(5),
-                        new NotificationOutboxProperties.Claim(Duration.ofMinutes(2), 10),
-                        3,
-                        new NotificationOutboxProperties.Retry(Duration.ofMillis(1), Duration.ofMillis(1))),
-                telegramProperties(),
-                metrics,
-                " ");
+        dispatcher =
+                new NotificationOutboxDispatcher(
+                        store,
+                        transport,
+                        new NotificationOutboxProperties(
+                                Duration.ofSeconds(5),
+                                new NotificationOutboxProperties.Claim(Duration.ofMinutes(2), 10),
+                                3,
+                                new NotificationOutboxProperties.Retry(
+                                        Duration.ofMillis(1), Duration.ofMillis(1))),
+                        telegramProperties(),
+                        metrics,
+                        " ");
         when(store.claimPending(eq(NOW), any(String.class), eq(Duration.ofMinutes(2)), eq(10)))
                 .thenReturn(List.of());
 
         dispatcher.dispatchBatch(NOW);
 
-        verify(store).claimPending(eq(NOW), org.mockito.ArgumentMatchers.startsWith("platform-"),
-                eq(Duration.ofMinutes(2)), eq(10));
+        verify(store)
+                .claimPending(
+                        eq(NOW),
+                        org.mockito.ArgumentMatchers.startsWith("platform-"),
+                        eq(Duration.ofMinutes(2)),
+                        eq(10));
     }
 
     private void prepareDelivery(NotificationOutboxClaim claim, DeliveryResult result) {
         NotificationRequest request = request();
-        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10)).thenReturn(List.of(claim));
+        when(store.claimPending(NOW, "platform-a", Duration.ofMinutes(2), 10))
+                .thenReturn(List.of(claim));
         when(store.acquireProviderPermit(Provider.TELEGRAM, NOW, RATE_LIMIT)).thenReturn(true);
         when(store.decode(claim)).thenReturn(request);
         when(transport.deliver(request)).thenReturn(result);
     }
 
-    private static DeliveryResult result(Outcome outcome, String category, Optional<Duration> retryAfter) {
+    private static DeliveryResult result(
+            Outcome outcome, String category, Optional<Duration> retryAfter) {
         return new DeliveryResult(outcome, category, retryAfter);
     }
 

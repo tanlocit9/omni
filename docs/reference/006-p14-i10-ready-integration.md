@@ -64,36 +64,36 @@ No protobuf field, registration limit, migration or runtime default changed.
 
 ### Source / test matrix for this continuation
 
-| Production boundary | Executed regression evidence |
-| --- | --- |
-| Platform OutputReadinessProvider.page | OutputReadinessProviderTest: shared fixture, revision/bounds, empty terminal cursor, large byte-bounded page, unsafe/missing identity path configuration, derived routes and known producer provenance. |
-| Shared PostgresMetadataReader and metadata_reader | test_output_readiness: short-page continuation, cursor failure/non-progress, 4 MiB rejection, mutable/wrong path rejection, configured layout, four authority modes; existing auth/revision/failure/shadow cases. |
-| Platform OutputDeclarations | OutputDeclarationsTest: disabled/unsupported protocols, all four supported logical declarations, malformed identity/typed parameters, server IDs and absence of physical paths. |
-| Worker OutputPublication | test_output_publication: complete dates, wrong partition/symbol, server IDs, ACK failure, missing publisher, context cleanup, outcome origin dates. |
-| Shared lineage and immutable store | test_output_lineage: real Parquet component lineage, deduplication, malformed/wrong-partition/version evidence rejection and strict two-component completeness with legacy compatibility; test_output_snapshots: namespace/version/schema/empty/unsafe input rejection without writes, existing duplicate/concurrent/read-back/ACK cases, real backfill scan/mutation, semantic schema/lineage mismatch and empty-output rejection. |
-| Generated Java/Python contracts | contracts:test generates from canonical proto, builds schemas and checks both output-registration artifacts; generated sources remain ignored. |
+| Production boundary                               | Executed regression evidence                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform OutputReadinessProvider.page             | OutputReadinessProviderTest: shared fixture, revision/bounds, empty terminal cursor, large byte-bounded page, unsafe/missing identity path configuration, derived routes and known producer provenance.                                                                                                                                                                                                                             |
+| Shared PostgresMetadataReader and metadata_reader | test_output_readiness: short-page continuation, cursor failure/non-progress, 4 MiB rejection, mutable/wrong path rejection, configured layout, four authority modes; existing auth/revision/failure/shadow cases.                                                                                                                                                                                                                   |
+| Platform OutputDeclarations                       | OutputDeclarationsTest: disabled/unsupported protocols, all four supported logical declarations, malformed identity/typed parameters, server IDs and absence of physical paths.                                                                                                                                                                                                                                                     |
+| Worker OutputPublication                          | test_output_publication: complete dates, wrong partition/symbol, server IDs, ACK failure, missing publisher, context cleanup, outcome origin dates.                                                                                                                                                                                                                                                                                 |
+| Shared lineage and immutable store                | test_output_lineage: real Parquet component lineage, deduplication, malformed/wrong-partition/version evidence rejection and strict two-component completeness with legacy compatibility; test_output_snapshots: namespace/version/schema/empty/unsafe input rejection without writes, existing duplicate/concurrent/read-back/ACK cases, real backfill scan/mutation, semantic schema/lineage mismatch and empty-output rejection. |
+| Generated Java/Python contracts                   | contracts:test generates from canonical proto, builds schemas and checks both output-registration artifacts; generated sources remain ignored.                                                                                                                                                                                                                                                                                      |
 
 ### Fresh checks and remaining gates
 
 Executed on Linux from owner commit plus this continuation:
 
-| Target | Fresh result |
-| --- | --- |
-| py-common:coverage | PASS: 338 passed, 5 opt-in real-Kafka tests skipped. |
-| analyzer:coverage | PASS: 242 passed after locked dependency sync. |
-| ingestor:coverage | PASS: 94 passed. |
-| query-service:test | PASS: 40 passed. |
-| contracts:test | PASS: canonical generation/schema build, 11 artifact checks. |
-| platform:coverage | PASS: 591 test entries, 4 skipped, zero failures/errors; JaCoCo generated. |
-| platform:test (focused) | PASS: 11 provider/declaration tests, no skips. |
-| python-impact-coverage | PASS: all eight named shared components >=80% line/branch. |
-| impact-coverage (Java) | FAIL: remaining I10 components below required thresholds; never treated as acceptance PASS. |
+| Target                  | Fresh result                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| py-common:coverage      | PASS: 338 passed, 5 opt-in real-Kafka tests skipped.                                        |
+| analyzer:coverage       | PASS: 242 passed after locked dependency sync.                                              |
+| ingestor:coverage       | PASS: 94 passed.                                                                            |
+| query-service:test      | PASS: 40 passed.                                                                            |
+| contracts:test          | PASS: canonical generation/schema build, 11 artifact checks.                                |
+| platform:coverage       | PASS: 591 test entries, 4 skipped, zero failures/errors; JaCoCo generated.                  |
+| platform:test (focused) | PASS: 11 provider/declaration tests, no skips.                                              |
+| python-impact-coverage  | PASS: all eight named shared components >=80% line/branch.                                  |
+| impact-coverage (Java)  | FAIL: remaining I10 components below required thresholds; never treated as acceptance PASS. |
 
 Attributable Python coverage (line / branch): OutputPublication 100% / 100%;
 output_readiness 98.73% / 96.43%; output_lineage 98.15% / 97.06%; output_snapshots
 98.59% / 95%; output_registration 95.62% / 86.54%; output_reconciliation
 98.04% / 94.44%; approved_inputs 100% / 92.86%; parquet 98.70% / 96.43%.
-The directly impacted read_bound_dataframe, snapshot_bound_output, _snapshot_bytes
+The directly impacted read_bound_dataframe, snapshot_bound_output, \_snapshot_bytes
 and read_output_snapshot methods each have 100% executed line/branch coverage
 (16/16 and 8/8; 8/8 and 2/2; 9/9 and 4/4; 9/9 and 4/4 respectively).
 Reports are local under `coverage/libs/py-common/coverage.xml`. Backfill race cases
@@ -106,21 +106,21 @@ serialized HTTP JSON, avoiding an in-memory Integer/Long node equality artifact.
 
 Fresh Java attributable coverage (line / branch):
 
-| Component | Line | Branch |
-| --- | ---: | ---: |
-| OutputReadinessProvider | 98.61% | 83.93% |
-| OutputDeclarations | 100% | 100% |
-| OutputReadinessStore | 100% | 80% |
-| OutputWriteAdmission / OutputReconciliationPolicy | 100% | 100% |
-| OutputBackfillService | 97.14% | 56.52% |
-| OutputCompletionGate | 100% | 61.36% |
-| OutputRegistrationStore | 95.16% | 58.82% |
-| ExecutionTimeoutWatchdog | 94.74% | 53.85% |
-| OutputRegistrationEvent | 100% | 64.13% |
-| OutputBackfillController | 25% | 0% |
-| OutputCompletionDiagnostics | 7.14% | 0% |
-| OutputRegistrationConsumer / OutputRegistrationKafkaConfig | 0% | N/A (no branch counter) |
-| OutputReadinessController | 50% | N/A (no branch counter) |
+| Component                                                  |   Line |                  Branch |
+| ---------------------------------------------------------- | -----: | ----------------------: |
+| OutputReadinessProvider                                    | 98.61% |                  83.93% |
+| OutputDeclarations                                         |   100% |                    100% |
+| OutputReadinessStore                                       |   100% |                     80% |
+| OutputWriteAdmission / OutputReconciliationPolicy          |   100% |                    100% |
+| OutputBackfillService                                      | 97.14% |                  56.52% |
+| OutputCompletionGate                                       |   100% |                  61.36% |
+| OutputRegistrationStore                                    | 95.16% |                  58.82% |
+| ExecutionTimeoutWatchdog                                   | 94.74% |                  53.85% |
+| OutputRegistrationEvent                                    |   100% |                  64.13% |
+| OutputBackfillController                                   |    25% |                      0% |
+| OutputCompletionDiagnostics                                |  7.14% |                      0% |
+| OutputRegistrationConsumer / OutputRegistrationKafkaConfig |     0% | N/A (no branch counter) |
+| OutputReadinessController                                  |    50% | N/A (no branch counter) |
 
 The last three straight-line components fail their line gate regardless of the
 threshold helper's missing-branch counter handling. Report:
@@ -157,16 +157,16 @@ matrix below remains authoritative beyond graph hops.
 
 ### Documentation audit and ownership reconciliation
 
-| Area reviewed | Update or concrete no-update reason |
-| --- | --- |
-| Plan 030, increment registry, roadmap/index, release notes | Record current source/evidence, preserve in_progress and owner-decision=true, label pending-era statements historical; correct stale plan and milestone summary. |
-| Data lake, contracts README, Platform and Query Service guides | Document byte/item pagination, cursor compatibility and configured immutable address validation; link paired fixture/evidence. |
-| Architecture and ADR-008 | No ownership/authority amendment: existing approved snapshot path and coordinated cutover decision apply; bounds enforcement implements that decision. |
-| Execution/indicator/stock flows; Kafka contract | Stock/indicator guides now describe opt-in worker publication and origin-date behavior; Kafka planning-era wording is explicitly historical. No business wire/order change: logical refs only, ACK precedes SUCCESS, READY commits last. Execution guide already links here. New fixture is private HTTP. |
-| Database | Label old no-tables planning paragraph historical; no schema/migration delta. V19–V22 and retained V20 identity gate remain unchanged. |
-| Deployment and developer ownership | Add matched provider/cursor-reader deployment requirement and incomplete-history exclusion. No new flag, secret, routing owner or service; existing drain/shadow/cutover guards apply. Bootstrap exception is local only. |
-| Analyzer/Ingestor/Console guides | Existing handoff links remain valid; shared-library tests strengthen their current protocol. No application ownership or public DTO change. |
-| AGENTS, CLAUDE, Roo and governance | No policy change: graph, source/test attribution, verification authorization and deferred recovery boundaries remain authoritative. |
+| Area reviewed                                                  | Update or concrete no-update reason                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plan 030, increment registry, roadmap/index, release notes     | Record current source/evidence, preserve in_progress and owner-decision=true, label pending-era statements historical; correct stale plan and milestone summary.                                                                                                                                          |
+| Data lake, contracts README, Platform and Query Service guides | Document byte/item pagination, cursor compatibility and configured immutable address validation; link paired fixture/evidence.                                                                                                                                                                            |
+| Architecture and ADR-008                                       | No ownership/authority amendment: existing approved snapshot path and coordinated cutover decision apply; bounds enforcement implements that decision.                                                                                                                                                    |
+| Execution/indicator/stock flows; Kafka contract                | Stock/indicator guides now describe opt-in worker publication and origin-date behavior; Kafka planning-era wording is explicitly historical. No business wire/order change: logical refs only, ACK precedes SUCCESS, READY commits last. Execution guide already links here. New fixture is private HTTP. |
+| Database                                                       | Label old no-tables planning paragraph historical; no schema/migration delta. V19–V22 and retained V20 identity gate remain unchanged.                                                                                                                                                                    |
+| Deployment and developer ownership                             | Add matched provider/cursor-reader deployment requirement and incomplete-history exclusion. No new flag, secret, routing owner or service; existing drain/shadow/cutover guards apply. Bootstrap exception is local only.                                                                                 |
+| Analyzer/Ingestor/Console guides                               | Existing handoff links remain valid; shared-library tests strengthen their current protocol. No application ownership or public DTO change.                                                                                                                                                               |
+| AGENTS, CLAUDE, Roo and governance                             | No policy change: graph, source/test attribution, verification authorization and deferred recovery boundaries remain authoritative.                                                                                                                                                                       |
 
 Static audit: Plan 030 retains all ten mandatory sections; P14-I10 has one active
 registry row, remains in_progress after completed I9, and no downstream increment
@@ -309,16 +309,16 @@ not executed test attribution; skipped flows do not establish zero flow impact.
 This cannot retroactively supply missed pre-edit graph analysis. The following
 manual reconciliation remains separate from graph evidence and executed coverage.
 
-| Owner | Impact or concrete boundary |
-| --- | --- |
-| Platform | Graph enrollment/outbox metadata, completion validation, READY promotion/provider/API, backfill fencing, exact-date admission, narrow machine authentication and diagnostics. Existing request aggregation/retry remains authoritative. |
-| Ingestor | EOD snapshot registration before SUCCESS. Catalog/intraday publication protocols remain separate and unchanged. |
-| Analyzer | Indicator/signal/outcome publication, approved signal/component inputs, EOD readers in sector features/outcomes, latest-signal reader, SYNC_METADATA backfill/reconciliation owner. Sector outputs/intraday protocols are not moved into the three-dataset catalog. |
-| Query Service | Explicit authority adapter and byte/schema/lineage validation of snapshot-backed inputs before DuckDB binding. Existing public catalog/query shape is retained. |
-| Console | No source change: existing Query Service proxy/catalog paths consume the same public DTOs; no DB/Kafka access or browser credentials. |
-| Shared libraries/contracts | Additive command metadata and private HTTP DTOs; existing registration wire remains unchanged. Shared publication/metadata/schema/lineage validation changes. Generated contracts are not hand-edited. |
-| Persistence | Candidate V21/V22 only; V19/V20 identity/retained-history reconciliation is still required before release. Baseline provenance is explicitly NULL. |
-| Configuration/operations | All opt-in flags remain off. Separate tokens and coordinated authority selection; writer drain, original migration identities, Kafka provisioning, shadow/cutover/rollback and exact-date repair remain operational gates. |
+| Owner                      | Impact or concrete boundary                                                                                                                                                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform                   | Graph enrollment/outbox metadata, completion validation, READY promotion/provider/API, backfill fencing, exact-date admission, narrow machine authentication and diagnostics. Existing request aggregation/retry remains authoritative.                             |
+| Ingestor                   | EOD snapshot registration before SUCCESS. Catalog/intraday publication protocols remain separate and unchanged.                                                                                                                                                     |
+| Analyzer                   | Indicator/signal/outcome publication, approved signal/component inputs, EOD readers in sector features/outcomes, latest-signal reader, SYNC_METADATA backfill/reconciliation owner. Sector outputs/intraday protocols are not moved into the three-dataset catalog. |
+| Query Service              | Explicit authority adapter and byte/schema/lineage validation of snapshot-backed inputs before DuckDB binding. Existing public catalog/query shape is retained.                                                                                                     |
+| Console                    | No source change: existing Query Service proxy/catalog paths consume the same public DTOs; no DB/Kafka access or browser credentials.                                                                                                                               |
+| Shared libraries/contracts | Additive command metadata and private HTTP DTOs; existing registration wire remains unchanged. Shared publication/metadata/schema/lineage validation changes. Generated contracts are not hand-edited.                                                              |
+| Persistence                | Candidate V21/V22 only; V19/V20 identity/retained-history reconciliation is still required before release. Baseline provenance is explicitly NULL.                                                                                                                  |
+| Configuration/operations   | All opt-in flags remain off. Separate tokens and coordinated authority selection; writer drain, original migration identities, Kafka provisioning, shadow/cutover/rollback and exact-date repair remain operational gates.                                          |
 
 ## Configuration and coordinated cutover
 
@@ -370,31 +370,31 @@ This is a runbook, not authorization to execute deployment or modify retained da
 
 ## Verification and coverage matrix
 
-| Behavior/source | Test source / remaining evidence |
-| --- | --- |
-| Server declaration, production enrollment/outbox identity | GraphWorkRequestsPostgresTest.productionEnrollmentFreezesIdsBeforeOutboxCanDispatch |
-| Both stream orders, immutable status, valid-empty, late timeout | Existing completion/watchdog cases in GraphWorkRequestsPostgresTest |
-| Baseline null provenance, exact date gaps, generation fence, registration precedence | GraphWorkRequestsPostgresTest.baselineHasNullProvenanceAndCannotReplaceRegisteredReady |
-| Worker actual-date publication, server IDs, missing-day rejection, ACK failure | py-common test_output_publication |
-| API pagination revision, auth failures, unavailable API, explicit shadow authority | py-common test_output_readiness |
-| Exact bytes/schema/lineage reads | test_parquet_storage, test_output_snapshots and affected worker suites |
-| Missing-date signal failure without writes | Analyzer test_atomic_signal_with_stale_ready_eod_reports_error_without_outputs |
-| Schedule/weekend/security scopes | OutputReconciliationPolicyTest, OutputReadinessTokenTest, WorkExpansionTest and shared test_atomic_work |
-| Full gates still required | Owner decision for bounded full-lineage registration; attributable >=80% line/branch for every new critical component; real Kafka/offset/rebalance, actual workers/storage/API round trip, backfill concurrency/retained upgrade and coordinated rollout/rollback |
+| Behavior/source                                                                      | Test source / remaining evidence                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server declaration, production enrollment/outbox identity                            | GraphWorkRequestsPostgresTest.productionEnrollmentFreezesIdsBeforeOutboxCanDispatch                                                                                                                                                                               |
+| Both stream orders, immutable status, valid-empty, late timeout                      | Existing completion/watchdog cases in GraphWorkRequestsPostgresTest                                                                                                                                                                                               |
+| Baseline null provenance, exact date gaps, generation fence, registration precedence | GraphWorkRequestsPostgresTest.baselineHasNullProvenanceAndCannotReplaceRegisteredReady                                                                                                                                                                            |
+| Worker actual-date publication, server IDs, missing-day rejection, ACK failure       | py-common test_output_publication                                                                                                                                                                                                                                 |
+| API pagination revision, auth failures, unavailable API, explicit shadow authority   | py-common test_output_readiness                                                                                                                                                                                                                                   |
+| Exact bytes/schema/lineage reads                                                     | test_parquet_storage, test_output_snapshots and affected worker suites                                                                                                                                                                                            |
+| Missing-date signal failure without writes                                           | Analyzer test_atomic_signal_with_stale_ready_eod_reports_error_without_outputs                                                                                                                                                                                    |
+| Schedule/weekend/security scopes                                                     | OutputReconciliationPolicyTest, OutputReadinessTokenTest, WorkExpansionTest and shared test_atomic_work                                                                                                                                                           |
+| Full gates still required                                                            | Owner decision for bounded full-lineage registration; attributable >=80% line/branch for every new critical component; real Kafka/offset/rebalance, actual workers/storage/API round trip, backfill concurrency/retained upgrade and coordinated rollout/rollback |
 
 ### Executed local checks
 
 Recorded through `tools/check_result.py` under
 `P14-I10-continuation-20261102`, an initial local check set, not the complete I10 gate:
 
-| Approved target | Result |
-| --- | --- |
-| platform:coverage | PASS: 580 tests, 4 skipped, no failures/errors; JaCoCo generated |
-| py-common:coverage | PASS: 285 passed, 5 skipped |
-| analyzer:coverage | PASS: 242 passed |
-| ingestor:coverage | PASS: 94 passed |
-| query-service:test | PASS: 40 passed |
-| contracts:test | FAIL before tests: pinned grpc-tools protoc.exe requires MSVCP140D.dll, VCRUNTIME140D.dll, VCRUNTIME140_1D.dll and ucrtbased.dll; exits 0xc0000135. The existing generate target cleans ignored gen output before failing. No generated files were hand-edited. |
+| Approved target    | Result                                                                                                                                                                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| platform:coverage  | PASS: 580 tests, 4 skipped, no failures/errors; JaCoCo generated                                                                                                                                                                                                |
+| py-common:coverage | PASS: 285 passed, 5 skipped                                                                                                                                                                                                                                     |
+| analyzer:coverage  | PASS: 242 passed                                                                                                                                                                                                                                                |
+| ingestor:coverage  | PASS: 94 passed                                                                                                                                                                                                                                                 |
+| query-service:test | PASS: 40 passed                                                                                                                                                                                                                                                 |
+| contracts:test     | FAIL before tests: pinned grpc-tools protoc.exe requires MSVCP140D.dll, VCRUNTIME140D.dll, VCRUNTIME140_1D.dll and ucrtbased.dll; exits 0xc0000135. The existing generate target cleans ignored gen output before failing. No generated files were hand-edited. |
 
 Native DLL dependencies were read from the pinned executable's PE import table.
 No compiler replacement, runtime installation or system PATH persistence was made.
@@ -407,21 +407,21 @@ the sandbox, not by weakening tests.
 
 Examples from executed reports (line / branch percent):
 
-| Critical source | Line | Branch |
-| --- | ---: | ---: |
-| OutputReadinessStore | 100 | 80 |
-| OutputWriteAdmission | 100 | 100 |
-| OutputReconciliationPolicy | 100 | 100 |
-| OutputBackfillService | 97.14 | 56.52 |
-| OutputReadinessProvider | 45.16 | 33.33 |
-| OutputCompletionGate | 100 | 61.36 |
-| OutputRegistrationStore | 95.16 | 58.82 |
-| ExecutionTimeoutWatchdog | 94.74 | 53.85 |
-| OutputDeclarations | 66.67 | 53.85 |
-| Python output_publication | 90.74 | 72.22 |
-| Python output_reconciliation | 98.04 | 94.44 |
-| Python output_readiness | 86.76 | 66.67 |
-| Python output_lineage | 86 | 75 |
+| Critical source              |  Line | Branch |
+| ---------------------------- | ----: | -----: |
+| OutputReadinessStore         |   100 |     80 |
+| OutputWriteAdmission         |   100 |    100 |
+| OutputReconciliationPolicy   |   100 |    100 |
+| OutputBackfillService        | 97.14 |  56.52 |
+| OutputReadinessProvider      | 45.16 |  33.33 |
+| OutputCompletionGate         |   100 |  61.36 |
+| OutputRegistrationStore      | 95.16 |  58.82 |
+| ExecutionTimeoutWatchdog     | 94.74 |  53.85 |
+| OutputDeclarations           | 66.67 |  53.85 |
+| Python output_publication    | 90.74 |  72.22 |
+| Python output_reconciliation | 98.04 |  94.44 |
+| Python output_readiness      | 86.76 |  66.67 |
+| Python output_lineage        |    86 |     75 |
 
 Controller/consumer/diagnostics coverage is also incomplete. These measurements
 do not satisfy the >=80% per-critical-component gate. Full-suite success must not

@@ -23,12 +23,13 @@ public class JpaAuditConfig {
             @Value("${SYSTEM_OPERATOR_UUID:" + DEFAULT_SYSTEM_OPERATOR_UUID + "}")
                     String systemOperatorUuid) {
         UUID systemOperator = UUID.fromString(systemOperatorUuid);
-        return () -> Optional.ofNullable(SecurityContextHolder.getContext())
-                .map(SecurityContext::getAuthentication)
-                .filter(Authentication::isAuthenticated)
-                .map(Authentication::getPrincipal)
-                .map(Object::toString)
-                .map(UUID::fromString)
-                .or(() -> Optional.of(systemOperator));
+        return () ->
+                Optional.ofNullable(SecurityContextHolder.getContext())
+                        .map(SecurityContext::getAuthentication)
+                        .filter(Authentication::isAuthenticated)
+                        .map(Authentication::getPrincipal)
+                        .map(Object::toString)
+                        .map(UUID::fromString)
+                        .or(() -> Optional.of(systemOperator));
     }
 }

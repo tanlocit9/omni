@@ -49,44 +49,62 @@ class JobServiceTest {
     @Test
     void workerStatusCannotReplaceTheFirstApprovedInputBinding() {
         var execution = execution(JobStatus.RUNNING, null);
-        var binding = List.of(Map.of("dataset", "eod", "partition", Map.of("exchange", "hose"), "dataVersion", "v1"));
+        var binding =
+                List.of(
+                        Map.of(
+                                "dataset",
+                                "eod",
+                                "partition",
+                                Map.of("exchange", "hose"),
+                                "dataVersion",
+                                "v1"));
         execution.setMetaJson(Map.of("approvedInputs", binding));
         when(historyRepository.findById(execution.getId())).thenReturn(Optional.of(execution));
         when(historyRepository.saveAndFlush(execution)).thenReturn(execution);
-        service.applyStatus(message(execution.getId().toString(), null, "SUCCESS", 1, null,
-                Map.of("approvedInputs", List.of(Map.of("dataVersion", "forged")))));
+        service.applyStatus(
+                message(
+                        execution.getId().toString(),
+                        null,
+                        "SUCCESS",
+                        1,
+                        null,
+                        Map.of("approvedInputs", List.of(Map.of("dataVersion", "forged")))));
         assertThat(execution.getMetaJson()).containsEntry("approvedInputs", binding);
     }
+
     @Test
     void metadataParentKeepsSuccessAndProjectsPartialWarningFromItsAtomicChild() {
         var parent = execution(JobStatus.RUNNING, null);
         parent.getJob().setJobType(JobType.SYNC_METADATA);
         var child = execution(JobStatus.SUCCESS, parent.getId());
-        child.setMetaJson(Map.of("result", "PARTIAL_SUCCESS", "objectsSkipped", "1",
-                "warning", "1 skipped object(s)"));
+        child.setMetaJson(
+                Map.of(
+                        "result",
+                        "PARTIAL_SUCCESS",
+                        "objectsSkipped",
+                        "1",
+                        "warning",
+                        "1 skipped object(s)"));
         when(historyRepository.findByIdForUpdate(parent.getId())).thenReturn(Optional.of(parent));
         when(historyRepository.findAllByParentLogId(parent.getId())).thenReturn(List.of(child));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
         service.aggregateParentExecution(parent.getId());
         assertThat(parent.getStatus()).isEqualTo(JobStatus.SUCCESS);
-        assertThat(parent.getMetaJson()).containsEntry("result", "PARTIAL_SUCCESS")
-                .containsEntry("objectsSkipped", 1L).containsEntry("warning", "1 skipped object(s)");
+        assertThat(parent.getMetaJson())
+                .containsEntry("result", "PARTIAL_SUCCESS")
+                .containsEntry("objectsSkipped", 1L)
+                .containsEntry("warning", "1 skipped object(s)");
     }
 
-    @Mock
-    private JobDefinitionRepository jobDefinitionRepository;
+    @Mock private JobDefinitionRepository jobDefinitionRepository;
 
-    @Mock
-    private JobExecutionHistoryRepository historyRepository;
+    @Mock private JobExecutionHistoryRepository historyRepository;
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private SchedulerOutboxService schedulerOutboxService;
+    @Mock private SchedulerOutboxService schedulerOutboxService;
 
-    @Mock
-    private NotificationOutboxService notificationOutboxService;
+    @Mock private NotificationOutboxService notificationOutboxService;
 
     private JobService service;
 
@@ -94,17 +112,18 @@ class JobServiceTest {
     void setUp() {
         JobNotificationTemplate template = new JobNotificationTemplate();
         DefaultJobNotificationPolicy defaultPolicy = new DefaultJobNotificationPolicy(template);
-        JobNotificationPolicyRegistry policyRegistry = new JobNotificationPolicyRegistry(
-                List.of(new SignalDigestNotificationPolicy(defaultPolicy)),
-                defaultPolicy);
-        service = new JobService(
-                jobDefinitionRepository,
-                historyRepository,
-                eventPublisher,
-                policyRegistry,
-                schedulerOutboxService,
-                notificationOutboxService,
-                new SignalNotificationTemplate());
+        JobNotificationPolicyRegistry policyRegistry =
+                new JobNotificationPolicyRegistry(
+                        List.of(new SignalDigestNotificationPolicy(defaultPolicy)), defaultPolicy);
+        service =
+                new JobService(
+                        jobDefinitionRepository,
+                        historyRepository,
+                        eventPublisher,
+                        policyRegistry,
+                        schedulerOutboxService,
+                        notificationOutboxService,
+                        new SignalNotificationTemplate());
     }
 
     @Test
@@ -114,11 +133,12 @@ class JobServiceTest {
         when(historyRepository.save(any(JobExecutionHistory.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        JobExecutionHistory child = service.createChildExecution(
-                parent.getId(),
-                WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG"),
-                Map.of("symbolKey", "legacy", "workType", "SECTOR", "workKey", "wrong"),
-                Instant.parse("2026-08-27T03:00:00Z"));
+        JobExecutionHistory child =
+                service.createChildExecution(
+                        parent.getId(),
+                        WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG"),
+                        Map.of("symbolKey", "legacy", "workType", "SECTOR", "workKey", "wrong"),
+                        Instant.parse("2026-08-27T03:00:00Z"));
 
         assertThat(child.getMetaJson())
                 .containsEntry("workType", "SYMBOL")
@@ -132,20 +152,21 @@ class JobServiceTest {
         JobExecutionHistory child = execution(JobStatus.RUNNING, parentId);
         when(historyRepository.findById(child.getId())).thenReturn(Optional.of(child));
 
-        JobStatusMessage mismatched = new JobStatusMessage(
-                child.getJob().getId().toString(),
-                child.getId().toString(),
-                parentId.toString(),
-                WorkType.SYMBOL,
-                "HNX-MISMATCH",
-                "SUCCESS",
-                Map.of(),
-                null,
-                Instant.parse("2026-08-27T03:00:00Z"),
-                Instant.parse("2026-08-27T03:01:00Z"),
-                60_000L,
-                null,
-                1);
+        JobStatusMessage mismatched =
+                new JobStatusMessage(
+                        child.getJob().getId().toString(),
+                        child.getId().toString(),
+                        parentId.toString(),
+                        WorkType.SYMBOL,
+                        "HNX-MISMATCH",
+                        "SUCCESS",
+                        Map.of(),
+                        null,
+                        Instant.parse("2026-08-27T03:00:00Z"),
+                        Instant.parse("2026-08-27T03:01:00Z"),
+                        60_000L,
+                        null,
+                        1);
 
         service.applyStatus(mismatched);
 
@@ -163,7 +184,8 @@ class JobServiceTest {
 
         assertThat(execution.getStatus()).isEqualTo(JobStatus.SUCCESS);
         assertThat(execution.getRecordsSynced()).isEqualTo(7);
-        ArgumentCaptor<OperationalNotificationEvent> captor = ArgumentCaptor.forClass(OperationalNotificationEvent.class);
+        ArgumentCaptor<OperationalNotificationEvent> captor =
+                ArgumentCaptor.forClass(OperationalNotificationEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(captor.getValue().title()).isEqualTo("Job completed: Test job");
@@ -179,7 +201,8 @@ class JobServiceTest {
 
         assertThat(execution.getStatus()).isEqualTo(JobStatus.FAILED);
         assertThat(execution.getError()).isEqualTo("boom");
-        ArgumentCaptor<OperationalNotificationEvent> captor = ArgumentCaptor.forClass(OperationalNotificationEvent.class);
+        ArgumentCaptor<OperationalNotificationEvent> captor =
+                ArgumentCaptor.forClass(OperationalNotificationEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().severity()).isEqualTo(NotificationSeverity.ERROR);
         assertThat(captor.getValue().message()).isEqualTo("boom");
@@ -222,7 +245,8 @@ class JobServiceTest {
 
     @Test
     void applyStatusIgnoresMalformedExecutionId() {
-        service.applyStatus(message("not-a-uuid", null, "SUCCESS", 7, null, Map.of("recordsInserted", "9")));
+        service.applyStatus(
+                message("not-a-uuid", null, "SUCCESS", 7, null, Map.of("recordsInserted", "9")));
 
         verify(historyRepository, never()).findById(any());
         verify(historyRepository, never()).saveAndFlush(any());
@@ -255,8 +279,14 @@ class JobServiceTest {
     void applyStatusIgnoresMalformedParentExecutionId() {
         JobExecutionHistory execution = execution(JobStatus.RUNNING, null);
 
-        service.applyStatus(message(execution.getId().toString(), "not-a-uuid", "SUCCESS", 7, null,
-                Map.of("recordsInserted", "9")));
+        service.applyStatus(
+                message(
+                        execution.getId().toString(),
+                        "not-a-uuid",
+                        "SUCCESS",
+                        7,
+                        null,
+                        Map.of("recordsInserted", "9")));
 
         verify(historyRepository, never()).findById(any());
         verify(historyRepository, never()).saveAndFlush(any());
@@ -267,8 +297,14 @@ class JobServiceTest {
     void applyStatusIgnoresNonNumericMetadataCounters() {
         JobExecutionHistory execution = execution(JobStatus.RUNNING, null);
 
-        service.applyStatus(message(execution.getId().toString(), null, "SUCCESS", null, null,
-                Map.of("recordsInserted", "not-a-number")));
+        service.applyStatus(
+                message(
+                        execution.getId().toString(),
+                        null,
+                        "SUCCESS",
+                        null,
+                        null,
+                        Map.of("recordsInserted", "not-a-number")));
 
         verify(historyRepository, never()).findById(any());
         verify(historyRepository, never()).saveAndFlush(any());
@@ -291,7 +327,8 @@ class JobServiceTest {
         service.applyStatus(message(child.getId(), UUID.randomUUID(), "SUCCESS", 3, null));
 
         assertThat(parent.getStatus()).isEqualTo(JobStatus.SUCCESS);
-        ArgumentCaptor<OperationalNotificationEvent> captor = ArgumentCaptor.forClass(OperationalNotificationEvent.class);
+        ArgumentCaptor<OperationalNotificationEvent> captor =
+                ArgumentCaptor.forClass(OperationalNotificationEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().message()).isEqualTo("2/2 tasks completed successfully");
     }
@@ -305,7 +342,8 @@ class JobServiceTest {
         success.setRecordsSynced(4);
         JobExecutionHistory running = execution(JobStatus.RUNNING, parentId);
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
-        when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(success, running));
+        when(historyRepository.findAllByParentLogId(parentId))
+                .thenReturn(List.of(success, running));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
 
         service.aggregateParentExecution(parentId);
@@ -337,7 +375,8 @@ class JobServiceTest {
         assertThat(parent.getStatus()).isEqualTo(JobStatus.SUCCESS);
         assertThat(parent.getRecordsSynced()).isEqualTo(10);
         assertThat(parent.getFinishedAt()).isEqualTo(Instant.parse("2026-07-28T00:02:00Z"));
-        assertThat(parent.getMetaJson()).containsEntry("childCount", "2")
+        assertThat(parent.getMetaJson())
+                .containsEntry("childCount", "2")
                 .containsEntry("successCount", "2")
                 .containsEntry("failedCount", "0");
         verify(eventPublisher).publishEvent(any(OperationalNotificationEvent.class));
@@ -352,27 +391,31 @@ class JobServiceTest {
         parent.getJob().setTitle("Sync market signals - daily BANKS");
         JobExecutionHistory changed = execution(JobStatus.SUCCESS, parentId);
         changed.setRecordsSynced(1);
-        changed.setMetaJson(Map.ofEntries(
-                Map.entry("workType", "SYMBOL"),
-                Map.entry("workKey", "HOSE-HPG"),
-                Map.entry("signalChanged", "true"),
-                Map.entry("previousSignal", "NEUTRAL"),
-                Map.entry("newSignal", "BULLISH"),
-                Map.entry("price", "28000.0"),
-                Map.entry("signalDate", "2026-07-28"),
-                Map.entry("strategy", "TREND_MOMENTUM_V1"),
-                Map.entry("timeframe", "1d"),
-                Map.entry("score", "4"),
-                Map.entry("reasonCodes", List.of("PRICE_ABOVE_MA50", "SCORE_4"))));
+        changed.setMetaJson(
+                Map.ofEntries(
+                        Map.entry("workType", "SYMBOL"),
+                        Map.entry("workKey", "HOSE-HPG"),
+                        Map.entry("signalChanged", "true"),
+                        Map.entry("previousSignal", "NEUTRAL"),
+                        Map.entry("newSignal", "BULLISH"),
+                        Map.entry("price", "28000.0"),
+                        Map.entry("signalDate", "2026-07-28"),
+                        Map.entry("strategy", "TREND_MOMENTUM_V1"),
+                        Map.entry("timeframe", "1d"),
+                        Map.entry("score", "4"),
+                        Map.entry("reasonCodes", List.of("PRICE_ABOVE_MA50", "SCORE_4"))));
         JobExecutionHistory unchanged = execution(JobStatus.SUCCESS, parentId);
-        unchanged.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-VCB", "signalChanged", "false"));
+        unchanged.setMetaJson(
+                Map.of("workType", "SYMBOL", "workKey", "HOSE-VCB", "signalChanged", "false"));
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
-        when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(changed, unchanged));
+        when(historyRepository.findAllByParentLogId(parentId))
+                .thenReturn(List.of(changed, unchanged));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
 
         service.aggregateParentExecution(parentId);
 
-        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
+        ArgumentCaptor<NotificationRequest> captor =
+                ArgumentCaptor.forClass(NotificationRequest.class);
         verify(notificationOutboxService).enqueue(captor.capture(), any(Instant.class));
         verify(eventPublisher, never()).publishEvent(any(SignalDigestNotificationEvent.class));
         NotificationRequest request = captor.getValue();
@@ -387,7 +430,8 @@ class JobServiceTest {
         parent.setId(parentId);
         parent.getJob().setJobType(JobType.SYNC_SIGNALS);
         JobExecutionHistory unchanged = execution(JobStatus.SUCCESS, parentId);
-        unchanged.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG", "signalChanged", "false"));
+        unchanged.setMetaJson(
+                Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG", "signalChanged", "false"));
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
         when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(unchanged));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
@@ -406,7 +450,8 @@ class JobServiceTest {
         parent.setId(parentId);
         parent.getJob().setJobType(JobType.SYNC_SIGNALS);
         JobExecutionHistory changed = execution(JobStatus.SUCCESS, parentId);
-        changed.setMetaJson(Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG", "signalChanged", "true"));
+        changed.setMetaJson(
+                Map.of("workType", "SYMBOL", "workKey", "HOSE-HPG", "signalChanged", "true"));
         JobExecutionHistory failed = execution(JobStatus.FAILED, parentId);
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
         when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(changed, failed));
@@ -428,7 +473,8 @@ class JobServiceTest {
         JobExecutionHistory failed = execution(JobStatus.FAILED, parentId);
         JobExecutionHistory errored = execution(JobStatus.ERROR, parentId);
         when(historyRepository.findByIdForUpdate(parentId)).thenReturn(Optional.of(parent));
-        when(historyRepository.findAllByParentLogId(parentId)).thenReturn(List.of(success, failed, errored));
+        when(historyRepository.findAllByParentLogId(parentId))
+                .thenReturn(List.of(success, failed, errored));
         when(historyRepository.saveAndFlush(parent)).thenReturn(parent);
 
         service.aggregateParentExecution(parentId);
@@ -436,7 +482,8 @@ class JobServiceTest {
         assertThat(parent.getStatus()).isEqualTo(JobStatus.FAILED);
         assertThat(parent.getError()).isEqualTo("2/3 tasks failed");
         assertThat(parent.getMetaJson()).containsEntry("failedCount", "2");
-        ArgumentCaptor<OperationalNotificationEvent> captor = ArgumentCaptor.forClass(OperationalNotificationEvent.class);
+        ArgumentCaptor<OperationalNotificationEvent> captor =
+                ArgumentCaptor.forClass(OperationalNotificationEvent.class);
         verify(eventPublisher).publishEvent(captor.capture());
         assertThat(captor.getValue().severity()).isEqualTo(NotificationSeverity.ERROR);
         assertThat(captor.getValue().message()).isEqualTo("2/3 tasks failed");
@@ -464,31 +511,24 @@ class JobServiceTest {
         job.setClaimedBy("core-a");
         job.setClaimedAt(now);
         job.setClaimUntil(now.plusSeconds(120));
-        SchedulerClaim claim = new SchedulerClaim(
-                job.getId(),
-                token,
-                "core-a",
-                now,
-                now.plusSeconds(120),
-                now);
-        DatasetRef eodRef = DatasetRef.of(
-                "eod",
-                Map.of("exchange", "hose", "code", "hpg"));
+        SchedulerClaim claim =
+                new SchedulerClaim(job.getId(), token, "core-a", now, now.plusSeconds(120), now);
+        DatasetRef eodRef = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg"));
 
-        JobExecutionHistory prepared = service.prepareClaimedExecution(
-                job,
-                claim,
-                now,
-                Map.of(eodRef, "sha256:eod-hpg"));
+        JobExecutionHistory prepared =
+                service.prepareClaimedExecution(job, claim, now, Map.of(eodRef, "sha256:eod-hpg"));
 
         assertThat(prepared.getMetaJson()).containsOnlyKeys("approvedInputs");
         assertThat(prepared.getMetaJson().get("approvedInputs"))
-                .isEqualTo(List.of(Map.of(
-                        "dataset", "eod",
-                        "partition", Map.of(
-                                "exchange", "hose",
-                                "code", "hpg"),
-                        "dataVersion", "sha256:eod-hpg")));
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "dataset", "eod",
+                                        "partition",
+                                                Map.of(
+                                                        "exchange", "hose",
+                                                        "code", "hpg"),
+                                        "dataVersion", "sha256:eod-hpg")));
         assertThat(prepared.getMetaJson().toString()).doesNotContain("path");
         verify(historyRepository, org.mockito.Mockito.times(2)).save(prepared);
     }
@@ -503,7 +543,8 @@ class JobServiceTest {
         assertThat(parent.getStatus()).isEqualTo(JobStatus.SUCCESS);
         assertThat(parent.getRecordsSynced()).isZero();
         assertThat(parent.getRecordsSkipped()).isZero();
-        assertThat(parent.getMetaJson()).containsEntry("childCount", "0")
+        assertThat(parent.getMetaJson())
+                .containsEntry("childCount", "0")
                 .containsEntry("successCount", "0")
                 .containsEntry("failedCount", "0");
         verify(historyRepository).save(parent);

@@ -26,31 +26,38 @@ class JobDependencyContextFactoryTest {
         SymbolRepository symbolRepository = mock(SymbolRepository.class);
         SymbolKeyProjection hpg = symbol(" HPG ", " HOSE ");
         SymbolKeyProjection vnm = symbol("VNM", "HOSE");
-        when(symbolRepository.findBySectorCodesAndLevel(null, 1))
-                .thenReturn(List.of(hpg, vnm));
+        when(symbolRepository.findBySectorCodesAndLevel(null, 1)).thenReturn(List.of(hpg, vnm));
         JobDefinition job = new JobDefinition();
         job.setJobType(JobType.SYNC_INDICATORS);
         job.setConfigJson(Map.of());
 
         JobExecutionContext context =
-                new JobDependencyContextFactory(symbolRepository)
-                        .create(job, "execution-1");
+                new JobDependencyContextFactory(symbolRepository).create(job, "execution-1");
 
-        assertThat(context.getDependsOnDatasets()).containsExactly(
-                Map.of(
-                        "dataset", "eod",
-                        "partition", Map.of(
-                                "exchange", "hose",
-                                "code", "hpg"),
-                        "conditions", List.of("EXISTS", "READY"),
-                        "mode", "ENFORCED"),
-                Map.of(
-                        "dataset", "eod",
-                        "partition", Map.of(
-                                "exchange", "hose",
-                                "code", "vnm"),
-                        "conditions", List.of("EXISTS", "READY"),
-                        "mode", "ENFORCED"));
+        assertThat(context.getDependsOnDatasets())
+                .containsExactly(
+                        Map.of(
+                                "dataset",
+                                "eod",
+                                "partition",
+                                Map.of(
+                                        "exchange", "hose",
+                                        "code", "hpg"),
+                                "conditions",
+                                List.of("EXISTS", "READY"),
+                                "mode",
+                                "ENFORCED"),
+                        Map.of(
+                                "dataset",
+                                "eod",
+                                "partition",
+                                Map.of(
+                                        "exchange", "hose",
+                                        "code", "vnm"),
+                                "conditions",
+                                List.of("EXISTS", "READY"),
+                                "mode",
+                                "ENFORCED"));
     }
 
     @Test
@@ -60,14 +67,21 @@ class JobDependencyContextFactoryTest {
         job.setJobType(JobType.SYNC_INDICATORS);
         job.setConfigJson(Map.of());
 
-        JobExecutionContext context = new JobDependencyContextFactory(symbolRepository)
-                .create(job, "execution-symbol", "SYMBOL", " HOSE-ABC-DEF ");
+        JobExecutionContext context =
+                new JobDependencyContextFactory(symbolRepository)
+                        .create(job, "execution-symbol", "SYMBOL", " HOSE-ABC-DEF ");
 
-        assertThat(context.getDependsOnDatasets()).containsExactly(Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose", "code", "abc-def"),
-                "conditions", List.of("EXISTS", "READY"),
-                "mode", "ENFORCED"));
+        assertThat(context.getDependsOnDatasets())
+                .containsExactly(
+                        Map.of(
+                                "dataset",
+                                "eod",
+                                "partition",
+                                Map.of("exchange", "hose", "code", "abc-def"),
+                                "conditions",
+                                List.of("EXISTS", "READY"),
+                                "mode",
+                                "ENFORCED"));
         verify(symbolRepository, never()).findBySectorCodesAndLevel(any(), anyInt());
     }
 
@@ -92,14 +106,14 @@ class JobDependencyContextFactoryTest {
     void globalIndicatorWorkRetainsFullSelectedSymbolExpansion() {
         SymbolRepository symbolRepository = mock(SymbolRepository.class);
         var symbols = List.of(symbol("HPG", "HOSE"), symbol("VNM", "HOSE"));
-        when(symbolRepository.findBySectorCodesAndLevel(null, 1))
-                .thenReturn(symbols);
+        when(symbolRepository.findBySectorCodesAndLevel(null, 1)).thenReturn(symbols);
         JobDefinition job = new JobDefinition();
         job.setJobType(JobType.SYNC_INDICATORS);
         job.setConfigJson(Map.of());
 
-        JobExecutionContext context = new JobDependencyContextFactory(symbolRepository)
-                .create(job, "execution-global", "GLOBAL", "SYNC_INDICATORS:ANALYZER");
+        JobExecutionContext context =
+                new JobDependencyContextFactory(symbolRepository)
+                        .create(job, "execution-global", "GLOBAL", "SYNC_INDICATORS:ANALYZER");
 
         assertThat(context.getDependsOnDatasets()).hasSize(2);
         verify(symbolRepository).findBySectorCodesAndLevel(null, 1);
@@ -113,12 +127,10 @@ class JobDependencyContextFactoryTest {
         job.setConfigJson(Map.of());
 
         JobExecutionContext context =
-                new JobDependencyContextFactory(symbolRepository)
-                        .create(job, "execution-2");
+                new JobDependencyContextFactory(symbolRepository).create(job, "execution-2");
 
         assertThat(context.getDependsOnDatasets()).isEmpty();
-        verify(symbolRepository, never())
-                .findBySectorCodesAndLevel(any(), anyInt());
+        verify(symbolRepository, never()).findBySectorCodesAndLevel(any(), anyInt());
     }
 
     private SymbolKeyProjection symbol(String code, String exchange) {

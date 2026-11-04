@@ -6,7 +6,6 @@ row-based versions preserve unrelated days/symbols; new enrollment does not requ
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
 
-
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
@@ -72,7 +71,7 @@ semantics are documented in [CI Quality Gate](development/004-ci-quality-gate.md
 4. [Where to change](development/001-where-to-change.md) — which project/file area to start from for common changes.
 5. [Kafka contracts](data/001-kafka-contracts.md) — canonical topic/message map.
 6. [Data lake](data/002-data-lake.md) — canonical Parquet dataset/path ownership.
-7. [Job execution](flows/001-job-execution.md) — scheduler/worker execution flow.
+7. [Job execution](flows/001-job-execution.md) — scheduler/worker execution flow; [P14 end-to-end with tickets and Mermaid](flows/007-p14-end-to-end.md) follows preparation through work READY to Query/Console.
 8. [Implementation plan standard](governance/001-implementation-plan-standard.md) — mandatory plan/outcome/feature/contract/agent-guidance format.
 9. [Pre-roadmap capability baseline](plans/roadmap/pre-roadmap-capability-baseline.md) — working platform capabilities inherited by Phase 0.
 10. [Metadata → Omni Console → Dashboard execution plan](plans/008-omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.

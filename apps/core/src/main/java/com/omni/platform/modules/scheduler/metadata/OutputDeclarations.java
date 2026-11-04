@@ -15,21 +15,27 @@ import com.omni.platform.modules.scheduler.messaging.ExpandedJobMessage;
 public class OutputDeclarations {
     private final boolean enabled;
 
-    public OutputDeclarations(@Value("${app.output-registration.enrollment-enabled:false}") boolean enabled,
+    public OutputDeclarations(
+            @Value("${app.output-registration.enrollment-enabled:false}") boolean enabled,
             @Value("${app.output-registration.shadow-enabled:false}") boolean consumer) {
-        if (enabled && !consumer) throw new IllegalArgumentException("Enrollment requires registration consumer");
+        if (enabled && !consumer)
+            throw new IllegalArgumentException("Enrollment requires registration consumer");
         this.enabled = enabled;
     }
 
-    public boolean enabled() { return enabled; }
+    public boolean enabled() {
+        return enabled;
+    }
 
     public List<OutputRegistrationEvent.LogicalOutput> required(ExpandedJobMessage work) {
         if (!enabled) return List.of();
         String[] symbol = work.workKey().toLowerCase(Locale.ROOT).split("-", 2);
         boolean evaluation = work.jobType().equals("EVALUATE_SIGNALS");
-        if (!List.of("SYNC_STOCK_PRICE", "SYNC_INDICATORS", "SYNC_SIGNALS", "EVALUATE_SIGNALS").contains(work.jobType()))
+        if (!List.of("SYNC_STOCK_PRICE", "SYNC_INDICATORS", "SYNC_SIGNALS", "EVALUATE_SIGNALS")
+                .contains(work.jobType()))
             return List.of(); // Other protocols retain manifest authority until separately adapted.
-        if (!evaluation && symbol.length != 2) throw new IllegalArgumentException("Invalid symbol work key");
+        if (!evaluation && symbol.length != 2)
+            throw new IllegalArgumentException("Invalid symbol work key");
         Map<String, String> partition = new LinkedHashMap<>();
         partition.put("exchange", symbol[0]);
         String dataset;
@@ -48,11 +54,20 @@ public class OutputDeclarations {
         return List.of(new OutputRegistrationEvent.LogicalOutput(dataset, Map.copyOf(partition)));
     }
 
-    public Map<String, Object> metadata(UUID attempt, List<OutputRegistrationEvent.LogicalOutput> required) {
+    public Map<String, Object> metadata(
+            UUID attempt, List<OutputRegistrationEvent.LogicalOutput> required) {
         if (required.isEmpty()) return Map.of();
-        return Map.of("outputCompletion", Map.of("atomicAttemptId", attempt.toString(),
-                "eventId", UUID.randomUUID().toString(), "registrationId", UUID.randomUUID().toString(),
-                "requiredOutputs", required));
+        return Map.of(
+                "outputCompletion",
+                Map.of(
+                        "atomicAttemptId",
+                        attempt.toString(),
+                        "eventId",
+                        UUID.randomUUID().toString(),
+                        "registrationId",
+                        UUID.randomUUID().toString(),
+                        "requiredOutputs",
+                        required));
     }
 
     private static String parameter(ExpandedJobMessage work, String key) {

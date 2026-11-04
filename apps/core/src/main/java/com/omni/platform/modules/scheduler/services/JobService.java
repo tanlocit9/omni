@@ -64,10 +64,13 @@ public class JobService {
 
     @Autowired
     private com.omni.platform.modules.scheduler.metadata.OutputCompletionGate outputCompletionGate;
+
     @org.springframework.beans.factory.annotation.Autowired
     private com.omni.platform.modules.scheduler.metadata.OutputReadinessStore outputReadinessStore;
+
     @org.springframework.beans.factory.annotation.Autowired
-    private com.omni.platform.modules.scheduler.metadata.OutputReconciliationPolicy outputReconciliationPolicy;
+    private com.omni.platform.modules.scheduler.metadata.OutputReconciliationPolicy
+            outputReconciliationPolicy;
 
     @Value("${app.scheduler.zone:Asia/Ho_Chi_Minh}")
     private String schedulerZone;
@@ -110,9 +113,7 @@ public class JobService {
                     Map.of(
                             "approvedInputs",
                             approvedInputVersions.entrySet().stream()
-                                    .map(
-                                            entry ->
-                                                    entry.getKey().approvedInput(entry.getValue()))
+                                    .map(entry -> entry.getKey().approvedInput(entry.getValue()))
                                     .toList()));
             jobExecutionHistoryRepository.save(execution);
         }
@@ -139,9 +140,7 @@ public class JobService {
             metadata.put(
                     "approvedInputs",
                     approvedInputVersions.entrySet().stream()
-                            .map(
-                                    entry ->
-                                            entry.getKey().approvedInput(entry.getValue()))
+                            .map(entry -> entry.getKey().approvedInput(entry.getValue()))
                             .toList());
         }
         metadata.putAll(manualTriggerMetadata);
@@ -427,8 +426,10 @@ public class JobService {
         }
 
         JobExecutionHistory history =
-                (outputCompletionGate == null ? jobExecutionHistoryRepository.findById(executionId)
-                        : jobExecutionHistoryRepository.findByIdForUpdate(executionId)).orElse(null);
+                (outputCompletionGate == null
+                                ? jobExecutionHistoryRepository.findById(executionId)
+                                : jobExecutionHistoryRepository.findByIdForUpdate(executionId))
+                        .orElse(null);
         if (history == null) {
             log.warn("Ignoring job status message for unknown execution: {}", executionId);
             return;
@@ -473,8 +474,11 @@ public class JobService {
         validateMessageParentExecutionId(response, history.getParentLogId(), executionId);
         if (outputCompletionGate != null && outputCompletionGate.enrolled(executionId)) {
             if (response.parentExecutionId() != null
-                    && !Objects.equals(response.parentExecutionId(),
-                            history.getParentLogId() == null ? null : history.getParentLogId().toString())) {
+                    && !Objects.equals(
+                            response.parentExecutionId(),
+                            history.getParentLogId() == null
+                                    ? null
+                                    : history.getParentLogId().toString())) {
                 throw new IllegalArgumentException("Enrolled status parent execution mismatch");
             }
             if (!Objects.equals(response.jobDefinitionId(), history.getJob().getId().toString())) {
@@ -654,13 +658,33 @@ public class JobService {
         MetadataUtils.putIfPresent(meta, "runningCount", runningCount);
         if (parent.getJob().getJobType() == JobType.SYNC_METADATA
                 && parentStatus == JobStatus.SUCCESS
-                && children.stream().anyMatch(child -> child.getMetaJson() != null
-                        && "PARTIAL_SUCCESS".equals(String.valueOf(child.getMetaJson().get("result"))))) {
-            long skipped = children.stream().map(JobExecutionHistory::getMetaJson)
-                    .filter(Objects::nonNull).mapToLong(values -> {
-                        try { return Math.max(0, Long.parseLong(String.valueOf(values.getOrDefault("objectsSkipped", 0)))); }
-                        catch (NumberFormatException ignored) { return 0; }
-                    }).sum();
+                && children.stream()
+                        .anyMatch(
+                                child ->
+                                        child.getMetaJson() != null
+                                                && "PARTIAL_SUCCESS"
+                                                        .equals(
+                                                                String.valueOf(
+                                                                        child.getMetaJson()
+                                                                                .get("result"))))) {
+            long skipped =
+                    children.stream()
+                            .map(JobExecutionHistory::getMetaJson)
+                            .filter(Objects::nonNull)
+                            .mapToLong(
+                                    values -> {
+                                        try {
+                                            return Math.max(
+                                                    0,
+                                                    Long.parseLong(
+                                                            String.valueOf(
+                                                                    values.getOrDefault(
+                                                                            "objectsSkipped", 0))));
+                                        } catch (NumberFormatException ignored) {
+                                            return 0;
+                                        }
+                                    })
+                            .sum();
             meta.put("result", "PARTIAL_SUCCESS");
             meta.put("objectsSkipped", skipped);
             meta.put("warning", skipped + " skipped object(s)");
@@ -905,7 +929,11 @@ public class JobService {
 
         source.forEach(
                 (key, value) -> {
-                    if (Set.of("acceptedExpansion", "expandedWorkIds", "workExpansion", "approvedInputs")
+                    if (Set.of(
+                                    "acceptedExpansion",
+                                    "expandedWorkIds",
+                                    "workExpansion",
+                                    "approvedInputs")
                             .contains(key)) target.put(key, value);
                     else MetadataUtils.putIfPresent(target, key, value);
                 });
@@ -917,8 +945,11 @@ public class JobService {
             return;
         }
 
-        CronExpression cron = CronExpression.parse(outputReconciliationPolicy == null
-                ? job.getCronExpr() : outputReconciliationPolicy.cron(job));
+        CronExpression cron =
+                CronExpression.parse(
+                        outputReconciliationPolicy == null
+                                ? job.getCronExpr()
+                                : outputReconciliationPolicy.cron(job));
         ZoneId zone = ZoneId.of(schedulerZone);
 
         LocalDateTime nextRun = cron.next(LocalDateTime.ofInstant(now, zone));

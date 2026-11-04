@@ -22,46 +22,63 @@ class SectorTransitionNotificationPolicyTest {
 
     @Test
     void failedSectorTransitionBuildsActionableNotification() {
-        SectorTransitionNotificationPolicy policy = new SectorTransitionNotificationPolicy(
-                new DefaultJobNotificationPolicy(new JobNotificationTemplate()));
+        SectorTransitionNotificationPolicy policy =
+                new SectorTransitionNotificationPolicy(
+                        new DefaultJobNotificationPolicy(new JobNotificationTemplate()));
         JobExecutionHistory parent = execution(JobStatus.FAILED, null);
         parent.setError("1/1 tasks failed");
         parent.setMetaJson(Map.of("evaluationDate", "2026-08-09"));
         JobExecutionHistory child = execution(JobStatus.FAILED, parent.getId());
-        child.setMetaJson(Map.of(
-                "focusSectorCodes", List.of("BANKS"),
-                "sectorCodes", List.of("BANKS", "TECH"),
-                "sectorLevel", 2,
-                "timeframe", "1d",
-                "strategy", "SECTOR_TRANSITION_V1",
-                "predictionHorizons", List.of(5, 10, 20),
-                "errorMessage", "sector frame missing"));
+        child.setMetaJson(
+                Map.of(
+                        "focusSectorCodes",
+                        List.of("BANKS"),
+                        "sectorCodes",
+                        List.of("BANKS", "TECH"),
+                        "sectorLevel",
+                        2,
+                        "timeframe",
+                        "1d",
+                        "strategy",
+                        "SECTOR_TRANSITION_V1",
+                        "predictionHorizons",
+                        List.of(5, 10, 20),
+                        "errorMessage",
+                        "sector frame missing"));
 
-        Optional<Object> notification = policy.buildNotification(new JobNotificationContext(parent, List.of(child), 1, 0, 1));
+        Optional<Object> notification =
+                policy.buildNotification(
+                        new JobNotificationContext(parent, List.of(child), 1, 0, 1));
 
         assertThat(notification).isPresent();
-        assertThat(notification.get()).isInstanceOfSatisfying(OperationalNotificationEvent.class, event -> {
-            assertThat(event.severity()).isEqualTo(NotificationSeverity.ERROR);
-            assertThat(event.title()).isEqualTo("Sector Transition analysis failed");
-            assertThat(event.message()).contains(
-                    "Focus: BANKS",
-                    "Evaluation date: 2026-08-09",
-                    "Timeframe: 1d",
-                    "Strategy: SECTOR_TRANSITION_V1",
-                    "Horizons: T5, T10, T20",
-                    "Reason:\nsector frame missing",
-                    "Progress: 0 succeeded / 1 failed");
-            assertThat(event.message()).doesNotContain(
-                    "1/1 tasks failed",
-                    "childCount",
-                    "metadata",
-                    "jobDefinitionId",
-                    "errorMessage:",
-                    "workKey",
-                    "executionId",
-                    "recordsProcessed");
-            assertThat(event.metadata()).isEmpty();
-        });
+        assertThat(notification.get())
+                .isInstanceOfSatisfying(
+                        OperationalNotificationEvent.class,
+                        event -> {
+                            assertThat(event.severity()).isEqualTo(NotificationSeverity.ERROR);
+                            assertThat(event.title())
+                                    .isEqualTo("Sector Transition analysis failed");
+                            assertThat(event.message())
+                                    .contains(
+                                            "Focus: BANKS",
+                                            "Evaluation date: 2026-08-09",
+                                            "Timeframe: 1d",
+                                            "Strategy: SECTOR_TRANSITION_V1",
+                                            "Horizons: T5, T10, T20",
+                                            "Reason:\nsector frame missing",
+                                            "Progress: 0 succeeded / 1 failed");
+                            assertThat(event.message())
+                                    .doesNotContain(
+                                            "1/1 tasks failed",
+                                            "childCount",
+                                            "metadata",
+                                            "jobDefinitionId",
+                                            "errorMessage:",
+                                            "workKey",
+                                            "executionId",
+                                            "recordsProcessed");
+                            assertThat(event.metadata()).isEmpty();
+                        });
     }
 
     private JobExecutionHistory execution(JobStatus status, UUID parentLogId) {

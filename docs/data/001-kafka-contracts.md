@@ -1,11 +1,17 @@
 # Kafka Contracts
 
+I10 review correction (2026-11-04): signal rowKeys include non-null model_version;
+omission means a legacy/null-version row. Paired Platform/Python adapters and the
+shared signal-model fixture retain that distinction. Workers preflight registration
+limits before canonical replacement; Kafka ACK still precedes SUCCESS. Topic names,
+field numbers, envelope limits and path-free logical references are unchanged.
+See [compatibility and writer review](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
-
 
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and

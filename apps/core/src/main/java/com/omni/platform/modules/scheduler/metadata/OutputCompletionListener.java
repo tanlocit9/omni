@@ -8,6 +8,7 @@ import com.omni.platform.modules.scheduler.services.JobService;
 public class OutputCompletionListener {
     private final OutputCompletionGate gate;
     private final JobService jobs;
+
     public OutputCompletionListener(OutputCompletionGate gate, JobService jobs) {
         this.gate = gate;
         this.jobs = jobs;

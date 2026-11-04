@@ -40,86 +40,89 @@ import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 @ExtendWith(MockitoExtension.class)
 class SyncSignalsJobProducerTest {
 
-    @Mock
-    private JobService jobService;
+    @Mock private JobService jobService;
 
-    @Mock
-    private KafkaPublisher kafkaPublisher;
+    @Mock private KafkaPublisher kafkaPublisher;
 
-    @Mock
-    private SymbolRepository symbolRepository;
+    @Mock private SymbolRepository symbolRepository;
 
-    @Mock
-    private ManifestReader manifestReader;
+    @Mock private ManifestReader manifestReader;
 
     @Test
     void dispatchesOnlySymbolsWithExactReadyIndicatorPartitions() {
-        SyncSignalsJobProducer producer = new SyncSignalsJobProducer(
-                jobService,
-                kafkaPublisher,
-                symbolRepository,
-                manifestReader);
+        SyncSignalsJobProducer producer =
+                new SyncSignalsJobProducer(
+                        jobService, kafkaPublisher, symbolRepository, manifestReader);
         JobDefinition job = job();
         JobExecutionHistory parent = execution(UUID.randomUUID());
         JobExecutionHistory readyChild = execution(UUID.randomUUID());
         SymbolKeyProjection ready = symbol("HOSE", "HPG");
         SymbolKeyProjection missing = symbol("HNX", "ONE");
-        when(symbolRepository.findBySectorCodesAndLevel(null, 2)).thenReturn(List.of(ready, missing));
+        when(symbolRepository.findBySectorCodesAndLevel(null, 2))
+                .thenReturn(List.of(ready, missing));
         when(manifestReader.readManifest(indicatorRef("HOSE", "HPG")))
                 .thenReturn(Optional.of(manifest("READY", "HOSE", "HPG")));
         when(manifestReader.readManifest(indicatorRef("HNX", "ONE"))).thenReturn(Optional.empty());
-        when(jobService.createChildExecution(eq(parent.getId()),
-                eq(WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG")), any(), any()))
+        when(jobService.createChildExecution(
+                        eq(parent.getId()),
+                        eq(WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG")),
+                        any(),
+                        any()))
                 .thenReturn(readyChild);
 
-        List<KafkaMessage> messages = producer.buildMessages(
-                job,
-                parent,
-                Instant.parse("2026-08-22T00:00:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-08-22T00:00:00Z"));
 
         assertThat(messages).hasSize(1);
         assertThat(messages.getFirst().key()).isEqualTo("HOSE-HPG");
         SignalJobMessage payload = (SignalJobMessage) messages.getFirst().payload();
         assertThat(payload.symbolKey()).isEqualTo("HOSE-HPG");
-        verify(jobService, never()).createChildExecution(eq(parent.getId()),
-                eq(WorkIdentity.of(WorkType.SYMBOL, "HNX-ONE")), any(), any());
+        verify(jobService, never())
+                .createChildExecution(
+                        eq(parent.getId()),
+                        eq(WorkIdentity.of(WorkType.SYMBOL, "HNX-ONE")),
+                        any(),
+                        any());
     }
 
     @Test
     void dispatchesConfirmedTrendWithoutRequiringIndicatorManifest() {
-        SyncSignalsJobProducer producer = new SyncSignalsJobProducer(
-                jobService,
-                kafkaPublisher,
-                symbolRepository,
-                manifestReader);
+        SyncSignalsJobProducer producer =
+                new SyncSignalsJobProducer(
+                        jobService, kafkaPublisher, symbolRepository, manifestReader);
         JobDefinition job = job(JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
         JobExecutionHistory parent = execution(UUID.randomUUID());
         JobExecutionHistory child = execution(UUID.randomUUID());
         SymbolKeyProjection symbol = symbol("HOSE", "HPG");
         when(symbolRepository.findBySectorCodesAndLevel(null, 2)).thenReturn(List.of(symbol));
-        when(jobService.createChildExecution(eq(parent.getId()),
-                eq(WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG")), any(), any()))
+        when(jobService.createChildExecution(
+                        eq(parent.getId()),
+                        eq(WorkIdentity.of(WorkType.SYMBOL, "HOSE-HPG")),
+                        any(),
+                        any()))
                 .thenReturn(child);
 
-        List<KafkaMessage> messages = producer.buildMessages(
-                job,
-                parent,
-                Instant.parse("2026-09-06T00:00:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-09-06T00:00:00Z"));
 
-        assertThat(messages).singleElement().satisfies(message -> {
-            SignalJobMessage payload = (SignalJobMessage) message.payload();
-            assertThat(payload.strategy()).isEqualTo(JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
-        });
+        assertThat(messages)
+                .singleElement()
+                .satisfies(
+                        message -> {
+                            SignalJobMessage payload = (SignalJobMessage) message.payload();
+                            assertThat(payload.strategy())
+                                    .isEqualTo(
+                                            JobDefinitionConfig
+                                                    .SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
+                        });
         verify(manifestReader, never()).readManifest(any());
     }
 
     @Test
     void defersSymbolWhenIndicatorManifestIsNotReady() {
-        SyncSignalsJobProducer producer = new SyncSignalsJobProducer(
-                jobService,
-                kafkaPublisher,
-                symbolRepository,
-                manifestReader);
+        SyncSignalsJobProducer producer =
+                new SyncSignalsJobProducer(
+                        jobService, kafkaPublisher, symbolRepository, manifestReader);
         JobDefinition job = job();
         JobExecutionHistory parent = execution(UUID.randomUUID());
         SymbolKeyProjection symbol = symbol("HNX", "ONE");
@@ -127,10 +130,8 @@ class SyncSignalsJobProducerTest {
         when(manifestReader.readManifest(indicatorRef("HNX", "ONE")))
                 .thenReturn(Optional.of(manifest("PROCESSING", "HNX", "ONE")));
 
-        List<KafkaMessage> messages = producer.buildMessages(
-                job,
-                parent,
-                Instant.parse("2026-08-22T00:00:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-08-22T00:00:00Z"));
 
         assertThat(messages).isEmpty();
         verify(jobService, never()).createChildExecution(any(), any(), any(), any());
@@ -145,9 +146,12 @@ class SyncSignalsJobProducerTest {
         job.setId(UUID.randomUUID());
         job.setSource(DataSource.ANALYZER);
         job.setJobType(JobType.SYNC_SIGNALS);
-        job.setConfigJson(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_TIMEFRAME, "1d",
-                JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY, strategy));
+        job.setConfigJson(
+                Map.of(
+                        JobDefinitionConfig.CONFIG_KEY_TIMEFRAME,
+                        "1d",
+                        JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY,
+                        strategy));
         return job;
     }
 
@@ -166,11 +170,17 @@ class SyncSignalsJobProducerTest {
     }
 
     private DatasetRef indicatorRef(String exchange, String code) {
-        return DatasetRef.of("indicators", Map.of(
-                "source", "ad_close",
-                "timeframe", "1d",
-                "exchange", exchange.toLowerCase(),
-                "code", code.toLowerCase()));
+        return DatasetRef.of(
+                "indicators",
+                Map.of(
+                        "source",
+                        "ad_close",
+                        "timeframe",
+                        "1d",
+                        "exchange",
+                        exchange.toLowerCase(),
+                        "code",
+                        code.toLowerCase()));
     }
 
     private DatasetManifest manifest(String status, String exchange, String code) {
@@ -180,7 +190,11 @@ class SyncSignalsJobProducerTest {
                 indicatorRef(exchange, code).getPartition(),
                 status,
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "indicators/ad_close/1d/" + exchange.toLowerCase() + "/" + code.toLowerCase() + ".parquet",
+                "indicators/ad_close/1d/"
+                        + exchange.toLowerCase()
+                        + "/"
+                        + code.toLowerCase()
+                        + ".parquet",
                 1,
                 1,
                 1,

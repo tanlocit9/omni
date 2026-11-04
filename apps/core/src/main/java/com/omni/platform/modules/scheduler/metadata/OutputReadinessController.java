@@ -11,18 +11,24 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/jobs/output-readiness")
 public class OutputReadinessController {
     private final OutputReadinessProvider provider;
-    public OutputReadinessController(OutputReadinessProvider provider) { this.provider = provider; }
+
+    public OutputReadinessController(OutputReadinessProvider provider) {
+        this.provider = provider;
+    }
+
     @org.springframework.beans.factory.annotation.Autowired
     private OutputWorkReadiness workReadiness;
 
     @GetMapping("/work")
-    public Map<String,Object> work(@RequestParam String atomicWorkId) {
+    public Map<String, Object> work(@RequestParam String atomicWorkId) {
         return Map.of("atomicWorkId", atomicWorkId, "items", workReadiness.read(atomicWorkId));
     }
 
     @GetMapping
-    public Map<String,Object> page(@RequestParam(defaultValue="0") int offset,
-            @RequestParam(defaultValue="200") int limit, @RequestParam(required=false) Long revision) {
+    public Map<String, Object> page(
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "200") int limit,
+            @RequestParam(required = false) Long revision) {
         return provider.page(offset, limit, revision);
     }
 }

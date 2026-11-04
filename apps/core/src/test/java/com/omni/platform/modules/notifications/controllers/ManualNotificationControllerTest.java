@@ -30,19 +30,20 @@ import com.omni.platform.modules.notifications.templates.SignalChangedNotificati
 @ExtendWith(MockitoExtension.class)
 class ManualNotificationControllerTest {
 
-    @Mock
-    private NotificationOutboxService notificationOutboxService;
-    @Mock
-    private ManualLatestSignalNotificationService latestSignalNotificationService;
+    @Mock private NotificationOutboxService notificationOutboxService;
+    @Mock private ManualLatestSignalNotificationService latestSignalNotificationService;
 
     @Test
     void sendSignalNotificationDurablyEnqueuesSignalNotificationWithDefaults() {
         var controller = controller();
 
-        ResponseEntity<ManualSignalNotificationResponse> response = controller.sendSignalNotification(null);
+        ResponseEntity<ManualSignalNotificationResponse> response =
+                controller.sendSignalNotification(null);
 
-        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
-        verify(notificationOutboxService).enqueue(captor.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
+        ArgumentCaptor<NotificationRequest> captor =
+                ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationOutboxService)
+                .enqueue(captor.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
 
         NotificationRequest request = captor.getValue();
         assertThat(request.type()).isEqualTo(NotificationType.SIGNAL);
@@ -62,22 +63,26 @@ class ManualNotificationControllerTest {
     @Test
     void sendSignalNotificationDurablyEnqueuesSignalNotificationWithRequestValues() {
         var controller = controller();
-        var body = new ManualSignalNotificationRequest(
-                "Signal changed",
-                "HPG changed to BEARISH",
-                "HOSE-HPG",
-                "BULLISH",
-                "BEARISH",
-                27000.0,
-                "2026-08-06",
-                List.of("MANUAL_CHECK"),
-                "TREND_MOMENTUM_V1",
-                "1d");
+        var body =
+                new ManualSignalNotificationRequest(
+                        "Signal changed",
+                        "HPG changed to BEARISH",
+                        "HOSE-HPG",
+                        "BULLISH",
+                        "BEARISH",
+                        27000.0,
+                        "2026-08-06",
+                        List.of("MANUAL_CHECK"),
+                        "TREND_MOMENTUM_V1",
+                        "1d");
 
-        ResponseEntity<ManualSignalNotificationResponse> response = controller.sendSignalNotification(body);
+        ResponseEntity<ManualSignalNotificationResponse> response =
+                controller.sendSignalNotification(body);
 
-        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
-        verify(notificationOutboxService).enqueue(captor.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
+        ArgumentCaptor<NotificationRequest> captor =
+                ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationOutboxService)
+                .enqueue(captor.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
 
         NotificationRequest request = captor.getValue();
         assertThat(request.title()).isEqualTo("Signal changed");
@@ -93,40 +98,44 @@ class ManualNotificationControllerTest {
 
     @Test
     void sendLatestSignalNotificationDurablyEnqueuesTypedSignalChangedRequest() {
-        var result = new LatestSignalResult(
-                true,
-                "COMPLETED",
-                "HOSE-HPG",
-                null,
-                "BULLISH",
-                28000.0,
-                "2026-08-29",
-                List.of("MOMENTUM"),
-                4,
-                "TREND_MOMENTUM_V1",
-                "1d",
-                "2026-08-29T10:00:00Z");
+        var result =
+                new LatestSignalResult(
+                        true,
+                        "COMPLETED",
+                        "HOSE-HPG",
+                        null,
+                        "BULLISH",
+                        28000.0,
+                        "2026-08-29",
+                        List.of("MOMENTUM"),
+                        4,
+                        "TREND_MOMENTUM_V1",
+                        "1d",
+                        "2026-08-29T10:00:00Z");
         when(latestSignalNotificationService.findLatest("HOSE-HPG")).thenReturn(result);
 
         ResponseEntity<ManualLatestSignalNotificationResponse> response =
                 controller().sendLatestSignalNotification(" HOSE-HPG ");
 
-        ArgumentCaptor<NotificationRequest> captor = ArgumentCaptor.forClass(NotificationRequest.class);
-        verify(notificationOutboxService).enqueue(captor.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
+        ArgumentCaptor<NotificationRequest> captor =
+                ArgumentCaptor.forClass(NotificationRequest.class);
+        verify(notificationOutboxService)
+                .enqueue(captor.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
         NotificationRequest request = captor.getValue();
         assertThat(request.kind()).isEqualTo(NotificationKind.SIGNAL_CHANGED);
         assertThat(request.deduplicationKey()).startsWith("manual-latest:");
         assertThat(request.metadata())
                 .containsEntry("manual", true)
                 .containsEntry("generatedAt", "2026-08-29T10:00:00Z");
-        assertThat(request.structuredContent()).isInstanceOfSatisfying(
-                SignalChangedContent.class,
-                signal -> {
-                    assertThat(signal.symbolKey()).isEqualTo("HOSE-HPG");
-                    assertThat(signal.newSignal()).isEqualTo("BULLISH");
-                    assertThat(signal.price()).isEqualTo(28000.0);
-                    assertThat(signal.reasonCodes()).containsExactly("MOMENTUM");
-                });
+        assertThat(request.structuredContent())
+                .isInstanceOfSatisfying(
+                        SignalChangedContent.class,
+                        signal -> {
+                            assertThat(signal.symbolKey()).isEqualTo("HOSE-HPG");
+                            assertThat(signal.newSignal()).isEqualTo("BULLISH");
+                            assertThat(signal.price()).isEqualTo(28000.0);
+                            assertThat(signal.reasonCodes()).containsExactly("MOMENTUM");
+                        });
 
         assertThat(response.getStatusCode().value()).isEqualTo(202);
         assertThat(response.getBody()).isNotNull();

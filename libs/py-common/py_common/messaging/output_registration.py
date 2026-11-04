@@ -28,14 +28,25 @@ class WireModel(BaseModel):
     def canonical_identity_fields(cls, raw):
         if not isinstance(raw, dict):
             return raw
-        for field in ("eventId", "event_id", "registrationId", "registration_id",
-                      "executionId", "execution_id", "atomicAttemptId", "atomic_attempt_id"):
+        for field in (
+            "eventId",
+            "event_id",
+            "registrationId",
+            "registration_id",
+            "executionId",
+            "execution_id",
+            "atomicAttemptId",
+            "atomic_attempt_id",
+        ):
             if field not in raw:
                 continue
             value = raw[field]
             if not isinstance(value, UUID) and (
                 not isinstance(value, str)
-                or re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", value) is None
+                or re.fullmatch(
+                    r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", value
+                )
+                is None
             ):
                 raise ValueError(f"{field} must be a canonical UUID")
         dates = []
@@ -47,7 +58,8 @@ class WireModel(BaseModel):
                 dates.extend(raw[field])
         for value in dates:
             if type(value) is not date and (
-                not isinstance(value, str) or re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) is None
+                not isinstance(value, str)
+                or re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) is None
             ):
                 raise ValueError("Business/coverage dates must be ISO calendar dates")
         return raw
@@ -73,7 +85,9 @@ class RegisteredColumn(WireModel):
 
 class WorkRowScope(WireModel):
     atomic_work_id: str = Field(alias="atomicWorkId", pattern=r"^work:[0-9a-f]{64}$")
-    row_keys: list[dict[str, str]] = Field(alias="rowKeys", min_length=1, max_length=4096)
+    row_keys: list[dict[str, str]] = Field(
+        alias="rowKeys", min_length=1, max_length=4096
+    )
 
 
 class RegisteredOutput(LogicalOutput):
@@ -97,15 +111,26 @@ class RegisteredOutput(LogicalOutput):
             raise ValueError("Duplicate output columns")
         if self.work_scope is not None:
             from py_common.storage.work_rows import key_columns
+
             names = key_columns(self.dataset)
             keys = self.work_scope.row_keys
-            if len(keys) != self.row_count or any(set(k) != set(names) for k in keys):
+            allowed = [set(names)]
+            if self.dataset == "signals":
+                allowed.append(set(names) | {"model_version"})
+            if len(keys) != self.row_count or any(set(k) not in allowed for k in keys):
                 raise ValueError("Work scope differs from output row count/coordinates")
-            if any(any(not v for v in k.values()) or date.fromisoformat(k[names[-1]]).isoformat()!=k[names[-1]] for k in keys):
+            if any(
+                any(not v.strip() for v in k.values())
+                or date.fromisoformat(k[names[-1]]).isoformat() != k[names[-1]]
+                for k in keys
+            ):
                 raise ValueError("Invalid work coordinates/date")
             if len({json.dumps(k, sort_keys=True) for k in keys}) != len(keys):
                 raise ValueError("Duplicate work-row coordinates")
-            if sorted({date.fromisoformat(k[names[-1]]) for k in keys}) != self.coverage_dates:
+            if (
+                sorted({date.fromisoformat(k[names[-1]]) for k in keys})
+                != self.coverage_dates
+            ):
                 raise ValueError("Work coverage differs from scoped rows")
         return self
 
@@ -133,11 +158,19 @@ class OutputRegistration(WireModel):
     @model_validator(mode="after")
     def validate_identity_and_completeness(self):
         expected = atomic_work_id(
-            self.job_type, self.work_type, self.work_key, self.business_date, self.parameters
+            self.job_type,
+            self.work_type,
+            self.work_key,
+            self.business_date,
+            self.parameters,
         )
         if self.atomic_work_id != expected:
             raise ValueError("atomicWorkId does not match the immutable work tuple")
-        if any(o.work_scope is not None and o.work_scope.atomic_work_id != self.atomic_work_id for o in self.outputs):
+        if any(
+            o.work_scope is not None
+            and o.work_scope.atomic_work_id != self.atomic_work_id
+            for o in self.outputs
+        ):
             raise ValueError("Output scope belongs to another work")
         required = [item.identity() for item in self.required_outputs]
         actual = [
@@ -157,7 +190,9 @@ class OutputRegistration(WireModel):
 class OutputRegistrationEvent(WireModel):
     schema_version: Literal[1] = Field(alias="schemaVersion")
     event_id: UUID = Field(alias="eventId")
-    registrations: list[OutputRegistration] = Field(min_length=1, max_length=MAX_REGISTRATIONS)
+    registrations: list[OutputRegistration] = Field(
+        min_length=1, max_length=MAX_REGISTRATIONS
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -186,7 +221,9 @@ class OutputRegistrationEvent(WireModel):
             for output in item["outputs"]:
                 if output.get("workScope") is None:
                     output.pop("workScope", None)
-        payload = json.dumps(raw, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        payload = json.dumps(raw, separators=(",", ":"), ensure_ascii=True).encode(
+            "utf-8"
+        )
         if len(payload) > MAX_EVENT_BYTES:
             raise ValueError("Registration event exceeds 256 KiB")
         return payload
@@ -225,9 +262,8 @@ class OutputRegistrationPublisher:
         if len(event.registrations) != 1:
             raise ValueError("A terminal status needs exactly one registration")
         item = event.registrations[0]
-        if (
-            str(status.status) != "SUCCESS"
-            or status.execution_id != str(item.execution_id)
+        if str(status.status) != "SUCCESS" or status.execution_id != str(
+            item.execution_id
         ):
             raise ValueError("Registration/status execution or terminal state mismatch")
         for alias in ("atomicWorkId", "workIdentity"):

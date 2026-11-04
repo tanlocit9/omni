@@ -5,11 +5,11 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from py_common.kafka import decode_json_object_payload
 from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
+from py_common.messaging.output_publication import capture_output_publication
 from py_common.storage.atomic_work import cutoff_frame, day_rows
 from py_common.storage.date_contracts import normalize_date_contracts
-from py_common.storage.parquet import ParquetStorage
 from py_common.storage.output_snapshots import OutputSnapshotIdentity
-from py_common.messaging.output_publication import capture_output_publication
+from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SymbolJobMessage
 from app.messaging.status import build_status
@@ -115,8 +115,12 @@ async def process_stock_price_message(
             snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
                 "eod", {"exchange": exchange.lower(), "code": code.lower()}
             )
-        with capture_output_publication(payload, getattr(settings, "output_snapshots_enabled", False) is True) as publication:
-            await parquet_storage.write_dataframe(object_name, combined, **snapshot_options)
+        with capture_output_publication(
+            payload, getattr(settings, "output_snapshots_enabled", False) is True
+        ) as publication:
+            await parquet_storage.write_dataframe(
+                object_name, combined, **snapshot_options
+            )
             if publication.contract is not None:
                 await publication.publish(status_publisher.producer)
 

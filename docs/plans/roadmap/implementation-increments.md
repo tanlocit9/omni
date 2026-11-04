@@ -1,11 +1,16 @@
 # Dependency-Ordered Implementation Increments
 
+I10 review follow-up (2026-11-04): model-aware signal scopes, registration preflight
+before canonical mutation and aggregate catalog bounds are corrected in source.
+See [regressions and deferred writer TODOs](../../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+P14-I10 remains in_progress; P12-I4 remains pending/approval_required. No acceptance,
+dependency, rollout or owner-attestation gate is waived by these local fixes.
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
-
 
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and

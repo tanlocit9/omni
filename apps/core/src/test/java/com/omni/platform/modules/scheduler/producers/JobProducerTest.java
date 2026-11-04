@@ -39,13 +39,16 @@ class JobProducerTest {
         assertThat(producer.prepareDispatch(job, claim(job), now)).isEqualTo(root.getId());
         ArgumentCaptor<List<KafkaMessage>> sent = ArgumentCaptor.forClass((Class) List.class);
         verify(jobs).enqueueDispatch(eq(root), nullable(String.class), sent.capture(), eq(now));
-        assertThat(sent.getValue()).singleElement().satisfies(message -> {
-            var work = (ExpandedJobMessage) message.payload();
-            assertThat(work.executionId()).isEqualTo(child.getId());
-            assertThat(work.parentExecutionId()).isEqualTo(root.getId());
-            assertThat(work.businessDate().toString()).isEqualTo("2026-08-13");
-            assertThat(work.atomicWorkId()).startsWith("work:");
-        });
+        assertThat(sent.getValue())
+                .singleElement()
+                .satisfies(
+                        message -> {
+                            var work = (ExpandedJobMessage) message.payload();
+                            assertThat(work.executionId()).isEqualTo(child.getId());
+                            assertThat(work.parentExecutionId()).isEqualTo(root.getId());
+                            assertThat(work.businessDate().toString()).isEqualTo("2026-08-13");
+                            assertThat(work.atomicWorkId()).startsWith("work:");
+                        });
         verify(jobs).releaseClaim(claim(job));
         verifyNoInteractions(publisher);
     }
@@ -58,19 +61,32 @@ class JobProducerTest {
         var root = execution(job);
         var lease = claim(job);
         var metadata = Map.<String, Object>of("trigger", "manual");
-        when(jobs.prepareManualClaimedExecution(job, lease, now, Map.of(), metadata)).thenReturn(root);
+        when(jobs.prepareManualClaimedExecution(job, lease, now, Map.of(), metadata))
+                .thenReturn(root);
         when(jobs.prepareClaimedExecution(job, lease, now, Map.of())).thenReturn(root);
-        JobProducer empty = new JobProducer(jobs, publisher) {
-            public JobType getJobType() { return JobType.SYNC_METADATA; }
-            protected String getTopic() { return "jobs"; }
-            protected List<KafkaMessage> buildMessages(JobDefinition d, JobExecutionHistory h, Instant t) {
-                throw new AssertionError("Preparation must use the unified boundary");
-            }
-            protected List<KafkaMessage> buildRunMessages(JobDefinition d, JobExecutionHistory h,
-                                                         Instant t, JobRunWorkContext context) {
-                return List.of();
-            }
-        };
+        JobProducer empty =
+                new JobProducer(jobs, publisher) {
+                    public JobType getJobType() {
+                        return JobType.SYNC_METADATA;
+                    }
+
+                    protected String getTopic() {
+                        return "jobs";
+                    }
+
+                    protected List<KafkaMessage> buildMessages(
+                            JobDefinition d, JobExecutionHistory h, Instant t) {
+                        throw new AssertionError("Preparation must use the unified boundary");
+                    }
+
+                    protected List<KafkaMessage> buildRunMessages(
+                            JobDefinition d,
+                            JobExecutionHistory h,
+                            Instant t,
+                            JobRunWorkContext context) {
+                        return List.of();
+                    }
+                };
         empty.prepareManualDispatch(job, lease, now, Map.of(), metadata);
         empty.prepareDispatch(job, lease, now);
         verify(jobs, times(2)).markParentWithNoChildren(root, now);
@@ -83,13 +99,21 @@ class JobProducerTest {
     void unsupportedPreparationCapabilityStillFailsClosed() {
         var jobs = mock(JobService.class);
         var publisher = mock(KafkaPublisher.class);
-        var unsupported = new JobProducer(jobs, publisher) {
-            public JobType getJobType() { return JobType.SYNC_METADATA; }
-            protected String getTopic() { return "jobs"; }
-            protected List<KafkaMessage> buildMessages(JobDefinition d, JobExecutionHistory h, Instant t) {
-                return List.of();
-            }
-        };
+        var unsupported =
+                new JobProducer(jobs, publisher) {
+                    public JobType getJobType() {
+                        return JobType.SYNC_METADATA;
+                    }
+
+                    protected String getTopic() {
+                        return "jobs";
+                    }
+
+                    protected List<KafkaMessage> buildMessages(
+                            JobDefinition d, JobExecutionHistory h, Instant t) {
+                        return List.of();
+                    }
+                };
         assertThatThrownBy(() -> unsupported.prepareRunStep(job(), execution(job()), now, null))
                 .hasMessageContaining("UNSUPPORTED_PRODUCER");
         verifyNoInteractions(jobs, publisher);
@@ -112,6 +136,7 @@ class JobProducerTest {
     }
 
     private SchedulerClaim claim(JobDefinition job) {
-        return new SchedulerClaim(job.getId(), job.getId(), "core-a", now, now.plusSeconds(120), now);
+        return new SchedulerClaim(
+                job.getId(), job.getId(), "core-a", now, now.plusSeconds(120), now);
     }
 }

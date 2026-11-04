@@ -61,21 +61,52 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
     @Test
     void v18UpgradeInstallsOneCompleteI10SchemaWithoutInventingReadyHistory() {
         flyway("18").migrate();
-        String before=jdbc.queryForObject("SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",String.class);
+        String before =
+                jdbc.queryForObject(
+                        "SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",
+                        String.class);
         assertThat(flyway(null).migrate().migrationsExecuted).isEqualTo(1);
         assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("19");
-        for (String table : List.of("output_registration_events","output_registrations","output_registration_outputs",
-                "output_registration_coverage","output_completion_contracts","output_completion_statuses",
-                "output_attempt_timeouts","output_ready_pointers","output_ready_baselines",
-                "output_baseline_pointers","output_work_ready","output_ready_rows")) {
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + table,Integer.class)).isZero();
+        for (String table :
+                List.of(
+                        "output_registration_events",
+                        "output_registrations",
+                        "output_registration_outputs",
+                        "output_registration_coverage",
+                        "output_completion_contracts",
+                        "output_completion_statuses",
+                        "output_attempt_timeouts",
+                        "output_ready_pointers",
+                        "output_ready_baselines",
+                        "output_baseline_pointers",
+                        "output_work_ready",
+                        "output_ready_rows")) {
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + table, Integer.class))
+                    .isZero();
         }
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_work_ready_catalog",Integer.class)).isZero();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_ready_catalog",Integer.class)).isZero();
-        assertThat(jdbc.queryForObject("SELECT revision FROM output_ready_revision WHERE id=1",Long.class)).isZero();
-        assertThat(jdbc.queryForObject("SELECT is_identity FROM information_schema.columns WHERE table_schema=? "
-                + "AND table_name='output_completion_contracts' AND column_name='generation'",String.class,schema)).isEqualTo("YES");
-        assertThat(jdbc.queryForObject("SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",String.class)).isEqualTo(before);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM output_work_ready_catalog", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_ready_catalog", Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT revision FROM output_ready_revision WHERE id=1",
+                                Long.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT is_identity FROM information_schema.columns WHERE table_schema=? "
+                                        + "AND table_name='output_completion_contracts' AND column_name='generation'",
+                                String.class,
+                                schema))
+                .isEqualTo("YES");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",
+                                String.class))
+                .isEqualTo(before);
         flyway(null).validate();
         assertThat(flyway(null).migrate().migrationsExecuted).isZero();
     }

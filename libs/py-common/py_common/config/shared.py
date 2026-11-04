@@ -100,7 +100,9 @@ class BaseAppSettings(BaseSettings):
     output_readiness_mode: str = "manifest"
     output_readiness_api_url: str = ""
     output_readiness_api_token: SecretStr = Field(default_factory=lambda: SecretStr(""))
-    output_readiness_reconcile_token: SecretStr = Field(default_factory=lambda: SecretStr(""))
+    output_readiness_reconcile_token: SecretStr = Field(
+        default_factory=lambda: SecretStr("")
+    )
     output_readiness_backfill_enabled: bool = False
 
     _shared_topics: dict[str, Any] = PrivateAttr(default_factory=dict)
@@ -119,8 +121,13 @@ class BaseAppSettings(BaseSettings):
         self._apply_flat_environment_overrides()
         if self.output_readiness_mode not in {"manifest", "shadow", "postgres"}:
             raise ValueError("Unsupported output_readiness_mode")
-        if self.output_readiness_mode == "postgres" and self.output_readiness_backfill_enabled:
-            raise ValueError("Historical backfill must finish before PostgreSQL reader cutover")
+        if (
+            self.output_readiness_mode == "postgres"
+            and self.output_readiness_backfill_enabled
+        ):
+            raise ValueError(
+                "Historical backfill must finish before PostgreSQL reader cutover"
+            )
         return self
 
     @property

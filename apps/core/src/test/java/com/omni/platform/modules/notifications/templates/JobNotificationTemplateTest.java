@@ -28,7 +28,8 @@ class JobNotificationTemplateTest {
         assertThat(event.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(event.title()).isEqualTo("Job completed: Sync symbols");
         assertThat(event.message()).isEqualTo("Job completed successfully");
-        assertThat(event.metadata()).containsEntry("executionId", execution.getId().toString())
+        assertThat(event.metadata())
+                .containsEntry("executionId", execution.getId().toString())
                 .containsEntry("jobDefinitionId", execution.getJob().getId().toString())
                 .containsEntry("jobType", "SYNC_SYMBOLS")
                 .containsEntry("source", "VND")
@@ -65,7 +66,8 @@ class JobNotificationTemplateTest {
         assertThat(event.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(event.title()).isEqualTo("Job completed: Banking sector");
         assertThat(event.message()).isEqualTo("25/25 tasks completed successfully");
-        assertThat(event.metadata()).containsEntry("total", 25L)
+        assertThat(event.metadata())
+                .containsEntry("total", 25L)
                 .containsEntry("success", 25L)
                 .containsEntry("failed", 0L);
     }
@@ -79,7 +81,8 @@ class JobNotificationTemplateTest {
         assertThat(event.severity()).isEqualTo(NotificationSeverity.ERROR);
         assertThat(event.title()).isEqualTo("Job failed: Banking sector");
         assertThat(event.message()).isEqualTo("2/25 tasks failed");
-        assertThat(event.metadata()).containsEntry("total", 25L)
+        assertThat(event.metadata())
+                .containsEntry("total", 25L)
                 .containsEntry("success", 23L)
                 .containsEntry("failed", 2L);
     }

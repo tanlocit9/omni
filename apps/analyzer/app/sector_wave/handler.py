@@ -27,7 +27,12 @@ _logger = logging.getLogger(__name__)
 class SectorWaveJobHandler:
     """Process Sector Wave precompute and backtest jobs using Parquet storage."""
 
-    def __init__(self, settings: AppSettings, parquet_storage: ParquetStorage, metadata_reader=None) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        parquet_storage: ParquetStorage,
+        metadata_reader=None,
+    ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
         self._metadata_reader = metadata_reader
@@ -52,10 +57,14 @@ class SectorWaveJobHandler:
             if self._metadata_reader is None:
                 raise ValueError("PostgreSQL EOD reader unavailable")
             document = await self._metadata_reader.read()
-            manifest = document.resolve("eod", {"exchange": exchange.lower(), "code": code.lower()})
+            manifest = document.resolve(
+                "eod", {"exchange": exchange.lower(), "code": code.lower()}
+            )
             if manifest is None:
                 raise ValueError("EOD partition is not READY")
-            eod_frame = await self._parquet_storage.read_bound_dataframe("eod", manifest, manifest.dataVersion)
+            eod_frame = await self._parquet_storage.read_bound_dataframe(
+                "eod", manifest, manifest.dataVersion
+            )
         else:
             eod_frame = await self._parquet_storage.read_dataframe(eod_path)
         eod_frame = cutoff_frame(eod_frame, message.business_date, require_day=True)

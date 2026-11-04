@@ -489,12 +489,14 @@ class JobSchedulerDependencyPostgresTest {
     static final class InMemoryManifestReader implements ManifestReader {
 
         private final Map<DatasetRef, DatasetManifest> manifests = new ConcurrentHashMap<>();
-        private final Map<DatasetRef, java.util.Set<java.time.LocalDate>> coverage = new ConcurrentHashMap<>();
+        private final Map<DatasetRef, java.util.Set<java.time.LocalDate>> coverage =
+                new ConcurrentHashMap<>();
 
         @Override
         public boolean coversDate(DatasetRef ref, String version, java.time.LocalDate day) {
-            var manifest=manifests.get(ref);
-            return manifest != null && manifest.dataVersion().equals(version)
+            var manifest = manifests.get(ref);
+            return manifest != null
+                    && manifest.dataVersion().equals(version)
                     && coverage.getOrDefault(ref, java.util.Set.of()).contains(day);
         }
 
@@ -505,8 +507,12 @@ class JobSchedulerDependencyPostgresTest {
 
         void put(DatasetRef ref, DatasetManifest manifest) {
             manifests.put(ref, manifest);
-            coverage.put(ref, java.util.Set.of(java.time.LocalDate.now(
-                    com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE)));
+            coverage.put(
+                    ref,
+                    java.util.Set.of(
+                            java.time.LocalDate.now(
+                                    com.omni.platform.modules.scheduler.expansion.WorkExpansion
+                                            .ZONE)));
         }
 
         void clear() {

@@ -413,11 +413,26 @@ def _document_dict(document: GlobalMetadataDocument) -> dict[str, Any]:
                         "inputs": [vars(item) for item in partition.inputs],
                         "generatedAt": partition.generatedAt,
                         "sourceExecutionId": partition.sourceExecutionId,
-                        **({"canonicalPath": partition.canonicalPath}
-                           if partition.canonicalPath is not None else {}),
-                        **({"coverageDates": partition.coverageDates} if partition.coverageDates else {}),
-                        **({"workScope": partition.workScope} if partition.workScope else {}),
-                        **({"workProofs": partition.workProofs} if partition.workProofs else {}),
+                        **(
+                            {"canonicalPath": partition.canonicalPath}
+                            if partition.canonicalPath is not None
+                            else {}
+                        ),
+                        **(
+                            {"coverageDates": partition.coverageDates}
+                            if partition.coverageDates
+                            else {}
+                        ),
+                        **(
+                            {"workScope": partition.workScope}
+                            if partition.workScope
+                            else {}
+                        ),
+                        **(
+                            {"workProofs": partition.workProofs}
+                            if partition.workProofs
+                            else {}
+                        ),
                     }
                     for partition in dataset.partitions
                 ],

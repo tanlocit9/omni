@@ -13,7 +13,8 @@ from app.indicators.handler import IndicatorJobHandler
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enrolled", [False, True])
 async def test_indicator_handler_reads_lookback_but_not_future_and_preserves_other_days(
-    monkeypatch, enrolled,
+    monkeypatch,
+    enrolled,
 ):
     root = Path(__file__).resolve().parents[3]
     raw = json.loads(
@@ -53,19 +54,35 @@ async def test_indicator_handler_reads_lookback_but_not_future_and_preserves_oth
             )
         )
     )
-    expected_version="v1"
+    expected_version = "v1"
     if enrolled:
         from py_common.storage.output_readiness import PostgresMetadataReader
-        expected_version="sha256:"+"a"*64
-        binding=raw["metadata"]["approvedInputs"][0]
-        binding.update(dataVersion=expected_version,atomicWorkId="work:"+"b"*64,
-            atomicAttemptId="00000000-0000-0000-0000-000000000001",businessDate="2026-10-29")
-        raw["metadata"]["outputCompletion"]={}
-        proof=SimpleNamespace(path="canonical-eod",status="READY",dataVersion=expected_version,
-            workScope={"atomicWorkId":binding["atomicWorkId"]},workProofs=[])
-        metadata=PostgresMetadataReader("http://platform/api/v1/jobs/output-readiness","test")
-        metadata.read=AsyncMock(side_effect=AssertionError("Must resolve frozen work, not latest file"))
-        metadata.read_for=AsyncMock(return_value=SimpleNamespace(resolve=lambda *args:proof))
+
+        expected_version = "sha256:" + "a" * 64
+        binding = raw["metadata"]["approvedInputs"][0]
+        binding.update(
+            dataVersion=expected_version,
+            atomicWorkId="work:" + "b" * 64,
+            atomicAttemptId="00000000-0000-0000-0000-000000000001",
+            businessDate="2026-10-29",
+        )
+        raw["metadata"]["outputCompletion"] = {}
+        proof = SimpleNamespace(
+            path="canonical-eod",
+            status="READY",
+            dataVersion=expected_version,
+            workScope={"atomicWorkId": binding["atomicWorkId"]},
+            workProofs=[],
+        )
+        metadata = PostgresMetadataReader(
+            "http://platform/api/v1/jobs/output-readiness", "test"
+        )
+        metadata.read = AsyncMock(
+            side_effect=AssertionError("Must resolve frozen work, not latest file")
+        )
+        metadata.read_for = AsyncMock(
+            return_value=SimpleNamespace(resolve=lambda *args: proof)
+        )
     calculate = Mock(
         side_effect=lambda input_frame, *args: pd.DataFrame(
             {"date": input_frame["date"], "ma20": input_frame["ad_close"]}

@@ -60,8 +60,9 @@ public final class StaticDefinitionDependencies {
             List<JobType> upstream =
                     switch (definition.jobType()) {
                         case SYNC_SIGNALS -> signalPredecessors(definition);
-                        default -> StaticTopologyDeclaration.upstreamTypes(
-                                definition.jobType(), seed.config());
+                        default ->
+                                StaticTopologyDeclaration.upstreamTypes(
+                                        definition.jobType(), seed.config());
                     };
             if (types.putIfAbsent(definition, upstream) != null) {
                 throw new IllegalArgumentException("Ambiguous definition mapping: " + definition);

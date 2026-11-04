@@ -29,15 +29,23 @@ def fixture():
 
 def test_metadata_current_snapshot_can_run_on_weekends_without_enabling_market_work():
     from py_common.messaging.atomic_work import AtomicWorkEnvelope
+
     class Snapshot(AtomicWorkEnvelope):
         work_type: str = "GLOBAL"
         work_key: str = "METADATA"
+
     day = date(2026, 11, 1)
-    Snapshot(jobType="SYNC_METADATA", businessDate=day, parameters={},
-             atomicWorkId=atomic_work_id("SYNC_METADATA", "GLOBAL", "METADATA", day, {}))
+    Snapshot(
+        jobType="SYNC_METADATA",
+        businessDate=day,
+        parameters={},
+        atomicWorkId=atomic_work_id("SYNC_METADATA", "GLOBAL", "METADATA", day, {}),
+    )
     raw = fixture()["message"]
     raw["businessDate"] = day.isoformat()
-    raw["atomicWorkId"] = atomic_work_id(raw["jobType"],raw["workType"],raw["workKey"],day,raw["parameters"])
+    raw["atomicWorkId"] = atomic_work_id(
+        raw["jobType"], raw["workType"], raw["workKey"], day, raw["parameters"]
+    )
     with pytest.raises(ValueError, match="weekend"):
         IndicatorJobMessage.model_validate(raw)
 

@@ -39,8 +39,7 @@ class NotificationOutboxServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-09-19T12:00:00Z");
 
-    @Mock
-    private NotificationOutboxRepository repository;
+    @Mock private NotificationOutboxRepository repository;
 
     private JsonMapper jsonMapper;
     private NotificationOutboxService service;
@@ -61,29 +60,31 @@ class NotificationOutboxServiceTest {
         existing.setSchemaVersion(NotificationOutboxService.SCHEMA_VERSION);
         existing.setDeduplicationKey("signal:one");
         when(repository.findByProviderAndChannelAndDeduplicationKey(
-                Provider.TELEGRAM, NotificationChannel.SIGNALS, "signal:one"))
+                        Provider.TELEGRAM, NotificationChannel.SIGNALS, "signal:one"))
                 .thenReturn(Optional.of(existing));
 
         assertThat(service.enqueue(request, NOW)).isSameAs(existing);
 
-        verify(repository).insertIfAbsent(
-                Provider.TELEGRAM.name(),
-                NotificationChannel.SIGNALS.name(),
-                NotificationKind.SIGNAL_CHANGED.name(),
-                NotificationOutboxService.SCHEMA_VERSION,
-                jsonMapper.writeValueAsString(request),
-                "signal:one",
-                NOW);
+        verify(repository)
+                .insertIfAbsent(
+                        Provider.TELEGRAM.name(),
+                        NotificationChannel.SIGNALS.name(),
+                        NotificationKind.SIGNAL_CHANGED.name(),
+                        NotificationOutboxService.SCHEMA_VERSION,
+                        jsonMapper.writeValueAsString(request),
+                        "signal:one",
+                        NOW);
     }
 
     @Test
     void decodeRoundTripsTypedStructuredContent() {
         NotificationRequest request = request("signal:round-trip");
-        NotificationOutboxClaim claim = claim(
-                NotificationOutboxService.SCHEMA_VERSION,
-                jsonMapper.writeValueAsString(request),
-                NotificationKind.SIGNAL_CHANGED,
-                NotificationChannel.SIGNALS);
+        NotificationOutboxClaim claim =
+                claim(
+                        NotificationOutboxService.SCHEMA_VERSION,
+                        jsonMapper.writeValueAsString(request),
+                        NotificationKind.SIGNAL_CHANGED,
+                        NotificationChannel.SIGNALS);
 
         NotificationRequest decoded = service.decode(claim);
 
@@ -96,15 +97,24 @@ class NotificationOutboxServiceTest {
         NotificationRequest request = request("signal:invalid");
         String payload = jsonMapper.writeValueAsString(request);
 
-        assertThatThrownBy(() -> service.decode(claim(
-                99, payload, NotificationKind.SIGNAL_CHANGED, NotificationChannel.SIGNALS)))
+        assertThatThrownBy(
+                        () ->
+                                service.decode(
+                                        claim(
+                                                99,
+                                                payload,
+                                                NotificationKind.SIGNAL_CHANGED,
+                                                NotificationChannel.SIGNALS)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unsupported notification schema version");
-        assertThatThrownBy(() -> service.decode(claim(
-                NotificationOutboxService.SCHEMA_VERSION,
-                payload,
-                NotificationKind.SIGNAL_CHANGED,
-                NotificationChannel.OPERATIONS)))
+        assertThatThrownBy(
+                        () ->
+                                service.decode(
+                                        claim(
+                                                NotificationOutboxService.SCHEMA_VERSION,
+                                                payload,
+                                                NotificationKind.SIGNAL_CHANGED,
+                                                NotificationChannel.OPERATIONS)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Persisted notification envelope does not match payload");
     }
@@ -114,18 +124,24 @@ class NotificationOutboxServiceTest {
         NotificationRequest request = request("signal:mismatch");
         String payload = jsonMapper.writeValueAsString(request);
 
-        assertThatThrownBy(() -> service.decode(claim(
-                NotificationOutboxService.SCHEMA_VERSION,
-                "not-json",
-                NotificationKind.SIGNAL_CHANGED,
-                NotificationChannel.SIGNALS)))
+        assertThatThrownBy(
+                        () ->
+                                service.decode(
+                                        claim(
+                                                NotificationOutboxService.SCHEMA_VERSION,
+                                                "not-json",
+                                                NotificationKind.SIGNAL_CHANGED,
+                                                NotificationChannel.SIGNALS)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid persisted notification payload");
-        assertThatThrownBy(() -> service.decode(claim(
-                NotificationOutboxService.SCHEMA_VERSION,
-                payload,
-                NotificationKind.JOB_FAILED,
-                NotificationChannel.SIGNALS)))
+        assertThatThrownBy(
+                        () ->
+                                service.decode(
+                                        claim(
+                                                NotificationOutboxService.SCHEMA_VERSION,
+                                                payload,
+                                                NotificationKind.JOB_FAILED,
+                                                NotificationChannel.SIGNALS)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Persisted notification envelope does not match payload");
     }
@@ -146,8 +162,8 @@ class NotificationOutboxServiceTest {
         assertThatThrownBy(() -> service.enqueue(request("x".repeat(513)), NOW))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Notification deduplication key exceeds 512 characters");
-        verify(repository, org.mockito.Mockito.never()).insertIfAbsent(
-                any(), any(), any(), anyInt(), any(), any(), any());
+        verify(repository, org.mockito.Mockito.never())
+                .insertIfAbsent(any(), any(), any(), anyInt(), any(), any(), any());
     }
 
     private NotificationRequest request(String deduplicationKey) {
@@ -174,10 +190,7 @@ class NotificationOutboxServiceTest {
     }
 
     private NotificationOutboxClaim claim(
-            int schemaVersion,
-            String payload,
-            NotificationKind kind,
-            NotificationChannel channel) {
+            int schemaVersion, String payload, NotificationKind kind, NotificationChannel channel) {
         return new NotificationOutboxClaim(
                 UUID.randomUUID(),
                 UUID.randomUUID(),

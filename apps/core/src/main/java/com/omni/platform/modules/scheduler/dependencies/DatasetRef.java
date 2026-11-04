@@ -33,8 +33,12 @@ public final class DatasetRef {
         this(dataset, partition, null, null, null);
     }
 
-    private DatasetRef(String dataset, Map<String, String> partition, String work,
-            java.time.LocalDate day, java.util.UUID attempt) {
+    private DatasetRef(
+            String dataset,
+            Map<String, String> partition,
+            String work,
+            java.time.LocalDate day,
+            java.util.UUID attempt) {
         if (dataset == null || dataset.isBlank()) {
             throw new IllegalArgumentException("dataset cannot be null or blank");
         }
@@ -53,7 +57,9 @@ public final class DatasetRef {
 
     public Map<String, Object> approvedInput(String version) {
         var binding = new java.util.LinkedHashMap<String, Object>();
-        binding.put("dataset", dataset); binding.put("partition", partition); binding.put("dataVersion", version);
+        binding.put("dataset", dataset);
+        binding.put("partition", partition);
+        binding.put("dataVersion", version);
         if (atomicWorkId != null) {
             binding.put("atomicWorkId", atomicWorkId);
             binding.put("businessDate", businessDate.toString());
@@ -91,8 +97,10 @@ public final class DatasetRef {
         if (!(obj instanceof DatasetRef other)) {
             return false;
         }
-        return Objects.equals(dataset, other.dataset) && Objects.equals(partition, other.partition)
-                && Objects.equals(atomicWorkId, other.atomicWorkId) && Objects.equals(businessDate, other.businessDate)
+        return Objects.equals(dataset, other.dataset)
+                && Objects.equals(partition, other.partition)
+                && Objects.equals(atomicWorkId, other.atomicWorkId)
+                && Objects.equals(businessDate, other.businessDate)
                 && Objects.equals(atomicAttemptId, other.atomicAttemptId);
     }
 

@@ -48,8 +48,11 @@ public class ThumbnailService {
 
                 writablePort.write(event.bucket(), thumbId, thumbIs, thumbContentType);
 
-                log.info("Thumbnail created: {} (format: {}, size: {} bytes)",
-                        thumbId, outputFormat, thumbBytes.length);
+                log.info(
+                        "Thumbnail created: {} (format: {}, size: {} bytes)",
+                        thumbId,
+                        outputFormat,
+                        thumbBytes.length);
             }
         } catch (IOException e) {
             log.error("Error creating thumbnail for fileId: {}", event.fileId(), e);
@@ -58,8 +61,7 @@ public class ThumbnailService {
 
     private String determineOutputFormat(String contentType) {
         // Use PNG for images that might have transparency
-        if (contentType != null &&
-                (contentType.contains("png") || contentType.contains("gif"))) {
+        if (contentType != null && (contentType.contains("png") || contentType.contains("gif"))) {
             return "png";
         }
         // Default to JPEG for photos (smaller file size)

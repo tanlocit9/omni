@@ -2,16 +2,21 @@
 
 ## I10 opt-in output publication
 
-Enrolled indicator/signal/outcome workers capture validated immutable snapshots and
-ACK registration before SUCCESS; Platform commits READY only after completion
-correlation. Inputs retain exact approved versions and actual-date coverage.
-Signal work cannot use another symbol's row to claim its own day. Confirmed-signal
-snapshots require both persisted component versions per row; historical unknown
-provenance remains excluded from snapshot backfill. Outcome updates
-retain signal origin dates T, without inventing coverage for evaluation day D;
-explicit OUTPUT_UNCHANGED grants no new pointer. Shared signal-history writer
-constraints remain unchanged. Default readers still use manifests until coordinated
-cutover. See [current source, tests and deferred recovery](../reference/006-p14-i10-ready-integration.md).
+Enrolled indicator/signal/outcome workers preflight scoped registration before
+canonical replacement, validate read-back and ACK registration before SUCCESS.
+Platform commits READY only after durable completion correlation; whole-file
+snapshots are not required for enrollment. Inputs retain exact approved work,
+attempt, version and date bindings. Signal row coordinates distinguish non-null
+model_version; omission identifies only legacy/null-version rows. Other symbols,
+dates and models remain independent of that proof.
+
+Outcome registration includes only changed origin rows T, without inventing
+evaluation-date D coverage; approved OUTPUT_UNCHANGED grants no new pointer.
+Historical unknown provenance remains excluded from invented enrolled identities.
+Shared-writer exclusion and post-write recovery remain separate gates. Default
+readers still use manifests until coordinated cutover. See the
+[current end-to-end flow and tickets](007-p14-end-to-end.md) and
+[source, tests and writer TODOs](../reference/007-p14-i10-work-identity.md).
 
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).

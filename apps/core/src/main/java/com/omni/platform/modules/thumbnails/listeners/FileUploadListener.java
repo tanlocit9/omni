@@ -20,21 +20,23 @@ public class FileUploadListener {
     @Async
     @ApplicationModuleListener
     public void onFileUploaded(FileUploadedEvent event) {
-        log.info("Received FileUploadedEvent - FileId: {}, ContentType: {}",
-                event.fileId(), event.contentType());
+        log.info(
+                "Received FileUploadedEvent - FileId: {}, ContentType: {}",
+                event.fileId(),
+                event.contentType());
 
         if (isImageFile(event.contentType())) {
             log.info("Creating thumbnail for image file: {}", event.fileId());
             thumbnailService.createThumbnail(event);
         } else {
-            log.debug("Skipping non-image file: {} (type: {})",
-                    event.fileId(), event.contentType());
+            log.debug(
+                    "Skipping non-image file: {} (type: {})", event.fileId(), event.contentType());
         }
     }
 
     private boolean isImageFile(String contentType) {
-        return contentType != null &&
-                (ImageConstant.SUPPORTED_IMAGE_TYPES.contains(contentType.toLowerCase()) ||
-                        contentType.toLowerCase().startsWith("image/"));
+        return contentType != null
+                && (ImageConstant.SUPPORTED_IMAGE_TYPES.contains(contentType.toLowerCase())
+                        || contentType.toLowerCase().startsWith("image/"));
     }
 }

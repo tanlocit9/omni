@@ -29,14 +29,16 @@ class OutputReadinessProviderTest {
 
     @BeforeEach
     void configure() {
-        when(environment.getProperty(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
+        when(environment.getProperty(anyString(), anyString()))
+                .thenAnswer(call -> call.getArgument(1));
         when(jdbc.queryForObject(anyString(), eq(Long.class))).thenReturn(7L);
         provider = new OutputReadinessProvider(jdbc, json, environment);
     }
 
     private JsonNode fixture() throws Exception {
         Path path = Path.of("../../libs/contracts/fixtures/output-readiness-page-v1.json");
-        if (!Files.exists(path)) path = Path.of("libs/contracts/fixtures/output-readiness-page-v1.json");
+        if (!Files.exists(path))
+            path = Path.of("libs/contracts/fixtures/output-readiness-page-v1.json");
         return json.readTree(Files.readString(path));
     }
 
@@ -46,8 +48,16 @@ class OutputReadinessProviderTest {
         var output = json.createObjectNode();
         output.set("dataset", item.get("dataset"));
         output.set("partition", manifest.get("values"));
-        for (String field : List.of("dataVersion", "schemaVersion", "schemaHash", "coverageDates",
-                "totalBytes", "rowCount", "columns", "inputs")) output.set(field, manifest.get(field));
+        for (String field :
+                List.of(
+                        "dataVersion",
+                        "schemaVersion",
+                        "schemaHash",
+                        "coverageDates",
+                        "totalBytes",
+                        "rowCount",
+                        "columns",
+                        "inputs")) output.set(field, manifest.get(field));
         return output;
     }
 
@@ -68,19 +78,26 @@ class OutputReadinessProviderTest {
 
     @Test
     void pagingChecksRevisionAndBoundsBeforeReadingRows() {
-        assertThatThrownBy(() -> provider.page(-1, 200, null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> provider.page(100001, 200, null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> provider.page(0, 201, null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> provider.page(0, 0, null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> provider.page(0, 200, 6L)).isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(() -> provider.page(-1, 200, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> provider.page(100001, 200, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> provider.page(0, 201, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> provider.page(0, 0, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> provider.page(0, 200, 6L))
+                .isInstanceOf(ResponseStatusException.class);
         verify(jdbc, never()).queryForList(anyString(), anyInt(), anyInt());
     }
 
     @Test
     void emptyPageReturnsAStationaryTerminalCursor() {
         when(jdbc.queryForList(anyString(), anyInt(), anyInt())).thenReturn(List.of());
-        assertThat(provider.page(20, 10, 7L)).containsEntry("nextOffset", 20)
-                .containsEntry("hasMore", false).containsEntry("items", List.of());
+        assertThat(provider.page(20, 10, 7L))
+                .containsEntry("nextOffset", 20)
+                .containsEntry("hasMore", false)
+                .containsEntry("items", List.of());
     }
 
     @Test
@@ -102,15 +119,20 @@ class OutputReadinessProviderTest {
         var page = provider.page(50, 200, 7L);
         var items = (List<Map<String, Object>>) page.get("items");
         assertThat(items.size()).isBetween(1, 199);
-        assertThat(page).containsEntry("nextOffset", 50 + items.size()).containsEntry("hasMore", true);
-        assertThat(json.writeValueAsBytes(page).length).isLessThanOrEqualTo(OutputReadinessProvider.MAX_PAGE_BYTES);
+        assertThat(page)
+                .containsEntry("nextOffset", 50 + items.size())
+                .containsEntry("hasMore", true);
+        assertThat(json.writeValueAsBytes(page).length)
+                .isLessThanOrEqualTo(OutputReadinessProvider.MAX_PAGE_BYTES);
     }
 
     @Test
     void pathConfigurationCannotEscapeSnapshotStorage() throws Exception {
-        when(environment.getProperty(eq("stock-data.paths.output-snapshots.base"), anyString())).thenReturn("../");
+        when(environment.getProperty(eq("stock-data.paths.output-snapshots.base"), anyString()))
+                .thenReturn("../");
         when(jdbc.queryForList(anyString(), anyInt(), anyInt())).thenReturn(List.of(row(output())));
-        assertThatThrownBy(() -> provider.page(0, 200, null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> provider.page(0, 200, null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -119,7 +141,8 @@ class OutputReadinessProviderTest {
                 .thenReturn("{dataset}.parquet");
         when(jdbc.queryForList(anyString(), anyInt(), anyInt())).thenReturn(List.of(row(output())));
         assertThatThrownBy(() -> provider.page(0, 200, null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("partition_hash");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("partition_hash");
     }
 
     @Test
@@ -135,14 +158,19 @@ class OutputReadinessProviderTest {
                 partition.put("strategy", "trend_momentum_v1");
             }
             var row = row(output);
-            row.put("execution_id", java.util.UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
+            row.put(
+                    "execution_id",
+                    java.util.UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"));
             when(jdbc.queryForList(anyString(), anyInt(), anyInt())).thenReturn(List.of(row));
             JsonNode page = json.valueToTree(provider.page(0, 200, null));
             var manifest = page.get("items").get(0).get("manifest");
-            assertThat(manifest.get("sourceExecutionId").asText()).isEqualTo(row.get("execution_id").toString());
-            assertThat(manifest.get("canonicalPath").asText()).isEqualTo(dataset.equals("signals")
-                    ? "signals/trend_momentum_v1/1d/upcom.parquet"
-                    : "indicators/ad_close/1d/upcom/hd6.parquet");
+            assertThat(manifest.get("sourceExecutionId").asText())
+                    .isEqualTo(row.get("execution_id").toString());
+            assertThat(manifest.get("canonicalPath").asText())
+                    .isEqualTo(
+                            dataset.equals("signals")
+                                    ? "signals/trend_momentum_v1/1d/upcom.parquet"
+                                    : "indicators/ad_close/1d/upcom/hd6.parquet");
             assertThat(manifest.get("minTimestamp").isNull()).isEqualTo(dataset.equals("signals"));
         }
     }

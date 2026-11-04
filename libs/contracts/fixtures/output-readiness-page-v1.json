@@ -28,10 +28,7 @@
           }
         ],
         "inputs": [],
-        "coverageDates": [
-          "2026-10-30",
-          "2026-11-02"
-        ],
+        "coverageDates": ["2026-10-30", "2026-11-02"],
         "minTimestamp": "2026-10-30T00:00:00",
         "maxTimestamp": "2026-11-02T00:00:00",
         "generatedAt": "2026-11-02T12:00:00Z",

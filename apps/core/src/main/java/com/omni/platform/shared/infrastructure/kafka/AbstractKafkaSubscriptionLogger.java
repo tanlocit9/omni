@@ -16,8 +16,12 @@ public abstract class AbstractKafkaSubscriptionLogger {
 
     @PostConstruct
     protected void logKafkaSubscription() {
-        log.info("{} subscribed to topic={} groupId={} bootstrapServers={}",
-                consumerName(), topicName(), consumerGroupId, bootstrapServers);
+        log.info(
+                "{} subscribed to topic={} groupId={} bootstrapServers={}",
+                consumerName(),
+                topicName(),
+                consumerGroupId,
+                bootstrapServers);
     }
 
     protected String consumerName() {

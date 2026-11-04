@@ -13,15 +13,19 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(
-            HttpSecurity http,
-            TrustedOperatorHeaderFilter trustedOperatorHeaderFilter) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
+            HttpSecurity http, TrustedOperatorHeaderFilter trustedOperatorHeaderFilter)
+            throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
                 .addFilterBefore(trustedOperatorHeaderFilter, AnonymousAuthenticationFilter.class)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/storage/**", "/api/v1/notifications/manual/**", "/actuator/**")
-                        .permitAll()
-                        .anyRequest().authenticated());
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers(
+                                                "/api/v1/storage/**",
+                                                "/api/v1/notifications/manual/**",
+                                                "/actuator/**")
+                                        .permitAll()
+                                        .anyRequest()
+                                        .authenticated());
         return http.build();
     }
 }

@@ -29,9 +29,7 @@
             "code": "vci"
           },
           "dataVersion": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "coverageDates": [
-            "2035-01-02"
-          ],
+          "coverageDates": ["2035-01-02"],
           "rowCount": 1,
           "totalBytes": 128,
           "schemaVersion": 1,

@@ -40,16 +40,11 @@ public abstract class AbstractStorageAdapter implements StorageProviderInfo {
 
     public Set<StorageCapability> getCapabilities() {
         Set<StorageCapability> caps = new HashSet<>();
-        if (this instanceof ReadablePort)
-            caps.add(StorageCapability.READ);
-        if (this instanceof WritablePort)
-            caps.add(StorageCapability.WRITE);
-        if (this instanceof DeletablePort)
-            caps.add(StorageCapability.DELETE);
-        if (this instanceof ShareablePort)
-            caps.add(StorageCapability.SHARE);
-        if (this instanceof ListablePort)
-            caps.add(StorageCapability.LIST);
+        if (this instanceof ReadablePort) caps.add(StorageCapability.READ);
+        if (this instanceof WritablePort) caps.add(StorageCapability.WRITE);
+        if (this instanceof DeletablePort) caps.add(StorageCapability.DELETE);
+        if (this instanceof ShareablePort) caps.add(StorageCapability.SHARE);
+        if (this instanceof ListablePort) caps.add(StorageCapability.LIST);
         return caps;
     }
 }

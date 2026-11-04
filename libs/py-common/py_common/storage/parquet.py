@@ -39,7 +39,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from py_common.config.paths import StockDataPaths
-
 from py_common.storage.date_contracts import (
     canonicalize_arrow_schema,
     normalize_date_contracts,
@@ -51,10 +50,17 @@ from py_common.storage.exceptions import (
 )
 from py_common.storage.global_metadata import GlobalPartitionMetadata
 from py_common.storage.manifest import (
-    DatasetInput, calculate_data_version, calculate_schema_hash, extract_schema_from_dataframe,
+    DatasetInput,
+    calculate_data_version,
+    calculate_schema_hash,
+    extract_schema_from_dataframe,
 )
 from py_common.storage.output_lineage import extract_output_lineage
-from py_common.storage.output_snapshots import OutputSnapshot, OutputSnapshotIdentity, OutputSnapshotStore
+from py_common.storage.output_snapshots import (
+    OutputSnapshot,
+    OutputSnapshotIdentity,
+    OutputSnapshotStore,
+)
 from py_common.storage.ports import (
     CopyableStorage,
     DeletableStorage,
@@ -179,7 +185,10 @@ class ParquetStorage:
         self._bucket = bucket
         self._paths = snapshot_paths or StockDataPaths.from_config({})
         self._snapshot_store = OutputSnapshotStore(
-            self._readable, self._writable, bucket, snapshot_paths or StockDataPaths.from_config({})
+            self._readable,
+            self._writable,
+            bucket,
+            snapshot_paths or StockDataPaths.from_config({}),
         )
 
     # ------------------------------------------------------------------
@@ -219,18 +228,49 @@ class ParquetStorage:
                 "Current metadata differs from approved input version"
             )
         data = await self._readable.read_bytes(self._bucket, manifest.path)
-        if getattr(manifest, "workScope", None) or getattr(manifest, "workProofs", None):
+        if getattr(manifest, "workScope", None) or getattr(
+            manifest, "workProofs", None
+        ):
             from py_common.storage.work_rows import select_rows, work_version
+
             frame = await asyncio.to_thread(ParquetCodec.decode, data)
-            proofs = manifest.workProofs or [{"workScope": manifest.workScope, "schemaHash": manifest.schemaHash,
-                "columns": [vars(c) for c in manifest.columns], "inputs": [vars(i) for i in manifest.inputs],
-                "dataVersion": manifest.dataVersion}]
+            proofs = manifest.workProofs or [
+                {
+                    "workScope": manifest.workScope,
+                    "schemaHash": manifest.schemaHash,
+                    "columns": [vars(c) for c in manifest.columns],
+                    "inputs": [vars(i) for i in manifest.inputs],
+                    "dataVersion": manifest.dataVersion,
+                }
+            ]
             for proof in proofs:
-                rows = select_rows(dataset, frame, proof["workScope"], [c["name"] for c in proof["columns"]])
-                if calculate_schema_hash(extract_schema_from_dataframe(rows)) != proof["schemaHash"]:
-                    raise ManifestInvalidError("Parquet work schema differs from approved schema")
-                if work_version(dataset, manifest.values, proof["workScope"], rows, proof["schemaHash"], proof["inputs"]) != proof["dataVersion"]:
-                    raise ManifestInvalidError("Parquet work data differs from approved version")
+                rows = select_rows(
+                    dataset,
+                    frame,
+                    proof["workScope"],
+                    [c["name"] for c in proof["columns"]],
+                )
+                if (
+                    calculate_schema_hash(extract_schema_from_dataframe(rows))
+                    != proof["schemaHash"]
+                ):
+                    raise ManifestInvalidError(
+                        "Parquet work schema differs from approved schema"
+                    )
+                if (
+                    work_version(
+                        dataset,
+                        manifest.values,
+                        proof["workScope"],
+                        rows,
+                        proof["schemaHash"],
+                        proof["inputs"],
+                    )
+                    != proof["dataVersion"]
+                ):
+                    raise ManifestInvalidError(
+                        "Parquet work data differs from approved version"
+                    )
             return frame
         checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         version = calculate_data_version(
@@ -248,13 +288,33 @@ class ParquetStorage:
                 "Parquet bytes differ from approved input version"
             )
         frame = await asyncio.to_thread(ParquetCodec.decode, data)
-        if calculate_schema_hash(extract_schema_from_dataframe(frame)) != manifest.schemaHash:
-            raise ManifestInvalidError("Parquet schema differs from approved input schema")
-        actual_inputs = extract_output_lineage(dataset, frame, manifest.values,
-                                               require_complete_components=bool(getattr(manifest, "canonicalPath", None)))
-        identity = lambda item: (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion)
-        if {identity(item) for item in actual_inputs} != {identity(item) for item in manifest.inputs}:
-            raise ManifestInvalidError("Parquet lineage differs from approved input lineage")
+        if (
+            calculate_schema_hash(extract_schema_from_dataframe(frame))
+            != manifest.schemaHash
+        ):
+            raise ManifestInvalidError(
+                "Parquet schema differs from approved input schema"
+            )
+        actual_inputs = extract_output_lineage(
+            dataset,
+            frame,
+            manifest.values,
+            require_complete_components=bool(getattr(manifest, "canonicalPath", None)),
+        )
+
+        def identity(item):
+            return (
+                item.dataset,
+                tuple(sorted(item.partition.items())),
+                item.dataVersion,
+            )
+
+        if {identity(item) for item in actual_inputs} != {
+            identity(item) for item in manifest.inputs
+        }:
+            raise ManifestInvalidError(
+                "Parquet lineage differs from approved input lineage"
+            )
         return frame
 
     async def read_optional_dataframe(self, object_name: str) -> pd.DataFrame | None:
@@ -285,14 +345,21 @@ class ParquetStorage:
             )
             return None
 
-    async def snapshot_bound_output(self, dataset: str, manifest: GlobalPartitionMetadata):
-        """Backfill exact validated bytes; a concurrent mutable replacement fails closed."""
+    async def snapshot_bound_output(
+        self, dataset: str, manifest: GlobalPartitionMetadata
+    ):
+        """Backfill exact validated bytes.
+
+        A concurrent mutable replacement fails closed.
+        """
         await self.read_bound_dataframe(dataset, manifest, manifest.dataVersion)
         data = await self._readable.read_bytes(self._bucket, manifest.path)
         identity = OutputSnapshotIdentity(dataset, manifest.values)
         snapshot = await self._snapshot_bytes(manifest.path, data, identity)
         if snapshot is None or snapshot.data_version != manifest.dataVersion:
-            raise ManifestInvalidError("Output changed while creating backfill snapshot")
+            raise ManifestInvalidError(
+                "Output changed while creating backfill snapshot"
+            )
         return snapshot, await self.read_output_snapshot(identity, snapshot)
 
     # ------------------------------------------------------------------
@@ -301,6 +368,7 @@ class ParquetStorage:
 
     def _work_publication(self, object_name):
         from py_common.messaging.output_publication import active_publication
+
         publication = active_publication()
         if publication is None:
             return None, None
@@ -311,18 +379,50 @@ class ParquetStorage:
                 return publication, identity
         return None, None
 
-    async def _record_work(self, publication, identity, object_name, expected, before):
+    def _prepare_work(self, publication, identity, expected, before):
+        from py_common.storage.work_rows import scope_for_work, validate_replacement
+
+        scope, rows = scope_for_work(
+            publication.raw, identity.dataset, expected, before
+        )
+        validate_replacement(identity.dataset, before, expected, scope)
+        output = publication.prepare(
+            identity,
+            None,
+            expected,
+            before=before,
+            total_bytes=len(ParquetCodec.encode(rows)),
+        )
+        publication.preflight(output)
+        return output
+
+    async def _record_work(self, publication, object_name, output):
         if publication is None:
             return
-        from py_common.storage.work_rows import scope_for_work, select_rows
-        scope, rows = scope_for_work(publication.raw, identity.dataset, expected, before)
+        from py_common.storage.work_rows import select_rows, work_version
+
         # Read after canonical publication, before emitting registration/worker SUCCESS.
         actual = await self.read_dataframe(object_name)
-        selected = select_rows(identity.dataset, actual, scope, rows.columns)
-        if ParquetCodec.encode(selected) != ParquetCodec.encode(rows):
-            raise ManifestInvalidError("Canonical Parquet does not contain the published work data")
-        publication.record(identity, None, expected, before=before,
-                           total_bytes=len(ParquetCodec.encode(selected)))
+        scope = output.work_scope.model_dump(mode="json", by_alias=True)
+        selected = select_rows(
+            output.dataset, actual, scope, [c.name for c in output.columns]
+        )
+        schema_hash = calculate_schema_hash(extract_schema_from_dataframe(selected))
+        version = work_version(
+            output.dataset,
+            output.partition,
+            scope,
+            selected,
+            schema_hash,
+            [i.model_dump(mode="json", by_alias=True) for i in output.inputs],
+        )
+        if schema_hash != output.schema_hash or version != output.data_version:
+            raise ManifestInvalidError(
+                "Canonical Parquet does not contain the published work data"
+            )
+        publication.confirm(output)
+        # TODO(P12-I4): persist/reuse the prepared evidence across copy/read-back/
+        # Kafka ACK failures. Preflight is not durable recovery or write fencing.
 
     async def write_dataframe(
         self,
@@ -357,13 +457,22 @@ class ParquetStorage:
             schema=schema,
         )
         publication, work_identity = self._work_publication(object_name)
-        before = await self.read_optional_dataframe(object_name) if publication else None
-        work_frame = await asyncio.to_thread(ParquetCodec.decode, data) if publication else None
-        if publication:
-            from py_common.storage.work_rows import scope_for_work, validate_replacement
-            scope, _ = scope_for_work(publication.raw, work_identity.dataset, work_frame, before)
-            validate_replacement(work_identity.dataset, before, work_frame, scope)
-        snapshot = None if publication else await self._snapshot_bytes(object_name, data, snapshot_identity)
+        before = (
+            await self.read_optional_dataframe(object_name) if publication else None
+        )
+        work_frame = (
+            await asyncio.to_thread(ParquetCodec.decode, data) if publication else None
+        )
+        output = (
+            self._prepare_work(publication, work_identity, work_frame, before)
+            if publication
+            else None
+        )
+        snapshot = (
+            None
+            if publication
+            else await self._snapshot_bytes(object_name, data, snapshot_identity)
+        )
         await self._writable.write_bytes(
             bucket=self._bucket,
             object_name=object_name,
@@ -372,7 +481,7 @@ class ParquetStorage:
         )
 
         if publication:
-            await self._record_work(publication, work_identity, object_name, work_frame, before)
+            await self._record_work(publication, object_name, output)
         result = ParquetWriteResult(
             object_name=object_name,
             checksum=f"sha256:{hashlib.sha256(data).hexdigest()}",
@@ -381,7 +490,12 @@ class ParquetStorage:
         )
         if snapshot is not None:
             from py_common.messaging.output_publication import record_output
-            record_output(snapshot_identity, snapshot, await asyncio.to_thread(ParquetCodec.decode, data))
+
+            record_output(
+                snapshot_identity,
+                snapshot,
+                await asyncio.to_thread(ParquetCodec.decode, data),
+            )
         logger.debug(
             "Wrote DataFrame (%d rows, %d cols, %d bytes) to '%s/%s'",
             len(dataframe),
@@ -393,7 +507,10 @@ class ParquetStorage:
         return result
 
     async def _snapshot_bytes(
-        self, canonical_object_name: str, data: bytes, identity: OutputSnapshotIdentity | None,
+        self,
+        canonical_object_name: str,
+        data: bytes,
+        identity: OutputSnapshotIdentity | None,
     ) -> OutputSnapshot | None:
         if identity is None:
             return None
@@ -402,27 +519,56 @@ class ParquetStorage:
         if frame.empty:
             raise ManifestInvalidError("Cannot publish an empty output snapshot")
         columns = extract_schema_from_dataframe(frame)
-        lineage = extract_output_lineage(identity.dataset, frame, identity.partition, require_complete_components=True)
+        lineage = extract_output_lineage(
+            identity.dataset,
+            frame,
+            identity.partition,
+            require_complete_components=True,
+        )
         return await self._snapshot_store.publish(
-            identity=identity, canonical_object_name=canonical_object_name, data=data,
+            identity=identity,
+            canonical_object_name=canonical_object_name,
+            data=data,
             schema_hash=calculate_schema_hash(columns),
-            inputs=tuple(DatasetInput(item.dataset, item.partition, item.dataVersion) for item in lineage),
+            inputs=tuple(
+                DatasetInput(item.dataset, item.partition, item.dataVersion)
+                for item in lineage
+            ),
         )
 
     async def read_output_snapshot(
-        self, identity: OutputSnapshotIdentity, snapshot: OutputSnapshot,
+        self,
+        identity: OutputSnapshotIdentity,
+        snapshot: OutputSnapshot,
     ) -> pd.DataFrame:
         data = await self._snapshot_store.read(identity, snapshot)
         frame = await asyncio.to_thread(ParquetCodec.decode, data)
-        if calculate_schema_hash(extract_schema_from_dataframe(frame)) != snapshot.schema_hash:
-            raise ManifestInvalidError("Snapshot schema differs from its registered schema")
-        lineage = tuple(DatasetInput(item.dataset, item.partition, item.dataVersion)
-                        for item in extract_output_lineage(identity.dataset, frame, identity.partition,
-                                                            require_complete_components=True))
-        if set((item.dataset, tuple(sorted(item.partition.items())), item.dataVersion) for item in lineage) != set(
-            (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion) for item in snapshot.inputs
+        if (
+            calculate_schema_hash(extract_schema_from_dataframe(frame))
+            != snapshot.schema_hash
         ):
-            raise ManifestInvalidError("Snapshot lineage differs from its registered lineage")
+            raise ManifestInvalidError(
+                "Snapshot schema differs from its registered schema"
+            )
+        lineage = tuple(
+            DatasetInput(item.dataset, item.partition, item.dataVersion)
+            for item in extract_output_lineage(
+                identity.dataset,
+                frame,
+                identity.partition,
+                require_complete_components=True,
+            )
+        )
+        if set(
+            (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion)
+            for item in lineage
+        ) != set(
+            (item.dataset, tuple(sorted(item.partition.items())), item.dataVersion)
+            for item in snapshot.inputs
+        ):
+            raise ManifestInvalidError(
+                "Snapshot lineage differs from its registered lineage"
+            )
         return frame
 
     async def replace_dataframe(
@@ -461,7 +607,9 @@ class ParquetStorage:
             Any exception raised by ``validate``.
         """
         publication, work_identity = self._work_publication(object_name)
-        before = await self.read_optional_dataframe(object_name) if publication else None
+        before = (
+            await self.read_optional_dataframe(object_name) if publication else None
+        )
         temp_name = temp_object_name or self._build_temp_object_name(object_name)
 
         staged_result = await self.write_dataframe(temp_name, dataframe, index=index)
@@ -471,15 +619,23 @@ class ParquetStorage:
                 validate(staged)
 
             snapshot = None
-            if publication:
-                from py_common.storage.work_rows import scope_for_work, validate_replacement
-                scope, _ = scope_for_work(publication.raw, work_identity.dataset, staged, before)
-                validate_replacement(work_identity.dataset, before, staged, scope)
+            output = (
+                self._prepare_work(publication, work_identity, staged, before)
+                if publication
+                else None
+            )
             if snapshot_identity is not None and publication is None:
                 staged_bytes = await self._readable.read_bytes(self._bucket, temp_name)
-                if "sha256:" + hashlib.sha256(staged_bytes).hexdigest() != staged_result.checksum:
-                    raise ManifestInvalidError("Staged bytes changed before snapshot publication")
-                snapshot = await self._snapshot_bytes(object_name, staged_bytes, snapshot_identity)
+                if (
+                    "sha256:" + hashlib.sha256(staged_bytes).hexdigest()
+                    != staged_result.checksum
+                ):
+                    raise ManifestInvalidError(
+                        "Staged bytes changed before snapshot publication"
+                    )
+                snapshot = await self._snapshot_bytes(
+                    object_name, staged_bytes, snapshot_identity
+                )
 
             await self._copyable.copy_object(
                 bucket=self._bucket,
@@ -493,10 +649,15 @@ class ParquetStorage:
 
         await self._delete_temp_safely(temp_name)
 
-        await self._record_work(publication, work_identity, object_name, staged, before)
+        await self._record_work(publication, object_name, output)
         if snapshot is not None:
             from py_common.messaging.output_publication import record_output
-            record_output(snapshot_identity, snapshot, await self.read_output_snapshot(snapshot_identity, snapshot))
+
+            record_output(
+                snapshot_identity,
+                snapshot,
+                await self.read_output_snapshot(snapshot_identity, snapshot),
+            )
 
         logger.debug(
             "Replaced DataFrame (%d rows, %d cols) at '%s/%s' via temp '%s'",

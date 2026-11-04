@@ -21,28 +21,33 @@ class OutputReadinessTokenTest {
         "GET,/api/v1/jobs/output-readiness,reconcile,401",
         "GET,/api/v1/jobs/other,read,401"
     })
-    void machineTokensHaveNarrowMethodAndRouteScopes(String method,String route,String token,int status) throws Exception {
-        var filter=new TrustedOperatorHeaderFilter();
-        ReflectionTestUtils.setField(filter,"readerToken","read");
-        ReflectionTestUtils.setField(filter,"reconcileToken","reconcile");
-        var request=new MockHttpServletRequest(method,route);
-        request.addHeader("Authorization","Bearer "+token);
-        var response=new MockHttpServletResponse();
-        filter.doFilter(request,response,new MockFilterChain());
+    void machineTokensHaveNarrowMethodAndRouteScopes(
+            String method, String route, String token, int status) throws Exception {
+        var filter = new TrustedOperatorHeaderFilter();
+        ReflectionTestUtils.setField(filter, "readerToken", "read");
+        ReflectionTestUtils.setField(filter, "reconcileToken", "reconcile");
+        var request = new MockHttpServletRequest(method, route);
+        request.addHeader("Authorization", "Bearer " + token);
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
         assertThat(response.getStatus()).isEqualTo(status);
-        assertThat(org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication()).isNull();
+        assertThat(
+                        org.springframework.security.core.context.SecurityContextHolder.getContext()
+                                .getAuthentication())
+                .isNull();
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
-    void workReadCannotAuthenticateWithDisabledSecretOrMissingBearer(boolean disabled) throws Exception {
-        var filter=new TrustedOperatorHeaderFilter();
-        ReflectionTestUtils.setField(filter,"readerToken",disabled ? "" : "read");
-        ReflectionTestUtils.setField(filter,"reconcileToken","reconcile");
-        var request=new MockHttpServletRequest("GET","/api/v1/jobs/output-readiness/work");
-        if (disabled) request.addHeader("Authorization","Bearer read");
-        var response=new MockHttpServletResponse();
-        filter.doFilter(request,response,new MockFilterChain());
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void workReadCannotAuthenticateWithDisabledSecretOrMissingBearer(boolean disabled)
+            throws Exception {
+        var filter = new TrustedOperatorHeaderFilter();
+        ReflectionTestUtils.setField(filter, "readerToken", disabled ? "" : "read");
+        ReflectionTestUtils.setField(filter, "reconcileToken", "reconcile");
+        var request = new MockHttpServletRequest("GET", "/api/v1/jobs/output-readiness/work");
+        if (disabled) request.addHeader("Authorization", "Bearer read");
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
         assertThat(response.getStatus()).isEqualTo(401);
     }
 }

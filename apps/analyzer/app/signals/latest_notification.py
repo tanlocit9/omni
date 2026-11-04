@@ -34,7 +34,9 @@ class LatestSignal:
 class LatestSignalRepository:
     """Reads the authoritative latest signal rows from exchange Parquet history."""
 
-    def __init__(self, settings: Any, parquet_storage: ParquetStorage, metadata_reader=None) -> None:
+    def __init__(
+        self, settings: Any, parquet_storage: ParquetStorage, metadata_reader=None
+    ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage
         self._metadata_reader = metadata_reader
@@ -51,14 +53,28 @@ class LatestSignalRepository:
             path = self._settings.stock_data_paths.signal_history(
                 DEFAULT_STRATEGY, DEFAULT_TIMEFRAME, exchange
             )
-            if getattr(self._settings, "output_readiness_mode", "manifest") == "postgres":
+            if (
+                getattr(self._settings, "output_readiness_mode", "manifest")
+                == "postgres"
+            ):
                 if self._metadata_reader is None:
                     raise ValueError("PostgreSQL signal reader unavailable")
                 document = await self._metadata_reader.read()
-                manifest = document.resolve("signals", {"exchange": exchange.lower(),
-                    "strategy": DEFAULT_STRATEGY.lower(), "timeframe": DEFAULT_TIMEFRAME})
-                frame = None if manifest is None else await self._parquet_storage.read_bound_dataframe(
-                    "signals", manifest, manifest.dataVersion)
+                manifest = document.resolve(
+                    "signals",
+                    {
+                        "exchange": exchange.lower(),
+                        "strategy": DEFAULT_STRATEGY.lower(),
+                        "timeframe": DEFAULT_TIMEFRAME,
+                    },
+                )
+                frame = (
+                    None
+                    if manifest is None
+                    else await self._parquet_storage.read_bound_dataframe(
+                        "signals", manifest, manifest.dataVersion
+                    )
+                )
             else:
                 frame = await self._read_optional(path)
             if frame is None or frame.empty:

@@ -10,22 +10,21 @@ import org.springframework.test.context.ActiveProfiles;
 import jakarta.persistence.EntityManagerFactory;
 
 @ActiveProfiles(value = "test")
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:platform-application-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
-})
+@SpringBootTest(
+        properties = {
+            "spring.datasource.url=jdbc:h2:mem:platform-application-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON",
+            "spring.datasource.driver-class-name=org.h2.Driver",
+            "spring.datasource.username=sa",
+            "spring.datasource.password=",
+            "spring.jpa.hibernate.ddl-auto=create-drop",
+            "spring.flyway.enabled=false"
+        })
 class PlatformApplicationTests {
 
-    @Autowired
-    private EntityManagerFactory entityManagerFactory;
+    @Autowired private EntityManagerFactory entityManagerFactory;
 
     @Test
-    void contextLoads() {
-    }
+    void contextLoads() {}
 
     @Test
     void registersModulithEventPublicationEntity() {
@@ -33,5 +32,4 @@ class PlatformApplicationTests {
                 .extracting(entityType -> entityType.getJavaType().getSimpleName())
                 .contains("DefaultJpaEventPublication");
     }
-
 }

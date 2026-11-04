@@ -51,9 +51,11 @@ public class BlockedJobTracker {
      * @return the persisted BlockedJob
      */
     @Transactional
-    public BlockedJob recordBlocked(JobDefinition job, GuardResult guardResult, String executionId) {
+    public BlockedJob recordBlocked(
+            JobDefinition job, GuardResult guardResult, String executionId) {
         String jobIdentifier = buildJobIdentifier(job);
-        Optional<BlockedJob> existing = blockedJobRepository.findByJobNameAndResolvedFalse(jobIdentifier);
+        Optional<BlockedJob> existing =
+                blockedJobRepository.findByJobNameAndResolvedFalse(jobIdentifier);
 
         if (existing.isPresent()) {
             return updateExistingBlock(existing.get(), guardResult);
@@ -73,10 +75,13 @@ public class BlockedJobTracker {
     @Transactional
     public boolean markResolved(JobDefinition job) {
         String jobIdentifier = buildJobIdentifier(job);
-        Optional<BlockedJob> existing = blockedJobRepository.findByJobNameAndResolvedFalse(jobIdentifier);
+        Optional<BlockedJob> existing =
+                blockedJobRepository.findByJobNameAndResolvedFalse(jobIdentifier);
 
         if (existing.isEmpty()) {
-            log.debug("No active blocked record for jobIdentifier={}, nothing to resolve", jobIdentifier);
+            log.debug(
+                    "No active blocked record for jobIdentifier={}, nothing to resolve",
+                    jobIdentifier);
             return false;
         }
 
@@ -84,10 +89,12 @@ public class BlockedJobTracker {
         blockedJob.markResolved();
         blockedJobRepository.save(blockedJob);
 
-        log.info("Resolved blocked job: jobIdentifier={} totalRetries={} blockedForSeconds={}",
-            jobIdentifier,
-            blockedJob.getRetryCount(),
-            java.time.Duration.between(blockedJob.getFirstBlockedAt(), Instant.now()).getSeconds());
+        log.info(
+                "Resolved blocked job: jobIdentifier={} totalRetries={} blockedForSeconds={}",
+                jobIdentifier,
+                blockedJob.getRetryCount(),
+                java.time.Duration.between(blockedJob.getFirstBlockedAt(), Instant.now())
+                        .getSeconds());
 
         return true;
     }
@@ -157,11 +164,7 @@ public class BlockedJobTracker {
     }
 
     private BlockedJob createNewBlock(
-        JobDefinition job,
-        String jobIdentifier,
-        GuardResult guardResult,
-        String executionId
-    ) {
+            JobDefinition job, String jobIdentifier, GuardResult guardResult, String executionId) {
         BlockedJob blockedJob = new BlockedJob();
         blockedJob.setJobName(jobIdentifier);
         blockedJob.setJobType(job.getJobType().name());
@@ -175,11 +178,12 @@ public class BlockedJobTracker {
 
         BlockedJob saved = blockedJobRepository.save(blockedJob);
 
-        log.info("Blocked job created: jobIdentifier={} executionId={} reason={} nextRetryInSeconds={}",
-            jobIdentifier,
-            saved.getExecutionId(),
-            guardResult.blockReason(),
-            delaySecs);
+        log.info(
+                "Blocked job created: jobIdentifier={} executionId={} reason={} nextRetryInSeconds={}",
+                jobIdentifier,
+                saved.getExecutionId(),
+                guardResult.blockReason(),
+                delaySecs);
 
         return saved;
     }
@@ -195,17 +199,19 @@ public class BlockedJobTracker {
         BlockedJob saved = blockedJobRepository.save(blockedJob);
 
         if (saved.hasExceededMaxRetries()) {
-            log.warn("Blocked job exceeded max retries: jobName={} retryCount={} maxRetries={} reason={}",
-                saved.getJobName(),
-                saved.getRetryCount(),
-                saved.getMaxRetries(),
-                guardResult.blockReason());
+            log.warn(
+                    "Blocked job exceeded max retries: jobName={} retryCount={} maxRetries={} reason={}",
+                    saved.getJobName(),
+                    saved.getRetryCount(),
+                    saved.getMaxRetries(),
+                    guardResult.blockReason());
         } else {
-            log.info("Blocked job updated: jobName={} retryCount={} nextRetryInSeconds={} reason={}",
-                saved.getJobName(),
-                saved.getRetryCount(),
-                delaySecs,
-                guardResult.blockReason());
+            log.info(
+                    "Blocked job updated: jobName={} retryCount={} nextRetryInSeconds={} reason={}",
+                    saved.getJobName(),
+                    saved.getRetryCount(),
+                    delaySecs,
+                    guardResult.blockReason());
         }
 
         return saved;
@@ -216,16 +222,26 @@ public class BlockedJobTracker {
             return "[]";
         }
         try {
-            List<Map<String, Object>> simplified = failedChecks.stream()
-                .map(r -> {
-                    Map<String, Object> entry = new LinkedHashMap<>();
-                    entry.put("status", r.getStatus().name());
-                    entry.put("reason", r.getReason().orElse(null));
-                    entry.put("dataset", r.getDatasetRef() != null ? r.getDatasetRef().getDataset() : "unknown");
-                    entry.put("partition", r.getDatasetRef() != null ? r.getDatasetRef().getPartition() : Map.of());
-                    return entry;
-                })
-                .toList();
+            List<Map<String, Object>> simplified =
+                    failedChecks.stream()
+                            .map(
+                                    r -> {
+                                        Map<String, Object> entry = new LinkedHashMap<>();
+                                        entry.put("status", r.getStatus().name());
+                                        entry.put("reason", r.getReason().orElse(null));
+                                        entry.put(
+                                                "dataset",
+                                                r.getDatasetRef() != null
+                                                        ? r.getDatasetRef().getDataset()
+                                                        : "unknown");
+                                        entry.put(
+                                                "partition",
+                                                r.getDatasetRef() != null
+                                                        ? r.getDatasetRef().getPartition()
+                                                        : Map.of());
+                                        return entry;
+                                    })
+                            .toList();
             return objectMapper.writeValueAsString(simplified);
         } catch (JsonProcessingException e) {
             log.warn("Failed to serialize failed checks: {}", e.getMessage());

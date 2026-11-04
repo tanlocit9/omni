@@ -39,7 +39,8 @@ public final class StaticJobTopology {
         this.nodes = Collections.unmodifiableSet(new LinkedHashSet<>(nodes));
         this.downstream = immutableAdjacency(downstream);
         this.upstream = immutableAdjacency(upstream);
-        this.definitionMappings = Collections.unmodifiableMap(new LinkedHashMap<>(definitionMappings));
+        this.definitionMappings =
+                Collections.unmodifiableMap(new LinkedHashMap<>(definitionMappings));
         this.topologicalOrder = List.copyOf(topologicalOrder);
     }
 
@@ -48,9 +49,7 @@ public final class StaticJobTopology {
     }
 
     public static StaticJobTopology create(
-            StaticTopologyDeclaration declaration,
-            int maxNodes,
-            int maxEdges) {
+            StaticTopologyDeclaration declaration, int maxNodes, int maxEdges) {
         Objects.requireNonNull(declaration, "declaration");
         if (maxNodes <= 0 || maxEdges < 0) {
             throw new IllegalArgumentException("Topology bounds must be positive");
@@ -75,14 +74,16 @@ public final class StaticJobTopology {
             requireKnown(nodes, mapping.node(), "definition mapping");
             TopologyNodeKey previous = mappings.putIfAbsent(mapping.definition(), mapping.node());
             if (previous != null) {
-                throw new IllegalArgumentException("Ambiguous definition mapping: " + mapping.definition());
+                throw new IllegalArgumentException(
+                        "Ambiguous definition mapping: " + mapping.definition());
             }
         }
         Set<TopologyNodeKey> mappedNodes = new TreeSet<>(mappings.values());
         Set<TopologyNodeKey> unmappedNodes = new TreeSet<>(nodes);
         unmappedNodes.removeAll(mappedNodes);
         if (!unmappedNodes.isEmpty()) {
-            throw new IllegalArgumentException("Topology nodes without definition mappings: " + unmappedNodes);
+            throw new IllegalArgumentException(
+                    "Topology nodes without definition mappings: " + unmappedNodes);
         }
 
         List<TopologyNodeKey> order = topologicalOrder(nodes, downstream, upstream);
@@ -120,7 +121,8 @@ public final class StaticJobTopology {
     }
 
     public TopologyNodeKey nodeFor(JobDefinitionIdentity definition) {
-        TopologyNodeKey node = definitionMappings.get(Objects.requireNonNull(definition, "definition"));
+        TopologyNodeKey node =
+                definitionMappings.get(Objects.requireNonNull(definition, "definition"));
         if (node == null) {
             throw new IllegalArgumentException("Unknown job definition mapping: " + definition);
         }
@@ -134,13 +136,19 @@ public final class StaticJobTopology {
     public String toMermaid() {
         StringBuilder output = new StringBuilder("flowchart TD\n");
         for (TopologyNodeKey node : topologicalOrder) {
-            output.append("    ").append(mermaidId(node)).append("[\"")
-                    .append(node.value()).append("\"]\n");
+            output.append("    ")
+                    .append(mermaidId(node))
+                    .append("[\"")
+                    .append(node.value())
+                    .append("\"]\n");
         }
         for (TopologyNodeKey source : topologicalOrder) {
             for (TopologyNodeKey target : downstream.get(source)) {
-                output.append("    ").append(mermaidId(source)).append(" --> ")
-                        .append(mermaidId(target)).append('\n');
+                output.append("    ")
+                        .append(mermaidId(source))
+                        .append(" --> ")
+                        .append(mermaidId(target))
+                        .append('\n');
             }
         }
         return output.toString();
@@ -152,8 +160,8 @@ public final class StaticJobTopology {
             int maxDepth) {
         requireKnown(nodes, start, "traversal node");
         if (maxDepth < 0 || maxDepth > DEFAULT_MAX_TRAVERSAL_DEPTH) {
-            throw new IllegalArgumentException("Traversal depth must be between 0 and "
-                    + DEFAULT_MAX_TRAVERSAL_DEPTH);
+            throw new IllegalArgumentException(
+                    "Traversal depth must be between 0 and " + DEFAULT_MAX_TRAVERSAL_DEPTH);
         }
         Set<TopologyNodeKey> visited = new LinkedHashSet<>();
         ArrayDeque<NodeDepth> queue = new ArrayDeque<>();
@@ -173,9 +181,7 @@ public final class StaticJobTopology {
     }
 
     private static void validateDuplicatesAndBounds(
-            StaticTopologyDeclaration declaration,
-            int maxNodes,
-            int maxEdges) {
+            StaticTopologyDeclaration declaration, int maxNodes, int maxEdges) {
         if (declaration.nodes().size() > maxNodes) {
             throw new IllegalArgumentException("Topology node bound exceeded: " + maxNodes);
         }
@@ -195,7 +201,8 @@ public final class StaticJobTopology {
         }
     }
 
-    private static Map<TopologyNodeKey, Set<TopologyNodeKey>> adjacency(Set<TopologyNodeKey> nodes) {
+    private static Map<TopologyNodeKey, Set<TopologyNodeKey>> adjacency(
+            Set<TopologyNodeKey> nodes) {
         Map<TopologyNodeKey, Set<TopologyNodeKey>> result = new TreeMap<>();
         nodes.forEach(node -> result.put(node, new TreeSet<>()));
         return result;
@@ -204,8 +211,10 @@ public final class StaticJobTopology {
     private static Map<TopologyNodeKey, Set<TopologyNodeKey>> immutableAdjacency(
             Map<TopologyNodeKey, Set<TopologyNodeKey>> source) {
         Map<TopologyNodeKey, Set<TopologyNodeKey>> result = new LinkedHashMap<>();
-        source.forEach((node, neighbors) -> result.put(
-                node, Collections.unmodifiableSet(new LinkedHashSet<>(neighbors))));
+        source.forEach(
+                (node, neighbors) ->
+                        result.put(
+                                node, Collections.unmodifiableSet(new LinkedHashSet<>(neighbors))));
         return Collections.unmodifiableMap(result);
     }
 
@@ -216,11 +225,12 @@ public final class StaticJobTopology {
         Map<TopologyNodeKey, Integer> indegrees = new TreeMap<>();
         nodes.forEach(node -> indegrees.put(node, upstream.get(node).size()));
         PriorityQueue<TopologyNodeKey> ready = new PriorityQueue<>();
-        indegrees.forEach((node, degree) -> {
-            if (degree == 0) {
-                ready.add(node);
-            }
-        });
+        indegrees.forEach(
+                (node, degree) -> {
+                    if (degree == 0) {
+                        ready.add(node);
+                    }
+                });
         List<TopologyNodeKey> order = new ArrayList<>();
         while (!ready.isEmpty()) {
             TopologyNodeKey node = ready.remove();
@@ -241,13 +251,13 @@ public final class StaticJobTopology {
     }
 
     private static Set<TopologyNodeKey> neighbors(
-            Map<TopologyNodeKey, Set<TopologyNodeKey>> adjacency,
-            TopologyNodeKey node) {
+            Map<TopologyNodeKey, Set<TopologyNodeKey>> adjacency, TopologyNodeKey node) {
         requireKnown(adjacency.keySet(), node, "topology node");
         return adjacency.get(node);
     }
 
-    private static void requireKnown(Set<TopologyNodeKey> nodes, TopologyNodeKey node, String role) {
+    private static void requireKnown(
+            Set<TopologyNodeKey> nodes, TopologyNodeKey node, String role) {
         Objects.requireNonNull(node, role);
         if (!nodes.contains(node)) {
             throw new IllegalArgumentException("Unknown " + role + ": " + node);
@@ -258,6 +268,5 @@ public final class StaticJobTopology {
         return "n_" + node.value().replace('-', '_');
     }
 
-    private record NodeDepth(TopologyNodeKey node, int depth) {
-    }
+    private record NodeDepth(TopologyNodeKey node, int depth) {}
 }

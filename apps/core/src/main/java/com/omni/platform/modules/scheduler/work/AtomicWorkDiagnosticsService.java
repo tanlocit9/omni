@@ -41,35 +41,57 @@ public class AtomicWorkDiagnosticsService {
         this.workSql = sql("inspect_work.sql");
     }
 
-    public Map<String, Object> snapshot(Instant since, Instant until, Instant observedAt,
-                                      UUID afterId, int limit, int hours) {
+    public Map<String, Object> snapshot(
+            Instant since, Instant until, Instant observedAt, UUID afterId, int limit, int hours) {
         Instant now = Instant.now();
         Instant observed = observation(observedAt, now);
-        if ((since == null) != (until == null)) invalid("Both since and until are required together.");
+        if ((since == null) != (until == null))
+            invalid("Both since and until are required together.");
         if (hours < 1 || hours > 168) invalid("Window hours must be between 1 and 168.");
         Instant end = until == null ? observed : until;
         Instant start = since == null ? end.minus(Duration.ofHours(hours)) : since;
-        if (!start.isBefore(end) || end.isAfter(observed)
+        if (!start.isBefore(end)
+                || end.isAfter(observed)
                 || Duration.between(start, end).compareTo(Duration.ofDays(7)) > 0)
             invalid("Use a positive window of at most seven days ending no later than observedAt.");
         bound(limit, 100);
-        return query(snapshotSql, Map.of("since", start.toString(), "until", end.toString(),
-                "observed_at", observed.toString(), "after_id", cursor(afterId), "row_limit", limit));
+        return query(
+                snapshotSql,
+                Map.of(
+                        "since",
+                        start.toString(),
+                        "until",
+                        end.toString(),
+                        "observed_at",
+                        observed.toString(),
+                        "after_id",
+                        cursor(afterId),
+                        "row_limit",
+                        limit));
     }
 
     public Map<String, Object> unfinished(Instant observedAt, UUID afterId, int limit) {
         Instant observed = observation(observedAt, Instant.now());
         bound(limit, 100);
-        return query(unfinishedSql, Map.of("observed_at", observed.toString(),
-                "published_before", observed.minus(Duration.ofMinutes(30)).toString(),
-                "after_id", cursor(afterId), "row_limit", limit));
+        return query(
+                unfinishedSql,
+                Map.of(
+                        "observed_at",
+                        observed.toString(),
+                        "published_before",
+                        observed.minus(Duration.ofMinutes(30)).toString(),
+                        "after_id",
+                        cursor(afterId),
+                        "row_limit",
+                        limit));
     }
 
     public Map<String, Object> work(String atomicWorkId) {
         if (atomicWorkId == null || !atomicWorkId.matches("work:[0-9a-f]{64}"))
             invalid("atomicWorkId must be work: followed by 64 lowercase hexadecimal characters.");
-        return query(workSql, Map.of("atomic_work_id", atomicWorkId,
-                "observed_at", Instant.now().toString()));
+        return query(
+                workSql,
+                Map.of("atomic_work_id", atomicWorkId, "observed_at", Instant.now().toString()));
     }
 
     private static Instant observation(Instant value, Instant now) {
@@ -82,10 +104,13 @@ public class AtomicWorkDiagnosticsService {
         if (value < 1 || value > max) invalid("Page size must be between 1 and " + max + ".");
     }
 
-    private static String cursor(UUID id) { return id == null ? "" : id.toString(); }
+    private static String cursor(UUID id) {
+        return id == null ? "" : id.toString();
+    }
 
     private static void invalid(String message) {
-        throw new JobOperationException(HttpStatus.BAD_REQUEST, "INVALID_DIAGNOSTIC_WINDOW", message);
+        throw new JobOperationException(
+                HttpStatus.BAD_REQUEST, "INVALID_DIAGNOSTIC_WINDOW", message);
     }
 
     @SuppressWarnings("unchecked")
@@ -94,8 +119,10 @@ public class AtomicWorkDiagnosticsService {
             template.execute("SET LOCAL lock_timeout='500ms'");
             return json.readValue(jdbc.queryForObject(sql, parameters, String.class), Map.class);
         } catch (DataAccessException unavailable) {
-            throw new JobOperationException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "ATOMIC_DIAGNOSTICS_UNAVAILABLE", "Work diagnostics are unavailable; check schema and database health.");
+            throw new JobOperationException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "ATOMIC_DIAGNOSTICS_UNAVAILABLE",
+                    "Work diagnostics are unavailable; check schema and database health.");
         }
     }
 

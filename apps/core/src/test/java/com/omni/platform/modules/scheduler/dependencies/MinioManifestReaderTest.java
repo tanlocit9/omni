@@ -33,8 +33,9 @@ class MinioManifestReaderTest {
     void resolvesExactLogicalPartitionFromGlobalDocument() throws Exception {
         stubMetadata(validDocument());
 
-        Optional<DatasetManifest> result = reader.readManifest(
-                DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg")));
+        Optional<DatasetManifest> result =
+                reader.readManifest(
+                        DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg")));
 
         assertThat(result).isPresent();
         DatasetManifest manifest = result.orElseThrow();
@@ -48,8 +49,9 @@ class MinioManifestReaderTest {
     void returnsEmptyForMissingLogicalPartition() throws Exception {
         stubMetadata(validDocument());
 
-        assertThat(reader.readManifest(
-                DatasetRef.of("eod", Map.of("exchange", "hose", "code", "vnm"))))
+        assertThat(
+                        reader.readManifest(
+                                DatasetRef.of("eod", Map.of("exchange", "hose", "code", "vnm"))))
                 .isEmpty();
     }
 
@@ -75,14 +77,18 @@ class MinioManifestReaderTest {
     void rejectsUnsafeInternalPath() throws Exception {
         stubMetadata(validDocument().replace("eod/hose/hpg.parquet", "../secret.parquet"));
 
-        assertThatThrownBy(() -> reader.readManifest(
-                DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg"))))
+        assertThatThrownBy(
+                        () ->
+                                reader.readManifest(
+                                        DatasetRef.of(
+                                                "eod", Map.of("exchange", "hose", "code", "hpg"))))
                 .isInstanceOf(ManifestReadException.class)
                 .hasMessageContaining("invalid global partition metadata");
     }
 
     private void stubMetadata(String json) throws Exception {
-        ByteArrayInputStream bytes = new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream bytes =
+                new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8));
         GetObjectResponse response = mock(GetObjectResponse.class, delegatesTo(bytes));
         when(minioClient.getObject(any())).thenReturn(response);
     }

@@ -12,13 +12,13 @@ Graph tools were unavailable in the session; impact and post-edit review are man
 
 ## Commit and increment mapping
 
-| Main commit | Source/decision | Increment and evidence state |
-| --- | --- | --- |
-| `b49c916` | Atomic work expansion and worker envelope | I8 source; retain separately recorded historical local acceptance |
-| `3ce4060`, `652d416` | Shared atomic attempts, graph preparation, definition consolidation | I9 source; retain separately recorded historical local acceptance |
-| `b191507` | Console WorkOperations, AtomicWorkDiagnosticsService, GraphWorkOperationsController, SQL diagnostics; ADR-008 and I10 plan | Diagnostics source present; I10 planned, not implemented |
-| `66e5c49`, `a271245`, `c34914d` | Preset/lock-order, uncovered schedule/coverage, stale classification and I8/I9 closure | I8/I9 follow-up; does not implement I10 |
-| `bde2f41`, `4cc0011` | Formatting/verification documentation and isolated Python CI tooling | No I10 readiness/watchdog or I11 implementation established |
+| Main commit                     | Source/decision                                                                                                            | Increment and evidence state                                      |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `b49c916`                       | Atomic work expansion and worker envelope                                                                                  | I8 source; retain separately recorded historical local acceptance |
+| `3ce4060`, `652d416`            | Shared atomic attempts, graph preparation, definition consolidation                                                        | I9 source; retain separately recorded historical local acceptance |
+| `b191507`                       | Console WorkOperations, AtomicWorkDiagnosticsService, GraphWorkOperationsController, SQL diagnostics; ADR-008 and I10 plan | Diagnostics source present; I10 planned, not implemented          |
+| `66e5c49`, `a271245`, `c34914d` | Preset/lock-order, uncovered schedule/coverage, stale classification and I8/I9 closure                                     | I8/I9 follow-up; does not implement I10                           |
+| `bde2f41`, `4cc0011`            | Formatting/verification documentation and isolated Python CI tooling                                                       | No I10 readiness/watchdog or I11 implementation established       |
 
 `3661e5e` and `b191507` have identical trees (`git diff` has no file changes).
 Use `b191507` for the main history mapping; do not infer the original hash itself
@@ -30,14 +30,14 @@ Reserved tracing fields do not establish an I11 implementation or approved scope
 
 ## Runtime versus target
 
-| Boundary | Source present at baseline | Remaining I10 acceptance |
-| --- | --- | --- |
-| Kafka/readiness | `configs/shared/topics.yaml` has the existing `topic-sync-metadata` command; ADR-008 explicitly retains current manifest authority | Separate versioned registration topic, bounded arrays, shared schema/adapters, Platform inbox/consumer, PostgreSQL readiness and read-provider cutover |
-| Write and completion | Existing output/manifest and terminal status paths; shared `JobStatusKafkaService.publish_status` publishes status | Validated output ? acknowledged metadata publication ? terminal status; durable correlation in either arrival order, replay, duplicate/conflict and partial-output handling |
-| Watchdog | Diagnostics select published unfinished work older than 30 minutes, read-only | Actual scheduled timeout mutation, late status/event fencing, shared-attempt ownership, safe retry and 12-hour reconciliation after cutover |
-| Storage | Current mutable Parquet paths and canonical manifest discovery remain | Preserve prior READY, exact-byte/version validation, write exclusion or version addressability; DB fencing alone cannot stop a stale storage writer |
-| Query provenance | Query API already exposes `queryId` and `dataVersions`; manifest-based reads exist | Durable query-level snapshots of actually read inputs linked to producing output versions/work/attempts; optional trace context is a reservation, not instrumentation |
-| Writer | I8/I9 work context is reusable; Plan 027/P12 remains deferred | Separate work identity, output `writeKey`, operation `intentId` and registration event/item identity; preserve every contributing work/attempt through batching |
+| Boundary             | Source present at baseline                                                                                                         | Remaining I10 acceptance                                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kafka/readiness      | `configs/shared/topics.yaml` has the existing `topic-sync-metadata` command; ADR-008 explicitly retains current manifest authority | Separate versioned registration topic, bounded arrays, shared schema/adapters, Platform inbox/consumer, PostgreSQL readiness and read-provider cutover                      |
+| Write and completion | Existing output/manifest and terminal status paths; shared `JobStatusKafkaService.publish_status` publishes status                 | Validated output ? acknowledged metadata publication ? terminal status; durable correlation in either arrival order, replay, duplicate/conflict and partial-output handling |
+| Watchdog             | Diagnostics select published unfinished work older than 30 minutes, read-only                                                      | Actual scheduled timeout mutation, late status/event fencing, shared-attempt ownership, safe retry and 12-hour reconciliation after cutover                                 |
+| Storage              | Current mutable Parquet paths and canonical manifest discovery remain                                                              | Preserve prior READY, exact-byte/version validation, write exclusion or version addressability; DB fencing alone cannot stop a stale storage writer                         |
+| Query provenance     | Query API already exposes `queryId` and `dataVersions`; manifest-based reads exist                                                 | Durable query-level snapshots of actually read inputs linked to producing output versions/work/attempts; optional trace context is a reservation, not instrumentation       |
+| Writer               | I8/I9 work context is reusable; Plan 027/P12 remains deferred                                                                      | Separate work identity, output `writeKey`, operation `intentId` and registration event/item identity; preserve every contributing work/attempt through batching             |
 
 The target ordering and failure recovery above are requirements, not descriptions
 of an implemented registration protocol. Existing metadata reconciliation is not

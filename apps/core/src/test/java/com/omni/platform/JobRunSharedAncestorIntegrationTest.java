@@ -114,9 +114,12 @@ class JobRunSharedAncestorIntegrationTest {
                 .publishSerializedAndWait(
                         original.get("topic").toString(), original.get("message_key").toString(),
                         context.getBean(SchedulerOutboxService.class)
-                                .boundPayload(jdbc.queryForObject(
-                                        "SELECT id FROM scheduler_outbox_messages WHERE execution_id=?",
-                                        UUID.class, firstWork)), Duration.ofSeconds(15));
+                                        .boundPayload(
+                                                jdbc.queryForObject(
+                                                        "SELECT id FROM scheduler_outbox_messages WHERE execution_id=?",
+                                                        UUID.class,
+                                                        firstWork)),
+                                Duration.ofSeconds(15));
         await(
                 () -> {
                     try {

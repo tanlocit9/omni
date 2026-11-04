@@ -41,65 +41,122 @@ class ExpansionRoutesTest {
         var repository = mock(SymbolRepository.class);
         var jdbc = mock(JdbcTemplate.class);
         var entities = mock(EntityManager.class);
-        SymbolKeyProjection symbol = new SymbolKeyProjection() {
-            public String getCode() { return "HPG"; }
-            public String getExchange() { return "HOSE"; }
-        };
-        when(jdbc.query(anyString(), ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
-                any(), any(), any(), any())).thenReturn(List.of(symbol));
-        doAnswer(inv -> { ((JobExecutionHistory) inv.getArgument(0)).setId(UUID.randomUUID()); return null; })
-                .when(entities).persist(any());
+        SymbolKeyProjection symbol =
+                new SymbolKeyProjection() {
+                    public String getCode() {
+                        return "HPG";
+                    }
+
+                    public String getExchange() {
+                        return "HOSE";
+                    }
+                };
+        when(jdbc.query(
+                        anyString(),
+                        ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
+                        any(),
+                        any(),
+                        any(),
+                        any()))
+                .thenReturn(List.of(symbol));
+        doAnswer(
+                        inv -> {
+                            ((JobExecutionHistory) inv.getArgument(0)).setId(UUID.randomUUID());
+                            return null;
+                        })
+                .when(entities)
+                .persist(any());
         var definition = job(JobDefinition.JobType.SYNC_INDICATORS);
         var root = parent(definition);
         root.setJobRunId(UUID.randomUUID());
         root.setJobRunStepIndex(0);
-        root.setMetaJson(Map.of("businessDate", "2026-11-02", "expansionRequest",
-                Map.of("dateFrom", "2026-10-30", "dateTo", "2026-11-02")));
+        root.setMetaJson(
+                Map.of(
+                        "businessDate",
+                        "2026-11-02",
+                        "expansionRequest",
+                        Map.of("dateFrom", "2026-10-30", "dateTo", "2026-11-02")));
         var producer = new SyncIndicatorsJobProducer(jobs, null, repository);
         var json = JsonMapper.builder().build();
-        var accepted = producer.acceptRunStep(definition, root, now,
-                JobRunWorkContext.preview(root, jdbc, json));
-        producer.persistAcceptedRunStep(root, accepted, now,
-                new JobRunWorkContext(root, entities, jdbc, json, 5000));
+        var accepted =
+                producer.acceptRunStep(
+                        definition, root, now, JobRunWorkContext.preview(root, jdbc, json));
+        producer.persistAcceptedRunStep(
+                root, accepted, now, new JobRunWorkContext(root, entities, jdbc, json, 5000));
         ArgumentCaptor<List<KafkaMessage>> sent = ArgumentCaptor.forClass((Class) List.class);
-        verify(jobs).enqueueRunDispatch(eq(root), nullable(String.class), sent.capture(), eq(now), any());
-        assertThat(sent.getValue()).extracting(m -> ((ExpandedJobMessage) m.payload()).atomicWorkId())
-                .containsExactlyElementsOf(accepted.messages().stream()
-                        .map(m -> ((ExpandedJobMessage) m.payload()).atomicWorkId()).toList());
-        assertThat(sent.getValue()).extracting(m -> ((ExpandedJobMessage) m.payload()).executionId())
-                .doesNotContainAnyElementsOf(accepted.children().stream().map(JobExecutionHistory::getId).toList());
-        verify(jdbc).query(anyString(), ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
-                any(), any(), any(), any());
+        verify(jobs)
+                .enqueueRunDispatch(
+                        eq(root), nullable(String.class), sent.capture(), eq(now), any());
+        assertThat(sent.getValue())
+                .extracting(m -> ((ExpandedJobMessage) m.payload()).atomicWorkId())
+                .containsExactlyElementsOf(
+                        accepted.messages().stream()
+                                .map(m -> ((ExpandedJobMessage) m.payload()).atomicWorkId())
+                                .toList());
+        assertThat(sent.getValue())
+                .extracting(m -> ((ExpandedJobMessage) m.payload()).executionId())
+                .doesNotContainAnyElementsOf(
+                        accepted.children().stream().map(JobExecutionHistory::getId).toList());
+        verify(jdbc)
+                .query(
+                        anyString(),
+                        ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
+                        any(),
+                        any(),
+                        any(),
+                        any());
         verifyNoMoreInteractions(jdbc);
         verifyNoInteractions(repository);
     }
+
     @Test
     void graphPreviewUsesActualI8ProducerWithoutExecutionOutboxOrKafkaWrites() {
         var jobs = mock(JobService.class);
         var publisher = mock(KafkaPublisher.class);
         var repository = mock(SymbolRepository.class);
         var jdbc = mock(JdbcTemplate.class);
-        SymbolKeyProjection symbol = new SymbolKeyProjection() {
-            public String getCode() { return "HPG"; }
-            public String getExchange() { return "HOSE"; }
-        };
-        when(jdbc.query(anyString(), ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
-                any(), any(), any(), any())).thenReturn(List.of(symbol));
+        SymbolKeyProjection symbol =
+                new SymbolKeyProjection() {
+                    public String getCode() {
+                        return "HPG";
+                    }
+
+                    public String getExchange() {
+                        return "HOSE";
+                    }
+                };
+        when(jdbc.query(
+                        anyString(),
+                        ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
+                        any(),
+                        any(),
+                        any(),
+                        any()))
+                .thenReturn(List.of(symbol));
         var producer = new SyncIndicatorsJobProducer(jobs, publisher, repository);
         var definition = job(JobDefinition.JobType.SYNC_INDICATORS);
         var request = Map.<String, Object>of("dateFrom", "2026-10-30", "dateTo", "2026-11-02");
-        var preview = producer.previewAtomicWork(definition, request, now, jdbc,
-                JsonMapper.builder().build());
+        var preview =
+                producer.previewAtomicWork(
+                        definition, request, now, jdbc, JsonMapper.builder().build());
         assertThat(preview).hasSize(2);
-        assertThat(preview).extracting(ExpandedJobMessage::businessDate)
+        assertThat(preview)
+                .extracting(ExpandedJobMessage::businessDate)
                 .containsExactly(LocalDate.parse("2026-10-30"), LocalDate.parse("2026-11-02"));
         assertThat(preview).allSatisfy(work -> assertThat(work.workKey()).isEqualTo("HOSE-HPG"));
         assertThat(definition.getConfigJson()).isEmpty();
         verifyNoInteractions(jobs, publisher, repository);
-        verify(jdbc).query(anyString(), ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
-                any(), any(), any(), any());
+        verify(jdbc)
+                .query(
+                        anyString(),
+                        ArgumentMatchers.<RowMapper<SymbolKeyProjection>>any(),
+                        any(),
+                        any(),
+                        any(),
+                        any());
         verifyNoMoreInteractions(jdbc);
     }
+
     private final Instant now = Instant.parse("2026-11-02T05:00:00Z");
 
     private JobDefinition job(JobDefinition.JobType type) {

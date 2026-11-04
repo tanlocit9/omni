@@ -51,6 +51,8 @@ message RegisteredOutput {
 }
 
 // Coordinates of the data covered by this work, not the entire Parquet object.
+// Signal coordinates include model_version when non-null; omitted means a
+// legacy/null-version row, never all model versions at the same symbol/date.
 message RegisteredWorkScope {
   string atomic_work_id = 1;
   repeated google.protobuf.Struct row_keys = 2;

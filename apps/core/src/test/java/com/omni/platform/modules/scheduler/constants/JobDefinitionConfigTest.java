@@ -17,9 +17,10 @@ class JobDefinitionConfigTest {
     @Test
     void derivesEnabledSectorsFromCanonicalSeeds() {
         assertThat(JobDefinitionConfig.ENABLED_SECTOR_CODES)
-                .containsExactlyElementsOf(SectorSeedConfig.SECTOR_SEEDS.stream()
-                        .map(SectorSeedConfig.SectorSeed::code)
-                        .toList())
+                .containsExactlyElementsOf(
+                        SectorSeedConfig.SECTOR_SEEDS.stream()
+                                .map(SectorSeedConfig.SectorSeed::code)
+                                .toList())
                 .hasSize(19)
                 .doesNotHaveDuplicates();
     }
@@ -31,15 +32,23 @@ class JobDefinitionConfigTest {
         assertThat(seeds(JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES)).hasSize(1);
 
         assertThat(JobDefinitionConfig.JOB_DEFINITION_SEEDS)
-                .allSatisfy(seed -> {
-                    assertThat(seed.source()).isNotNull();
-                    assertThat(seed.title()).isNotBlank();
-                    assertThat(seed.cronExpr()).isNotBlank();
-                    assertThat(CronExpression.isValidExpression(seed.cronExpr())).isTrue();
-                    assertThat(seed.config()).isNotNull();
-                });
-        assertThat(JobDefinitionConfig.JOB_DEFINITION_SEEDS.stream()
-                .map(seed -> seed.source() + "|" + seed.jobType() + "|" + seed.cronExpr()))
+                .allSatisfy(
+                        seed -> {
+                            assertThat(seed.source()).isNotNull();
+                            assertThat(seed.title()).isNotBlank();
+                            assertThat(seed.cronExpr()).isNotBlank();
+                            assertThat(CronExpression.isValidExpression(seed.cronExpr())).isTrue();
+                            assertThat(seed.config()).isNotNull();
+                        });
+        assertThat(
+                        JobDefinitionConfig.JOB_DEFINITION_SEEDS.stream()
+                                .map(
+                                        seed ->
+                                                seed.source()
+                                                        + "|"
+                                                        + seed.jobType()
+                                                        + "|"
+                                                        + seed.cronExpr()))
                 .doesNotHaveDuplicates();
     }
 
@@ -47,20 +56,21 @@ class JobDefinitionConfigTest {
     void schedulesConfirmedTrendAfterBothComponentStrategies() {
         List<JobDefinitionSeed> signalSeeds = seeds(JobType.SYNC_SIGNALS);
 
-        assertThat(signalSeeds).extracting(seed -> seed.config().get(
-                JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY))
+        assertThat(signalSeeds)
+                .extracting(
+                        seed -> seed.config().get(JobDefinitionConfig.CONFIG_KEY_SIGNAL_STRATEGY))
                 .containsExactly(
                         JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1,
                         JobDefinitionConfig.SIGNAL_STRATEGY_ICHIMOKU_V1,
                         JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS);
-        assertThat(signalSeeds).extracting(JobDefinitionSeed::cronExpr)
-                .containsExactly(
-                        "0 0 19 * * MON-FRI",
-                        "0 5 19 * * MON-FRI",
-                        "0 10 19 * * MON-FRI");
+        assertThat(signalSeeds)
+                .extracting(JobDefinitionSeed::cronExpr)
+                .containsExactly("0 0 19 * * MON-FRI", "0 5 19 * * MON-FRI", "0 10 19 * * MON-FRI");
         JobDefinitionSeed confirmed = signalSeeds.get(2);
         assertThat(dependencies(confirmed, JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_JOBS))
-                .containsExactly(JobType.SYNC_STOCK_PRICE.name(), JobType.SYNC_INDICATORS.name(),
+                .containsExactly(
+                        JobType.SYNC_STOCK_PRICE.name(),
+                        JobType.SYNC_INDICATORS.name(),
                         JobType.SYNC_INTRADAY_EOD.name());
         assertThat(dependencies(confirmed, JobDefinitionConfig.CONFIG_KEY_DEPENDS_ON_DATASETS))
                 .containsExactly("eod", "indicators", "intraday-trades");
@@ -73,14 +83,16 @@ class JobDefinitionConfigTest {
                 .containsOnly(JobType.SYNC_SYMBOLS, JobType.SYNC_STOCK_PRICE, JobType.SYNC_SIGNALS);
         assertThat(JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS)
                 .extracting(JobDefinitionSeed::jobType)
-                .doesNotContain(JobType.SYNC_SYMBOLS, JobType.SYNC_STOCK_PRICE, JobType.SYNC_SIGNALS);
+                .doesNotContain(
+                        JobType.SYNC_SYMBOLS, JobType.SYNC_STOCK_PRICE, JobType.SYNC_SIGNALS);
         assertThat(JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS)
                 .doesNotContainAnyElementsOf(JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS);
         assertThat(JobDefinitionConfig.JOB_DEFINITION_SEEDS)
-                .containsExactlyElementsOf(java.util.stream.Stream.concat(
-                        JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.stream(),
-                        JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.stream())
-                        .toList());
+                .containsExactlyElementsOf(
+                        java.util.stream.Stream.concat(
+                                        JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.stream(),
+                                        JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.stream())
+                                .toList());
     }
 
     @Test
@@ -88,8 +100,10 @@ class JobDefinitionConfigTest {
         assertThat(seeds(JobType.SYNC_STOCK_PRICE).stream().map(this::singleConfiguredSector))
                 .containsExactlyInAnyOrderElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES);
 
-        for (JobType type : List.of(JobType.SECTOR_TRANSITION_ANALYZE,
-                JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES)) {
+        for (JobType type :
+                List.of(
+                        JobType.SECTOR_TRANSITION_ANALYZE,
+                        JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES)) {
             JobDefinitionSeed seed = onlySeed(type);
             assertThat(configuredSectors(seed))
                     .containsExactlyElementsOf(JobDefinitionConfig.ENABLED_SECTOR_CODES);
@@ -136,16 +150,22 @@ class JobDefinitionConfigTest {
 
     @Test
     void rejectsInvalidTransitionGenerationInputs() {
-        assertThatThrownBy(() -> JobDefinitionConfig.generateSectorTransitionSeeds(
-                JobType.SYNC_SIGNALS, 20, 0, 2))
+        assertThatThrownBy(
+                        () ->
+                                JobDefinitionConfig.generateSectorTransitionSeeds(
+                                        JobType.SYNC_SIGNALS, 20, 0, 2))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unsupported Sector Transition job type");
-        assertThatThrownBy(() -> JobDefinitionConfig.generateSectorTransitionSeeds(
-                JobType.SECTOR_TRANSITION_ANALYZE, 20, 0, 0))
+        assertThatThrownBy(
+                        () ->
+                                JobDefinitionConfig.generateSectorTransitionSeeds(
+                                        JobType.SECTOR_TRANSITION_ANALYZE, 20, 0, 0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("stepMinutes");
-        assertThatThrownBy(() -> JobDefinitionConfig.generateSectorTransitionSeeds(
-                JobType.SECTOR_TRANSITION_ANALYZE, 23, 60, 2))
+        assertThatThrownBy(
+                        () ->
+                                JobDefinitionConfig.generateSectorTransitionSeeds(
+                                        JobType.SECTOR_TRANSITION_ANALYZE, 23, 60, 2))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("23:59");
     }
@@ -176,8 +196,9 @@ class JobDefinitionConfigTest {
 
     @SuppressWarnings("unchecked")
     private List<String> dependencies(JobDefinitionSeed seed, String key) {
-        Map<String, Object> dataDependencies = (Map<String, Object>) seed.config()
-                .get(JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES);
+        Map<String, Object> dataDependencies =
+                (Map<String, Object>)
+                        seed.config().get(JobDefinitionConfig.CONFIG_KEY_DATA_DEPENDENCIES);
         assertThat(dataDependencies.get(JobDefinitionConfig.CONFIG_KEY_DEPENDENCY_MODE))
                 .isEqualTo(JobDefinitionConfig.CONFIG_VALUE_DEPENDENCY_MODE_DOCUMENTATION_ONLY);
         return (List<String>) dataDependencies.get(key);

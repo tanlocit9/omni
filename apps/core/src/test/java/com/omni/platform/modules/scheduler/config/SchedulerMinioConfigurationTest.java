@@ -14,8 +14,9 @@ class SchedulerMinioConfigurationTest {
 
     @Test
     void mapsSchedulerManifestStorageToSharedMinioEnvironmentContract() throws IOException {
-        List<PropertySource<?>> sources = new YamlPropertySourceLoader()
-                .load("application", new ClassPathResource("application.yaml"));
+        List<PropertySource<?>> sources =
+                new YamlPropertySourceLoader()
+                        .load("application", new ClassPathResource("application.yaml"));
 
         assertThat(property(sources, "app.minio.endpoint"))
                 .isEqualTo("${MINIO_ENDPOINT:http://localhost:9000}");
@@ -23,8 +24,7 @@ class SchedulerMinioConfigurationTest {
                 .isEqualTo("${MINIO_ACCESS_KEY:minioadmin}");
         assertThat(property(sources, "app.minio.secret-key"))
                 .isEqualTo("${MINIO_SECRET_KEY:minioadmin}");
-        assertThat(property(sources, "app.minio.bucket"))
-                .isEqualTo("${MINIO_BUCKET:stock-data}");
+        assertThat(property(sources, "app.minio.bucket")).isEqualTo("${MINIO_BUCKET:stock-data}");
     }
 
     private Object property(List<PropertySource<?>> sources, String name) {

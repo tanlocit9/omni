@@ -96,7 +96,9 @@ class FakeParquetStorage:
 
     async def read_bound_dataframe(self, dataset, manifest, approved_version):
         if manifest.dataVersion != approved_version:
-            raise ManifestInvalidError("Current metadata differs from approved input version")
+            raise ManifestInvalidError(
+                "Current metadata differs from approved input version"
+            )
         return await self.read_dataframe(manifest.path)
 
     async def write_dataframe(self, path: str, frame: pd.DataFrame) -> None:
@@ -173,17 +175,30 @@ async def test_signal_repository_snapshots_use_the_full_logical_partition(enable
     repository = SignalHistoryRepository(storage, snapshots_enabled=enabled)
     path = "signals/trend_momentum_v1/1d/hose.parquet"
     result = calculate_trend_momentum_v1(_eod_frame(), _indicator_frame())
-    await repository.persist_transition(path, path, "HOSE-HPG", "1d", result, exchange="HOSE")
-    assert storage.seen == (OutputSnapshotIdentity(
-        "signals", {"strategy": "trend_momentum_v1", "timeframe": "1d", "exchange": "hose"}
-    ) if enabled else None)
+    await repository.persist_transition(
+        path, path, "HOSE-HPG", "1d", result, exchange="HOSE"
+    )
+    assert storage.seen == (
+        OutputSnapshotIdentity(
+            "signals",
+            {"strategy": "trend_momentum_v1", "timeframe": "1d", "exchange": "hose"},
+        )
+        if enabled
+        else None
+    )
 
 
 @pytest.mark.anyio
 async def test_signal_snapshot_rejects_mixed_partitions_before_storage_mutation():
     storage = FakeParquetStorage()
     repository = SignalHistoryRepository(storage, snapshots_enabled=True)
-    mixed = pd.DataFrame({"strategy": ["a", "b"], "timeframe": ["1d", "1d"], "exchange": ["HOSE", "HOSE"]})
+    mixed = pd.DataFrame(
+        {
+            "strategy": ["a", "b"],
+            "timeframe": ["1d", "1d"],
+            "exchange": ["HOSE", "HOSE"],
+        }
+    )
     with pytest.raises(ValueError, match="one complete logical partition"):
         await repository._replace_history("signals/a/1d/hose.parquet", mixed)
     assert not storage.replacements
@@ -257,8 +272,15 @@ async def test_atomic_signal_with_stale_ready_eod_reports_error_without_outputs(
         atomicWorkId=atomic_work_id(
             "SYNC_SIGNALS", "SYMBOL", "UPCOM-CLI", day, parameters
         ),
-        metadata={"approvedInputs": [{"dataset": "eod", "partition": {"exchange": "upcom", "code": "cli"},
-                                      "dataVersion": "sha256:" + "a" * 64}]},
+        metadata={
+            "approvedInputs": [
+                {
+                    "dataset": "eod",
+                    "partition": {"exchange": "upcom", "code": "cli"},
+                    "dataVersion": "sha256:" + "a" * 64,
+                }
+            ]
+        },
     )
     storage = FakeParquetStorage(
         {
@@ -1763,41 +1785,82 @@ async def test_signal_kafka_service_publishes_error_status_for_valid_execution_i
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("case", ["work", "postgres", "no-reader", "missing-partition", "manifest-mismatch"])
+@pytest.mark.parametrize(
+    "case", ["work", "postgres", "no-reader", "missing-partition", "manifest-mismatch"]
+)
 async def test_outcome_loader_uses_frozen_work_readiness_and_cutoff(case):
     from py_common.storage.output_readiness import PostgresMetadataReader
-    day=date(2026,11,2)
-    settings=FakeSettings()
-    settings.output_readiness_mode="manifest" if case in {"work","manifest-mismatch"} else "postgres"
-    storage=AsyncMock()
-    frame=pd.DataFrame({"date":[date(2026,10,30),day,date(2026,11,3)],"ad_close":[1,2,999]})
-    storage.read_bound_dataframe.return_value=frame
-    parameters={"source":"ANALYZER","timeframe":"1d","strategy":"TREND_MOMENTUM_V1"}
-    payload={"jobDefinitionId":"definition","executionId":"execution","source":"ANALYZER",
-        "jobType":"EVALUATE_SIGNALS","workType":"EXCHANGE","workKey":"HOSE","exchange":"HOSE",
-        "timeframe":"1d","strategy":"TREND_MOMENTUM_V1","businessDate":day.isoformat(),"parameters":parameters,
-        "atomicWorkId":atomic_work_id("EVALUATE_SIGNALS","EXCHANGE","HOSE",day,parameters)}
-    proof=SimpleNamespace(path="canonical-eod",status="READY",dataVersion="sha256:"+"a"*64)
-    document=SimpleNamespace(resolve=lambda *args:None if case=="missing-partition" else proof)
-    reader=None if case=="no-reader" else SimpleNamespace(read=AsyncMock(return_value=document))
-    if case=="work":
-        payload["metadata"]={"outputCompletion":{},"approvedInputs":[]}
-        reader=PostgresMetadataReader("http://platform/api/v1/jobs/output-readiness","test")
-        reader.read=AsyncMock(side_effect=AssertionError("Latest partition must not be used"))
-        reader.read_for=AsyncMock(return_value=document)
-    if case=="manifest-mismatch":
-        payload["metadata"]={"outputCompletion":{}}
-    evaluator=SignalOutcomeEvaluator(settings,storage,reader)
-    async def evaluate_history(path,loader):
-        selected=await loader("HOSE-HPG")
-        assert selected["ad_close"].tolist()==[1,2]
-        return SignalOutcomeEvaluation(1,0,{})
-    evaluator._history_repository.update_outcomes=AsyncMock(side_effect=evaluate_history)
-    if case in {"no-reader","missing-partition","manifest-mismatch"}:
-        with pytest.raises((ValueError,ManifestInvalidError)):
+
+    day = date(2026, 11, 2)
+    settings = FakeSettings()
+    settings.output_readiness_mode = (
+        "manifest" if case in {"work", "manifest-mismatch"} else "postgres"
+    )
+    storage = AsyncMock()
+    frame = pd.DataFrame(
+        {"date": [date(2026, 10, 30), day, date(2026, 11, 3)], "ad_close": [1, 2, 999]}
+    )
+    storage.read_bound_dataframe.return_value = frame
+    parameters = {
+        "source": "ANALYZER",
+        "timeframe": "1d",
+        "strategy": "TREND_MOMENTUM_V1",
+    }
+    payload = {
+        "jobDefinitionId": "definition",
+        "executionId": "execution",
+        "source": "ANALYZER",
+        "jobType": "EVALUATE_SIGNALS",
+        "workType": "EXCHANGE",
+        "workKey": "HOSE",
+        "exchange": "HOSE",
+        "timeframe": "1d",
+        "strategy": "TREND_MOMENTUM_V1",
+        "businessDate": day.isoformat(),
+        "parameters": parameters,
+        "atomicWorkId": atomic_work_id(
+            "EVALUATE_SIGNALS", "EXCHANGE", "HOSE", day, parameters
+        ),
+    }
+    proof = SimpleNamespace(
+        path="canonical-eod", status="READY", dataVersion="sha256:" + "a" * 64
+    )
+    document = SimpleNamespace(
+        resolve=lambda *args: None if case == "missing-partition" else proof
+    )
+    reader = (
+        None
+        if case == "no-reader"
+        else SimpleNamespace(read=AsyncMock(return_value=document))
+    )
+    if case == "work":
+        payload["metadata"] = {"outputCompletion": {}, "approvedInputs": []}
+        reader = PostgresMetadataReader(
+            "http://platform/api/v1/jobs/output-readiness", "test"
+        )
+        reader.read = AsyncMock(
+            side_effect=AssertionError("Latest partition must not be used")
+        )
+        reader.read_for = AsyncMock(return_value=document)
+    if case == "manifest-mismatch":
+        payload["metadata"] = {"outputCompletion": {}}
+    evaluator = SignalOutcomeEvaluator(settings, storage, reader)
+
+    async def evaluate_history(path, loader):
+        selected = await loader("HOSE-HPG")
+        assert selected["ad_close"].tolist() == [1, 2]
+        return SignalOutcomeEvaluation(1, 0, {})
+
+    evaluator._history_repository.update_outcomes = AsyncMock(
+        side_effect=evaluate_history
+    )
+    if case in {"no-reader", "missing-partition", "manifest-mismatch"}:
+        with pytest.raises((ValueError, ManifestInvalidError)):
             await evaluator.evaluate(payload)
         storage.read_bound_dataframe.assert_not_awaited()
     else:
         await evaluator.evaluate(payload)
-        storage.read_bound_dataframe.assert_awaited_once_with("eod",proof,proof.dataVersion)
+        storage.read_bound_dataframe.assert_awaited_once_with(
+            "eod", proof, proof.dataVersion
+        )
         storage.read_dataframe.assert_not_awaited()

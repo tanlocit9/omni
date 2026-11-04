@@ -1,5 +1,11 @@
 # Job Execution Flow
 
+For the current scheduler-to-Console path, ticket/status mapping and detailed
+publication sequence, read [P14 end-to-end flow](007-p14-end-to-end.md).
+That companion covers the November 4 model-aware scopes, registration preflight,
+catalog bounds and deferred writer review; older dated sections below remain
+historical context.
+
 ## Current graph and I10 flow
 
 This is the implemented opt-in graph/I10 path, not evidence that production flags
@@ -35,11 +41,13 @@ flowchart TD
    I4 checks predecessor completion, leases/budget and dependency admission. I10.b
    additionally requires the frozen upstream identity/attempt/version, not merely
    a READY file partition. Missing proof defers pending dispatch without rebinding.
-3. Workers validate approved input rows/schema/date/version before calculation and
-   validate writes before publishing registration. Broker ACK is transport evidence;
+3. Workers validate approved input rows/schema/date/version before calculation,
+   preflight registration scope/identity/input/wire limits before replacing canonical
+   bytes, then validate read-back before publishing registration. Broker ACK is transport evidence;
    it is not Platform commit or READY. Write/ACK/validation failure follows ERROR
    and does not grant new READY; prior validated evidence is not silently replaced.
-   Scope is date for EOD/indicators and symbol_key + signal_date for signals;
+   Scope is date for EOD/indicators and symbol_key + signal_date + non-null
+   model_version for signals (omitted version matches only legacy/null-version rows);
    outcome evaluation registers only changed rows with their original dates.
 4. Registration and SUCCESS use separate Kafka streams and may reach Platform in
    either order. Durable correlation, immutable identities and generation/timeout

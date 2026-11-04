@@ -124,11 +124,21 @@ async def test_normalizes_legacy_parquet_date_types_for_duckdb(tmp_path: Path) -
 @pytest.mark.asyncio
 async def test_executes_validated_data_without_rereading_replaced_parquet(tmp_path):
     import pandas as pd
-    path=tmp_path/"mutable.parquet"
-    pq.write_table(pa.table({"code":["HPG"],"close":[999.0]}),path)
-    checked=pd.DataFrame({"code":["HPG"],"close":[10.0]})
-    dataset=ResolvedDataset("eod",_manifest("mutable.parquet",100),[str(path)],frame=checked)
-    settings=QueryServiceSettings(query_storage_scheme="file",query_local_data_root=str(tmp_path))
-    result=await DuckDBExecutor(settings).execute("validated-work",validate_read_only_sql("SELECT close FROM eod",{"eod"}),
-        [dataset],{},row_limit=10)
-    assert result.rows==[{"close":10.0}]
+
+    path = tmp_path / "mutable.parquet"
+    pq.write_table(pa.table({"code": ["HPG"], "close": [999.0]}), path)
+    checked = pd.DataFrame({"code": ["HPG"], "close": [10.0]})
+    dataset = ResolvedDataset(
+        "eod", _manifest("mutable.parquet", 100), [str(path)], frame=checked
+    )
+    settings = QueryServiceSettings(
+        query_storage_scheme="file", query_local_data_root=str(tmp_path)
+    )
+    result = await DuckDBExecutor(settings).execute(
+        "validated-work",
+        validate_read_only_sql("SELECT close FROM eod", {"eod"}),
+        [dataset],
+        {},
+        row_limit=10,
+    )
+    assert result.rows == [{"close": 10.0}]

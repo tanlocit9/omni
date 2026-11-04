@@ -10,9 +10,15 @@ import com.omni.platform.modules.storages.dtos.FileUploadResult;
 import com.omni.platform.shared.enums.StorageProvider;
 
 public interface FileUseCase {
-    List<FileUploadResult> uploadBulk(StorageProvider provider, String bucket, MultipartFile[] files);
+    List<FileUploadResult> uploadBulk(
+            StorageProvider provider, String bucket, MultipartFile[] files);
 
-    void downloadBulkAsZip(StorageProvider provider, String bucket, List<String> fileNames, OutputStream outputStream);
+    void downloadBulkAsZip(
+            StorageProvider provider,
+            String bucket,
+            List<String> fileNames,
+            OutputStream outputStream);
 
-    List<FileDeleteResult> deleteBulk(StorageProvider provider, String bucket, List<String> fileNames);
+    List<FileDeleteResult> deleteBulk(
+            StorageProvider provider, String bucket, List<String> fileNames);
 }

@@ -22,19 +22,24 @@ class JobNotificationPolicyRegistryTest {
 
     @Test
     void resolvesCustomPolicyByJobType() {
-        DefaultJobNotificationPolicy defaultPolicy = new DefaultJobNotificationPolicy(new JobNotificationTemplate());
+        DefaultJobNotificationPolicy defaultPolicy =
+                new DefaultJobNotificationPolicy(new JobNotificationTemplate());
         TestPolicy customPolicy = new TestPolicy(JobType.SECTOR_TRANSITION_ANALYZE, "custom-event");
-        JobNotificationPolicyRegistry registry = new JobNotificationPolicyRegistry(List.of(customPolicy), defaultPolicy);
+        JobNotificationPolicyRegistry registry =
+                new JobNotificationPolicyRegistry(List.of(customPolicy), defaultPolicy);
 
-        Optional<Object> event = registry.buildNotification(context(JobType.SECTOR_TRANSITION_ANALYZE));
+        Optional<Object> event =
+                registry.buildNotification(context(JobType.SECTOR_TRANSITION_ANALYZE));
 
         assertThat(event).contains("custom-event");
     }
 
     @Test
     void fallsBackToDefaultPolicyWhenNoCustomPolicyExists() {
-        DefaultJobNotificationPolicy defaultPolicy = new DefaultJobNotificationPolicy(new JobNotificationTemplate());
-        JobNotificationPolicyRegistry registry = new JobNotificationPolicyRegistry(List.of(), defaultPolicy);
+        DefaultJobNotificationPolicy defaultPolicy =
+                new DefaultJobNotificationPolicy(new JobNotificationTemplate());
+        JobNotificationPolicyRegistry registry =
+                new JobNotificationPolicyRegistry(List.of(), defaultPolicy);
 
         Optional<Object> event = registry.buildNotification(context(JobType.SYNC_STOCK_PRICE));
 
@@ -44,19 +49,26 @@ class JobNotificationPolicyRegistryTest {
 
     @Test
     void rejectsDuplicatePolicyRegistration() {
-        DefaultJobNotificationPolicy defaultPolicy = new DefaultJobNotificationPolicy(new JobNotificationTemplate());
+        DefaultJobNotificationPolicy defaultPolicy =
+                new DefaultJobNotificationPolicy(new JobNotificationTemplate());
         TestPolicy first = new TestPolicy(JobType.SYNC_SIGNALS, "first");
         TestPolicy second = new TestPolicy(JobType.SYNC_SIGNALS, "second");
 
-        assertThatThrownBy(() -> new JobNotificationPolicyRegistry(List.of(first, second), defaultPolicy))
+        assertThatThrownBy(
+                        () ->
+                                new JobNotificationPolicyRegistry(
+                                        List.of(first, second), defaultPolicy))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Duplicate JobNotificationPolicy registration for jobType SYNC_SIGNALS");
+                .hasMessageContaining(
+                        "Duplicate JobNotificationPolicy registration for jobType SYNC_SIGNALS");
     }
 
     @Test
     void defaultPolicyBeanIsIgnoredAsRegisteredCustomPolicy() {
-        DefaultJobNotificationPolicy defaultPolicy = new DefaultJobNotificationPolicy(new JobNotificationTemplate());
-        JobNotificationPolicyRegistry registry = new JobNotificationPolicyRegistry(List.of(defaultPolicy), defaultPolicy);
+        DefaultJobNotificationPolicy defaultPolicy =
+                new DefaultJobNotificationPolicy(new JobNotificationTemplate());
+        JobNotificationPolicyRegistry registry =
+                new JobNotificationPolicyRegistry(List.of(defaultPolicy), defaultPolicy);
 
         Optional<Object> event = registry.buildNotification(context(JobType.SYNC_SYMBOLS));
 

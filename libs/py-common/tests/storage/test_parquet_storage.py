@@ -29,7 +29,11 @@ from py_common.storage.exceptions import (
     StorageObjectNotFoundError,
     StorageWriteError,
 )
-from py_common.storage.manifest import calculate_data_version, calculate_schema_hash, extract_schema_from_dataframe
+from py_common.storage.manifest import (
+    calculate_data_version,
+    calculate_schema_hash,
+    extract_schema_from_dataframe,
+)
 from py_common.storage.parquet import ParquetCodec, ParquetStorage
 from py_common.storage.ports import (
     CopyableStorage,

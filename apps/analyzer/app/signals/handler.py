@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from py_common.storage.output_readiness import read_input_document
-
 import logging
-from datetime import date
 from dataclasses import replace
+from datetime import date
 from typing import Any
 
 import pandas as pd
@@ -15,6 +13,7 @@ from py_common.storage.exceptions import (
     StorageObjectNotFoundError,
 )
 from py_common.storage.global_metadata import GlobalMetadataReader
+from py_common.storage.output_readiness import read_input_document
 from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
@@ -56,7 +55,9 @@ class SignalJobHandler:
         self._metadata_reader = metadata_reader
         self._intraday_resolver = intraday_resolver
         self._signal_repository = SignalHistoryRepository(
-            parquet_storage, snapshots_enabled=getattr(settings, "output_snapshots_enabled", False) is True
+            parquet_storage,
+            snapshots_enabled=getattr(settings, "output_snapshots_enabled", False)
+            is True,
         )
 
     async def handle(self, payload: dict[str, Any]) -> SignalTransition:
@@ -132,7 +133,9 @@ class SignalJobHandler:
             )
         except StorageObjectNotFoundError as exc:
             if message.atomic_work_id is not None:
-                raise ManifestInvalidError("Approved signal indicator input is missing") from exc
+                raise ManifestInvalidError(
+                    "Approved signal indicator input is missing"
+                ) from exc
             _logger.warning(
                 "Skipping signal calculation because prerequisite indicator object "
                 "is missing symbolKey=%s timeframe=%s strategy=%s bucket=%s "
@@ -186,17 +189,24 @@ class SignalJobHandler:
 
     async def _read_input(self, message, dataset, partition, manifest):
         approved = approved_manifest_version(
-            message.metadata, dataset, partition, manifest,
-            required=message.atomic_work_id is not None or "approvedInputs" in message.metadata,
+            message.metadata,
+            dataset,
+            partition,
+            manifest,
+            required=message.atomic_work_id is not None
+            or "approvedInputs" in message.metadata,
         )
         try:
             if approved is None:
                 return await self._parquet_storage.read_dataframe(manifest.path)
-            return await self._parquet_storage.read_bound_dataframe(dataset, manifest, approved)
+            return await self._parquet_storage.read_bound_dataframe(
+                dataset, manifest, approved
+            )
         except ManifestInvalidError as exc:
             raise ManifestInvalidError(
                 f"Signal input rejected dataset={dataset} symbol={message.symbol_key} "
-                f"businessDate={message.business_date} approvedVersion={approved}: {exc}"
+                f"businessDate={message.business_date} "
+                f"approvedVersion={approved}: {exc}"
             ) from exc
 
     async def _handle_confirmed_trend_equals(
@@ -222,14 +232,28 @@ class SignalJobHandler:
             )
             component_options = {}
             if message is not None and message.atomic_work_id is not None:
-                partition = {"strategy": strategy.lower(), "timeframe": timeframe.lower(), "exchange": exchange.lower()}
+                partition = {
+                    "strategy": strategy.lower(),
+                    "timeframe": timeframe.lower(),
+                    "exchange": exchange.lower(),
+                }
                 manifest = document.resolve("signals", partition)
                 if manifest is None or manifest.status != "READY":
-                    raise ManifestInvalidError("Signal component input must have READY metadata")
+                    raise ManifestInvalidError(
+                        "Signal component input must have READY metadata"
+                    )
                 frame = await self._read_input(message, "signals", partition, manifest)
-                component_versions.append({"dataset": "signals", "partition": partition, "dataVersion": manifest.dataVersion})
+                component_versions.append(
+                    {
+                        "dataset": "signals",
+                        "partition": partition,
+                        "dataVersion": manifest.dataVersion,
+                    }
+                )
                 frame = frame.loc[frame["symbol_key"].astype(str) == symbol_key]
-                frame = cutoff_frame(frame, business_date, column="signal_date", require_day=True)
+                frame = cutoff_frame(
+                    frame, business_date, column="signal_date", require_day=True
+                )
                 component_options["history_frame"] = frame
             result = await self._signal_repository.latest_result(
                 component_path,
@@ -262,8 +286,13 @@ class SignalJobHandler:
             expected_signal_date=expected_signal_date,
         )
         if component_versions:
-            daily_candidate = replace(daily_candidate, input_versions={
-                **(daily_candidate.input_versions or {}), "registeredComponents": component_versions})
+            daily_candidate = replace(
+                daily_candidate,
+                input_versions={
+                    **(daily_candidate.input_versions or {}),
+                    "registeredComponents": component_versions,
+                },
+            )
         if self._intraday_resolver is None:
             return await self._signal_repository.persist_transition(
                 history_path,
@@ -284,7 +313,13 @@ class SignalJobHandler:
             intraday_result,
         )
         if component_versions:
-            result = replace(result, input_versions={**(result.input_versions or {}), "registeredComponents": component_versions})
+            result = replace(
+                result,
+                input_versions={
+                    **(result.input_versions or {}),
+                    "registeredComponents": component_versions,
+                },
+            )
         _logger.info(
             "Calculated confirmed signal symbolKey=%s modelVersion=%s "
             "dailySignal=%s intradayResult=%s finalSignal=%s score=%s "

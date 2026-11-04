@@ -10,9 +10,7 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 
 /** Raw immutable declaration validated before a static topology is exposed. */
 public record StaticTopologyDeclaration(
-        List<TopologyNodeKey> nodes,
-        List<Edge> edges,
-        List<DefinitionMapping> definitionMappings) {
+        List<TopologyNodeKey> nodes, List<Edge> edges, List<DefinitionMapping> definitionMappings) {
 
     /** Expansion edges use effective strategy; persisted V1 paths keep their old bindings. */
     public static List<JobType> upstreamTypes(JobType type, Map<String, Object> parameters) {
@@ -21,14 +19,22 @@ public record StaticTopologyDeclaration(
             case SYNC_STOCK_PRICE -> List.of(JobType.SYNC_SYMBOLS);
             case SYNC_INDICATORS -> List.of(JobType.SYNC_STOCK_PRICE);
             case SYNC_SIGNALS -> {
-                String strategy = String.valueOf(parameters.getOrDefault("strategy",
-                        JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1));
+                String strategy =
+                        String.valueOf(
+                                parameters.getOrDefault(
+                                        "strategy",
+                                        JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1));
                 if (JobDefinitionConfig.SIGNAL_STRATEGY_CONFIRMED_TREND_EQUALS.equals(strategy))
-                    yield List.of(JobType.SYNC_STOCK_PRICE, JobType.SYNC_INDICATORS,
+                    yield List.of(
+                            JobType.SYNC_STOCK_PRICE,
+                            JobType.SYNC_INDICATORS,
                             JobType.SYNC_INTRADAY_EOD);
-                if (!List.of(JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1,
-                        JobDefinitionConfig.SIGNAL_STRATEGY_ICHIMOKU_V1).contains(strategy))
-                    throw new IllegalArgumentException("Unsupported graph signal strategy: " + strategy);
+                if (!List.of(
+                                JobDefinitionConfig.SIGNAL_STRATEGY_TREND_MOMENTUM_V1,
+                                JobDefinitionConfig.SIGNAL_STRATEGY_ICHIMOKU_V1)
+                        .contains(strategy))
+                    throw new IllegalArgumentException(
+                            "Unsupported graph signal strategy: " + strategy);
                 yield List.of(JobType.SYNC_STOCK_PRICE, JobType.SYNC_INDICATORS);
             }
             case EVALUATE_SIGNALS -> List.of(JobType.SYNC_STOCK_PRICE, JobType.SYNC_SIGNALS);
@@ -43,18 +49,24 @@ public record StaticTopologyDeclaration(
     }
 
     /** Shared strategy-qualified edge rule for graph composition and scheduled-entry selection. */
-    public static boolean matchesUpstream(JobType dependent, Map<String, Object> parameters,
-            JobType upstream, Map<String, Object> upstreamConfig) {
+    public static boolean matchesUpstream(
+            JobType dependent,
+            Map<String, Object> parameters,
+            JobType upstream,
+            Map<String, Object> upstreamConfig) {
         if (!upstreamTypes(dependent, parameters).contains(upstream)) return false;
-        return dependent != JobType.EVALUATE_SIGNALS || upstream != JobType.SYNC_SIGNALS
-                || JobConfigMapper.toSignalsConfig(upstreamConfig).strategy()
+        return dependent != JobType.EVALUATE_SIGNALS
+                || upstream != JobType.SYNC_SIGNALS
+                || JobConfigMapper.toSignalsConfig(upstreamConfig)
+                        .strategy()
                         .equals(JobConfigMapper.toSignalsConfig(parameters).strategy());
     }
 
     public StaticTopologyDeclaration {
         nodes = List.copyOf(Objects.requireNonNull(nodes, "nodes"));
         edges = List.copyOf(Objects.requireNonNull(edges, "edges"));
-        definitionMappings = List.copyOf(Objects.requireNonNull(definitionMappings, "definitionMappings"));
+        definitionMappings =
+                List.copyOf(Objects.requireNonNull(definitionMappings, "definitionMappings"));
     }
 
     public record Edge(TopologyNodeKey upstream, TopologyNodeKey downstream) {

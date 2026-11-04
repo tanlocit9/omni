@@ -6,7 +6,6 @@ row-based versions preserve unrelated days/symbols; new enrollment does not requ
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
 
-
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
@@ -117,7 +116,7 @@ This table makes the roadmap hierarchy visible in one place. Status values are c
 | Deferred owner-gated                    | P11 — Cross-service observability                 | [Plan 024](../024-polyglot-correlation-structured-logging.md)                                      | `pending`: P11-I1, P11-I2, P11-I3, P11-I4, P11-I5                                  | Deferred under TD-011; not autonomously selectable.                                                                                                                                                          |
 | Deferred owner-gated                    | P12 — Worker throughput and writer batching       | [Plan 027](../027-concurrent-workers-and-writer-batching.md)                                       | `pending`: P12-I1, P12-I2, P12-I3, P12-I4                                          | Requires owner reactivation and the P13-I1 measurement gate.                                                                                                                                                 |
 | Milestone 1 — Operator trust            | P13 — Operator Trust Console                      | [Plan 029](../029-operator-trust-console.md)                                                       | `pending`: P13-I1, P13-I2, P13-I3, P13-I4                                          | Basic operations/shell remain active; P13-I3 retains its owner-decision gate.                                                                                                                                |
-| Milestone 1 — Scheduler topology        | P14 — Static Graph & DispatchPlanner              | [Plan 030](../030-static-graph-dispatch-planner.md)                                                | `completed`: P14-I1–I5/I7/I8/I9; I6 superseded; `in_progress`: P14-I10                 | I2 static contract; I3 JobRun preparation; I4 guarded admission; I5 diagnostics/read-model handoff; I7 legacy cleanup; I8 expansion; I9 graph/shared-work/consolidation; I10 metadata registration/watchdog. |
+| Milestone 1 — Scheduler topology        | P14 — Static Graph & DispatchPlanner              | [Plan 030](../030-static-graph-dispatch-planner.md)                                                | `completed`: P14-I1–I5/I7/I8/I9; I6 superseded; `in_progress`: P14-I10             | I2 static contract; I3 JobRun preparation; I4 guarded admission; I5 diagnostics/read-model handoff; I7 legacy cleanup; I8 expansion; I9 graph/shared-work/consolidation; I10 metadata registration/watchdog. |
 
 Rules for reading the catalog:
 

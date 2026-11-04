@@ -28,10 +28,12 @@ public interface JobDefinitionRepository
 
     Optional<JobDefinition> findBySourceAndJobTypeAndCronExpr(
             JobDefinition.DataSource source, JobDefinition.JobType jobType, String cronExpr);
-    @Query(value = "SELECT EXISTS(SELECT 1 FROM job_definition_consolidations c "
-            + "WHERE c.state='APPLIED' AND (c.retained_definition_id=:id "
-            + "OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.inventory_json) v WHERE v->>'id'=CAST(:id AS text))))",
+
+    @Query(
+            value =
+                    "SELECT EXISTS(SELECT 1 FROM job_definition_consolidations c "
+                            + "WHERE c.state='APPLIED' AND (c.retained_definition_id=:id "
+                            + "OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.inventory_json) v WHERE v->>'id'=CAST(:id AS text))))",
             nativeQuery = true)
     boolean isConsolidatedPreset(@Param("id") java.util.UUID id);
-
 }

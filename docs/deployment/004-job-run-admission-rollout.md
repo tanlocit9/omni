@@ -6,7 +6,6 @@ row-based versions preserve unrelated days/symbols; new enrollment does not requ
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
 
-
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
@@ -15,6 +14,13 @@ are documented in the [current identity handoff](../reference/007-p14-i10-work-i
 old source/checkpoint statements below are historical for this revised scope.
 
 ## I10 paired private-reader deployment
+
+The 2026-11-04 signal-scope correction also requires paired Java/Python adapters:
+model_version distinguishes versioned rows, while omission matches only legacy
+null-version rows. Old two-coordinate proofs cannot certify versioned rows under
+the corrected reader. Drain old commands and obtain fresh registration through
+legitimate attempts as needed; do not patch immutable evidence. See the
+[current handoff and writer checklist](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
 
 Deploy the byte-bounded Platform readiness provider together with the py-common
 cursor-aware reader used by Analyzer, Ingestor and Query Service before enabling

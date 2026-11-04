@@ -60,15 +60,29 @@ class DatasetResolver:
             frame = None
             if getattr(manifest, "canonicalPath", None) is not None:
                 if self._settings.query_storage_scheme != "s3":
-                    raise ValueError("PostgreSQL snapshot authority requires the S3 reader; local-file cutover is not supported")
+                    raise ValueError(
+                        "PostgreSQL snapshot authority requires the S3 reader; "
+                        "local-file cutover is not supported"
+                    )
                 if self._parquet_storage is None:
                     raise ValueError("Snapshot validation is unavailable")
-                frame = await self._parquet_storage.read_bound_dataframe(ref.dataset, manifest, manifest.dataVersion)
+                frame = await self._parquet_storage.read_bound_dataframe(
+                    ref.dataset, manifest, manifest.dataVersion
+                )
                 if manifest.workScope or manifest.workProofs:
                     from py_common.storage.work_rows import select_rows
-                    scopes = [p["workScope"] for p in manifest.workProofs] or [manifest.workScope]
-                    keys = {tuple(sorted(k.items())) for scope in scopes for k in scope["rowKeys"]}
-                    frame = select_rows(ref.dataset, frame, {"rowKeys": [dict(k) for k in sorted(keys)]})
+
+                    scopes = [p["workScope"] for p in manifest.workProofs] or [
+                        manifest.workScope
+                    ]
+                    keys = {
+                        tuple(sorted(k.items()))
+                        for scope in scopes
+                        for k in scope["rowKeys"]
+                    }
+                    frame = select_rows(
+                        ref.dataset, frame, {"rowKeys": [dict(k) for k in sorted(keys)]}
+                    )
             resolved.append(
                 ResolvedDataset(
                     view_name=ref.view_name,
@@ -194,8 +208,16 @@ def build_metadata_services(
     settings: QueryServiceSettings,
 ) -> tuple[DatasetResolver, DatasetCatalogService]:
     from py_common.storage.output_readiness import metadata_reader
-    reader = metadata_reader(settings, registry.get_port(StorageProvider.MINIO, ReadableStorage))
+
+    reader = metadata_reader(
+        settings, registry.get_port(StorageProvider.MINIO, ReadableStorage)
+    )
     from py_common.storage.parquet import ParquetStorage
-    parquet = ParquetStorage(registry, StorageProvider.MINIO, settings.minio.bucket,
-                             snapshot_paths=settings.stock_data_paths)
+
+    parquet = ParquetStorage(
+        registry,
+        StorageProvider.MINIO,
+        settings.minio.bucket,
+        snapshot_paths=settings.stock_data_paths,
+    )
     return DatasetResolver(reader, settings, parquet), DatasetCatalogService(reader)

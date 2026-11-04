@@ -1,11 +1,19 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+The [current end-to-end flow](../flows/007-p14-end-to-end.md) maps scheduler,
+preparation, worker publication, Platform READY and Query/Console to the existing
+P14 tickets, including Mermaid and deferred writer review boundaries.
+
+I10 review correction (2026-11-04): signal scope retains model_version, workers
+preflight bounded registration before canonical replacement, and catalog bounds
+cover all work proofs. See [source, regressions and writer TODOs](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+P14-I10 remains in_progress; this fix does not activate P12 or waive cutover gates.
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
 whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
 freshness. See the current identity handoff for compatibility and cutover gates.
-
 
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and

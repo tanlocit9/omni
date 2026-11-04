@@ -38,13 +38,22 @@ class JobDefinitionSeederTest {
         persistedJobs = new HashMap<>();
 
         when(repository.findBySourceAndJobTypeAndCronExpr(any(), any(), any()))
-                .thenAnswer(invocation -> Optional.ofNullable(persistedJobs.get(key(
-                        invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)))));
-        when(repository.save(any(JobDefinition.class))).thenAnswer(invocation -> {
-            JobDefinition job = invocation.getArgument(0);
-            persistedJobs.put(key(job.getSource(), job.getJobType(), job.getCronExpr()), job);
-            return job;
-        });
+                .thenAnswer(
+                        invocation ->
+                                Optional.ofNullable(
+                                        persistedJobs.get(
+                                                key(
+                                                        invocation.getArgument(0),
+                                                        invocation.getArgument(1),
+                                                        invocation.getArgument(2)))));
+        when(repository.save(any(JobDefinition.class)))
+                .thenAnswer(
+                        invocation -> {
+                            JobDefinition job = invocation.getArgument(0);
+                            persistedJobs.put(
+                                    key(job.getSource(), job.getJobType(), job.getCronExpr()), job);
+                            return job;
+                        });
     }
 
     @Test
@@ -54,31 +63,43 @@ class JobDefinitionSeederTest {
         seeder.run();
 
         Instant after = Instant.now();
-        JobDefinitionSeed firstBootstrap = JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.getFirst();
-        JobDefinitionSeed firstDeferred = JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.getFirst();
+        JobDefinitionSeed firstBootstrap =
+                JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.getFirst();
+        JobDefinitionSeed firstDeferred =
+                JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.getFirst();
         InOrder ordered = inOrder(repository);
-        ordered.verify(repository).findBySourceAndJobTypeAndCronExpr(
-                firstBootstrap.source(), firstBootstrap.jobType(), firstBootstrap.cronExpr());
+        ordered.verify(repository)
+                .findBySourceAndJobTypeAndCronExpr(
+                        firstBootstrap.source(),
+                        firstBootstrap.jobType(),
+                        firstBootstrap.cronExpr());
         ordered.verify(repository).save(any(JobDefinition.class));
         for (int i = 1; i < JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.size(); i++) {
             ordered.verify(repository).findBySourceAndJobTypeAndCronExpr(any(), any(), any());
             ordered.verify(repository).save(any(JobDefinition.class));
         }
-        ordered.verify(repository).findBySourceAndJobTypeAndCronExpr(
-                firstDeferred.source(), firstDeferred.jobType(), firstDeferred.cronExpr());
+        ordered.verify(repository)
+                .findBySourceAndJobTypeAndCronExpr(
+                        firstDeferred.source(), firstDeferred.jobType(), firstDeferred.cronExpr());
 
         assertThat(JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS)
-                .allSatisfy(seed -> assertThat(job(seed).getNextRun())
-                        .isBetween(before.plus(Duration.ofDays(1)), after.plus(Duration.ofDays(1))));
+                .allSatisfy(
+                        seed ->
+                                assertThat(job(seed).getNextRun())
+                                        .isBetween(
+                                                before.plus(Duration.ofDays(1)),
+                                                after.plus(Duration.ofDays(1))));
     }
 
     @Test
     void preservesExistingDeferredNextRunWhenBootstrapIsRequired() throws Exception {
-        JobDefinitionSeed deferredSeed = JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.getFirst();
+        JobDefinitionSeed deferredSeed =
+                JobDefinitionConfig.DEFERRED_JOB_DEFINITION_SEEDS.getFirst();
         JobDefinition existing = deferredSeed.toEntity();
         Instant scheduled = Instant.parse("2030-01-02T03:04:05Z");
         existing.setNextRun(scheduled);
-        persistedJobs.put(key(existing.getSource(), existing.getJobType(), existing.getCronExpr()), existing);
+        persistedJobs.put(
+                key(existing.getSource(), existing.getJobType(), existing.getCronExpr()), existing);
 
         seeder.run();
 
@@ -95,7 +116,8 @@ class JobDefinitionSeederTest {
         existing.setNextRun(scheduled);
         existing.setIsActive(false);
         existing.setFallbackSources(java.util.List.of(JobDefinition.DataSource.TCBS));
-        persistedJobs.put(key(existing.getSource(), existing.getJobType(), existing.getCronExpr()), existing);
+        persistedJobs.put(
+                key(existing.getSource(), existing.getJobType(), existing.getCronExpr()), existing);
 
         seeder.run();
 
@@ -111,11 +133,17 @@ class JobDefinitionSeederTest {
     @Test
     void doesNotDeferRemainingJobsWhenEveryBootstrapJobHasNextRun() throws Exception {
         Instant scheduled = Instant.parse("2030-01-02T03:04:05Z");
-        JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.forEach(seed -> {
-            JobDefinition existing = seed.toEntity();
-            existing.setNextRun(scheduled);
-            persistedJobs.put(key(existing.getSource(), existing.getJobType(), existing.getCronExpr()), existing);
-        });
+        JobDefinitionConfig.BOOTSTRAP_JOB_DEFINITION_SEEDS.forEach(
+                seed -> {
+                    JobDefinition existing = seed.toEntity();
+                    existing.setNextRun(scheduled);
+                    persistedJobs.put(
+                            key(
+                                    existing.getSource(),
+                                    existing.getJobType(),
+                                    existing.getCronExpr()),
+                            existing);
+                });
 
         seeder.run();
 

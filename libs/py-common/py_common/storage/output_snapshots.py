@@ -26,9 +26,10 @@ class OutputSnapshotIdentity:
     partition: dict[str, str]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.dataset, str) or re.fullmatch(
-            r"[a-z0-9][a-z0-9._-]{0,127}", self.dataset
-        ) is None:
+        if (
+            not isinstance(self.dataset, str)
+            or re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", self.dataset) is None
+        ):
             raise ManifestInvalidError("Invalid snapshot dataset")
         object.__setattr__(self, "partition", normalize_partition(self.partition))
 
@@ -96,10 +97,7 @@ class OutputSnapshotStore:
             or canonical_object_name.startswith("/")
             or ":" in canonical_object_name
             or "\\" in canonical_object_name
-            or any(
-                part in {"", ".", ".."}
-                for part in canonical_object_name.split("/")
-            )
+            or any(part in {"", ".", ".."} for part in canonical_object_name.split("/"))
         ):
             raise ManifestInvalidError("Invalid canonical output identity")
         checksum = "sha256:" + hashlib.sha256(data).hexdigest()
@@ -112,12 +110,15 @@ class OutputSnapshotStore:
         )
         target = snapshot_object_name(identity, version, self._paths)
         if target == canonical_object_name:
-            raise ManifestInvalidError("Snapshot layout must not alias the mutable object")
+            raise ManifestInvalidError(
+                "Snapshot layout must not alias the mutable object"
+            )
         try:
             existing = await self._readable.read_bytes(self._bucket, target)
         except StorageObjectNotFoundError:
             # Every conforming writer derives this key from the same byte fingerprint,
-            # schema and lineage. Concurrent duplicate writers can only write equal bytes.
+            # schema and lineage. Concurrent duplicate writers can only write
+            # equal bytes.
             await self._writable.write_bytes(
                 self._bucket, target, data, "application/vnd.apache.parquet"
             )
@@ -130,16 +131,25 @@ class OutputSnapshotStore:
         if persisted != data:
             raise ManifestInvalidError("Snapshot bytes failed read-back validation")
         return OutputSnapshot(
-            target, canonical_object_name, version, checksum,
-            len(data), schema_hash, inputs,
+            target,
+            canonical_object_name,
+            version,
+            checksum,
+            len(data),
+            schema_hash,
+            inputs,
         )
 
     async def read(
         self, identity: OutputSnapshotIdentity, snapshot: OutputSnapshot
     ) -> bytes:
-        expected_path = snapshot_object_name(identity, snapshot.data_version, self._paths)
+        expected_path = snapshot_object_name(
+            identity, snapshot.data_version, self._paths
+        )
         if snapshot.object_name != expected_path:
-            raise ManifestInvalidError("Snapshot path differs from its logical identity")
+            raise ManifestInvalidError(
+                "Snapshot path differs from its logical identity"
+            )
         data = await self._readable.read_bytes(self._bucket, expected_path)
         checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         version = calculate_data_version(
@@ -154,5 +164,7 @@ class OutputSnapshotStore:
             or len(data) != snapshot.total_bytes
             or version != snapshot.data_version
         ):
-            raise ManifestInvalidError("Snapshot bytes differ from the registered version")
+            raise ManifestInvalidError(
+                "Snapshot bytes differ from the registered version"
+            )
         return data

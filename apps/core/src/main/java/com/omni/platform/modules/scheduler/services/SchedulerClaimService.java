@@ -35,8 +35,12 @@ public class SchedulerClaimService {
     public List<SchedulerClaim> claimDueJobs(Instant now) {
         if (graphExpansionEnabled) {
             var eligible = GraphScheduledEntries.select(jobDefinitionRepository.findAll());
-            return jobDefinitionRepository.claimDueJobs(now, schedulerProperties.instanceId(),
-                    schedulerProperties.claim().leaseDuration(), schedulerProperties.claim().batchSize(), eligible);
+            return jobDefinitionRepository.claimDueJobs(
+                    now,
+                    schedulerProperties.instanceId(),
+                    schedulerProperties.claim().leaseDuration(),
+                    schedulerProperties.claim().batchSize(),
+                    eligible);
         }
 
         if (jobRunPreparationEnabled) {

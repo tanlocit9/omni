@@ -2,12 +2,15 @@
 
 ## I10 opt-in output publication
 
-For enrolled EOD attempts, the Ingestor writes and validates an immutable snapshot,
-then awaits output-registration Kafka acknowledgement before publishing SUCCESS.
-Platform correlates registration with terminal status and commits READY last.
-ACK/snapshot/date failure follows ERROR and preserves the previous READY pointer;
-missing EOD on the exact work date never means no-trade. Manifest authority remains
-the default until coordinated cutover. See [current source and paired contracts](../reference/006-p14-i10-ready-integration.md).
+For enrolled EOD attempts, the Ingestor prepares day-scoped registration evidence
+and validates its limits before writing canonical Parquet. It validates read-back,
+then awaits registration Kafka ACK before SUCCESS. Whole-file snapshots are not an
+enrollment prerequisite. Platform correlates registration/status and commits READY
+last; preflight rejection leaves canonical bytes unchanged. A later write/read-back
+or ACK failure grants no new READY and does not guarantee old mutable bytes remain
+valid. Missing exact-date EOD never means no-trade. Manifest authority remains the
+default until coordinated cutover. See the [current end-to-end flow and tickets](007-p14-end-to-end.md)
+and [source/compatibility handoff](../reference/007-p14-i10-work-identity.md).
 
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).

@@ -33,12 +33,14 @@ class JobProducerRegistryTest {
 
         assertThatThrownBy(() -> new JobProducerRegistry(List.of(first, second)))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Duplicate JobProducer registration for jobType SYNC_STOCK_PRICE");
+                .hasMessageContaining(
+                        "Duplicate JobProducer registration for jobType SYNC_STOCK_PRICE");
     }
 
     @Test
     void rejectsMissingProducerLookup() {
-        JobProducerRegistry registry = new JobProducerRegistry(List.of(new TestJobProducer(JobType.SYNC_SYMBOLS)));
+        JobProducerRegistry registry =
+                new JobProducerRegistry(List.of(new TestJobProducer(JobType.SYNC_SYMBOLS)));
 
         assertThatThrownBy(() -> registry.getProducer(JobType.SYNC_STOCK_PRICE))
                 .isInstanceOf(IllegalStateException.class)
@@ -64,7 +66,8 @@ class JobProducerRegistryTest {
         }
 
         @Override
-        protected List<KafkaMessage> buildMessages(JobDefinition job, JobExecutionHistory log, Instant timestamps) {
+        protected List<KafkaMessage> buildMessages(
+                JobDefinition job, JobExecutionHistory log, Instant timestamps) {
             return List.of();
         }
     }

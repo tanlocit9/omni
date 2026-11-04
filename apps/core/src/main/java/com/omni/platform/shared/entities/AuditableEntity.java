@@ -22,16 +22,14 @@ import lombok.Setter;
 public abstract class AuditableEntity extends BaseEntity {
 
     @CreatedDate
-    @Column(name = "created_at",updatable = false)
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
-    @LastModifiedDate
-    private Instant updatedAt;
+    @LastModifiedDate private Instant updatedAt;
 
     @CreatedBy
     @Column(name = "created_by_id", updatable = false)
     private UUID createdById;
 
-    @LastModifiedBy
-    private UUID updatedById;
+    @LastModifiedBy private UUID updatedById;
 }

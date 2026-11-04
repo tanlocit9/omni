@@ -1,7 +1,7 @@
 """S3 path construction for stock data."""
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from py_common.config.constants import Timeframe, validate_indicator_timeframe
 
@@ -89,15 +89,22 @@ class StockDataPaths:
     output_snapshots_base: str = "_output-snapshots/"
     output_snapshots_pattern: str = "{dataset}/{partition_hash}/{data_version}.parquet"
 
-    def output_snapshot(self, dataset: str, partition_hash: str, data_version: str) -> str:
+    def output_snapshot(
+        self, dataset: str, partition_hash: str, data_version: str
+    ) -> str:
         """Internal content-version address; never a client-supplied physical path."""
-        if (re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", dataset) is None
-                or any(re.fullmatch(r"[0-9a-f]{64}", value) is None
-                       for value in (partition_hash, data_version))):
+        if re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", dataset) is None or any(
+            re.fullmatch(r"[0-9a-f]{64}", value) is None
+            for value in (partition_hash, data_version)
+        ):
             raise ValueError("Invalid snapshot path identity")
-        if any("{" + field + "}" not in self.output_snapshots_pattern
-               for field in ("dataset", "partition_hash", "data_version")):
-            raise ValueError("Snapshot layout must include dataset, partition_hash and data_version")
+        if any(
+            "{" + field + "}" not in self.output_snapshots_pattern
+            for field in ("dataset", "partition_hash", "data_version")
+        ):
+            raise ValueError(
+                "Snapshot layout must include dataset, partition_hash and data_version"
+            )
         return self.output_snapshots_base + self.output_snapshots_pattern.format(
             dataset=dataset, partition_hash=partition_hash, data_version=data_version
         )
@@ -495,7 +502,9 @@ class StockDataPaths:
         )
 
         return cls(
-            output_snapshots_base=output_snapshots_cfg.get("base", "_output-snapshots/"),
+            output_snapshots_base=output_snapshots_cfg.get(
+                "base", "_output-snapshots/"
+            ),
             output_snapshots_pattern=output_snapshots_cfg.get(
                 "pattern", "{dataset}/{partition_hash}/{data_version}.parquet"
             ),

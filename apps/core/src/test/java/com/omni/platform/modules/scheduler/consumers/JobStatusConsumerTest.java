@@ -22,18 +22,18 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(MockitoExtension.class)
 class JobStatusConsumerTest {
 
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private JobService jobService;
+    @Mock private JobService jobService;
 
     private final JsonMapper jsonMapper = JsonMapper.builder().findAndAddModules().build();
 
     @Test
     void handleSyncStatusDelegatesValidMessageToJobService() {
         JobStatusConsumer consumer = new JobStatusConsumer(eventPublisher, jobService, jsonMapper);
-        ConsumerRecord<String, String> record = record("""
+        ConsumerRecord<String, String> record =
+                record(
+                        """
                 {
                   "jobDefinitionId":"job-1",
                   "executionId":"44e8cce7-7197-42d7-93ce-e64d3002e88a",

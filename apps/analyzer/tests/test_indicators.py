@@ -128,9 +128,21 @@ async def test_indicator_worker_passes_snapshot_identity_only_when_enabled(enabl
     handler._settings.output_snapshots_enabled = enabled
     await handler.handle(_job_payload())
     options = parquet.write_dataframe.await_args.kwargs
-    assert options == ({"snapshot_identity": OutputSnapshotIdentity(
-        "indicators", {"source": "ad_close", "timeframe": "1d", "exchange": "hose", "code": "hpg"}
-    )} if enabled else {})
+    assert options == (
+        {
+            "snapshot_identity": OutputSnapshotIdentity(
+                "indicators",
+                {
+                    "source": "ad_close",
+                    "timeframe": "1d",
+                    "exchange": "hose",
+                    "code": "hpg",
+                },
+            )
+        }
+        if enabled
+        else {}
+    )
 
 
 @pytest.mark.parametrize(

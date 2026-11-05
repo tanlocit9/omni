@@ -376,3 +376,12 @@ Cache loss or restart requires another manual scan; it is not durable audit hist
 7. For data-changing migrations, add a disposable-database harness when no Nx
    database target exists; record that exception and never substitute production
    execution for migration tests.
+
+## Empty legacy tracker retirement - 2026-11-05
+
+V24__retire_empty_blocked_jobs.sql retires blocked_jobs and its table-owned indexes.
+The migration takes an exclusive lock, refuses retained rows, then uses DROP TABLE
+RESTRICT. V7 and existing Flyway history are unchanged. Platform removes the unused
+BlockedJob entity/repository/tracker; scheduler_outbox_messages and execution
+history remain the active WAITING/BLOCKED evidence. No live migration is executed
+as part of the source cleanup. See [TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).

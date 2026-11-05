@@ -1,5 +1,11 @@
 # Dependency-Aware Outbox Dispatch
 
+Current tracker cleanup (2026-11-05): the historical BlockedJob
+entity/repository/tracker below are retired by V24 only for an empty table.
+The old snippets remain historical design, not an active retry authority.
+Outbox WAITING/BLOCKED handling and legacy dispatch remain supported. See
+[TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).
+
 Canonical status and schedule owner: [the increment registry](roadmap/implementation-increments.md). P4-I3 is `superseded`; this document preserves the implemented dependency-aware dispatch baseline. [Plan 030 P14-I4](030-static-graph-dispatch-planner.md#p14-i4--jobrun-snapshot-dispatchplanner-and-outbox-integration) owns final planner-integrated dispatcher delivery; P14-I3 owns durable JobRun preparation. [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md) is closed by the final locally verified P14-I4 integration; P4-I3 remains superseded. This document must not define a competing schedule or imply that historical source is completed.
 
 ## Goal

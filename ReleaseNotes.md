@@ -1,5 +1,13 @@
 # Omni Release Notes
 
+## 2026-11-05 - Remove the unused grpc-tools compiler dependency
+
+Remove grpc-tools from npm dependencies and the lockfile. Retain the owner's Buf
+configuration change to resolve the Java/Python built-in compiler from PATH.
+Document the local/CI protoc prerequisite and matching compiler versions; npm
+installation alone no longer claims to supply a compiler. Protobuf schemas,
+generated output ownership and runtime service/Kafka contracts are unchanged.
+
 ## 2026-11-04 - Full workspace formatting and current P14 flow
 
 Run the repository-wide formatter and resolve remaining Python style findings

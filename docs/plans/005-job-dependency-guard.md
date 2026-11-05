@@ -1,5 +1,11 @@
 # Job Dependency Guard Implementation Plan
 
+Current tracker cleanup (2026-11-05): the historical BlockedJob
+entity/repository/tracker below are retired by V24 only for an empty table.
+The old snippets remain historical design, not an active retry authority.
+Outbox WAITING/BLOCKED handling and legacy dispatch remain supported. See
+[TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).
+
 Status: Core guard implemented. P4-I1 and P4-I2 are `completed`; P4-I3 is `superseded`. Under [Plan 030](030-static-graph-dispatch-planner.md), P14-I3 owns JobRun preparation and P14-I4 owns final planner-integrated dispatcher delivery and safety proof. P4-I3 source/design remains documented by [Plan 023](023-dependency-aware-outbox-dispatch.md), while unclosed evidence is retained in [TD-014](../technical-debt/014-dependency-aware-dispatch-verification-residue.md). Canonical status is owned by the [increment registry](roadmap/implementation-increments.md).
 
 ## Goal

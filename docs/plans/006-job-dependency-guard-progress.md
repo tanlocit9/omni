@@ -1,5 +1,11 @@
 # Job Dependency Guard Implementation Progress
 
+Current tracker cleanup (2026-11-05): the historical BlockedJob
+entity/repository/tracker below are retired by V24 only for an empty table.
+The old snippets remain historical design, not an active retry authority.
+Outbox WAITING/BLOCKED handling and legacy dispatch remain supported. See
+[TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).
+
 ## Status: Historical progress record; remaining follow-ups are deferred technical debt
 
 Canonical P4-I1 and P4-I2 are completed. P4-I3 source is present but the increment is `superseded`; P14-I4 owns final planner-integrated dispatcher safety proof, and TD-014 retains unclosed P4-I3 evidence. P14-I3 owns durable JobRun preparation. This historical checklist does not override the [increment registry](roadmap/implementation-increments.md), [Plan 023](023-dependency-aware-outbox-dispatch.md), or [Plan 030](030-static-graph-dispatch-planner.md). Unfinished tracking, dashboard, cache, alerting, optional evaluator, and retry-polish items below do not block P14 unless an activation trigger makes one relevant.

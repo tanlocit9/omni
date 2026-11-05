@@ -1,5 +1,32 @@
 # Legacy Dependency-Guard Residue
 
+## Owner-approved tracker cleanup - 2026-11-05
+
+Residue A is addressed in source: remove the unused BlockedJobTracker,
+BlockedJobRepository and BlockedJob. Direct source/configuration/operations
+search found no external caller or scheduled trigger for the tracker. The local
+database was observed at V23 with zero blocked_jobs rows and no inbound FK.
+V24 locks the table, rejects non-empty history, then drops it with RESTRICT.
+V7 is retained unchanged. No local/retained deployment migration was executed.
+
+Disposable PostgreSQL regression cases cover empty-table retirement, non-empty
+history rejection/rollback and retained outbox/execution tables. The approved
+focused SchedulerOutboxIdentityMigrationPostgresTest run passes all 14 tests locally.
+This is disposable-database evidence, not retained-environment deployment.
+Residue B remains open, so this does not close all of TD-013 or P14-I10.
+
+Impact: Platform loses only the unused tracker/JPA mapping; persistence gains the
+guarded retirement migration. Analyzer, Ingestor, Query Service, Console, protobuf,
+Kafka, storage paths and dataset owners are unchanged. Existing outbox claims,
+legacy dispatch, READY guards and manifest authority remain. Plan 005/006/023,
+database/job-flow and Platform documentation record this boundary. Roadmap IDs,
+statuses, architecture/ADR, data-lake and deployment defaults need no change.
+Graph results are stale/bounded navigation evidence and are supplemented by
+direct caller and SQL inspection.
+
+The older classification below is historical for Residue A. Its optional evaluator
+policy and requirement to preserve retained history remain applicable.
+
 ## Review — 2026-10-08
 
 | Field                 | Assessment                                                                                                                                                                                                                                                                                                                                                                                                               |

@@ -139,6 +139,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Protocol Buffers compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y protobuf-compiler
+          protoc --version
+
       - name: Verify contracts
         run: |
           npx nx run contracts:format

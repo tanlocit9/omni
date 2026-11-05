@@ -43,7 +43,12 @@ This Nx project owns Omni's versioned Protocol Buffer schemas for Kafka and othe
 
 Generated files are disposable, ignored build artifacts and must not be committed or edited manually. `nx run contracts:generate` recreates both language trees from the canonical schemas. `nx run contracts:test` depends on generation automatically, and consumer build/package targets must depend on `contracts:generate` when they begin compiling these types.
 
-The repository pins the Buf CLI and `grpc-tools` compiler in `package-lock.json`. Generation runs locally through the repository-owned wrapper and Buf's `protoc_builtin` Java/Python generators. It requires no remote generation service; output is reproducible from a clean dependency installation.
+The repository pins the Buf CLI in `package-lock.json`. Generation runs locally
+through the repository-owned wrapper and Buf's `protoc_builtin` Java/Python
+generators, using a compatible `protoc` installed on `PATH`. Local development
+and CI must supply that compiler; npm installation alone does not install it.
+Use the same compiler version when comparing generated output. No remote
+generation service or `grpc-tools` npm dependency is required.
 
 ## Commands
 

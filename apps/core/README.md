@@ -418,3 +418,11 @@ candidate readers start. NULL-JobRun scheduling remains supported; only the
 parent-FK/payload-child compatibility branch is retired. Identity/lock failures
 preserve intent and fail closed. Follow the [V15 cutover procedure](../../docs/deployment/004-job-run-admission-rollout.md#v15-legacy-outbox-identity-cutover-p14-i7)
 before retained deployment. Local evidence is recorded separately from rollout.
+
+## Unused blocked-job tracker retirement - 2026-11-05
+
+The pre-outbox BlockedJob entity/repository/tracker are removed. V24 refuses to
+drop blocked_jobs if rows remain; export/resolve that history before deployment.
+Active WAITING/BLOCKED state stays in scheduler outbox/execution records. Existing
+legacy dispatch and manifest readiness remain supported. See
+[TD-013](../../docs/technical-debt/013-legacy-dependency-guard-residue.md).

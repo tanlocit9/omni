@@ -1,5 +1,14 @@
 # Omni Release Notes
 
+## 2026-11-05 - Retire the unused blocked-job tracker
+
+Remove BlockedJobTracker, BlockedJobRepository and BlockedJob. V24 locks and drops
+blocked_jobs only if it is empty; retained rows reject the migration without
+deletion. V7 stays unchanged. Active WAITING/BLOCKED handling remains in the
+scheduler outbox/execution path. Add empty/non-empty upgrade regressions.
+The owner's local database was observed at V23 with zero tracker rows and no
+inbound foreign keys; V24 was not applied to that database by this cleanup.
+
 ## 2026-11-05 - Remove the unused grpc-tools compiler dependency
 
 Remove grpc-tools from npm dependencies and the lockfile. Retain the owner's Buf

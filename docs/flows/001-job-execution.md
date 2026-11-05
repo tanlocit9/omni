@@ -563,3 +563,11 @@ P1-I4 `verification_pending`; no production database was modified.
 - [Stock sync](002-stock-sync.md)
 - [Indicator and signal](003-indicator-signal.md)
 - [Sector wave](004-sector-wave.md)
+
+## Legacy tracker retirement - 2026-11-05
+
+The unused BlockedJobTracker, BlockedJobRepository and BlockedJob are removed.
+V24 retires only an empty blocked_jobs table. Dependency admission still evaluates
+at the outbox boundary; transient WAITING remains pending and terminal BLOCKED
+remains outbox/execution state. This does not remove the supported NULL-JobRun
+dispatch path or switch readiness authority. See [TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).

@@ -103,7 +103,8 @@ class AtomicWorkEnvelope(BaseModel):
         if any(v is None for v in fields):
             raise ValueError("Atomic command requires all identity fields")
         if self.job_type not in _UNITS or (
-            self.business_date.weekday() >= 5 and self.job_type != "SYNC_METADATA"
+            self.business_date.weekday() >= 5
+            and self.job_type not in {"SYNC_METADATA", "SYNC_SYMBOLS"}
         ):
             raise ValueError("Unsupported atomic job type or weekend business date")
         expected = _TYPES.get(type(self).__name__)

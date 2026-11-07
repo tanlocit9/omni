@@ -32,6 +32,8 @@ class JobRunWorkContextTest {
         var work = WorkIdentity.of(WorkType.SYMBOL, "HOSE-AAA");
         var context = new JobRunWorkContext(parent, entities, null, json, 2);
         var child = context.child(work, Map.of("symbolKey", "obsolete"), Instant.EPOCH);
+        assertThat(child.getStatus()).isEqualTo(com.omni.platform.modules.scheduler.entities.JobExecutionHistory.JobStatus.PENDING);
+        assertThat(child.getStartedAt()).isNull();
         assertThat(child.getJobRunId()).isEqualTo(parent.getJobRunId());
         assertThat(child.getJobRunStepIndex()).isEqualTo(2);
         assertThat(child.getParentLogId()).isEqualTo(parent.getId());

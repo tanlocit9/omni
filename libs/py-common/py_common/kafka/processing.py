@@ -6,7 +6,7 @@ from uuid import UUID
 
 from aiokafka import AIOKafkaConsumer, ConsumerRecord, TopicPartition
 
-from py_common.messaging import JobStatusMessage
+from py_common.messaging import JobStatus, JobStatusMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +27,8 @@ async def consume_job_records(
             status = await handle_record(record)
             if status is None or not (status.execution_id or "").strip():
                 raise ValueError("Command has no acknowledged execution status")
+            if status.status == JobStatus.RUNNING:
+                raise ValueError("Command has no acknowledged terminal status")
             # Platform parses execution IDs as UUIDs; never advance an invalid ID.
             UUID(status.execution_id)
             await consumer.commit(

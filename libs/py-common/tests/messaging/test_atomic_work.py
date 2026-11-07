@@ -27,14 +27,14 @@ def fixture():
     )
 
 
-def test_metadata_current_snapshot_can_run_on_weekends_without_enabling_market_work():
+@pytest.mark.parametrize("day", [date(2026, 11, 7), date(2026, 11, 8)])
+def test_metadata_current_snapshot_can_run_on_weekends_without_enabling_market_work(day):
     from py_common.messaging.atomic_work import AtomicWorkEnvelope
 
     class Snapshot(AtomicWorkEnvelope):
         work_type: str = "GLOBAL"
         work_key: str = "METADATA"
 
-    day = date(2026, 11, 1)
     Snapshot(
         jobType="SYNC_METADATA",
         businessDate=day,
@@ -153,6 +153,49 @@ async def test_day_write_preserves_other_dates_and_has_no_write_on_missing_day()
     with pytest.raises(ValueError):
         await write_day(storage, "logical-test", new, date(2026, 10, 27))
     storage.write_dataframe.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("column", ["date", "evaluation_date"])
+@pytest.mark.parametrize("parquet_history", [False, True])
+async def test_day_write_merges_timestamp_results_with_parquet_calendar_dates(
+    column, parquet_history
+):
+    from unittest.mock import AsyncMock
+
+    from py_common.storage.parquet import ParquetCodec
+
+    history = pd.DataFrame(
+        {
+            column: pd.to_datetime(["2026-10-30", "2026-10-29", "2026-10-28"]),
+            "value": [3, 2, 1],
+            "input_version": ["future", "old", "old"],
+        }
+    )
+    if parquet_history:
+        history = ParquetCodec.decode(ParquetCodec.encode(history))
+        assert type(history[column].iloc[0]) is date
+    original = history.copy(deep=True)
+    calculated = pd.DataFrame(
+        {
+            column: pd.to_datetime(["2026-10-28", "2026-10-29"]),
+            "value": [100, 20],
+            "input_version": ["new", "approved"],
+        }
+    )
+    storage = AsyncMock()
+    storage.read_optional_dataframe.return_value = history
+    await write_day(
+        storage, "logical-output", calculated, date(2026, 10, 29), column=column
+    )
+    written = storage.write_dataframe.await_args.args[1]
+    assert written["value"].tolist() == [1, 20, 3]
+    assert written["input_version"].tolist() == ["old", "approved", "future"]
+    assert pd.to_datetime(written[column]).dt.date.tolist() == [
+        date(2026, 10, 28), date(2026, 10, 29), date(2026, 10, 30)
+    ]
+    pd.testing.assert_frame_equal(history, original)
+    storage.write_dataframe.assert_awaited_once()
 
 
 @pytest.mark.parametrize("value", [float("inf"), float("-inf"), Decimal("NaN")])

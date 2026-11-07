@@ -73,8 +73,7 @@ public final class JobRunWorkContext {
         child.setJobRunId(parent.getJobRunId());
         child.setJobRunStepIndex(parent.getJobRunStepIndex());
         child.setTriggeredAt(now);
-        child.setStartedAt(now);
-        child.setStatus(JobStatus.RUNNING);
+        child.setStatus(JobStatus.PENDING);
         Map<String, Object> values = new LinkedHashMap<>(metadata);
         values.remove("symbolKey");
         values.put("workType", identity.type().name());

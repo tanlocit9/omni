@@ -492,11 +492,22 @@ public class GraphWorkRequestService {
         request.put("graph_json", readObject(request.get("graph_json").toString()));
         var members =
                 jdbc.queryForList(
-                        "SELECT m.work_id,m.is_target,a.id AS attempt_id,a.job_run_id,a.execution_id,e.status "
+                        "SELECT m.work_id,m.is_target,a.id AS attempt_id,a.job_run_id,a.execution_id,e.status,e.started_at,e.finished_at,"
+                                + "(SELECT o.status FROM scheduler_outbox_messages o WHERE o.execution_id=e.id ORDER BY o.message_index LIMIT 1) AS outbox_status "
                                 + "FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
                                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? ORDER BY m.work_id",
                         requestId);
-        return Map.of("request", request, "members", members);
+        Map<String, Long> counts = members.stream().collect(Collectors.groupingBy(
+                member -> member.get("status").toString(), Collectors.counting()));
+        long unfinished = members.stream().filter(member -> !terminalMember(member.get("status").toString())).count();
+        boolean hasFailure = members.stream().anyMatch(member ->
+                List.of("FAILED", "ERROR", "BLOCKED").contains(member.get("status").toString()));
+        return Map.of("request", request, "members", members, "memberCounts", counts,
+                "unfinishedMembers", unfinished, "isSettled", unfinished == 0, "hasFailure", hasFailure);
+    }
+
+    private static boolean terminalMember(String status) {
+        return List.of("SUCCESS", "FAILED", "ERROR", "BLOCKED").contains(status);
     }
 
     @Scheduled(fixedDelayString = "${app.scheduler.job-run.graph-reconcile-delay:5000}")
@@ -553,9 +564,12 @@ public class GraphWorkRequestService {
             var statuses =
                     jdbc.queryForList(
                             "SELECT e.status FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
-                                    + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? AND m.is_target",
+                                    + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=?",
                             String.class,
                             request.get("id"));
+            // Keep the owner PREPARED/admissible until every member has settled.
+            // A failed branch cannot revoke dispatch rights from healthy siblings.
+            if (statuses.stream().anyMatch(status -> !terminalMember(status))) continue;
             boolean failure =
                     statuses.stream()
                             .anyMatch(
@@ -563,7 +577,6 @@ public class GraphWorkRequestService {
                                             s.equals("FAILED")
                                                     || s.equals("ERROR")
                                                     || s.equals("BLOCKED"));
-            if (!failure && statuses.stream().anyMatch(s -> !s.equals("SUCCESS"))) continue;
             jdbc.update(
                     "UPDATE atomic_work_requests SET state=? WHERE id=?",
                     failure ? "FAILED" : "SUCCESS",

@@ -1,5 +1,9 @@
 # Local job backlog inventory
 
+Agent workflow: use the shared
+[`check-jobs-backlog` skill](../.agents/skills/check-jobs-backlog/SKILL.md)
+to collect a fresh snapshot and summarize DB, outbox and Kafka separately.
+
 Run once from the workspace root:
 
 ```bash

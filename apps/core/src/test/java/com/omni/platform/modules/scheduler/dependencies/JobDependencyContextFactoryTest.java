@@ -133,6 +133,43 @@ class JobDependencyContextFactoryTest {
         verify(symbolRepository, never()).findBySectorCodesAndLevel(any(), anyInt());
     }
 
+    @Test
+    void sectorWorkRequiresOnlyItsMembersAndRejectsAnUnresolvedSectorKey() {
+        var repository = mock(SymbolRepository.class);
+        var member = symbol("HPG", "HOSE");
+        when(repository.findBySectorCodesAndLevel(any(), anyInt())).thenReturn(List.of(member));
+        var factory = new JobDependencyContextFactory(repository);
+        var job = new JobDefinition();
+        job.setJobType(JobType.PRECOMPUTE_SECTOR_FEATURES);
+        job.setConfigJson(Map.of("sectorLevel", 2, "timeframe", "1d"));
+        var result = factory.create(job, "sector", "SECTOR", "BANK");
+        assertThat(result.getDependsOnDatasets()).singleElement().satisfies(dependency -> {
+            assertThat(dependency).containsEntry("dataset", "symbol-features");
+            assertThat(dependency).containsEntry("partition", Map.of("exchange", "hose", "code", "hpg", "timeframe", "1d"));
+            assertThat(dependency).containsEntry("mode", "ENFORCED");
+        });
+        assertThatThrownBy(() -> factory.create(job, "sector", "GLOBAL", "BANK")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.create(job, "sector", "SECTOR", null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> factory.create(job, "sector", "SECTOR", " ")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void backtestExpandsSelectedOrGlobalSectorPartitionsWithoutInferringReadiness() {
+        var repository = mock(SymbolRepository.class);
+        when(repository.findDistinctSectorCodesByLevel(any(), anyInt())).thenReturn(List.of("BANK"));
+        var factory = new JobDependencyContextFactory(repository);
+        var job = new JobDefinition();
+        job.setJobType(JobType.SECTOR_ROTATION_BACKTEST);
+        for (var codes : List.of(List.<String>of(), List.of("BANK"))) {
+            job.setConfigJson(Map.of("sectorLevel", 1, "timeframe", "1d", "sectorCodes", codes));
+            var result = factory.create(job, "backtest", "GLOBAL", "VN");
+            assertThat(result.getDependsOnDatasets()).singleElement().satisfies(dependency -> {
+                assertThat(dependency).containsEntry("dataset", "sector-features");
+                assertThat(dependency).containsEntry("partition", Map.of("timeframe", "1d", "sector_level", "1", "sector_code", "bank"));
+            });
+        }
+    }
+
     private SymbolKeyProjection symbol(String code, String exchange) {
         SymbolKeyProjection symbol = mock(SymbolKeyProjection.class);
         when(symbol.getCode()).thenReturn(code);

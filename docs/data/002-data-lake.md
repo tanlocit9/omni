@@ -1,5 +1,10 @@
 # Data Lake
 
+Indicators backfill (2026-11-05) preserves existing paths and merge keys. Force
+checks exact EOD day rows, reuses them when present, and recalculates Indicators;
+registration/SUCCESS still precede scoped READY. It never refreshes the canonical
+discovery JSON directly. See [semantics and writer window](../reference/009-indicators-backfill.md).
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
@@ -9,7 +14,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 
@@ -174,6 +179,14 @@ statistics, timestamp range, source execution, and exact upstream lineage. Inter
 paths are never returned to browsers or accepted in commands.
 
 ### Publication Semantics
+
+The registry also includes `symbol-features` (timeframe/exchange/code) and
+`sector-features` (timeframe/sector_level/sector_code), using the existing trusted
+`features/symbol/` and `features/sector/` paths. Both publish exact `coverageDates`
+for dispatch admission. Their existing Parquet schema has no authoritative input
+version columns: metadata records empty lineage rather than fabricating it.
+This is discovery/date evidence, not scoped I10 enrollment or approval for
+PostgreSQL cutover of these datasets.
 
 Dataset producers write and validate Parquet only. Analyzer's `SYNC_METADATA` worker
 is the only metadata writer and supports three logical modes:

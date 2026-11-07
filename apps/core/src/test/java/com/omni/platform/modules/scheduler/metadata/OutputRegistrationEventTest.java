@@ -1,6 +1,7 @@
 package com.omni.platform.modules.scheduler.metadata;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -67,6 +68,101 @@ class OutputRegistrationEventTest {
             assertThatThrownBy(() -> store.accept(json.writeValueAsString(root)))
                     .isInstanceOf(IllegalArgumentException.class);
         }
+        verifyNoInteractions(jdbc);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "valid", "no-alias", "event-conflict", "member-conflict", "unknown-attempt", "work",
+            "persisted-alias", "alias", "expansion", "registration-id", "event-id", "attempt-id"})
+    void immutableRegistrationMustMatchTheFrozenServerIdentities(String state) throws Exception {
+        String payload = fixture();
+        var event = json.readValue(payload, OutputRegistrationEvent.class);
+        var member = event.registrations().getFirst();
+        String different = "work:" + "0".repeat(64);
+        var metadata = new java.util.LinkedHashMap<String, Object>();
+        metadata.put("workIdentity", state.equals("persisted-alias") ? different : member.atomicWorkId());
+        if (!state.equals("no-alias"))
+            metadata.put("atomicWorkId", state.equals("alias") ? different : member.atomicWorkId());
+        metadata.put("workExpansion", java.util.Map.of("atomicWorkId",
+                state.equals("expansion") ? different : member.atomicWorkId()));
+        metadata.put("outputCompletion", java.util.Map.of(
+                "registrationId", state.equals("registration-id") ? "wrong" : member.registrationId().toString(),
+                "eventId", state.equals("event-id") ? "wrong" : event.eventId().toString(),
+                "atomicAttemptId", state.equals("attempt-id") ? "wrong" : member.atomicAttemptId().toString()));
+        JdbcTemplate jdbc = mock(JdbcTemplate.class, call -> {
+            String sql = call.getArguments().length > 0 && call.getArgument(0) instanceof String text ? text : "";
+            if (call.getMethod().getName().equals("queryForList") && sql.contains("SELECT a.work_id"))
+                return state.equals("unknown-attempt") ? java.util.List.of() : java.util.List.of(java.util.Map.of(
+                        "work_id", state.equals("work") ? different : member.atomicWorkId(),
+                        "metadata", json.writeValueAsString(metadata)));
+            if (call.getMethod().getName().equals("queryForObject"))
+                return !(state.equals("event-conflict") && sql.contains("output_registration_events"))
+                        && !(state.equals("member-conflict") && sql.contains("output_registrations"));
+            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+        });
+        var completion = mock(OutputCompletionGate.class);
+        var events = mock(org.springframework.context.ApplicationEventPublisher.class);
+        var store = new OutputRegistrationStore(jdbc, json);
+        store.configureCompletion(completion, events);
+        if (java.util.List.of("valid", "no-alias").contains(state)) {
+            assertThatCode(() -> store.accept(payload)).doesNotThrowAnyException();
+            org.mockito.Mockito.verify(events).publishEvent(new OutputRegistrationAccepted(member.executionId()));
+        } else {
+            assertThatThrownBy(() -> store.accept(payload)).isInstanceOf(IllegalArgumentException.class);
+            org.mockito.Mockito.verifyNoInteractions(events);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "schema", "members-missing", "members-type", "outputs-missing", "outputs-type",
+            "coverage-missing", "coverage-type", "columns-missing", "columns-type", "nullable-missing",
+            "nullable-type", "scope-type", "scope-id-missing", "scope-id-type", "keys-missing",
+            "keys-type", "key-shape", "key-value", "dataset-null", "dataset-blank", "version-null",
+            "version-invalid", "column-name-null", "column-name-long", "inputs-null", "columns-empty"})
+    void malformedWireAndSemanticFieldsNeverReachPersistence(String state) throws Exception {
+        var root = (tools.jackson.databind.node.ObjectNode) json.readTree(fixture());
+        var member = (tools.jackson.databind.node.ObjectNode) root.get("registrations").get(0);
+        var output = (tools.jackson.databind.node.ObjectNode) member.get("outputs").get(0);
+        var column = (tools.jackson.databind.node.ObjectNode) output.get("columns").get(0);
+        switch (state) {
+            case "schema" -> root.put("schemaVersion", 2);
+            case "members-missing" -> root.remove("registrations");
+            case "members-type" -> root.put("registrations", false);
+            case "outputs-missing" -> member.remove("outputs");
+            case "outputs-type" -> member.put("outputs", false);
+            case "coverage-missing" -> output.remove("coverageDates");
+            case "coverage-type" -> output.put("coverageDates", false);
+            case "columns-missing" -> output.remove("columns");
+            case "columns-type" -> output.put("columns", false);
+            case "nullable-missing" -> column.remove("nullable");
+            case "nullable-type" -> column.put("nullable", "false");
+            case "scope-type" -> output.set("workScope", json.readTree("[]"));
+            case "scope-id-missing" -> output.set("workScope", json.readTree("{\"rowKeys\":[]}"));
+            case "scope-id-type" -> output.set("workScope", json.readTree("{\"atomicWorkId\":1,\"rowKeys\":[]}"));
+            case "keys-missing", "keys-type", "key-shape", "key-value" -> {
+                String keys = switch (state) {
+                    case "keys-type" -> ",\"rowKeys\":{}";
+                    case "key-shape" -> ",\"rowKeys\":[[]]";
+                    case "key-value" -> ",\"rowKeys\":[{\"date\":1}]";
+                    default -> "";
+                };
+                output.set("workScope", json.readTree("{\"atomicWorkId\":\"work:" + "a".repeat(64) + "\"" + keys + "}"));
+            }
+            case "dataset-null" -> output.putNull("dataset");
+            case "dataset-blank" -> output.put("dataset", "");
+            case "version-null" -> output.putNull("dataVersion");
+            case "version-invalid" -> output.put("dataVersion", "bad-version");
+            case "column-name-null" -> column.putNull("name");
+            case "column-name-long" -> column.put("name", "x".repeat(129));
+            case "inputs-null" -> output.putNull("inputs");
+            case "columns-empty" -> output.set("columns", json.readTree("[]"));
+        }
+        var jdbc = mock(JdbcTemplate.class);
+        var store = new OutputRegistrationStore(jdbc, json);
+        String malformed = json.writeValueAsString(root);
+        assertThatThrownBy(() -> store.accept(malformed)).isInstanceOf(RuntimeException.class);
         verifyNoInteractions(jdbc);
     }
 

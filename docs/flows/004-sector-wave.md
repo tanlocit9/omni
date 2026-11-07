@@ -1,5 +1,13 @@
 # Sector Wave Flow
 
+Dispatch guard repair (2026-11-04): Symbol Features requires exact-day EOD;
+Sector Features requires every selected member's exact-day symbol features;
+Backtest requires the selected sectors' exact-day features. Missing partitions or
+dates wait before Kafka dispatch. Workers consume approved versions and reject
+drift before writing. Feature metadata is discovery evidence with explicit empty
+historical lineage, not scoped I10 enrollment. See the
+[repair matrix and gate](../reference/008-p14-i10-dispatch-guard.md).
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

@@ -82,8 +82,15 @@ public class PlatformDependencyRegistry implements DependencyRegistry {
         var result = guard.checkDependencies(context);
         if (result.canExecute()) {
             if (workDate != null
-                    && java.util.List.of("SYNC_INDICATORS", "SYNC_SIGNALS")
+                    && java.util.List.of("SYNC_INDICATORS", "SYNC_SIGNALS",
+                                    "PRECOMPUTE_SYMBOL_FEATURES", "PRECOMPUTE_SECTOR_FEATURES",
+                                    "SECTOR_ROTATION_BACKTEST")
                             .contains(request.jobDefinition().getJobType().name())) {
+                if (result.approvedInputVersions().isEmpty())
+                    return DependencyDecision.waiting(
+                            "INPUT_PARTITIONS_UNRESOLVED",
+                            "Dated analytical work requires explicit approved input partitions",
+                            request.evaluatedAt().plus(WAIT_RETRY));
                 var day = java.time.LocalDate.parse(workDate.toString());
                 for (var binding : result.approvedInputVersions().entrySet()) {
                     if (metadataReader == null

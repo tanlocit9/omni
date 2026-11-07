@@ -183,7 +183,8 @@ public class DefaultJobDependencyGuard implements JobDependencyGuard {
                         context.getJobName(),
                         rawDep,
                         e);
-                // Continue parsing other dependencies
+                throw new IllegalArgumentException(
+                        "Invalid dataset dependency for " + context.getJobName(), e);
             }
         }
 

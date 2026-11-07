@@ -78,6 +78,8 @@ public record JobExecutionContext(
         if (deps instanceof List<?>) {
             return (List<Map<String, Object>>) deps;
         }
+        if (deps != null)
+            throw new IllegalArgumentException("dependsOnDatasets must be a list");
         return List.of();
     }
 }

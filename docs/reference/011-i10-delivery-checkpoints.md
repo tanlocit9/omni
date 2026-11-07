@@ -37,3 +37,11 @@ Split the consolidated readiness schema into registration, completion/watchdog, 
 No test, lint, build, format or executable acceptance gate was run for this
 checkpoint. Existing dated evidence is historical and does not verify this
 isolated commit.
+
+### I10 dispatch and frozen-input guards
+
+Require exact dated EOD/symbol-feature/sector-feature inputs; reject malformed declarations and missing frozen upstream enrollment. Validate frozen signal history once before evaluation and preserve other rows/models. Discover the two existing feature datasets without inventing historical lineage. Platform, Analyzer and shared Python discovery/read code change; Ingestor/Query retain their existing protocol, Console and storage paths are unchanged. The guard reference records historical executed tests and the historical contracts failure, not a new verification result.
+
+No test, lint, build, format or executable acceptance gate was run for this
+checkpoint. Existing dated evidence is historical and does not verify this
+isolated commit.

@@ -80,6 +80,17 @@ public class OutputWorkReadiness {
                         Boolean.class,
                         execution)))
             return versions; // Explicit legacy boundary, never a fallback for enrolled work.
+        if (Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM atomic_work_attempts target "
+                        + "JOIN atomic_work_dependencies d ON d.attempt_id=target.id "
+                        + "JOIN atomic_work_attempts upstream ON upstream.id=d.upstream_attempt_id "
+                        + "JOIN job_execution_histories upstream_execution ON upstream_execution.id=upstream.execution_id "
+                        + "LEFT JOIN output_completion_contracts declaration ON declaration.execution_id=upstream.execution_id "
+                        + "WHERE target.execution_id=? AND declaration.execution_id IS NULL "
+                        + "AND upstream_execution.meta_json->'workExpansion'->>'jobType' "
+                        + "IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS','SYNC_SIGNALS','EVALUATE_SIGNALS'))",
+                Boolean.class, execution)))
+            return null; // A missing declaration must not erase a frozen predecessor.
         Map<DatasetRef, String> references = new LinkedHashMap<>(versions);
         for (var row :
                 jdbc.queryForList(

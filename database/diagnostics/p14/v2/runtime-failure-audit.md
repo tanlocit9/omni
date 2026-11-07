@@ -3,6 +3,12 @@
 Owner: [Plan 030](../../../../docs/plans/030-static-graph-dispatch-planner.md).
 This is an observation and bounded regression report, not remediation or rollout.
 
+2026-11-04 follow-up: the legacy exact-day admission gap described below now has
+a source repair and disposable PostgreSQL/Kafka/worker/Query regressions. See the
+[I10 guard matrix and remaining gates](../../../../docs/reference/008-p14-i10-dispatch-guard.md).
+The observations and counts below remain historical; this does not establish live
+recovery or resolve unlocalized errors lacking stack/version evidence.
+
 ## Unfinished-work integration follow-up — 2026-10-31
 
 This follow-up reuses the October 30 observations as scenario inputs; live database

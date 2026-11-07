@@ -206,7 +206,7 @@ def scope_for_work(
     else:
         selected = frame.loc[
             pd.to_datetime(frame[day_column]).dt.date.eq(
-                date.fromisoformat(raw["businessDate"])
+                date.fromisoformat(str(raw["businessDate"]))
             )
         ]
         if dataset == "signals":

@@ -83,6 +83,19 @@ class PlatformIdentityAdmissionTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"PRECOMPUTE_SYMBOL_FEATURES", "PRECOMPUTE_SECTOR_FEATURES", "SECTOR_ROTATION_BACKTEST"})
+    void datedFeatureLanesCannotTreatReadyOlderDataOrEmptyApprovalsAsReady(String type) {
+        job.setJobType(JobDefinition.JobType.valueOf(type));
+        when(metadata.coversDate(any(), anyString(), any())).thenReturn(false);
+        assertThat(registry.evaluate(request(Map.of("workBusinessDate", "2026-11-03"))).reasonCode())
+                .isEqualTo("INPUT_DATE_NOT_COVERED");
+        when(guard.checkDependencies(any())).thenReturn(JobDependencyGuard.GuardResult.ready(Map.of()));
+        assertThat(registry.evaluate(request(Map.of("workBusinessDate", "2026-11-03"))).reasonCode())
+                .isEqualTo("INPUT_PARTITIONS_UNRESOLVED");
+        verify(identities, never()).bind(any(), anyMap());
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"TREND_MOMENTUM_V1", "CONFIRMED_TREND_EQUALS"})
     void signalApprovalsFollowTheDeclaredDirectGraphInputs(String strategy) {
         job.setJobType(JobDefinition.JobType.SYNC_SIGNALS);

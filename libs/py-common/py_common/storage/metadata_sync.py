@@ -269,7 +269,14 @@ class MetadataSynchronizer:
         frame = await asyncio.to_thread(ParquetCodec.decode, payload)
         if frame.empty:
             raise ManifestInvalidError("Canonical Parquet object must not be empty")
-        lineage = _extract_lineage(definition.name, frame, values)
+        # Sector Wave's existing files do not persist authoritative input versions.
+        # Publish discovery/date evidence without inventing producer lineage;
+        # these datasets are not enrolled in the scoped I10 output protocol.
+        lineage = (
+            []
+            if definition.name in {"symbol-features", "sector-features"}
+            else _extract_lineage(definition.name, frame, values)
+        )
         columns = extract_schema_from_dataframe(frame)
         schema_hash = calculate_schema_hash(columns)
         checksum = f"sha256:{hashlib.sha256(payload).hexdigest()}"
@@ -343,6 +350,14 @@ def _parse_object(
             r"^signals/(?P<strategy>[^/]+)/(?P<timeframe>[^/]+)/"
             r"(?P<exchange>[^/]+)\.parquet$"
         ),
+        "symbol-features": (
+            r"^features/symbol/(?P<timeframe>[^/]+)/(?P<exchange>[^/]+)/"
+            r"(?P<code>[^/]+)\.parquet$"
+        ),
+        "sector-features": (
+            r"^features/sector/(?P<timeframe>[^/]+)/lv(?P<sector_level>[0-9]+)/"
+            r"(?P<sector_code>[^/]+)\.parquet$"
+        ),
     }
     pattern = patterns.get(definition.name)
     match = re.fullmatch(pattern, object_name) if pattern is not None else None
@@ -365,6 +380,16 @@ def _object_for_partition(
         return (
             f"signals/{values['strategy']}/{values['timeframe']}/"
             f"{values['exchange']}.parquet"
+        )
+    if definition.name == "symbol-features":
+        return (
+            f"features/symbol/{values['timeframe']}/{values['exchange']}/"
+            f"{values['code']}.parquet"
+        )
+    if definition.name == "sector-features":
+        return (
+            f"features/sector/{values['timeframe']}/lv{values['sector_level']}/"
+            f"{values['sector_code']}.parquet"
         )
     raise ManifestInvalidError(
         f"Dataset {definition.name!r} has no trusted path builder"

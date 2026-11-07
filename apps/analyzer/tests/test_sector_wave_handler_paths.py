@@ -17,6 +17,7 @@ from app.sector_wave.handler import SectorWaveJobHandler
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("bound", [False, True, "changed-version"])
 @pytest.mark.parametrize("atomic", [False, True])
 @pytest.mark.parametrize(
     "job_type,unit,key,method,output",
@@ -45,7 +46,7 @@ from app.sector_wave.handler import SectorWaveJobHandler
     ],
 )
 async def test_sector_handlers_keep_atomic_days_and_skip_unavailable_members(
-    atomic, job_type, unit, key, method, output
+    bound, atomic, job_type, unit, key, method, output
 ):
     day = date(2026, 10, 29)
     eod = pd.DataFrame(
@@ -121,7 +122,32 @@ async def test_sector_handlers_keep_atomic_days_and_skip_unavailable_members(
             parameters=parameters,
             atomicWorkId=atomic_work_id(job_type, unit, key, day, parameters),
         )
-    count = await getattr(SectorWaveJobHandler(settings, storage), method)(raw)
+    reader = None
+    if bound:
+        version = "sha256:" + "a" * 64
+        if unit == "SYMBOL":
+            dataset, partition, path, frame = "eod", {"exchange": "hose", "code": "hpg"}, "eod", eod
+        elif unit == "SECTOR":
+            dataset, partition, path, frame = "symbol-features", {"exchange": "hose", "code": "hpg", "timeframe": "1d"}, "symbol/HOSE/HPG", symbol
+        else:
+            dataset, partition, path, frame = "sector-features", {"sector_code": "banks", "sector_level": "2", "timeframe": "1d"}, "sector/BANKS", sector
+            raw["sectorCodes"] = ["BANKS"]
+            if atomic:
+                raw["parameters"] = {**parameters, "sectorCodes": ["BANKS"]}
+                raw["atomicWorkId"] = atomic_work_id(job_type, unit, key, day, raw["parameters"])
+        proof = SimpleNamespace(path=path, dataVersion=version)
+        document = SimpleNamespace(resolve=lambda requested, values: proof if requested == dataset and values == partition else None)
+        reader = SimpleNamespace(read=AsyncMock(return_value=document))
+        raw["metadata"] = {"approvedInputs": [{"dataset": dataset, "partition": partition, "dataVersion": version}]}
+        storage.read_bound_dataframe.return_value = frame
+        if bound == "changed-version":
+            from py_common.storage.exceptions import ManifestInvalidError
+            storage.read_bound_dataframe.side_effect = ManifestInvalidError("Parquet bytes differ from approved input version")
+            with pytest.raises(ManifestInvalidError, match="approved input version"):
+                await getattr(SectorWaveJobHandler(settings, storage, reader), method)(raw)
+            storage.write_dataframe.assert_not_awaited()
+            return
+    count = await getattr(SectorWaveJobHandler(settings, storage, reader), method)(raw)
     # The backtest needs a preceding session to compute its first return.
     history_rows = 59 if unit == "GLOBAL" else 60
     assert count == (1 if atomic else history_rows)
@@ -137,7 +163,11 @@ async def test_sector_handlers_keep_atomic_days_and_skip_unavailable_members(
             original.reset_index(drop=True),
             check_dtype=False,
         )
-    if unit == "SECTOR":
+    if bound:
+        reader.read.assert_awaited_once()
+        storage.read_bound_dataframe.assert_awaited_once_with(dataset, proof, version)
+        storage.read_dataframe.assert_not_awaited()
+    if unit == "SECTOR" and not bound:
         calls = [
             call.args[0] for call in storage.read_optional_dataframe.await_args_list
         ]

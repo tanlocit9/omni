@@ -63,8 +63,16 @@ class OutputWorkReadinessTest {
     }
 
     @Test
+    void missingEnrolledPredecessorDeclarationFailsClosedEvenWithNoRequestedRefs() {
+        when(jdbc.queryForObject(contains("EXISTS(SELECT 1 FROM output_completion_contracts"), eq(Boolean.class), eq(execution))).thenReturn(true);
+        when(jdbc.queryForObject(contains("declaration.execution_id IS NULL"), eq(Boolean.class), eq(execution))).thenReturn(true);
+        assertThat(service.bind(execution, Map.of())).isNull();
+        verify(jdbc, never()).queryForList(anyString(), eq(execution));
+    }
+
+    @Test
     void enrollmentCannotFallBackToPartitionWhenFrozenWorkIsMissingOrAmbiguous() {
-        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(execution))).thenReturn(true);
+        when(jdbc.queryForObject(contains("EXISTS(SELECT 1 FROM output_completion_contracts"), eq(Boolean.class), eq(execution))).thenReturn(true);
         when(jdbc.queryForList(anyString(), eq(execution), anyString(), anyString()))
                 .thenReturn(List.of());
         assertThat(service.bind(execution, Map.of(ref, "v1"))).isNull();
@@ -85,7 +93,7 @@ class OutputWorkReadinessTest {
 
     @Test
     void approvedInputCarriesGraphWorkDateAttemptAndVersionTogether() {
-        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(execution))).thenReturn(true);
+        when(jdbc.queryForObject(contains("EXISTS(SELECT 1 FROM output_completion_contracts"), eq(Boolean.class), eq(execution))).thenReturn(true);
         var attempt = UUID.randomUUID();
         var work = "work:" + "a".repeat(64);
         when(jdbc.queryForList(anyString(), eq(execution), anyString(), anyString()))

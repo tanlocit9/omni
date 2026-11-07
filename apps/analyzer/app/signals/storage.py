@@ -198,9 +198,16 @@ class SignalHistoryRepository:
         self,
         history_path: str,
         eod_loader: Callable[[str], Awaitable[pd.DataFrame]],
+        *,
+        history_loader: Callable[[], Awaitable[pd.DataFrame]] | None = None,
+        eligible_rows: frozenset[tuple[str, str, str | None]] | None = None,
     ) -> SignalOutcomeEvaluation:
         async def _update() -> SignalOutcomeEvaluation:
-            history = await self._read_history(history_path)
+            history = (
+                await history_loader()
+                if history_loader is not None
+                else await self._read_history(history_path)
+            )
             if history.empty:
                 return SignalOutcomeEvaluation(
                     records_scanned=0,
@@ -220,6 +227,15 @@ class SignalHistoryRepository:
             missing_eod_symbols: set[str] = set()
 
             for index, row in history.iterrows():
+                if eligible_rows is not None:
+                    model = row.get("model_version")
+                    coordinate = (
+                        str(row["symbol_key"]),
+                        pd.Timestamp(row["signal_date"]).date().isoformat(),
+                        None if pd.isna(model) else str(model),
+                    )
+                    if coordinate not in eligible_rows:
+                        continue
                 if str(row.get("signal", "")).upper() == MarketSignal.NO_DECISION.value:
                     continue
                 missing_windows = [

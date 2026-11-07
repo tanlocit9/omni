@@ -45,3 +45,11 @@ Require exact dated EOD/symbol-feature/sector-feature inputs; reject malformed d
 No test, lint, build, format or executable acceptance gate was run for this
 checkpoint. Existing dated evidence is historical and does not verify this
 isolated commit.
+
+### I10 bounded Indicators backfill
+
+Add the default-off Indicators-only sector/date API and V25 BACKFILL mode. Expand current Symbols then dated EOD and Indicators; enroll and promote this chain without globally activating realtime I10. Force creates fresh attempts and checks actual Parquet EOD-day coverage before reusing data. Platform API/enrollment, Ingestor EOD policy and shared Python enrolled reads change; Analyzer/Query fixtures exercise the chain. Existing logical Kafka fields and storage paths remain; Console has no UI change. Matched workers, authenticated private readers and exclusive drained legacy writers remain operational prerequisites.
+
+No test, lint, build, format or executable acceptance gate was run for this
+checkpoint. Existing dated evidence is historical and does not verify this
+isolated commit.

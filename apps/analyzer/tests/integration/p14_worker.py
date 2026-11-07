@@ -21,6 +21,7 @@ from py_common.storage.metadata_sync import MetadataSynchronizer
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
+from py_common.storage.output_readiness import metadata_reader
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
@@ -59,6 +60,12 @@ async def main():
     )
     assert settings.minio.endpoint == config["minio"], "MinIO isolation mismatch"
     assert settings.minio.bucket == config["bucket"], "Bucket isolation mismatch"
+    if "outputReadinessUrl" in config:
+        # Exercise scoped enrolled reads while legacy catalog reads retain manifest mode.
+        settings.output_readiness_mode = "manifest"
+        settings.output_readiness_api_url = config["outputReadinessUrl"]
+        from pydantic import SecretStr
+        settings.output_readiness_api_token = SecretStr(config["outputReadinessToken"])
     adapter = MinioStorageAdapter(create_minio_client(settings.minio))
     await adapter.ensure_bucket(settings.minio.bucket)
     registry = StorageProviderRegistry([adapter])
@@ -79,7 +86,7 @@ async def main():
     handler = IndicatorJobHandler(
         settings,
         parquet,
-        reader,
+        metadata_reader(settings, adapter) if "outputReadinessUrl" in config else reader,
     )
     control = (
         Path(config["overlapControlDir"]) if "overlapControlDir" in config else None

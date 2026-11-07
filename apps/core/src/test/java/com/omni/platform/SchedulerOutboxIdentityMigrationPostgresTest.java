@@ -89,7 +89,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         int pending = migrations.info().pending().length;
         assertThat(pending).isPositive();
         assertThat(migrations.migrate().migrationsExecuted).isEqualTo(pending);
-        assertThat(migrations.info().current().getVersion().toString()).isEqualTo("24");
+        assertThat(migrations.info().current().getVersion().toString()).isEqualTo("25");
     }
 
     @Test
@@ -100,7 +100,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                         "SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",
                         String.class);
         migrateAllPending();
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("24");
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("25");
         for (String table :
                 List.of(
                         "output_registration_events",
@@ -187,7 +187,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         assertThat(flyway(null).migrate().migrationsExecuted).isZero();
         flyway(null).validate();
         assertThat(intentsWithoutForeignKey()).isEqualTo(after);
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("24");
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("25");
         // A separate disposable schema exercises all available migrations from an empty install.
         String original = schema;
         var originalSource = dataSource;
@@ -434,7 +434,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                                                                 "spring.datasource.url",
                                                                 dataSource.getUrl()))))) {
             assertThat(application.getBean(Flyway.class).info().current().getVersion().toString())
-                    .isEqualTo("24");
+                    .isEqualTo("25");
             var outbox = application.getBean(SchedulerOutboxService.class);
             var store = application.getBean(JobRunDispatchStore.class);
             var approved = Map.of(DatasetRef.of("eod", Map.of("exchange", "HOSE")), "v1");

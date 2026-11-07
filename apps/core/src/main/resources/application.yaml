@@ -50,6 +50,8 @@ app:
     secret-key: ${MINIO_SECRET_KEY:minioadmin}
     bucket: ${MINIO_BUCKET:stock-data}
   scheduler:
+    backfill:
+      enabled: ${APP_SCHEDULER_BACKFILL_ENABLED:false}
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     job-run:
       # Explicit false is a conscious historical FIFO rollback; incompatible with enabled preparation.

@@ -29,6 +29,10 @@ public class OutputDeclarations {
 
     public List<OutputRegistrationEvent.LogicalOutput> required(ExpandedJobMessage work) {
         if (!enabled) return List.of();
+        return requiredForEnrolledWork(work);
+    }
+
+    public List<OutputRegistrationEvent.LogicalOutput> requiredForEnrolledWork(ExpandedJobMessage work) {
         String[] symbol = work.workKey().toLowerCase(Locale.ROOT).split("-", 2);
         boolean evaluation = work.jobType().equals("EVALUATE_SIGNALS");
         if (!List.of("SYNC_STOCK_PRICE", "SYNC_INDICATORS", "SYNC_SIGNALS", "EVALUATE_SIGNALS")

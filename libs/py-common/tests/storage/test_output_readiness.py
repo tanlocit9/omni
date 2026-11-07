@@ -8,6 +8,22 @@ from py_common.storage.output_readiness import (
 )
 
 
+@pytest.mark.anyio
+async def test_enrolled_inputs_use_work_reader_without_switching_legacy_catalog():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from py_common.storage.output_readiness import read_input_document
+
+    work = PostgresMetadataReader("http://platform/readiness", "fixture")
+    work.read_for = AsyncMock(return_value="frozen-work")
+    legacy = SimpleNamespace(
+        read=AsyncMock(return_value="manifest"), enrolled_work_reader=work
+    )
+    assert await read_input_document(legacy, {}) == "manifest"
+    assert await read_input_document(legacy, {"outputCompletion": {}}) == "frozen-work"
+    legacy.read.assert_awaited_once()
+    work.read_for.assert_awaited_once()
+
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
@@ -382,6 +398,7 @@ def test_authority_selection_keeps_explicit_mode_and_shared_path_configuration(m
     reader = metadata_reader(settings, Mock())
     if mode == "manifest":
         assert isinstance(reader, GlobalMetadataReader)
+        assert isinstance(reader.enrolled_work_reader, PostgresMetadataReader)
     else:
         postgres = reader._postgres if mode == "shadow" else reader
         assert isinstance(postgres, PostgresMetadataReader)

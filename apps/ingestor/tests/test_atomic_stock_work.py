@@ -11,6 +11,41 @@ from app.handlers import stock_prices
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("covered", [True, False])
+async def test_force_backfill_checks_parquet_day_and_fetches_only_when_missing(monkeypatch, covered):
+    day = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date() - timedelta(days=7)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    parameters = {"source": "VND"}
+    payload = {
+        "jobDefinitionId": "job", "executionId": "execution", "source": "VND",
+        "jobType": "SYNC_STOCK_PRICE", "workType": "SYMBOL", "workKey": "HOSE-HPG",
+        "symbolKey": "HOSE-HPG", "businessDate": day.isoformat(), "parameters": parameters,
+        "atomicWorkId": atomic_work_id("SYNC_STOCK_PRICE", "SYMBOL", "HOSE-HPG", day, parameters),
+        "metadata": {"backfillPolicy": {"force": True, "verifyEodParquet": True}},
+    }
+    rows = [{"date": day - timedelta(days=1), "close": 10},
+            {"date": day + timedelta(days=1), "close": 30}]
+    if covered:
+        rows.append({"date": day, "close": 20})
+    storage = AsyncMock()
+    storage.read_optional_dataframe.return_value = pd.DataFrame(rows)
+    client = AsyncMock()
+    client.fetch_recent_stock.return_value = [{"date": day.isoformat(), "close": 20}]
+    publisher = SimpleNamespace(publish=AsyncMock())
+    monkeypatch.setattr(stock_prices, "get_or_create_client", lambda *args: client)
+    monkeypatch.setattr(stock_prices, "settings", SimpleNamespace(get_eod_path=lambda *args: "eod/hose/hpg.parquet"))
+    result = await stock_prices.process_stock_price_message(payload, publisher, client, storage)
+    assert result.status == "SUCCESS"
+    written = storage.write_dataframe.await_args.args[1]
+    assert pd.to_datetime(written["date"]).dt.date.tolist() == [day - timedelta(days=1), day, day + timedelta(days=1)]
+    if covered:
+        client.fetch_recent_stock.assert_not_awaited()
+    else:
+        client.fetch_recent_stock.assert_awaited_once()
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("has_day", [True, False])
 @pytest.mark.parametrize("history", ["existing", "missing", "empty"])
 @pytest.mark.parametrize("source", ["VND", ""])

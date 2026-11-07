@@ -402,7 +402,17 @@ class ShadowMetadataReader:
 
 def metadata_reader(settings, readable):
     if settings.output_readiness_mode == "manifest":
-        return GlobalMetadataReader(readable, settings.minio.bucket)
+        reader = GlobalMetadataReader(readable, settings.minio.bucket)
+        if (
+            getattr(settings, "output_readiness_api_url", "")
+            and settings.output_readiness_api_token.get_secret_value()
+        ):
+            reader.enrolled_work_reader = PostgresMetadataReader(
+                settings.output_readiness_api_url,
+                settings.output_readiness_api_token.get_secret_value(),
+                paths=settings.stock_data_paths,
+            )
+        return reader
     if settings.output_readiness_mode == "postgres":
         return PostgresMetadataReader(
             settings.output_readiness_api_url,
@@ -423,6 +433,7 @@ def metadata_reader(settings, readable):
 
 async def read_input_document(reader, metadata):
     if "outputCompletion" in metadata:
+        reader = getattr(reader, "enrolled_work_reader", reader)
         if not isinstance(reader, PostgresMetadataReader):
             raise ManifestInvalidError(
                 "Enrolled work requires PostgreSQL work readiness reader"

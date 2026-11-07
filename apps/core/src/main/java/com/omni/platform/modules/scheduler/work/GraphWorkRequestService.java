@@ -53,7 +53,18 @@ public class GraphWorkRequestService {
     private final JobRunRepository runs;
     private final JobService jobs;
     private final boolean enabled;
+    private final boolean planningEnabled;
     private UUID reconcileCursor;
+    @Value("${app.scheduler.backfill.enabled:false}")
+    private boolean backfillEnabled;
+    @Value("${app.output-registration.shadow-enabled:false}")
+    private boolean registrationConsumerEnabled;
+
+    @Transactional(timeout = 120)
+    public UUID prepareBackfill(Request request, UUID target, Instant now, Map<String, Object> metadata) {
+        if (request.mode() != Mode.BACKFILL) throw new IllegalArgumentException("BACKFILL mode required");
+        return prepareAccepted(request, target, null, now, metadata);
+    }
 
     @org.springframework.beans.factory.annotation.Autowired
     private com.omni.platform.modules.scheduler.metadata.OutputDeclarations outputDeclarations;
@@ -83,10 +94,15 @@ public class GraphWorkRequestService {
         this.runs = runs;
         this.jobs = jobs;
         this.enabled = enabled;
+        this.planningEnabled = planning;
     }
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public UUID requestId(UUID execution) {
+        return jdbc.queryForObject("SELECT id FROM atomic_work_requests WHERE execution_id=?", UUID.class, execution);
     }
 
     private record Template(
@@ -105,9 +121,22 @@ public class GraphWorkRequestService {
             Instant now,
             Map<String, Object> metadata) {
         if (!enabled) throw new IllegalStateException("GRAPH_EXPANSION_DISABLED");
-        if (!targetId.equals(claim.jobDefinitionId()) || request.mode() == Mode.BACKFILL)
+        if (request.mode() == Mode.BACKFILL)
+            throw new IllegalArgumentException("Invalid graph request claim/mode");
+        return prepareAccepted(request, targetId, claim, now, metadata);
+    }
+
+    private UUID prepareAccepted(Request request, UUID targetId, SchedulerClaim claim,
+            Instant now, Map<String, Object> metadata) {
+        boolean backfill = request.mode() == Mode.BACKFILL;
+        if (!backfill && !enabled) throw new IllegalStateException("GRAPH_EXPANSION_DISABLED");
+        if (backfill && (!backfillEnabled || !registrationConsumerEnabled || !planningEnabled))
+            throw new IllegalStateException("BACKFILL_DISABLED_OR_REGISTRATION_UNAVAILABLE");
+        if (backfill ? claim != null : (claim == null || !targetId.equals(claim.jobDefinitionId())))
             throw new IllegalArgumentException("Invalid graph request claim/mode");
         Map<String, Object> expansion = readObject(request.parametersJson());
+        if (backfill && !java.util.Objects.equals(expansion.get("force"), metadata.get("force")))
+            throw new IllegalArgumentException("Backfill force policy must match accepted request");
         // Serialize one idempotency key, then acquire definitions/slots in stable order.
         jdbc.queryForList(
                 "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
@@ -128,7 +157,7 @@ public class GraphWorkRequestService {
                                             readObject(row.get("request_json").toString()))))
                 throw new IllegalArgumentException("GRAPH_IDEMPOTENCY_CONFLICT");
             assertClaim(targetId, claim, now);
-            jobs.releaseClaim(claim);
+            if (claim != null) jobs.releaseClaim(claim);
             return (UUID) row.get("execution_id");
         }
         // Preset edits cannot race the accepted graph. Locks are intentionally coarse/bounded.
@@ -138,6 +167,22 @@ public class GraphWorkRequestService {
         jdbc.execute("LOCK TABLE symbols IN SHARE MODE");
         entities.clear();
         JobDefinition target = assertClaim(targetId, claim, now);
+        if (backfill && Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM job_definitions WHERE is_active AND schedule_enabled "
+                        + "AND job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS')) "
+                        + "OR EXISTS(SELECT 1 FROM job_execution_histories e JOIN job_definitions j ON j.id=e.job_id "
+                        + "WHERE e.status IN ('PENDING','RUNNING') AND e.parent_log_id IS NOT NULL "
+                        + "AND j.job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS') "
+                        + "AND NOT (e.meta_json ? 'outputCompletion'))", Boolean.class)))
+            throw new IllegalStateException("BACKFILL_REQUIRES_PAUSED_AND_DRAINED_LEGACY_WRITERS");
+        if (backfill && expansion.get("sectorCodes") instanceof List<?> requestedSectors) {
+            for (Object sector : requestedSectors) {
+                if (!Boolean.TRUE.equals(jdbc.queryForObject(
+                        "SELECT EXISTS(SELECT 1 FROM symbols WHERE is_active=true AND meta_json->>CAST(? AS text)=?)",
+                        Boolean.class, "sectorLv" + expansion.get("sectorLevel") + "Code", sector)))
+                    throw new IllegalArgumentException("No active symbols for requested sector: " + sector);
+            }
+        }
         List<JobDefinition> catalog =
                 definitions.findAll().stream()
                         .filter(
@@ -181,6 +226,25 @@ public class GraphWorkRequestService {
                                                                 symbol,
                                                                 "sectorLv" + level + "Code",
                                                                 sector))));
+        if (backfill && plan.targets().isEmpty())
+            throw new IllegalArgumentException("Backfill scope resolves no target work");
+        if (backfill) {
+            var acceptedParent = new JobExecutionHistory();
+            acceptedParent.setMetaJson(Map.of("expansionRequest", expansion));
+            var days = WorkExpansion.resolve(target, acceptedParent, now).days();
+            var symbols = jdbc.queryForList(
+                    "SELECT exchange || '-' || code FROM symbols WHERE is_active=true "
+                            + "AND meta_json->>CAST(? AS text) IN (SELECT jsonb_array_elements_text(?::jsonb))",
+                    String.class, "sectorLv" + expansion.get("sectorLevel") + "Code",
+                    json.writeValueAsString(expansion.get("sectorCodes")));
+            Set<String> expected = symbols.stream().flatMap(symbol -> days.stream()
+                    .map(day -> symbol + "@" + day)).collect(Collectors.toSet());
+            Set<String> targetWorkIds = Set.copyOf(plan.targets());
+            Set<String> actual = plan.works().stream().filter(work -> targetWorkIds.contains(work.id()))
+                    .map(work -> work.workKey() + "@" + work.businessDate()).collect(Collectors.toSet());
+            if (!actual.equals(expected))
+                throw new IllegalArgumentException("BACKFILL_INCOMPLETE_TARGET_MEMBERSHIP");
+        }
         UUID requestId = UUID.randomUUID();
         var root =
                 parent(
@@ -255,7 +319,7 @@ public class GraphWorkRequestService {
                                 .map(id -> attempts.get(id).id())
                                 .sorted()
                                 .toList();
-                Attempt attempt = acquire(work, templates.get(work.id()), upstream, now);
+                Attempt attempt = acquire(work, templates.get(work.id()), upstream, now, backfill, metadata);
                 attempts.put(work.id(), attempt);
                 remaining.remove(work.id());
                 jdbc.update(
@@ -269,7 +333,7 @@ public class GraphWorkRequestService {
             }
         }
         jdbc.update("UPDATE atomic_work_requests SET state='PREPARED' WHERE id=?", requestId);
-        jobs.completeRunPreparation(
+        if (claim != null) jobs.completeRunPreparation(
                 assertClaim(targetId, claim, now), claim, now, request.mode() == Mode.MANUAL);
         return root.getId();
     }
@@ -279,6 +343,10 @@ public class GraphWorkRequestService {
                 "SELECT id FROM job_definitions WHERE id=? FOR UPDATE", UUID.class, targetId);
         var target = definitions.findById(targetId).orElseThrow();
         entities.refresh(target);
+        if (claim == null) {
+            if (!Boolean.TRUE.equals(target.getIsActive())) throw new IllegalStateException("Inactive backfill target");
+            return target;
+        }
         if (!Boolean.TRUE.equals(target.getIsActive())
                 || !claim.claimToken().equals(target.getClaimToken())
                 || !claim.claimedBy().equals(target.getClaimedBy())
@@ -289,17 +357,18 @@ public class GraphWorkRequestService {
     }
 
     private Attempt acquire(
-            GraphWorkExpansion.Work work, Template template, List<UUID> upstream, Instant now) {
+            GraphWorkExpansion.Work work, Template template, List<UUID> upstream, Instant now, boolean backfill, Map<String, Object> requestMetadata) {
         var requiredOutputs =
                 outputDeclarations == null
                         ? List
                                 .<com.omni.platform.modules.scheduler.metadata
                                                 .OutputRegistrationEvent.LogicalOutput>
                                         of()
+                        : backfill ? outputDeclarations.requiredForEnrolledWork(template.message())
                         : outputDeclarations.required(template.message());
         String binding = json.writeValueAsString(upstream.stream().map(UUID::toString).toList());
-        var reusable =
-                jdbc.queryForList(
+        var reusable = backfill && Boolean.TRUE.equals(requestMetadata.get("force"))
+                ? List.<Map<String, Object>>of() : jdbc.queryForList(
                         "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
                                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
                                 + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
@@ -366,6 +435,10 @@ public class GraphWorkRequestService {
         entities.persist(parent);
         entities.flush();
         var context = new JobRunWorkContext(parent, entities, jdbc, json, 1);
+        Map<String, Object> childMetadata = new LinkedHashMap<>();
+        if (!requiredOutputs.isEmpty()) childMetadata.putAll(outputDeclarations.metadata(attemptId, requiredOutputs));
+        if (backfill) childMetadata.put("backfillPolicy", Map.of(
+                "force", Boolean.TRUE.equals(requestMetadata.get("force")), "verifyEodParquet", true));
         var child =
                 producers
                         .getProducer(work.jobType())
@@ -375,9 +448,7 @@ public class GraphWorkRequestService {
                                 template.configuration(),
                                 now,
                                 context,
-                                requiredOutputs.isEmpty()
-                                        ? Map.of()
-                                        : outputDeclarations.metadata(attemptId, requiredOutputs));
+                                childMetadata);
         entities.flush();
         jdbc.update(
                 "INSERT INTO job_run_step_preparations(job_run_id,step_index,parent_execution_id,child_count,message_count,closed_at) "
@@ -513,7 +584,7 @@ public class GraphWorkRequestService {
     @Scheduled(fixedDelayString = "${app.scheduler.job-run.graph-reconcile-delay:5000}")
     @Transactional(timeout = 15)
     public void reconcile() {
-        if (!enabled) return;
+        if (!enabled && !backfillEnabled) return;
         // Fail dependents only before publication; never rewrite a published/running worker
         // attempt.
         var failed =

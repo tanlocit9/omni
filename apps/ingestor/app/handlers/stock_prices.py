@@ -90,7 +90,19 @@ async def process_stock_price_message(
             limit = _ALL_RECORDS_LIMIT if bootstrap else age + 30
         else:
             limit = compute_limit(from_date, to_date)
-        new_df = await fetch_stock_data(client, code, limit)
+        backfill_policy = message.metadata.get("backfillPolicy", {})
+        reuse_eod = (
+            backfill_policy.get("force") is True
+            and backfill_policy.get("verifyEodParquet") is True
+            and message.business_date is not None
+            and existing_df is not None
+            and not existing_df.empty
+            and "date" in existing_df
+            and pd.to_datetime(existing_df["date"], errors="raise")
+            .dt.date.eq(message.business_date)
+            .any()
+        )
+        new_df = existing_df.copy() if reuse_eod else await fetch_stock_data(client, code, limit)
         if message.business_date is not None:
             new_df = normalize_stock_price_dataframe_columns(new_df)
             if bootstrap:
@@ -130,7 +142,7 @@ async def process_stock_price_message(
             # TODO(TD-005): Distinguish valid-empty work from missing/invalid output.
             # Ref: docs/technical-debt/005-job-status-empty-output-semantics.md
             JobStatus.SUCCESS,
-            records_inserted=len(new_df),
+            records_inserted=0 if reuse_eod else len(new_df),
             total_records=len(combined),
             new_offset=to_date.isoformat(),
         )

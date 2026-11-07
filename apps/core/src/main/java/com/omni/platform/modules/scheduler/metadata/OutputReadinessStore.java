@@ -25,7 +25,11 @@ public class OutputReadinessStore {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void promote(UUID execution) {
-        if (!enabled) return;
+        if (!enabled && !Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM atomic_work_requests r "
+                        + "JOIN atomic_work_request_members m ON m.request_id=r.id "
+                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                        + "WHERE r.mode='BACKFILL' AND a.execution_id=?)", Boolean.class, execution))) return;
         var outputs =
                 jdbc.queryForList(
                         "SELECT r.atomic_work_id,o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation "

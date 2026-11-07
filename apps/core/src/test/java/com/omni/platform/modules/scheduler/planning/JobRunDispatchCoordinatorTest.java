@@ -40,7 +40,7 @@ class JobRunDispatchCoordinatorTest {
                 .isInstanceOf(NullPointerException.class);
         var legacy = new JobRunDispatchCoordinator(null, null, outbox, false, false);
         var candidate = candidate();
-        when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(candidate));
+        when(outbox.findCandidates(NOW, 3)).thenReturn(List.of(candidate));
         var batch = legacy.load(NOW, 1);
         assertThat(batch.mode()).isEqualTo(JobRunDispatchCoordinator.Mode.DISABLED);
         legacy.claim(batch.candidates().getFirst(), NOW, "owner", Duration.ofSeconds(30), Map.of());
@@ -55,7 +55,7 @@ class JobRunDispatchCoordinatorTest {
     @Test
     void enabledLegacyLaneUsesStrictIdentityRevalidation() {
         var legacy = candidate();
-        when(store.findLegacyCandidates(NOW, 8)).thenReturn(List.of(legacy));
+        when(store.findLegacyCandidates(NOW, 6)).thenReturn(List.of(legacy));
         var coordinator = new JobRunDispatchCoordinator(store, reader, outbox, true, false);
         var batch = coordinator.load(NOW, 2);
         assertThat(batch.mode()).isEqualTo(JobRunDispatchCoordinator.Mode.PLANNED);
@@ -72,7 +72,7 @@ class JobRunDispatchCoordinatorTest {
         var managedA = candidate();
         var managedB = candidate();
         var legacy = candidate();
-        when(store.findLegacyCandidates(NOW, 4)).thenReturn(List.of(legacy));
+        when(store.findLegacyCandidates(NOW, 3)).thenReturn(List.of(legacy));
         when(store.findRunPage(eq(NOW), any(), eq(32)))
                 .thenAnswer(call -> a.equals(call.getArgument(1)) ? List.of(b, a) : List.of(a, b));
         when(reader.capture(eq(NOW), anyList()))
@@ -119,7 +119,7 @@ class JobRunDispatchCoordinatorTest {
         UUID id = UUID.randomUUID();
         var managed = candidate();
         var legacy = List.of(candidate(), candidate(), candidate(), candidate());
-        when(store.findLegacyCandidates(NOW, 16)).thenReturn(legacy);
+        when(store.findLegacyCandidates(NOW, 12)).thenReturn(legacy);
         when(store.findRunPage(eq(NOW), any(), eq(32))).thenReturn(List.of(id));
         when(reader.capture(NOW, List.of(id)))
                 .thenReturn(new JobRunDispatchSnapshot(NOW, true, List.of(run(id, managed, 1))));
@@ -150,7 +150,7 @@ class JobRunDispatchCoordinatorTest {
         var envelope = new PlannedCandidate(candidate, selected);
         var cursor = new FallbackCursor(NOW, NOW, candidate.messageId());
         when(store.findRunPage(eq(NOW), any(), eq(32))).thenReturn(List.of(run));
-        when(store.findFallbackCandidates(eq(NOW), any(), eq(4)))
+        when(store.findFallbackCandidates(eq(NOW), any(), eq(3)))
                 .thenReturn(new FallbackBatch(List.of(envelope), cursor));
         for (var snapshot :
                 List.of(
@@ -172,7 +172,7 @@ class JobRunDispatchCoordinatorTest {
                         "owner",
                         Duration.ofSeconds(30),
                         Map.of());
-        verify(store, times(2)).findFallbackCandidates(NOW, cursor, 4);
+        verify(store, times(2)).findFallbackCandidates(NOW, cursor, 3);
         verifyNoInteractions(outbox);
     }
 

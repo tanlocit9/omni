@@ -37,7 +37,7 @@ class SchedulerOutboxDispatcherTest {
         var waiting = candidate("waiting");
         var ready = candidate("ready");
         var claim = claim(ready);
-        when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(waiting, ready));
+        when(outbox.findCandidates(NOW, 6)).thenReturn(List.of(waiting, ready));
         when(dependencies.evaluate(any()))
                 .thenReturn(
                         DependencyDecision.waiting(
@@ -64,7 +64,7 @@ class SchedulerOutboxDispatcherTest {
         DependencyRegistry dependencies = mock(DependencyRegistry.class);
         KafkaPublisher kafka = mock(KafkaPublisher.class);
         var blocked = candidate("blocked");
-        when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(blocked));
+        when(outbox.findCandidates(NOW, 3)).thenReturn(List.of(blocked));
         when(dependencies.evaluate(any()))
                 .thenReturn(
                         DependencyDecision.blocked(
@@ -87,7 +87,7 @@ class SchedulerOutboxDispatcherTest {
         KafkaPublisher kafka = mock(KafkaPublisher.class);
         var first = candidate("first");
         var second = candidate("second");
-        when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(first, second));
+        when(outbox.findCandidates(NOW, 3)).thenReturn(List.of(first, second));
         when(dependencies.evaluate(any())).thenReturn(DependencyDecision.ready(Map.of()));
         when(outbox.claimEligible(
                         first.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
@@ -111,7 +111,7 @@ class SchedulerOutboxDispatcherTest {
         var failing = candidate("failing");
         var staleClaim = claim(stale);
         var failingClaim = claim(failing);
-        when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(stale, failing));
+        when(outbox.findCandidates(NOW, 6)).thenReturn(List.of(stale, failing));
         when(dependencies.evaluate(any())).thenReturn(DependencyDecision.ready(Map.of()));
         when(outbox.claimEligible(
                         stale.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))
@@ -141,7 +141,7 @@ class SchedulerOutboxDispatcherTest {
         var waiting = candidate("waiting-null");
         var failing = candidate("failure-null");
         var failingClaim = claim(failing);
-        when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(waiting, failing));
+        when(outbox.findCandidates(NOW, 6)).thenReturn(List.of(waiting, failing));
         when(dependencies.evaluate(any()))
                 .thenReturn(
                         DependencyDecision.waiting(null, null, NOW.plusSeconds(30)),
@@ -184,7 +184,7 @@ class SchedulerOutboxDispatcherTest {
             var poison = candidate("bad");
             var ready = candidate("good");
             var claimed = claim(ready);
-            when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(poison, ready));
+            when(outbox.findCandidates(NOW, 6)).thenReturn(List.of(poison, ready));
             when(dependencies.evaluate(any()))
                     .thenReturn(invalid)
                     .thenReturn(DependencyDecision.ready(Map.of()));
@@ -208,7 +208,7 @@ class SchedulerOutboxDispatcherTest {
         var poison = candidate("poison");
         var ready = candidate("ready");
         var claimed = claim(ready);
-        when(outbox.findCandidates(NOW, 8)).thenReturn(List.of(poison, ready));
+        when(outbox.findCandidates(NOW, 6)).thenReturn(List.of(poison, ready));
         when(dependencies.evaluate(any()))
                 .thenThrow(new IllegalStateException("fixture"))
                 .thenReturn(DependencyDecision.ready(Map.of()));
@@ -235,7 +235,7 @@ class SchedulerOutboxDispatcherTest {
         var kafka = mock(KafkaPublisher.class);
         var candidate = candidate("stale");
         var claimed = claim(candidate);
-        when(outbox.findCandidates(NOW, 4)).thenReturn(List.of(candidate));
+        when(outbox.findCandidates(NOW, 3)).thenReturn(List.of(candidate));
         when(dependencies.evaluate(any())).thenReturn(DependencyDecision.ready(Map.of()));
         when(outbox.claimEligible(
                         candidate.messageId(), NOW, "core-a", Duration.ofMinutes(2), Map.of()))

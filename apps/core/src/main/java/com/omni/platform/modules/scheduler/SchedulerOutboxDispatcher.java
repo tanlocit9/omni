@@ -27,8 +27,6 @@ public class SchedulerOutboxDispatcher {
     private static final Duration PUBLISH_TIMEOUT = Duration.ofSeconds(15);
     private static final Duration RETRY_DELAY = Duration.ofSeconds(30);
 
-    private static final int CANDIDATE_MULTIPLIER = 4;
-
     private final SchedulerOutboxService outboxService;
     private final DependencyRegistry dependencyRegistry;
     private final KafkaPublisher kafkaPublisher;
@@ -65,7 +63,7 @@ public class SchedulerOutboxDispatcher {
     void dispatchBatch(Instant now) {
         long batchStartedAt = System.nanoTime();
         int batchSize = schedulerProperties.claim().batchSize();
-        int candidateLimit = batchSize * CANDIDATE_MULTIPLIER;
+        int candidateLimit = batchSize * JobRunDispatchCoordinator.CANDIDATE_MULTIPLIER;
         log.info(
                 "{} Loading candidates at={} batchSize={} candidateLimit={}",
                 TRACE_TAG,

@@ -21,3 +21,11 @@ Add the shared read-only backlog skill and its tool/agent guidance. No job clean
 No test, lint, build, format or executable acceptance gate was run for this
 checkpoint. Existing dated evidence is historical and does not verify this
 isolated commit.
+
+### Scheduler candidate budget
+
+Use one multiplier of three in planner, dispatcher and fallback paths. With batch size ten the candidate limit is thirty; this is not a worker concurrency limit. Only Platform dispatch selection and its regression expectations change. No schema, worker, message, storage, Query, Console or deployment change.
+
+No test, lint, build, format or executable acceptance gate was run for this
+checkpoint. Existing dated evidence is historical and does not verify this
+isolated commit.

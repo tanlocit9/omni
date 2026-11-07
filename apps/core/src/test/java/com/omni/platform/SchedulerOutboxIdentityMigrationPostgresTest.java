@@ -93,7 +93,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
     }
 
     @Test
-    void v18UpgradeInstallsOneCompleteI10SchemaWithoutInventingReadyHistory() {
+    void v18UpgradeInstallsFiveI10StagesWithoutInventingReadyHistory() {
         flyway("18").migrate();
         String before =
                 jdbc.queryForObject(

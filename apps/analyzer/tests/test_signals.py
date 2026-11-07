@@ -1825,8 +1825,16 @@ async def test_outcome_loader_uses_frozen_work_readiness_and_cutoff(case):
     proof = SimpleNamespace(
         path="canonical-eod", status="READY", dataVersion="sha256:" + "a" * 64
     )
+    signal_proof = SimpleNamespace(
+        path="signals/trend_momentum_v1/1d/hose.parquet",
+        status="READY",
+        dataVersion="sha256:" + "b" * 64,
+    )
     document = SimpleNamespace(
-        resolve=lambda *args: None if case == "missing-partition" else proof
+        resolve=lambda dataset, _partition: (
+            None if case == "missing-partition"
+            else signal_proof if dataset == "signals" else proof
+        )
     )
     reader = (
         None
@@ -1846,7 +1854,7 @@ async def test_outcome_loader_uses_frozen_work_readiness_and_cutoff(case):
         payload["metadata"] = {"outputCompletion": {}}
     evaluator = SignalOutcomeEvaluator(settings, storage, reader)
 
-    async def evaluate_history(path, loader):
+    async def evaluate_history(path, loader, **kwargs):
         selected = await loader("HOSE-HPG")
         assert selected["ad_close"].tolist() == [1, 2]
         return SignalOutcomeEvaluation(1, 0, {})

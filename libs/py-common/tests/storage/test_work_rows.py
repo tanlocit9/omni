@@ -83,6 +83,17 @@ def signal_raw(*, evaluation=False, parameters=None):
     return raw
 
 
+@pytest.mark.parametrize("business_day", [DAY.isoformat(), DAY])
+def test_work_scope_accepts_wire_and_validated_payload_dates(business_day):
+    raw = {**RAW, "businessDate": business_day}
+    frame = pd.DataFrame({"date": [date(2026, 11, 1), DAY], "close": [100, 101]})
+    scope, selected = scope_for_work(raw, "eod", frame)
+    assert scope["atomicWorkId"] == WORK
+    assert selected["date"].tolist() == [DAY]
+    with pytest.raises(ManifestInvalidError, match="does not cover"):
+        scope_for_work(raw, "eod", frame.iloc[:1])
+
+
 def evidence(frame):
     scope, rows = scope_for_work(RAW, "eod", frame)
     columns = extract_schema_from_dataframe(rows)

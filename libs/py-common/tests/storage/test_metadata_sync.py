@@ -3,9 +3,10 @@ from unittest.mock import AsyncMock
 import pandas as pd
 import pytest
 
-from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
+from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY, DatasetAdapterRegistry
 from py_common.storage.exceptions import (
     ManifestInvalidError,
+    ParquetDecodeError,
     StorageObjectNotFoundError,
 )
 from py_common.storage.global_metadata import GlobalMetadataDocument
@@ -171,6 +172,30 @@ async def test_confirmed_trend_metadata_uses_only_eod_lineage() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("dataset,path,partition", [
+    ("symbol-features", "features/symbol/1d/hose/hpg.parquet",
+     {"timeframe": "1d", "exchange": "hose", "code": "hpg"}),
+    ("sector-features", "features/sector/1d/lv1/bank.parquet",
+     {"timeframe": "1d", "sector_level": "1", "sector_code": "bank"}),
+])
+async def test_feature_metadata_preserves_exact_coverage_holes_and_exact_sync(dataset, path, partition):
+    parquet = ParquetCodec.encode(pd.DataFrame({
+        "date": ["2026-10-29", "2026-11-02"], "feature_value": [1.0, 2.0],
+    }))
+    sync, writer = synchronizer({path: parquet})
+    await sync.sync()
+    current = writer.documents[-1]
+    proof = current.resolve(dataset, partition)
+    assert proof is not None
+    assert proof.path == path
+    assert proof.coverageDates == ["2026-10-29", "2026-11-02"]
+    assert "2026-10-30" not in proof.coverageDates
+    scoped, scoped_writer = synchronizer({path: parquet}, current)
+    await scoped.sync(target=MetadataSyncTarget(dataset=dataset, partition=partition))
+    assert scoped_writer.documents[-1].resolve(dataset, partition).dataVersion == proof.dataVersion
+
+
+@pytest.mark.asyncio
 async def test_full_sync_does_not_publish_when_no_valid_partition_exists() -> None:
     sync, writer = synchronizer({"eod/hose/_versions/old.parquet": b"invalid"})
 
@@ -195,3 +220,38 @@ async def test_exact_sync_rejects_partial_partition() -> None:
         )
 
     assert writer.documents == []
+
+
+def test_registry_rejects_ambiguous_or_unknown_dataset_definitions():
+    definition = OMNI_DATASET_REGISTRY.get("symbol-features")
+    with pytest.raises(ManifestInvalidError, match="unique"):
+        DatasetAdapterRegistry((definition, definition))
+    with pytest.raises(ManifestInvalidError, match="Unsupported dataset"):
+        OMNI_DATASET_REGISTRY.get("unknown-feature-dataset")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["FULL", "EXACT"])
+@pytest.mark.parametrize("invalid", ["corrupt", "empty", "missing-date"])
+async def test_invalid_feature_object_cannot_replace_existing_metadata(mode, invalid):
+    path = "features/symbol/1d/hose/hpg.parquet"
+    partition = {"timeframe": "1d", "exchange": "hose", "code": "hpg"}
+    good = ParquetCodec.encode(pd.DataFrame({"date": ["2026-11-02"], "value": [1.0]}))
+    original, original_writer = synchronizer({path: good})
+    await original.sync()
+    current = original_writer.documents[-1]
+    payload = b"invalid-parquet" if invalid == "corrupt" else ParquetCodec.encode(
+        pd.DataFrame({"date": pd.Series([], dtype="datetime64[ns]"), "value": []}) if invalid == "empty"
+        else pd.DataFrame({"date": [None], "value": [1.0]})
+    )
+    sync, writer = synchronizer({path: payload}, current)
+    target = None if mode == "FULL" else MetadataSyncTarget(
+        dataset="symbol-features", partition=partition
+    )
+    error = RuntimeError if mode == "FULL" else (
+        ParquetDecodeError if invalid == "corrupt" else ManifestInvalidError
+    )
+    with pytest.raises(error):
+        await sync.sync(target=target)
+    assert writer.documents == []
+    assert writer.reader.document is current

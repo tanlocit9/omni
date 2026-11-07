@@ -6,6 +6,8 @@ import com.omni.platform.modules.scheduler.dependencies.evaluators.ReadyEvaluato
 import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
@@ -239,6 +241,67 @@ class DefaultJobDependencyGuardTest {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    @Test
+    void malformedEnforcedDependencyCannotDisappearIntoAnEmptyReadyResult() {
+        var context = contextWithConfig(Map.of("dependsOnDatasets", List.of(Map.of(
+                "dataset", "eod", "mode", "ENFORCED", "conditions", List.of("MISSPELLED_READY")))));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> guard.checkDependencies(context))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid dataset dependency");
+        verifyNoInteractions(manifestReader);
+    }
+
+    @Test
+    void malformedDependencyContainerCannotBecomeAnEmptyApproval() {
+        var context = contextWithConfig(Map.of("dependsOnDatasets", Map.of("dataset", "eod")));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> guard.checkDependencies(context))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a list");
+        verifyNoInteractions(manifestReader);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "processing", "null-version", "blank-version", "read-error"})
+    void finalApprovalCannotAdmitDisappearedUnreadyOrUnversionedInput(String state) {
+        var ref = DatasetRef.of("eod", Map.of());
+        when(manifestReader.manifestExists(ref)).thenReturn(true);
+        var manifest = mock(DatasetManifest.class);
+        when(manifest.isReady()).thenReturn(!state.equals("processing"));
+        when(manifest.dataVersion()).thenReturn(state.equals("blank-version") ? " " : null);
+        if (state.equals("read-error"))
+            when(manifestReader.readManifest(ref)).thenThrow(new IllegalStateException("read failed"));
+        else
+            when(manifestReader.readManifest(ref)).thenReturn(
+                    state.equals("missing") ? Optional.empty() : Optional.of(manifest));
+        var result = guard.checkDependencies(contextWithDeps(List.of(Map.of(
+                "dataset", "eod", "conditions", List.of("EXISTS"), "mode", "ENFORCED"))));
+        assertThat(result.isBlocked()).isTrue();
+        assertThat(result.approvedInputVersions()).isEmpty();
+    }
+
+    @Test
+    void documentationOnlySuccessDoesNotGrantAnInputApproval() {
+        when(manifestReader.manifestExists(any())).thenReturn(true);
+        var result = guard.checkDependencies(contextWithDeps(List.of(Map.of(
+                "dataset", "eod", "conditions", List.of("EXISTS"), "mode", "DOCUMENTATION_ONLY"))));
+        assertThat(result.canExecute()).isTrue();
+        assertThat(result.approvedInputVersions()).isEmpty();
+        verify(manifestReader, never()).readManifest(any());
+    }
+
+    @Test
+    void unsupportedPolicyAndInsufficientRowsCannotGrantApproval() {
+        when(manifestReader.readManifest(any())).thenReturn(Optional.of(readyManifest("eod")));
+        for (var policy : List.of(
+                Map.<String, Object>of("dataset", "eod", "conditions", List.of("PARTITION_MATCH"), "mode", "ENFORCED"),
+                Map.<String, Object>of("dataset", "eod", "conditions", List.of("MIN_ROW_COUNT"), "minRowCount", 1001, "mode", "ENFORCED"),
+                Map.<String, Object>of("dataset", "eod", "conditions", List.of("CURRENT_INPUTS"), "upstreamDatasets", List.of(DatasetRef.of("indicators", Map.of())), "mode", "ENFORCED"))) {
+            var result = guard.checkDependencies(contextWithDeps(List.of(policy)));
+            assertThat(result.isBlocked()).isTrue();
+            assertThat(result.approvedInputVersions()).isEmpty();
+        }
+    }
 
     private JobExecutionContext contextWithConfig(Map<String, Object> config) {
         com.omni.platform.modules.scheduler.entities.JobDefinition job =

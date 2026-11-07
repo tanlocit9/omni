@@ -42,6 +42,39 @@ public class JobDependencyContextFactory {
 
     public JobExecutionContext create(
             JobDefinition job, String executionId, String workType, String workKey) {
+        Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
+        if (job.getJobType() == JobType.PRECOMPUTE_SYMBOL_FEATURES) {
+            return new JobExecutionContext(
+                    job, executionId, Map.of(), List.of(eodDependency(workKey)));
+        }
+        if (job.getJobType() == JobType.PRECOMPUTE_SECTOR_FEATURES) {
+            var wave = JobConfigMapper.toSectorWaveConfig(config);
+            if (!"SECTOR".equalsIgnoreCase(workType) || workKey == null || workKey.isBlank())
+                throw new IllegalArgumentException("Sector feature work requires a sector key");
+            var dependencies =
+                    symbolRepository.findBySectorCodesAndLevel(
+                                    new String[] {workKey}, wave.filters().sectorLevel()).stream()
+                            .map(symbol -> dependency("symbol-features", Map.of(
+                                    "exchange", normalize(symbol.getExchange()),
+                                    "code", normalize(symbol.getCode()),
+                                    "timeframe", normalize(wave.timeframe()))))
+                            .toList();
+            return new JobExecutionContext(job, executionId, Map.of(), dependencies);
+        }
+        if (job.getJobType() == JobType.SECTOR_ROTATION_BACKTEST) {
+            var wave = JobConfigMapper.toSectorWaveConfig(config);
+            var codes = wave.filters().sectorCodes();
+            var dependencies =
+                    symbolRepository.findDistinctSectorCodesByLevel(
+                                    codes.isEmpty() ? null : codes.toArray(new String[0]),
+                                    wave.filters().sectorLevel()).stream()
+                            .map(code -> dependency("sector-features", Map.of(
+                                    "sector_code", normalize(code),
+                                    "sector_level", String.valueOf(wave.filters().sectorLevel()),
+                                    "timeframe", normalize(wave.timeframe()))))
+                            .toList();
+            return new JobExecutionContext(job, executionId, Map.of(), dependencies);
+        }
         if (job.getJobType() != JobType.SYNC_INDICATORS) {
             return new JobExecutionContext(job, executionId, Map.of());
         }
@@ -50,7 +83,6 @@ public class JobDependencyContextFactory {
                     job, executionId, Map.of(), List.of(eodDependency(workKey)));
         }
 
-        Map<String, Object> config = job.getConfigJson() == null ? Map.of() : job.getConfigJson();
         SyncIndicatorsConfig indicatorsConfig = JobConfigMapper.toIndicatorsConfig(config);
         List<String> sectorCodes = indicatorsConfig.filters().sectorCodes();
         int sectorLevel = indicatorsConfig.filters().sectorLevel();
@@ -84,11 +116,15 @@ public class JobDependencyContextFactory {
     }
 
     private static Map<String, Object> eodDependency(String exchange, String code) {
+        return dependency(EOD_DATASET, Map.of("exchange", exchange, "code", code));
+    }
+
+    private static Map<String, Object> dependency(String dataset, Map<String, String> partition) {
         return Map.of(
                 "dataset",
-                EOD_DATASET,
+                dataset,
                 "partition",
-                Map.of("exchange", exchange, "code", code),
+                partition,
                 "conditions",
                 List.of("EXISTS", "READY"),
                 "mode",

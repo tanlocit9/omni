@@ -1,5 +1,21 @@
 # P14 End-to-End Job, Work READY and Query Flow
 
+Weekend snapshot correction (2026-11-07): a historical backfill accepted on a
+weekend still syncs the current Symbols catalog. Platform and shared Python now
+both permit that snapshot, while EOD/Indicators retain weekday-only business
+dates and exact coverage checks. See [source and regressions](../reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
+Lifecycle follow-up (2026-11-06): prepared atomic children remain PENDING until a
+worker RUNNING receipt. A graph request stays PREPARED while any member is
+unfinished, preserving admission for healthy branches after a sibling failure;
+only settled membership determines final SUCCESS/FAILED. Receipt ACK does not
+commit command offsets or grant READY. See [current flow and diagnostics](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+The [Indicators-only backfill path](../reference/009-indicators-backfill.md) adds
+an authenticated sector/date request before this same EOD -> registration/SUCCESS
+-> work READY -> Indicators flow. Enrollment/promotion is scoped to backfill
+membership with realtime flags off; legacy writers must remain paused and drained.
+
 Source baseline: 2026-11-04, including the I10 model-version, preflight and catalog
 bounds corrections. This document describes the implemented opt-in path. It does
 not establish that enrollment, PostgreSQL readers, watchdog or reconciliation are
@@ -273,7 +289,8 @@ No new ticket status, P12 activation or I10 completion follows from this diagram
   [parquet.py](../../libs/py-common/py_common/storage/parquet.py).
 - Completion/READY/timeout: [metadata module](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/metadata),
   [JobService](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/services/JobService.java),
-  [V19](../../database/migrations/V19__output_registration_and_work_readiness.sql).
+  [V19 registration](../../database/migrations/V19__output_registration.sql) through
+  [V23 work readiness](../../database/migrations/V23__output_work_readiness.sql).
 - Readers/query: [output_readiness.py](../../libs/py-common/py_common/storage/output_readiness.py),
   [DatasetResolver](../../apps/query-service/app/storage.py),
   [DuckDBExecutor](../../apps/query-service/app/executor.py).

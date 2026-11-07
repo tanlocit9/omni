@@ -1,5 +1,17 @@
 # Omni — Consolidated Implementation Roadmap
 
+I10 delivery (2026-11-07): [bounded checkpoints and unresolved runtime blockers](../../reference/011-i10-delivery-checkpoints.md).
+The owner requested no per-checkpoint verification rerun. I10 remains in_progress;
+delivery commits do not establish acceptance or coordinated cutover.
+
+Indicators backfill follow-up (2026-11-05): [bounded API and operational
+requirements](../../reference/009-indicators-backfill.md). No schedule or increment
+status change; P14-I10 remains in_progress and backfill admission defaults off.
+
+I10 guard follow-up (2026-11-04): [exact-day admission and frozen-input regression
+matrix](../../reference/008-p14-i10-dispatch-guard.md). P14-I10 remains in_progress;
+local E2E evidence does not close contracts, coverage or coordinated cutover gates.
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
@@ -9,7 +21,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 

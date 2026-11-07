@@ -1,5 +1,29 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+I10 delivery (2026-11-07): [bounded commit checkpoints and unresolved runtime blockers](../reference/011-i10-delivery-checkpoints.md).
+The owner requested no per-checkpoint verification rerun. I10 remains in_progress;
+delivery does not replace the acceptance or coordinated-cutover gate.
+
+Owner lifecycle decision (2026-11-06): continue healthy branches after a target
+failure and finalize only when all request members settle. Add PENDING preparation,
+worker RUNNING receipts and settlement diagnostics; see [source/test matrix](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+This bounded correction does not change I10 in_progress or reopen terminal history.
+
+Indicators backfill follow-up (2026-11-05): the owner requested a bounded
+sector/date Indicators API with EOD registration/READY. See [scope, contract impact,
+cross-service matrix and checks](../reference/009-indicators-backfill.md). This
+default-off exception does not activate general manual triggering, complete Plan
+028, or change I10's in_progress status and coordinated cutover requirements.
+
+I10 downstream-guard repair (2026-11-04): exact dated feature dependencies,
+frozen predecessor declarations, approved worker reads and typed-date publication
+regressions are covered by the [current repair matrix](../reference/008-p14-i10-dispatch-guard.md).
+I10 remains in_progress; required checks, attributable coverage and cutover remain.
+
+I10 migration packaging (2026-11-04): the owner requested ordered V19-V23 stages.
+Final schema/runtime contracts and I10 status are unchanged. See
+[local V18 cleanup and transaction-only SQL verification](../reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
 The [current end-to-end flow](../flows/007-p14-end-to-end.md) maps scheduler,
 preparation, worker publication, Platform READY and Query/Console to the existing
 P14 tickets, including Mermaid and deferred writer review boundaries.
@@ -18,7 +42,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 
@@ -1237,8 +1261,11 @@ supersedes earlier pending/design-only I8 statements, not historical evidence.
 `JobProducer` now uses `WorkExpansion` for legacy scheduled, internal manual and
 JobRun preparation. Definitions remain configuration/presets and execution FKs.
 Requests accept `scope: {type,key}`, inclusive `dateFrom`/`dateTo`, and `parameters`.
-Missing dates resolve once to the accepted Vietnam calendar day; weekends produce
-no work. Selection is current active membership at acceptance, not a historical
+Missing dates resolve once to the accepted Vietnam calendar day; market jobs
+produce no weekend work. Current SYNC_SYMBOLS/SYNC_METADATA snapshots may run on
+weekends, including the shared worker validation correction recorded on
+[2026-11-07](../reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+Selection is current active membership at acceptance, not a historical
 listing universe. Exchange scopes resolve to symbol work for symbol job types.
 Explicit unknown/empty symbol scopes fail closed; limits are 366 calendar days and
 5,000 atomic works per parent, with transactional failure rather than truncation.

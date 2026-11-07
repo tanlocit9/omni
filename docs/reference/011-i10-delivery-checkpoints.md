@@ -53,3 +53,98 @@ Add the default-off Indicators-only sector/date API and V25 BACKFILL mode. Expan
 No test, lint, build, format or executable acceptance gate was run for this
 checkpoint. Existing dated evidence is historical and does not verify this
 isolated commit.
+
+## Delivery traceability
+
+| Checkpoint | Commit | Scope |
+| --- | --- | --- |
+| Earlier runtime repair | `2bbfe38` | Lifecycle, settlement, date merge and weekend validation |
+| Backlog tooling | `e27f816` | docs(ops): add read-only job backlog workflow |
+| Scheduler candidate budget | `80a0466` | fix(scheduler): limit dispatch candidates to three times batch size |
+| I10 migration packaging | `864f9f7` | refactor(db): split I10 readiness schema into V19-V23 stages |
+| I10 dispatch and frozen-input guards | `2144c30` | fix(p14): enforce dated dependencies and frozen input reads |
+| I10 bounded Indicators backfill | `07ae4d1` | feat(p14): connect bounded Indicators backfill to scoped READY |
+
+The final documentation commit links this handoff from the index, roadmap,
+increment registry, Plan 030 and release notes. No new roadmap increment or
+verified_commit/owner-attestation field is created. The final schema includes
+V25; the migration-only checkpoint intentionally retained the V24 expectations
+until that later addition. No migration was applied during delivery.
+
+## Verification boundary
+
+The owner explicitly waived rerunning verification for this delivery. No tests,
+lint, build, format, CI or executable documentation checker were run, and no
+check_result manifest was weakened or given fabricated passing results.
+Pre-commit hooks performed code-graph analysis only. Graph output includes the
+combined working tree, unresolved relationships and truncated impact results;
+it is not per-checkpoint coverage or proof of isolation.
+
+Existing combined-tree evidence remains local and dated: lifecycle Platform
+744 passed/5 skipped; latest py-common 420 passed/5 skipped, Analyzer 268 passed,
+Ingestor 100 passed, and the forced paired Kafka integration 2/2 passed. The
+earlier runtime handoff explains that its isolated commit was not retested.
+No checkpoint in this delivery has newly executed independent verification.
+
+Earlier contracts-generation failures in the November 4 handoffs remain
+historical. The owner subsequently reported the toolchain repaired; this delivery
+does not rerun generation or claim a current compiler failure or contracts pass.
+
+## Documentation and cross-service reconciliation
+
+- Platform: registration/enrollment guards, request lifecycle, backfill API,
+  candidate budget and persistence checkpoints are reflected in Plan 030,
+  database, flow, deployment and service guidance.
+- Analyzer/Ingestor/shared Python: frozen reads, exact date coverage, feature
+  discovery, worker receipt, force-EOD policy and matched enrolled readers are
+  reflected in Kafka/data-lake, flow and service guidance.
+- Query: integration fixtures cover scoped reading; this series does not
+  establish global reader cutover. Console has no source/UI change and retains
+  existing proxy/read boundaries. Contracts are not changed by this series.
+- Architecture and ADR-008 retain Platform readiness ownership and coordinated
+  cutover; configuration remains default-off for the scoped backfill feature.
+  No storage paths, writer ownership or physical paths in Kafka are introduced.
+- The canonical registry still has one in_progress P14-I10 after completed I9.
+  Plan 028 remains unscheduled/on hold; TD-017 keeps generic manual routes
+  retired. Source commits do not activate P12 or deferred recovery/tracing.
+- Docs README/INDEX, registry, roadmap, release notes, ownership and service
+  references link the current handoffs. Existing agent rules already cover
+  ownership, exact-date and verification gates; no AGENTS/CLAUDE/Roo change is
+  required. The backlog skill changes only read-only operational guidance.
+
+Static review of this changed scope found the new reference numbers, direct
+paths, unchanged increment status and evidence wording consistent. This is a
+bounded documentation review, not a full-repository audit or acceptance gate.
+
+## Remaining work and return-to-session handoff
+
+1. Diagnose the owner's currently blocked jobs using a fresh read-only snapshot:
+   distinguish dependency WAITING, outbox BLOCKED, failed upstream, incomplete
+   registration and closed request ownership. Capture request/execution identity
+   and the persisted reason before selecting a recovery action. None was queried
+   in this delivery; no cause or recovery success is claimed.
+2. Retest the final source and reconcile attributable coverage with every I10
+   acceptance criterion, including contracts generation, error/retry/concurrency,
+   READY-last and reader compatibility. Existing local counts alone are not a
+   complete feature/source/test matrix for acceptance.
+3. Verify matched retained-environment deployment, writer drain, historical
+   backfill/shadow/parity and coordinated reader cutover before retiring legacy
+   authority. File existence or accepted registration alone is not READY.
+4. Review remaining producer/reader scope. Feature discovery additions do not
+   establish feature-output enrollment or a global PostgreSQL reader cutover.
+
+Business-job FAILED attempts still require an explicit new request key rather
+than automatic retry. Do not rewrite terminal histories or reset Kafka merely
+because a job is blocked. Additional durable worker recovery, tracing and P12
+remain deferred. The earlier DevTools startup failure remains unproven.
+
+No service restart, live API submission, database/Kafka mutation, push or pull
+request was performed by this checkpoint delivery.
+
+### Canonical documentation handoff
+
+Synchronize release notes, registry, roadmap, architecture/ADR, data, flow, deployment and service guidance. Preserve dated checks and in_progress status; record owner-reported blocked jobs without claiming diagnosis or recovery.
+
+No test, lint, build, format or executable acceptance gate was run for this
+checkpoint. Existing dated evidence is historical and does not verify this
+isolated commit.

@@ -1,5 +1,10 @@
 # Job Execution Flow
 
+The [Indicators-only backfill API](../reference/009-indicators-backfill.md) is an
+owner-authorized exception to generic manual-trigger withdrawal. It uses the
+same static dependency graph and exact work READY barriers, with a separate
+default-off admission flag and paused/drained legacy writers.
+
 For the current scheduler-to-Console path, ticket/status mapping and detailed
 publication sequence, read [P14 end-to-end flow](007-p14-end-to-end.md).
 That companion covers the November 4 model-aware scopes, registration preflight,
@@ -61,8 +66,9 @@ flowchart TD
    not complete distributed log/span tracing. I7 is the legacy outbox cleanup foundation;
    I6 is superseded, and no I11 scope is invented here.
 
-The unapplied I10 schema is one
-[V19 migration](../../database/migrations/V19__output_registration_and_work_readiness.sql).
+The I10 schema uses ordered V19-V23 migrations, starting with
+[V19 registration](../../database/migrations/V19__output_registration.sql) and ending with
+[V23 work readiness](../../database/migrations/V23__output_work_readiness.sql).
 Row-scoped versions keep other days/symbols independent of the shared Parquet file.
 New enrollment no longer requires whole-file snapshots. Range/historical coverage
 and the missing full worker/API E2E gate remain as described in the
@@ -71,7 +77,7 @@ and the missing full worker/API E2E gate remain as described in the
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 
@@ -184,7 +190,10 @@ I6 supplies the [bounded read contract](../../database/diagnostics/p14/v1/read-m
 ## Static Graph and Planned Dispatch Planning
 
 I4 integrates bounded JobRun snapshot/planning and `JobRunDispatchCoordinator`
-with the dispatcher. Linked planned/fallback rows require closed transitive
+with the dispatcher. Candidate reads use three times the claim budget: the default
+batch size of 10 reads up to 30 candidates per legacy/fallback query; planned
+scope queries use three times their allocated quota. The claim budget remains 10.
+Linked planned/fallback rows require closed transitive
 predecessor SUCCESS under admission locks; NULL-run legacy rows use strict identity
 revalidation. DependencyRegistry still decides READY/WAITING/BLOCKED for every
 visited candidate. Stale/incomplete snapshots use bounded paginated guarded FIFO;

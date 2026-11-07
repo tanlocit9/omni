@@ -1,5 +1,77 @@
 # Omni Release Notes
 
+## 2026-11-07 - Package I10 as bounded delivery checkpoints
+
+Separate backlog tooling, candidate-budget tuning, migration packaging,
+dated/frozen-input guards, scoped Indicators backfill and documentation handoff.
+The earlier runtime repair is retained as its own commit. The owner requested no
+per-checkpoint verification rerun; earlier local results remain dated evidence.
+The owner also reports blocked jobs after startup; those jobs have not been
+diagnosed or changed in this delivery. I10 remains in_progress. See
+[checkpoint scopes and remaining work](docs/reference/011-i10-delivery-checkpoints.md).
+
+## 2026-11-07 - Accept current Symbols snapshots on weekends
+
+Align shared Python validation with Platform's existing current-snapshot
+expansion: SYNC_SYMBOLS, like SYNC_METADATA, may run on Saturday/Sunday while
+historical EOD/Indicators retain weekday and exact-date guards. Reproduce both
+weekend failures on the real Ingestor message model, then verify identity/target
+guards remain enforced. Coverage passes: Ingestor 100, Analyzer 268, py-common
+420 passed/5 skipped. Forced Kafka integration passed 2/2 after aligning the
+fixture snapshot clock with HTTP acceptance; historical EOD fixtures remain dated.
+No live replay, restart, migration or job reset was performed.
+See [impact and integration evidence](docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
+## 2026-11-06 - Keep healthy atomic branches dispatchable until request settlement
+
+The owner chose to continue healthy work after a sibling failure. Keep requests
+PREPARED until all members are terminal, then determine SUCCESS/FAILED. Prepare
+children as PENDING; worker RUNNING receipts carry actual start timestamps.
+Expose settlement counts and outbox status in request inspection. A snapshot
+showed 160 unpublished members rejected by the failed owner predicate while
+consumer lag was zero. Preserve terminal history, READY-last and terminal command
+commit rules; no live reset/retry or concurrency activation is performed. See
+[impact, protocol compatibility and checks](docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+Approved local checks pass: Platform 744 passed/5 skipped, py-common 419 passed/5
+skipped, Analyzer 268 passed, Ingestor 98 passed, paired worker/Kafka integration
+2/2 passed. Named changed production components exceed 80% line/branch coverage.
+This is local evidence; existing FAILED requests were not reopened or retried.
+
+## 2026-11-06 - Fix atomic output merge with Parquet calendar dates
+
+Reproduce the Indicators Timestamp/date exception using actual Parquet DATE
+history. Sort merged atomic output using a normalized temporary date key while
+preserving history values and the codec's DATE contract. Shared helper and
+Indicators regressions now include real storage roundtrips. Approved coverage
+reruns pass: py-common 403 passed/5 skipped; Analyzer 268 passed. No service restart,
+live retry or job-state mutation was performed. See [cause, caller impact and
+evidence](docs/reference/009-indicators-backfill.md#parquet-date-merge-correction---2026-11-06).
+
+## 2026-11-06 - Local BANKS backfill operator package
+
+Prepare ignored host-local backfill settings and a Postman collection/curl example
+for BANKS, 2026-11-02 through 2026-11-06. Keep readiness credentials only in local
+env files. Clarify fixed operator UUID fallback versus the required HTTP header.
+No restart, migration, schedule mutation or backfill submission was performed.
+See [local operator instructions](docs/reference/009-indicators-backfill.md#local-operator-package---2026-11-06).
+
+## 2026-11-05 - Scoped Indicators sector/date backfill
+
+Add a default-off authenticated backfill API and forward V25 request mode.
+EOD/Indicators enroll and promote READY within the accepted backfill even when
+realtime I10 flags are off. Force checks existing EOD day rows before fetching;
+Indicators recalculate. Require paused/drained legacy writers and paired private
+readers. [Scope, test matrix and rollout limits](docs/reference/009-indicators-backfill.md).
+The separately authorized local backlog cleanup marked 1,360 unfinished legacy
+executions FAILED and reset inactive Kafka groups to latest; follow-up counts
+were zero unfinished executions and zero lag. No definitions were disabled, live
+migrations applied, service flags activated or provider backfill run by this change.
+Owner-approved local checks passed: Platform 741 passed/5 skipped; Analyzer 266;
+Ingestor 96; py-common 399 passed/5 skipped; real-worker integration 2/2.
+The named changed components meet 80% line/branch coverage; see the linked matrix.
+This bounded result does not complete I10 or establish retained-environment rollout.
+
 ## 2026-11-05 - Retire the unused blocked-job tracker
 
 Remove BlockedJobTracker, BlockedJobRepository and BlockedJob. V24 locks and drops
@@ -16,6 +88,30 @@ configuration change to resolve the Java/Python built-in compiler from PATH.
 Document the local/CI protoc prerequisite and matching compiler versions; npm
 installation alone no longer claims to supply a compiler. Protobuf schemas,
 generated output ownership and runtime service/Kafka contracts are unchanged.
+
+## 2026-11-04 - Repair downstream admission and frozen-input reads
+
+Require exact dated input partitions for Symbol Features, Sector Features and
+Backtest, reject malformed enforced declarations, and reject missing enrollment
+on frozen I10 predecessors. Add the two existing feature datasets to metadata
+discovery with exact date coverage and explicit historical lineage limitations.
+Signal evaluation validates approved signal/EOD rows once and preserves unrelated
+history; Sector Wave consumes approved input versions. Cross-service integration
+also exposed and corrected typed businessDate handling in scoped publication.
+See [source/test matrix and unresolved gate](docs/reference/008-p14-i10-dispatch-guard.md).
+I10 remains in_progress pending the complete gate, attributable coverage and cutover.
+
+## 2026-11-04 - Split I10 migrations and reconcile the local V18 baseline
+
+Split consolidated V19 into ordered V19-V23 registration, completion/timeout,
+READY projection, historical baseline and work/row readiness stages. Preserve
+final SQL semantics and use replaceable trigger-function declarations. Update
+migration test expectations for five upgrades and latest version 23.
+Remove two confirmed-empty leftover registration tables and their owned indexes/
+triggers from the local V18 database with RESTRICT. Execute the five SQL files in
+one transaction, check schema/retained counts, then roll back; the local DB remains
+at V18. This is SQL evidence, not a Flyway/application/test-suite pass. See
+[scope, results and unchanged gates](docs/reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
 
 ## 2026-11-04 - Full workspace formatting and current P14 flow
 

@@ -1,5 +1,18 @@
 # JobRun Admission Rollout and Rollback
 
+The [2026-11-06 lifecycle correction](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06)
+requires matched Platform/Ingestor/Analyzer code for pending-at-preparation,
+worker receipts and request settlement. Terminal-only workers still report their
+outcome but do not show an intermediate start. No migration reopens old FAILED
+requests: use a new key after reviewing remaining published work. Keep dispatcher,
+status/registration consumers and reconciliation running while cron is paused.
+
+Indicators-only backfill has a separate default-off admission flag, V25 mode,
+paired worker reader configuration and an exclusive legacy-writer window. Follow
+[the scoped rollout requirements](../reference/009-indicators-backfill.md#contract-impact-and-operations).
+Enabling it does not authorize a global I10 cutover. Drain accepted work before
+disabling the backfill flag; it also controls reconciliation when graph mode is off.
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
@@ -9,7 +22,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 

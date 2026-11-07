@@ -1,5 +1,68 @@
 # I10 canonical work identity — owner revision 2026-11-03
 
+Current follow-up: [downstream guard, frozen evaluation inputs and verification
+matrix](008-p14-i10-dispatch-guard.md). This supplements the identity contract;
+it does not close the increment or authorize cutover.
+
+## Migration stages and local V18 reconciliation — 2026-11-04
+
+The owner requested smaller migrations. The current sequence replaces the
+historical consolidated V19, preserving its SQL statement order and final schema:
+
+| Version | Responsibility | New tables |
+| --- | --- | --- |
+| [V19](../../database/migrations/V19__output_registration.sql) | Registration inbox, outputs, coverage, immutable evidence and attempt/execution FK | 4 |
+| [V20](../../database/migrations/V20__output_completion_and_timeout.sql) | Completion contract, successful status, timeout evidence and publication-clock index | 3 |
+| [V21](../../database/migrations/V21__output_ready_projection.sql) | Physical READY pointers and catalog revision | 2 |
+| [V22](../../database/migrations/V22__output_ready_baselines.sql) | Fenced historical baselines and physical catalog view | 2 |
+| [V23](../../database/migrations/V23__output_work_readiness.sql) | Work READY, row ownership and scoped catalog view | 2 |
+
+Apply the complete sequence before starting the current application. Intermediate
+versions are schema checkpoints, not supported runtime cutovers. Both trigger
+functions use CREATE OR REPLACE FUNCTION. Existing tables, indexes and triggers
+remain strict CREATE statements so incompatible leftovers fail visibly.
+
+Live local inspection found the old V19-V22 ledger had already been removed by
+the owner, but two empty registration tables remained. The authorized cleanup
+locked and checked both tables for emptiness, then dropped output_registrations
+and output_registration_events with RESTRICT. Their indexes/triggers were removed
+with the tables; no CASCADE, ledger repair or changes to V1-V18 were performed.
+The existing compatible guard function remains replaceable. This finding corrects
+the older assumption below that the old migration sequence was never applied.
+Other retained environments require their own history/object reconciliation.
+
+Owner-approved local verification executed V19-V23 through psql in one transaction,
+then rolled it back. It checked all 13 tables, empty catalog views, revision zero,
+the composite registration/attempt FK, unchanged counts in execution histories,
+outbox, definitions, symbols and sectors, and unchanged Flyway history. After
+rollback, no output tables remained and Flyway was still at V18. The 19 Stock
+Prices, one Symbols and one Metadata definitions remained active and scheduled.
+Local SQL and output are in the ignored .agent/reports/p14-v19-v23-transaction-check
+artifacts. This proves SQL execution on this local V18 schema, not Flyway
+validate/checksum, fresh-install, restart, application, provider or end-to-end
+acceptance. The updated migration JUnit fixture was not executed in this task.
+
+Cross-service impact: Platform persistence/install order and its migration test
+expectations change. Analyzer, Ingestor, Query Service and Console retain the same
+final tables/views and runtime behavior. Shared contracts/libraries, Kafka payloads,
+storage paths and configuration defaults are unchanged. Operations must install
+through V23 before runtime; no flags or deferred P12 features are activated.
+P14-I10 remains in_progress.
+
+Documentation reconciliation: this handoff, database guide, current flow links,
+Plan 030, increment registry, release notes and index reflect the new sequence.
+Architecture, ADR, Kafka/data-lake, deployment, ownership, service and agent guides
+need no behavior/policy changes: final schema contracts, READY authority, paired
+deployment, ownership and default flags are preserved. Their current-handoff
+pointers replace obsolete single-V19 wording where present. Historical consolidation
+results below remain dated evidence and do not verify the split sequence.
+
+Static consistency review of the changed scope found the migration order, new
+links, current-version expectations and unchanged I10 status consistent. Graph
+impact and post-edit change analysis ran with a stale index, so their zero-hop
+results are not no-impact proof; direct SQL/source reconciliation supplies the
+cross-service boundaries above. No build, lint, format or JUnit run is claimed.
+
 ## Goal
 
 Use the existing graph atomicWorkId consistently for work readiness and causal
@@ -49,8 +112,8 @@ writer service, tracing, automatic replay or I11 scope is added.
 
 ## Source and persistence
 
-The unapplied schema remains one
-[V19\_\_output_registration_and_work_readiness.sql](../../database/migrations/V19__output_registration_and_work_readiness.sql).
+The I10 schema is split into ordered V19-V23 migrations; see
+[the migration stages and reconciliation boundary](#migration-stages-and-local-v18-reconciliation--2026-11-04).
 V1-V18 are unchanged. output_work_ready is keyed by work/dataset/partition.
 output_ready_rows records current ownership of exact row coordinates, with
 monotonic generation fencing. output_work_ready_catalog requires every coordinate
@@ -93,7 +156,7 @@ work identities. They cannot bootstrap an enrolled frozen upstream work.
 Drain previously enrolled queued commands before installing strict identity readers.
 Their first approvedInputs payload is immutable; legacy partition/version approvals
 must not be patched into invented graph identities. Deploy matching Platform and
-shared Python code, and review consolidated V19 before first I10 deployment. Enable
+shared Python code, and review the complete V19-V23 sequence before first I10 deployment. Enable
 READY promotion with enrollment for new supported chains so upstream identity
 proofs exist before dependent work is admitted. A validated historical file/baseline
 alone cannot satisfy a missing work identity; prepare a legitimate new work attempt
@@ -118,7 +181,7 @@ No schema migration or retained-data operation is part of this correction.
 | Query Service            | Aggregate work-proof inventory, scoped validation/filtering and execution on the validated buffer. Public DTO shape unchanged.                                                                                    |
 | Console                  | Existing SQL/catalog DTOs unchanged; returned availability/count/version now describes READY rows in PostgreSQL mode. No new UI or browser credentials.                                                           |
 | Shared contracts/library | Additive proto work_scope=11, Java/Python adapters, generated contracts through Nx; row hashing, validation, scoped publication and read helpers. Old unscoped fixture retained.                                  |
-| Persistence              | Row ownership added within unapplied V19; V1-V18 unchanged, no retained migration or ledger repair.                                                                                                               |
+| Persistence              | Row ownership is in V23; V1-V18 are unchanged. Local V18 cleanup and migration evidence are recorded below; other retained environments require their own reconciliation.                                                                                                               |
 | Config/operations        | Defaults remain manifest/off. Paired deployment/drain required; snapshot flag no longer a prerequisite for new enrollment. Custom enforced policies and historical/range coverage require explicit cutover proof. |
 
 Pre-edit graph impact across metadata/shared readers/Query found 45 changed nodes,
@@ -468,6 +531,15 @@ check=integration/identity-roundtrip source=none`. All six unit/contract targets
 the identity coverage check pass. Full real-worker/HTTP identity integration is
 not run; older whole-I10 coverage/cutover gates are not waived. No owner attestation,
 production migration, flag activation, deployment or automatic repair was performed.
+
+## Indicators backfill follow-up - 2026-11-05
+
+The owner requested a bounded sector/date Indicators API with automatic EOD
+registration/READY. See [the request contract, force policy, cross-service impact
+and local verification](009-indicators-backfill.md). V25 extends graph request
+mode only; this default-off path scopes enrollment/promotion without global
+cutover. Generic manual triggers and the general Plan 028 rollout remain deferred.
+I10 remains in_progress; this follow-up does not waive broader acceptance gates.
 
 ## Documentation reconciliation
 

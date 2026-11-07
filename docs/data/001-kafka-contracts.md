@@ -1,5 +1,10 @@
 # Kafka Contracts
 
+Indicators backfill (2026-11-05) uses existing message metadata for
+`backfillPolicy.force` and `verifyEodParquet`; topic names and protobuf schemas
+are unchanged. Paired Ingestor/shared-reader code is required for the scoped
+policy. See [the contract and READY sequence](../reference/009-indicators-backfill.md).
+
 I10 review correction (2026-11-04): signal rowKeys include non-null model_version;
 omission means a legacy/null-version row. Paired Platform/Python adapters and the
 shared signal-model fixture retain that distinction. Workers preflight registration
@@ -16,7 +21,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 
@@ -233,6 +238,11 @@ generated contracts.
 
 ### topic-sync-symbols
 
+Current atomic Symbols snapshots use the request's acceptance calendar day,
+including weekends, even when downstream EOD/Indicators target historical
+weekdays. Shared worker validation now matches Platform's snapshot expansion;
+domain/work identity guards remain required. See [weekend snapshot correction](../reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
 | Field           | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | Topic key       | `topic-sync-symbols`                                        |
@@ -264,12 +274,22 @@ generated contracts.
 
 ### topic-sync-job-status
 
+Worker receipt follow-up (2026-11-06): Analyzer shared consumers and Ingestor
+publish RUNNING after receiving an identifiable command and await that status ACK
+before handler work. RUNNING has startedAt, null finishedAt and
+metaJson.workerStarted=true; it grants neither completion nor READY and cannot
+commit the command offset. Terminal statuses require finishedAt and retain
+output/registration-before-SUCCESS and terminal-ACK-before-commit ordering.
+Java already accepts RUNNING and the canonical execution enum includes it; no
+protobuf field or generated file changes. See [request settlement and paired
+deployment](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
 | Field            | Value                                                          |
 | ---------------- | -------------------------------------------------------------- |
 | Topic key        | `topic-sync-job-status`                                        |
 | Producer         | Ingestor and Analyzer workers                                  |
 | Consumer         | Platform scheduler job status consumer                         |
-| Purpose          | Report child job completion/failure metrics to Platform.       |
+| Purpose          | Report worker receipt and terminal execution metrics to Platform. |
 | Related flow     | [Job execution](../flows/001-job-execution.md)                 |
 | Related database | [Job execution history](003-database.md#job-execution-history) |
 
@@ -287,7 +307,7 @@ producers/consumers together. Domain command payloads and signal notification co
 `executionId` plus canonical `workType`/`workKey`.
 
 Every scheduler job payload also carries the same required `workType` and
-`workKey`. Workers copy those fields unchanged into terminal status messages;
+`workKey`. Workers copy those fields unchanged into receipt and terminal status messages;
 they do not derive execution identity from `symbolKey`, `exchange`, `sectorCode`,
 strategy, or arbitrary metadata. Platform rejects a child status whose work
 identity does not match the persisted child execution.

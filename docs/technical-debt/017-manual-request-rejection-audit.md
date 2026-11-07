@@ -32,6 +32,12 @@ Source: [historical V8](../../database/migrations/V8__create_manual_job_triggers
 
 ## Accepted Current-Phase Boundary
 
+Owner exception (2026-11-05): the new [Indicators-only sector/date backfill
+API](../reference/009-indicators-backfill.md) accepts durable BACKFILL graph
+requests behind existing operator authentication. This bounded request does not
+restore generic trigger/poll routes, metadata buttons, or standalone rejected
+request audit. Existing generic routes remain 410; this debt remains deferred.
+
 - Defer durable standalone audit for requests that never produce a valid committed
   JobRun, including rejection reason/time and a durable audit-only request ID.
 - Do not extend JobRun with unsealed request-only rows, nullable fake paths or

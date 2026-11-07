@@ -1,5 +1,16 @@
 # Database
 
+Graph lifecycle follow-up (2026-11-06): new atomic children persist PENDING with
+null started_at; worker receipts establish RUNNING. Request owners remain
+PREPARED/admissible until every member settles, then finalize SUCCESS/FAILED.
+Existing terminal request states stay immutable; no migration or historical
+state reset is introduced. See [settlement evidence and API fields](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+Current I10 migration packaging (2026-11-04): V19-V23 separate registration,
+completion/timeout, READY projection, historical baseline and work/row readiness.
+Install the complete sequence from a reconciled V18 baseline before current runtime.
+See [local cleanup and SQL verification boundaries](../reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
@@ -9,7 +20,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 
@@ -385,3 +396,10 @@ RESTRICT. V7 and existing Flyway history are unchanged. Platform removes the unu
 BlockedJob entity/repository/tracker; scheduler_outbox_messages and execution
 history remain the active WAITING/BLOCKED evidence. No live migration is executed
 as part of the source cleanup. See [TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).
+
+## Scoped Indicators backfill requests - 2026-11-05
+
+V25__enable_backfill_graph_requests.sql extends the atomic_work_requests mode
+constraint with BACKFILL. Existing membership, attempts, runs and output READY
+tables remain authoritative. It is a forward-only constraint change, with no
+retained-environment execution by the agent. See [API and migration prerequisites](../reference/009-indicators-backfill.md).

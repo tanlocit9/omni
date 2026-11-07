@@ -1,5 +1,16 @@
 # Platform / Core Service
 
+Atomic request lifecycle: children prepare as PENDING; worker receipt establishes
+RUNNING. Requests remain PREPARED while any member is unfinished, so a failed
+target does not revoke healthy siblings' admission. Read diagnostics expose
+memberCounts, unfinishedMembers, hasFailure and isSettled. See [paired lifecycle
+rollout](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+Indicators backfill: default-off `POST /api/v1/jobs/backfills` accepts bounded
+sector/date requests, enrolls EOD/Indicators and promotes only backfill work with
+global flags off. Requires V25, registration consumer and paused legacy writers.
+See [request, rollout and checks](../../docs/reference/009-indicators-backfill.md).
+
 I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
 Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
 symbols in the same file are independent; whole-file snapshots are not required

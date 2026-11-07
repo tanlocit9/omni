@@ -1,6 +1,10 @@
 # Plan 028 — Reusable Date-Range Job Backfill
 
-Current availability (I3.d owner decision, 2026-10-21): operator job triggering
+Owner-scoped exception (2026-11-05): [Indicators sector/date backfill](../reference/009-indicators-backfill.md)
+is a bounded P14-I10 follow-up using the existing static graph and READY protocol.
+It does not approve this general plan or reactivate generic manual triggers.
+
+Historical availability (I3.d owner decision, 2026-10-21): operator job triggering
 is deferred under TD-017; read-only jobs/data inspection remains. Existing manual
 service references below are historical or future reactivation context, not
 current callable APIs. Do not enable manual/backfill routes from this plan alone.

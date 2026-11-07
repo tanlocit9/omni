@@ -1,5 +1,14 @@
 # Analyzer Service
 
+Shared Kafka consumers now ACK a RUNNING worker receipt before calling the
+handler. This is neither terminal completion nor READY; command commit still
+requires terminal status ACK. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+For [scoped Indicators backfill](../../docs/reference/009-indicators-backfill.md),
+manifest-mode workers with configured private readiness URL/token read enrolled
+frozen EOD proofs through PostgreSQL while normal catalog reads retain manifests.
+Indicators recalculate and register before SUCCESS; no global reader switch is required.
+
 I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
 Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
 symbols in the same file are independent; whole-file snapshots are not required

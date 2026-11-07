@@ -1,5 +1,12 @@
 # ADR-008: Platform-owned PostgreSQL Output Readiness via Kafka
 
+Owner-scoped operational exception (2026-11-05): [Indicators sector/date
+backfill](../reference/009-indicators-backfill.md) may explicitly enroll and promote
+its accepted work while global realtime readiness flags remain off. It retains
+registration plus SUCCESS, frozen inputs, private work readers and the exclusive
+legacy-writer window. This does not authorize global reader cutover or waive the
+coordinated rollout requirements below.
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require
@@ -9,7 +16,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 

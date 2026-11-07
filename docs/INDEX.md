@@ -1,9 +1,13 @@
 # Numbered Documentation Registry
 
+Current delivery boundary (2026-11-07): [I10 checkpoint series and unresolved
+runtime blockers](reference/011-i10-delivery-checkpoints.md). No acceptance,
+deployment or runtime recovery is inferred from the commits; I10 is in_progress.
+
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 
@@ -53,7 +57,11 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | reference/004    | [I10 registration checkpoint](reference/004-p14-i10-registration-checkpoint.md)                  | Source and verification handoff; not a schedule                                          | P14-I10                                              | [Registry](plans/roadmap/implementation-increments.md)                                                                                                    |
 | reference/005    | [I10 completion and watchdog continuation](reference/005-p14-i10-completion-watchdog-handoff.md) | Historical completion/watchdog checkpoint; current source in reference/006               | P14-I10                                              | [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                                                                    |
 | reference/006    | [Historical I10 READY integration](reference/006-p14-i10-ready-integration.md)                   | Snapshot/provider baseline and prior checks; current work identity in reference/007      | P14-I10                                              | [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                                                                    |
-| reference/007    | [I10 canonical work identity](reference/007-p14-i10-work-identity.md)                            | Current work READY, graph lineage, consolidated V19, checks and compatibility boundaries | P14-I10                                              | [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                                                                    |
+| reference/007    | [I10 canonical work identity](reference/007-p14-i10-work-identity.md)                            | Current work READY, graph lineage, V19-V23 migration stages, checks and compatibility boundaries | P14-I10                                              | [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                                                                    |
+| reference/008 | [I10 downstream dispatch guard](reference/008-p14-i10-dispatch-guard.md) | Exact-day admission, frozen reads, source/test coverage and unresolved gate | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/009 | [Indicators sector/date backfill](reference/009-indicators-backfill.md) | Bounded API, EOD READY chain, force and operational window | P14-I10 follow-up | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/010 | [Runtime fixes](reference/010-runtime-fixes-20261107.md) | Lifecycle, date-merge and weekend fixes; isolated commit not verified | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/011 | [I10 delivery checkpoints](reference/011-i10-delivery-checkpoints.md) | Bounded commit series, verification boundary and unresolved runtime blockers | P14-I10 | [Increment registry](plans/roadmap/implementation-increments.md) |
 
 ## Flow References
 

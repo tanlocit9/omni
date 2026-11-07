@@ -38,6 +38,49 @@ def record(value):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("start_ack_fails", [False, True])
+async def test_worker_receipt_precedes_handler_and_never_commits_on_start_failure(
+    start_ack_fails,
+):
+    import json
+    from uuid import uuid4
+
+    from py_common.messaging import JobStatus
+
+    raw = {
+        "jobDefinitionId": str(uuid4()), "executionId": str(uuid4()),
+        "parentExecutionId": str(uuid4()), "workType": "SYMBOL", "workKey": "HOSE-HPG",
+    }
+    service = Service()
+    service._consumer = Consumer([record(json.dumps(raw))])
+    service._producer = AsyncMock()
+    events = []
+
+    async def publish(message):
+        events.append(message.status)
+        if start_ack_fails:
+            raise RuntimeError("start ack failed")
+
+    async def handle(payload):
+        events.append("handler")
+        final = status(execution_id=raw["executionId"])
+        await service.publish_status(final)
+        return final
+
+    service.publish_status = AsyncMock(side_effect=publish)
+    service.process_payload = AsyncMock(side_effect=handle)
+    if start_ack_fails:
+        with pytest.raises(RuntimeError, match="start ack failed"):
+            await service._consume_loop()
+        service.process_payload.assert_not_awaited()
+        service._consumer.commit.assert_not_awaited()
+    else:
+        await service._consume_loop()
+        assert events == [JobStatus.RUNNING, "handler", JobStatus.SUCCESS]
+        service._consumer.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("payload", [b"{}", "{}"])
 async def test_service_awaits_actual_status_publisher_before_committing(payload):
     service = Service()

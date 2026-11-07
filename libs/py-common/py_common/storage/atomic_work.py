@@ -67,7 +67,11 @@ async def write_day(
             dates = pd.to_datetime(existing[column], errors="raise").dt.date
             if dates.isna().any():
                 raise ValueError("Existing output contains missing dates")
+            # Parquet history uses calendar dates; calculations may use Timestamps.
+            # Normalize only the sort key; the codec owns persisted DATE coercion.
             frame = pd.concat(
                 [existing.loc[dates != business_date], frame], ignore_index=True
-            ).sort_values(column)
+            ).sort_values(
+                column, key=lambda values: pd.to_datetime(values, errors="raise")
+            )
     await storage.write_dataframe(path, frame, **kwargs)

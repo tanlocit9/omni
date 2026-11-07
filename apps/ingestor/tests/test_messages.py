@@ -1,13 +1,37 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from pydantic import ValidationError
+from py_common.messaging.atomic_work import atomic_work_id
 
 from app.messaging.messages import (
     IntradayEodJobMessage,
     SymbolJobMessage,
     SyncSymbolsJobMessage,
 )
+
+
+@pytest.mark.parametrize("day", [date(2026, 11, 7), date(2026, 11, 8)])
+def test_atomic_symbol_snapshot_accepts_weekends_and_keeps_identity_guards(day):
+    parameters = {"source": "VND"}
+    raw = {
+        "jobDefinitionId": "job", "executionId": "execution", "source": "VND",
+        "jobType": "SYNC_SYMBOLS", "workType": "EXCHANGE", "workKey": "HNX",
+        "exchange": "HNX", "businessDate": day.isoformat(), "parameters": parameters,
+        "atomicWorkId": atomic_work_id("SYNC_SYMBOLS", "EXCHANGE", "HNX", day, parameters),
+    }
+    assert SyncSymbolsJobMessage.model_validate(raw).business_date == day
+    with pytest.raises(ValidationError, match="domain target"):
+        SyncSymbolsJobMessage.model_validate({**raw, "exchange": "HOSE"})
+    with pytest.raises(ValidationError, match="identity does not match"):
+        SyncSymbolsJobMessage.model_validate({**raw, "atomicWorkId": "work:" + "0" * 64})
+    market = {
+        **raw, "jobType": "SYNC_STOCK_PRICE", "workType": "SYMBOL",
+        "workKey": "HNX-ACB", "symbolKey": "HNX-ACB",
+        "atomicWorkId": atomic_work_id("SYNC_STOCK_PRICE", "SYMBOL", "HNX-ACB", day, parameters),
+    }
+    with pytest.raises(ValidationError, match="weekend"):
+        SymbolJobMessage.model_validate(market)
 
 
 def test_symbol_job_message_parses_scheduler_payload():

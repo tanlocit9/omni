@@ -9,6 +9,53 @@ from app.kafka_consumer import consume_loop
 from app.messaging.consumer import IngestorKafkaRoutingService
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("start_ack_fails", [False, True])
+async def test_ingestor_confirms_worker_start_before_stock_handler(start_ack_fails):
+    import json
+    from uuid import uuid4
+
+    from py_common.messaging import JobStatus
+
+    config = SimpleNamespace(
+        topic_sync_symbols="symbols", topic_sync_stock_prices="prices",
+        topic_sync_intraday_eod="intraday",
+    )
+    service = IngestorKafkaRoutingService(config)
+    service._producer = object()
+    service._default_client = object()
+    service._parquet_storage = object()
+    service._immutable_publisher = object()
+    events = []
+
+    async def publish(started):
+        assert started.status == JobStatus.RUNNING
+        assert started.finished_at is None
+        events.append("start-ack")
+        if start_ack_fails:
+            raise RuntimeError("start unavailable")
+
+    async def handle(*args):
+        events.append("handler")
+
+    service._status_publisher = SimpleNamespace(publish=AsyncMock(side_effect=publish))
+    raw = {
+        "jobDefinitionId": str(uuid4()), "executionId": str(uuid4()),
+        "workType": "SYMBOL", "workKey": "HOSE-HPG",
+    }
+    msg = SimpleNamespace(topic="prices", value=json.dumps(raw).encode())
+    with pytest.MonkeyPatch.context() as patcher:
+        handler = AsyncMock(side_effect=handle)
+        patcher.setattr("app.messaging.consumer.process_stock_price_message", handler)
+        if start_ack_fails:
+            with pytest.raises(RuntimeError, match="start unavailable"):
+                await service._route_message(msg)
+            handler.assert_not_awaited()
+        else:
+            await service._route_message(msg)
+            assert events == ["start-ack", "handler"]
+
+
 def test_kafka_consumer_exports_consume_loop():
     assert callable(consume_loop)
 

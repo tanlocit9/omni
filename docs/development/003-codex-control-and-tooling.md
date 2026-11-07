@@ -71,6 +71,13 @@ runtime configuration, datasets, deployment and operations have no behavior chan
 No build/test/lint/format or executable skill validator was run for this migration;
 inspection is static and does not reuse prior application checks as migration proof.
 
+The shared [`check-jobs-backlog`](../../.agents/skills/check-jobs-backlog/SKILL.md)
+skill collects current execution/outbox and Kafka observations through the existing
+`omni:jobs-backlog` target. It distinguishes consumer assignment from enabled job
+definitions, and BLOCKED history from queued delivery. Optional failure summaries
+define their window/denominator and separate operator cancellations. The skill is
+read-only and authorizes no cleanup or runtime/configuration changes.
+
 ## Recommended Controls
 
 | Priority | Control               | Type                 | Decision                                               | Primary value                                                                                                          |

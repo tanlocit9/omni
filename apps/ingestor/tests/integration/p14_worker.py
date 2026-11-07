@@ -32,6 +32,8 @@ class FixtureProvider:
         ]
 
     async def fetch_recent_stock(self, symbol, size):
+        if self.control and (self.control / "fail-stock").exists():
+            raise TimeoutError("Fixture provider ReadTimeout before any canonical write")
         today = self.business_date or datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date()
         revised = self.control and (self.control / "second-generation").exists()
         rows = 180
@@ -89,7 +91,9 @@ async def main():
     assert settings.minio.endpoint == config["minio"], "MinIO isolation mismatch"
     assert settings.minio.bucket == config["bucket"], "Bucket isolation mismatch"
     control = (
-        Path(config["overlapControlDir"]) if "overlapControlDir" in config else None
+        Path(config["providerControlDir"])
+        if "providerControlDir" in config
+        else Path(config["overlapControlDir"]) if "overlapControlDir" in config else None
     )
     provider = FixtureProvider(
         control,

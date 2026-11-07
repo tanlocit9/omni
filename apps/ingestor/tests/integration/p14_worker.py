@@ -62,6 +62,11 @@ async def main():
         class SnapshotClock(datetime):
             @classmethod
             def now(cls, tz=None):
+                if (
+                    Path(config.get("providerControlDir", config.get("overlapControlDir", ".")))
+                    / "use-current-snapshot-clock"
+                ).exists():
+                    return datetime.now(tz)
                 return datetime.now(tz).replace(
                     year=day.year, month=day.month, day=day.day
                 )

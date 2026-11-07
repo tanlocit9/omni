@@ -4,12 +4,13 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from py_common.messaging.job_messages import WorkType
 
 
 class JobStatus(StrEnum):
+    RUNNING = "RUNNING"
     SUCCESS = "SUCCESS"
     ERROR = "ERROR"
     PARTIAL_SUCCESS = "PARTIAL_SUCCESS"
@@ -25,12 +26,21 @@ class JobStatusMessage(BaseModel):
     work_key: str = Field(alias="workKey", min_length=1)
     status: JobStatus
     started_at: datetime = Field(alias="startedAt")
-    finished_at: datetime = Field(alias="finishedAt")
+    finished_at: datetime | None = Field(alias="finishedAt")
     error_message: str | None = Field(default=None, alias="errorMessage")
     records_processed: int = Field(default=0, alias="recordsProcessed")
     duration_ms: int = Field(default=0, alias="durationMs")
     meta_json: dict[str, Any] = Field(default_factory=dict, alias="metaJson")
     new_offset: str | None = Field(default=None, alias="newOffset")
+
+    @model_validator(mode="after")
+    def validate_completion_timestamp(self):
+        if self.status == JobStatus.RUNNING:
+            if self.finished_at is not None:
+                raise ValueError("RUNNING status cannot have finishedAt")
+        elif self.finished_at is None:
+            raise ValueError("Terminal status requires finishedAt")
+        return self
 
 
 def calculate_duration_ms(started_at: datetime, finished_at: datetime) -> int:

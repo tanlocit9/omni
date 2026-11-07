@@ -1873,6 +1873,67 @@ class GraphWorkRequestsPostgresTest {
                 .isNull();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void failedTargetKeepsHealthyMembersAdmissibleUntilEveryMemberSettles(boolean unfinishedAncestor) {
+        jdbc.update("INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
+                JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst());
+        var target = target(JobType.SYNC_INDICATORS);
+        var request = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
+                "operator", "settlement", "Request settlement verification", null, "{}");
+        UUID root = graph.prepare(request, target.getId(), claim(target), NOW, Map.of());
+        UUID requestId = request(root);
+        var members = jdbc.queryForList(
+                "SELECT a.execution_id,m.is_target FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=? ORDER BY a.execution_id",
+                requestId);
+        var targets = members.stream().filter(m -> Boolean.TRUE.equals(m.get("is_target"))).toList();
+        assertThat(targets).hasSize(2);
+        UUID failed = (UUID) targets.getFirst().get("execution_id");
+        UUID unfinished = (UUID) (unfinishedAncestor
+                ? members.stream().filter(m -> !Boolean.TRUE.equals(m.get("is_target"))).findFirst().orElseThrow()
+                : targets.getLast()).get("execution_id");
+        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS' WHERE id IN (SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=?)", requestId);
+        jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id=?", failed);
+        jdbc.update("UPDATE job_execution_histories SET status='PENDING' WHERE id=?", unfinished);
+        graph.reconcile();
+        var progress = graph.inspect(requestId);
+        assertThat(progress).containsEntry("hasFailure", true).containsEntry("isSettled", false).containsEntry("unfinishedMembers", 1L);
+        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, requestId)).isEqualTo("PREPARED");
+        if (!unfinishedAncestor)
+            assertThat(jdbc.queryForObject("SELECT atomic_work_admissible(?)", Boolean.class, unfinished)).isTrue();
+        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS' WHERE id=?", unfinished);
+        for (int i = 0; i < 3; i++) graph.reconcile();
+        assertThat(graph.inspect(requestId)).containsEntry("hasFailure", true).containsEntry("isSettled", true).containsEntry("unfinishedMembers", 0L);
+        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, requestId)).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, root)).isEqualTo("FAILED");
+    }
+
+    @Test
+    void workerReceiptMovesPreparedMemberToRunningButCannotReopenTerminalAttempt() {
+        UUID root = prepare(target(JobType.SYNC_INDICATORS), "worker-receipt");
+        var row = jdbc.queryForMap(
+                "SELECT e.id,e.job_id,e.parent_log_id,e.status,e.started_at,e.meta_json->>'workKey' AS work_key "
+                        + "FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                        + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? AND m.is_target",
+                request(root));
+        assertThat(row.get("status")).isEqualTo("PENDING");
+        assertThat(row.get("started_at")).isNull();
+        var jobs = context.getBean(JobService.class);
+        var running = new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
+                row.get("job_id").toString(), row.get("id").toString(), row.get("parent_log_id").toString(),
+                com.omni.platform.shared.executions.WorkType.SYMBOL, row.get("work_key").toString(),
+                "RUNNING", Map.of("workerStarted", true), null, NOW.plusSeconds(1), null, 0, null, 0);
+        jobs.applyStatus(running);
+        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, row.get("id"))).isEqualTo("RUNNING");
+        assertThat(jdbc.queryForObject("SELECT finished_at FROM job_execution_histories WHERE id=?", java.sql.Timestamp.class, row.get("id"))).isNull();
+        jobs.applyStatus(new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
+                running.jobDefinitionId(), running.executionId(), running.parentExecutionId(), running.workType(), running.workKey(),
+                "ERROR", Map.of(), null, running.startedAt(), NOW.plusSeconds(2), 1000, "provider error", 0));
+        jobs.applyStatus(running);
+        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, row.get("id"))).isEqualTo("FAILED");
+    }
+
     private void releaseLease(SchedulerClaim lease) {
         new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
                 .executeWithoutResult(tx -> context.getBean(JobService.class).releaseClaim(lease));

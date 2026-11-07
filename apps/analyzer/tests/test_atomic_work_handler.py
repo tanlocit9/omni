@@ -12,9 +12,11 @@ from app.indicators.handler import IndicatorJobHandler
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enrolled", [False, True])
+@pytest.mark.parametrize("parquet_history", [False, True])
 async def test_indicator_handler_reads_lookback_but_not_future_and_preserves_other_days(
     monkeypatch,
     enrolled,
+    parquet_history,
 ):
     root = Path(__file__).resolve().parents[3]
     raw = json.loads(
@@ -45,6 +47,13 @@ async def test_indicator_handler_reads_lookback_but_not_future_and_preserves_oth
             "eod_data_version": ["old", "old", "future"],
         }
     )
+    if parquet_history:
+        from py_common.storage.parquet import ParquetCodec
+
+        history = storage.read_optional_dataframe.return_value
+        storage.read_optional_dataframe.return_value = ParquetCodec.decode(
+            ParquetCodec.encode(history)
+        )
     metadata = SimpleNamespace(
         read=AsyncMock(
             return_value=SimpleNamespace(

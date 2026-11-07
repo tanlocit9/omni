@@ -29,3 +29,11 @@ Use one multiplier of three in planner, dispatcher and fallback paths. With batc
 No test, lint, build, format or executable acceptance gate was run for this
 checkpoint. Existing dated evidence is historical and does not verify this
 isolated commit.
+
+### I10 migration packaging
+
+Split the consolidated readiness schema into registration, completion/watchdog, READY projection, baselines and scoped-work stages. Final schema semantics stay unchanged; function declarations remain replaceable. Migration expectations at this checkpoint stop at V24; V25 belongs to the later backfill checkpoint. Platform persistence/install order is affected; Python/Query readers keep the final table contract. This does not run Flyway or authorize a retained-environment migration.
+
+No test, lint, build, format or executable acceptance gate was run for this
+checkpoint. Existing dated evidence is historical and does not verify this
+isolated commit.

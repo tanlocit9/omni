@@ -1,5 +1,25 @@
 # Dependency-Ordered Implementation Increments
 
+I10 checkpoint delivery (2026-11-07): the owner requested bounded commits without
+per-checkpoint verification. [Scopes and unresolved runtime blockers](../../reference/011-i10-delivery-checkpoints.md).
+P14-I10 remains in_progress; no new increment, acceptance, live recovery or cutover
+is created by this delivery.
+
+Indicators backfill follow-up (2026-11-05): [bounded operator API and scoped
+EOD/Indicators enrollment](../../reference/009-indicators-backfill.md). Source and
+local evidence only; P14-I10 remains in_progress. No I11 or Plan 028 completion
+is introduced; default runtime and full cutover gates remain unchanged.
+
+I10 downstream-guard repair (2026-11-04): exact-day feature dependencies,
+fail-closed declarations, frozen signal/feature reads and metadata discovery are
+implemented. [Impact/test matrix and verification boundary](../../reference/008-p14-i10-dispatch-guard.md).
+P14-I10 remains in_progress; the full verification/cutover gate is not waived.
+
+I10 migration packaging (2026-11-04): V19-V23 are split by responsibility with
+unchanged final schema and feature defaults. Local empty-leftover cleanup and
+rollback-only SQL verification do not close I10 acceptance; see
+[current evidence](../../reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
 I10 review follow-up (2026-11-04): model-aware signal scopes, registration preflight
 before canonical mutation and aggregate catalog bounds are corrected in source.
 See [regressions and deferred writer TODOs](../../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
@@ -15,7 +35,7 @@ freshness. See the current identity handoff for compatibility and cutover gates.
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](../../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 

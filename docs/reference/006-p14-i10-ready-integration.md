@@ -1,5 +1,9 @@
 # P14-I10 enrollment, READY integration and exact-date admission
 
+Current migration boundary (2026-11-04): V19-V23 are split again by responsibility.
+Local history is reconciled to V18; prior consolidation and checksum statements
+below are historical. See [current migration stages and evidence](007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
 Migration history note (2026-11-03): the owner confirmed the I10 migrations were
 not applied. Former V19-V23 are now consolidated into V19; the older V20-checksum
 question below is resolved. Earlier measurements and migration descriptions are
@@ -8,7 +12,7 @@ historical. See [current identity/schema handoff](007-p14-i10-work-identity.md).
 Owner identity revision (2026-11-03): enrolled work READY and direct upstream
 approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
 output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
 are documented in the [current identity handoff](007-p14-i10-work-identity.md). I10 remains in_progress;
 old source/checkpoint statements below are historical for this revised scope.
 

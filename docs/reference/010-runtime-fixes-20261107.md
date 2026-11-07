@@ -4,6 +4,10 @@ This scoped P14-I10 commit contains recent execution-lifecycle, date-merge and
 weekend-envelope repairs. It excludes pending backfill API, guard/catalog changes,
 migrations, backlog tooling and their documentation. P14-I10 remains in_progress.
 
+The exclusions above describe the runtime commit's scope. Subsequent delivery
+checkpoints are recorded in the [I10 delivery handoff](011-i10-delivery-checkpoints.md);
+they do not retroactively verify the isolated runtime commit or complete I10.
+
 ## Defects and behavior
 
 - Mixed Parquet calendar dates and pandas Timestamp results previously failed

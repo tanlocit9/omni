@@ -1,5 +1,18 @@
 # Ingestor Service
 
+Atomic SYNC_SYMBOLS accepts current Saturday/Sunday snapshots, matching Platform
+projection for historical backfills. This exception does not permit weekend EOD
+work or weaken identity validation. See [the correction and retry boundary](../../docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
+The Kafka router ACKs a RUNNING worker receipt before entering a job handler.
+Receipt failure prevents provider work and command offset advancement; terminal
+output/status ordering remains unchanged. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+[Indicators backfill](../../docs/reference/009-indicators-backfill.md) attaches
+an EOD force policy: check actual Parquet business-day rows, reuse when covered,
+otherwise fetch through the normal provider path. Both branches validate/register
+before SUCCESS. Existing merge keys and unrelated history remain unchanged.
+
 I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
 Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
 symbols in the same file are independent; whole-file snapshots are not required

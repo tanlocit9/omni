@@ -223,6 +223,39 @@ class GraphWorkRequestsPostgresTest {
         assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, root)).isEqualTo("FAILED");
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void rootCountsOnlyTargetsAndPreservesUnknownCounters(boolean missingCounter) {
+        jdbc.update("INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
+                JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst());
+        var definition = target(JobType.SYNC_INDICATORS);
+        var counterRequest = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
+                "operator", "target-counters", "Target counter regression", null, "{}");
+        UUID root = graph.prepare(counterRequest, definition.getId(), claim(definition), NOW, Map.of());
+        UUID requestId = request(root);
+        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS',records_synced=1000,records_skipped=100 "
+                + "WHERE id IN (SELECT a.execution_id FROM atomic_work_request_members m "
+                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=?)", requestId);
+        var targets = jdbc.queryForList("SELECT a.execution_id FROM atomic_work_request_members m "
+                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=? AND m.is_target "
+                + "ORDER BY a.execution_id", UUID.class, requestId);
+        assertThat(targets).hasSize(2);
+        jdbc.update("UPDATE job_execution_histories SET records_synced=7,records_skipped=0 WHERE id=?", targets.getFirst());
+        jdbc.update("UPDATE job_execution_histories SET records_synced=?,records_skipped=3 WHERE id=?",
+                missingCounter ? null : 11, targets.getLast());
+        for (int pass = 0; pass < 3; pass++) graph.reconcile();
+        var result = jdbc.queryForMap("SELECT status,records_synced,records_skipped FROM job_execution_histories WHERE id=?", root);
+        assertThat(result).containsEntry("status", "SUCCESS")
+                .containsEntry("records_synced", missingCounter ? null : 18)
+                .containsEntry("records_skipped", 3);
+        // A later reconciliation must not rewrite the closed root's counters.
+        jdbc.update("UPDATE job_execution_histories SET records_synced=999 WHERE id=?", targets.getFirst());
+        graph.reconcile();
+        assertThat(jdbc.queryForMap("SELECT status,records_synced,records_skipped FROM job_execution_histories WHERE id=?", root))
+                .isEqualTo(result);
+    }
+
     @Test
     void workerReceiptMovesPreparedMemberToRunningButCannotReopenTerminalAttempt() {
         UUID root = prepare(target(JobType.SYNC_INDICATORS), "worker-receipt");

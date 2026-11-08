@@ -747,9 +747,16 @@ public class GraphWorkRequestService {
                     failure ? "FAILED" : "SUCCESS",
                     request.get("id"));
             jdbc.update(
-                    "UPDATE job_execution_histories SET status=?,finished_at=CURRENT_TIMESTAMP,error=? WHERE id=? AND status IN ('PENDING','RUNNING')",
+                    "UPDATE job_execution_histories root SET status=?,finished_at=CURRENT_TIMESTAMP,error=?,"
+                            + "records_synced=totals.synced,records_skipped=totals.skipped FROM ("
+                            + "SELECT CASE WHEN count(*)=count(e.records_synced) THEN sum(e.records_synced) END AS synced,"
+                            + "CASE WHEN count(*)=count(e.records_skipped) THEN sum(e.records_skipped) END AS skipped "
+                            + "FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                            + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? AND m.is_target"
+                            + ") totals WHERE root.id=? AND root.status IN ('PENDING','RUNNING')",
                     failure ? "FAILED" : "SUCCESS",
                     failure ? "ATOMIC_TARGET_FAILED" : null,
+                    request.get("id"),
                     request.get("execution_id"));
         }
     }

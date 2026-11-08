@@ -595,6 +595,10 @@ class GraphWorkRequestsPostgresTest {
                                 "SELECT count(*) FROM atomic_work_attempts a WHERE atomic_work_admissible(a.execution_id)",
                                 Integer.class))
                 .isEqualTo(1);
+        graph.reconcile();
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                        + "WHERE e.status IN ('FAILED','BLOCKED')", Integer.class)).isZero();
         assertThat(graph.inspect(request(second)).get("members")).asList().hasSize(3);
         assertThat(prepare(indicator, "second")).isEqualTo(second);
         assertThat(count("atomic_work_attempts")).isEqualTo(3);
@@ -605,7 +609,7 @@ class GraphWorkRequestsPostgresTest {
                                 Integer.class))
                 .isZero();
         prepare(indicator, "reattach");
-        assertThat(count("atomic_work_attempts")).isEqualTo(3);
+        assertThat(count("atomic_work_attempts")).isEqualTo(6); // Closed owners cannot donate attempts.
         assertThatThrownBy(
                         () ->
                                 jdbc.update(
@@ -1185,7 +1189,7 @@ class GraphWorkRequestsPostgresTest {
     }
 
     @Test
-    void noOwnerWorkIsParkedAndANewOwnerReattachesWithoutAnotherAttempt() {
+    void noOwnerWorkStaysInadmissibleAndANewRequestCreatesIndependentAttempts() {
         var target = target(JobType.SYNC_INDICATORS);
         UUID first = prepare(target, "parking-first"), second = prepare(target, "parking-second");
         assertThat(graph.cancel(request(first), "operator", NOW)).isTrue();
@@ -1209,16 +1213,19 @@ class GraphWorkRequestsPostgresTest {
                                 .claimEligible(
                                         message, NOW, "parked", Duration.ofMinutes(1), Map.of()))
                 .isNull();
-        UUID reattached = prepare(target, "parking-new-owner");
-        assertThat(reattached).isNotIn(first, second);
-        assertThat(count("atomic_work_attempts")).isEqualTo(3);
-        assertThat(count("scheduler_outbox_messages")).isEqualTo(3);
+        UUID replacement = prepare(target, "parking-new-owner");
+        assertThat(replacement).isNotIn(first, second);
+        assertThat(count("atomic_work_attempts")).isEqualTo(6);
+        assertThat(count("scheduler_outbox_messages")).isEqualTo(6);
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT atomic_work_admissible(?)",
                                 Boolean.class,
                                 catalogExecution))
-                .isTrue();
+                .isFalse();
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM atomic_work_attempts WHERE atomic_work_admissible(execution_id)",
+                Integer.class)).isEqualTo(1);
     }
 
     @Test
@@ -1448,7 +1455,9 @@ class GraphWorkRequestsPostgresTest {
                 jdbc.queryForMap(
                         "SELECT a.id,a.execution_id,a.work_id,e.parent_log_id,e.job_id,e.meta_json::text AS metadata "
                                 + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
-                                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_STOCK_PRICE' LIMIT 1");
+                                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_STOCK_PRICE' "
+                                + "AND EXISTS(SELECT 1 FROM atomic_work_request_members m JOIN atomic_work_requests r ON r.id=m.request_id "
+                                + "WHERE m.attempt_id=a.id AND r.idempotency_key=?) LIMIT 1", key);
         var mapper = context.getBean("jsonMapper", JsonMapper.class);
         Map<String, Object> metadata = mapper.readValue(row.get("metadata").toString(), Map.class);
         Map<String, Object> expansion = (Map<String, Object>) metadata.get("workExpansion");
@@ -2035,6 +2044,126 @@ class GraphWorkRequestsPostgresTest {
                 List.of());
         var readiness = context.getBean(com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
         assertThat(readiness.bind((UUID) child.get("execution_id"), Map.of())).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FAILED", "CANCELLED", "SUCCESS"})
+    void closedOwnerAttemptsAreReplacedThenSafelySettledWithoutReopeningHistory(String state) {
+        UUID old = request(prepare(target(JobType.SYNC_INDICATORS), "orphan-owner"));
+        jdbc.update("UPDATE atomic_work_requests SET state=? WHERE id=?", state, old);
+        jdbc.update("UPDATE job_execution_histories SET status='FAILED',finished_at=? WHERE id="
+                + "(SELECT execution_id FROM atomic_work_requests WHERE id=?)", java.sql.Timestamp.from(NOW), old);
+        UUID fresh = request(prepare(target(JobType.SYNC_INDICATORS), "replacement-owner"));
+        assertThat(count("atomic_work_attempts")).isEqualTo(6);
+        for (int tick = 0; tick < 3; tick++) graph.reconcile();
+        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, old)).isEqualTo(state);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM atomic_work_request_members m "
+                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id "
+                + "JOIN scheduler_outbox_messages o ON o.execution_id=e.id WHERE m.request_id=? "
+                + "AND e.status='FAILED' AND e.error='REQUEST_CLOSED' AND e.finished_at IS NOT NULL "
+                + "AND o.status='BLOCKED' AND o.dependency_reason='REQUEST_CLOSED' AND o.attempts=0",
+                Integer.class, old)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM atomic_work_request_members m "
+                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id "
+                + "WHERE m.request_id=? AND e.status='PENDING'", Integer.class, fresh)).isEqualTo(3);
+        assertThat(graph.inspect(old)).containsEntry("isSettled", true).containsEntry("unfinishedMembers", 0L);
+        assertThat((List<?>) graph.inspect(old).get("members")).allSatisfy(member -> {
+            var detail = (Map<?, ?>) member;
+            assertThat(detail.get("reasonCode")).isEqualTo("REQUEST_CLOSED");
+            assertThat(detail.get("executionStatus")).isEqualTo("FAILED");
+            assertThat(detail.get("requiresExecutionReview")).isEqualTo(false);
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"claim", "expired-claim", "ack-lost", "published", "receipt", "timeout", "registration", "completion"})
+    void orphanWithAnyDispatchEvidenceIsPreservedForReviewEvenWhenItsUpstreamFails(String evidence) {
+        var f = completionFixture("uncertain-orphan", false);
+        UUID owner = jdbc.queryForObject("SELECT request_id FROM atomic_work_request_members WHERE attempt_id=?", UUID.class, f.attempt());
+        jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
+        switch (evidence) {
+            case "claim", "expired-claim" -> jdbc.update(
+                    "UPDATE scheduler_outbox_messages SET attempts=1,claim_token=?,claimed_by='fixture',claim_until=? WHERE execution_id=?",
+                    UUID.randomUUID(), java.sql.Timestamp.from(evidence.equals("claim") ? Instant.now().plusSeconds(60) : Instant.now().minusSeconds(60)), f.execution());
+            case "ack-lost" -> jdbc.update("UPDATE scheduler_outbox_messages SET attempts=1 WHERE execution_id=?", f.execution());
+            case "published" -> jdbc.update("UPDATE scheduler_outbox_messages SET attempts=1,status='PUBLISHED',published_at=? WHERE execution_id=?",
+                    java.sql.Timestamp.from(NOW), f.execution());
+            case "receipt" -> jdbc.update("UPDATE job_execution_histories SET status='RUNNING',meta_json=meta_json || '{\"workerStarted\":true}'::jsonb WHERE id=?", f.execution());
+            case "timeout" -> jdbc.update("INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
+                    f.execution(), java.sql.Timestamp.from(NOW), java.sql.Timestamp.from(NOW.plusSeconds(1800)));
+            case "registration" -> context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class).accept(f.event());
+            case "completion" -> jdbc.update("INSERT INTO output_completion_statuses(execution_id,payload) VALUES (?,jsonb_build_object('status','SUCCESS','executionId',?::text))",
+                    f.execution(), f.execution().toString());
+        }
+        for (int tick = 0; tick < 3; tick++) graph.reconcile();
+        assertThat(completionState(f.execution())).isIn("PENDING", "RUNNING");
+        assertThat(jdbc.queryForObject("SELECT status FROM scheduler_outbox_messages WHERE execution_id=?", String.class, f.execution()))
+                .isEqualTo(evidence.equals("published") ? "PUBLISHED" : "PENDING");
+        var member = inspectedMember(owner, f.attempt());
+        assertThat(member).containsEntry("orphaned", true).containsEntry("requiresExecutionReview", true);
+        assertThat(graph.inspect(owner)).containsEntry("isSettled", false);
+        if (evidence.equals("timeout")) {
+            jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id=?", f.execution());
+            assertThat(inspectedMember(owner, f.attempt())).containsEntry("requiresExecutionReview", true);
+        }
+    }
+
+    @Test
+    void reconciliationSkipsSlotsLockedByAcceptanceAndClosesThemOnALaterTick() {
+        UUID owner = request(prepare(target(JobType.SYNC_STOCK_PRICE), "locked-orphan"));
+        jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            jdbc.queryForList("SELECT work_id FROM atomic_work_slots ORDER BY work_id FOR UPDATE");
+            assertThatCode(() -> CompletableFuture.runAsync(graph::reconcile).get(10, TimeUnit.SECONDS)).doesNotThrowAnyException();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM job_execution_histories WHERE error='REQUEST_CLOSED'", Integer.class)).isZero();
+        });
+        graph.reconcile();
+        assertThat(graph.inspect(owner)).containsEntry("isSettled", true);
+    }
+
+    @Test
+    void orphanOutboxAndExecutionUpdatesRollBackTogether() {
+        UUID owner = request(prepare(target(JobType.SYNC_STOCK_PRICE), "rollback-orphan"));
+        jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+            graph.reconcile();
+            assertThat(graph.inspect(owner)).containsEntry("isSettled", true);
+            status.setRollbackOnly();
+        });
+        assertThat(graph.inspect(owner)).containsEntry("isSettled", false);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM scheduler_outbox_messages WHERE status='PENDING'", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM job_execution_histories WHERE error='REQUEST_CLOSED'", Integer.class)).isZero();
+    }
+
+    @Test
+    void failedAttemptStaysFailedWhileSameWorkHasReadyOutputFromALaterAttempt() {
+        var old = completionFixture("old-output-attempt", false);
+        UUID owner = jdbc.queryForObject("SELECT request_id FROM atomic_work_request_members WHERE attempt_id=?", UUID.class, old.attempt());
+        jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
+        jdbc.update("UPDATE job_execution_histories SET status='FAILED',error='provider failure' WHERE id=?", old.execution());
+        assertThat(inspectedMember(owner, old.attempt())).containsEntry("executionStatus", "FAILED").containsEntry("outputReady", false);
+        var fresh = completionFixture("new-output-attempt", false);
+        assertThat(fresh.attempt()).isNotEqualTo(old.attempt());
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class).accept(fresh.event());
+        context.getBean(JobService.class).applyStatus(fresh.status());
+        var promotion = new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(jdbc, true, true);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(fresh.execution()));
+        var member = inspectedMember(owner, old.attempt());
+        assertThat(member).containsEntry("executionStatus", "FAILED").containsEntry("status", "FAILED").containsEntry("outputReady", true);
+        assertThat((List<?>) member.get("readyOutputs")).singleElement().satisfies(item -> {
+            var output = (Map<?, ?>) item;
+            assertThat(output.get("executionId")).isEqualTo(fresh.execution().toString());
+            assertThat(output.get("attemptId")).isEqualTo(fresh.attempt().toString());
+        });
+        jdbc.update("DELETE FROM output_ready_rows WHERE dataset='eod'");
+        assertThat(inspectedMember(owner, old.attempt())).containsEntry("outputReady", false);
+        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, owner)).isEqualTo("FAILED");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> inspectedMember(UUID requestId, UUID attemptId) {
+        return ((List<Map<String, Object>>) graph.inspect(requestId).get("members")).stream()
+                .filter(member -> attemptId.equals(member.get("attempt_id"))).findFirst().orElseThrow();
     }
 
     private void releaseLease(SchedulerClaim lease) {

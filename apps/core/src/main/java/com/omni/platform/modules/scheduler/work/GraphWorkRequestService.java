@@ -45,6 +45,25 @@ import tools.jackson.databind.json.JsonMapper;
 /** Durable request membership over independent one-work JobRuns. No writer or READY authority. */
 @Service
 public class GraphWorkRequestService {
+    private static final String LIVE_OWNER =
+            "EXISTS (SELECT 1 FROM atomic_work_request_members owner "
+                    + "JOIN atomic_work_requests request ON request.id=owner.request_id "
+                    + "WHERE owner.attempt_id=a.id AND request.state IN ('PREPARING','PREPARED'))";
+    private static final String CLOSED_OWNER =
+            "EXISTS (SELECT 1 FROM atomic_work_request_members owner "
+                    + "JOIN atomic_work_requests request ON request.id=owner.request_id "
+                    + "WHERE owner.attempt_id=a.id AND request.state IN ('SUCCESS','FAILED','CANCELLED'))";
+    // PENDING alone cannot exclude an acknowledged or ambiguous publication.
+    private static final String NEVER_DISPATCHED =
+            "o.status='PENDING' AND o.attempts=0 AND o.published_at IS NULL "
+                    + "AND o.claim_token IS NULL AND o.claimed_by IS NULL AND o.claim_until IS NULL "
+                    + "AND e.meta_json->>'workerStarted' IS DISTINCT FROM 'true' "
+                    + "AND NOT EXISTS (SELECT 1 FROM scheduler_outbox_messages other "
+                    + "WHERE other.execution_id=e.id AND other.id<>o.id) "
+                    + "AND NOT EXISTS (SELECT 1 FROM output_attempt_timeouts timeout "
+                    + "WHERE timeout.execution_id=e.id) "
+                    + "AND NOT EXISTS (SELECT 1 FROM output_registrations registration WHERE registration.execution_id=e.id) "
+                    + "AND NOT EXISTS (SELECT 1 FROM output_completion_statuses completion WHERE completion.execution_id=e.id)";
     private final JdbcTemplate jdbc;
     private final EntityManager entities;
     private final JsonMapper json;
@@ -372,6 +391,7 @@ public class GraphWorkRequestService {
                         "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
                                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
                                 + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
+                                + "AND " + LIVE_OWNER + " "
                                 + "AND NOT EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
                                 + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
                                 + "AND (?=false OR EXISTS(SELECT 1 FROM output_completion_contracts c WHERE c.execution_id=e.id)) "
@@ -502,7 +522,7 @@ public class GraphWorkRequestService {
         return json.readValue(value, Map.class);
     }
 
-    /** No execution is killed: cancellation removes one request's interest only. */
+    /** Remove one owner's interest; reconciliation may later settle never-dispatched orphans. */
     @Transactional
     public boolean cancel(UUID requestId, String actor, Instant now) {
         var rows =
@@ -554,6 +574,7 @@ public class GraphWorkRequestService {
     }
 
     /** Bounded operational snapshot; stored graph and attempts remain authority after restart. */
+    @SuppressWarnings("unchecked")
     @Transactional(readOnly = true)
     public Map<String, Object> inspect(UUID requestId) {
         var request =
@@ -564,10 +585,43 @@ public class GraphWorkRequestService {
         var members =
                 jdbc.queryForList(
                         "SELECT m.work_id,m.is_target,a.id AS attempt_id,a.job_run_id,a.execution_id,e.status,e.started_at,e.finished_at,"
-                                + "(SELECT o.status FROM scheduler_outbox_messages o WHERE o.execution_id=e.id ORDER BY o.message_index LIMIT 1) AS outbox_status "
+                                + "o.status AS outbox_status,c.required_outputs::text AS required_outputs,"
+                                + LIVE_OWNER + " AS has_live_owner,"
+                                + "coalesce((" + NEVER_DISPATCHED + "),false) AS never_dispatched,"
+                                + "EXISTS(SELECT 1 FROM output_attempt_timeouts timeout WHERE timeout.execution_id=e.id) AS timed_out,"
+                                + "CASE WHEN e.error IN ('REQUEST_CLOSED','ATOMIC_UPSTREAM_FAILED') THEN e.error END AS reason_code,"
+                                + "coalesce((SELECT jsonb_agg(jsonb_build_object('dataset',w.dataset,'partition',w.partition_values,"
+                                + "'dataVersion',w.data_version,'executionId',w.execution_id,'attemptId',w.atomic_attempt_id,"
+                                + "'businessDate',w.business_date) ORDER BY w.dataset,w.partition_values::text) "
+                                + "FROM output_work_ready_catalog w WHERE w.atomic_work_id=a.work_id),'[]'::jsonb)::text AS ready_outputs "
                                 + "FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
-                                + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? ORDER BY m.work_id",
+                                + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                + "LEFT JOIN output_completion_contracts c ON c.execution_id=e.id "
+                                + "LEFT JOIN LATERAL (SELECT * FROM scheduler_outbox_messages message WHERE message.execution_id=e.id "
+                                + "ORDER BY message.message_index LIMIT 1) o ON true "
+                                + "WHERE m.request_id=? ORDER BY m.work_id",
                         requestId);
+        for (var member : members) {
+            List<Map<String, Object>> outputs = json.readValue(member.remove("ready_outputs").toString(), List.class);
+            Object requiredJson = member.remove("required_outputs");
+            Boolean outputReady = outputs.isEmpty() ? null : true;
+            if (requiredJson != null) {
+                List<Map<String, Object>> required = json.readValue(requiredJson.toString(), List.class);
+                outputReady = required.stream().allMatch(declaration -> outputs.stream().anyMatch(item ->
+                        declaration.get("dataset").equals(item.get("dataset"))
+                                && declaration.get("partition").equals(item.get("partition"))));
+            }
+            boolean orphaned = !Boolean.TRUE.equals(member.remove("has_live_owner"));
+            boolean untouched = Boolean.TRUE.equals(member.remove("never_dispatched"));
+            boolean timedOut = Boolean.TRUE.equals(member.remove("timed_out"));
+            member.put("executionStatus", member.get("status"));
+            member.put("outputReady", outputReady);
+            member.put("readyOutputs", outputs);
+            member.put("reasonCode", member.remove("reason_code"));
+            member.put("orphaned", orphaned && !terminalMember(member.get("status").toString()));
+            member.put("requiresExecutionReview", timedOut || (orphaned && !untouched
+                    && !terminalMember(member.get("status").toString())));
+        }
         Map<String, Long> counts = members.stream().collect(Collectors.groupingBy(
                 member -> member.get("status").toString(), Collectors.counting()));
         long unfinished = members.stream().filter(member -> !terminalMember(member.get("status").toString())).count();
@@ -581,26 +635,58 @@ public class GraphWorkRequestService {
         return List.of("SUCCESS", "FAILED", "ERROR", "BLOCKED").contains(status);
     }
 
+    private void reconcileOrphanedAttempts() {
+        var candidates = jdbc.queryForList(
+                "SELECT a.id,a.work_id FROM atomic_work_attempts a "
+                        + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                        + "JOIN scheduler_outbox_messages o ON o.execution_id=e.id "
+                        + "WHERE a.sealed AND e.status IN ('PENDING','RUNNING') AND " + NEVER_DISPATCHED
+                        + " AND " + CLOSED_OWNER + " AND NOT " + LIVE_OWNER
+                        + " ORDER BY a.work_id,a.id LIMIT 100");
+        for (var candidate : candidates) {
+            // Acceptance holds the same sorted work-slot locks before reusing/binding attempts.
+            if (jdbc.queryForList(
+                    "SELECT work_id FROM atomic_work_slots WHERE work_id=? FOR UPDATE SKIP LOCKED",
+                    candidate.get("work_id")).isEmpty()) continue;
+            var closed = jdbc.queryForList(
+                    "UPDATE scheduler_outbox_messages o SET status='BLOCKED',dependency_reason='REQUEST_CLOSED',"
+                            + "updated_at=CURRENT_TIMESTAMP FROM atomic_work_attempts a "
+                            + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                            + "WHERE a.id=? AND a.sealed AND o.execution_id=e.id "
+                            + "AND e.status IN ('PENDING','RUNNING') AND " + NEVER_DISPATCHED
+                            + " AND " + CLOSED_OWNER + " AND NOT " + LIVE_OWNER
+                            + " RETURNING o.execution_id",
+                    candidate.get("id"));
+            for (var row : closed) {
+                jdbc.update(
+                        "UPDATE job_execution_histories SET status='FAILED',finished_at=CURRENT_TIMESTAMP,"
+                                + "error='REQUEST_CLOSED' WHERE id=? AND status IN ('PENDING','RUNNING')",
+                        row.get("execution_id"));
+            }
+        }
+    }
+
     @Scheduled(fixedDelayString = "${app.scheduler.job-run.graph-reconcile-delay:5000}")
     @Transactional(timeout = 15)
     public void reconcile() {
         if (!enabled && !backfillEnabled) return;
+        reconcileOrphanedAttempts();
         // Fail dependents only before publication; never rewrite a published/running worker
         // attempt.
         var failed =
                 jdbc.queryForList(
                         "SELECT a.execution_id FROM atomic_work_attempts a JOIN scheduler_outbox_messages o ON o.execution_id=a.execution_id "
                                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.sealed AND e.status IN ('PENDING','RUNNING') "
-                                + "AND o.status='PENDING' AND (o.claim_until IS NULL OR o.claim_until<=CURRENT_TIMESTAMP) "
+                                + "AND " + NEVER_DISPATCHED + " "
                                 + "AND EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
                                 + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
                                 + "ORDER BY a.created_at,a.id LIMIT 100");
         for (var row : failed) {
             UUID execution = (UUID) row.get("execution_id");
             jdbc.update(
-                    "UPDATE scheduler_outbox_messages SET status='BLOCKED',dependency_reason='ATOMIC_UPSTREAM_FAILED',"
-                            + "claim_token=NULL,claimed_by=NULL,claim_until=NULL WHERE execution_id=? AND status='PENDING' "
-                            + "AND (claim_until IS NULL OR claim_until<=CURRENT_TIMESTAMP)",
+                    "UPDATE scheduler_outbox_messages o SET status='BLOCKED',dependency_reason='ATOMIC_UPSTREAM_FAILED',"
+                            + "updated_at=CURRENT_TIMESTAMP FROM job_execution_histories e "
+                            + "WHERE o.execution_id=e.id AND e.id=? AND " + NEVER_DISPATCHED,
                     execution);
             jdbc.update(
                     "UPDATE job_execution_histories e SET status='BLOCKED',finished_at=CURRENT_TIMESTAMP,error='ATOMIC_UPSTREAM_FAILED' "

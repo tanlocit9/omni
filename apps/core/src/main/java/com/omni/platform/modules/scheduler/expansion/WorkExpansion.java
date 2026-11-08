@@ -104,7 +104,7 @@ public final class WorkExpansion {
         }
         if (meta.get("expansionRequest") instanceof Map<?, ?> supplied)
             supplied.forEach((k, v) -> request.put(String.valueOf(k), v));
-        if (!Set.of("scope", "dateFrom", "dateTo", "parameters", "sectorCodes", "sectorLevel", "force").containsAll(request.keySet()))
+        if (!Set.of("scope", "dateFrom", "dateTo", "parameters", "sectorCodes", "sectorLevel", "force", "rerun").containsAll(request.keySet()))
             throw new IllegalArgumentException("Unknown expansion request field");
         if (request.containsKey("sectorCodes")) config.put("sectorCodes", request.get("sectorCodes"));
         if (request.containsKey("sectorLevel")) config.put("sectorLevel", request.get("sectorLevel"));

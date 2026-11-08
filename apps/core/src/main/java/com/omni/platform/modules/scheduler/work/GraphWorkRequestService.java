@@ -154,8 +154,9 @@ public class GraphWorkRequestService {
         if (backfill ? claim != null : (claim == null || !targetId.equals(claim.jobDefinitionId())))
             throw new IllegalArgumentException("Invalid graph request claim/mode");
         Map<String, Object> expansion = readObject(request.parametersJson());
-        if (backfill && !java.util.Objects.equals(expansion.get("force"), metadata.get("force")))
-            throw new IllegalArgumentException("Backfill force policy must match accepted request");
+        if (backfill && (Boolean.TRUE.equals(expansion.get("force")) != Boolean.TRUE.equals(metadata.get("force"))
+                || newAttempts(expansion) != newAttempts(metadata)))
+            throw new IllegalArgumentException("Backfill rerun/force policy must match accepted request");
         // Serialize one idempotency key, then acquire definitions/slots in stable order.
         jdbc.queryForList(
                 "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
@@ -386,7 +387,7 @@ public class GraphWorkRequestService {
                         : backfill ? outputDeclarations.requiredForEnrolledWork(template.message())
                         : outputDeclarations.required(template.message());
         String binding = json.writeValueAsString(upstream.stream().map(UUID::toString).toList());
-        var reusable = backfill && Boolean.TRUE.equals(requestMetadata.get("force"))
+        var reusable = backfill && newAttempts(requestMetadata)
                 ? List.<Map<String, Object>>of() : jdbc.queryForList(
                         "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
                                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
@@ -458,7 +459,10 @@ public class GraphWorkRequestService {
         Map<String, Object> childMetadata = new LinkedHashMap<>();
         if (!requiredOutputs.isEmpty()) childMetadata.putAll(outputDeclarations.metadata(attemptId, requiredOutputs));
         if (backfill) childMetadata.put("backfillPolicy", Map.of(
-                "force", Boolean.TRUE.equals(requestMetadata.get("force")), "verifyEodParquet", true));
+                "force", Boolean.TRUE.equals(requestMetadata.get("force")),
+                "rerun", newAttempts(requestMetadata),
+                "dataPolicy", Boolean.TRUE.equals(requestMetadata.get("force")) ? "REFRESH" : "PREFER_EXISTING",
+                "verifyEodParquet", true));
         var child =
                 producers
                         .getProducer(work.jobType())
@@ -515,6 +519,10 @@ public class GraphWorkRequestService {
         if (run != null) parent.setJobRunStepIndex(0);
         parent.setMetaJson(new LinkedHashMap<>(metadata));
         return parent;
+    }
+
+    private static boolean newAttempts(Map<String, Object> policy) {
+        return Boolean.TRUE.equals(policy.get("force")) || Boolean.TRUE.equals(policy.get("rerun"));
     }
 
     @SuppressWarnings("unchecked")

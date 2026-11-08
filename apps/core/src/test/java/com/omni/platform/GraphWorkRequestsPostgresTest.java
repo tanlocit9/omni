@@ -2076,6 +2076,54 @@ class GraphWorkRequestsPostgresTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"default", "rerun", "force"})
+    void backfillSeparatesAttemptReuseFromProviderRefreshWithoutChangingWorkIdentity(String policy) {
+        var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", false);
+        try {
+            jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
+            var target = target(JobType.SYNC_INDICATORS);
+            boolean force = policy.equals("force"), rerun = !policy.equals("default");
+            var metadata = Map.<String, Object>of("force", force, "rerun", rerun);
+            var expansion = new java.util.LinkedHashMap<String, Object>(Map.of(
+                    "dateFrom", "2035-01-02", "dateTo", "2035-01-02",
+                    "sectorCodes", List.of(JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()),
+                    "sectorLevel", 2, "force", force, "rerun", rerun));
+            var request = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                    com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                    "operator", "data-policy-first", "Policy verification", null,
+                    context.getBean("jsonMapper", JsonMapper.class).writeValueAsString(expansion));
+            UUID first = graph.prepareBackfill(request, target.getId(), NOW, metadata);
+            assertThat(graph.prepareBackfill(request, target.getId(), NOW, metadata)).isEqualTo(first);
+            var second = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                    request.mode(), request.actor(), "data-policy-second", request.reason(), null, request.parametersJson());
+            graph.prepareBackfill(second, target.getId(), NOW, metadata);
+            int expected = rerun ? 6 : 3;
+            assertThat(count("atomic_work_attempts")).isEqualTo(expected);
+            assertThat(jdbc.queryForObject("SELECT count(DISTINCT work_id) FROM atomic_work_attempts", Integer.class)).isEqualTo(3);
+            assertThat(jdbc.queryForObject(
+                    "SELECT count(*) FROM job_execution_histories WHERE meta_json->'backfillPolicy'->>'dataPolicy'=? "
+                            + "AND (meta_json->'backfillPolicy'->>'rerun')::boolean=?",
+                    Integer.class, force ? "REFRESH" : "PREFER_EXISTING", rerun)).isEqualTo(expected);
+            expansion.put("force", !force);
+            expansion.put("rerun", true);
+            var changed = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                    request.mode(), request.actor(), request.idempotencyKey(), request.reason(), null,
+                    context.getBean("jsonMapper", JsonMapper.class).writeValueAsString(expansion));
+            assertThatThrownBy(() -> graph.prepareBackfill(changed, target.getId(), NOW,
+                    Map.of("force", !force, "rerun", true)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("IDEMPOTENCY_CONFLICT");
+            assertThat(count("atomic_work_attempts")).isEqualTo(expected);
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", true);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"claim", "expired-claim", "ack-lost", "published", "receipt", "timeout", "registration", "completion"})
     void orphanWithAnyDispatchEvidenceIsPreservedForReviewEvenWhenItsUpstreamFails(String evidence) {
         var f = completionFixture("uncertain-orphan", false);

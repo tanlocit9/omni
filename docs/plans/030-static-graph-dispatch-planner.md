@@ -1146,7 +1146,12 @@ Unsupported/missing scope mappings, malformed identities, unknown strategies and
 missing required ancestors fail rather than returning partial plans. Bounds are
 20,000 selected works, 100,000 edges, 1,024 expansions/catalog definitions, 200,000
 candidate rows/visits and depth 32. Candidate expansions are cached by definition
-and canonical request. Reversed catalog order and transient execution UUIDs do not
+and canonical request. Cached membership is indexed by work key/exchange; sector
+membership selections are cached by scope, business date and classification level.
+This avoids rescanning the whole symbol universe for every dependent symbol.
+Generated rows, real membership scans and selected visits remain bounded; all
+scope/date/strategy checks and definition bindings remain authoritative.
+Reversed catalog order and transient execution UUIDs do not
 change the logical graph result.
 
 | Area                       | Impact / no-impact reason                                                                                  | Regression evidence                                                                            |

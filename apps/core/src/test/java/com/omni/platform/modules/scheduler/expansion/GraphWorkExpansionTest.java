@@ -33,6 +33,55 @@ import org.junit.jupiter.api.Test;
 class GraphWorkExpansionTest {
     private static final Instant ACCEPTED = Instant.parse("2026-11-02T03:00:00Z");
 
+    @Test
+    void indexesLargeSymbolUniverseWithoutRepeatedFullCandidateScans() {
+        var target = job(JobType.SYNC_INDICATORS, Map.of());
+        var prices = job(JobType.SYNC_STOCK_PRICE, Map.of());
+        var alias = job(JobType.SYNC_STOCK_PRICE, Map.of());
+        var symbols = job(JobType.SYNC_SYMBOLS, Map.of());
+        var plan = GraphWorkExpansion.resolve(target.getId(),
+                Map.of("dateFrom", "2026-10-28", "dateTo", "2026-10-30"), ACCEPTED,
+                List.of(target, prices, alias, symbols), (definition, request, at) -> {
+                    if (definition == symbols) return expand(definition, request, at);
+                    var parent = new JobExecutionHistory();
+                    parent.setMetaJson(Map.of("expansionRequest", request));
+                    var expansion = WorkExpansion.resolve(definition, parent, at);
+                    var result = new ArrayList<ExpandedJobMessage>();
+                    for (LocalDate day : expansion.days()) {
+                        for (int i = 0; i < 1357; i++) {
+                            String key = (i % 2 == 0 ? "HOSE-" : "HNX-") + "S" + i;
+                            var message = command(definition, WorkType.SYMBOL, key, day,
+                                    expansion.config());
+                            var parameters = WorkExpansion.parameters(message, expansion.config());
+                            result.add(new ExpandedJobMessage(message, definition.getJobType().name(),
+                                    day, parameters, WorkExpansion.identity(definition.getJobType(),
+                                            WorkType.SYMBOL, key, day, parameters)));
+                        }
+                    }
+                    return result;
+                }, (symbol, sector, level) -> false);
+        assertThat(plan.targets()).hasSize(4071);
+        assertThat(plan.works()).hasSize(8144);
+        assertThat(plan.dependencies()).hasSize(8142);
+        assertThat(plan.works().stream()
+                .filter(work -> work.jobType() == JobType.SYNC_STOCK_PRICE))
+                .allSatisfy(work -> assertThat(plan.definitions().get(work.id()))
+                        .containsExactlyInAnyOrder(prices.getId(), alias.getId()));
+        var byId = plan.works().stream().collect(java.util.stream.Collectors.toMap(
+                GraphWorkExpansion.Work::id, work -> work));
+        assertThat(plan.dependencies()).allSatisfy(edge -> {
+            var dependent = byId.get(edge.dependent());
+            var upstream = byId.get(edge.upstream());
+            if (edge.currentSnapshot()) {
+                assertThat(upstream.businessDate()).isEqualTo(LocalDate.of(2026, 11, 2));
+                assertThat(dependent.workKey()).startsWith(upstream.workKey() + "-");
+            } else {
+                assertThat(upstream.businessDate()).isEqualTo(dependent.businessDate());
+                assertThat(upstream.workKey()).isEqualTo(dependent.workKey());
+            }
+        });
+    }
+
     private JobDefinition job(JobType type, Map<String, Object> config) {
         var job = new JobDefinition();
         job.setId(UUID.randomUUID());

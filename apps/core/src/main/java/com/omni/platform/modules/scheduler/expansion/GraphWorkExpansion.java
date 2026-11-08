@@ -2,6 +2,7 @@ package com.omni.platform.modules.scheduler.expansion;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashMap;
@@ -88,7 +89,53 @@ public final class GraphWorkExpansion {
     private final AtomicExpander expander;
     private final SectorMembership sectors;
     private final Instant acceptedAt;
-    private final Map<String, List<Work>> expansions = new HashMap<>();
+    private record Scope(WorkType type, String key, LocalDate day, int level) {}
+
+    /** Index producer membership without narrowing or overriding its configured scope. */
+    private final class Expansion {
+        private final List<Work> members;
+        private final Map<String, List<Work>> byKey = new HashMap<>();
+        private final Map<String, List<Work>> byExchange = new HashMap<>();
+        private final Map<Scope, List<Work>> byMembership = new HashMap<>();
+
+        private Expansion(List<Work> members) {
+            this.members = members;
+            for (Work member : members) {
+                byKey.computeIfAbsent(member.workKey(), ignored -> new ArrayList<>()).add(member);
+                if (member.workType() == WorkType.SYMBOL)
+                    byExchange.computeIfAbsent(exchange(member.workKey()), ignored -> new ArrayList<>())
+                            .add(member);
+            }
+        }
+
+        private List<Work> candidates(Work dependent) {
+            if (members.isEmpty()) return members;
+            WorkType upstream = members.getFirst().workType();
+            WorkType downstream = dependent.workType();
+            if (downstream == WorkType.GLOBAL || upstream == WorkType.GLOBAL) return members;
+            if (downstream == upstream) return byKey.getOrDefault(dependent.workKey(), List.of());
+            if (downstream == WorkType.SYMBOL && upstream == WorkType.EXCHANGE)
+                return byKey.getOrDefault(exchange(dependent.workKey()), List.of());
+            if (downstream == WorkType.EXCHANGE && upstream == WorkType.SYMBOL)
+                return byExchange.getOrDefault(dependent.workKey(), List.of());
+            if ((downstream == WorkType.SECTOR && upstream == WorkType.SYMBOL)
+                    || (downstream == WorkType.SYMBOL && upstream == WorkType.SECTOR)) {
+                var scope = new Scope(downstream, dependent.workKey(), dependent.businessDate(),
+                        ((Number) dependent.parameters().getOrDefault("sectorLevel", 2)).intValue());
+                return byMembership.computeIfAbsent(scope, ignored -> {
+                    var selected = new ArrayList<Work>();
+                    for (Work member : members) {
+                        countCandidate();
+                        if (matches(dependent, member)) selected.add(member);
+                    }
+                    return List.copyOf(selected);
+                });
+            }
+            return members;
+        }
+    }
+
+    private final Map<String, Expansion> expansions = new HashMap<>();
     private final Map<String, Work> works = new TreeMap<>();
     private final Map<String, Set<UUID>> definitions = new TreeMap<>();
     private final Set<Dependency> edges = new LinkedHashSet<>();
@@ -130,7 +177,7 @@ public final class GraphWorkExpansion {
                         .filter(job -> job.getId().equals(target))
                         .findFirst()
                         .orElseThrow(() -> new IllegalArgumentException("Inactive/unknown target"));
-        List<Work> targets = graph.expand(definition, WorkExpansion.freeze(request));
+        List<Work> targets = graph.expand(definition, WorkExpansion.freeze(request)).members;
         targets.forEach(work -> graph.visit(work, 0));
         Map<String, List<UUID>> bindings = new TreeMap<>();
         graph.definitions.forEach(
@@ -150,7 +197,7 @@ public final class GraphWorkExpansion {
                 bindings);
     }
 
-    private List<Work> expand(JobDefinition definition, Map<String, Object> request) {
+    private Expansion expand(JobDefinition definition, Map<String, Object> request) {
         String key = definition.getId() + ":" + WorkExpansion.canonical(request);
         if (expansions.containsKey(key)) return expansions.get(key);
         if (expansions.size() >= MAX_EXPANSIONS)
@@ -173,8 +220,9 @@ public final class GraphWorkExpansion {
                     .computeIfAbsent(work.id(), ignored -> new LinkedHashSet<>())
                     .add(definition.getId());
         }
-        expansions.put(key, result);
-        return result;
+        var expansion = new Expansion(result);
+        expansions.put(key, expansion);
+        return expansion;
     }
 
     private void visit(Work work, int depth) {
@@ -191,9 +239,8 @@ public final class GraphWorkExpansion {
                 if (definition.getJobType() != type) continue;
                 var projected = project(work, definition);
                 if (!strategyMatches(work, definition, projected)) continue;
-                for (Work upstream : expand(definition, projected)) {
-                    if (++candidateVisits > MAX_CANDIDATE_VISITS)
-                        throw new IllegalArgumentException("GRAPH_CANDIDATE_BOUND_EXCEEDED");
+                for (Work upstream : expand(definition, projected).candidates(work)) {
+                    countCandidate();
                     if (!matches(work, upstream)) continue;
                     found = true;
                     edges.add(
@@ -207,6 +254,11 @@ public final class GraphWorkExpansion {
         }
         visiting.remove(work.id());
         complete.add(work.id());
+    }
+
+    private void countCandidate() {
+        if (++candidateVisits > MAX_CANDIDATE_VISITS)
+            throw new IllegalArgumentException("GRAPH_CANDIDATE_BOUND_EXCEEDED");
     }
 
     private boolean strategyMatches(

@@ -26,8 +26,12 @@ class IndicatorBackfillControllerTest {
     private final LocalDate day = LocalDate.of(2026, 9, 1);
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void acceptsOnlyTheIndicatorsGoalWithNormalizedFrozenScope(boolean force) {
+    @ValueSource(strings = {"default", "reuse", "rerun", "force", "force-rerun"})
+    void acceptsOnlyTheIndicatorsGoalWithNormalizedFrozenScope(String policy) {
+        Boolean requestedForce = policy.equals("default") ? null : policy.startsWith("force");
+        Boolean requestedRerun = policy.equals("default") ? null : policy.equals("rerun") || policy.equals("force-rerun");
+        boolean force = Boolean.TRUE.equals(requestedForce);
+        boolean rerun = force || Boolean.TRUE.equals(requestedRerun);
         var definition = new JobDefinition();
         definition.setId(UUID.randomUUID()); definition.setJobType(JobType.SYNC_INDICATORS); definition.setIsActive(true);
         var wrongType = new JobDefinition(); wrongType.setJobType(JobType.SYNC_SYMBOLS);
@@ -38,14 +42,16 @@ class IndicatorBackfillControllerTest {
         when(graph.prepareBackfill(any(), eq(definition.getId()), any(), any())).thenReturn(execution);
         when(graph.requestId(execution)).thenReturn(request);
         var result = api.create("operator", "backfill-1", new IndicatorBackfillController.Backfill(
-                "SYNC_INDICATORS", List.of("bank", "BANK"), 2, day, day, force));
+                "SYNC_INDICATORS", List.of("bank", "BANK"), 2, day, day, requestedForce, requestedRerun));
         assertThat(result).containsEntry("executionId", execution).containsEntry("requestId", request);
+        assertThat(result).containsEntry("force", force).containsEntry("rerun", rerun);
         var captured = ArgumentCaptor.forClass(JobRunSnapshot.Request.class);
-        verify(graph).prepareBackfill(captured.capture(), eq(definition.getId()), any(), eq(Map.of("force", force)));
+        verify(graph).prepareBackfill(captured.capture(), eq(definition.getId()), any(), eq(Map.of("force", force, "rerun", rerun)));
         assertThat(captured.getValue().mode()).isEqualTo(JobRunSnapshot.Mode.BACKFILL);
         var payload = json.readTree(captured.getValue().parametersJson());
         assertThat(payload.get("sectorCodes").size()).isEqualTo(1);
         assertThat(payload.get("force").asBoolean()).isEqualTo(force);
+        assertThat(payload.get("rerun").asBoolean()).isEqualTo(rerun);
     }
 
     @ParameterizedTest
@@ -55,7 +61,7 @@ class IndicatorBackfillControllerTest {
                 invalid.equals("noSectors") ? null : invalid.equals("manySectors") ? java.util.Collections.nCopies(101, "BANK")
                         : invalid.equals("sectors") ? List.of() : java.util.Collections.singletonList(invalid.equals("nullCode") ? null : invalid.equals("code") ? "../x" : "BANK"),
                 invalid.equals("noLevel") ? null : Integer.valueOf(invalid.equals("level") ? 0 : invalid.equals("highLevel") ? 5 : 2),
-                invalid.equals("date") ? null : day, invalid.equals("end") ? null : day, false);
+                invalid.equals("date") ? null : day, invalid.equals("end") ? null : day, false, null);
         assertThatThrownBy(() -> api.create("operator", "key", invalid.equals("null") ? null : input))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verifyNoInteractions(graph, definitions);
@@ -65,7 +71,7 @@ class IndicatorBackfillControllerTest {
     void refusesAmbiguousOrAbsentCanonicalTarget() {
         when(definitions.findAll()).thenReturn(List.of());
         assertThatThrownBy(() -> api.create("operator", "key", new IndicatorBackfillController.Backfill(
-                "SYNC_INDICATORS", List.of("BANK"), 2, day, day, false)))
+                "SYNC_INDICATORS", List.of("BANK"), 2, day, day, false, null)))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verifyNoInteractions(graph);
     }
@@ -80,7 +86,7 @@ class IndicatorBackfillControllerTest {
                 : new IllegalArgumentException(failure.equals("conflict") ? "GRAPH_IDEMPOTENCY_CONFLICT" : "Invalid date range");
         when(graph.prepareBackfill(any(), any(), any(), any())).thenThrow(error);
         assertThatThrownBy(() -> api.create("operator", "key", new IndicatorBackfillController.Backfill(
-                "SYNC_INDICATORS", List.of("BANK"), 2, day, day, null)))
+                "SYNC_INDICATORS", List.of("BANK"), 2, day, day, null, null)))
                 .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class,
                         result -> assertThat(result.getStatusCode().value()).isEqualTo(
                                 failure.equals("disabled") ? 503 : failure.equals("conflict") ? 409 : 400));

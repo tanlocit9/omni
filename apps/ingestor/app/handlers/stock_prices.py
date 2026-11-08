@@ -91,8 +91,15 @@ async def process_stock_price_message(
         else:
             limit = compute_limit(from_date, to_date)
         backfill_policy = message.metadata.get("backfillPolicy", {})
+        data_policy = backfill_policy.get("dataPolicy")
+        if data_policy is not None and data_policy not in ("PREFER_EXISTING", "REFRESH"):
+            raise ValueError("Unsupported backfill data policy")
+        # Missing dataPolicy retains the old policy for already accepted commands.
+        prefer_existing = data_policy == "PREFER_EXISTING" or (
+            data_policy is None and backfill_policy.get("force") is True
+        )
         reuse_eod = (
-            backfill_policy.get("force") is True
+            prefer_existing
             and backfill_policy.get("verifyEodParquet") is True
             and message.business_date is not None
             and existing_df is not None

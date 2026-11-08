@@ -21,7 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
 @RequestMapping("/api/v1/jobs/backfills")
 public class IndicatorBackfillController {
     public record Backfill(String goal, List<String> sectorCodes, Integer sectorLevel,
-            LocalDate dateFrom, LocalDate dateTo, Boolean force) {}
+            LocalDate dateFrom, LocalDate dateTo, Boolean force, Boolean rerun) {}
 
     private final GraphWorkRequestService graph;
     private final JobDefinitionRepository definitions;
@@ -56,21 +56,23 @@ public class IndicatorBackfillController {
         expansion.put("sectorCodes", input.sectorCodes().stream().map(s -> s.toUpperCase(java.util.Locale.ROOT)).distinct().sorted().toList());
         expansion.put("sectorLevel", input.sectorLevel());
         boolean force = Boolean.TRUE.equals(input.force());
-        // Force is part of request idempotency, not the immutable analytical work identity.
+        boolean rerun = force || Boolean.TRUE.equals(input.rerun());
+        // Execution/data policy is request identity, not analytical work identity.
         expansion.put("parameters", Map.of());
         expansion.put("force", force);
+        expansion.put("rerun", rerun);
         UUID execution;
         try {
             execution = graph.prepareBackfill(new Request(Mode.BACKFILL, actor, key,
-                    "Indicators sector/date backfill; force=" + force, null,
+                    "Indicators sector/date backfill; rerun=" + rerun + "; force=" + force, null,
                     json.writeValueAsString(expansion)), targets.getFirst().getId(), Instant.now(),
-                    Map.of("force", force));
+                    Map.of("force", force, "rerun", rerun));
         } catch (IllegalArgumentException invalid) {
             throw new ResponseStatusException(invalid.getMessage().contains("IDEMPOTENCY") ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST, invalid.getMessage(), invalid);
         } catch (IllegalStateException unavailable) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, unavailable.getMessage(), unavailable);
         }
         return Map.of("requestId", graph.requestId(execution), "executionId", execution, "status", "ACCEPTED", "goal", input.goal(),
-                "force", force, "membershipPolicy", "CURRENT_ACTIVE_AT_ACCEPTANCE");
+                "force", force, "rerun", rerun, "membershipPolicy", "CURRENT_ACTIVE_AT_ACCEPTANCE");
     }
 }

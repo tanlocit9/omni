@@ -139,3 +139,41 @@ agent rules need no new ownership/schema decision; they retain all activation an
 READY safeguards. The closed-owner checkpoint now has focused PostgreSQL evidence;
 its complete acceptance/cutover gate remains open.
 Static changed-scope review is not I10 acceptance, deployment or live evidence.
+
+### Bounded graph candidate lookup
+
+GraphWorkExpansion previously cached producer expansion but rescanned every EOD
+candidate for each Indicator symbol. A valid three-day, 1,357-symbol request could
+therefore exceed GRAPH_CANDIDATE_BOUND_EXCEEDED despite a small selected graph.
+The cache now indexes exact keys and exchange membership, and memoizes sector
+membership by dependent scope/date/level. Final scope/date matching, upstream
+strategy selection, complete definition bindings and frozen identities remain.
+The 200,000 generated-row/visit budgets, 20,000 works, 100,000 edges and 1,024
+expansions are unchanged; actual membership scans are still charged to the budget.
+
+The regression exercises 4,071 targets, 8,144 selected works and 8,142 edges,
+including duplicate upstream definitions, exact-day edges and current Symbols
+snapshot exchange mapping. Local check manifest:
+`P14-I10-graph-candidates-20261107` concludes PASS: 16 graph tests and 68
+PostgreSQL request tests, zero failures/errors/skips. The platform:test command
+selected GraphWorkExpansionTest and GraphWorkRequestsPostgresTest, with the same
+isolated Gradle init script and --rerun-tasks described above. JUnit, JaCoCo and
+source snapshots are retained in the manifest artifacts. GraphWorkExpansion
+coverage is 93.96% line/83.51% branch; the new Expansion helper is 96.88% line/
+71.88% branch, below the default 80% branch gate. This bounded regression pass
+does not establish full increment coverage. Kafka/worker E2E was not rerun for
+this graph-only correction; earlier policy E2E evidence predates this source.
+
+Blast radius: Platform planning and request preparation use the same indexed graph;
+PostgreSQL request regressions cover persisted membership/attempt behavior.
+Analyzer/Ingestor algorithms, Query Service and Console are unchanged because
+the resulting work/edge contract is preserved. Shared contracts/libraries,
+configuration, database schema, storage paths and dataset ownership are unchanged.
+Operations retain all existing bounds and activation controls. No live request,
+Kafka cleanup, migration, deployment or I10 completion is claimed.
+
+Documentation review: Plan 030 describes indexing; this reference and release
+notes record the bounded correction. Registry/roadmap remain in_progress with the
+same dependencies; architecture/ADR, flows, Kafka/data-lake/database, deployment,
+development ownership, service guides, indexes and agent guidance require no
+contract or activation amendment for an internal lookup optimization.

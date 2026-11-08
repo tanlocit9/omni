@@ -1,5 +1,29 @@
 # Indicators sector/date backfill
 
+## Root execution counters
+
+At request settlement, GraphWorkRequestService aggregates recordsSynced and
+recordsSkipped over the request's is_target members and writes the root counters
+in the finalization transaction. Indicators roots therefore exclude EOD/Symbols
+ancestor records. Each counter remains null if any target has an unknown value;
+known zero is preserved. Failure settlement uses the same aggregation rule.
+Existing terminal roots are immutable and are not backfilled by this correction.
+
+Regression: GraphWorkRequestsPostgresTest.rootCountsOnlyTargetsAndPreservesUnknownCounters
+covers multiple targets, ancestor exclusion, zero, independently missing counters
+and repeated reconciliation. The selected platform:test run of
+GraphWorkRequestsPostgresTest passes 70/70 cases, no failures/errors/skips,
+using the isolated Gradle init script and disposable PostgreSQL. Initial fixture
+failure selected one symbol instead of two; correcting the fixture required no
+production guard changes. JUnit/JaCoCo reports are retained locally under
+`.agent/reports/20261108-target-counters`; no new numeric coverage gate is claimed.
+Platform owns the change; Analyzer/Ingestor metrics publication, Query/Console,
+shared contracts/libraries, schema, storage, configuration and deployment are
+unchanged. The existing API fields now receive target aggregates on new settlement.
+Plan 030/registry/roadmap retain I10 in_progress; architecture/ADR, flow, Kafka/data,
+deployment/development ownership, service guides, indexes and agent guidance need
+no ownership, schema or activation amendment. No live history repair is performed.
+
 Source boundary: 2026-11-05. Owner-requested bounded addition to P14-I10;
 I10 remains `in_progress`. This is not the general Plan 028 backfill rollout.
 Feature defaults remain off. No retained-environment migration or service restart

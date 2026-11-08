@@ -1,5 +1,18 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+I10 polling checkpoint: [request discovery and per-job summaries](../reference/014-atomic-request-polling.md).
+[Delivery review and remaining gates](../reference/015-i10-review-20261108.md)
+retain I10 in_progress; no new increment or coordinated cutover is introduced.
+
+Backfill execution/data policy: [rerun versus forced provider refresh](../reference/013-backfill-attempt-and-data-policy.md).
+Both flags default false; force implies rerun. Attempt sharing remains IN_FLIGHT_ONLY;
+selected local policy/PostgreSQL/worker E2E checks pass; full I10 coverage/cutover
+remains open and I10 remains in_progress.
+
+I10 closed-owner checkpoint: [reuse fence, never-dispatched reconciliation and
+attempt/output diagnostics](../reference/012-i10-closed-owner-reconciliation.md).
+Focused PostgreSQL regressions pass; I10 stays in_progress.
+
 I10 delivery (2026-11-07): [bounded commit checkpoints and unresolved runtime blockers](../reference/011-i10-delivery-checkpoints.md).
 The owner requested no per-checkpoint verification rerun. I10 remains in_progress;
 delivery does not replace the acceptance or coordinated-cutover gate.
@@ -831,9 +844,11 @@ The separate read-only `planGraphExpansion` API remains a preview and does not a
   claims remain separate and mandatory.
 - Cancel is owner-scoped and removes only the request's interest. Other owners keep
   the work eligible. No in-flight worker is killed; already-publishing work may
-  finish. Unpublished work without an active requester is parked, not deleted;
-  a later matching request may reattach. Operator cleanup is a separate retention
-  concern. No public manual/cancel/retry command API is enabled here.
+  finish. The November 7 I10 closed-owner checkpoint supersedes ownerless
+  reattachment: new requests require a live owner to share an attempt. Safely
+  never-dispatched orphans settle as FAILED/REQUEST_CLOSED; uncertain dispatch
+  stays for review. Membership/history are never deleted. No public generic
+  manual/cancel/retry command API is enabled here.
 - The bounded reconciler propagates upstream FAILED/ERROR/BLOCKED to unpublished
   dependents, closes atomic parents/runs, and aggregates target status into requester
   executions. Request pages use a rotating advisory cursor; cursor loss on restart

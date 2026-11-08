@@ -1,5 +1,18 @@
 # I10 delivery checkpoints - 2026-11-07
 
+November 8 follow-up delivery adds separate source checkpoints for closed-owner
+reconciliation, rerun/force policy, policy E2E fixtures, graph indexing, root
+target counters and compact request polling, then documentation/review handoff.
+The combined selected Java regression now passes 100 cases; older policy E2E
+evidence and its limits remain dated. See [the current review](015-i10-review-20261108.md)
+and [polling contract](014-atomic-request-polling.md). These do not alter I10 status
+or claim each intermediate commit was independently tested.
+
+Subsequent source checkpoint: [closed-owner settlement and attempt/output
+diagnostics](012-i10-closed-owner-reconciliation.md) and [rerun/force policy](013-backfill-attempt-and-data-policy.md)
+now have focused local PostgreSQL/worker E2E evidence. Full I10 coverage/cutover
+remains open; the delivery history below remains dated to its original task.
+
 The owner requested bounded commits without rerunning verification for each
 checkpoint. These are delivery checkpoints under P14-I10, not new roadmap
 increments. P14-I10 remains in_progress; committing is not acceptance or cutover.

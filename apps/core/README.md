@@ -1,5 +1,18 @@
 # Platform / Core Service
 
+Request discovery for polling: `GET /api/v1/jobs/atomic-work/requests` returns
+camelCase summaries with active/history filters, cursor pagination, timings and
+per-job counts, without graph payloads. See [API and UI flow](../../docs/reference/014-atomic-request-polling.md).
+
+Backfill accepts rerun/force, both false by default. Rerun creates attempts while
+preferring covered EOD; force implies rerun plus provider refresh. Default sharing
+remains IN_FLIGHT_ONLY with live owners. See [policy and local E2E evidence](../../docs/reference/013-backfill-attempt-and-data-policy.md).
+
+Closed-owner reconciliation excludes orphan attempts from reuse and closes only
+proven never-dispatched commands. Request members expose executionStatus separately
+from current work outputReady/readyOutputs, plus orphaned/review diagnostics.
+See [scope, activation behavior and focused PostgreSQL evidence](../../docs/reference/012-i10-closed-owner-reconciliation.md).
+
 Atomic request lifecycle: children prepare as PENDING; worker receipt establishes
 RUNNING. Requests remain PREPARED while any member is unfinished, so a failed
 target does not revoke healthy siblings' admission. Read diagnostics expose

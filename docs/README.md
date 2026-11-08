@@ -1,5 +1,17 @@
 # Omni Documentation
 
+I10 request discovery: [bounded polling API](reference/014-atomic-request-polling.md)
+and [delivery review](reference/015-i10-review-20261108.md). I10 remains in_progress;
+local regression evidence does not authorize global cutover.
+
+Backfill request policy: [rerun versus forced provider refresh](reference/013-backfill-attempt-and-data-policy.md).
+Selected local PostgreSQL/worker E2E checks pass; default reuse remains
+IN_FLIGHT_ONLY with live owners. Full I10 coverage/cutover remains open.
+
+I10 closed-owner checkpoint: [safe settlement, reuse and execution/output
+diagnostics](reference/012-i10-closed-owner-reconciliation.md). Source/regressions
+have focused PostgreSQL evidence; I10 remains in_progress.
+
 I10 delivery checkpoints (2026-11-07): [commit scopes, verification limits and
 unresolved runtime blockers](reference/011-i10-delivery-checkpoints.md). The owner
 requested no per-checkpoint verification rerun; I10 remains in_progress.

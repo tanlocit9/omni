@@ -1,5 +1,16 @@
 # P14 End-to-End Job, Work READY and Query Flow
 
+Backfill policy: [rerun creates attempts; force refreshes provider EOD](../reference/013-backfill-attempt-and-data-policy.md).
+Default shares compatible live in-flight work; otherwise covered EOD is preferred.
+New Indicators executions compute from the approved EOD. Selected local worker
+E2E checks pass; full I10 coverage/cutover remains open.
+
+Closed-owner follow-up: [safe orphan settlement and separate attempt/output
+diagnostics](../reference/012-i10-closed-owner-reconciliation.md). Sharing requires
+a live requester; only proven never-dispatched orphans auto-settle. Registration,
+READY and terminal request history remain independent. Focused PostgreSQL
+regressions pass; this is not retained-environment recovery evidence.
+
 Weekend snapshot correction (2026-11-07): a historical backfill accepted on a
 weekend still syncs the current Symbols catalog. Platform and shared Python now
 both permit that snapshot, while EOD/Indicators retain weekday-only business

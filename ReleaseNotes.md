@@ -1,5 +1,65 @@
 # Omni Release Notes
 
+## 2026-11-08 - Discover active and historical atomic requests for polling
+
+Add the authenticated read-only request list with camelCase summaries, per-job
+status counts, elapsed time and bounded cursor pagination. Reuse existing tables;
+no graph payloads, new UI, execution mutations or schema migration are included.
+Owner-approved selected checks pass 100/100; polling query coverage is 94.23%
+line/97.30% branch. No full-I10 coverage or live cutover is claimed.
+[API contract](docs/reference/014-atomic-request-polling.md) and
+[I10 review](docs/reference/015-i10-review-20261108.md) retain the existing open
+coverage, writer-safety and coordinated-cutover gates.
+
+## 2026-11-08 - Aggregate graph request target counters
+
+Root execution finalization sums recordsSynced/recordsSkipped from target members
+only, excluding EOD/Symbols ancestors. A missing target counter preserves null for
+that counter; known zero remains zero. Closed requests are not rewritten.
+Selected disposable PostgreSQL regression passes 70/70 cases, including the two
+new target-counter cases; no live history update or deployment was performed.
+See [counter semantics](docs/reference/009-indicators-backfill.md#root-execution-counters).
+
+## 2026-11-07 - Index graph candidates within existing safety bounds
+
+Avoid repeated full-universe upstream scans during Indicators graph expansion.
+Index producer membership by key/exchange and cache sector membership selections;
+retain date/strategy/identity checks, definition bindings and all existing limits.
+Local regression: 16 graph tests and 68 PostgreSQL request tests pass. The new
+lookup helper has 71.88% branch coverage; full attributable coverage remains open.
+See [scope and local regression manifest](docs/reference/013-backfill-attempt-and-data-policy.md#bounded-graph-candidate-lookup).
+No live activation, deployment or I10 completion is claimed.
+
+## 2026-11-07 - Execute backfill policy and closed-owner regression checks
+
+Owner-authorized selected checks pass: PostgreSQL/API/expansion 98 cases,
+Ingestor policy 40 cases, real-worker Kafka/Parquet/READY integration 8 cases
+(six new policy scenarios plus two existing flows). Covered Parquet days are reused
+without PostgreSQL READY; force fetches corrected rows and cannot fall back to
+cached rows on provider failure/missing dates. Tests use disposable infrastructure
+and an isolated Gradle build directory. [Evidence and coverage limits](docs/reference/013-backfill-attempt-and-data-policy.md#actual-cross-service-policy-execution).
+WorkExpansion class branch coverage remains 78.98%; no full-I10 acceptance,
+real-provider, live cleanup, deployment or increment completion is claimed.
+
+## 2026-11-07 - Separate backfill rerun from forced provider refresh
+
+Add rerun=false and retain force=false defaults. Default shares compatible live
+in-flight attempts; rerun creates new attempts while preferring covered EOD;
+force implies rerun and fetches provider EOD before recalculating Indicators.
+Explicit dataPolicy preserves old semantics for commands already queued without
+it. Deploy matched Platform/Ingestor; no successful-attempt reuse or schema change.
+See [policy matrix and local regression results](docs/reference/013-backfill-attempt-and-data-policy.md).
+No live activation/provider calls or I10 completion are claimed.
+
+## 2026-11-07 - Reconcile never-dispatched work after its last owner closes
+
+Exclude ownerless attempts from reuse. The reconciler locks work slots and
+settles only commands with no dispatch/worker/completion evidence; uncertain
+delivery stays for review. Keep terminal request history and output proofs.
+Add member executionStatus, current outputReady/readyOutputs and ownership-review
+diagnostics. [Scope and focused PostgreSQL evidence](docs/reference/012-i10-closed-owner-reconciliation.md).
+No live cleanup, deployment or I10 completion is claimed.
+
 ## 2026-11-07 - Package I10 as bounded delivery checkpoints
 
 Separate backlog tooling, candidate-budget tuning, migration packaging,

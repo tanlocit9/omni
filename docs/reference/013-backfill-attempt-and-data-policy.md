@@ -82,3 +82,60 @@ source/UI change. Shared Python and protobuf schemas are unchanged; metadata is
 additive. Existing storage paths, database schema/reuse_policy, dataset ownership
 and configuration defaults remain. Operations require matched workers and keep
 the existing writer-drain/reader readiness boundaries.
+
+### Actual cross-service policy execution
+
+BackfillDataPolicyIntegrationTest adds six HTTP/Kafka/Python worker/MinIO Parquet/
+registration/READY cases to platform:test-integration, alongside the existing
+JobRunCrossServiceIntegrationTest and I10WorkReadinessIntegrationTest. Only the
+external market provider is stubbed. The fixture records provider calls and reads
+actual canonical Parquet before/after the real handler; it does not substitute
+PostgreSQL readiness for a file read or replace computation/publication code.
+
+| Case | Observed result |
+| --- | --- |
+| Default, covered day and no PostgreSQL READY for that work | SUCCESS and new exact-day EOD/Indicators READY; zero provider calls despite a provider-failure switch |
+| rerun, covered day and no prior PostgreSQL READY | Same Parquet reuse behavior with rerun policy; no provider call |
+| File exists but requested day is absent | Exactly one fetch, day row appears and both outputs become READY; unrelated rows preserved |
+| force with an existing day | Exactly one fetch, canonical close changes 177 to 777; unrelated row digest preserved; new exact-day READY |
+| force provider failure | Expected FAILED request; cached row remains 777, no new-attempt READY and Indicators not published |
+| force provider response lacks requested day | Same fail-closed behavior; cached day is not used as fallback |
+
+All six new cases and the two existing cross-service cases pass: 8/8, no skips.
+Seven request probes (one seed plus six cases) and five provider invocations
+include the seed, missing-day fetch, successful refresh and two expected failures.
+Initial fixture failures (generic reflection overload and missing symbol sector
+classification) are retained separately; the final fixture uses explicit Object
+targets and provider-supplied classification. Production guard semantics were
+not relaxed to make the tests pass.
+
+The owner-authorized manifest `P14-I10-policy-integration-20261107` concludes PASS,
+required=3/pass=3 for integration/postgres-policy, test/ingestor-policy and
+integration/kafka-chain. Executed target scopes:
+
+```text
+npx.cmd nx run platform:test --skip-nx-cache --args="--tests com.omni.platform.GraphWorkRequestsPostgresTest --tests com.omni.platform.modules.scheduler.controllers.IndicatorBackfillControllerTest --tests com.omni.platform.modules.scheduler.expansion.WorkExpansionTest"
+npx.cmd nx run ingestor:test --skip-nx-cache --args="-k atomic_stock_work --no-cov"
+npx.cmd nx run platform:test-integration --skip-nx-cache
+```
+
+Both Platform commands additionally used --rerun-tasks and the ignored
+`--init-script ../../.agent/operations/i10-policy-isolated-build.gradle`, redirecting
+build output away from the live devtools classpath. All test databases/brokers/
+object stores were disposable. JUnit, focused JaCoCo, source snapshots, provider
+call logs and Parquet proofs are retained under the manifest's ignored artifacts.
+Initial failure reports are separate from the final e2e results.
+
+Focused Java class coverage: controller 100% line/100% branch; graph service
+98.10%/86.50%; WorkExpansion 91.34%/78.98%. WorkExpansion class branch coverage
+remains below the default 80% threshold; focused policy execution does not close
+full-I10 attributable coverage. Python ran without coverage instrumentation;
+no Python numeric pass is inferred. No lint/format, standalone build target,
+live provider call, migration, production backfill or deployment was run.
+
+Registry, Plan 030, reference/009, release notes, flow, Kafka/deployment and service
+guidance describe the policy separation. Architecture/ADR/data-lake/database and
+agent rules need no new ownership/schema decision; they retain all activation and
+READY safeguards. The closed-owner checkpoint now has focused PostgreSQL evidence;
+its complete acceptance/cutover gate remains open.
+Static changed-scope review is not I10 acceptance, deployment or live evidence.

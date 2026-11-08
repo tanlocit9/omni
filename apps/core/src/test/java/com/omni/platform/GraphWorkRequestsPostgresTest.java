@@ -142,6 +142,117 @@ class GraphWorkRequestsPostgresTest {
                 "SELECT id FROM atomic_work_requests WHERE execution_id=?", UUID.class, execution);
     }
 
+    private UUID pollingRequest(String key, Instant accepted) {
+        var definition = target(JobType.SYNC_INDICATORS);
+        var input = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
+                "operator", key, "Polling regression", null,
+                "{\"dateFrom\":\"2026-11-06\",\"dateTo\":\"2026-11-06\",\"scope\":{\"type\":\"SYMBOL\",\"key\":\"HOSE-AAA\"}}");
+        return graph.prepare(input, definition.getId(), claim(definition), accepted, Map.of());
+    }
+
+    @Test
+    void pollingPagesHaveStableTieBreakersAndExcludeGraphsAndLaterRequests() {
+        var query = context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService.class);
+        Instant accepted = Instant.parse("2026-11-06T12:00:00Z");
+        Instant observed = accepted.plusSeconds(1);
+        var ids = new ArrayList<UUID>();
+        for (int i = 0; i < 3; i++) ids.add(request(pollingRequest("page-" + i, accepted)));
+        pollingRequest("later", accepted.plusSeconds(2));
+        var first = query.list("active", 2, observed, null, null);
+        assertThat(first.items()).hasSize(2);
+        assertThat(first.hasMore()).isTrue();
+        assertThat(first.observedAt()).isEqualTo(observed);
+        var second = query.list("active", 2, observed,
+                first.nextCursor().beforeCreatedAt(), first.nextCursor().beforeId());
+        assertThat(second.items()).hasSize(1);
+        assertThat(second.hasMore()).isFalse();
+        assertThat(second.nextCursor()).isNull();
+        var listed = new ArrayList<UUID>();
+        first.items().forEach(item -> listed.add(item.requestId()));
+        second.items().forEach(item -> listed.add(item.requestId()));
+        assertThat(listed).containsExactlyElementsOf(ids.stream().sorted(
+                java.util.Comparator.comparing(UUID::toString).reversed()).toList());
+        var item = first.items().getFirst();
+        assertThat(item.totalMembers()).isEqualTo(3);
+        assertThat(item.memberCounts()).containsExactlyInAnyOrderEntriesOf(Map.of("PENDING", 3L));
+        assertThat(item.unfinishedMembers()).isEqualTo(3);
+        assertThat(item.isSettled()).isFalse();
+        assertThat(item.hasFailure()).isFalse();
+        assertThat(item.elapsedMs()).isEqualTo(1000);
+        assertThat(item.goal()).isEqualTo("SYNC_INDICATORS");
+        assertThat(item.jobs()).hasSize(3);
+        var document = context.getBean("jsonMapper", JsonMapper.class).valueToTree(first);
+        assertThat(document.get("items").get(0).has("graph_json")).isFalse();
+        assertThat(document.get("items").get(0).has("members")).isFalse();
+        assertThat(document.get("items").get(0).get("isSettled").asBoolean()).isFalse();
+        assertThat(query.list("history", 20, observed, null, null).items()).isEmpty();
+    }
+
+    @Test
+    void pollingReflectsMemberFailureSettlementAndHistoricalRootTimes() {
+        var query = context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService.class);
+        Instant accepted = Instant.parse("2026-11-06T12:00:00Z");
+        UUID root = pollingRequest("poll-lifecycle", accepted);
+        UUID requestId = request(root);
+        jdbc.update("UPDATE job_execution_histories SET status='RUNNING' WHERE id IN ("
+                + "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                + "WHERE m.request_id=?)", requestId);
+        jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id IN ("
+                + "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                + "WHERE m.request_id=? AND m.is_target)", requestId);
+        var active = query.list("active", 20, null, null, null).items().getFirst();
+        assertThat(active.memberCounts()).containsEntry("RUNNING", 2L).containsEntry("FAILED", 1L);
+        assertThat(active.hasFailure()).isTrue();
+        assertThat(active.isSettled()).isFalse();
+        assertThat(active.state()).isEqualTo("PREPARED");
+        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS' WHERE status='RUNNING' AND id<>?", root);
+        for (int pass = 0; pass < 3; pass++) graph.reconcile();
+        assertThat(query.list("active", 20, null, null, null).items()).isEmpty();
+        var historical = query.list("history", 20, null, null, null).items().getFirst();
+        assertThat(historical.state()).isEqualTo("FAILED");
+        assertThat(historical.isSettled()).isTrue();
+        assertThat(historical.hasFailure()).isTrue();
+        assertThat(historical.unfinishedMembers()).isZero();
+        assertThat(historical.elapsedMs()).isEqualTo(
+                Duration.between(historical.startedAt(), historical.finishedAt()).toMillis());
+        assertThat(query.list("all", 100, null, null, null).items()).hasSize(1);
+    }
+
+    @Test
+    void pollingSeparatesCancelledOwnersFromProgressOfSharedAttempts() {
+        var query = context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService.class);
+        Instant accepted = Instant.parse("2026-11-06T12:00:00Z");
+        UUID cancelled = pollingRequest("cancelled-poll", accepted);
+        UUID surviving = pollingRequest("surviving-poll", accepted);
+        assertThat(count("atomic_work_attempts")).isEqualTo(3);
+        assertThat(graph.cancel(request(cancelled), "operator", accepted.plusSeconds(2))).isTrue();
+        var history = query.list("history", 20, null, null, null).items().getFirst();
+        assertThat(history.state()).isEqualTo("CANCELLED");
+        assertThat(history.elapsedMs()).isEqualTo(2000);
+        assertThat(history.isSettled()).isFalse();
+        assertThat(history.memberCounts()).containsEntry("PENDING", 3L);
+        assertThat(query.list("active", 20, null, null, null).items())
+                .singleElement().satisfies(item -> assertThat(item.executionId()).isEqualTo(surviving));
+        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS',records_synced=5,records_skipped=0 "
+                + "WHERE id IN (SELECT execution_id FROM atomic_work_attempts)");
+        for (int pass = 0; pass < 3; pass++) graph.reconcile();
+        var results = query.list("history", 20, null, null, null).items();
+        assertThat(results).hasSize(2).allSatisfy(item -> {
+            assertThat(item.isSettled()).isTrue();
+            assertThat(item.hasFailure()).isFalse();
+            assertThat(item.memberCounts()).containsEntry("SUCCESS", 3L);
+        });
+        assertThat(results.stream().filter(item -> item.executionId().equals(surviving)).findFirst().orElseThrow())
+                .satisfies(item -> {
+                    assertThat(item.state()).isEqualTo("SUCCESS");
+                    assertThat(item.recordsSynced()).isEqualTo(5);
+                    assertThat(item.recordsSkipped()).isZero();
+                });
+        assertThat(results.stream().filter(item -> item.executionId().equals(cancelled)).findFirst().orElseThrow().state())
+                .isEqualTo("CANCELLED");
+    }
+
     int count(String table) {
         return jdbc.queryForObject("SELECT count(*) FROM " + table, Integer.class);
     }

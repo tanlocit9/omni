@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 import com.omni.platform.modules.scheduler.work.GraphWorkRequestService;
 import com.omni.platform.modules.scheduler.work.AtomicWorkDiagnosticsService;
+import com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Read-only diagnostics under the existing authenticated /api/v1/jobs boundary. */
@@ -22,16 +23,29 @@ public class GraphWorkOperationsController {
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
     private final AtomicWorkDiagnosticsService diagnostics;
+    private final GraphWorkRequestQueryService requestQuery;
 
     public GraphWorkOperationsController(
             GraphWorkRequestService requests,
             JdbcTemplate jdbc,
             JsonMapper json,
-            AtomicWorkDiagnosticsService diagnostics) {
+            AtomicWorkDiagnosticsService diagnostics,
+            GraphWorkRequestQueryService requestQuery) {
         this.requests = requests;
         this.jdbc = jdbc;
         this.json = json;
         this.diagnostics = diagnostics;
+        this.requestQuery = requestQuery;
+    }
+
+    @GetMapping("/requests")
+    public GraphWorkRequestQueryService.Page requests(
+            @RequestParam(defaultValue = "active") String status,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) Instant observedAt,
+            @RequestParam(required = false) Instant beforeCreatedAt,
+            @RequestParam(required = false) UUID beforeId) {
+        return requestQuery.list(status, limit, observedAt, beforeCreatedAt, beforeId);
     }
 
     @GetMapping("/snapshot")

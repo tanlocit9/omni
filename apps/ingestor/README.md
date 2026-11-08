@@ -8,10 +8,12 @@ The Kafka router ACKs a RUNNING worker receipt before entering a job handler.
 Receipt failure prevents provider work and command offset advancement; terminal
 output/status ordering remains unchanged. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
 
-[Indicators backfill](../../docs/reference/009-indicators-backfill.md) attaches
-an EOD force policy: check actual Parquet business-day rows, reuse when covered,
-otherwise fetch through the normal provider path. Both branches validate/register
-before SUCCESS. Existing merge keys and unrelated history remain unchanged.
+[Indicators backfill](../../docs/reference/013-backfill-attempt-and-data-policy.md)
+attaches explicit PREFER_EXISTING/REFRESH data policy. Default/rerun reuses actual
+covered Parquet day rows or fetches missing days. Force always fetches provider
+data; missing provider-day output fails without falling back to old rows. Queued
+commands without dataPolicy preserve old force behavior. Both branches still
+validate/register before SUCCESS; existing merge keys and unrelated history remain.
 
 I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
 Parquet, with row-scoped versions and frozen work-proof input reads. Other days or

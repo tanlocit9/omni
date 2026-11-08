@@ -1,9 +1,11 @@
 # Kafka Contracts
 
-Indicators backfill (2026-11-05) uses existing message metadata for
-`backfillPolicy.force` and `verifyEodParquet`; topic names and protobuf schemas
-are unchanged. Paired Ingestor/shared-reader code is required for the scoped
-policy. See [the contract and READY sequence](../reference/009-indicators-backfill.md).
+Indicators backfill uses existing message metadata for backfillPolicy.force,
+rerun, dataPolicy and verifyEodParquet; topic names and protobuf schemas are
+unchanged. New PREFER_EXISTING/REFRESH values separate data policy from creating
+new attempts. Missing dataPolicy retains the old command semantics. Deploy matched
+Platform/Ingestor before relying on force refresh; old workers do not implement it.
+See [the policy and compatibility boundary](../reference/013-backfill-attempt-and-data-policy.md).
 
 I10 review correction (2026-11-04): signal rowKeys include non-null model_version;
 omission means a legacy/null-version row. Paired Platform/Python adapters and the

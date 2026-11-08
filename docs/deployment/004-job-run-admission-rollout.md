@@ -1,5 +1,18 @@
 # JobRun Admission Rollout and Rollback
 
+Deploy matched Platform/Ingestor for [rerun/force semantics](../reference/013-backfill-attempt-and-data-policy.md).
+New force means provider refresh and implies rerun. Old workers can ignore
+dataPolicy and reuse old EOD instead; do not rely on new force semantics until the
+pair is deployed. Old queued commands without dataPolicy retain old behavior;
+no payload rewrite/offset reset is required. Existing backfill gate/drain applies.
+
+The [closed-owner checkpoint](../reference/012-i10-closed-owner-reconciliation.md)
+changes existing graph/backfill reconciliation: updated Platform may settle
+historical proven never-dispatched orphans when that gate is enabled. It does not
+retry, reopen requests or close uncertain published work. No new flag/migration
+is required; focused local regressions pass and no live cleanup/deployment was
+run for this change. Full I10 coverage/cutover remains open.
+
 The [2026-11-06 lifecycle correction](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06)
 requires matched Platform/Ingestor/Analyzer code for pending-at-preparation,
 worker receipts and request settlement. Terminal-only workers still report their

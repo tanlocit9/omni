@@ -1,5 +1,16 @@
 # Omni — Consolidated Implementation Roadmap
 
+I10 discovery: [polling API](../../reference/014-atomic-request-polling.md) and
+[delivery review](../../reference/015-i10-review-20261108.md). Status and dependencies
+remain unchanged; this is not increment acceptance or global cutover.
+
+Backfill policy: [rerun versus provider refresh](../../reference/013-backfill-attempt-and-data-policy.md).
+Default reuse remains IN_FLIGHT_ONLY; selected local worker E2E checks pass,
+with full I10 coverage/cutover still open.
+
+I10 closed-owner checkpoint: [safe settlement and attempt/output diagnostics](../../reference/012-i10-closed-owner-reconciliation.md).
+Focused PostgreSQL regressions pass; I10 remains in_progress.
+
 I10 delivery (2026-11-07): [bounded checkpoints and unresolved runtime blockers](../../reference/011-i10-delivery-checkpoints.md).
 The owner requested no per-checkpoint verification rerun. I10 remains in_progress;
 delivery commits do not establish acceptance or coordinated cutover.

@@ -1,5 +1,10 @@
 # Database
 
+Closed-owner maintenance uses existing work-slot locks and outbox/execution fields
+without a migration. Proven never-dispatched ownerless work becomes
+FAILED/REQUEST_CLOSED; other commands remain for review. No terminal request or
+READY history is rewritten. See [eligibility, atomic updates and focused PostgreSQL evidence](../reference/012-i10-closed-owner-reconciliation.md).
+
 Graph lifecycle follow-up (2026-11-06): new atomic children persist PENDING with
 null started_at; worker receipts establish RUNNING. Request owners remain
 PREPARED/admissible until every member settles, then finalize SUCCESS/FAILED.

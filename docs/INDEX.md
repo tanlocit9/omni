@@ -62,6 +62,10 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | reference/009 | [Indicators sector/date backfill](reference/009-indicators-backfill.md) | Bounded API, EOD READY chain, force and operational window | P14-I10 follow-up | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 | reference/010 | [Runtime fixes](reference/010-runtime-fixes-20261107.md) | Lifecycle, date-merge and weekend fixes; isolated commit not verified | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
 | reference/011 | [I10 delivery checkpoints](reference/011-i10-delivery-checkpoints.md) | Bounded commit series, verification boundary and unresolved runtime blockers | P14-I10 | [Increment registry](plans/roadmap/implementation-increments.md) |
+| reference/012 | [I10 closed-owner reconciliation](reference/012-i10-closed-owner-reconciliation.md) | Never-dispatched settlement and attempt/output diagnostics; focused PostgreSQL evidence | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/013 | [Backfill attempt/data policy](reference/013-backfill-attempt-and-data-policy.md) | rerun versus refresh, compatibility and local worker E2E; full I10 gate open | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/014 | [Atomic request polling](reference/014-atomic-request-polling.md) | Bounded request discovery, status/job summaries, cursor and timing semantics | P14-I10 | [Plan 030](plans/030-static-graph-dispatch-planner.md) |
+| reference/015 | [I10 review - 2026-11-08](reference/015-i10-review-20261108.md) | Delivery checkpoints, review scope, executed evidence and remaining cutover gates | P14-I10 | [Increment registry](plans/roadmap/implementation-increments.md) |
 
 ## Flow References
 

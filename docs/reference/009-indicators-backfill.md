@@ -1,5 +1,8 @@
 # Indicators sector/date backfill
 
+For UI request discovery and compact polling, use the
+[request list API](014-atomic-request-polling.md); full graph/member detail remains separate.
+
 ## Root execution counters
 
 At request settlement, GraphWorkRequestService aggregates recordsSynced and
@@ -23,6 +26,15 @@ unchanged. The existing API fields now receive target aggregates on new settleme
 Plan 030/registry/roadmap retain I10 in_progress; architecture/ADR, flow, Kafka/data,
 deployment/development ownership, service guides, indexes and agent guidance need
 no ownership, schema or activation amendment. No live history repair is performed.
+
+Current request policy: [separate rerun from provider refresh](013-backfill-attempt-and-data-policy.md).
+Both flags default false; force implies rerun and fresh provider EOD. Selected
+local policy/PostgreSQL/worker E2E checks pass; full I10 coverage/cutover remains
+open. Older dated runs below exercised old semantics.
+
+Current closed-owner follow-up: [safe settlement, reuse and attempt/output
+diagnostics](012-i10-closed-owner-reconciliation.md). Focused PostgreSQL regressions
+pass; the older dated checks below do not cover that source change.
 
 Source boundary: 2026-11-05. Owner-requested bounded addition to P14-I10;
 I10 remains `in_progress`. This is not the general Plan 028 backfill rollout.
@@ -50,7 +62,8 @@ operator. A metadata-reader bearer token does not grant this mutation permission
   "sectorLevel": 1,
   "dateFrom": "2026-09-01",
   "dateTo": "2026-09-30",
-  "force": true
+  "rerun": false,
+  "force": false
 }
 ```
 
@@ -70,28 +83,29 @@ historical reconstruction. Historical market work skips weekends; current
 Symbols/Metadata snapshots may run on any calendar day. Holidays are not inferred as
 no-trade. Missing exact EOD dates never become READY by inference.
 
-HTTP 202 returns `requestId`, `executionId`, `status=ACCEPTED`, `goal`, `force`
+HTTP 202 returns `requestId`, `executionId`, `status=ACCEPTED`, `goal`, `rerun`, `force`
 and `membershipPolicy=CURRENT_ACTIVE_AT_ACCEPTANCE`. Acceptance is not completion.
 Poll `GET /api/v1/jobs/atomic-work/requests/{requestId}` for durable membership and
 state. Same actor/key and canonical request replay the original execution, even
-after failure; changed scope/force with that key returns 409. Retry uses a new key.
+after failure; changed scope/rerun/force with that key returns 409. Retry uses a new key.
 Invalid input is 400; absent/ambiguous target is 409; disabled/unavailable admission
 or unpaused writers is 503. Rejected requests do not create audit-only graph rows.
 Retired generic trigger routes remain 410 under TD-017.
 
-## Force, datasets and metadata
+## Attempt policy, datasets and metadata
 
-`force=true` creates fresh attempts rather than sharing unfinished work. For EOD,
-the worker checks actual canonical Parquet rows for the requested business day.
-If that day exists, it validates and republishes those rows without another
-provider fetch. Otherwise it fetches EOD through the existing provider/lookback
-path. Indicators always recalculate from their frozen approved EOD input.
-`force=false` retains normal provider sync and compatible in-flight sharing; it
-does not promise to skip a previously successful Indicators calculation.
+Default rerun=false/force=false shares compatible unfinished attempts with live
+requesters. A new EOD execution reuses a validated existing day or fetches if
+missing. rerun=true creates fresh attempts while retaining that EOD preference.
+force=true implies rerun and requires provider fetch even when the requested day
+exists. Indicators compute on new executions from their frozen approved EOD input.
+Successful/failed attempts are not reused under the existing IN_FLIGHT_ONLY policy.
+Queued legacy commands without dataPolicy retain their former force semantics;
+see the policy handoff for matched-worker deployment and compatibility.
 
 Existing EOD/Indicators writers merge and deduplicate at their existing keys,
 preserving data outside the requested range. This is not an unconditional
-destructive resync or provider refresh of existing EOD days. File existence alone
+destructive reconstruction of all history. File existence alone
 does not grant READY: workers validate exact scoped rows, register output, ACK the
 registration publication, and then report SUCCESS. Platform promotes only that
 work after both committed registration and SUCCESS, using frozen attempts and
@@ -108,7 +122,7 @@ sync. This does not refresh the legacy discovery document automatically.
 
 - Public HTTP: additive Indicators-only endpoint and the body above; no Console UI.
 - Kafka/protobuf: no field/topic/schema change. Existing envelope metadata carries
-  `backfillPolicy.force` and `verifyEodParquet`; `force` is request policy, not an
+  `backfillPolicy.force`, `rerun`, `dataPolicy` and `verifyEodParquet`; these are request policy, not an
   analytical work identity parameter. Deploy matched Ingestor/shared Python code.
 - Persistence: forward V25 permits `BACKFILL` on `atomic_work_requests`; underlying
   atomic attempts retain existing one-work runs. No existing migration is edited.
@@ -378,9 +392,14 @@ Kafka, data-lake, database and rollout documents reconcile the following scope:
 | Query Service | No production source change: existing work-scoped reader consumes promoted results; real Query path covered in E2E. |
 | Console | No source/UI change; existing read-only work inspection can display requests. |
 | Persistence/configuration | Additive V25 mode and default-off backfill flag; no path or dataset ownership change. |
-| Tests/operations | Controller errors/authentication, graph transaction/idempotency/admission, force reuse/fetch, real Kafka/Parquet/READY/Query; exclusive legacy-writer window required. |
+| Tests/operations | Controller/auth, graph transaction/idempotency/admission and worker data-policy paths have local evidence in reference/013; rollout and full I10 gate remain open. |
 
 ## Verification and remaining gates
+
+The later [rerun/force policy](013-backfill-attempt-and-data-policy.md) and
+[closed-owner reconciliation](012-i10-closed-owner-reconciliation.md) are not
+covered by the historical executed results below; their later focused results
+are recorded in those handoffs. Do not interpret earlier passes as full current-source acceptance.
 
 Source/test matrix (executed outcomes recorded below after final runs):
 

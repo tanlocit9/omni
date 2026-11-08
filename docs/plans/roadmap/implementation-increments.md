@@ -1,5 +1,18 @@
 # Dependency-Ordered Implementation Increments
 
+I10 follow-up: [request discovery API](../../reference/014-atomic-request-polling.md)
+and [bounded delivery review](../../reference/015-i10-review-20261108.md). P14-I10
+remains in_progress with the same dependencies; no new increment is registered.
+
+Backfill policy separation: [rerun and force](../../reference/013-backfill-attempt-and-data-policy.md).
+Selected local policy/PostgreSQL/worker E2E checks pass. No successful-attempt
+reuse or new increment is introduced; P14-I10 remains in_progress.
+
+I10 closed-owner checkpoint (2026-11-07): [reuse fence, safe reconciliation and
+attempt/output diagnostics](../../reference/012-i10-closed-owner-reconciliation.md).
+Focused PostgreSQL regressions pass. P14-I10 remains
+in_progress; durable worker recovery and default activation are unchanged.
+
 I10 checkpoint delivery (2026-11-07): the owner requested bounded commits without
 per-checkpoint verification. [Scopes and unresolved runtime blockers](../../reference/011-i10-delivery-checkpoints.md).
 P14-I10 remains in_progress; no new increment, acceptance, live recovery or cutover

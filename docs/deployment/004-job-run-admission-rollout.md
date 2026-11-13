@@ -1,5 +1,49 @@
 # JobRun Admission Rollout and Rollback
 
+Matched V26/Platform/shared-reader deployment also enables frozen-attempt proof
+lookup backed by immutable actual VERSIONED READY history. The optional
+atomicAttemptId API selector preserves old latest/current clients. Schema/runtime
+must be paired; canonical mutable history is not backfilled into immutable READY.
+The [November 11 preflight and remaining gates](../reference/019-i10-review-20261111.md)
+record local V25 and bucket versioning unset; no retained rollout has occurred.
+The disposable drained canonical-repair rehearsal now passes, preserving accepted
+versions, registration/READY history and Query reads while refusing mutable writer
+downgrade. It retains PostgreSQL authority and does not replace retained parity or
+authorize live maintenance.
+
+Terminal VERSIONED completion audit requires the amended V26 schema before the
+new Platform handler runs. Local Flyway history was checked READ ONLY at V25;
+the owner approved extending unapplied V26. If any other environment applied an
+older V26, use a forward migration there rather than rewriting Flyway history.
+No retained DB migration, Kafka offset reset or service restart is performed by
+this change. See [terminal replay policy](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11).
+
+Owner observation policy (November 11): keep APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false
+as recorded in [TD-018](../technical-debt/018-execution-watchdog-observation.md).
+Local/environment examples set it explicitly; application.yaml remains default-off.
+A running process with an older true override requires restart/reconfiguration;
+editing files is not proof of runtime deactivation. Do not reopen existing FAILED
+attempts or automatically retry uncertain writers. Missing completions may require
+manual recovery during observation. Historical watchdog enablement guidance below
+is superseded by this owner decision.
+
+Python Kafka consumers now default to KAFKA_MAX_POLL_INTERVAL_MS=900000 (15 minutes).
+The override applies to consumers in that process and is read on startup; existing
+processes need restart/redeploy by the operator. No restart is performed by this
+source change. Metadata has an observed ~54-minute scan and remains an exception;
+15 minutes is not a universal execution deadline. Java consumers, heartbeat/session
+timeouts and the watchdog are unchanged. See [poll-window evidence](../reference/018-i10-worker-completion.md#consumer-poll-window).
+
+Deploy matched Platform/shared Python/Ingestor/Analyzer for [unified completion](../reference/018-i10-worker-completion.md)
+before issuing newly enrolled work. Existing queued commands without protocol keep
+the old path; no message rewrite, offset reset or new topic/migration is required.
+
+Versioned I10 requires [V26, backend-version permissions, historical pins and matched
+Platform/Python/Query deployment](../reference/017-i10-versioned-storage.md#paired-rollout-and-rollback).
+APP_OUTPUT_REGISTRATION_VERSIONED_STORAGE_ENABLED defaults false. Do not enable it
+before baseline validation, or roll back by flipping flags while a stale writer can
+still mutate canonical bytes. Disposable test evidence is not retained activation.
+
 Deploy matched Platform/Ingestor for [rerun/force semantics](../reference/013-backfill-attempt-and-data-policy.md).
 New force means provider refresh and implies rerun. Old workers can ignore
 dataPolicy and reuse old EOD instead; do not rely on new force semantics until the

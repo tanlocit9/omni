@@ -1,5 +1,40 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+November 11 acceptance review: [findings, fresh checks and retained preflight](../reference/019-i10-review-20261111.md).
+Frozen proof history under concurrent refresh now has owner-approved V26/API source
+and passing focused regressions. Retained DB is V25 and bucket versioning is not enabled; I10 remains
+in_progress until the source and coordinated-cutover gates are satisfied.
+The follow-up full integration run passes 14/14 without skips, including drained
+canonical repair with PostgreSQL authority and preserved post-cutover history.
+Retained baseline/parity, coordinated cutover/rollback and owner acceptance remain
+open; disposable evidence is not permission to activate the live environment.
+
+November 11 terminal-replay approval: [V26 rejection audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+handles valid completion of terminal VERSIONED attempts without changing accepted
+outputs. Local E2E passes 14/14 and the scoped regression gate passes 3/3;
+historical failures remain evidence and retained rollout gates remain open.
+
+November 11 owner revision: automatic execution expiry is disabled and deferred
+to [TD-018](../technical-debt/018-execution-watchdog-observation.md), outside current
+I10 completion gates. Retain diagnostics and recovery safety; observe real requests
+before deciding whether watchdog reactivation is necessary. The historical I10
+title and original watchdog specification below are retained for traceability.
+
+November 10 owner amendment: [unified worker completion](../reference/018-i10-worker-completion.md)
+replaces separate terminal status/registration for new commands. Local verification
+is in progress; unchanged timeout/late-evidence gates still require explicit evidence.
+
+I10 physical-safety amendment (November 9): owner approved [version-addressable
+canonical objects and frozen merge bases](../reference/017-i10-versioned-storage.md).
+The additive V26/contract/reader implementation is under local verification; this
+does not activate P12, retained migrations, bucket changes or global reader cutover.
+November 10 disposable physical-baseline/scoped-shadow/Signals E2E passes; the
+late-registration partition regression remains failing in the linked closure gate.
+
+I10 closure objective (November 9): [safe backfill through Signals](../reference/016-i10-signals-backfill-closure.md).
+This API/verification extension is in progress and does not close writer-safety or
+coordinated-cutover acceptance. I10 remains in_progress.
+
 I10 polling checkpoint: [request discovery and per-job summaries](../reference/014-atomic-request-polling.md).
 [Delivery review and remaining gates](../reference/015-i10-review-20261108.md)
 retain I10 in_progress; no new increment or coordinated cutover is introduced.
@@ -267,7 +302,8 @@ Status: **in_progress**, depends on P14-I9. Registration/completion/watchdog sou
 worker registration and READY/readers now have opt-in source; full verification
 and rollout remain open. Additional durable worker recovery is owner-deferred.
 See the current handoff above, including the November 3 paired-contract review;
-the acceptance criteria below are unchanged.
+the acceptance criteria below use the current owner amendments above, including
+the November 11 watchdog deferral to TD-018.
 I8/I9 have local acceptance completion recorded above. I10.a/b/c are internal checkpoints, not
 additional registry IDs. P12 writer/concurrency remains deferred.
 Architecture decision: [ADR-008](../adr/008-postgres-output-readiness.md).
@@ -365,15 +401,15 @@ lineage after registration. No new analytical formula or strategy is introduced.
    READY pointer. Batch acceptance never silently drops an invalid member. Pause/report
    poison records and retry DB failures without committing past the failing partition
    offset. Unrelated partitions may progress; no new automatic DLT/discard policy.
-4. Keep the existing terminal-status topic separate. Producers acknowledge registration
-   publication before terminal SUCCESS/source-command completion. Kafka ACK means durable
-   transport, not DB registration. Platform correlates both streams durably: SUCCESS
-   waits for the complete registration set (or explicit valid-empty declaration) before
-   authoritative completion. Either arrival order, duplicates, restart and replay must
-   work. Preserve existing non-migrated/legacy status behavior behind explicit rollout
-   boundaries; missing registration cannot silently fall back to SUCCESS on migrated work.
-5. Publication order is data write -> validation -> acknowledged registration -> terminal
-   status, with Platform completion gated on committed metadata. Storage-success/event-
+4. Owner amendment November 10: keep RUNNING separate, but newly declared commands
+   send terminal status and registration together in one WorkerCompletionEvent. Kafka
+   ACK is durable transport, not DB acceptance. Platform commits registration, status
+   and eligible READY in one transaction. Queued legacy commands retain the separate
+   registration/status protocol: either arrival order, duplicates, restart and replay
+   remain supported. Missing registration cannot fall back to SUCCESS on enrolled work.
+5. New publication order is data write -> validation -> acknowledged completion ->
+   source-command commit. Legacy commands retain registration ACK -> terminal status
+   ACK -> command commit. Platform completion requires committed evidence. Storage-success/event-
    failure leaves no new READY and reports explicit failure/pending until bounded
    timeout or operator resolution. Additional durable worker recovery/journaling is
    owner-deferred. Identical event/status redelivery remains idempotent; do not claim
@@ -407,6 +443,12 @@ lineage after registration. No new analytical formula or strategy is introduced.
 
 ### I10.c — Timeout watchdog and query diagnostics
 
+Owner revision 2026-11-11: automatic expiry described below is a deferred design
+under [TD-018](../technical-debt/018-execution-watchdog-observation.md), not an active
+I10 acceptance gate. Keep the source/flag disabled during observation. Read-only
+diagnostics, terminal-state immutability and late-writer/READY safety remain active.
+The original deadline/cadence details below describe the parked implementation.
+
 Bounded, indexed, multi-instance-safe scans select actual child executions whose outbox
 is PUBLISHED, terminal status is absent and published_at is older than 30 minutes.
 Do not time out unpublished dependency WAITING, infer start from preparation's RUNNING,
@@ -430,11 +472,11 @@ start reader cutover merely because I10.a accepts events. Keep registration/shad
 readiness cutover and watchdog enablement separately configurable and disabled by
 default. I10 is planned source work; the commands below are proposed, not run for I10.
 
-| Checkpoint | Bounded delivery and owners                                                                                                                                                                                                                                                                                                                                             | Verification required before advancing                                                                                                                                                                                                                                                                                                                               |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I10.a      | Contracts/shared config: freeze topic/group, immutable event/item IDs, ordering key, bounded counts/bytes and canonical JSON fixtures. Platform: forward inbox/version/coverage/completion migration, transactional consumer and durable status correlation. py-common/Ingestor/Analyzer: shared registration publisher after validated writes, before terminal status. | Cross-language round trip; exact coverage and explicit valid-empty; whole-record rejection without partial mutation; duplicate/conflicting/stale attempts; both status/event orders, DB/ACK failures, restart and per-partition offset replay. Real worker -> registration -> Platform completion fixture.                                                           |
-| I10.b      | Platform metadata API/provider and admission; shared reader port; Analyzer, Query Service and Console adapters; validated backfill/shadow comparison; SYNC_METADATA reconciliation every 12 hours.                                                                                                                                                                      | Auth, bounded reads, exact lineage/bytes/coverage holes, API failure closed, output D versus origin T, concurrent scan/commit fencing, all-reader parity and rollback retaining post-cutover registrations. A stale worker that can still overwrite mutable bytes blocks that output's cutover; record the ownership/version-addressability prerequisite explicitly. |
-| I10.c      | Platform bounded multi-instance watchdog and diagnostics, two-minute scan and thirty-minute published deadline; normal failure/request aggregation; no automatic unsafe rerun.                                                                                                                                                                                          | Clock-controlled deadline edges; unpublished WAITING excluded; status/registration race; duplicate scans, restart, late status/event cannot reopen FAILED; new retry attempt cannot rebind frozen dependents; visible completion-pending and quarantined ownership.                                                                                                  |
+| Checkpoint | Bounded delivery and owners                                                                                                                                                                                                                                                                      | Verification required before advancing                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I10.a      | Contracts/shared config: immutable IDs, bounded wire and canonical fixtures. Platform: inbox/version/coverage and transactional completion acceptance. Shared Python/Ingestor/Analyzer: one terminal completion with output evidence for new commands; legacy separate streams remain supported. | Cross-language round trip, exact coverage/valid-empty, complete-record rejection, duplicate/conflicting/stale attempts, DB/ACK failures and rollback, restart/partition replay, both legacy arrival orders, real worker -> completion -> Platform fixture.                                                                                                           |
+| I10.b      | Platform metadata API/provider and admission; shared reader port; Analyzer, Query Service and Console adapters; validated backfill/shadow comparison; SYNC_METADATA reconciliation every 12 hours.                                                                                               | Auth, bounded reads, exact lineage/bytes/coverage holes, API failure closed, output D versus origin T, concurrent scan/commit fencing, all-reader parity and rollback retaining post-cutover registrations. A stale worker that can still overwrite mutable bytes blocks that output's cutover; record the ownership/version-addressability prerequisite explicitly. |
+| I10.c      | Existing diagnostics remain active; automatic expiry/watchdog is owner-deferred to TD-018 during observation, source retained and disabled.                                                                                                                                                      | Current scope: truthful completion/ownership diagnostics, immutable terminal state and safe late completion. Future watchdog deadline/scan/recovery acceptance belongs to TD-018; no automatic unsafe retry is authorized.                                                                                                                                           |
 
 Cross-service impact: Platform owns schema/consumer/API/watchdog; Ingestor and
 Analyzer own actual output declarations and registration publication; py-common
@@ -631,25 +673,31 @@ ready conclusion; no fabricated test, coverage, CI, provider or deployment evide
 
 ### Acceptance Criteria
 
-- [ ] Versioned topic/array contract, paired producers and Platform consumer agree;
+November 12 reconciliation: the seven checked criteria below are proven by the
+recorded local/disposable evidence in [the criterion matrix](../reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation).
+They do not imply retained deployment, reader cutover or overall I10 completion.
+The three unchecked criteria retain their operational/owner evidence requirements.
+
+- [x] Versioned topic/array contract, paired producers and Platform consumer agree;
       bounded size/count, idempotency, validation and partition-offset behavior are proven.
-- [ ] Only durable validated outputs grant exact work/date coverage; valid-empty never
+- [x] Only durable validated outputs grant exact work/date coverage; valid-empty never
       fabricates READY, and failed replacement retains the last valid version.
-- [ ] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
+- [x] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
       metadata registration or explicit valid-empty, and failures cannot reopen terminal work.
 - [ ] All applicable readers use PostgreSQL via approved boundaries after verified
       backfill/shadow/cutover; no silent manifest fallback or weakened byte/lineage checks.
 - [ ] Reconciliation runs every 12 hours on safely quiesced affected outputs; timed-out
       worker ownership and scan/write races cannot promote unproven data.
-- [ ] Watchdog runs every 2 minutes with a 30-minute published deadline, handles concurrent
-      terminal arrival, excludes unpublished WAITING and preserves normal aggregation/retry.
-- [ ] Late workers/status/events cannot corrupt current readiness or substitute attempts;
+- Deferred to TD-018 by the owner on November 11: automatic watchdog cadence,
+  published deadline, scan races and activation. Keep the source disabled during
+  observation; terminal immutability, late-writer safety and diagnostics remain active.
+- [x] Late workers/status/events cannot corrupt current readiness or substitute attempts;
       mutable-object safety is proven before each affected reader cuts over.
-- [ ] End-to-end atomicWorkId and per-output provenance retain execution/atomicAttemptId;
+- [x] End-to-end atomicWorkId and per-output provenance retain execution/atomicAttemptId;
       aliases normalize consistently and batch/multi-work attribution is not lost.
-- [ ] Optional trace/query extension names, durable query snapshot boundary and
+- [x] Optional trace/query extension names, durable query snapshot boundary and
       multi-root linkage are documented; no tracing implementation is required in I10.
-- [ ] Writer can emit the same metadata arrays after future batches; no P12 activation,
+- [x] Writer can emit the same metadata arrays after future batches; no P12 activation,
       direct worker DB access, new topology authority or physical-path business routing.
 - [ ] Source/field/test/coverage matrix, migrations, rollout/recovery, cross-service docs
       and owner-local verification gates are complete before I10 completion.

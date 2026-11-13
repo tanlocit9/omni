@@ -14,7 +14,10 @@ from py_common.messaging import (
     utc_now,
 )
 from py_common.messaging.atomic_work import carry_work_status
-from py_common.messaging.output_publication import capture_output_publication
+from py_common.messaging.output_publication import (
+    capture_output_publication,
+    publish_terminal_status,
+)
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.messages import IndicatorJobMessage
@@ -61,6 +64,7 @@ class IndicatorKafkaService(JobStatusKafkaService):
             )
             return None
 
+        publication = None
         try:
             message = IndicatorJobMessage.model_validate(raw)
             with capture_output_publication(
@@ -87,7 +91,9 @@ class IndicatorKafkaService(JobStatusKafkaService):
             )
 
         status = carry_work_status(status, raw)
-        await self.publish_status(status)
+        await publish_terminal_status(
+            self._producer, self.publish_status, status, raw, publication
+        )
         return status
 
     def _build_status(

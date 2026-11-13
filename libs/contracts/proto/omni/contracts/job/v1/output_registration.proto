@@ -15,6 +15,34 @@ message OutputRegistrationEvent {
   repeated OutputRegistration registrations = 3;
 }
 
+// New enrolled commands publish one terminal result, not registration + status records.
+// The existing registration topic accepts this envelope alongside legacy registration.
+message WorkerCompletionEvent {
+  string kind = 1; // WORKER_COMPLETION_V1
+  uint32 schema_version = 2;
+  string event_id = 3;
+  string atomic_attempt_id = 4;
+  WorkerCompletionStatus status = 5;
+  // Required for SUCCESS; absent for ERROR. Exactly one registration member.
+  OutputRegistrationEvent registration = 6;
+}
+
+message WorkerCompletionStatus {
+  string job_definition_id = 1;
+  string execution_id = 2;
+  optional string parent_execution_id = 3;
+  string work_type = 4;
+  string work_key = 5;
+  string status = 6; // SUCCESS or ERROR
+  google.protobuf.Struct meta_json = 7;
+  optional string new_offset = 8;
+  string started_at = 9;
+  string finished_at = 10;
+  int64 duration_ms = 11;
+  optional string error_message = 12;
+  int32 records_processed = 13;
+}
+
 // registration_id is immutable and reused on replay; it is not a work hash.
 message OutputRegistration {
   string registration_id = 1;
@@ -48,6 +76,8 @@ message RegisteredOutput {
   repeated RegisteredColumn columns = 9;
   repeated RegisteredInput inputs = 10;
   RegisteredWorkScope work_scope = 11;
+  // Immutable backend version of the canonical logical object; never a physical path.
+  optional string storage_version_id = 12;
 }
 
 // Coordinates of the data covered by this work, not the entire Parquet object.

@@ -29,6 +29,7 @@ spring:
 
 app:
   output-registration:
+    versioned-storage-enabled: ${APP_OUTPUT_REGISTRATION_VERSIONED_STORAGE_ENABLED:false}
     enrollment-enabled: ${APP_OUTPUT_REGISTRATION_ENROLLMENT_ENABLED:false}
     ready-promotion-enabled: ${APP_OUTPUT_REGISTRATION_READY_PROMOTION_ENABLED:false}
     reader-enabled: ${APP_OUTPUT_REGISTRATION_READER_ENABLED:false}
@@ -36,6 +37,7 @@ app:
     reconcile-token: ${OUTPUT_READINESS_RECONCILE_TOKEN:}
     reconciliation-schedule-enabled: ${APP_OUTPUT_REGISTRATION_RECONCILIATION_SCHEDULE_ENABLED:false}
     shadow-enabled: ${APP_OUTPUT_REGISTRATION_SHADOW_ENABLED:false}
+    # TD-018: owner-deferred during observation; keep the runtime override false.
     watchdog-enabled: ${APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED:false}
     watchdog-delay-ms: ${APP_OUTPUT_REGISTRATION_WATCHDOG_DELAY_MS:120000}
     watchdog-batch-size: ${APP_OUTPUT_REGISTRATION_WATCHDOG_BATCH_SIZE:100}

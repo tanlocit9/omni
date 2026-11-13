@@ -9,6 +9,8 @@ const expectedArtifacts = [
   'libs/contracts/gen/java/com/omni/contracts/job/v1/JobCommand.java',
   'libs/contracts/gen/java/com/omni/contracts/job/v1/JobStatusEvent.java',
   'libs/contracts/gen/java/com/omni/contracts/job/v1/OutputRegistrationEvent.java',
+  'libs/contracts/gen/java/com/omni/contracts/job/v1/WorkerCompletionEvent.java',
+  'libs/contracts/gen/java/com/omni/contracts/job/v1/WorkerCompletionStatus.java',
   'libs/contracts/gen/java/com/omni/contracts/job/v1/RegisteredWorkScope.java',
   'libs/contracts/gen/python/omni/contracts/common/v1/dataset_pb2.py',
   'libs/contracts/gen/python/omni/contracts/common/v1/execution_pb2.py',

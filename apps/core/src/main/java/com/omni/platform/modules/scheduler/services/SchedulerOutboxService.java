@@ -43,6 +43,9 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     private final KafkaPublisher kafkaPublisher;
     private final JsonMapper jsonMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputStorageHeads storageHeads;
+
     @Transactional
     public void enqueue(
             JobExecutionHistory execution, String topic, List<KafkaMessage> messages, Instant now) {
@@ -320,6 +323,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 repository.claimEligible(messageId, now, instanceId, leaseDuration);
         if (claim != null && !approvedInputVersions.isEmpty())
             persistApprovedInputs(work, approvedInputVersions);
+        if (claim != null && storageHeads != null) storageHeads.freeze(work.getId());
         return claim == null
                 ? null
                 : new SchedulerOutboxClaim(
@@ -344,15 +348,21 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     private String bindApprovedInputs(String payload, JobExecutionHistory work) {
         Object approved =
                 work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
-        if (approved == null) return payload;
-        if (!(approved instanceof List<?>))
+        var bases = storageHeads == null ? List.of() : storageHeads.read(work.getId());
+        if (approved == null && bases.isEmpty()) return payload;
+        if (approved != null && !(approved instanceof List<?>))
             throw new IllegalStateException("Invalid approved input binding");
         ObjectNode body = (ObjectNode) jsonMapper.readTree(payload);
         ObjectNode metadata =
                 body.get("metadata") instanceof ObjectNode object
                         ? object
                         : jsonMapper.createObjectNode();
-        metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
+        if (approved != null) metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
+        if (!bases.isEmpty()) {
+            if (!(metadata.get("outputCompletion") instanceof ObjectNode contract))
+                throw new IllegalStateException("Versioned execution has no output declaration");
+            contract.set("storageBases", jsonMapper.valueToTree(bases));
+        }
         body.set("metadata", metadata);
         return jsonMapper.writeValueAsString(body);
     }

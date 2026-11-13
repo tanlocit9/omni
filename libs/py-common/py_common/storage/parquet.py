@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -65,6 +66,7 @@ from py_common.storage.ports import (
     CopyableStorage,
     DeletableStorage,
     ReadableStorage,
+    VersionedStorage,
     WritableStorage,
 )
 from py_common.storage.providers import StorageProvider
@@ -183,6 +185,7 @@ class ParquetStorage:
             DeletableStorage,
         )
         self._bucket = bucket
+        self._registry, self._provider = registry, provider
         self._paths = snapshot_paths or StockDataPaths.from_config({})
         self._snapshot_store = OutputSnapshotStore(
             self._readable,
@@ -209,6 +212,14 @@ class ParquetStorage:
             ParquetDecodeError: Bytes exist but are not valid Parquet.
             StorageReadError: Transport / server failure.
         """
+        publication, identity = self._work_publication(object_name)
+        if self._versioned(publication):
+            frame = await self.read_work_base_dataframe(publication.raw, identity)
+            if frame is None:
+                raise StorageObjectNotFoundError(
+                    bucket=self._bucket, object_name=object_name
+                )
+            return frame
         data = await self._readable.read_bytes(self._bucket, object_name)
         try:
             return await asyncio.to_thread(ParquetCodec.decode, data)
@@ -227,7 +238,24 @@ class ParquetStorage:
             raise ManifestInvalidError(
                 "Current metadata differs from approved input version"
             )
-        data = await self._readable.read_bytes(self._bucket, manifest.path)
+        proofs = getattr(manifest, "workProofs", [])
+        if (
+            proofs
+            and (
+                getattr(manifest, "storageVersionId", None) is not None
+                or any(p.get("storageVersionId") is not None for p in proofs)
+            )
+            and (
+                getattr(manifest, "storageVersionId", None) is None
+                or any(p.get("storageVersionId") is None for p in proofs)
+            )
+        ):
+            raise ManifestInvalidError(
+                "Incomplete immutable storage coordinates; no mutable fallback"
+            )
+        data = await self._bound_bytes(
+            manifest.path, getattr(manifest, "storageVersionId", None)
+        )
         if getattr(manifest, "workScope", None) or getattr(
             manifest, "workProofs", None
         ):
@@ -241,12 +269,23 @@ class ParquetStorage:
                     "columns": [vars(c) for c in manifest.columns],
                     "inputs": [vars(i) for i in manifest.inputs],
                     "dataVersion": manifest.dataVersion,
+                    "storageVersionId": getattr(manifest, "storageVersionId", None),
                 }
             ]
             for proof in proofs:
+                proof_frame = frame
+                if proof.get("storageVersionId") != getattr(
+                    manifest, "storageVersionId", None
+                ):
+                    proof_frame = await asyncio.to_thread(
+                        ParquetCodec.decode,
+                        await self._bound_bytes(
+                            manifest.path, proof.get("storageVersionId")
+                        ),
+                    )
                 rows = select_rows(
                     dataset,
-                    frame,
+                    proof_frame,
                     proof["workScope"],
                     [c["name"] for c in proof["columns"]],
                 )
@@ -271,6 +310,8 @@ class ParquetStorage:
                     raise ManifestInvalidError(
                         "Parquet work data differs from approved version"
                     )
+                if proof_frame is not frame:
+                    frame = self._overlay_rows(dataset, frame, rows)
             return frame
         checksum = "sha256:" + hashlib.sha256(data).hexdigest()
         version = calculate_data_version(
@@ -353,7 +394,9 @@ class ParquetStorage:
         A concurrent mutable replacement fails closed.
         """
         await self.read_bound_dataframe(dataset, manifest, manifest.dataVersion)
-        data = await self._readable.read_bytes(self._bucket, manifest.path)
+        data = await self._bound_bytes(
+            manifest.path, getattr(manifest, "storageVersionId", None)
+        )
         identity = OutputSnapshotIdentity(dataset, manifest.values)
         snapshot = await self._snapshot_bytes(manifest.path, data, identity)
         if snapshot is None or snapshot.data_version != manifest.dataVersion:
@@ -361,6 +404,51 @@ class ParquetStorage:
                 "Output changed while creating backfill snapshot"
             )
         return snapshot, await self.read_output_snapshot(identity, snapshot)
+
+    async def pin_historical_output(
+        self, identity, manifest, *, allow_unproven_history=False
+    ):
+        """Pin a physical baseline without creating work READY or provenance."""
+        if not allow_unproven_history:
+            raise ManifestInvalidError(
+                "Physical baseline requires explicit historical-container approval"
+            )
+        object_name = getattr(self._paths, identity.dataset)(**identity.partition)
+        data = await self._readable.read_bytes(self._bucket, object_name)
+        frame = await asyncio.to_thread(ParquetCodec.decode, data)
+        from py_common.storage.work_rows import row_keys
+
+        if frame.empty:
+            raise ManifestInvalidError("Cannot pin an empty historical container")
+        row_keys(identity.dataset, frame)
+        if manifest is not None:
+            checked = await self.read_bound_dataframe(
+                identity.dataset, manifest, manifest.dataVersion
+            )
+            try:
+                pd.testing.assert_frame_equal(
+                    frame, checked, check_exact=True, check_dtype=False
+                )
+            except AssertionError as exc:
+                raise ManifestInvalidError(
+                    "Historical canonical bytes differ from accepted proofs"
+                ) from exc
+        if await self._readable.read_bytes(self._bucket, object_name) != data:
+            raise ManifestInvalidError(
+                "Historical container changed during baseline validation"
+            )
+        version = await self._version_port().write_versioned_bytes(
+            self._bucket, object_name, data, _PARQUET_CONTENT_TYPE
+        )
+        if await self._bound_bytes(object_name, version) != data:
+            raise ManifestInvalidError(
+                "Historical version read-back differs from validated bytes"
+            )
+        return {
+            "storageVersionId": version,
+            "checksum": "sha256:" + hashlib.sha256(data).hexdigest(),
+            "totalBytes": len(data),
+        }
 
     # ------------------------------------------------------------------
     # Write operations
@@ -393,16 +481,25 @@ class ParquetStorage:
             before=before,
             total_bytes=len(ParquetCodec.encode(rows)),
         )
-        publication.preflight(output)
+        publication.preflight(
+            output.model_copy(update={"storage_version_id": "x" * 1024})
+            if self._versioned(publication)
+            else output
+        )
         return output
 
-    async def _record_work(self, publication, object_name, output):
+    async def _record_work(
+        self, publication, object_name, output, storage_version=None
+    ):
         if publication is None:
             return
         from py_common.storage.work_rows import select_rows, work_version
 
         # Read after canonical publication, before emitting registration/worker SUCCESS.
-        actual = await self.read_dataframe(object_name)
+        # Read back the PUT result, not a mutable HEAD or the captured write base.
+        actual = await asyncio.to_thread(
+            ParquetCodec.decode, await self._bound_bytes(object_name, storage_version)
+        )
         scope = output.work_scope.model_dump(mode="json", by_alias=True)
         selected = select_rows(
             output.dataset, actual, scope, [c.name for c in output.columns]
@@ -420,6 +517,8 @@ class ParquetStorage:
             raise ManifestInvalidError(
                 "Canonical Parquet does not contain the published work data"
             )
+        if storage_version is not None:
+            output = output.model_copy(update={"storage_version_id": storage_version})
         publication.confirm(output)
         # TODO(P12-I4): persist/reuse the prepared evidence across copy/read-back/
         # Kafka ACK failures. Preflight is not durable recovery or write fencing.
@@ -463,6 +562,13 @@ class ParquetStorage:
         work_frame = (
             await asyncio.to_thread(ParquetCodec.decode, data) if publication else None
         )
+        if self._versioned(publication):
+            work_frame = self._merge_work(
+                publication, work_identity, work_frame, before
+            )
+            data = await asyncio.to_thread(
+                ParquetCodec.encode, work_frame, index=index, schema=schema
+            )
         output = (
             self._prepare_work(publication, work_identity, work_frame, before)
             if publication
@@ -473,15 +579,21 @@ class ParquetStorage:
             if publication
             else await self._snapshot_bytes(object_name, data, snapshot_identity)
         )
-        await self._writable.write_bytes(
-            bucket=self._bucket,
-            object_name=object_name,
-            data=data,
-            content_type=_PARQUET_CONTENT_TYPE,
-        )
+        storage_version = None
+        if self._versioned(publication):
+            storage_version = await self._version_port().write_versioned_bytes(
+                self._bucket, object_name, data, _PARQUET_CONTENT_TYPE
+            )
+        else:
+            await self._writable.write_bytes(
+                bucket=self._bucket,
+                object_name=object_name,
+                data=data,
+                content_type=_PARQUET_CONTENT_TYPE,
+            )
 
         if publication:
-            await self._record_work(publication, object_name, output)
+            await self._record_work(publication, object_name, output, storage_version)
         result = ParquetWriteResult(
             object_name=object_name,
             checksum=f"sha256:{hashlib.sha256(data).hexdigest()}",
@@ -610,6 +722,7 @@ class ParquetStorage:
         before = (
             await self.read_optional_dataframe(object_name) if publication else None
         )
+        dataframe = self._merge_work(publication, work_identity, dataframe, before)
         temp_name = temp_object_name or self._build_temp_object_name(object_name)
 
         staged_result = await self.write_dataframe(temp_name, dataframe, index=index)
@@ -637,19 +750,33 @@ class ParquetStorage:
                     object_name, staged_bytes, snapshot_identity
                 )
 
-            await self._copyable.copy_object(
-                bucket=self._bucket,
-                source_object_name=temp_name,
-                target_object_name=object_name,
-                content_type=_PARQUET_CONTENT_TYPE,
-            )
+            storage_version = None
+            if self._versioned(publication):
+                staged_bytes = await self._readable.read_bytes(self._bucket, temp_name)
+                if (
+                    "sha256:" + hashlib.sha256(staged_bytes).hexdigest()
+                    != staged_result.checksum
+                ):
+                    raise ManifestInvalidError(
+                        "Staged bytes changed before immutable publication"
+                    )
+                storage_version = await self._version_port().write_versioned_bytes(
+                    self._bucket, object_name, staged_bytes, _PARQUET_CONTENT_TYPE
+                )
+            else:
+                await self._copyable.copy_object(
+                    bucket=self._bucket,
+                    source_object_name=temp_name,
+                    target_object_name=object_name,
+                    content_type=_PARQUET_CONTENT_TYPE,
+                )
         except Exception:
             await self._delete_temp_safely(temp_name)
             raise
 
         await self._delete_temp_safely(temp_name)
 
-        await self._record_work(publication, object_name, output)
+        await self._record_work(publication, object_name, output, storage_version)
         if snapshot is not None:
             from py_common.messaging.output_publication import record_output
 
@@ -696,3 +823,88 @@ class ParquetStorage:
                 object_name,
                 exc_info=True,
             )
+
+    def _version_port(self):
+        return self._registry.get_port(self._provider, VersionedStorage)
+
+    async def _bound_bytes(self, object_name, version):
+        if version is None:
+            return await self._readable.read_bytes(self._bucket, object_name)
+        return await self._version_port().read_versioned_bytes(
+            self._bucket, object_name, version
+        )
+
+    @staticmethod
+    def _versioned(publication):
+        return (
+            publication is not None
+            and publication.contract.get("storagePolicy") == "VERSIONED"
+        )
+
+    async def read_work_base_dataframe(self, raw, identity):
+        """Read the frozen accepted version, never an unaccepted late PUT."""
+        contract = (raw.get("metadata") or {}).get("outputCompletion") or {}
+        object_name = getattr(self._paths, identity.dataset)(**identity.partition)
+        if contract.get("storagePolicy") != "VERSIONED":
+            return await self.read_optional_dataframe(object_name)
+        bases = contract.get("storageBases")
+        if not isinstance(bases, list) or not 1 <= len(bases) <= 32:
+            raise ManifestInvalidError("Missing frozen storage bases")
+        matches = [
+            b
+            for b in bases
+            if b.get("dataset") == identity.dataset
+            and b.get("partition") == identity.partition
+        ]
+        if len(matches) != 1:
+            raise ManifestInvalidError("Output has no unique frozen storage base")
+        base = matches[0]
+        version = base.get("storageVersionId")
+        if version is not None:
+            if type(base.get("generation")) is not int or base["generation"] < 0:
+                raise ManifestInvalidError("Invalid storage base generation")
+            try:
+                data = await self._bound_bytes(object_name, version)
+            except StorageObjectNotFoundError as exc:
+                raise ManifestInvalidError(
+                    "Pinned storage base is missing; no mutable fallback"
+                ) from exc
+            return await asyncio.to_thread(ParquetCodec.decode, data)
+        if base.get("generation") is not None:
+            raise ManifestInvalidError("Incomplete frozen storage base")
+        try:
+            await self._readable.read_bytes(self._bucket, object_name)
+        except StorageObjectNotFoundError:
+            return None
+        raise ManifestInvalidError(
+            "STORAGE_BASELINE_REQUIRED: existing canonical object is not pinned"
+        )
+
+    @staticmethod
+    def _overlay_rows(dataset, before, selected):
+        from py_common.storage.work_rows import row_keys, select_rows
+
+        if before is None or before.empty:
+            return selected.copy()
+        owned = {json.dumps(k, sort_keys=True) for k in row_keys(dataset, selected)}
+        other_keys = [
+            k
+            for k in row_keys(dataset, before)
+            if json.dumps(k, sort_keys=True) not in owned
+        ]
+        # row_keys is canonically sorted, so it must never be used as a positional
+        # mask over a container whose physical row order may differ.
+        kept = (
+            select_rows(dataset, before, {"rowKeys": other_keys}, before.columns)
+            if other_keys
+            else before.iloc[:0]
+        )
+        return pd.concat([kept, selected], ignore_index=True)
+
+    def _merge_work(self, publication, identity, frame, before):
+        if not self._versioned(publication) or before is None:
+            return frame
+        from py_common.storage.work_rows import scope_for_work
+
+        _, selected = scope_for_work(publication.raw, identity.dataset, frame, before)
+        return self._overlay_rows(identity.dataset, before, selected)

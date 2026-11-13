@@ -11,7 +11,11 @@ import httpx
 
 from py_common.config.paths import StockDataPaths
 from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
-from py_common.storage.exceptions import ManifestInvalidError
+from py_common.storage.exceptions import (
+    ManifestInvalidError,
+    ParquetError,
+    StorageError,
+)
 from py_common.storage.global_metadata import (
     GlobalColumnMetadata,
     GlobalDatasetInput,
@@ -119,6 +123,13 @@ class PostgresMetadataReader:
         return self._document(partitions)
 
     def _validate_snapshot_path(self, dataset, raw):
+        if raw.get("storageVersionId") is not None:
+            expected = getattr(self._paths, dataset)(**raw["values"])
+            if raw["path"] != expected or raw["canonicalPath"] != expected:
+                raise ManifestInvalidError(
+                    "Pinned historical baseline differs from canonical route"
+                )
+            return
         expected_path = snapshot_object_name(
             OutputSnapshotIdentity(dataset, raw["values"]),
             raw["dataVersion"],
@@ -188,6 +199,11 @@ class PostgresMetadataReader:
                         "columns": [vars(c) for c in m.columns],
                         "inputs": [vars(i) for i in m.inputs],
                         "dataVersion": m.dataVersion,
+                        **(
+                            {"storageVersionId": m.storageVersionId}
+                            if m.storageVersionId is not None
+                            else {}
+                        ),
                     }
                     for m in scoped
                 ]
@@ -201,7 +217,15 @@ class PostgresMetadataReader:
                     + hashlib.sha256(
                         json.dumps(
                             sorted(
-                                proofs, key=lambda p: p["workScope"]["atomicWorkId"]
+                                [
+                                    {
+                                        k: v
+                                        for k, v in p.items()
+                                        if k != "storageVersionId"
+                                    }
+                                    for p in proofs
+                                ],
+                                key=lambda p: p["workScope"]["atomicWorkId"],
                             ),
                             sort_keys=True,
                             separators=(",", ":"),
@@ -270,7 +294,10 @@ class PostgresMetadataReader:
                 for binding in bindings:
                     response = await client.get(
                         self._url.rstrip("/") + "/work",
-                        params={"atomicWorkId": binding["atomicWorkId"]},
+                        params={
+                            "atomicWorkId": binding["atomicWorkId"],
+                            "atomicAttemptId": binding["atomicAttemptId"],
+                        },
                         headers={"Authorization": f"Bearer {self._token}"},
                     )
                     response.raise_for_status()
@@ -305,6 +332,13 @@ class PostgresMetadataReader:
                     output = RegisteredOutput.model_validate(item["output"]).model_dump(
                         mode="json", by_alias=True
                     )
+                    if metadata["outputCompletion"].get(
+                        "storagePolicy"
+                    ) == "VERSIONED" and not output.get("storageVersionId"):
+                        raise ManifestInvalidError(
+                            "Approved work is not pinned to an immutable "
+                            "storage version"
+                        )
                     if (
                         not output["workScope"]
                         or output["workScope"]["atomicWorkId"]
@@ -332,6 +366,7 @@ class PostgresMetadataReader:
                         inputs=[GlobalDatasetInput(**i) for i in output["inputs"]],
                         coverageDates=output["coverageDates"],
                         workScope=output["workScope"],
+                        storageVersionId=output.get("storageVersionId"),
                         generatedAt=datetime.now(UTC).isoformat(),
                         sourceExecutionId=item["executionId"],
                     )
@@ -346,33 +381,45 @@ class PostgresMetadataReader:
 
 
 class ShadowMetadataReader:
-    def __init__(self, manifest, postgres) -> None:
+    def __init__(self, manifest, postgres, *, parquet=None) -> None:
         self._manifest, self._postgres = manifest, postgres
+        self.enrolled_work_reader = postgres
+        self._parquet = parquet
         self.last_comparison = {"compared": False}
 
     async def read(self):
         manifest = await self._manifest.read()
         try:
             postgres = await self._postgres.read()
+            scoped = any(
+                p.workScope or p.workProofs
+                for d in postgres.datasets
+                for p in d.partitions
+            )
+            if scoped or self._parquet is not None:
+                if self._parquet is None:
+                    self.last_comparison = {
+                        "compared": False,
+                        "matches": False,
+                        "reason": "SCOPED_PARITY_REQUIRES_BYTES",
+                    }
+                    return manifest
+                try:
+                    self.last_comparison = await self._compare_scoped(
+                        manifest, postgres
+                    )
+                except ManifestInvalidError, StorageError, ParquetError:
+                    self.last_comparison = {
+                        "compared": False,
+                        "matches": False,
+                        "reason": "PARITY_INPUT_INVALID",
+                    }
+                return manifest
 
             def inventory(document):
                 return {
-                    (d.name, tuple(sorted(p.values.items()))): (
-                        p.dataVersion,
-                        p.schemaHash,
-                        p.rowCount,
-                        p.totalBytes,
-                        tuple(p.coverageDates),
-                        tuple(
-                            sorted(
-                                (
-                                    i.dataset,
-                                    tuple(sorted(i.partition.items())),
-                                    i.dataVersion,
-                                )
-                                for i in p.inputs
-                            )
-                        ),
+                    (d.name, tuple(sorted(p.values.items()))): self._metadata_identity(
+                        p
                     )
                     for d in document.datasets
                     for p in d.partitions
@@ -389,6 +436,7 @@ class ShadowMetadataReader:
                 "matches": not mismatches,
                 "mismatchCount": len(mismatches),
                 "examples": mismatches[:20],
+                "scope": "PARTITION_METADATA",
             }
         except ManifestInvalidError:
             self.last_comparison = {
@@ -399,8 +447,121 @@ class ShadowMetadataReader:
         # Shadow remains manifest-authoritative; do not use after postgres cutover.
         return manifest
 
+    @staticmethod
+    def _metadata_identity(partition):
+        return (
+            partition.dataVersion,
+            partition.schemaHash,
+            partition.rowCount,
+            partition.totalBytes,
+            tuple(partition.coverageDates),
+            tuple(
+                sorted(
+                    (i.dataset, tuple(sorted(i.partition.items())), i.dataVersion)
+                    for i in partition.inputs
+                )
+            ),
+        )
 
-def metadata_reader(settings, readable):
+    async def _compare_scoped(self, manifest, postgres):
+        import pandas as pd
+
+        from py_common.storage.work_rows import select_rows
+
+        def index(document):
+            return {
+                (d.name, tuple(sorted(p.values.items()))): p
+                for d in document.datasets
+                for p in d.partitions
+            }
+
+        old, new = index(manifest), index(postgres)
+        mismatches = set(old.keys() ^ new.keys())
+        compared_rows = 0
+        for key in sorted(old.keys() & new.keys()):
+            legacy, ready = old[key], new[key]
+            proofs = ready.workProofs or (
+                [
+                    {
+                        "workScope": ready.workScope,
+                        "columns": [vars(c) for c in ready.columns],
+                        "inputs": [vars(i) for i in ready.inputs],
+                    }
+                ]
+                if ready.workScope
+                else []
+            )
+            if not proofs:
+                if self._metadata_identity(legacy) != self._metadata_identity(ready):
+                    mismatches.add(key)
+                else:
+                    await self._parquet.read_bound_dataframe(
+                        key[0], legacy, legacy.dataVersion
+                    )
+                    await self._parquet.read_bound_dataframe(
+                        key[0], ready, ready.dataVersion
+                    )
+                continue
+            legacy_frame = await self._parquet.read_bound_dataframe(
+                key[0], legacy, legacy.dataVersion
+            )
+            ready_frame = await self._parquet.read_bound_dataframe(
+                key[0], ready, ready.dataVersion
+            )
+            if (
+                len(legacy_frame) != legacy.rowCount
+                or len(legacy_frame.columns) != legacy.columnCount
+            ):
+                mismatches.add(key)
+                continue
+            legacy_inputs = {
+                (i.dataset, tuple(sorted(i.partition.items())), i.dataVersion)
+                for i in legacy.inputs
+            }
+            partition_rows = 0
+            for proof in proofs:
+                inputs = {
+                    (
+                        i["dataset"],
+                        tuple(sorted(i["partition"].items())),
+                        i["dataVersion"],
+                    )
+                    for i in proof["inputs"]
+                }
+                if not inputs.issubset(legacy_inputs):
+                    mismatches.add(key)
+                    break
+                try:
+                    columns = [c["name"] for c in proof["columns"]]
+                    previous = select_rows(
+                        key[0], legacy_frame, proof["workScope"], columns
+                    )
+                    current = select_rows(
+                        key[0], ready_frame, proof["workScope"], columns
+                    )
+                    pd.testing.assert_frame_equal(
+                        previous, current, check_exact=True, check_dtype=False
+                    )
+                except AssertionError, ManifestInvalidError:
+                    mismatches.add(key)
+                    break
+                partition_rows += len(current)
+            if partition_rows != ready.rowCount:
+                mismatches.add(key)
+            compared_rows += partition_rows
+        return {
+            "compared": True,
+            "matches": not mismatches,
+            "mismatchCount": len(mismatches),
+            "examples": [str(key) for key in sorted(mismatches)[:20]],
+            "scope": "WORK_ROWS_V1"
+            if any(p.workScope or p.workProofs for p in new.values())
+            else "PARTITIONS",
+            "comparedRows": compared_rows,
+        }
+
+
+def metadata_reader(settings, readable, *, parquet=None):
     if settings.output_readiness_mode == "manifest":
         reader = GlobalMetadataReader(readable, settings.minio.bucket)
         if (
@@ -427,6 +588,7 @@ def metadata_reader(settings, readable):
                 settings.output_readiness_api_token.get_secret_value(),
                 paths=settings.stock_data_paths,
             ),
+            parquet=parquet,
         )
     raise ValueError("Unsupported output_readiness_mode")
 

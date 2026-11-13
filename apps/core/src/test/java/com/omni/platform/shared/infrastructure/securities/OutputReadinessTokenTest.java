@@ -18,6 +18,9 @@ class OutputReadinessTokenTest {
         "POST,/api/v1/jobs/output-readiness/backfill,read,401",
         "POST,/api/v1/jobs/output-readiness/backfill,reconcile,200",
         "POST,/api/v1/jobs/output-readiness/backfill/fence,reconcile,200",
+        "POST,/api/v1/jobs/output-readiness/backfill/storage,reconcile,200",
+        "POST,/api/v1/jobs/output-readiness/backfill/storage,read,401",
+        "GET,/api/v1/jobs/output-readiness/backfill/storage,reconcile,401",
         "GET,/api/v1/jobs/output-readiness,reconcile,401",
         "GET,/api/v1/jobs/other,read,401"
     })

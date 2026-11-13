@@ -9,7 +9,10 @@ from pydantic import SecretStr
 
 from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.metadata_sync import MetadataSyncTarget
-from py_common.storage.output_reconciliation import OutputReconciler
+from py_common.storage.output_reconciliation import (
+    OutputReconciler,
+    OutputStorageBaselineCoordinator,
+)
 
 
 @pytest.fixture
@@ -128,3 +131,92 @@ async def test_unproven_calendar_coverage_never_commits_baseline(frame):
     with pytest.raises(ManifestInvalidError, match="coverage dates"):
         await owner.sync()
     assert len(requests) == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "success",
+        "unapproved",
+        "credentials",
+        "fence",
+        "revision",
+        "validation",
+        "commit",
+    ],
+)
+async def test_physical_baseline_requires_approval_and_fenced_validated_evidence(
+    scenario,
+):
+    import json
+
+    settings = SimpleNamespace(
+        output_readiness_api_url="http://platform/readiness",
+        output_readiness_api_token=SecretStr("reader"),
+        output_readiness_reconcile_token=SecretStr("reconciler"),
+    )
+    if scenario == "credentials":
+        settings.output_readiness_api_token = SecretStr("")
+    manifest = object()
+    reader = AsyncMock(
+        read=AsyncMock(return_value=SimpleNamespace(resolve=lambda *args: manifest))
+    )
+    parquet = AsyncMock(
+        pin_historical_output=AsyncMock(
+            return_value={
+                "storageVersionId": "verified-clone",
+                "checksum": "sha256:" + "a" * 64,
+                "totalBytes": 128,
+            }
+        )
+    )
+    if scenario == "validation":
+        parquet.pin_historical_output.side_effect = ManifestInvalidError(
+            "proof changed"
+        )
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        phase = (
+            "revision"
+            if request.method == "GET"
+            else "fence"
+            if request.url.path.endswith("fence")
+            else "commit"
+        )
+        assert request.headers["Authorization"] == "Bearer " + (
+            "reader" if phase == "revision" else "reconciler"
+        )
+        return httpx.Response(
+            409 if scenario == phase else 200,
+            json={"fence": 7} if phase == "fence" else {"revision": 9},
+        )
+
+    owner = OutputStorageBaselineCoordinator(
+        settings, reader, parquet, transport=httpx.MockTransport(respond)
+    )
+    if scenario == "success":
+        assert await owner.pin(
+            "eod", {"exchange": "hose", "code": "hpg"}, allow_unproven_history=True
+        ) == {"revision": 9}
+        evidence = json.loads(requests[-1].content)
+        assert (
+            evidence["fence"] == 7
+            and evidence["revision"] == 9
+            and evidence["storageVersionId"] == "verified-clone"
+        )
+        assert "atomicWorkId" not in evidence and "executionId" not in evidence
+    else:
+        with pytest.raises((ManifestInvalidError, httpx.HTTPStatusError, ValueError)):
+            await owner.pin(
+                "eod",
+                {"exchange": "hose", "code": "hpg"},
+                allow_unproven_history=scenario != "unapproved",
+            )
+        if scenario in {"unapproved", "credentials"}:
+            assert not requests
+            parquet.pin_historical_output.assert_not_awaited()
+        if scenario != "commit":
+            assert not any(r.url.path.endswith("/storage") for r in requests)

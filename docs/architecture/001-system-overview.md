@@ -1,5 +1,28 @@
 # System Overview
 
+Platform retains actual immutable VERSIONED READY promotion evidence for
+[frozen-attempt reads after refresh](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+Current discovery still advances independently; worker provenance never switches
+to the latest attempt. No new service, dataset owner or storage path is introduced.
+
+Platform now owns [terminal VERSIONED completion classification/audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+under its existing execution lock. Late output can be audited and acknowledged
+without changing accepted registration/status/READY. Workers, Query/Console APIs,
+logical paths and dataset ownership are unchanged.
+
+Automatic execution expiry is [owner-deferred during observation](../technical-debt/018-execution-watchdog-observation.md).
+Workers and Platform still publish/process completions; stalled work may need manual
+investigation. Readiness authority, dataset ownership and service boundaries are unchanged.
+
+New I10 enrolled commands use [one terminal completion](../reference/018-i10-worker-completion.md)
+for status and output evidence. Ownership/read APIs remain unchanged; RUNNING is
+separate and queued legacy commands keep their old protocol.
+
+The owner-approved [I10 versioned storage protocol](../reference/017-i10-versioned-storage.md)
+keeps Platform as readiness authority and workers as Parquet producers. It adds
+physical version coordinates/frozen bases, without a writer service, new dataset
+owner or logical path. Default flags remain off; coordinated cutover remains gated.
+
 The default-off [Indicators backfill API](../reference/009-indicators-backfill.md)
 adds operator acceptance before the existing static Symbols/EOD/Indicators graph.
 Platform owns request/enrollment/READY; workers own Parquet writes. Scoped enrolled

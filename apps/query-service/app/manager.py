@@ -186,18 +186,29 @@ class QueryManager:
             error = "Query execution failed"
         if record.claim_token is None:
             return
-        completed = await asyncio.to_thread(
-            self._store.complete,
-            record.query_id,
-            record.claim_token,
-            state,
-            payload=payload,
-            data_versions=data_versions,
-            error=error,
-            max_payload_bytes=self._settings.query_max_result_bytes,
-        )
-        if completed:
-            self._write_audit(self.get(record.query_id))
+
+        async def complete_and_audit():
+            completed = await asyncio.to_thread(
+                self._store.complete,
+                record.query_id,
+                record.claim_token,
+                state,
+                payload=payload,
+                data_versions=data_versions,
+                error=error,
+                max_payload_bytes=self._settings.query_max_result_bytes,
+            )
+            if completed:
+                self._write_audit(self.get(record.query_id))
+
+        # Cancellation cannot stop the DB thread after its commit. Wait for its
+        # audit before shutdown returns, without shielding query execution itself.
+        finalization = asyncio.create_task(complete_and_audit())
+        try:
+            await asyncio.shield(finalization)
+        except asyncio.CancelledError:
+            await finalization
+            raise
 
     def _write_audit(self, record: StoredQuery) -> None:
         self._audit_sink.write(

@@ -1,5 +1,38 @@
 # Kafka Contracts
 
+The private work-proof HTTP API now accepts an optional atomicAttemptId selector.
+Workers send their existing frozen approved-input attempt; Kafka fields, topics,
+logical references and generated contracts are unchanged by this correction. See
+[frozen-attempt history](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+Valid unified completion for a terminal VERSIONED attempt now follows the
+[terminal audit policy](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11):
+same-output SUCCESS replay is acknowledged; rejected terminal output is durably
+audited before listener success/ACK. Audit failure still retries; malformed/foreign,
+CANONICAL and legacy registration-only records keep their existing policy. No wire,
+topic, ordering key or generated-contract change is introduced by this amendment.
+
+Python consumers created by KafkaClientFactory explicitly use a 900000 ms
+max_poll_interval_ms (15 minutes). KafkaSettings.max_poll_interval_ms and the
+flat KAFKA_MAX_POLL_INTERVAL_MS environment override configure the process-wide
+value; settings reject nonpositive, fractional and out-of-range values. This is
+the fetch-idle/rebalance limit, not a processing watchdog or heartbeat timeout.
+Sequential dispatch and offset-after-terminal-ACK behavior are unchanged. It
+does not cover every observed SYNC_METADATA scan; retained timing evidence and
+the remaining boundary are recorded in the [I10 completion handoff](../reference/018-i10-worker-completion.md#consumer-poll-window).
+
+New enrolled I10 commands use [WorkerCompletionEvent](../reference/018-i10-worker-completion.md)
+on the existing registration topic: terminal status plus optional registration in
+one bounded record. RUNNING stays on the status topic; old queued commands retain
+their two-message protocol. Deploy matched Platform/workers before issuing new work.
+
+I10 versioned storage adds optional RegisteredOutput.storageVersionId (proto field
+12), plus server-owned outputCompletion.storagePolicy/storageBases metadata.
+Opaque backend coordinates contain no physical paths and do not change row-version
+hashes. First physical evidence wins across logically identical replay; logical
+conflicts remain rejected. Deploy matched adapters before opt-in; legacy wire records
+retain their behavior. See [exact protocol](../reference/017-i10-versioned-storage.md).
+
 Indicators backfill uses existing message metadata for backfillPolicy.force,
 rerun, dataPolicy and verifyEodParquet; topic names and protobuf schemas are
 unchanged. New PREFER_EXISTING/REFRESH values separate data policy from creating
@@ -286,14 +319,14 @@ Java already accepts RUNNING and the canonical execution enum includes it; no
 protobuf field or generated file changes. See [request settlement and paired
 deployment](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
 
-| Field            | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| Topic key        | `topic-sync-job-status`                                        |
-| Producer         | Ingestor and Analyzer workers                                  |
-| Consumer         | Platform scheduler job status consumer                         |
+| Field            | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| Topic key        | `topic-sync-job-status`                                           |
+| Producer         | Ingestor and Analyzer workers                                     |
+| Consumer         | Platform scheduler job status consumer                            |
 | Purpose          | Report worker receipt and terminal execution metrics to Platform. |
-| Related flow     | [Job execution](../flows/001-job-execution.md)                 |
-| Related database | [Job execution history](003-database.md#job-execution-history) |
+| Related flow     | [Job execution](../flows/001-job-execution.md)                    |
+| Related database | [Job execution history](003-database.md#job-execution-history)    |
 
 Status payloads must carry enough identity to update the correct child execution
 and aggregate parent state. After P1-I4 the canonical fields are

@@ -425,6 +425,14 @@ class BaseAppSettings(BaseSettings):
             "KAFKA_BOOTSTRAP_SERVERS",
             self.kafka.bootstrap_servers,
         )
+        self.kafka = KafkaSettings.model_validate(
+            {
+                **self.kafka.model_dump(),
+                "max_poll_interval_ms": os.getenv(
+                    "KAFKA_MAX_POLL_INTERVAL_MS", self.kafka.max_poll_interval_ms
+                ),
+            }
+        )
         self.minio.endpoint = os.getenv("MINIO_ENDPOINT", self.minio.endpoint)
         self.minio.access_key = os.getenv("MINIO_ACCESS_KEY", self.minio.access_key)
         self.minio.secret_key = os.getenv("MINIO_SECRET_KEY", self.minio.secret_key)

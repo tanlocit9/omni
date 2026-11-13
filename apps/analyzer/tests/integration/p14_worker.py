@@ -18,10 +18,10 @@ from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
 from py_common.storage.global_metadata import GlobalMetadataReader, GlobalMetadataWriter
 from py_common.storage.metadata_sync import MetadataSynchronizer
+from py_common.storage.output_readiness import metadata_reader
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
-from py_common.storage.output_readiness import metadata_reader
 
 from app.indicators.handler import IndicatorJobHandler
 from app.indicators.kafka import IndicatorKafkaService
@@ -29,6 +29,8 @@ from app.indicators.messages import IndicatorJobMessage
 from app.metadata.handler import MetadataSyncJobHandler
 from app.metadata.kafka import MetadataSyncKafkaService
 from app.settings import AppSettings
+from app.signals.handler import SignalJobHandler
+from app.signals.kafka import SignalKafkaService
 
 
 async def main():
@@ -61,10 +63,11 @@ async def main():
     assert settings.minio.endpoint == config["minio"], "MinIO isolation mismatch"
     assert settings.minio.bucket == config["bucket"], "Bucket isolation mismatch"
     if "outputReadinessUrl" in config:
-        # Exercise scoped enrolled reads while legacy catalog reads retain manifest mode.
-        settings.output_readiness_mode = "manifest"
+        # Exercise scoped enrolled reads; legacy catalog reads retain manifest mode.
+        settings.output_readiness_mode = config.get("workerMetadataMode", "manifest")
         settings.output_readiness_api_url = config["outputReadinessUrl"]
         from pydantic import SecretStr
+
         settings.output_readiness_api_token = SecretStr(config["outputReadinessToken"])
     adapter = MinioStorageAdapter(create_minio_client(settings.minio))
     await adapter.ensure_bucket(settings.minio.bucket)
@@ -86,7 +89,9 @@ async def main():
     handler = IndicatorJobHandler(
         settings,
         parquet,
-        metadata_reader(settings, adapter) if "outputReadinessUrl" in config else reader,
+        metadata_reader(settings, adapter, parquet=parquet)
+        if "outputReadinessUrl" in config
+        else reader,
     )
     control = (
         Path(config["overlapControlDir"]) if "overlapControlDir" in config else None
@@ -140,11 +145,24 @@ async def main():
         indicators.publish_status = observed_publish
     await metadata.start()
     await indicators.start()
+    signals = SignalKafkaService(
+        settings,
+        SignalJobHandler(
+            settings,
+            parquet,
+            metadata_reader(settings, adapter, parquet=parquet)
+            if "outputReadinessUrl" in config
+            else reader,
+        ),
+    )
+    await signals.start()
     try:
         # A failed consumer must fail the fixture process, not silently look alive.
-        await asyncio.gather(metadata._task, indicators._task)
+        await asyncio.gather(metadata._task, indicators._task, signals._task)
     finally:
-        await asyncio.gather(metadata.stop(), indicators.stop(), return_exceptions=True)
+        await asyncio.gather(
+            metadata.stop(), indicators.stop(), signals.stop(), return_exceptions=True
+        )
 
 
 def write_marker(path, value):

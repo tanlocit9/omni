@@ -27,6 +27,7 @@ public class OutputReadinessProvider {
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
     private final Environment environment;
+    @org.springframework.beans.factory.annotation.Autowired private OutputStorageHeads storageHeads;
 
     public boolean coversDate(DatasetRef ref, String version, java.time.LocalDate day) {
         return Boolean.TRUE.equals(
@@ -106,9 +107,9 @@ public class OutputReadinessProvider {
                     "READY changed while paging; restart the read");
         var rows =
                 jdbc.queryForList(
-                        "SELECT payload::text,execution_id,promoted_at FROM ("
-                                + "SELECT dataset,partition_values,payload,execution_id,promoted_at,atomic_work_id AS sort_id FROM output_work_ready_catalog "
-                                + "UNION ALL SELECT dataset,partition_values,payload,execution_id,promoted_at,'' AS sort_id FROM output_ready_catalog "
+                        "SELECT payload::text,execution_id,promoted_at,generation FROM ("
+                                + "SELECT dataset,partition_values,payload,execution_id,promoted_at,generation,atomic_work_id AS sort_id FROM output_work_ready_catalog "
+                                + "UNION ALL SELECT dataset,partition_values,payload,execution_id,promoted_at,0 AS generation,'' AS sort_id FROM output_ready_catalog "
                                 + "WHERE payload->'workScope' IS NULL) p "
                                 + "ORDER BY p.dataset,p.partition_values::text,p.sort_id LIMIT ? OFFSET ?",
                         limit + 1,
@@ -125,6 +126,28 @@ public class OutputReadinessProvider {
             manifest.put("path", snapshotPath(output));
             manifest.put("canonicalPath", canonicalPath(output));
             manifest.put("dataVersion", output.dataVersion());
+            String coordinate =
+                    storageHeads == null
+                            ? output.storageVersionId()
+                            : storageHeads.coordinate(
+                                    output.dataset(),
+                                    output.partition(),
+                                    ((Number) row.get("generation")).longValue(),
+                                    output.storageVersionId());
+            if (Boolean.TRUE.equals(
+                            environment.getProperty(
+                                    "app.output-registration.versioned-storage-enabled",
+                                    Boolean.class,
+                                    false))
+                    && coordinate == null)
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT, "STORAGE_BASELINE_REQUIRED");
+            if (coordinate != null) {
+                manifest.put("storageVersionId", coordinate);
+                // A physical historical pin addresses the canonical key, including
+                // legacy whole-file baselines whose former route was a snapshot key.
+                manifest.put("path", canonicalPath(output));
+            }
             manifest.put("schemaVersion", output.schemaVersion());
             manifest.put("schemaHash", output.schemaHash());
             manifest.put("objectCount", 1);

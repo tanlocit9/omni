@@ -1,5 +1,32 @@
 # Platform / Core Service
 
+The private work-proof GET accepts optional atomicAttemptId; V26 records actual
+VERSIONED READY history so a refresh cannot erase frozen upstream availability.
+Default discovery remains current/latest. Registration/SUCCESS does not substitute
+for promotion evidence. See [review and gates](../../docs/reference/019-i10-review-20261111.md).
+
+For terminal VERSIONED completion, preserve the first accepted result and use
+[V26 rejection audit](../../docs/reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+before acknowledging valid late/conflicting output. The new handler requires the
+amended V26 schema. Active and legacy/CANONICAL processing retain their existing gates.
+
+Keep APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false during owner observation;
+automatic expiry is [deferred to TD-018](../../docs/technical-debt/018-execution-watchdog-observation.md).
+Source and diagnostics remain available; missing completion may require manual recovery.
+
+For [new I10 commands](../../docs/reference/018-i10-worker-completion.md), one completion
+carries status and registration. The execution transaction commits evidence, status
+and eligible READY together. Queued legacy commands remain supported.
+
+I10 [physical version safety](../../docs/reference/017-i10-versioned-storage.md)
+adds V26, frozen claim-time merge bases, monotonic accepted heads and the fenced
+physical-baseline endpoint. The versioned flag remains default-off; local test
+evidence does not activate retained storage/readers.
+
+Signals backfill source extension: goal=SYNC_SIGNALS, optional targetDefinitionId
+for canonical strategy selection; ambiguous selection returns 409. See
+[current closure/verification scope](../../docs/reference/016-i10-signals-backfill-closure.md).
+
 Request discovery for polling: `GET /api/v1/jobs/atomic-work/requests` returns
 camelCase summaries with active/history filters, cursor pagination, timings and
 per-job counts, without graph payloads. See [API and UI flow](../../docs/reference/014-atomic-request-polling.md).

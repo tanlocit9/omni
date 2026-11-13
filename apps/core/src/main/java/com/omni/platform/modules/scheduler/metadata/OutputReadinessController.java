@@ -20,8 +20,14 @@ public class OutputReadinessController {
     private OutputWorkReadiness workReadiness;
 
     @GetMapping("/work")
-    public Map<String, Object> work(@RequestParam String atomicWorkId) {
-        return Map.of("atomicWorkId", atomicWorkId, "items", workReadiness.read(atomicWorkId));
+    public Map<String, Object> work(
+            @RequestParam String atomicWorkId,
+            @RequestParam(required = false) java.util.UUID atomicAttemptId) {
+        return Map.of(
+                "atomicWorkId",
+                atomicWorkId,
+                "items",
+                workReadiness.read(atomicWorkId, atomicAttemptId));
     }
 
     @GetMapping

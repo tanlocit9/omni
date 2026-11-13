@@ -46,4 +46,35 @@ public class OutputBackfillController {
         service.commit(baseline);
         return Map.of("accepted", true);
     }
+
+    @PostMapping("/storage")
+    public Map<String, Long> pinStorage(@RequestBody String payload) {
+        OutputRegistrationEvent.require(
+                payload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 16384,
+                "Storage baseline exceeds size bound");
+        var node = json.readTree(payload);
+        for (String field : java.util.List.of("fence", "revision", "totalBytes"))
+            OutputRegistrationEvent.require(
+                    node.has(field)
+                            && node.get(field).isIntegralNumber()
+                            && node.get(field).canConvertToLong(),
+                    "Invalid storage baseline " + field);
+        for (String field : java.util.List.of("dataset", "storageVersionId", "checksum"))
+            OutputRegistrationEvent.require(
+                    node.has(field) && node.get(field).isString(),
+                    "Invalid storage baseline " + field);
+        OutputRegistrationEvent.require(
+                node.has("partition") && node.get("partition").isObject(),
+                "Invalid storage baseline partition");
+        for (var value : node.get("partition"))
+            OutputRegistrationEvent.require(
+                    value.isString(), "Invalid storage baseline partition value");
+        OutputBackfillService.StorageBaseline baseline =
+                json.readerFor(OutputBackfillService.StorageBaseline.class)
+                        .with(
+                                tools.jackson.databind.DeserializationFeature
+                                        .FAIL_ON_UNKNOWN_PROPERTIES)
+                        .readValue(payload);
+        return Map.of("revision", service.pinStorage(baseline));
+    }
 }

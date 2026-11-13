@@ -18,6 +18,27 @@ HASH = "sha256:" + "a" * 64
 SCHEMA_HASH = "sha256:" + "b" * 64
 
 
+def test_shadow_services_share_the_query_parquet_validator():
+    from unittest.mock import AsyncMock, Mock
+
+    from py_common.storage.output_readiness import ShadowMetadataReader
+    from pydantic import SecretStr
+
+    from app.storage import build_metadata_services
+
+    registry = Mock()
+    registry.get_port.return_value = AsyncMock()
+    settings = QueryServiceSettings(
+        output_readiness_mode="shadow",
+        output_readiness_api_url="http://platform/readiness",
+        output_readiness_api_token=SecretStr("fixture"),
+    )
+    resolver, catalog = build_metadata_services(registry, settings)
+    assert isinstance(resolver._reader, ShadowMetadataReader)
+    assert catalog._reader is resolver._reader
+    assert resolver._reader._parquet is resolver._parquet_storage
+
+
 class FakeMetadataReader:
     async def read(self) -> GlobalMetadataDocument:
         partition = GlobalPartitionMetadata(
@@ -249,3 +270,110 @@ async def test_signal_ready_scope_exposes_only_the_registered_model():
     )
     assert result[0].frame["model_version"].tolist() == ["V2"]
     assert result[0].frame["score"].tolist() == [3]
+
+
+@pytest.mark.asyncio
+async def test_catalog_preserves_discovery_and_hides_physical_storage_coordinates():
+    from dataclasses import replace
+    from unittest.mock import AsyncMock
+
+    from app.storage import DatasetCatalogService
+
+    document = await FakeMetadataReader().read()
+    section = document.datasets[0]
+    proof = replace(
+        section.partitions[0],
+        canonicalPath=section.partitions[0].path,
+        storageVersionId="opaque-backend-version",
+    )
+    document = replace(document, datasets=[replace(section, partitions=[proof])])
+    catalog = DatasetCatalogService(AsyncMock(read=AsyncMock(return_value=document)))
+    datasets = await catalog.list_datasets()
+    assert datasets[0]["name"] == "eod"
+    assert datasets[0]["partitionCount"] == 1
+    assert datasets[0]["partitionKeys"][0]["name"] == "exchange"
+    page = await catalog.list_partitions("eod", offset=0, limit=1)
+    assert page["total"] == 1
+    assert page["items"][0]["dataVersion"] == HASH
+    assert page["items"][0]["sourceExecutionId"] is None
+    assert page["items"][0]["columns"] == [
+        {"name": "code", "type": "VARCHAR", "nullable": True}
+    ]
+    assert not {"path", "canonicalPath", "storageVersionId"} & page["items"][0].keys()
+    assert (await catalog.list_partitions("eod", offset=1, limit=1))["items"] == []
+    with pytest.raises(ValueError, match="Unsupported dataset"):
+        await catalog.list_partitions("unknown")
+
+
+@pytest.mark.asyncio
+async def test_catalog_options_filter_sort_deduplicate_and_bound_results():
+    from dataclasses import replace
+    from unittest.mock import AsyncMock
+
+    from app.storage import DatasetCatalogService
+
+    document = await FakeMetadataReader().read()
+    section = document.datasets[0]
+    partitions = [
+        replace(section.partitions[0], values=values)
+        for values in [
+            {"exchange": "hose", "code": "BBB"},
+            {"exchange": "hose", "code": "AAA"},
+            {"exchange": "hnx", "code": "CCC"},
+            {"exchange": "hose"},
+        ]
+    ]
+    keys = [
+        *section.partitionKeys,
+        PartitionKeyDefinition("code", PartitionValueType.STRING, False, 1),
+    ]
+    document = replace(
+        document, datasets=[replace(section, partitionKeys=keys, partitions=partitions)]
+    )
+    catalog = DatasetCatalogService(AsyncMock(read=AsyncMock(return_value=document)))
+    assert await catalog.list_partition_options("eod", "exchange", {}) == [
+        "hnx",
+        "hose",
+    ]
+    assert await catalog.list_partition_options(
+        "eod", "code", {"exchange": "hose"}, limit=1
+    ) == ["AAA"]
+    assert (
+        await catalog.list_partition_options("eod", "code", {"exchange": "missing"})
+        == []
+    )
+    for dataset, key, filters in [
+        ("unknown", "exchange", {}),
+        ("eod", "unknown", {}),
+        ("eod", "exchange", {"unknown": "value"}),
+    ]:
+        with pytest.raises(ValueError, match="Unsupported|unsupported"):
+            await catalog.list_partition_options(dataset, key, filters)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["../outside.parquet", "/absolute.parquet"])
+async def test_catalog_paths_cannot_escape_the_query_storage_boundary(path, tmp_path):
+    from dataclasses import replace
+    from unittest.mock import AsyncMock
+
+    from py_common.storage.exceptions import ManifestInvalidError
+
+    document = await FakeMetadataReader().read()
+    section = document.datasets[0]
+    with pytest.raises(ManifestInvalidError, match="safe relative object path"):
+        document = replace(
+            document,
+            datasets=[
+                replace(section, partitions=[replace(section.partitions[0], path=path)])
+            ],
+        )
+        resolver = DatasetResolver(
+            AsyncMock(read=AsyncMock(return_value=document)),
+            QueryServiceSettings(
+                query_storage_scheme="file", query_local_data_root=str(tmp_path)
+            ),
+        )
+        await resolver.resolve_many(
+            [DatasetRef(dataset="eod", partition={"exchange": "hose"})]
+        )

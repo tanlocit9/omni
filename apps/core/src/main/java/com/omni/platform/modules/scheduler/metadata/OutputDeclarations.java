@@ -15,6 +15,13 @@ import com.omni.platform.modules.scheduler.messaging.ExpandedJobMessage;
 public class OutputDeclarations {
     private final boolean enabled;
 
+    @Value("${app.output-registration.versioned-storage-enabled:false}")
+    private boolean versionedStorage;
+
+    public String storagePolicy() {
+        return versionedStorage ? "VERSIONED" : "CANONICAL";
+    }
+
     public OutputDeclarations(
             @Value("${app.output-registration.enrollment-enabled:false}") boolean enabled,
             @Value("${app.output-registration.shadow-enabled:false}") boolean consumer) {
@@ -32,7 +39,8 @@ public class OutputDeclarations {
         return requiredForEnrolledWork(work);
     }
 
-    public List<OutputRegistrationEvent.LogicalOutput> requiredForEnrolledWork(ExpandedJobMessage work) {
+    public List<OutputRegistrationEvent.LogicalOutput> requiredForEnrolledWork(
+            ExpandedJobMessage work) {
         String[] symbol = work.workKey().toLowerCase(Locale.ROOT).split("-", 2);
         boolean evaluation = work.jobType().equals("EVALUATE_SIGNALS");
         if (!List.of("SYNC_STOCK_PRICE", "SYNC_INDICATORS", "SYNC_SIGNALS", "EVALUATE_SIGNALS")
@@ -61,17 +69,20 @@ public class OutputDeclarations {
     public Map<String, Object> metadata(
             UUID attempt, List<OutputRegistrationEvent.LogicalOutput> required) {
         if (required.isEmpty()) return Map.of();
-        return Map.of(
-                "outputCompletion",
-                Map.of(
-                        "atomicAttemptId",
-                        attempt.toString(),
-                        "eventId",
-                        UUID.randomUUID().toString(),
-                        "registrationId",
-                        UUID.randomUUID().toString(),
-                        "requiredOutputs",
-                        required));
+        Map<String, Object> contract =
+                new LinkedHashMap<>(
+                        Map.of(
+                                "atomicAttemptId",
+                                attempt.toString(),
+                                "eventId",
+                                UUID.randomUUID().toString(),
+                                "registrationId",
+                                UUID.randomUUID().toString(),
+                                "requiredOutputs",
+                                required));
+        if (versionedStorage) contract.put("storagePolicy", "VERSIONED");
+        contract.put("protocol", "WORKER_COMPLETION_V1");
+        return Map.of("outputCompletion", contract);
     }
 
     private static String parameter(ExpandedJobMessage work, String key) {

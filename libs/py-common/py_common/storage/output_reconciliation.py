@@ -15,6 +15,7 @@ from py_common.messaging.output_registration import (
 from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.manifest import extract_schema_from_dataframe
 from py_common.storage.metadata_sync import MetadataSyncResult, MetadataSyncTarget
+from py_common.storage.output_snapshots import OutputSnapshotIdentity
 
 
 class OutputReconciler:
@@ -115,3 +116,64 @@ class OutputReconciler:
         return MetadataSyncResult(
             requested.mode, seen, published, 0, 0, seen - published, 0, 0
         )
+
+
+class OutputStorageBaselineCoordinator:
+    """Pin one partition before enabling strict versioned readers."""
+
+    def __init__(self, settings, reader, parquet, *, transport=None):
+        self._settings, self._reader, self._parquet = settings, reader, parquet
+        self._transport = transport
+
+    async def pin(self, dataset, partition, *, allow_unproven_history=False):
+        if not allow_unproven_history:
+            raise ManifestInvalidError(
+                "Physical baseline requires explicit historical-container approval"
+            )
+        url = self._settings.output_readiness_api_url.rstrip("/")
+        reader_token = self._settings.output_readiness_api_token.get_secret_value()
+        reconcile_token = (
+            self._settings.output_readiness_reconcile_token.get_secret_value()
+        )
+        if not url or not reader_token or not reconcile_token:
+            raise ValueError(
+                "Storage baseline requires private reader and "
+                "reconciliation credentials"
+            )
+        async with httpx.AsyncClient(
+            timeout=15,
+            follow_redirects=False,
+            trust_env=False,
+            transport=self._transport,
+        ) as client:
+            headers = {"Authorization": f"Bearer {reconcile_token}"}
+            response = await client.post(url + "/backfill/fence", headers=headers)
+            response.raise_for_status()
+            fence = response.json()["fence"]
+            response = await client.get(
+                url,
+                params={"offset": 0, "limit": 1},
+                headers={"Authorization": f"Bearer {reader_token}"},
+            )
+            response.raise_for_status()
+            revision = response.json()["revision"]
+            document = await self._reader.read()
+            manifest = document.resolve(dataset, partition)
+            evidence = await self._parquet.pin_historical_output(
+                OutputSnapshotIdentity(dataset, partition),
+                manifest,
+                allow_unproven_history=True,
+            )
+            response = await client.post(
+                url + "/backfill/storage",
+                headers=headers,
+                json={
+                    "fence": fence,
+                    "revision": revision,
+                    "dataset": dataset,
+                    "partition": partition,
+                    **evidence,
+                },
+            )
+            response.raise_for_status()
+            return response.json()

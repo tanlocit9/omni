@@ -102,9 +102,17 @@ class RegisteredOutput(LogicalOutput):
     columns: list[RegisteredColumn] = Field(min_length=1, max_length=256)
     inputs: list[RegisteredInput] = Field(max_length=128)
     work_scope: WorkRowScope | None = Field(default=None, alias="workScope")
+    storage_version_id: str | None = Field(
+        default=None, alias="storageVersionId", min_length=1, max_length=1024
+    )
 
     @model_validator(mode="after")
     def validate_sets(self):
+        if self.storage_version_id is not None and (
+            self.storage_version_id == "null"
+            or any(not 33 <= ord(c) < 127 for c in self.storage_version_id)
+        ):
+            raise ValueError("Invalid immutable storage version")
         if self.coverage_dates != sorted(set(self.coverage_dates)):
             raise ValueError("coverageDates must be sorted and unique")
         if len({column.name for column in self.columns}) != len(self.columns):
@@ -221,6 +229,8 @@ class OutputRegistrationEvent(WireModel):
             for output in item["outputs"]:
                 if output.get("workScope") is None:
                     output.pop("workScope", None)
+                if output.get("storageVersionId") is None:
+                    output.pop("storageVersionId", None)
         payload = json.dumps(raw, separators=(",", ":"), ensure_ascii=True).encode(
             "utf-8"
         )

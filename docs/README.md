@@ -1,5 +1,26 @@
 # Omni Documentation
 
+Current [I10 review and acceptance gates](reference/019-i10-review-20261111.md)
+separate verified local corrections from retained rollout and full acceptance.
+
+I10 [terminal replay audit](reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+is owner-approved in unapplied V26 source; local E2E passes 14/14. Retained rollout
+and full I10 acceptance remain open.
+
+November 11: automatic execution expiry is [deferred to TD-018](technical-debt/018-execution-watchdog-observation.md)
+and disabled during owner observation. Completion/READY safety remains required.
+
+I10 [unified worker completion](reference/018-i10-worker-completion.md) combines
+terminal status and output evidence for new commands; local verification is in progress.
+
+I10 physical safety: [versioned storage, fenced legacy baselines and paired rollout](reference/017-i10-versioned-storage.md).
+Owner approved this scope; implementation/local verification is in progress. No
+retained bucket, migration or reader activation is implied.
+
+I10 closure objective: [backfill through Signals](reference/016-i10-signals-backfill-closure.md).
+API extension and regressions are in progress; physical writer safety and complete
+acceptance remain open. Existing dated evidence below is not a Signals E2E pass.
+
 I10 request discovery: [bounded polling API](reference/014-atomic-request-polling.md)
 and [delivery review](reference/015-i10-review-20261108.md). I10 remains in_progress;
 local regression evidence does not authorize global cutover.

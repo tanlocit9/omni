@@ -21,6 +21,10 @@ public class OutputCompletionGate {
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
 
+    @org.springframework.beans.factory.annotation.Value(
+            "${app.output-registration.versioned-storage-enabled:false}")
+    private boolean versionedStorage;
+
     public OutputCompletionGate(JdbcTemplate jdbc, JsonMapper json) {
         this.jdbc = jdbc;
         this.json = json;
@@ -69,23 +73,33 @@ public class OutputCompletionGate {
                 "Cannot enroll an execution with pre-existing shadow evidence");
         String outputs = json.writeValueAsString(required);
         String reasons = json.writeValueAsString(validEmptyReasons);
+        if (!versionedStorage
+                && Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM output_storage_heads h JOIN jsonb_array_elements(?::jsonb) wanted "
+                                        + "ON h.dataset=wanted->>'dataset' AND h.partition_values=wanted->'partition')",
+                                Boolean.class,
+                                outputs)))
+            throw new IllegalStateException("CANONICAL_WORK_ON_VERSIONED_PARTITION");
         jdbc.update(
-                "INSERT INTO output_completion_contracts(execution_id,atomic_attempt_id,required_outputs,valid_empty_reasons) "
-                        + "VALUES (?,?,?::jsonb,?::jsonb) ON CONFLICT DO NOTHING",
+                "INSERT INTO output_completion_contracts(execution_id,atomic_attempt_id,required_outputs,valid_empty_reasons,storage_policy) "
+                        + "VALUES (?,?,?::jsonb,?::jsonb,?) ON CONFLICT DO NOTHING",
                 execution,
                 attempt,
                 outputs,
-                reasons);
+                reasons,
+                versionedStorage ? "VERSIONED" : "CANONICAL");
         OutputRegistrationEvent.require(
                 Boolean.TRUE.equals(
                         jdbc.queryForObject(
                                 "SELECT EXISTS(SELECT 1 FROM output_completion_contracts WHERE execution_id=? AND atomic_attempt_id=? "
-                                        + "AND required_outputs=?::jsonb AND valid_empty_reasons=?::jsonb)",
+                                        + "AND required_outputs=?::jsonb AND valid_empty_reasons=?::jsonb AND storage_policy=?)",
                                 Boolean.class,
                                 execution,
                                 attempt,
                                 outputs,
-                                reasons)),
+                                reasons,
+                                versionedStorage ? "VERSIONED" : "CANONICAL")),
                 "Conflicting completion contract");
     }
 
@@ -133,7 +147,7 @@ public class OutputCompletionGate {
     public void validate(OutputRegistrationEvent.Registration item) {
         var rows =
                 jdbc.queryForList(
-                        "SELECT atomic_attempt_id,required_outputs::text,valid_empty_reasons::text "
+                        "SELECT atomic_attempt_id,required_outputs::text,valid_empty_reasons::text,storage_policy "
                                 + "FROM output_completion_contracts WHERE execution_id=?",
                         item.executionId());
         if (rows.isEmpty()) return; // Shadow-only evidence; it grants no completion/readiness.
@@ -152,6 +166,10 @@ public class OutputCompletionGate {
                     "Unapproved valid-empty reason");
         } else {
             for (var output : item.outputs()) {
+                OutputRegistrationEvent.require(
+                        !"VERSIONED".equals(contract.get("storage_policy"))
+                                || output.storageVersionId() != null,
+                        "Versioned output requires an immutable storage version");
                 OutputRegistrationEvent.require(
                         output.schemaVersion() == 1, "Unsupported enrolled output schema");
                 OutputRegistrationEvent.require(

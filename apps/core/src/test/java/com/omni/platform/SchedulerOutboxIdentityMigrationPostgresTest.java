@@ -61,27 +61,42 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
     @Test
     void v24RetiresAnEmptyTrackerWithoutRemovingExecutionOrOutboxTables() {
         flyway("23").migrate();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM blocked_jobs", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM blocked_jobs", Integer.class))
+                .isZero();
         migrateAllPending();
-        assertThat(jdbc.queryForObject("SELECT to_regclass(?)::text", String.class,
-                schema + ".blocked_jobs")).isNull();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT to_regclass(?)::text",
+                                String.class,
+                                schema + ".blocked_jobs"))
+                .isNull();
         for (String table : List.of("scheduler_outbox_messages", "job_execution_histories")) {
-            assertThat(jdbc.queryForObject("SELECT to_regclass(?)::text", String.class,
-                    schema + "." + table)).isNotNull();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT to_regclass(?)::text",
+                                    String.class,
+                                    schema + "." + table))
+                    .isNotNull();
         }
     }
 
     @Test
     void v24RefusesToDropRetainedTrackerHistory() {
         flyway("23").migrate();
-        jdbc.update("INSERT INTO blocked_jobs(job_name,job_type,execution_id,block_reason,first_blocked_at,next_retry_at) "
-                + "VALUES ('retained-audit','SYNC_INDICATORS',?,'retained evidence',now(),now())",
+        jdbc.update(
+                "INSERT INTO blocked_jobs(job_name,job_type,execution_id,block_reason,first_blocked_at,next_retry_at) "
+                        + "VALUES ('retained-audit','SYNC_INDICATORS',?,'retained evidence',now(),now())",
                 UUID.randomUUID().toString());
         assertThatThrownBy(() -> flyway(null).migrate())
                 .hasStackTraceContaining("blocked_jobs contains rows");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM blocked_jobs", Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history "
-                + "WHERE version='24' AND success", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM blocked_jobs", Integer.class))
+                .isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM flyway_schema_history "
+                                        + "WHERE version='24' AND success",
+                                Integer.class))
+                .isZero();
     }
 
     private void migrateAllPending() {
@@ -89,7 +104,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         int pending = migrations.info().pending().length;
         assertThat(pending).isPositive();
         assertThat(migrations.migrate().migrationsExecuted).isEqualTo(pending);
-        assertThat(migrations.info().current().getVersion().toString()).isEqualTo("25");
+        assertThat(migrations.info().current().getVersion().toString()).isEqualTo("26");
     }
 
     @Test
@@ -100,7 +115,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                         "SELECT coalesce(jsonb_agg(to_jsonb(h) ORDER BY id),'[]'::jsonb)::text FROM job_execution_histories h",
                         String.class);
         migrateAllPending();
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("25");
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("26");
         for (String table :
                 List.of(
                         "output_registration_events",
@@ -187,7 +202,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
         assertThat(flyway(null).migrate().migrationsExecuted).isZero();
         flyway(null).validate();
         assertThat(intentsWithoutForeignKey()).isEqualTo(after);
-        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("25");
+        assertThat(flyway(null).info().current().getVersion().toString()).isEqualTo("26");
         // A separate disposable schema exercises all available migrations from an empty install.
         String original = schema;
         var originalSource = dataSource;
@@ -434,7 +449,7 @@ class SchedulerOutboxIdentityMigrationPostgresTest {
                                                                 "spring.datasource.url",
                                                                 dataSource.getUrl()))))) {
             assertThat(application.getBean(Flyway.class).info().current().getVersion().toString())
-                    .isEqualTo("25");
+                    .isEqualTo("26");
             var outbox = application.getBean(SchedulerOutboxService.class);
             var store = application.getBean(JobRunDispatchStore.class);
             var approved = Map.of(DatasetRef.of("eod", Map.of("exchange", "HOSE")), "v1");

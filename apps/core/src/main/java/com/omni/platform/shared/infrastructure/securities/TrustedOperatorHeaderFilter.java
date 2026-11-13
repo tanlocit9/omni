@@ -57,6 +57,7 @@ public class TrustedOperatorHeaderFilter extends OncePerRequestFilter {
         if ("POST".equals(request.getMethod())
                 && java.util.List.of(
                                 "/api/v1/jobs/output-readiness/backfill",
+                                "/api/v1/jobs/output-readiness/backfill/storage",
                                 "/api/v1/jobs/output-readiness/backfill/fence")
                         .contains(request.getRequestURI())
                 && !reconcileToken.isBlank()

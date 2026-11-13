@@ -60,6 +60,44 @@ public class OutputRegistrationStore {
                     item.executionId());
             if (completion != null) completion.validate(item);
         }
+        // A replay may PUT identical rows into a new immutable backend version. Keep
+        // first physical evidence; immutable equality below still rejects logical changes.
+        var wire = json.readTree(payload);
+        boolean normalized = false;
+        for (var registration : wire.get("registrations")) {
+            var stored =
+                    jdbc.queryForList(
+                            "SELECT payload::text FROM output_registrations WHERE registration_id=? AND execution_id=?",
+                            java.util.UUID.fromString(registration.get("registrationId").asText()),
+                            java.util.UUID.fromString(registration.get("executionId").asText()));
+            if (stored.isEmpty()) continue;
+            var first = json.readTree(stored.getFirst().get("payload").toString()).get("outputs");
+            var incoming = registration.get("outputs");
+            for (int i = 0; i < Math.min(first.size(), incoming.size()); i++) {
+                var originalVersion = first.get(i).get("storageVersionId");
+                var nextVersion = incoming.get(i).get("storageVersionId");
+                if (originalVersion != null
+                        && !originalVersion.isNull()
+                        && nextVersion != null
+                        && !nextVersion.isNull()
+                        && first.get(i).get("dataset").equals(incoming.get(i).get("dataset"))
+                        && first.get(i).get("partition").equals(incoming.get(i).get("partition"))) {
+                    ((tools.jackson.databind.node.ObjectNode) incoming.get(i))
+                            .set("storageVersionId", originalVersion);
+                    normalized = true;
+                }
+            }
+        }
+        if (normalized) {
+            payload = json.writeValueAsString(wire);
+            event = json.readValue(payload, OutputRegistrationEvent.class);
+            registrations =
+                    event.registrations().stream()
+                            .sorted(
+                                    java.util.Comparator.comparing(
+                                            item -> item.executionId().toString()))
+                            .toList();
+        }
         jdbc.update(
                 "INSERT INTO output_registration_events(event_id,schema_version,payload) VALUES (?,1,?::jsonb) "
                         + "ON CONFLICT DO NOTHING",

@@ -1,5 +1,22 @@
 # I10 canonical work identity — owner revision 2026-11-03
 
+November 11: [terminal VERSIONED completion audit](017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+preserves accepted work/attempt identity and READY while recording valid late or
+conflicting output before ACK. Local worker-chain regression now passes 14/14;
+retained rollout gates remain open. The historical late-registration blocker below
+is superseded by this amendment; V26 source is extended while local DB remains V25.
+
+November 10 [completion amendment](018-i10-worker-completion.md) preserves work/attempt
+identity while carrying terminal status and registration in one record for new commands.
+
+November 9 physical-safety amendment: [versioned backend coordinates](017-i10-versioned-storage.md)
+are owner-approved and opt-in. V26 adds policy, frozen write bases and physical heads;
+logical identity/row hashes remain unchanged. Earlier mutable-writer blockers below
+describe the legacy route; retained cutover still requires the current runbook/gate.
+November 10 shadow comparison validates registered rows and lineage against actual
+bytes, while enrolled input reads retain the frozen PostgreSQL route in shadow mode.
+The disposable baseline-to-Signals test passes; the late-registration blocker remains.
+
 Current follow-up: [downstream guard, frozen evaluation inputs and verification
 matrix](008-p14-i10-dispatch-guard.md). This supplements the identity contract;
 it does not close the increment or authorize cutover.
@@ -9,13 +26,13 @@ it does not close the increment or authorize cutover.
 The owner requested smaller migrations. The current sequence replaces the
 historical consolidated V19, preserving its SQL statement order and final schema:
 
-| Version | Responsibility | New tables |
-| --- | --- | --- |
-| [V19](../../database/migrations/V19__output_registration.sql) | Registration inbox, outputs, coverage, immutable evidence and attempt/execution FK | 4 |
-| [V20](../../database/migrations/V20__output_completion_and_timeout.sql) | Completion contract, successful status, timeout evidence and publication-clock index | 3 |
-| [V21](../../database/migrations/V21__output_ready_projection.sql) | Physical READY pointers and catalog revision | 2 |
-| [V22](../../database/migrations/V22__output_ready_baselines.sql) | Fenced historical baselines and physical catalog view | 2 |
-| [V23](../../database/migrations/V23__output_work_readiness.sql) | Work READY, row ownership and scoped catalog view | 2 |
+| Version                                                                 | Responsibility                                                                       | New tables |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------- |
+| [V19](../../database/migrations/V19__output_registration.sql)           | Registration inbox, outputs, coverage, immutable evidence and attempt/execution FK   | 4          |
+| [V20](../../database/migrations/V20__output_completion_and_timeout.sql) | Completion contract, successful status, timeout evidence and publication-clock index | 3          |
+| [V21](../../database/migrations/V21__output_ready_projection.sql)       | Physical READY pointers and catalog revision                                         | 2          |
+| [V22](../../database/migrations/V22__output_ready_baselines.sql)        | Fenced historical baselines and physical catalog view                                | 2          |
+| [V23](../../database/migrations/V23__output_work_readiness.sql)         | Work READY, row ownership and scoped catalog view                                    | 2          |
 
 Apply the complete sequence before starting the current application. Intermediate
 versions are schema checkpoints, not supported runtime cutovers. Both trigger
@@ -181,7 +198,7 @@ No schema migration or retained-data operation is part of this correction.
 | Query Service            | Aggregate work-proof inventory, scoped validation/filtering and execution on the validated buffer. Public DTO shape unchanged.                                                                                    |
 | Console                  | Existing SQL/catalog DTOs unchanged; returned availability/count/version now describes READY rows in PostgreSQL mode. No new UI or browser credentials.                                                           |
 | Shared contracts/library | Additive proto work_scope=11, Java/Python adapters, generated contracts through Nx; row hashing, validation, scoped publication and read helpers. Old unscoped fixture retained.                                  |
-| Persistence              | Row ownership is in V23; V1-V18 are unchanged. Local V18 cleanup and migration evidence are recorded below; other retained environments require their own reconciliation.                                                                                                               |
+| Persistence              | Row ownership is in V23; V1-V18 are unchanged. Local V18 cleanup and migration evidence are recorded below; other retained environments require their own reconciliation.                                         |
 | Config/operations        | Defaults remain manifest/off. Paired deployment/drain required; snapshot flag no longer a prerequisite for new enrollment. Custom enforced policies and historical/range coverage require explicit cutover proof. |
 
 Pre-edit graph impact across metadata/shared readers/Query found 45 changed nodes,

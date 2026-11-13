@@ -1,5 +1,22 @@
 # Data Lake
 
+Frozen worker proofs select their exact atomicAttemptId after a newer work refresh;
+V26 retains only actual immutable VERSIONED READY promotions for that historical
+lookup. Work/date/version checks and exact Parquet version validation still apply.
+No path, writer owner or mutable CANONICAL history guarantee changes. See
+[frozen attempt reads](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+New I10 commands retain Parquet write/read-back and exact-version validation, then
+send [one completion with status and registration](../reference/018-i10-worker-completion.md).
+This changes the completion transport, not dataset ownership, paths or row-version rules.
+
+Current I10 opt-in: [immutable backend versions and frozen merge bases](../reference/017-i10-versioned-storage.md)
+preserve logical paths and row-scoped identity. Versioned workers read back their PUT
+version and approved readers never use mutable fallback. Existing files require a
+fenced physical pin; runtime never enables versioning or deletes retained versions.
+Current force refreshes provider EOD and recalculates downstream; default prefers
+covered EOD from the accepted base. The November 5 wording below is historical.
+
 Indicators backfill (2026-11-05) preserves existing paths and merge keys. Force
 checks exact EOD day rows, reuses them when present, and recalculates Indicators;
 registration/SUCCESS still precede scoped READY. It never refreshes the canonical

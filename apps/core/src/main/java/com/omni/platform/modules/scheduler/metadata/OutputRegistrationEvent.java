@@ -38,6 +38,9 @@ public record OutputRegistrationEvent(
 
     public static void validateOutputWire(tools.jackson.databind.JsonNode output) {
         require(output != null && output.isObject(), "Missing output");
+        var storageVersion = output.get("storageVersionId");
+        if (storageVersion != null && !storageVersion.isNull())
+            require(storageVersion.isString(), "Storage version must be a string");
         integer(output, "rowCount", false);
         integer(output, "totalBytes", false);
         integer(output, "schemaVersion", true);
@@ -163,7 +166,37 @@ public record OutputRegistrationEvent(
             List<Input> inputs,
             @com.fasterxml.jackson.annotation.JsonInclude(
                             com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-                    WorkScope workScope) {
+                    WorkScope workScope,
+            @com.fasterxml.jackson.annotation.JsonInclude(
+                            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                    String storageVersionId) {
+        public Output(
+                String dataset,
+                Map<String, String> partition,
+                String dataVersion,
+                List<LocalDate> coverageDates,
+                long rowCount,
+                long totalBytes,
+                int schemaVersion,
+                String schemaHash,
+                List<Column> columns,
+                List<Input> inputs,
+                WorkScope workScope) {
+            this(
+                    dataset,
+                    partition,
+                    dataVersion,
+                    coverageDates,
+                    rowCount,
+                    totalBytes,
+                    schemaVersion,
+                    schemaHash,
+                    columns,
+                    inputs,
+                    workScope,
+                    null);
+        }
+
         public Output(
                 String dataset,
                 Map<String, String> partition,
@@ -190,6 +223,14 @@ public record OutputRegistrationEvent(
         }
 
         public Output {
+            if (storageVersionId != null) {
+                require(
+                        !storageVersionId.isEmpty()
+                                && storageVersionId.length() <= 1024
+                                && !storageVersionId.equals("null")
+                                && storageVersionId.chars().allMatch(c -> c > 32 && c < 127),
+                        "Invalid immutable storage version");
+            }
             var logical = new LogicalOutput(dataset, partition);
             partition = logical.partition();
             fingerprint(dataVersion);

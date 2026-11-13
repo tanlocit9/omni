@@ -32,6 +32,27 @@ def test_shared_fixture_round_trip_retains_identity_and_dates():
     assert event.registrations[0].outputs[0].coverage_dates == [date(2035, 1, 2)]
 
 
+def test_shared_versioned_fixture_preserves_optional_physical_coordinate():
+    path = (
+        Path(__file__).resolve().parents[3]
+        / "contracts/fixtures/output-registration-versioned-v1.json"
+    )
+    raw = json.loads(path.read_text())
+    event = OutputRegistrationEvent.model_validate(raw)
+    assert event.registrations[0].outputs[0].storage_version_id == "version-0001"
+    assert json.loads(event.wire_bytes()) == raw
+
+
+@pytest.mark.parametrize(
+    "version", ["", "null", "two versions", "vé", "x" * 1025, 42, True]
+)
+def test_invalid_storage_coordinate_is_rejected_before_publication(version):
+    raw = fixture()
+    raw["registrations"][0]["outputs"][0]["storageVersionId"] = version
+    with pytest.raises(ValueError):
+        OutputRegistrationEvent.model_validate(raw)
+
+
 @pytest.mark.parametrize(
     "mutation",
     ["partial", "duplicate", "wrong_work", "path", "date_gap", "empty_with_output"],

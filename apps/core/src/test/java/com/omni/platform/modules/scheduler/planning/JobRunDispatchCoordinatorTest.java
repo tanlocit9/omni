@@ -235,6 +235,12 @@ class JobRunDispatchCoordinatorTest {
     @Test
     void configurationBindingFailsClosedForUnsafePreparationRollbackCombination() {
         new org.springframework.boot.test.context.runner.ApplicationContextRunner()
+                .withBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputStorageHeads.class,
+                        () ->
+                                mock(
+                                        com.omni.platform.modules.scheduler.metadata
+                                                .OutputStorageHeads.class))
                 .withBean(JobRunDispatchStore.class, () -> store)
                 .withBean(JobRunDispatchSnapshotReader.class, () -> reader)
                 .withBean(SchedulerOutboxService.class, () -> outbox)

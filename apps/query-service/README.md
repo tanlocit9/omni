@@ -1,5 +1,19 @@
 # Omni Query Service
 
+Graceful shutdown waits for an already started terminal DB completion and its
+audit to finish; query execution remains cancellable. This prevents cancelling
+the audit after polling observes a committed terminal state. It is not durable
+crash recovery. See the [I10 review and source/test evidence](../../docs/reference/019-i10-review-20261111.md).
+
+I10 [versioned proofs](../../docs/reference/017-i10-versioned-storage.md) carry an
+optional storageVersionId. Shared Parquet readers fetch and validate exact backend
+versions, combine approved rows and pass the checked buffer to DuckDB. No mutable
+fallback or UI/public discovery identity change is introduced.
+
+Shadow catalog comparison uses the Query Parquet validator to compare registered
+rows and input lineage against legacy files while returning manifest discovery.
+See [comparison scope](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows).
+
 I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
 Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
 symbols in the same file are independent; whole-file snapshots are not required

@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from py_common.config import BaseAppSettings, find_repo_root
 
 
@@ -210,3 +212,23 @@ def test_base_app_settings_supports_flat_environment_overrides(
     assert settings.minio.access_key == "override-access"
     assert settings.minio.secret_key == "override-secret"
     assert settings.minio.bucket == "override-bucket"
+
+
+def test_consumer_poll_interval_has_a_fifteen_minute_default_and_flat_override(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.delenv("KAFKA_MAX_POLL_INTERVAL_MS", raising=False)
+    configured = BaseAppSettings(shared_config_root=tmp_path)
+    assert configured.kafka.max_poll_interval_ms == 900_000
+    monkeypatch.setenv("KAFKA_MAX_POLL_INTERVAL_MS", "3600000")
+    configured = BaseAppSettings(shared_config_root=tmp_path)
+    assert configured.kafka.max_poll_interval_ms == 3_600_000
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "2147483648", "invalid", "1.5"])
+def test_invalid_consumer_poll_interval_fails_settings_startup(
+    tmp_path, monkeypatch, value
+):
+    monkeypatch.setenv("KAFKA_MAX_POLL_INTERVAL_MS", value)
+    with pytest.raises(ValueError):
+        BaseAppSettings(shared_config_root=tmp_path)

@@ -749,10 +749,13 @@ public class JobService {
                         "workBusinessDate",
                         "workIdentity",
                         "workExpansion",
+                        "outputCompletion",
                         "approvedInputs",
                         "acceptedExpansion",
                         "expandedWorkIds")) {
-            if (meta.containsKey(key) || key.equals("approvedInputs")) statusMetadata.remove(key);
+            if (meta.containsKey(key)
+                    || key.equals("approvedInputs")
+                    || key.equals("outputCompletion")) statusMetadata.remove(key);
         }
         putAllAsStrings(meta, statusMetadata);
         MetadataUtils.putIfPresent(meta, "workType", response.workType().name());
@@ -933,6 +936,7 @@ public class JobService {
                                     "acceptedExpansion",
                                     "expandedWorkIds",
                                     "workExpansion",
+                                    "outputCompletion",
                                     "approvedInputs")
                             .contains(key)) target.put(key, value);
                     else MetadataUtils.putIfPresent(target, key, value);

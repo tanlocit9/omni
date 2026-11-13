@@ -18,6 +18,19 @@ from py_common.storage.providers import StorageProvider
 
 
 @runtime_checkable
+class VersionedStorage(Protocol):
+    """Pin backend versions; callers must never fall back to mutable reads."""
+
+    async def read_versioned_bytes(
+        self, bucket: str, object_name: str, version_id: str
+    ) -> bytes: ...
+
+    async def write_versioned_bytes(
+        self, bucket: str, object_name: str, data: bytes, content_type: str
+    ) -> str: ...
+
+
+@runtime_checkable
 class StorageProviderInfo(Protocol):
     """Protocol for adapter identity and health status.
 

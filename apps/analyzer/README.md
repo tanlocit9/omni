@@ -1,5 +1,18 @@
 # Analyzer Service
 
+New I10 Indicators/Signals/evaluation commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md).
+RUNNING stays separate. Two-message ordering below describes legacy commands.
+
+I10 [versioned commands](../../docs/reference/017-i10-versioned-storage.md) merge
+declared output history from frozen accepted bases and read exact upstream versions.
+Registration precedes SUCCESS. Strategies/algorithms and logical paths are unchanged;
+paired deployment is required before enabling the versioned Platform flag.
+
+Shadow mode keeps manifest catalog authority and routes enrolled inputs through
+frozen PostgreSQL proofs. Startup shares its Parquet validator with scoped shadow
+comparison; the [storage runbook](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows)
+defines the comparison and its limits.
+
 Shared Kafka consumers now ACK a RUNNING worker receipt before calling the
 handler. This is neither terminal completion nor READY; command commit still
 requires terminal status ACK. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).

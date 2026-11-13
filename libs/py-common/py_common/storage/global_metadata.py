@@ -172,6 +172,7 @@ class GlobalPartitionMetadata:
     coverageDates: list[str] = field(default_factory=list)
     workScope: dict | None = None
     workProofs: list[dict] = field(default_factory=list)
+    storageVersionId: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.values, dict):
@@ -179,6 +180,13 @@ class GlobalPartitionMetadata:
         if self.status != "READY":
             raise _invalid("global metadata partitions must have READY status")
         _require_path(self.path, "partition path")
+        if self.storageVersionId is not None and (
+            not isinstance(self.storageVersionId, str)
+            or not 1 <= len(self.storageVersionId) <= 1024
+            or self.storageVersionId == "null"
+            or any(not 33 <= ord(c) <= 126 for c in self.storageVersionId)
+        ):
+            raise _invalid("Invalid immutable storage version")
         if self.canonicalPath is not None:
             _require_path(self.canonicalPath, "canonical partition path")
         if self.coverageDates != sorted(set(self.coverageDates)):
@@ -431,6 +439,11 @@ def _document_dict(document: GlobalMetadataDocument) -> dict[str, Any]:
                         **(
                             {"workProofs": partition.workProofs}
                             if partition.workProofs
+                            else {}
+                        ),
+                        **(
+                            {"storageVersionId": partition.storageVersionId}
+                            if partition.storageVersionId is not None
                             else {}
                         ),
                     }

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutputReadinessStore {
     private final JdbcTemplate jdbc;
     private final boolean enabled;
+    @org.springframework.beans.factory.annotation.Autowired private OutputStorageHeads storageHeads;
 
     public OutputReadinessStore(
             JdbcTemplate jdbc,
@@ -25,14 +26,18 @@ public class OutputReadinessStore {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void promote(UUID execution) {
-        if (!enabled && !Boolean.TRUE.equals(jdbc.queryForObject(
-                "SELECT EXISTS(SELECT 1 FROM atomic_work_requests r "
-                        + "JOIN atomic_work_request_members m ON m.request_id=r.id "
-                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id "
-                        + "WHERE r.mode='BACKFILL' AND a.execution_id=?)", Boolean.class, execution))) return;
+        if (!enabled
+                && !Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM atomic_work_requests r "
+                                        + "JOIN atomic_work_request_members m ON m.request_id=r.id "
+                                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                                        + "WHERE r.mode='BACKFILL' AND a.execution_id=?)",
+                                Boolean.class,
+                                execution))) return;
         var outputs =
                 jdbc.queryForList(
-                        "SELECT r.atomic_work_id,o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation "
+                        "SELECT r.atomic_work_id,o.dataset,o.partition_values::text AS partition,o.registration_id,o.output_index,c.generation,o.payload->>'storageVersionId' AS storage_version_id "
                                 + "FROM output_registration_outputs o JOIN output_registrations r USING(registration_id) "
                                 + "JOIN output_completion_contracts c ON c.execution_id=r.execution_id AND c.atomic_attempt_id=r.atomic_attempt_id "
                                 + "JOIN output_completion_statuses s ON s.execution_id=c.execution_id "
@@ -46,6 +51,13 @@ public class OutputReadinessStore {
             jdbc.queryForList(
                     "SELECT pg_advisory_xact_lock(hashtextextended(?, 1))",
                     output.get("dataset") + ":" + output.get("partition"));
+            if (storageHeads != null
+                    && !storageHeads.promote(
+                            execution,
+                            output.get("dataset").toString(),
+                            output.get("partition").toString(),
+                            ((Number) output.get("generation")).longValue(),
+                            (String) output.get("storage_version_id"))) continue;
             int rowsChanged =
                     jdbc.update(
                             "INSERT INTO output_ready_rows(dataset,partition_values,row_key,registration_id,output_index,generation) "
@@ -82,6 +94,15 @@ public class OutputReadinessStore {
                             output.get("registration_id"),
                             output.get("output_index"),
                             output.get("generation"));
+            jdbc.update(
+                    "INSERT INTO output_work_ready_history(registration_id,output_index) "
+                            + "SELECT w.registration_id,w.output_index FROM output_work_ready w "
+                            + "JOIN output_work_ready_catalog p USING(atomic_work_id,dataset,partition_values) "
+                            + "JOIN output_completion_contracts c ON c.execution_id=p.execution_id AND c.atomic_attempt_id=p.atomic_attempt_id "
+                            + "WHERE w.registration_id=? AND w.output_index=? AND c.storage_policy='VERSIONED' "
+                            + "AND p.payload->>'storageVersionId' IS NOT NULL ON CONFLICT DO NOTHING",
+                    output.get("registration_id"),
+                    output.get("output_index"));
             if (changed + rowsChanged + worksChanged > 0)
                 jdbc.update("UPDATE output_ready_revision SET revision=revision+1 WHERE id=1");
         }

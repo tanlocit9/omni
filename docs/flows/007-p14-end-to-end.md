@@ -1,5 +1,34 @@
 # P14 End-to-End Job, Work READY and Query Flow
 
+VERSIONED READY promotion records immutable work/output history in the same
+transaction. Frozen dependency binding and worker proof GET select the exact
+atomicAttemptId, even after a refresh advances current discovery. Unknown or
+unpromoted attempts remain unavailable; accepted registration alone is not READY.
+See [refresh-safe reads](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+Unified completion first validates server identities and locks execution. Active
+work follows registration/status/READY commit; terminal VERSIONED work follows
+[same-output no-op or immutable rejection audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+before ACK, without re-entering READY promotion. Audit failure retains the Kafka
+record for retry. Legacy/non-versioned handling is unchanged.
+
+Owner observation policy: the automatic watchdog is disabled under
+[TD-018](../technical-debt/018-execution-watchdog-observation.md). Elapsed published
+age no longer implies a scheduled failure in this phase. Normal completion/error,
+manual diagnostics and READY validation remain; historical timeout flows below
+describe the retained implementation, not an enabled runtime policy.
+
+For newly declared I10 work, [completion replaces the two terminal messages](../reference/018-i10-worker-completion.md):
+RUNNING -> validated Parquet -> one completion (status + registration) -> Platform
+transaction commits execution/registration/eligible READY. Older commands retain
+the registration-then-status route described below. Broker ACK is not DB acceptance.
+
+Versioned I10 route: enrollment freezes policy -> outbox claim freezes accepted
+merge bases -> worker exact-version merge/PUT/read-back -> registration ACK ->
+status ACK -> Platform SUCCESS + monotonic physical head/row READY -> exact-version
+worker/Query reads. Late failed writers cannot change the accepted coordinate.
+See [protocol and legacy baseline](../reference/017-i10-versioned-storage.md).
+
 Backfill policy: [rerun creates attempts; force refreshes provider EOD](../reference/013-backfill-attempt-and-data-policy.md).
 Default shares compatible live in-flight work; otherwise covered EOD is preferred.
 New Indicators executions compute from the approved EOD. Selected local worker

@@ -74,14 +74,18 @@ public class GraphWorkRequestService {
     private final boolean enabled;
     private final boolean planningEnabled;
     private UUID reconcileCursor;
+
     @Value("${app.scheduler.backfill.enabled:false}")
     private boolean backfillEnabled;
+
     @Value("${app.output-registration.shadow-enabled:false}")
     private boolean registrationConsumerEnabled;
 
     @Transactional(timeout = 120)
-    public UUID prepareBackfill(Request request, UUID target, Instant now, Map<String, Object> metadata) {
-        if (request.mode() != Mode.BACKFILL) throw new IllegalArgumentException("BACKFILL mode required");
+    public UUID prepareBackfill(
+            Request request, UUID target, Instant now, Map<String, Object> metadata) {
+        if (request.mode() != Mode.BACKFILL)
+            throw new IllegalArgumentException("BACKFILL mode required");
         return prepareAccepted(request, target, null, now, metadata);
     }
 
@@ -121,7 +125,8 @@ public class GraphWorkRequestService {
     }
 
     public UUID requestId(UUID execution) {
-        return jdbc.queryForObject("SELECT id FROM atomic_work_requests WHERE execution_id=?", UUID.class, execution);
+        return jdbc.queryForObject(
+                "SELECT id FROM atomic_work_requests WHERE execution_id=?", UUID.class, execution);
     }
 
     private record Template(
@@ -145,8 +150,12 @@ public class GraphWorkRequestService {
         return prepareAccepted(request, targetId, claim, now, metadata);
     }
 
-    private UUID prepareAccepted(Request request, UUID targetId, SchedulerClaim claim,
-            Instant now, Map<String, Object> metadata) {
+    private UUID prepareAccepted(
+            Request request,
+            UUID targetId,
+            SchedulerClaim claim,
+            Instant now,
+            Map<String, Object> metadata) {
         boolean backfill = request.mode() == Mode.BACKFILL;
         if (!backfill && !enabled) throw new IllegalStateException("GRAPH_EXPANSION_DISABLED");
         if (backfill && (!backfillEnabled || !registrationConsumerEnabled || !planningEnabled))
@@ -154,9 +163,12 @@ public class GraphWorkRequestService {
         if (backfill ? claim != null : (claim == null || !targetId.equals(claim.jobDefinitionId())))
             throw new IllegalArgumentException("Invalid graph request claim/mode");
         Map<String, Object> expansion = readObject(request.parametersJson());
-        if (backfill && (Boolean.TRUE.equals(expansion.get("force")) != Boolean.TRUE.equals(metadata.get("force"))
-                || newAttempts(expansion) != newAttempts(metadata)))
-            throw new IllegalArgumentException("Backfill rerun/force policy must match accepted request");
+        if (backfill
+                && (Boolean.TRUE.equals(expansion.get("force"))
+                                != Boolean.TRUE.equals(metadata.get("force"))
+                        || newAttempts(expansion) != newAttempts(metadata)))
+            throw new IllegalArgumentException(
+                    "Backfill rerun/force policy must match accepted request");
         // Serialize one idempotency key, then acquire definitions/slots in stable order.
         jdbc.queryForList(
                 "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
@@ -187,20 +199,31 @@ public class GraphWorkRequestService {
         jdbc.execute("LOCK TABLE symbols IN SHARE MODE");
         entities.clear();
         JobDefinition target = assertClaim(targetId, claim, now);
-        if (backfill && Boolean.TRUE.equals(jdbc.queryForObject(
-                "SELECT EXISTS(SELECT 1 FROM job_definitions WHERE is_active AND schedule_enabled "
-                        + "AND job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS')) "
-                        + "OR EXISTS(SELECT 1 FROM job_execution_histories e JOIN job_definitions j ON j.id=e.job_id "
-                        + "WHERE e.status IN ('PENDING','RUNNING') AND e.parent_log_id IS NOT NULL "
-                        + "AND j.job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS') "
-                        + "AND NOT (e.meta_json ? 'outputCompletion'))", Boolean.class)))
+        if (backfill
+                && Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM job_definitions WHERE is_active AND schedule_enabled "
+                                        + "AND (job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS') "
+                                        + "OR (? AND job_type IN ('SYNC_SIGNALS','EVALUATE_SIGNALS')))) "
+                                        + "OR EXISTS(SELECT 1 FROM job_execution_histories e JOIN job_definitions j ON j.id=e.job_id "
+                                        + "WHERE e.status IN ('PENDING','RUNNING') AND e.parent_log_id IS NOT NULL "
+                                        + "AND (j.job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS') "
+                                        + "OR (? AND j.job_type IN ('SYNC_SIGNALS','EVALUATE_SIGNALS'))) "
+                                        + "AND NOT jsonb_exists(e.meta_json,'outputCompletion'))",
+                                Boolean.class,
+                                target.getJobType() == JobDefinition.JobType.SYNC_SIGNALS,
+                                target.getJobType() == JobDefinition.JobType.SYNC_SIGNALS)))
             throw new IllegalStateException("BACKFILL_REQUIRES_PAUSED_AND_DRAINED_LEGACY_WRITERS");
         if (backfill && expansion.get("sectorCodes") instanceof List<?> requestedSectors) {
             for (Object sector : requestedSectors) {
-                if (!Boolean.TRUE.equals(jdbc.queryForObject(
-                        "SELECT EXISTS(SELECT 1 FROM symbols WHERE is_active=true AND meta_json->>CAST(? AS text)=?)",
-                        Boolean.class, "sectorLv" + expansion.get("sectorLevel") + "Code", sector)))
-                    throw new IllegalArgumentException("No active symbols for requested sector: " + sector);
+                if (!Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM symbols WHERE is_active=true AND meta_json->>CAST(? AS text)=?)",
+                                Boolean.class,
+                                "sectorLv" + expansion.get("sectorLevel") + "Code",
+                                sector)))
+                    throw new IllegalArgumentException(
+                            "No active symbols for requested sector: " + sector);
             }
         }
         List<JobDefinition> catalog =
@@ -249,19 +272,34 @@ public class GraphWorkRequestService {
         if (backfill && plan.targets().isEmpty())
             throw new IllegalArgumentException("Backfill scope resolves no target work");
         if (backfill) {
+            for (var work : plan.works()) {
+                if (work.jobType() != JobDefinition.JobType.SYNC_SYMBOLS
+                        && outputDeclarations
+                                .requiredForEnrolledWork(templates.get(work.id()).message())
+                                .isEmpty())
+                    throw new IllegalArgumentException(
+                            "BACKFILL_UNSUPPORTED_OUTPUT_PROTOCOL: " + work.jobType());
+            }
             var acceptedParent = new JobExecutionHistory();
             acceptedParent.setMetaJson(Map.of("expansionRequest", expansion));
             var days = WorkExpansion.resolve(target, acceptedParent, now).days();
-            var symbols = jdbc.queryForList(
-                    "SELECT exchange || '-' || code FROM symbols WHERE is_active=true "
-                            + "AND meta_json->>CAST(? AS text) IN (SELECT jsonb_array_elements_text(?::jsonb))",
-                    String.class, "sectorLv" + expansion.get("sectorLevel") + "Code",
-                    json.writeValueAsString(expansion.get("sectorCodes")));
-            Set<String> expected = symbols.stream().flatMap(symbol -> days.stream()
-                    .map(day -> symbol + "@" + day)).collect(Collectors.toSet());
+            var symbols =
+                    jdbc.queryForList(
+                            "SELECT exchange || '-' || code FROM symbols WHERE is_active=true "
+                                    + "AND meta_json->>CAST(? AS text) IN (SELECT jsonb_array_elements_text(?::jsonb))",
+                            String.class,
+                            "sectorLv" + expansion.get("sectorLevel") + "Code",
+                            json.writeValueAsString(expansion.get("sectorCodes")));
+            Set<String> expected =
+                    symbols.stream()
+                            .flatMap(symbol -> days.stream().map(day -> symbol + "@" + day))
+                            .collect(Collectors.toSet());
             Set<String> targetWorkIds = Set.copyOf(plan.targets());
-            Set<String> actual = plan.works().stream().filter(work -> targetWorkIds.contains(work.id()))
-                    .map(work -> work.workKey() + "@" + work.businessDate()).collect(Collectors.toSet());
+            Set<String> actual =
+                    plan.works().stream()
+                            .filter(work -> targetWorkIds.contains(work.id()))
+                            .map(work -> work.workKey() + "@" + work.businessDate())
+                            .collect(Collectors.toSet());
             if (!actual.equals(expected))
                 throw new IllegalArgumentException("BACKFILL_INCOMPLETE_TARGET_MEMBERSHIP");
         }
@@ -339,7 +377,8 @@ public class GraphWorkRequestService {
                                 .map(id -> attempts.get(id).id())
                                 .sorted()
                                 .toList();
-                Attempt attempt = acquire(work, templates.get(work.id()), upstream, now, backfill, metadata);
+                Attempt attempt =
+                        acquire(work, templates.get(work.id()), upstream, now, backfill, metadata);
                 attempts.put(work.id(), attempt);
                 remaining.remove(work.id());
                 jdbc.update(
@@ -353,8 +392,9 @@ public class GraphWorkRequestService {
             }
         }
         jdbc.update("UPDATE atomic_work_requests SET state='PREPARED' WHERE id=?", requestId);
-        if (claim != null) jobs.completeRunPreparation(
-                assertClaim(targetId, claim, now), claim, now, request.mode() == Mode.MANUAL);
+        if (claim != null)
+            jobs.completeRunPreparation(
+                    assertClaim(targetId, claim, now), claim, now, request.mode() == Mode.MANUAL);
         return root.getId();
     }
 
@@ -364,7 +404,8 @@ public class GraphWorkRequestService {
         var target = definitions.findById(targetId).orElseThrow();
         entities.refresh(target);
         if (claim == null) {
-            if (!Boolean.TRUE.equals(target.getIsActive())) throw new IllegalStateException("Inactive backfill target");
+            if (!Boolean.TRUE.equals(target.getIsActive()))
+                throw new IllegalStateException("Inactive backfill target");
             return target;
         }
         if (!Boolean.TRUE.equals(target.getIsActive())
@@ -377,29 +418,42 @@ public class GraphWorkRequestService {
     }
 
     private Attempt acquire(
-            GraphWorkExpansion.Work work, Template template, List<UUID> upstream, Instant now, boolean backfill, Map<String, Object> requestMetadata) {
+            GraphWorkExpansion.Work work,
+            Template template,
+            List<UUID> upstream,
+            Instant now,
+            boolean backfill,
+            Map<String, Object> requestMetadata) {
         var requiredOutputs =
                 outputDeclarations == null
                         ? List
                                 .<com.omni.platform.modules.scheduler.metadata
                                                 .OutputRegistrationEvent.LogicalOutput>
                                         of()
-                        : backfill ? outputDeclarations.requiredForEnrolledWork(template.message())
-                        : outputDeclarations.required(template.message());
+                        : backfill
+                                ? outputDeclarations.requiredForEnrolledWork(template.message())
+                                : outputDeclarations.required(template.message());
         String binding = json.writeValueAsString(upstream.stream().map(UUID::toString).toList());
-        var reusable = backfill && newAttempts(requestMetadata)
-                ? List.<Map<String, Object>>of() : jdbc.queryForList(
-                        "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
-                                + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
-                                + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
-                                + "AND " + LIVE_OWNER + " "
-                                + "AND NOT EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
-                                + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
-                                + "AND (?=false OR EXISTS(SELECT 1 FROM output_completion_contracts c WHERE c.execution_id=e.id)) "
-                                + "ORDER BY a.created_at DESC,a.id LIMIT 1",
-                        work.id(),
-                        binding,
-                        !requiredOutputs.isEmpty());
+        var reusable =
+                backfill && newAttempts(requestMetadata)
+                        ? List.<Map<String, Object>>of()
+                        : jdbc.queryForList(
+                                "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
+                                        + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
+                                        + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
+                                        + "AND "
+                                        + LIVE_OWNER
+                                        + " "
+                                        + "AND NOT EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
+                                        + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
+                                        + "AND (?=false OR EXISTS(SELECT 1 FROM output_completion_contracts c WHERE c.execution_id=e.id AND c.storage_policy=?)) "
+                                        + "ORDER BY a.created_at DESC,a.id LIMIT 1",
+                                work.id(),
+                                binding,
+                                !requiredOutputs.isEmpty(),
+                                outputDeclarations == null
+                                        ? "CANONICAL"
+                                        : outputDeclarations.storagePolicy());
         if (!reusable.isEmpty())
             return new Attempt(
                     (UUID) reusable.getFirst().get("id"),
@@ -457,12 +511,22 @@ public class GraphWorkRequestService {
         entities.flush();
         var context = new JobRunWorkContext(parent, entities, jdbc, json, 1);
         Map<String, Object> childMetadata = new LinkedHashMap<>();
-        if (!requiredOutputs.isEmpty()) childMetadata.putAll(outputDeclarations.metadata(attemptId, requiredOutputs));
-        if (backfill) childMetadata.put("backfillPolicy", Map.of(
-                "force", Boolean.TRUE.equals(requestMetadata.get("force")),
-                "rerun", newAttempts(requestMetadata),
-                "dataPolicy", Boolean.TRUE.equals(requestMetadata.get("force")) ? "REFRESH" : "PREFER_EXISTING",
-                "verifyEodParquet", true));
+        if (!requiredOutputs.isEmpty())
+            childMetadata.putAll(outputDeclarations.metadata(attemptId, requiredOutputs));
+        if (backfill)
+            childMetadata.put(
+                    "backfillPolicy",
+                    Map.of(
+                            "force",
+                            Boolean.TRUE.equals(requestMetadata.get("force")),
+                            "rerun",
+                            newAttempts(requestMetadata),
+                            "dataPolicy",
+                            Boolean.TRUE.equals(requestMetadata.get("force"))
+                                    ? "REFRESH"
+                                    : "PREFER_EXISTING",
+                            "verifyEodParquet",
+                            true));
         var child =
                 producers
                         .getProducer(work.jobType())
@@ -594,8 +658,11 @@ public class GraphWorkRequestService {
                 jdbc.queryForList(
                         "SELECT m.work_id,m.is_target,a.id AS attempt_id,a.job_run_id,a.execution_id,e.status,e.started_at,e.finished_at,"
                                 + "o.status AS outbox_status,c.required_outputs::text AS required_outputs,"
-                                + LIVE_OWNER + " AS has_live_owner,"
-                                + "coalesce((" + NEVER_DISPATCHED + "),false) AS never_dispatched,"
+                                + LIVE_OWNER
+                                + " AS has_live_owner,"
+                                + "coalesce(("
+                                + NEVER_DISPATCHED
+                                + "),false) AS never_dispatched,"
                                 + "EXISTS(SELECT 1 FROM output_attempt_timeouts timeout WHERE timeout.execution_id=e.id) AS timed_out,"
                                 + "CASE WHEN e.error IN ('REQUEST_CLOSED','ATOMIC_UPSTREAM_FAILED') THEN e.error END AS reason_code,"
                                 + "coalesce((SELECT jsonb_agg(jsonb_build_object('dataset',w.dataset,'partition',w.partition_values,"
@@ -610,14 +677,34 @@ public class GraphWorkRequestService {
                                 + "WHERE m.request_id=? ORDER BY m.work_id",
                         requestId);
         for (var member : members) {
-            List<Map<String, Object>> outputs = json.readValue(member.remove("ready_outputs").toString(), List.class);
+            List<Map<String, Object>> outputs =
+                    json.readValue(member.remove("ready_outputs").toString(), List.class);
             Object requiredJson = member.remove("required_outputs");
             Boolean outputReady = outputs.isEmpty() ? null : true;
             if (requiredJson != null) {
-                List<Map<String, Object>> required = json.readValue(requiredJson.toString(), List.class);
-                outputReady = required.stream().allMatch(declaration -> outputs.stream().anyMatch(item ->
-                        declaration.get("dataset").equals(item.get("dataset"))
-                                && declaration.get("partition").equals(item.get("partition"))));
+                List<Map<String, Object>> required =
+                        json.readValue(requiredJson.toString(), List.class);
+                outputReady =
+                        required.stream()
+                                .allMatch(
+                                        declaration ->
+                                                outputs.stream()
+                                                        .anyMatch(
+                                                                item ->
+                                                                        declaration
+                                                                                        .get(
+                                                                                                "dataset")
+                                                                                        .equals(
+                                                                                                item
+                                                                                                        .get(
+                                                                                                                "dataset"))
+                                                                                && declaration
+                                                                                        .get(
+                                                                                                "partition")
+                                                                                        .equals(
+                                                                                                item
+                                                                                                        .get(
+                                                                                                                "partition"))));
             }
             boolean orphaned = !Boolean.TRUE.equals(member.remove("has_live_owner"));
             boolean untouched = Boolean.TRUE.equals(member.remove("never_dispatched"));
@@ -627,16 +714,42 @@ public class GraphWorkRequestService {
             member.put("readyOutputs", outputs);
             member.put("reasonCode", member.remove("reason_code"));
             member.put("orphaned", orphaned && !terminalMember(member.get("status").toString()));
-            member.put("requiresExecutionReview", timedOut || (orphaned && !untouched
-                    && !terminalMember(member.get("status").toString())));
+            member.put(
+                    "requiresExecutionReview",
+                    timedOut
+                            || (orphaned
+                                    && !untouched
+                                    && !terminalMember(member.get("status").toString())));
         }
-        Map<String, Long> counts = members.stream().collect(Collectors.groupingBy(
-                member -> member.get("status").toString(), Collectors.counting()));
-        long unfinished = members.stream().filter(member -> !terminalMember(member.get("status").toString())).count();
-        boolean hasFailure = members.stream().anyMatch(member ->
-                List.of("FAILED", "ERROR", "BLOCKED").contains(member.get("status").toString()));
-        return Map.of("request", request, "members", members, "memberCounts", counts,
-                "unfinishedMembers", unfinished, "isSettled", unfinished == 0, "hasFailure", hasFailure);
+        Map<String, Long> counts =
+                members.stream()
+                        .collect(
+                                Collectors.groupingBy(
+                                        member -> member.get("status").toString(),
+                                        Collectors.counting()));
+        long unfinished =
+                members.stream()
+                        .filter(member -> !terminalMember(member.get("status").toString()))
+                        .count();
+        boolean hasFailure =
+                members.stream()
+                        .anyMatch(
+                                member ->
+                                        List.of("FAILED", "ERROR", "BLOCKED")
+                                                .contains(member.get("status").toString()));
+        return Map.of(
+                "request",
+                request,
+                "members",
+                members,
+                "memberCounts",
+                counts,
+                "unfinishedMembers",
+                unfinished,
+                "isSettled",
+                unfinished == 0,
+                "hasFailure",
+                hasFailure);
     }
 
     private static boolean terminalMember(String status) {
@@ -644,27 +757,38 @@ public class GraphWorkRequestService {
     }
 
     private void reconcileOrphanedAttempts() {
-        var candidates = jdbc.queryForList(
-                "SELECT a.id,a.work_id FROM atomic_work_attempts a "
-                        + "JOIN job_execution_histories e ON e.id=a.execution_id "
-                        + "JOIN scheduler_outbox_messages o ON o.execution_id=e.id "
-                        + "WHERE a.sealed AND e.status IN ('PENDING','RUNNING') AND " + NEVER_DISPATCHED
-                        + " AND " + CLOSED_OWNER + " AND NOT " + LIVE_OWNER
-                        + " ORDER BY a.work_id,a.id LIMIT 100");
+        var candidates =
+                jdbc.queryForList(
+                        "SELECT a.id,a.work_id FROM atomic_work_attempts a "
+                                + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                + "JOIN scheduler_outbox_messages o ON o.execution_id=e.id "
+                                + "WHERE a.sealed AND e.status IN ('PENDING','RUNNING') AND "
+                                + NEVER_DISPATCHED
+                                + " AND "
+                                + CLOSED_OWNER
+                                + " AND NOT "
+                                + LIVE_OWNER
+                                + " ORDER BY a.work_id,a.id LIMIT 100");
         for (var candidate : candidates) {
             // Acceptance holds the same sorted work-slot locks before reusing/binding attempts.
             if (jdbc.queryForList(
-                    "SELECT work_id FROM atomic_work_slots WHERE work_id=? FOR UPDATE SKIP LOCKED",
-                    candidate.get("work_id")).isEmpty()) continue;
-            var closed = jdbc.queryForList(
-                    "UPDATE scheduler_outbox_messages o SET status='BLOCKED',dependency_reason='REQUEST_CLOSED',"
-                            + "updated_at=CURRENT_TIMESTAMP FROM atomic_work_attempts a "
-                            + "JOIN job_execution_histories e ON e.id=a.execution_id "
-                            + "WHERE a.id=? AND a.sealed AND o.execution_id=e.id "
-                            + "AND e.status IN ('PENDING','RUNNING') AND " + NEVER_DISPATCHED
-                            + " AND " + CLOSED_OWNER + " AND NOT " + LIVE_OWNER
-                            + " RETURNING o.execution_id",
-                    candidate.get("id"));
+                            "SELECT work_id FROM atomic_work_slots WHERE work_id=? FOR UPDATE SKIP LOCKED",
+                            candidate.get("work_id"))
+                    .isEmpty()) continue;
+            var closed =
+                    jdbc.queryForList(
+                            "UPDATE scheduler_outbox_messages o SET status='BLOCKED',dependency_reason='REQUEST_CLOSED',"
+                                    + "updated_at=CURRENT_TIMESTAMP FROM atomic_work_attempts a "
+                                    + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                    + "WHERE a.id=? AND a.sealed AND o.execution_id=e.id "
+                                    + "AND e.status IN ('PENDING','RUNNING') AND "
+                                    + NEVER_DISPATCHED
+                                    + " AND "
+                                    + CLOSED_OWNER
+                                    + " AND NOT "
+                                    + LIVE_OWNER
+                                    + " RETURNING o.execution_id",
+                            candidate.get("id"));
             for (var row : closed) {
                 jdbc.update(
                         "UPDATE job_execution_histories SET status='FAILED',finished_at=CURRENT_TIMESTAMP,"
@@ -685,7 +809,9 @@ public class GraphWorkRequestService {
                 jdbc.queryForList(
                         "SELECT a.execution_id FROM atomic_work_attempts a JOIN scheduler_outbox_messages o ON o.execution_id=a.execution_id "
                                 + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.sealed AND e.status IN ('PENDING','RUNNING') "
-                                + "AND " + NEVER_DISPATCHED + " "
+                                + "AND "
+                                + NEVER_DISPATCHED
+                                + " "
                                 + "AND EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
                                 + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
                                 + "ORDER BY a.created_at,a.id LIMIT 100");
@@ -694,7 +820,8 @@ public class GraphWorkRequestService {
             jdbc.update(
                     "UPDATE scheduler_outbox_messages o SET status='BLOCKED',dependency_reason='ATOMIC_UPSTREAM_FAILED',"
                             + "updated_at=CURRENT_TIMESTAMP FROM job_execution_histories e "
-                            + "WHERE o.execution_id=e.id AND e.id=? AND " + NEVER_DISPATCHED,
+                            + "WHERE o.execution_id=e.id AND e.id=? AND "
+                            + NEVER_DISPATCHED,
                     execution);
             jdbc.update(
                     "UPDATE job_execution_histories e SET status='BLOCKED',finished_at=CURRENT_TIMESTAMP,error='ATOMIC_UPSTREAM_FAILED' "

@@ -30,6 +30,12 @@ class KafkaSettings(BaseModel):
         default=ConsumerGroup.INGESTOR,
         description="Consumer group prefix for this service",
     )
+    max_poll_interval_ms: int = Field(
+        default=900_000,
+        ge=1,
+        le=2_147_483_647,
+        description="Maximum time between consumer fetches in milliseconds",
+    )
 
 
 class MinioSettings(BaseModel):

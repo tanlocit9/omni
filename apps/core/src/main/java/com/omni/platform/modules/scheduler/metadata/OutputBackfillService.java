@@ -19,6 +19,105 @@ public class OutputBackfillService {
 
     public record Baseline(long fence, UUID baselineId, OutputRegistrationEvent.Output output) {}
 
+    public record StorageBaseline(
+            long fence,
+            long revision,
+            String dataset,
+            java.util.Map<String, String> partition,
+            String storageVersionId,
+            String checksum,
+            long totalBytes) {}
+
+    /** Pin an operator-validated historical container without inventing logical READY. */
+    @Transactional(timeout = 10)
+    public long pinStorage(StorageBaseline baseline) {
+        OutputRegistrationEvent.require(baseline != null, "Missing storage baseline");
+        OutputRegistrationEvent.require(
+                lockFence() == baseline.fence(),
+                "Writer generation changed during storage baseline");
+        requireIdle();
+        var keys =
+                switch (baseline.dataset() == null ? "" : baseline.dataset()) {
+                    case "eod" -> java.util.Set.of("exchange", "code");
+                    case "indicators" ->
+                            java.util.Set.of("source", "timeframe", "exchange", "code");
+                    case "signals" -> java.util.Set.of("strategy", "timeframe", "exchange");
+                    default ->
+                            throw new IllegalArgumentException(
+                                    "Unsupported storage baseline dataset");
+                };
+        String version = baseline.storageVersionId();
+        OutputRegistrationEvent.require(
+                baseline.partition() != null
+                        && baseline.partition().keySet().equals(keys)
+                        && baseline.partition().values().stream()
+                                .allMatch(v -> v != null && v.matches("[a-z0-9][a-z0-9._-]*"))
+                        && version != null
+                        && !version.isEmpty()
+                        && version.length() <= 1024
+                        && !version.equals("null")
+                        && version.chars().allMatch(c -> c >= 33 && c <= 126)
+                        && baseline.checksum() != null
+                        && baseline.checksum().matches("sha256:[0-9a-f]{64}")
+                        && baseline.totalBytes() > 0,
+                "Invalid storage baseline evidence");
+        long revision =
+                jdbc.queryForObject(
+                        "SELECT revision FROM output_ready_revision WHERE id=1 FOR UPDATE",
+                        Long.class);
+        OutputRegistrationEvent.require(
+                revision == baseline.revision(),
+                "READY changed during storage baseline validation");
+        String partition = json.writeValueAsString(baseline.partition());
+        jdbc.queryForList(
+                "SELECT pg_advisory_xact_lock(hashtextextended(? || ':' || (?::jsonb)::text,1))",
+                baseline.dataset(),
+                partition);
+        OutputRegistrationEvent.require(
+                !Boolean.TRUE.equals(
+                        jdbc.queryForObject(
+                                "SELECT EXISTS(SELECT 1 FROM output_registration_outputs o JOIN output_registrations r USING(registration_id) "
+                                        + "JOIN output_completion_contracts c ON c.execution_id=r.execution_id JOIN job_execution_histories e ON e.id=c.execution_id "
+                                        + "WHERE o.dataset=? AND o.partition_values=?::jsonb AND e.status='SUCCESS' AND NOT EXISTS("
+                                        + "SELECT 1 FROM output_ready_pointers p WHERE p.dataset=o.dataset AND p.partition_values=o.partition_values AND p.generation>=c.generation))",
+                                Boolean.class,
+                                baseline.dataset(),
+                                partition)),
+                "SUCCESS output promotion is incomplete");
+        var existing =
+                jdbc.queryForList(
+                        "SELECT baseline_version_id,baseline_checksum,baseline_total_bytes FROM output_storage_heads WHERE dataset=? AND partition_values=?::jsonb",
+                        baseline.dataset(),
+                        partition);
+        if (!existing.isEmpty()) {
+            var row = existing.getFirst();
+            OutputRegistrationEvent.require(
+                    version.equals(row.get("baseline_version_id"))
+                            && baseline.checksum().equals(row.get("baseline_checksum"))
+                            && baseline.totalBytes()
+                                    == ((Number) row.get("baseline_total_bytes")).longValue(),
+                    "Storage baseline is immutable");
+            return revision;
+        }
+        long generation =
+                jdbc.queryForObject(
+                        "SELECT coalesce(max(generation),0) FROM output_completion_contracts",
+                        Long.class);
+        jdbc.update(
+                "INSERT INTO output_storage_heads(dataset,partition_values,storage_version_id,generation,baseline_version_id,baseline_generation,baseline_checksum,baseline_total_bytes) "
+                        + "VALUES (?,?::jsonb,?,?,?,?,?,?)",
+                baseline.dataset(),
+                partition,
+                version,
+                generation,
+                version,
+                generation,
+                baseline.checksum(),
+                baseline.totalBytes());
+        jdbc.update("UPDATE output_ready_revision SET revision=revision+1 WHERE id=1");
+        return revision + 1;
+    }
+
     @Transactional(timeout = 10)
     public long begin() {
         long fence = lockFence();

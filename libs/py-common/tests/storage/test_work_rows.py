@@ -322,6 +322,7 @@ async def test_worker_resolves_frozen_work_proof_instead_of_latest_partition(cha
     def respond(request):
         assert request.url.path.endswith("/work")
         assert request.url.params["atomicWorkId"] == WORK
+        assert request.url.params["atomicAttemptId"] == binding["atomicAttemptId"]
         return httpx.Response(503 if change == "unavailable" else 200, json=payload)
 
     reader = PostgresMetadataReader(

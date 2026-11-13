@@ -89,6 +89,7 @@ public final class GraphWorkExpansion {
     private final AtomicExpander expander;
     private final SectorMembership sectors;
     private final Instant acceptedAt;
+
     private record Scope(WorkType type, String key, LocalDate day, int level) {}
 
     /** Index producer membership without narrowing or overriding its configured scope. */
@@ -103,7 +104,9 @@ public final class GraphWorkExpansion {
             for (Work member : members) {
                 byKey.computeIfAbsent(member.workKey(), ignored -> new ArrayList<>()).add(member);
                 if (member.workType() == WorkType.SYMBOL)
-                    byExchange.computeIfAbsent(exchange(member.workKey()), ignored -> new ArrayList<>())
+                    byExchange
+                            .computeIfAbsent(
+                                    exchange(member.workKey()), ignored -> new ArrayList<>())
                             .add(member);
             }
         }
@@ -112,25 +115,33 @@ public final class GraphWorkExpansion {
             if (members.isEmpty()) return members;
             WorkType upstream = members.getFirst().workType();
             WorkType downstream = dependent.workType();
-            if (downstream == WorkType.GLOBAL || upstream == WorkType.GLOBAL) return members;
+            if (downstream == WorkType.GLOBAL) return members;
             if (downstream == upstream) return byKey.getOrDefault(dependent.workKey(), List.of());
             if (downstream == WorkType.SYMBOL && upstream == WorkType.EXCHANGE)
                 return byKey.getOrDefault(exchange(dependent.workKey()), List.of());
             if (downstream == WorkType.EXCHANGE && upstream == WorkType.SYMBOL)
                 return byExchange.getOrDefault(dependent.workKey(), List.of());
-            if ((downstream == WorkType.SECTOR && upstream == WorkType.SYMBOL)
-                    || (downstream == WorkType.SYMBOL && upstream == WorkType.SECTOR)) {
-                var scope = new Scope(downstream, dependent.workKey(), dependent.businessDate(),
-                        ((Number) dependent.parameters().getOrDefault("sectorLevel", 2)).intValue());
-                return byMembership.computeIfAbsent(scope, ignored -> {
-                    var selected = new ArrayList<Work>();
-                    for (Work member : members) {
-                        countCandidate();
-                        if (matches(dependent, member)) selected.add(member);
-                    }
-                    return List.copyOf(selected);
-                });
+            if (downstream == WorkType.SECTOR && upstream == WorkType.SYMBOL) {
+                var scope =
+                        new Scope(
+                                downstream,
+                                dependent.workKey(),
+                                dependent.businessDate(),
+                                ((Number) dependent.parameters().getOrDefault("sectorLevel", 2))
+                                        .intValue());
+                return byMembership.computeIfAbsent(
+                        scope,
+                        ignored -> {
+                            var selected = new ArrayList<Work>();
+                            for (Work member : members) {
+                                countCandidate();
+                                if (matches(dependent, member)) selected.add(member);
+                            }
+                            return List.copyOf(selected);
+                        });
             }
+            // Other scope pairs retain the generic matcher, including GLOBAL upstreams
+            // and possible future SYMBOL -> SECTOR edges not declared by today's topology.
             return members;
         }
     }

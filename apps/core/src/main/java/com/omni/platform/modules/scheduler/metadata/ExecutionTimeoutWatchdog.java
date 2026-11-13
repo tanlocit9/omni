@@ -18,7 +18,7 @@ import com.omni.platform.modules.scheduler.services.JobService;
 import com.omni.platform.shared.executions.WorkType;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Published deadline only; timeout never proves that the worker has stopped writing. */
+/** TD-018: disabled during owner observation. Timeout never proves worker termination. */
 @Component
 @ConditionalOnProperty(name = "app.output-registration.watchdog-enabled", havingValue = "true")
 public class ExecutionTimeoutWatchdog {

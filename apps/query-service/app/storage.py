@@ -208,10 +208,6 @@ def build_metadata_services(
     settings: QueryServiceSettings,
 ) -> tuple[DatasetResolver, DatasetCatalogService]:
     from py_common.storage.output_readiness import metadata_reader
-
-    reader = metadata_reader(
-        settings, registry.get_port(StorageProvider.MINIO, ReadableStorage)
-    )
     from py_common.storage.parquet import ParquetStorage
 
     parquet = ParquetStorage(
@@ -219,5 +215,10 @@ def build_metadata_services(
         StorageProvider.MINIO,
         settings.minio.bucket,
         snapshot_paths=settings.stock_data_paths,
+    )
+    reader = metadata_reader(
+        settings,
+        registry.get_port(StorageProvider.MINIO, ReadableStorage),
+        parquet=parquet,
     )
     return DatasetResolver(reader, settings, parquet), DatasetCatalogService(reader)

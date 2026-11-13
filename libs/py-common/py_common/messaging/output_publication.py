@@ -35,7 +35,17 @@ class OutputPublication:
     def __init__(self, raw: dict[str, Any], snapshots_enabled: bool) -> None:
         self.raw = raw
         self.contract = (raw.get("metadata") or {}).get("outputCompletion")
+        if self.contract is not None and self.contract.get(
+            "storagePolicy", "CANONICAL"
+        ) not in {"CANONICAL", "VERSIONED"}:
+            raise ValueError("Unsupported output storage policy")
         self.outputs: dict[str, RegisteredOutput] = {}
+        self.completion_registration = None
+        if self.contract is not None and self.contract.get("protocol") not in {
+            None,
+            "WORKER_COMPLETION_V1",
+        }:
+            raise ValueError("Unsupported output completion protocol")
 
     def prepare(
         self,
@@ -190,6 +200,9 @@ class OutputPublication:
         event = self._event(
             list(self.outputs.values()), valid_empty_reason=valid_empty_reason
         )
+        if self.contract.get("protocol") == "WORKER_COMPLETION_V1":
+            self.completion_registration = event
+            return
         if producer is None:
             raise RuntimeError("Output registration publisher unavailable")
         await OutputRegistrationPublisher(producer).publish(event)
@@ -217,4 +230,39 @@ def active_publication():
         publication
         if publication is not None and publication.contract is not None
         else None
+    )
+
+
+async def publish_terminal_status(
+    producer, legacy_publish, status, raw, publication=None
+):
+    """Keep legacy wire; new enrolled commands send one completion."""
+    from py_common.messaging.messages import JobStatus
+    from py_common.messaging.worker_completion import (
+        COMPLETION_PROTOCOL,
+        WorkerCompletionEvent,
+        publish_completion,
+    )
+
+    contract = (raw.get("metadata") or {}).get("outputCompletion") or {}
+    protocol = contract.get("protocol")
+    if protocol is None:
+        await legacy_publish(status)
+        return
+    if protocol != COMPLETION_PROTOCOL:
+        raise ValueError("Unsupported output completion protocol")
+    registration = (
+        publication.completion_registration
+        if publication is not None and status.status == JobStatus.SUCCESS
+        else None
+    )
+    await publish_completion(
+        producer,
+        WorkerCompletionEvent(
+            schemaVersion=1,
+            eventId=contract["eventId"],
+            atomicAttemptId=contract["atomicAttemptId"],
+            status=status,
+            registration=registration,
+        ),
     )

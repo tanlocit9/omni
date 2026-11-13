@@ -1,5 +1,13 @@
 # Ingestor Service
 
+New enrolled EOD commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md)
+after validated writes. Errors have no output evidence; old commands keep two messages.
+
+I10 [versioned EOD commands](../../docs/reference/017-i10-versioned-storage.md) read
+existing EOD from the claim-frozen accepted base before deciding reuse/refresh.
+PUT captures/read-validates its immutable backend version before registration.
+Workers require externally configured bucket versioning; they never enable it.
+
 Atomic SYNC_SYMBOLS accepts current Saturday/Sunday snapshots, matching Platform
 projection for historical backfills. This exception does not permit weekend EOD
 work or weaken identity validation. See [the correction and retry boundary](../../docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).

@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -66,6 +67,40 @@ def test_global_document_round_trip_is_deterministic_and_indexed() -> None:
     ]
     assert decoded.resolve("eod", {"exchange": "hose", "code": "hpg"}) is not None
     assert json.loads(encoded)["datasets"][0]["partitionKeys"][0]["name"] == "exchange"
+
+
+@pytest.mark.parametrize(
+    "version_id", ["", "null", " leading", "tab\t", "vnđ", "a" * 1025, 12, False, []]
+)
+def test_invalid_physical_version_is_rejected_by_model_and_discovery_json(version_id):
+    document = _document()
+    with pytest.raises(ManifestInvalidError, match="Invalid immutable storage version"):
+        replace(document.datasets[0].partitions[0], storageVersionId=version_id)
+
+    payload = json.loads(document.to_json())
+    payload["datasets"][0]["partitions"][0]["storageVersionId"] = version_id
+    with pytest.raises(ManifestInvalidError, match="Invalid immutable storage version"):
+        GlobalMetadataDocument.from_json(json.dumps(payload))
+
+
+@pytest.mark.parametrize("version_id", [None, "!", "~" * 1024])
+def test_physical_version_round_trip_preserves_logical_identity_and_legacy_shape(
+    version_id,
+):
+    original = _document()
+    partition = replace(original.datasets[0].partitions[0], storageVersionId=version_id)
+    document = replace(
+        original, datasets=[replace(original.datasets[0], partitions=[partition])]
+    )
+    payload = json.loads(document.to_json())["datasets"][0]["partitions"][0]
+    assert ("storageVersionId" in payload) is (version_id is not None)
+    decoded = GlobalMetadataDocument.from_json(document.to_json()).resolve(
+        "eod", partition.values
+    )
+    assert decoded.storageVersionId == version_id
+    assert decoded.dataVersion == partition.dataVersion
+    assert decoded.path == partition.path
+    assert decoded.values == partition.values
 
 
 @pytest.mark.parametrize(

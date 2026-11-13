@@ -1,5 +1,11 @@
 # Kafka Poison Record and Dead-Letter Policy Technical Debt
 
+Owner-approved narrow exception (2026-11-11): [terminal VERSIONED completion](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+has a bounded immutable DB audit before ACK for valid late/conflicting output.
+This is not a general DLT/quarantine/replay platform. Invalid identity/schema,
+CANONICAL and legacy registration-only handling are unchanged; broader TD-010
+remains open. The historical assessment below predates this exception.
+
 ## Review — 2026-10-07
 
 | Field           | Assessment                                                                                                                                             |

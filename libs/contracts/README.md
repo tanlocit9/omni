@@ -1,5 +1,9 @@
 # Omni Cross-Service Contracts
 
+WorkerCompletionEvent/WorkerCompletionStatus and worker-completion-v1.json define
+[unified I10 completion](../../docs/reference/018-i10-worker-completion.md): terminal
+status plus optional output evidence on the existing registration topic. Deploy paired adapters.
+
 I10 review correction (2026-11-04): signal row coordinates include model_version
 when non-null; omission identifies only a legacy/null-version row. Existing
 row_keys Struct fields carry the distinction without new protobuf fields. The
@@ -86,5 +90,6 @@ historical provenance. Pages allow at most 200 items and 4 MiB UTF-8 bytes;
 be shorter than the requested limit. Keep revision fixed across pages and fail
 closed on invalid/non-progress cursors. This fixture is an internal HTTP JSON
 contract, separate from Kafka/protobuf; it does not change registration bounds.
-`contracts:test` also requires generated OutputRegistrationEvent.java and
+`contracts:test` also requires generated OutputRegistrationEvent.java,
+WorkerCompletionEvent.java, WorkerCompletionStatus.java and
 output_registration_pb2.py. Never hand-edit generated artifacts.

@@ -1,5 +1,11 @@
 # Indicators sector/date backfill
 
+November 9 extension in progress: [Signals backfill](016-i10-signals-backfill-closure.md).
+The API also accepts SYNC_SIGNALS with optional targetDefinitionId selecting one
+active canonical strategy definition. Ambiguous/mismatched selection is 409.
+Signals goals additionally require legacy Signals/Evaluation writers paused/drained.
+Current worker-chain verification is pending; older Indicators evidence is historical.
+
 For UI request discovery and compact polling, use the
 [request list API](014-atomic-request-polling.md); full graph/member detail remains separate.
 
@@ -193,11 +199,11 @@ missing-day rejection and legacy writes are unchanged. Normalizing the stored
 frame directly was rejected during verification because caller tests require
 preserving the pre-codec history representation.
 
-| Impacted source/path | Executed evidence |
-| --- | --- |
-| py-common `storage/atomic_work.py:write_day` | New timestamp-result/calendar-history cases for date and evaluation_date, with real ParquetCodec roundtrip, plus retained invalid/missing-day/legacy-write tests |
-| Analyzer Indicators | Handler regression now covers timestamp and actual DATE Parquet history, enrolled and legacy reads; retains unrelated-day values and input versions |
-| Analyzer Symbol/Sector Features and Rotation Backtest | Existing shared-helper caller tests pass, including outside-day DataFrame preservation |
+| Impacted source/path                                  | Executed evidence                                                                                                                                                |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| py-common `storage/atomic_work.py:write_day`          | New timestamp-result/calendar-history cases for date and evaluation_date, with real ParquetCodec roundtrip, plus retained invalid/missing-day/legacy-write tests |
+| Analyzer Indicators                                   | Handler regression now covers timestamp and actual DATE Parquet history, enrolled and legacy reads; retains unrelated-day values and input versions              |
+| Analyzer Symbol/Sector Features and Rotation Backtest | Existing shared-helper caller tests pass, including outside-day DataFrame preservation                                                                           |
 
 Before the fix, each approved coverage target failed two new calendar-history
 cases with the reported TypeError. Final reruns:
@@ -277,15 +283,15 @@ or capacity/concurrency setting change is needed. The local Postman package now
 has an `attempt` variable (v2) for a fresh request after loading patched services;
 it polls settlement rather than assuming an early failure has drained all work.
 
-| Impact/source | Acceptance and attributable tests |
-| --- | --- |
-| Platform JobRunWorkContext | PENDING/no start timestamp at preparation, asserted in JobRunWorkContextTest and GraphWorkRequestsPostgresTest |
-| Platform GraphWorkRequestService | Real PostgreSQL tests keep a healthy sibling admissible after target failure, wait for unfinished target/non-target members, and finalize FAILED only after settlement; existing graph transaction/shared-attempt tests remain applicable |
-| Platform JobService (existing consumer) | Real PostgreSQL receipt test moves PENDING to RUNNING and proves a late receipt cannot reopen FAILED |
-| py-common messages/lifecycle | Receipt identity, optional parent, malformed payloads, work attribution, null running completion and required terminal completion tests |
-| py-common Kafka service/processing | Start ACK precedes handler, failure prevents work/commit, and returning RUNNING cannot commit a completed command |
-| Ingestor router | Start publication success/failure ordering before provider handler |
-| Cross-service | I10WorkReadinessIntegrationTest verifies workerStarted and non-null start timestamps on completed backfill members through actual Kafka/worker/Platform processing |
+| Impact/source                           | Acceptance and attributable tests                                                                                                                                                                                                         |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform JobRunWorkContext              | PENDING/no start timestamp at preparation, asserted in JobRunWorkContextTest and GraphWorkRequestsPostgresTest                                                                                                                            |
+| Platform GraphWorkRequestService        | Real PostgreSQL tests keep a healthy sibling admissible after target failure, wait for unfinished target/non-target members, and finalize FAILED only after settlement; existing graph transaction/shared-attempt tests remain applicable |
+| Platform JobService (existing consumer) | Real PostgreSQL receipt test moves PENDING to RUNNING and proves a late receipt cannot reopen FAILED                                                                                                                                      |
+| py-common messages/lifecycle            | Receipt identity, optional parent, malformed payloads, work attribution, null running completion and required terminal completion tests                                                                                                   |
+| py-common Kafka service/processing      | Start ACK precedes handler, failure prevents work/commit, and returning RUNNING cannot commit a completed command                                                                                                                         |
+| Ingestor router                         | Start publication success/failure ordering before provider handler                                                                                                                                                                        |
+| Cross-service                           | I10WorkReadinessIntegrationTest verifies workerStarted and non-null start timestamps on completed backfill members through actual Kafka/worker/Platform processing                                                                        |
 
 Python coverage checks passed: py-common 419 passed/5 skipped, Analyzer 268
 passed, Ingestor 98 passed. Platform coverage passed 749 tests (744 passed,
@@ -383,16 +389,16 @@ Graph was refreshed and impact analysis run; bounded output is truncated and has
 unresolved calls, so it is navigation evidence only. Canonical ownership/flow,
 Kafka, data-lake, database and rollout documents reconcile the following scope:
 
-| Area | Impact or no-impact reason |
-| --- | --- |
-| Platform | New controller; BACKFILL graph acceptance, scoped enrollment/promotion, active-writer refusal and reconciliation. Scheduler leases/next-run are unchanged by acceptance. |
-| Ingestor | Force policy checks exact existing EOD day; normal validation, upsert and registration remain required. Symbols uses existing current snapshot work. |
-| Analyzer | Existing Indicators frozen EOD reads and registration reused; manifest-mode reader now resolves enrolled proofs through private API. |
-| Shared Python/contracts | Hybrid reader change in py-common; existing message metadata only, no generated protobuf edits. |
-| Query Service | No production source change: existing work-scoped reader consumes promoted results; real Query path covered in E2E. |
-| Console | No source/UI change; existing read-only work inspection can display requests. |
-| Persistence/configuration | Additive V25 mode and default-off backfill flag; no path or dataset ownership change. |
-| Tests/operations | Controller/auth, graph transaction/idempotency/admission and worker data-policy paths have local evidence in reference/013; rollout and full I10 gate remain open. |
+| Area                      | Impact or no-impact reason                                                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Platform                  | New controller; BACKFILL graph acceptance, scoped enrollment/promotion, active-writer refusal and reconciliation. Scheduler leases/next-run are unchanged by acceptance. |
+| Ingestor                  | Force policy checks exact existing EOD day; normal validation, upsert and registration remain required. Symbols uses existing current snapshot work.                     |
+| Analyzer                  | Existing Indicators frozen EOD reads and registration reused; manifest-mode reader now resolves enrolled proofs through private API.                                     |
+| Shared Python/contracts   | Hybrid reader change in py-common; existing message metadata only, no generated protobuf edits.                                                                          |
+| Query Service             | No production source change: existing work-scoped reader consumes promoted results; real Query path covered in E2E.                                                      |
+| Console                   | No source/UI change; existing read-only work inspection can display requests.                                                                                            |
+| Persistence/configuration | Additive V25 mode and default-off backfill flag; no path or dataset ownership change.                                                                                    |
+| Tests/operations          | Controller/auth, graph transaction/idempotency/admission and worker data-policy paths have local evidence in reference/013; rollout and full I10 gate remain open.       |
 
 ## Verification and remaining gates
 
@@ -403,24 +409,24 @@ are recorded in those handoffs. Do not interpret earlier passes as full current-
 
 Source/test matrix (executed outcomes recorded below after final runs):
 
-| Source/safety path | Test evidence |
-| --- | --- |
-| IndicatorBackfillController request and error mapping | IndicatorBackfillControllerTest; I10WorkReadinessIntegrationTest HTTP 401/202/replay |
-| GraphWorkRequestService acceptance, declaration selection, idempotency, no schedule mutation, unsafe admission rollback | GraphWorkRequestsPostgresTest backfill cases; original graph transaction/concurrency tests |
-| OutputDeclarations + OutputReadinessStore scoped READY, downstream barrier | I10WorkReadinessIntegrationTest with global graph/enrollment/promotion disabled for backfill |
-| WorkExpansion sector/date projection and immutable identity | Existing expansion tests plus graph backfill dated-chain assertions; current Symbols snapshots also expand on weekends |
-| StockPricesHandler force checks, merge preservation | test_atomic_stock_work.py covered/missing date cases; real worker E2E |
-| metadata_reader + read_input_document hybrid routing | test_output_readiness.py; manifest-mode Analyzer real-worker E2E |
-| V25 fresh/retained upgrade | SchedulerOutboxIdentityMigrationPostgresTest migrates through V25 |
+| Source/safety path                                                                                                      | Test evidence                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| IndicatorBackfillController request and error mapping                                                                   | IndicatorBackfillControllerTest; I10WorkReadinessIntegrationTest HTTP 401/202/replay                                   |
+| GraphWorkRequestService acceptance, declaration selection, idempotency, no schedule mutation, unsafe admission rollback | GraphWorkRequestsPostgresTest backfill cases; original graph transaction/concurrency tests                             |
+| OutputDeclarations + OutputReadinessStore scoped READY, downstream barrier                                              | I10WorkReadinessIntegrationTest with global graph/enrollment/promotion disabled for backfill                           |
+| WorkExpansion sector/date projection and immutable identity                                                             | Existing expansion tests plus graph backfill dated-chain assertions; current Symbols snapshots also expand on weekends |
+| StockPricesHandler force checks, merge preservation                                                                     | test_atomic_stock_work.py covered/missing date cases; real worker E2E                                                  |
+| metadata_reader + read_input_document hybrid routing                                                                    | test_output_readiness.py; manifest-mode Analyzer real-worker E2E                                                       |
+| V25 fresh/retained upgrade                                                                                              | SchedulerOutboxIdentityMigrationPostgresTest migrates through V25                                                      |
 
 Local owner-approved checks (2026-11-05; all invoked with `--skip-nx-cache`):
 
-| Nx target | Latest outcome |
-| --- | --- |
-| platform:coverage | PASS: 746 tests, 741 passed, 5 skipped, 0 failures/errors; graph PostgreSQL cases and migrations through V25 included |
-| analyzer:coverage | PASS: 266 passed |
-| ingestor:coverage | PASS: 96 passed |
-| py-common:coverage | PASS: 399 passed, 5 skipped |
+| Nx target                 | Latest outcome                                                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| platform:coverage         | PASS: 746 tests, 741 passed, 5 skipped, 0 failures/errors; graph PostgreSQL cases and migrations through V25 included                                        |
+| analyzer:coverage         | PASS: 266 passed                                                                                                                                             |
+| ingestor:coverage         | PASS: 96 passed                                                                                                                                              |
+| py-common:coverage        | PASS: 399 passed, 5 skipped                                                                                                                                  |
 | platform:test-integration | PASS: 2 passed, 0 skipped/failures/errors on final source; HTTP authentication/replay and scoped EOD/Indicators/Query with Platform manifest reader included |
 
 Attributable Platform class coverage (line / branch): IndicatorBackfillController

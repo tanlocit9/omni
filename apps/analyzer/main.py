@@ -105,7 +105,7 @@ async def startup_event(app: FastAPI) -> None:
         StorageProvider.MINIO, ReadableStorage
     )
     from py_common.storage.output_readiness import metadata_reader as create_metadata_reader
-    metadata_reader = create_metadata_reader(settings, readable)
+    metadata_reader = create_metadata_reader(settings, readable, parquet=app.state.parquet_storage)
     metadata_writer = GlobalMetadataWriter(
         app.state.storage_registry.get_port(StorageProvider.MINIO, WritableStorage),
         readable,

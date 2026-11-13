@@ -1,5 +1,40 @@
 # Dependency-Ordered Implementation Increments
 
+November 12: [criterion-by-criterion I10 reconciliation](../../reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation)
+checks seven proven local criteria. The remaining reader-cutover, reconciliation
+and complete rollout/owner-evidence criteria stay open; P14-I10 remains in_progress.
+
+November 11 review: [remaining acceptance gates](../../reference/019-i10-review-20261111.md)
+record corrected frozen-attempt proof availability and pending retained
+versioning/parity/cutover. P14-I10 remains in_progress; local regression does not
+authorize activation or waive these gates.
+
+Final November 11 local gate: P14-I10-final-review-20261111 PASS 14/14;
+Platform 911 cases (13 skipped), Query 59, Console 34 and real worker-chain 14/14.
+V26 schema validation on local retained DB rolls back cleanly at V25. No retained
+versioning, parity, cutover/rollback or owner attestation is inferred.
+
+November 11 terminal replay: owner-approved [V26 immutable audit](../../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+passes local E2E 14/14 and the scoped regression gate 3/3 for terminal VERSIONED completion. P14-I10 remains
+in_progress; no live migration, cutover or increment completion is inferred.
+
+November 11 owner revision: [TD-018](../../technical-debt/018-execution-watchdog-observation.md)
+defers automatic execution expiry during observation. It is not a current P14-I10
+completion gate; historical increment title is retained. Registration/READY safety,
+diagnostics and the late-completion/cutover gates remain; I10 stays in_progress.
+
+November 10 owner-approved [unified completion](../../reference/018-i10-worker-completion.md)
+is in implementation/verification; P14-I10 remains in_progress with unchanged dependencies.
+
+I10 owner-approved [physical versioning scope](../../reference/017-i10-versioned-storage.md)
+is being implemented and verified alongside Signals backfill. P14-I10 remains
+in_progress; existing dependencies and retained-environment acceptance are unchanged.
+November 10 scoped shadow and physical-baseline E2E pass locally; late registration
+still blocks full recovery. See the linked Signals closure for source-bound evidence.
+
+Owner objective November 9: [complete I10 with safe Signals backfill](../../reference/016-i10-signals-backfill-closure.md).
+Implementation/testing is in progress; no new increment or completed gate is inferred.
+
 I10 follow-up: [request discovery API](../../reference/014-atomic-request-polling.md)
 and [bounded delivery review](../../reference/015-i10-review-20261108.md). P14-I10
 remains in_progress with the same dependencies; no new increment is registered.

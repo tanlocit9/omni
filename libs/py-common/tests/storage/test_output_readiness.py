@@ -12,6 +12,7 @@ from py_common.storage.output_readiness import (
 async def test_enrolled_inputs_use_work_reader_without_switching_legacy_catalog():
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
+
     from py_common.storage.output_readiness import read_input_document
 
     work = PostgresMetadataReader("http://platform/readiness", "fixture")
@@ -23,6 +24,7 @@ async def test_enrolled_inputs_use_work_reader_without_switching_legacy_catalog(
     assert await read_input_document(legacy, {"outputCompletion": {}}) == "frozen-work"
     legacy.read.assert_awaited_once()
     work.read_for.assert_awaited_once()
+
 
 @pytest.fixture
 def anyio_backend():
@@ -76,6 +78,35 @@ async def test_ready_api_preserves_snapshot_coverage_and_unknown_provenance():
     assert manifest.canonicalPath == "eod/upcom/hd6.parquet"
     assert manifest.sourceExecutionId is None
     assert manifest.coverageDates == ["2026-10-30", "2026-11-02"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("route", ["canonical", "snapshot", "wrong-canonical"])
+async def test_pinned_historical_baseline_uses_the_canonical_version_route(route):
+    body = page()
+    raw = body["items"][0]["manifest"]
+    raw["storageVersionId"] = "historical-clone"
+    if route != "snapshot":
+        raw["path"] = raw["canonicalPath"]
+    if route == "wrong-canonical":
+        raw["canonicalPath"] = "eod/hnx/hd6.parquet"
+    reader = PostgresMetadataReader(
+        "http://platform/readiness",
+        "reader",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)),
+    )
+    if route == "canonical":
+        manifest = (await reader.read()).resolve(
+            "eod", {"exchange": "upcom", "code": "hd6"}
+        )
+        assert (
+            manifest.path == manifest.canonicalPath
+            and manifest.storageVersionId == "historical-clone"
+        )
+        assert manifest.sourceExecutionId is None
+    else:
+        with pytest.raises(ManifestInvalidError, match="canonical route"):
+            await reader.read()
 
 
 @pytest.mark.anyio
@@ -395,7 +426,8 @@ def test_authority_selection_keeps_explicit_mode_and_shared_path_configuration(m
         with pytest.raises(ValueError, match="Unsupported"):
             metadata_reader(settings, Mock())
         return
-    reader = metadata_reader(settings, Mock())
+    validator = object()
+    reader = metadata_reader(settings, Mock(), parquet=validator)
     if mode == "manifest":
         assert isinstance(reader, GlobalMetadataReader)
         assert isinstance(reader.enrolled_work_reader, PostgresMetadataReader)
@@ -403,3 +435,6 @@ def test_authority_selection_keeps_explicit_mode_and_shared_path_configuration(m
         postgres = reader._postgres if mode == "shadow" else reader
         assert isinstance(postgres, PostgresMetadataReader)
         assert postgres._paths is paths
+        if mode == "shadow":
+            assert reader._parquet is validator
+            assert reader.enrolled_work_reader is postgres

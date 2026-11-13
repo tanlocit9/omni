@@ -1,5 +1,114 @@
 # Omni Release Notes
 
+## 2026-11-12 - Record completion delivery and storage commit debt
+
+Record two operational boundaries in [TD-018](docs/technical-debt/018-execution-watchdog-observation.md#completion-delivery-and-storage-commit-boundaries):
+worker Kafka ACK precedes Platform DB consumption/commit, and Parquet writes can
+exist without committed registration/READY. Track diagnostic and recovery follow-up
+without changing I10 acceptance, enabling watchdogs or authorizing retries/cleanup.
+Documentation only; no tests or runtime changes.
+
+## 2026-11-12 - Reconcile I10 acceptance against executed evidence
+
+Close seven Plan 030 criteria using the existing source/test/coverage evidence and
+passing recorded gates. Keep three operational/full-acceptance criteria open:
+all-reader PostgreSQL cutover, quiesced 12-hour reconciliation, and complete retained
+rollout/recovery plus owner review. No new tests or runtime mutations are inferred.
+See [criterion matrix](docs/reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation).
+
+## 2026-11-11 - I10 acceptance review and Query shutdown audit safety
+
+Complete the missing local build/Console/format checks and add Query discovery,
+security and terminal-audit regression coverage. Query graceful shutdown now waits
+for an already started terminal DB commit and its audit. Review also identifies
+frozen upstream proof availability under a concurrent refresh; owner-approved
+V26 READY history and exact-attempt API reads now correct this path. Read-only retained preflight finds V25,
+bucket versioning unset and no retained parity/cutover evidence. I10 remains
+in_progress. See [review, source/test matrix and current gates](docs/reference/019-i10-review-20261111.md).
+
+Final local recorder gate passes 14/14. Platform has 911 cases, zero failures and
+13 skips; Query 59 and Console 34 pass. Real worker-chain passes 14/14, including
+old frozen proof/Parquet reads after refresh; Kafka recovery, sharing and overlap
+pass. V26 executes successfully on the retained local schema inside a rolled-back
+transaction, leaving Flyway at V25. No retained installation or reader activation.
+
+Follow-up disposable integration also passes 14/14 without skips: stop owned
+workers, restore three canonical partitions from accepted immutable versions,
+preserve registration/READY history and Query results, and reject a CANONICAL
+writer downgrade with HTTP 503. This keeps PostgreSQL authority; retained parity,
+coordinated cutover/rollback and owner acceptance remain open.
+
+## 2026-11-11 - Audit terminal versioned completion without blocking Kafka
+
+After server identity/declaration validation under the execution lock, keep terminal
+VERSIONED execution/READY immutable. Identical successful output replay is a no-op;
+conflicting SUCCESS or late FAILED completion is stored in bounded immutable audit
+before ACK. Audit DB failure still retries. Add the audit to V26 source with owner
+approval after local Flyway history confirmed V25. Existing applied schemas were
+not changed. See [policy and verification](docs/reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11).
+
+Local regression: worker-chain E2E 14/14; Platform coverage 907 cases, zero failures,
+13 skips. Completion store coverage is 96.88% line / 88.46% branch. No retained
+migration, runtime activation, commit or complete I10 acceptance is inferred.
+
+## 2026-11-11 - Defer automatic execution expiry during observation
+
+Set APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false explicitly in local and environment
+examples, retaining the default-off source implementation. Move automatic-expiry
+acceptance from current I10 scope to owner-deferred [TD-018](docs/technical-debt/018-execution-watchdog-observation.md).
+Observe real requests before deciding on reactivation; missing completions may need
+manual investigation. The legacy Metadata full-scan duration is accepted outside
+this PostgreSQL-readiness observation path. Completion/READY and late-evidence
+correctness remain required. Static inspection only; no tests, restart or DB mutation.
+
+## 2026-11-10 - Raise the Python consumer poll interval to 15 minutes
+
+Pass validated KafkaSettings.max_poll_interval_ms to both factory subscription
+paths, defaulting to 900000 ms with process-wide KAFKA_MAX_POLL_INTERVAL_MS override.
+Live historical duration review supports the larger window for ordinary jobs but
+identifies a ~54-minute Metadata scan as an unresolved exception. Sequential handling,
+heartbeat/session limits and Platform watchdog are unchanged. No services restarted.
+See [scope and timing evidence](docs/reference/018-i10-worker-completion.md#consumer-poll-window).
+
+## 2026-11-10 - Combine I10 terminal status and output evidence
+
+New enrolled commands stage registration locally and send one completion envelope.
+Platform commits registration/status/eligible READY together; RUNNING and old queued
+commands retain compatibility. Preserve structured server-owned completion metadata
+across status updates. Local verification and remaining blockers are recorded in
+[the protocol handoff](docs/reference/018-i10-worker-completion.md); no live activation.
+
+## 2026-11-10 - Validate scoped I10 shadow reads and physical baselines
+
+Fix shadow-mode enrolled input routing to the frozen PostgreSQL reader. Analyzer
+and Query share their Parquet validator with shadow comparison, which checks exact
+registered rows and lineage while retaining manifest catalog authority. Disposable
+physical-baseline-to-Signals E2E passes; it does not prove retained-inventory parity.
+The late-registration partition blocker keeps I10 in_progress. See
+[source-bound results and remaining gates](docs/reference/016-i10-signals-backfill-closure.md).
+
+## 2026-11-09 - Add opt-in physical versions for I10 writers/readers
+
+Owner approved immutable backend coordinates at current logical keys. Add V26,
+frozen claim-time merge bases, exact-version write/read-back, monotonic physical
+heads and a fenced historical physical-pin API/helper. Logically identical replay
+retains first physical evidence; logical conflicts remain rejected. Legacy timeout
+ownership stays blocked; only two versioned contracts permit safe replacement.
+Verification is in progress in [the storage runbook](docs/reference/017-i10-versioned-storage.md)
+and [Signals evidence](docs/reference/016-i10-signals-backfill-closure.md).
+No retained migration, bucket configuration or reader activation was performed.
+
+## 2026-11-09 - Extend enrolled backfill through Signals
+
+Accept SYNC_SIGNALS with optional canonical targetDefinitionId for strategy selection;
+reject ambiguous selection and unsupported ancestor output protocols before durable
+acceptance. Signals goals also drain legacy signal-history writers. Apply the existing
+write-generation barrier to scoped enrolled work even when global enrollment is off.
+Trend Momentum/Ichimoku worker-chain regressions pass; expanded range/retry/failure
+checks and full closure evidence are tracked in the
+[Signals handoff](docs/reference/016-i10-signals-backfill-closure.md).
+No global cutover, live migration, provider run or I10 completion is claimed.
+
 ## 2026-11-08 - Discover active and historical atomic requests for polling
 
 Add the authenticated read-only request list with camelCase summaries, per-job

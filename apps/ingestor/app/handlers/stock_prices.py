@@ -5,7 +5,10 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from py_common.kafka import decode_json_object_payload
 from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
-from py_common.messaging.output_publication import capture_output_publication
+from py_common.messaging.output_publication import (
+    capture_output_publication,
+    publish_terminal_status,
+)
 from py_common.storage.atomic_work import cutoff_frame, day_rows
 from py_common.storage.date_contracts import normalize_date_contracts
 from py_common.storage.output_snapshots import OutputSnapshotIdentity
@@ -63,6 +66,7 @@ async def process_stock_price_message(
 ) -> JobStatusMessage:
     started_at = utc_now()
     payload: dict[str, object] = {}
+    publication = None
 
     try:
         payload = decode_json_object_payload(raw_msg, "Stock price sync job")
@@ -77,7 +81,17 @@ async def process_stock_price_message(
         from_date = message.from_offset.date() if message.from_offset else None
         to_date = message.to_offset.date() if message.to_offset else date.today()
         object_name = settings.get_eod_path(exchange, code)
-        existing_df = await parquet_storage.read_optional_dataframe(object_name)
+        if (message.metadata.get("outputCompletion") or {}).get(
+            "storagePolicy"
+        ) == "VERSIONED":
+            existing_df = await parquet_storage.read_work_base_dataframe(
+                payload,
+                OutputSnapshotIdentity(
+                    "eod", {"exchange": exchange.lower(), "code": code.lower()}
+                ),
+            )
+        else:
+            existing_df = await parquet_storage.read_optional_dataframe(object_name)
         bootstrap = existing_df is None or existing_df.empty
 
         if message.business_date is not None:
@@ -92,7 +106,10 @@ async def process_stock_price_message(
             limit = compute_limit(from_date, to_date)
         backfill_policy = message.metadata.get("backfillPolicy", {})
         data_policy = backfill_policy.get("dataPolicy")
-        if data_policy is not None and data_policy not in ("PREFER_EXISTING", "REFRESH"):
+        if data_policy is not None and data_policy not in (
+            "PREFER_EXISTING",
+            "REFRESH",
+        ):
             raise ValueError("Unsupported backfill data policy")
         # Missing dataPolicy retains the old policy for already accepted commands.
         prefer_existing = data_policy == "PREFER_EXISTING" or (
@@ -109,7 +126,11 @@ async def process_stock_price_message(
             .dt.date.eq(message.business_date)
             .any()
         )
-        new_df = existing_df.copy() if reuse_eod else await fetch_stock_data(client, code, limit)
+        new_df = (
+            existing_df.copy()
+            if reuse_eod
+            else await fetch_stock_data(client, code, limit)
+        )
         if message.business_date is not None:
             new_df = normalize_stock_price_dataframe_columns(new_df)
             if bootstrap:
@@ -162,5 +183,11 @@ async def process_stock_price_message(
             error_message=str(exc),
         )
 
-    await status_publisher.publish(status, key=status.work_key)
+    await publish_terminal_status(
+        getattr(status_publisher, "producer", None),
+        status_publisher.publish,
+        status,
+        payload,
+        publication,
+    )
     return status

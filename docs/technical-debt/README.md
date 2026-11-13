@@ -10,6 +10,15 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 
 ## Reviewed records
 
+November 11 owner decision: [TD-018](018-execution-watchdog-observation.md) defers
+automatic execution expiry during observation. Keep the watchdog disabled;
+completion validation and the existing I10 late-evidence/cutover gates remain active.
+
+November 12: TD-018 also records [completion delivery and storage commit boundaries](018-execution-watchdog-observation.md#completion-delivery-and-storage-commit-boundaries):
+Kafka broker ACK is not Platform DB commit, and Parquet publication is outside the
+PostgreSQL completion transaction. Follow-up diagnostics/recovery do not waive READY
+validation or authorize automatic retries/cleanup.
+
 | ID                                                                | Type                                           | Review status                                                 | Priority / activation                                                                                                                                                                                                                                                                                                       |
 | ----------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [TD-001](001-p3-i5-metadata-reconciliation.md)                    | correctness                                    | PARTIALLY RESOLVED / terminal mapping locally verified        | Returned partial results temporarily use SUCCESS with warning/counters; exceptions remain ERROR/FAILED. Expected-object classification and remaining integration stay open.                                                                                                                                                 |
@@ -29,6 +38,7 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 | [TD-015](015-java-static-analysis-and-sonar-quality-gate.md)      | Java code quality / static-analysis tooling    | OPEN / Sonar tooling unavailable; targeted warnings confirmed | P2 conditional: promote a bounded tooling/remediation slice for CI policy, warning growth, review friction, or a concrete correctness/security finding.                                                                                                                                                                     |
 | [TD-016](016-parquet-readiness-reconciliation.md)                 | data readiness / future read optimization      | DEFERRED / evidence and approval required                     | P2 on measured manifest/MinIO query pressure or P1 on proven readiness correctness risk; never infer JobRun SUCCESS from data files.                                                                                                                                                                                        |
 | [TD-017](017-manual-request-rejection-audit.md)                   | Deferred manual job triggering / request audit | DEFERRED / owner-accepted for current phase                   | P3 conditional: owner reactivation of manual triggering or durable rejected-request history/polling/recovery; nonblocking for current I3.d.                                                                                                                                                                                 |
+| [TD-018](018-execution-watchdog-observation.md)                   | Execution expiry / operational observation     | DEFERRED / owner-accepted; watchdog disabled                  | P2 conditional on observed stalled work; P1 on proven correctness impact. Nonblocking for current I10.                                                                                                                                                                                                                      |
 
 ## Deferred Parquet-to-PostgreSQL readiness reconstruction — TD-016
 
@@ -53,6 +63,7 @@ flowchart TD
     Measured --> GuardResidue["TD-013: legacy guard residue"]
     Measured --> DispatchResidue["TD-014: closed by P14-I4"]
     Measured --> JavaQuality["TD-015: Java static analysis and Sonar gate"]
+    Measured --> Watchdog["TD-018: observe before automatic expiry"]
     Later --> Features["TD-002/004/011: operations and features"]
     Later --> RequestAudit["TD-017: manual job triggers and audit"]
 
@@ -63,7 +74,7 @@ flowchart TD
     class Gate pending;
     class Safety,Identity,Data,Kafka active;
     class Planner active;
-    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Later,Features,RequestAudit pending;
+    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Watchdog,Later,Features,RequestAudit pending;
 ```
 
 ## TODO references

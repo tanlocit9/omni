@@ -144,16 +144,23 @@ class GraphWorkRequestsPostgresTest {
 
     private UUID pollingRequest(String key, Instant accepted) {
         var definition = target(JobType.SYNC_INDICATORS);
-        var input = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
-                "operator", key, "Polling regression", null,
-                "{\"dateFrom\":\"2026-11-06\",\"dateTo\":\"2026-11-06\",\"scope\":{\"type\":\"SYMBOL\",\"key\":\"HOSE-AAA\"}}");
+        var input =
+                new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                        com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
+                        "operator",
+                        key,
+                        "Polling regression",
+                        null,
+                        "{\"dateFrom\":\"2026-11-06\",\"dateTo\":\"2026-11-06\",\"scope\":{\"type\":\"SYMBOL\",\"key\":\"HOSE-AAA\"}}");
         return graph.prepare(input, definition.getId(), claim(definition), accepted, Map.of());
     }
 
     @Test
     void pollingPagesHaveStableTieBreakersAndExcludeGraphsAndLaterRequests() {
-        var query = context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService.class);
+        var query =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService
+                                .class);
         Instant accepted = Instant.parse("2026-11-06T12:00:00Z");
         Instant observed = accepted.plusSeconds(1);
         var ids = new ArrayList<UUID>();
@@ -163,16 +170,24 @@ class GraphWorkRequestsPostgresTest {
         assertThat(first.items()).hasSize(2);
         assertThat(first.hasMore()).isTrue();
         assertThat(first.observedAt()).isEqualTo(observed);
-        var second = query.list("active", 2, observed,
-                first.nextCursor().beforeCreatedAt(), first.nextCursor().beforeId());
+        var second =
+                query.list(
+                        "active",
+                        2,
+                        observed,
+                        first.nextCursor().beforeCreatedAt(),
+                        first.nextCursor().beforeId());
         assertThat(second.items()).hasSize(1);
         assertThat(second.hasMore()).isFalse();
         assertThat(second.nextCursor()).isNull();
         var listed = new ArrayList<UUID>();
         first.items().forEach(item -> listed.add(item.requestId()));
         second.items().forEach(item -> listed.add(item.requestId()));
-        assertThat(listed).containsExactlyElementsOf(ids.stream().sorted(
-                java.util.Comparator.comparing(UUID::toString).reversed()).toList());
+        assertThat(listed)
+                .containsExactlyElementsOf(
+                        ids.stream()
+                                .sorted(java.util.Comparator.comparing(UUID::toString).reversed())
+                                .toList());
         var item = first.items().getFirst();
         assertThat(item.totalMembers()).isEqualTo(3);
         assertThat(item.memberCounts()).containsExactlyInAnyOrderEntriesOf(Map.of("PENDING", 3L));
@@ -191,22 +206,31 @@ class GraphWorkRequestsPostgresTest {
 
     @Test
     void pollingReflectsMemberFailureSettlementAndHistoricalRootTimes() {
-        var query = context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService.class);
+        var query =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService
+                                .class);
         Instant accepted = Instant.parse("2026-11-06T12:00:00Z");
         UUID root = pollingRequest("poll-lifecycle", accepted);
         UUID requestId = request(root);
-        jdbc.update("UPDATE job_execution_histories SET status='RUNNING' WHERE id IN ("
-                + "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
-                + "WHERE m.request_id=?)", requestId);
-        jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id IN ("
-                + "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
-                + "WHERE m.request_id=? AND m.is_target)", requestId);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='RUNNING' WHERE id IN ("
+                        + "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                        + "WHERE m.request_id=?)",
+                requestId);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='FAILED' WHERE id IN ("
+                        + "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                        + "WHERE m.request_id=? AND m.is_target)",
+                requestId);
         var active = query.list("active", 20, null, null, null).items().getFirst();
         assertThat(active.memberCounts()).containsEntry("RUNNING", 2L).containsEntry("FAILED", 1L);
         assertThat(active.hasFailure()).isTrue();
         assertThat(active.isSettled()).isFalse();
         assertThat(active.state()).isEqualTo("PREPARED");
-        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS' WHERE status='RUNNING' AND id<>?", root);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='SUCCESS' WHERE status='RUNNING' AND id<>?",
+                root);
         for (int pass = 0; pass < 3; pass++) graph.reconcile();
         assertThat(query.list("active", 20, null, null, null).items()).isEmpty();
         var historical = query.list("history", 20, null, null, null).items().getFirst();
@@ -214,14 +238,19 @@ class GraphWorkRequestsPostgresTest {
         assertThat(historical.isSettled()).isTrue();
         assertThat(historical.hasFailure()).isTrue();
         assertThat(historical.unfinishedMembers()).isZero();
-        assertThat(historical.elapsedMs()).isEqualTo(
-                Duration.between(historical.startedAt(), historical.finishedAt()).toMillis());
+        assertThat(historical.elapsedMs())
+                .isEqualTo(
+                        Duration.between(historical.startedAt(), historical.finishedAt())
+                                .toMillis());
         assertThat(query.list("all", 100, null, null, null).items()).hasSize(1);
     }
 
     @Test
     void pollingSeparatesCancelledOwnersFromProgressOfSharedAttempts() {
-        var query = context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService.class);
+        var query =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.work.GraphWorkRequestQueryService
+                                .class);
         Instant accepted = Instant.parse("2026-11-06T12:00:00Z");
         UUID cancelled = pollingRequest("cancelled-poll", accepted);
         UUID surviving = pollingRequest("surviving-poll", accepted);
@@ -233,23 +262,38 @@ class GraphWorkRequestsPostgresTest {
         assertThat(history.isSettled()).isFalse();
         assertThat(history.memberCounts()).containsEntry("PENDING", 3L);
         assertThat(query.list("active", 20, null, null, null).items())
-                .singleElement().satisfies(item -> assertThat(item.executionId()).isEqualTo(surviving));
-        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS',records_synced=5,records_skipped=0 "
-                + "WHERE id IN (SELECT execution_id FROM atomic_work_attempts)");
+                .singleElement()
+                .satisfies(item -> assertThat(item.executionId()).isEqualTo(surviving));
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='SUCCESS',records_synced=5,records_skipped=0 "
+                        + "WHERE id IN (SELECT execution_id FROM atomic_work_attempts)");
         for (int pass = 0; pass < 3; pass++) graph.reconcile();
         var results = query.list("history", 20, null, null, null).items();
-        assertThat(results).hasSize(2).allSatisfy(item -> {
-            assertThat(item.isSettled()).isTrue();
-            assertThat(item.hasFailure()).isFalse();
-            assertThat(item.memberCounts()).containsEntry("SUCCESS", 3L);
-        });
-        assertThat(results.stream().filter(item -> item.executionId().equals(surviving)).findFirst().orElseThrow())
-                .satisfies(item -> {
-                    assertThat(item.state()).isEqualTo("SUCCESS");
-                    assertThat(item.recordsSynced()).isEqualTo(5);
-                    assertThat(item.recordsSkipped()).isZero();
-                });
-        assertThat(results.stream().filter(item -> item.executionId().equals(cancelled)).findFirst().orElseThrow().state())
+        assertThat(results)
+                .hasSize(2)
+                .allSatisfy(
+                        item -> {
+                            assertThat(item.isSettled()).isTrue();
+                            assertThat(item.hasFailure()).isFalse();
+                            assertThat(item.memberCounts()).containsEntry("SUCCESS", 3L);
+                        });
+        assertThat(
+                        results.stream()
+                                .filter(item -> item.executionId().equals(surviving))
+                                .findFirst()
+                                .orElseThrow())
+                .satisfies(
+                        item -> {
+                            assertThat(item.state()).isEqualTo("SUCCESS");
+                            assertThat(item.recordsSynced()).isEqualTo(5);
+                            assertThat(item.recordsSkipped()).isZero();
+                        });
+        assertThat(
+                        results.stream()
+                                .filter(item -> item.executionId().equals(cancelled))
+                                .findFirst()
+                                .orElseThrow()
+                                .state())
                 .isEqualTo("CANCELLED");
     }
 
@@ -261,181 +305,478 @@ class GraphWorkRequestsPostgresTest {
     void backfillEnrollsItsDatedPriceIndicatorChainWithoutEnablingRealtimeOrChangingCron() {
         var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
         org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
-        org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
         org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", false);
         try {
             jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
             var target = target(JobType.SYNC_INDICATORS);
-            var nextRun = jdbc.queryForObject("SELECT next_run FROM job_definitions WHERE id=?", java.sql.Timestamp.class, target.getId());
-            var day = NOW.atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE).toLocalDate();
-            String expansion = JsonMapper.builder().build().writeValueAsString(Map.of("dateFrom", day.toString(), "dateTo", day.toString(),
-                    "sectorCodes", List.of(JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()), "sectorLevel", 2, "force", true));
-            var request = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                    com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
-                    "operator", "backfill-chain", "Backfill verification", null, expansion);
-            var execution = graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", true));
+            var nextRun =
+                    jdbc.queryForObject(
+                            "SELECT next_run FROM job_definitions WHERE id=?",
+                            java.sql.Timestamp.class,
+                            target.getId());
+            var day =
+                    NOW.atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE)
+                            .toLocalDate();
+            String expansion =
+                    JsonMapper.builder()
+                            .build()
+                            .writeValueAsString(
+                                    Map.of(
+                                            "dateFrom",
+                                            day.toString(),
+                                            "dateTo",
+                                            day.toString(),
+                                            "sectorCodes",
+                                            List.of(
+                                                    JobDefinitionConfig.ENABLED_SECTOR_CODES
+                                                            .getFirst()),
+                                            "sectorLevel",
+                                            2,
+                                            "force",
+                                            true));
+            var request =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "backfill-chain",
+                            "Backfill verification",
+                            null,
+                            expansion);
+            var execution =
+                    graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", true));
             assertThat(graph.isEnabled()).isFalse();
-            assertThat(jdbc.queryForObject("SELECT mode FROM atomic_work_requests WHERE execution_id=?",
-                    String.class, execution)).isEqualTo("BACKFILL");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT mode FROM atomic_work_requests WHERE execution_id=?",
+                                    String.class,
+                                    execution))
+                    .isEqualTo("BACKFILL");
             assertThat(count("atomic_work_attempts")).isEqualTo(3);
-            assertThat(jdbc.queryForObject("SELECT next_run FROM job_definitions WHERE id=?", java.sql.Timestamp.class, target.getId())).isEqualTo(nextRun);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT next_run FROM job_definitions WHERE id=?",
+                                    java.sql.Timestamp.class,
+                                    target.getId()))
+                    .isEqualTo(nextRun);
             assertThat(count("output_completion_contracts")).isEqualTo(2);
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM job_execution_histories WHERE meta_json ? 'backfillPolicy'",
-                    Integer.class)).isEqualTo(3);
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM scheduler_outbox_messages WHERE status='PUBLISHED'",
-                    Integer.class)).isZero();
-            assertThat(graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", true))).isEqualTo(execution);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM job_execution_histories WHERE meta_json ? 'backfillPolicy'",
+                                    Integer.class))
+                    .isEqualTo(3);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM scheduler_outbox_messages WHERE status='PUBLISHED'",
+                                    Integer.class))
+                    .isZero();
+            assertThat(graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", true)))
+                    .isEqualTo(execution);
             assertThat(count("atomic_work_attempts")).isEqualTo(3);
-            var changed = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                    request.mode(), request.actor(), request.idempotencyKey(), request.reason(), null,
-                    expansion.replace("\"force\":true", "\"force\":false"));
-            assertThatThrownBy(() -> graph.prepareBackfill(changed, target.getId(), NOW, Map.of("force", false)))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("IDEMPOTENCY_CONFLICT");
+            var changed =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            request.mode(),
+                            request.actor(),
+                            request.idempotencyKey(),
+                            request.reason(),
+                            null,
+                            expansion.replace("\"force\":true", "\"force\":false"));
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            changed, target.getId(), NOW, Map.of("force", false)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("IDEMPOTENCY_CONFLICT");
         } finally {
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", false);
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
             org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", true);
         }
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"SYNC_SIGNALS", "EVALUATE_SIGNALS"})
+    void signalBackfillRequiresHistoryWritersPausedWithoutBlockingIndicatorOnlyGoal(String writer) {
+        Object actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
+        try {
+            jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
+            jdbc.update(
+                    "UPDATE job_definitions SET schedule_enabled=true WHERE job_type=?", writer);
+            String expansion =
+                    context.getBean("jsonMapper", JsonMapper.class)
+                            .writeValueAsString(
+                                    Map.of(
+                                            "dateFrom",
+                                            "2035-01-02",
+                                            "dateTo",
+                                            "2035-01-02",
+                                            "sectorLevel",
+                                            2,
+                                            "sectorCodes",
+                                            List.of(
+                                                    JobDefinitionConfig.ENABLED_SECTOR_CODES
+                                                            .getFirst())));
+            var signalRequest =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "signal-drain",
+                            "Signal drain guard",
+                            null,
+                            expansion);
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            signalRequest,
+                                            target(JobType.SYNC_SIGNALS).getId(),
+                                            NOW,
+                                            Map.of()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("PAUSED_AND_DRAINED");
+            assertThat(count("atomic_work_requests")).isZero();
+            var indicatorRequest =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            signalRequest.mode(),
+                            "operator",
+                            "indicator-not-blocked",
+                            "Indicator guard compatibility",
+                            null,
+                            expansion);
+            assertThatCode(
+                            () ->
+                                    graph.prepareBackfill(
+                                            indicatorRequest,
+                                            target(JobType.SYNC_INDICATORS).getId(),
+                                            NOW,
+                                            Map.of()))
+                    .doesNotThrowAnyException();
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void failedTargetKeepsHealthyMembersAdmissibleUntilEveryMemberSettles(boolean unfinishedAncestor) {
-        jdbc.update("INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
+    void failedTargetKeepsHealthyMembersAdmissibleUntilEveryMemberSettles(
+            boolean unfinishedAncestor) {
+        jdbc.update(
+                "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
                 JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst());
         var target = target(JobType.SYNC_INDICATORS);
-        var request = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
-                "operator", "settlement", "Request settlement verification", null, "{}");
+        var request =
+                new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                        com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
+                        "operator",
+                        "settlement",
+                        "Request settlement verification",
+                        null,
+                        "{}");
         UUID root = graph.prepare(request, target.getId(), claim(target), NOW, Map.of());
         UUID requestId = request(root);
-        var members = jdbc.queryForList(
-                "SELECT a.execution_id,m.is_target FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=? ORDER BY a.execution_id",
-                requestId);
-        var targets = members.stream().filter(m -> Boolean.TRUE.equals(m.get("is_target"))).toList();
+        var members =
+                jdbc.queryForList(
+                        "SELECT a.execution_id,m.is_target FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=? ORDER BY a.execution_id",
+                        requestId);
+        var targets =
+                members.stream().filter(m -> Boolean.TRUE.equals(m.get("is_target"))).toList();
         assertThat(targets).hasSize(2);
         UUID failed = (UUID) targets.getFirst().get("execution_id");
-        UUID unfinished = (UUID) (unfinishedAncestor
-                ? members.stream().filter(m -> !Boolean.TRUE.equals(m.get("is_target"))).findFirst().orElseThrow()
-                : targets.getLast()).get("execution_id");
-        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS' WHERE id IN (SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=?)", requestId);
+        UUID unfinished =
+                (UUID)
+                        (unfinishedAncestor
+                                        ? members.stream()
+                                                .filter(
+                                                        m ->
+                                                                !Boolean.TRUE.equals(
+                                                                        m.get("is_target")))
+                                                .findFirst()
+                                                .orElseThrow()
+                                        : targets.getLast())
+                                .get("execution_id");
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='SUCCESS' WHERE id IN (SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=?)",
+                requestId);
         jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id=?", failed);
         jdbc.update("UPDATE job_execution_histories SET status='PENDING' WHERE id=?", unfinished);
         graph.reconcile();
         var progress = graph.inspect(requestId);
-        assertThat(progress).containsEntry("hasFailure", true).containsEntry("isSettled", false).containsEntry("unfinishedMembers", 1L);
-        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, requestId)).isEqualTo("PREPARED");
+        assertThat(progress)
+                .containsEntry("hasFailure", true)
+                .containsEntry("isSettled", false)
+                .containsEntry("unfinishedMembers", 1L);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT state FROM atomic_work_requests WHERE id=?",
+                                String.class,
+                                requestId))
+                .isEqualTo("PREPARED");
         if (!unfinishedAncestor)
-            assertThat(jdbc.queryForObject("SELECT atomic_work_admissible(?)", Boolean.class, unfinished)).isTrue();
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT atomic_work_admissible(?)", Boolean.class, unfinished))
+                    .isTrue();
         jdbc.update("UPDATE job_execution_histories SET status='SUCCESS' WHERE id=?", unfinished);
         for (int i = 0; i < 3; i++) graph.reconcile();
-        assertThat(graph.inspect(requestId)).containsEntry("hasFailure", true).containsEntry("isSettled", true).containsEntry("unfinishedMembers", 0L);
-        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, requestId)).isEqualTo("FAILED");
-        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, root)).isEqualTo("FAILED");
+        assertThat(graph.inspect(requestId))
+                .containsEntry("hasFailure", true)
+                .containsEntry("isSettled", true)
+                .containsEntry("unfinishedMembers", 0L);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT state FROM atomic_work_requests WHERE id=?",
+                                String.class,
+                                requestId))
+                .isEqualTo("FAILED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                root))
+                .isEqualTo("FAILED");
     }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void rootCountsOnlyTargetsAndPreservesUnknownCounters(boolean missingCounter) {
-        jdbc.update("INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
+        jdbc.update(
+                "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
                 JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst());
         var definition = target(JobType.SYNC_INDICATORS);
-        var counterRequest = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
-                "operator", "target-counters", "Target counter regression", null, "{}");
-        UUID root = graph.prepare(counterRequest, definition.getId(), claim(definition), NOW, Map.of());
+        var counterRequest =
+                new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                        com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.MANUAL,
+                        "operator",
+                        "target-counters",
+                        "Target counter regression",
+                        null,
+                        "{}");
+        UUID root =
+                graph.prepare(counterRequest, definition.getId(), claim(definition), NOW, Map.of());
         UUID requestId = request(root);
-        jdbc.update("UPDATE job_execution_histories SET status='SUCCESS',records_synced=1000,records_skipped=100 "
-                + "WHERE id IN (SELECT a.execution_id FROM atomic_work_request_members m "
-                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=?)", requestId);
-        var targets = jdbc.queryForList("SELECT a.execution_id FROM atomic_work_request_members m "
-                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=? AND m.is_target "
-                + "ORDER BY a.execution_id", UUID.class, requestId);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='SUCCESS',records_synced=1000,records_skipped=100 "
+                        + "WHERE id IN (SELECT a.execution_id FROM atomic_work_request_members m "
+                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=?)",
+                requestId);
+        var targets =
+                jdbc.queryForList(
+                        "SELECT a.execution_id FROM atomic_work_request_members m "
+                                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE m.request_id=? AND m.is_target "
+                                + "ORDER BY a.execution_id",
+                        UUID.class,
+                        requestId);
         assertThat(targets).hasSize(2);
-        jdbc.update("UPDATE job_execution_histories SET records_synced=7,records_skipped=0 WHERE id=?", targets.getFirst());
-        jdbc.update("UPDATE job_execution_histories SET records_synced=?,records_skipped=3 WHERE id=?",
-                missingCounter ? null : 11, targets.getLast());
+        jdbc.update(
+                "UPDATE job_execution_histories SET records_synced=7,records_skipped=0 WHERE id=?",
+                targets.getFirst());
+        jdbc.update(
+                "UPDATE job_execution_histories SET records_synced=?,records_skipped=3 WHERE id=?",
+                missingCounter ? null : 11,
+                targets.getLast());
         for (int pass = 0; pass < 3; pass++) graph.reconcile();
-        var result = jdbc.queryForMap("SELECT status,records_synced,records_skipped FROM job_execution_histories WHERE id=?", root);
-        assertThat(result).containsEntry("status", "SUCCESS")
+        var result =
+                jdbc.queryForMap(
+                        "SELECT status,records_synced,records_skipped FROM job_execution_histories WHERE id=?",
+                        root);
+        assertThat(result)
+                .containsEntry("status", "SUCCESS")
                 .containsEntry("records_synced", missingCounter ? null : 18)
                 .containsEntry("records_skipped", 3);
         // A later reconciliation must not rewrite the closed root's counters.
-        jdbc.update("UPDATE job_execution_histories SET records_synced=999 WHERE id=?", targets.getFirst());
+        jdbc.update(
+                "UPDATE job_execution_histories SET records_synced=999 WHERE id=?",
+                targets.getFirst());
         graph.reconcile();
-        assertThat(jdbc.queryForMap("SELECT status,records_synced,records_skipped FROM job_execution_histories WHERE id=?", root))
+        assertThat(
+                        jdbc.queryForMap(
+                                "SELECT status,records_synced,records_skipped FROM job_execution_histories WHERE id=?",
+                                root))
                 .isEqualTo(result);
     }
 
     @Test
     void workerReceiptMovesPreparedMemberToRunningButCannotReopenTerminalAttempt() {
         UUID root = prepare(target(JobType.SYNC_INDICATORS), "worker-receipt");
-        var row = jdbc.queryForMap(
-                "SELECT e.id,e.job_id,e.parent_log_id,e.status,e.started_at,e.meta_json->>'workKey' AS work_key "
-                        + "FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
-                        + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? AND m.is_target",
-                request(root));
+        var row =
+                jdbc.queryForMap(
+                        "SELECT e.id,e.job_id,e.parent_log_id,e.status,e.started_at,e.meta_json->>'workKey' AS work_key "
+                                + "FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                                + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? AND m.is_target",
+                        request(root));
         assertThat(row.get("status")).isEqualTo("PENDING");
         assertThat(row.get("started_at")).isNull();
         var jobs = context.getBean(JobService.class);
-        var running = new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
-                row.get("job_id").toString(), row.get("id").toString(), row.get("parent_log_id").toString(),
-                com.omni.platform.shared.executions.WorkType.SYMBOL, row.get("work_key").toString(),
-                "RUNNING", Map.of("workerStarted", true), null, NOW.plusSeconds(1), null, 0, null, 0);
+        var running =
+                new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
+                        row.get("job_id").toString(),
+                        row.get("id").toString(),
+                        row.get("parent_log_id").toString(),
+                        com.omni.platform.shared.executions.WorkType.SYMBOL,
+                        row.get("work_key").toString(),
+                        "RUNNING",
+                        Map.of("workerStarted", true),
+                        null,
+                        NOW.plusSeconds(1),
+                        null,
+                        0,
+                        null,
+                        0);
         jobs.applyStatus(running);
-        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, row.get("id"))).isEqualTo("RUNNING");
-        assertThat(jdbc.queryForObject("SELECT finished_at FROM job_execution_histories WHERE id=?", java.sql.Timestamp.class, row.get("id"))).isNull();
-        jobs.applyStatus(new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
-                running.jobDefinitionId(), running.executionId(), running.parentExecutionId(), running.workType(), running.workKey(),
-                "ERROR", Map.of(), null, running.startedAt(), NOW.plusSeconds(2), 1000, "provider error", 0));
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                row.get("id")))
+                .isEqualTo("RUNNING");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT finished_at FROM job_execution_histories WHERE id=?",
+                                java.sql.Timestamp.class,
+                                row.get("id")))
+                .isNull();
+        jobs.applyStatus(
+                new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
+                        running.jobDefinitionId(),
+                        running.executionId(),
+                        running.parentExecutionId(),
+                        running.workType(),
+                        running.workKey(),
+                        "ERROR",
+                        Map.of(),
+                        null,
+                        running.startedAt(),
+                        NOW.plusSeconds(2),
+                        1000,
+                        "provider error",
+                        0));
         jobs.applyStatus(running);
-        assertThat(jdbc.queryForObject("SELECT status FROM job_execution_histories WHERE id=?", String.class, row.get("id"))).isEqualTo("FAILED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                row.get("id")))
+                .isEqualTo("FAILED");
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"disabled", "consumer", "planning", "scheduled", "legacy", "sector", "empty", "partial", "force"})
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "disabled",
+                "consumer",
+                "planning",
+                "scheduled",
+                "legacy",
+                "sector",
+                "empty",
+                "partial",
+                "force",
+                "unsupported"
+            })
     void backfillRefusesUnsafeOrEmptyInputsWithoutDurableWork(String reason) {
         var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
-        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", !reason.equals("disabled"));
-        org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", !reason.equals("consumer"));
-        org.springframework.test.util.ReflectionTestUtils.setField(actual, "planningEnabled", !reason.equals("planning"));
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "backfillEnabled", !reason.equals("disabled"));
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", !reason.equals("consumer"));
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "planningEnabled", !reason.equals("planning"));
         try {
             jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
-            var target = target(JobType.SYNC_INDICATORS);
-            if (reason.equals("scheduled")) jdbc.update("UPDATE job_definitions SET schedule_enabled=true WHERE id=?", target.getId());
+            var target =
+                    target(
+                            reason.equals("unsupported")
+                                    ? JobType.SYNC_METADATA
+                                    : JobType.SYNC_INDICATORS);
+            if (reason.equals("scheduled"))
+                jdbc.update(
+                        "UPDATE job_definitions SET schedule_enabled=true WHERE id=?",
+                        target.getId());
             if (reason.equals("partial")) {
-                jdbc.update("UPDATE job_definitions SET config_json=config_json || '{\"exchanges\":[\"HOSE\"]}'::jsonb WHERE id=?", target.getId());
-                jdbc.update("INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HNX',true,jsonb_build_object('sectorLv2Code',?::text))",
+                jdbc.update(
+                        "UPDATE job_definitions SET config_json=config_json || '{\"exchanges\":[\"HOSE\"]}'::jsonb WHERE id=?",
+                        target.getId());
+                jdbc.update(
+                        "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HNX',true,jsonb_build_object('sectorLv2Code',?::text))",
                         JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst());
             }
-            if (reason.equals("legacy")) jdbc.update(
-                    "INSERT INTO job_execution_histories(id,job_id,parent_log_id,used_source,status,started_at,meta_json) VALUES (?,?,?,'VCI','RUNNING',?,'{}'::jsonb)",
-                    UUID.randomUUID(), target.getId(), UUID.randomUUID(), java.sql.Timestamp.from(NOW));
-            var businessDay = NOW.atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE).toLocalDate();
+            if (reason.equals("legacy"))
+                jdbc.update(
+                        "INSERT INTO job_execution_histories(id,job_id,parent_log_id,used_source,status,started_at,meta_json) VALUES (?,?,?,'VCI','RUNNING',?,'{}'::jsonb)",
+                        UUID.randomUUID(),
+                        target.getId(),
+                        UUID.randomUUID(),
+                        java.sql.Timestamp.from(NOW));
+            var businessDay =
+                    NOW.atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE)
+                            .toLocalDate();
             var day = (reason.equals("empty") ? businessDay.minusDays(2) : businessDay).toString();
-            String expansion = JsonMapper.builder().build().writeValueAsString(Map.of("dateFrom", day, "dateTo", day,
-                    "sectorCodes", List.of(reason.equals("sector") ? "UNKNOWN" : JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()),
-                    "sectorLevel", 2, "force", true));
-            var request = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                    com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL, "operator", "unsafe-" + reason,
-                    "Backfill rejection verification", null, expansion);
-            assertThatThrownBy(() -> graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", !reason.equals("force"))))
+            String expansion =
+                    JsonMapper.builder()
+                            .build()
+                            .writeValueAsString(
+                                    Map.of(
+                                            "dateFrom",
+                                            day,
+                                            "dateTo",
+                                            day,
+                                            "sectorCodes",
+                                            List.of(
+                                                    reason.equals("sector")
+                                                            ? "UNKNOWN"
+                                                            : JobDefinitionConfig
+                                                                    .ENABLED_SECTOR_CODES
+                                                                    .getFirst()),
+                                            "sectorLevel",
+                                            2,
+                                            "force",
+                                            true));
+            var request =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "unsafe-" + reason,
+                            "Backfill rejection verification",
+                            null,
+                            expansion);
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            request,
+                                            target.getId(),
+                                            NOW,
+                                            Map.of("force", !reason.equals("force"))))
                     .isInstanceOfAny(IllegalStateException.class, IllegalArgumentException.class)
-                    .hasMessageContaining(switch (reason) {
-                        case "disabled", "consumer", "planning" -> "BACKFILL_DISABLED_OR_REGISTRATION_UNAVAILABLE";
-                        case "scheduled", "legacy" -> "BACKFILL_REQUIRES_PAUSED_AND_DRAINED_LEGACY_WRITERS";
-                        case "sector" -> "No active symbols";
-                        case "empty" -> "no target work";
-                        case "partial" -> "INCOMPLETE_TARGET_MEMBERSHIP";
-                        default -> "force policy";
-                    });
+                    .hasMessageContaining(
+                            switch (reason) {
+                                case "disabled", "consumer", "planning" ->
+                                        "BACKFILL_DISABLED_OR_REGISTRATION_UNAVAILABLE";
+                                case "scheduled", "legacy" ->
+                                        "BACKFILL_REQUIRES_PAUSED_AND_DRAINED_LEGACY_WRITERS";
+                                case "sector" -> "No active symbols";
+                                case "empty" -> "no target work";
+                                case "partial" -> "INCOMPLETE_TARGET_MEMBERSHIP";
+                                case "unsupported" -> "BACKFILL_UNSUPPORTED_OUTPUT_PROTOCOL";
+                                default -> "force policy";
+                            });
             assertThat(count("atomic_work_requests")).isZero();
             assertThat(count("atomic_work_attempts")).isZero();
             assertThat(count("output_completion_contracts")).isZero();
         } finally {
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", false);
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", false);
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "planningEnabled", true);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "planningEnabled", true);
         }
     }
 
@@ -740,9 +1081,12 @@ class GraphWorkRequestsPostgresTest {
                                 Integer.class))
                 .isEqualTo(1);
         graph.reconcile();
-        assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
-                        + "WHERE e.status IN ('FAILED','BLOCKED')", Integer.class)).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                                        + "WHERE e.status IN ('FAILED','BLOCKED')",
+                                Integer.class))
+                .isZero();
         assertThat(graph.inspect(request(second)).get("members")).asList().hasSize(3);
         assertThat(prepare(indicator, "second")).isEqualTo(second);
         assertThat(count("atomic_work_attempts")).isEqualTo(3);
@@ -753,7 +1097,8 @@ class GraphWorkRequestsPostgresTest {
                                 Integer.class))
                 .isZero();
         prepare(indicator, "reattach");
-        assertThat(count("atomic_work_attempts")).isEqualTo(6); // Closed owners cannot donate attempts.
+        assertThat(count("atomic_work_attempts"))
+                .isEqualTo(6); // Closed owners cannot donate attempts.
         assertThatThrownBy(
                         () ->
                                 jdbc.update(
@@ -1367,9 +1712,11 @@ class GraphWorkRequestsPostgresTest {
                                 Boolean.class,
                                 catalogExecution))
                 .isFalse();
-        assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM atomic_work_attempts WHERE atomic_work_admissible(execution_id)",
-                Integer.class)).isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM atomic_work_attempts WHERE atomic_work_admissible(execution_id)",
+                                Integer.class))
+                .isEqualTo(1);
     }
 
     @Test
@@ -1601,7 +1948,8 @@ class GraphWorkRequestsPostgresTest {
                                 + "FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
                                 + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_STOCK_PRICE' "
                                 + "AND EXISTS(SELECT 1 FROM atomic_work_request_members m JOIN atomic_work_requests r ON r.id=m.request_id "
-                                + "WHERE m.attempt_id=a.id AND r.idempotency_key=?) LIMIT 1", key);
+                                + "WHERE m.attempt_id=a.id AND r.idempotency_key=?) LIMIT 1",
+                        key);
         var mapper = context.getBean("jsonMapper", JsonMapper.class);
         Map<String, Object> metadata = mapper.readValue(row.get("metadata").toString(), Map.class);
         Map<String, Object> expansion = (Map<String, Object>) metadata.get("workExpansion");
@@ -1695,6 +2043,409 @@ class GraphWorkRequestsPostgresTest {
                 (UUID) row.get("job_id"),
                 event,
                 status);
+    }
+
+    private String unifiedCompletion(CompletionFixture fixture, boolean success) {
+        var mapper = context.getBean("jsonMapper", JsonMapper.class);
+        var registration =
+                mapper.readValue(
+                        fixture.event(),
+                        com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.class);
+        var first = registration.registrations().getFirst();
+        var declaration =
+                Map.of(
+                        "protocol",
+                        "WORKER_COMPLETION_V1",
+                        "eventId",
+                        registration.eventId().toString(),
+                        "atomicAttemptId",
+                        fixture.attempt().toString(),
+                        "registrationId",
+                        first.registrationId().toString());
+        jdbc.update(
+                "UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{outputCompletion}',?::jsonb) WHERE id=?",
+                mapper.writeValueAsString(declaration),
+                fixture.execution());
+        var original = fixture.status();
+        var status =
+                success
+                        ? original
+                        : new com.omni.platform.modules.scheduler.messaging.JobStatusMessage(
+                                original.jobDefinitionId(),
+                                original.executionId(),
+                                original.parentExecutionId(),
+                                original.workType(),
+                                original.workKey(),
+                                "ERROR",
+                                original.metaJson(),
+                                original.newOffset(),
+                                original.startedAt(),
+                                original.finishedAt(),
+                                original.durationMs(),
+                                "provider unavailable",
+                                0);
+        return mapper.writeValueAsString(
+                new com.omni.platform.modules.scheduler.metadata.WorkerCompletionEvent(
+                        "WORKER_COMPLETION_V1",
+                        1,
+                        registration.eventId(),
+                        fixture.attempt(),
+                        status,
+                        success ? registration : null));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void oneCompletionCommitsTerminalResultAndOutputEvidenceTogether(boolean success) {
+        var fixture = completionFixture("one-terminal-completion", false);
+        var payload = unifiedCompletion(fixture, success);
+        var mapper = context.getBean("jsonMapper", JsonMapper.class);
+        var wire = mapper.readTree(payload);
+        ((tools.jackson.databind.node.ObjectNode) wire.get("status").get("metaJson"))
+                .set("outputCompletion", mapper.readTree("{\"protocol\":\"SPOOFED\"}"));
+        payload = wire.toString();
+        var store =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore.class);
+        store.accept(payload);
+        store.accept(payload);
+        assertThat(completionState(fixture.execution())).isEqualTo(success ? "SUCCESS" : "FAILED");
+        assertThat(count("output_registrations")).isEqualTo(success ? 1 : 0);
+        assertThat(count("output_registration_events")).isEqualTo(success ? 1 : 0);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT meta_json->'outputCompletion'->>'protocol' FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                fixture.execution()))
+                .isEqualTo("WORKER_COMPLETION_V1");
+    }
+
+    @Test
+    void completionFailureAfterRegistrationRollsBackEvidenceAndStatusThenReplaySucceeds() {
+        var fixture = completionFixture("atomic-terminal-completion", false);
+        var payload = unifiedCompletion(fixture, true);
+        var store =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore.class);
+        jdbc.execute(
+                "CREATE FUNCTION reject_test_completion() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+                        + "IF NEW.status='SUCCESS' THEN RAISE EXCEPTION 'completion-test-rollback'; END IF; RETURN NEW; END $$");
+        jdbc.execute(
+                "CREATE TRIGGER reject_test_completion BEFORE UPDATE ON job_execution_histories "
+                        + "FOR EACH ROW EXECUTE FUNCTION reject_test_completion()");
+        try {
+            assertThatThrownBy(() -> store.accept(payload))
+                    .hasMessageContaining("completion-test-rollback");
+            assertThat(count("output_registrations")).isZero();
+            assertThat(count("output_registration_events")).isZero();
+            assertThat(count("output_completion_statuses")).isZero();
+            assertThat(completionState(fixture.execution())).isIn("PENDING", "RUNNING");
+        } finally {
+            jdbc.execute("DROP TRIGGER reject_test_completion ON job_execution_histories");
+            jdbc.execute("DROP FUNCTION reject_test_completion()");
+        }
+        store.accept(payload);
+        assertThat(completionState(fixture.execution())).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    void lateVersionedCompletionIsAuditedWithoutReopeningFailureOrBlockingReplay() {
+        versionedStorage(true);
+        try {
+            var fixture = completionFixture("late-unified-conflict", false);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            var failed = unifiedCompletion(fixture, false);
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore
+                                    .class);
+            store.accept(failed);
+            jdbc.update(
+                    "INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
+                    fixture.execution(),
+                    java.sql.Timestamp.from(NOW.minusSeconds(1800)),
+                    java.sql.Timestamp.from(NOW));
+            var first = mapper.readTree(unifiedCompletion(fixture, true));
+            var output =
+                    (tools.jackson.databind.node.ObjectNode)
+                            first.get("registration")
+                                    .get("registrations")
+                                    .get(0)
+                                    .get("outputs")
+                                    .get(0);
+            output.put("storageVersionId", "replacement-777");
+            store.accept(first.toString());
+            output.put("storageVersionId", "late-444");
+            output.put("dataVersion", "sha256:" + "c".repeat(64));
+            store.accept(first.toString());
+            store.accept(first.toString());
+            assertThat(completionState(fixture.execution())).isEqualTo("FAILED");
+            assertThat(count("output_registrations")).isZero();
+            assertThat(count("output_completion_rejections")).isEqualTo(2);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM output_completion_rejections WHERE terminal_status='FAILED' AND reason='TERMINAL_FAILED_LATE'",
+                                    Integer.class))
+                    .isEqualTo(2);
+            assertThat(count("output_storage_heads")).isZero();
+            assertThat(count("output_work_ready")).isZero();
+            assertThatThrownBy(
+                            () ->
+                                    jdbc.update(
+                                            "DELETE FROM output_completion_rejections WHERE execution_id=?",
+                                            fixture.execution()))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThatThrownBy(
+                            () ->
+                                    jdbc.update(
+                                            "UPDATE output_completion_rejections SET reason='TERMINAL_SUCCESS_CONFLICT' WHERE execution_id=?",
+                                            fixture.execution()))
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void successfulVersionedReplayKeepsFirstEvidenceAndAuditsOnlyLogicalConflict() {
+        versionedStorage(true);
+        try {
+            var fixture = completionFixture("terminal-success-replay", false);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            var wire = mapper.readTree(unifiedCompletion(fixture, true));
+            var output =
+                    (tools.jackson.databind.node.ObjectNode)
+                            wire.get("registration")
+                                    .get("registrations")
+                                    .get(0)
+                                    .get("outputs")
+                                    .get(0);
+            output.put("storageVersionId", "first-version");
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore
+                                    .class);
+            store.accept(wire.toString());
+            store.accept(wire.toString());
+            output.put("storageVersionId", "identical-reuploaded-version");
+            store.accept(wire.toString());
+            assertThat(count("output_completion_rejections")).isZero();
+            output.put("dataVersion", "sha256:" + "c".repeat(64));
+            String conflict = wire.toString();
+            store.accept(conflict);
+            store.accept(conflict);
+            assertThat(count("output_completion_rejections")).isEqualTo(1);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT reason FROM output_completion_rejections",
+                                    String.class))
+                    .isEqualTo("TERMINAL_SUCCESS_CONFLICT");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT payload FROM output_completion_rejections",
+                                    String.class))
+                    .isEqualTo(conflict);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT payload->>'storageVersionId' FROM output_registration_outputs",
+                                    String.class))
+                    .isEqualTo("first-version");
+            assertThat(completionState(fixture.execution())).isEqualTo("SUCCESS");
+            assertThat(count("output_registrations")).isEqualTo(1);
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void auditFailureRollsBackAndMustBeRetriedBeforeCompletionCanBeAcknowledged() {
+        versionedStorage(true);
+        try {
+            var fixture = completionFixture("terminal-audit-rollback", false);
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore
+                                    .class);
+            String lateError = unifiedCompletion(fixture, false);
+            store.accept(lateError);
+            jdbc.execute(
+                    "CREATE FUNCTION reject_completion_audit_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit-write-failure'; END $$");
+            jdbc.execute(
+                    "CREATE TRIGGER reject_completion_audit_test BEFORE INSERT ON output_completion_rejections FOR EACH ROW EXECUTE FUNCTION reject_completion_audit_test()");
+            try {
+                assertThatThrownBy(() -> store.accept(lateError))
+                        .hasMessageContaining("audit-write-failure");
+                assertThat(count("output_completion_rejections")).isZero();
+                assertThat(completionState(fixture.execution())).isEqualTo("FAILED");
+            } finally {
+                jdbc.execute(
+                        "DROP TRIGGER reject_completion_audit_test ON output_completion_rejections");
+                jdbc.execute("DROP FUNCTION reject_completion_audit_test()");
+            }
+            store.accept(lateError);
+            assertThat(count("output_completion_rejections")).isEqualTo(1);
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"registrationId", "requiredOutputs", "missingVersion", "inputs", "scope"})
+    void terminalCompletionMustValidateDeclarationsBeforeItCanBeAudited(String invalid) {
+        versionedStorage(true);
+        try {
+            var fixture = completionFixture("invalid-late-" + invalid, false);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore
+                                    .class);
+            store.accept(unifiedCompletion(fixture, false));
+            var wire = mapper.readTree(unifiedCompletion(fixture, true));
+            var registration =
+                    (tools.jackson.databind.node.ObjectNode)
+                            wire.get("registration").get("registrations").get(0);
+            var output =
+                    (tools.jackson.databind.node.ObjectNode) registration.get("outputs").get(0);
+            output.put("storageVersionId", "late-version");
+            switch (invalid) {
+                case "registrationId" ->
+                        registration.put("registrationId", UUID.randomUUID().toString());
+                case "requiredOutputs" -> {
+                    ((tools.jackson.databind.node.ObjectNode)
+                                    registration.get("requiredOutputs").get(0))
+                            .put("dataset", "indicators");
+                    output.put("dataset", "indicators");
+                }
+                case "missingVersion" -> output.remove("storageVersionId");
+                case "scope" -> output.remove("workScope");
+                default ->
+                        output.set(
+                                "inputs",
+                                mapper.readTree(
+                                        "[{\"dataset\":\"eod\",\"partition\":{\"exchange\":\"hose\",\"code\":\"foreign\"},\"dataVersion\":\"sha256:"
+                                                + "b".repeat(64)
+                                                + "\"}]"));
+            }
+            assertThatThrownBy(() -> store.accept(wire.toString()))
+                    .isInstanceOf(RuntimeException.class);
+            assertThat(count("output_completion_rejections")).isZero();
+            assertThat(count("output_registrations")).isZero();
+            assertThat(completionState(fixture.execution())).isEqualTo("FAILED");
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void canonicalTerminalConflictRetainsStrictHandling() {
+        var fixture = completionFixture("canonical-terminal-conflict", false);
+        var mapper = context.getBean("jsonMapper", JsonMapper.class);
+        var wire = mapper.readTree(unifiedCompletion(fixture, true));
+        var store =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore.class);
+        store.accept(wire.toString());
+        ((tools.jackson.databind.node.ObjectNode)
+                        wire.get("registration").get("registrations").get(0).get("outputs").get(0))
+                .put("dataVersion", "sha256:" + "c".repeat(64));
+        assertThatThrownBy(() -> store.accept(wire.toString())).hasMessageContaining("immutable");
+        assertThat(count("output_completion_rejections")).isZero();
+        assertThat(completionState(fixture.execution())).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    void concurrentVersionedCompletionsAcceptOnlyOneAndAuditTheOther() throws Exception {
+        versionedStorage(true);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var fixture = completionFixture("racing-terminal-completions", false);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            var wire = mapper.readTree(unifiedCompletion(fixture, true));
+            var output =
+                    (tools.jackson.databind.node.ObjectNode)
+                            wire.get("registration")
+                                    .get("registrations")
+                                    .get(0)
+                                    .get("outputs")
+                                    .get(0);
+            output.put("storageVersionId", "candidate-one");
+            String one = wire.toString();
+            output.put("storageVersionId", "candidate-two");
+            output.put("dataVersion", "sha256:" + "c".repeat(64));
+            String two = wire.toString();
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore
+                                    .class);
+            var ready = new java.util.concurrent.CountDownLatch(2);
+            var go = new java.util.concurrent.CountDownLatch(1);
+            var futures = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (String payload : List.of(one, two))
+                futures.add(
+                        pool.submit(
+                                () -> {
+                                    ready.countDown();
+                                    try {
+                                        go.await();
+                                    } catch (InterruptedException interrupted) {
+                                        Thread.currentThread().interrupt();
+                                        throw new IllegalStateException(interrupted);
+                                    }
+                                    store.accept(payload);
+                                }));
+            assertThat(ready.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            for (var future : futures) future.get(20, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(completionState(fixture.execution())).isEqualTo("SUCCESS");
+            assertThat(count("output_registrations")).isEqualTo(1);
+            assertThat(count("output_completion_rejections")).isEqualTo(1);
+        } finally {
+            pool.shutdownNow();
+            versionedStorage(false);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "eventId",
+                "atomicAttemptId",
+                "jobDefinitionId",
+                "parentExecutionId",
+                "executionId",
+                "workKey",
+                "workType",
+                "protocol"
+            })
+    void invalidCompletionCannotPartiallyRegisterOrFinishAnExecution(String field) {
+        var fixture = completionFixture("invalid-terminal-completion", false);
+        var mapper = context.getBean("jsonMapper", JsonMapper.class);
+        var payload = mapper.readTree(unifiedCompletion(fixture, false));
+        var status = (tools.jackson.databind.node.ObjectNode) payload.get("status");
+        if (field.equals("protocol"))
+            jdbc.update(
+                    "UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{outputCompletion,protocol}','\"UNKNOWN\"') WHERE id=?",
+                    fixture.execution());
+        else if (field.equals("eventId") || field.equals("atomicAttemptId"))
+            ((tools.jackson.databind.node.ObjectNode) payload)
+                    .put(field, UUID.randomUUID().toString());
+        else
+            status.put(
+                    field,
+                    field.equals("workKey")
+                            ? "OTHER"
+                            : field.equals("workType") ? "EXCHANGE" : UUID.randomUUID().toString());
+        assertThatThrownBy(
+                        () ->
+                                context.getBean(
+                                                com.omni.platform.modules.scheduler.metadata
+                                                        .WorkerCompletionStore.class)
+                                        .accept(payload.toString()))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(count("output_registrations")).isZero();
+        assertThat(completionState(fixture.execution())).isIn("PENDING", "RUNNING");
     }
 
     private String completionState(UUID execution) {
@@ -1861,8 +2612,9 @@ class GraphWorkRequestsPostgresTest {
                 .isEqualTo("UNCERTAIN");
     }
 
-    @Test
-    void productionEnrollmentFreezesIdsBeforeOutboxCanDispatch() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void productionEnrollmentFreezesIdsBeforeOutboxCanDispatch(boolean globalEnrollment) {
         var original =
                 context.getBean(
                         com.omni.platform.modules.scheduler.metadata.OutputDeclarations.class);
@@ -1885,7 +2637,7 @@ class GraphWorkRequestsPostgresTest {
                             "SELECT execution_id FROM output_completion_contracts", UUID.class);
             var admission =
                     new com.omni.platform.modules.scheduler.metadata.OutputWriteAdmission(
-                            jdbc, true);
+                            jdbc, globalEnrollment);
             assertThat(admission.waiting(first)).isFalse();
             var other =
                     jdbc.queryForMap(
@@ -1916,6 +2668,109 @@ class GraphWorkRequestsPostgresTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "oversize",
+                "array",
+                "missingFence",
+                "fraction",
+                "overflow",
+                "missingOutput"
+            })
+    void baselineHttpBoundaryRejectsInvalidEnvelopesWithoutMutation(String scenario) {
+        String payload =
+                switch (scenario) {
+                    case "oversize" ->
+                            "x"
+                                    .repeat(
+                                            com.omni.platform.modules.scheduler.metadata
+                                                            .OutputRegistrationEvent.MAX_BYTES
+                                                    + 1);
+                    case "array" -> "[]";
+                    case "missingFence" -> "{}";
+                    case "fraction" -> "{\"fence\":0.5}";
+                    case "overflow" -> "{\"fence\":9223372036854775808}";
+                    default -> "{\"fence\":0,\"output\":null}";
+                };
+        var api =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputBackfillController
+                                .class);
+        assertThatThrownBy(() -> api.commit(payload)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(count("output_ready_baselines")).isZero();
+        assertThat(count("output_ready_pointers")).isZero();
+    }
+
+    @Test
+    void completionDiagnosticsDistinguishDurableGapsFromReadyAndMissingExecutions() {
+        var api =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputCompletionDiagnostics
+                                .class);
+        Object actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(api);
+        Object original =
+                org.springframework.test.util.ReflectionTestUtils.getField(actual, "postgres");
+        try {
+            org.springframework.test.util.ReflectionTestUtils.setField(actual, "postgres", false);
+            assertThatThrownBy(() -> api.inspect(UUID.randomUUID()))
+                    .isInstanceOfSatisfying(
+                            org.springframework.web.server.ResponseStatusException.class,
+                            failure -> assertThat(failure.getStatusCode().value()).isEqualTo(404));
+            var first = completionFixture("diagnostic-status-first", false);
+            UUID parent =
+                    jdbc.queryForObject(
+                            "SELECT parent_execution_id FROM atomic_work_attempts WHERE id=?",
+                            UUID.class,
+                            first.attempt());
+            assertThat(api.inspect(parent)).containsEntry("completionState", "UNENROLLED");
+            assertThat(api.inspect(first.execution()))
+                    .containsEntry("completionState", "PENDING_STATUS")
+                    .containsEntry("readinessAuthority", "MANIFEST")
+                    .containsEntry("datasetReadyEstablished", false);
+            var json = context.getBean("jsonMapper", JsonMapper.class);
+            jdbc.update(
+                    "INSERT INTO output_completion_statuses(execution_id,payload) VALUES (?,?::jsonb)",
+                    first.execution(),
+                    json.writeValueAsString(first.status()));
+            assertThat(api.inspect(first.execution()))
+                    .containsEntry("completionState", "PENDING_REGISTRATION");
+            jdbc.update(
+                    "UPDATE job_execution_histories SET status='FAILED' WHERE id=?",
+                    first.execution());
+            jdbc.update(
+                    "INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
+                    first.execution(),
+                    java.sql.Timestamp.from(NOW),
+                    java.sql.Timestamp.from(NOW.plusSeconds(1800)));
+            assertThat(api.inspect(first.execution()))
+                    .containsEntry("completionState", "TERMINAL")
+                    .containsEntry("ownership_state", "UNCERTAIN");
+            var second = completionFixture("diagnostic-registration-first", false);
+            context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore
+                                    .class)
+                    .accept(second.event());
+            assertThat(api.inspect(second.execution()))
+                    .containsEntry("completionState", "PENDING_STATUS");
+            // Simulate committed registration/status with a failed completion listener.
+            jdbc.update(
+                    "INSERT INTO output_completion_statuses(execution_id,payload) VALUES (?,?::jsonb)",
+                    second.execution(),
+                    json.writeValueAsString(second.status()));
+            org.springframework.test.util.ReflectionTestUtils.setField(actual, "postgres", true);
+            var gap = api.inspect(second.execution());
+            assertThat(gap)
+                    .containsEntry("completionState", "COMPLETION_RECONCILIATION_REQUIRED")
+                    .containsEntry("readinessAuthority", "POSTGRES")
+                    .containsEntry("datasetReadyEstablished", false);
+            assertThat((List<?>) gap.get("outbox")).hasSize(1);
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "postgres", original);
+        }
+    }
+
     @Test
     void baselineHasNullProvenanceAndCannotReplaceRegisteredReady() {
         var mapper = context.getBean("jsonMapper", JsonMapper.class);
@@ -1940,10 +2795,18 @@ class GraphWorkRequestsPostgresTest {
                                 new com.omni.platform.modules.scheduler.metadata
                                         .OutputRegistrationEvent.Column("date", "DATE", false)),
                         List.of());
-        long fence = backfill.begin();
-        backfill.commit(
-                new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(
-                        fence, UUID.randomUUID(), output));
+        var api =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputBackfillController
+                                .class);
+        long fence = api.fence().get("fence");
+        assertThat(
+                        api.commit(
+                                mapper.writeValueAsString(
+                                        new com.omni.platform.modules.scheduler.metadata
+                                                .OutputBackfillService.Baseline(
+                                                fence, UUID.randomUUID(), output))))
+                .containsEntry("accepted", true);
         var ref = com.omni.platform.modules.scheduler.dependencies.DatasetRef.of("eod", partition);
         assertThat(provider.readManifest(ref).orElseThrow().sourceExecutionId()).isNull();
         assertThat(
@@ -2178,15 +3041,31 @@ class GraphWorkRequestsPostgresTest {
     @Test
     void enrolledDownstreamCannotLoseAFrozenUpstreamThatHasNoOutputDeclaration() {
         prepare(target(JobType.SYNC_INDICATORS), "missing-upstream-declaration");
-        var child = jdbc.queryForMap(
-                "SELECT a.id,a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
-                        + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_INDICATORS' LIMIT 1");
-        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class).enroll(
-                (UUID) child.get("execution_id"), (UUID) child.get("id"),
-                List.of(new com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent.LogicalOutput(
-                        "indicators", Map.of("exchange", "hose", "code", "aaa", "source", "ad_close", "timeframe", "1d"))),
-                List.of());
-        var readiness = context.getBean(com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+        var child =
+                jdbc.queryForMap(
+                        "SELECT a.id,a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_INDICATORS' LIMIT 1");
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class)
+                .enroll(
+                        (UUID) child.get("execution_id"),
+                        (UUID) child.get("id"),
+                        List.of(
+                                new com.omni.platform.modules.scheduler.metadata
+                                        .OutputRegistrationEvent.LogicalOutput(
+                                        "indicators",
+                                        Map.of(
+                                                "exchange",
+                                                "hose",
+                                                "code",
+                                                "aaa",
+                                                "source",
+                                                "ad_close",
+                                                "timeframe",
+                                                "1d"))),
+                        List.of());
+        var readiness =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
         assertThat(readiness.bind((UUID) child.get("execution_id"), Map.of())).isNull();
     }
 
@@ -2195,108 +3074,225 @@ class GraphWorkRequestsPostgresTest {
     void closedOwnerAttemptsAreReplacedThenSafelySettledWithoutReopeningHistory(String state) {
         UUID old = request(prepare(target(JobType.SYNC_INDICATORS), "orphan-owner"));
         jdbc.update("UPDATE atomic_work_requests SET state=? WHERE id=?", state, old);
-        jdbc.update("UPDATE job_execution_histories SET status='FAILED',finished_at=? WHERE id="
-                + "(SELECT execution_id FROM atomic_work_requests WHERE id=?)", java.sql.Timestamp.from(NOW), old);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='FAILED',finished_at=? WHERE id="
+                        + "(SELECT execution_id FROM atomic_work_requests WHERE id=?)",
+                java.sql.Timestamp.from(NOW),
+                old);
         UUID fresh = request(prepare(target(JobType.SYNC_INDICATORS), "replacement-owner"));
         assertThat(count("atomic_work_attempts")).isEqualTo(6);
         for (int tick = 0; tick < 3; tick++) graph.reconcile();
-        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, old)).isEqualTo(state);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM atomic_work_request_members m "
-                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id "
-                + "JOIN scheduler_outbox_messages o ON o.execution_id=e.id WHERE m.request_id=? "
-                + "AND e.status='FAILED' AND e.error='REQUEST_CLOSED' AND e.finished_at IS NOT NULL "
-                + "AND o.status='BLOCKED' AND o.dependency_reason='REQUEST_CLOSED' AND o.attempts=0",
-                Integer.class, old)).isEqualTo(3);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM atomic_work_request_members m "
-                + "JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id "
-                + "WHERE m.request_id=? AND e.status='PENDING'", Integer.class, fresh)).isEqualTo(3);
-        assertThat(graph.inspect(old)).containsEntry("isSettled", true).containsEntry("unfinishedMembers", 0L);
-        assertThat((List<?>) graph.inspect(old).get("members")).allSatisfy(member -> {
-            var detail = (Map<?, ?>) member;
-            assertThat(detail.get("reasonCode")).isEqualTo("REQUEST_CLOSED");
-            assertThat(detail.get("executionStatus")).isEqualTo("FAILED");
-            assertThat(detail.get("requiresExecutionReview")).isEqualTo(false);
-        });
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT state FROM atomic_work_requests WHERE id=?",
+                                String.class,
+                                old))
+                .isEqualTo(state);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM atomic_work_request_members m "
+                                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id "
+                                        + "JOIN scheduler_outbox_messages o ON o.execution_id=e.id WHERE m.request_id=? "
+                                        + "AND e.status='FAILED' AND e.error='REQUEST_CLOSED' AND e.finished_at IS NOT NULL "
+                                        + "AND o.status='BLOCKED' AND o.dependency_reason='REQUEST_CLOSED' AND o.attempts=0",
+                                Integer.class,
+                                old))
+                .isEqualTo(3);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM atomic_work_request_members m "
+                                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id "
+                                        + "WHERE m.request_id=? AND e.status='PENDING'",
+                                Integer.class,
+                                fresh))
+                .isEqualTo(3);
+        assertThat(graph.inspect(old))
+                .containsEntry("isSettled", true)
+                .containsEntry("unfinishedMembers", 0L);
+        assertThat((List<?>) graph.inspect(old).get("members"))
+                .allSatisfy(
+                        member -> {
+                            var detail = (Map<?, ?>) member;
+                            assertThat(detail.get("reasonCode")).isEqualTo("REQUEST_CLOSED");
+                            assertThat(detail.get("executionStatus")).isEqualTo("FAILED");
+                            assertThat(detail.get("requiresExecutionReview")).isEqualTo(false);
+                        });
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"default", "rerun", "force"})
-    void backfillSeparatesAttemptReuseFromProviderRefreshWithoutChangingWorkIdentity(String policy) {
+    void backfillSeparatesAttemptReuseFromProviderRefreshWithoutChangingWorkIdentity(
+            String policy) {
         var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
         org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
-        org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
         org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", false);
         try {
             jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
             var target = target(JobType.SYNC_INDICATORS);
             boolean force = policy.equals("force"), rerun = !policy.equals("default");
             var metadata = Map.<String, Object>of("force", force, "rerun", rerun);
-            var expansion = new java.util.LinkedHashMap<String, Object>(Map.of(
-                    "dateFrom", "2035-01-02", "dateTo", "2035-01-02",
-                    "sectorCodes", List.of(JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()),
-                    "sectorLevel", 2, "force", force, "rerun", rerun));
-            var request = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                    com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
-                    "operator", "data-policy-first", "Policy verification", null,
-                    context.getBean("jsonMapper", JsonMapper.class).writeValueAsString(expansion));
+            var expansion =
+                    new java.util.LinkedHashMap<String, Object>(
+                            Map.of(
+                                    "dateFrom",
+                                    "2035-01-02",
+                                    "dateTo",
+                                    "2035-01-02",
+                                    "sectorCodes",
+                                    List.of(JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()),
+                                    "sectorLevel",
+                                    2,
+                                    "force",
+                                    force,
+                                    "rerun",
+                                    rerun));
+            var request =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "data-policy-first",
+                            "Policy verification",
+                            null,
+                            context.getBean("jsonMapper", JsonMapper.class)
+                                    .writeValueAsString(expansion));
             UUID first = graph.prepareBackfill(request, target.getId(), NOW, metadata);
-            assertThat(graph.prepareBackfill(request, target.getId(), NOW, metadata)).isEqualTo(first);
-            var second = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                    request.mode(), request.actor(), "data-policy-second", request.reason(), null, request.parametersJson());
+            assertThat(graph.prepareBackfill(request, target.getId(), NOW, metadata))
+                    .isEqualTo(first);
+            var second =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            request.mode(),
+                            request.actor(),
+                            "data-policy-second",
+                            request.reason(),
+                            null,
+                            request.parametersJson());
             graph.prepareBackfill(second, target.getId(), NOW, metadata);
             int expected = rerun ? 6 : 3;
             assertThat(count("atomic_work_attempts")).isEqualTo(expected);
-            assertThat(jdbc.queryForObject("SELECT count(DISTINCT work_id) FROM atomic_work_attempts", Integer.class)).isEqualTo(3);
-            assertThat(jdbc.queryForObject(
-                    "SELECT count(*) FROM job_execution_histories WHERE meta_json->'backfillPolicy'->>'dataPolicy'=? "
-                            + "AND (meta_json->'backfillPolicy'->>'rerun')::boolean=?",
-                    Integer.class, force ? "REFRESH" : "PREFER_EXISTING", rerun)).isEqualTo(expected);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(DISTINCT work_id) FROM atomic_work_attempts",
+                                    Integer.class))
+                    .isEqualTo(3);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM job_execution_histories WHERE meta_json->'backfillPolicy'->>'dataPolicy'=? "
+                                            + "AND (meta_json->'backfillPolicy'->>'rerun')::boolean=?",
+                                    Integer.class,
+                                    force ? "REFRESH" : "PREFER_EXISTING",
+                                    rerun))
+                    .isEqualTo(expected);
             expansion.put("force", !force);
             expansion.put("rerun", true);
-            var changed = new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
-                    request.mode(), request.actor(), request.idempotencyKey(), request.reason(), null,
-                    context.getBean("jsonMapper", JsonMapper.class).writeValueAsString(expansion));
-            assertThatThrownBy(() -> graph.prepareBackfill(changed, target.getId(), NOW,
-                    Map.of("force", !force, "rerun", true)))
-                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("IDEMPOTENCY_CONFLICT");
+            var changed =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            request.mode(),
+                            request.actor(),
+                            request.idempotencyKey(),
+                            request.reason(),
+                            null,
+                            context.getBean("jsonMapper", JsonMapper.class)
+                                    .writeValueAsString(expansion));
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            changed,
+                                            target.getId(),
+                                            NOW,
+                                            Map.of("force", !force, "rerun", true)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("IDEMPOTENCY_CONFLICT");
             assertThat(count("atomic_work_attempts")).isEqualTo(expected);
         } finally {
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", false);
-            org.springframework.test.util.ReflectionTestUtils.setField(actual, "registrationConsumerEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
             org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", true);
         }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"claim", "expired-claim", "ack-lost", "published", "receipt", "timeout", "registration", "completion"})
-    void orphanWithAnyDispatchEvidenceIsPreservedForReviewEvenWhenItsUpstreamFails(String evidence) {
+    @ValueSource(
+            strings = {
+                "claim",
+                "expired-claim",
+                "ack-lost",
+                "published",
+                "receipt",
+                "timeout",
+                "registration",
+                "completion"
+            })
+    void orphanWithAnyDispatchEvidenceIsPreservedForReviewEvenWhenItsUpstreamFails(
+            String evidence) {
         var f = completionFixture("uncertain-orphan", false);
-        UUID owner = jdbc.queryForObject("SELECT request_id FROM atomic_work_request_members WHERE attempt_id=?", UUID.class, f.attempt());
+        UUID owner =
+                jdbc.queryForObject(
+                        "SELECT request_id FROM atomic_work_request_members WHERE attempt_id=?",
+                        UUID.class,
+                        f.attempt());
         jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
         switch (evidence) {
-            case "claim", "expired-claim" -> jdbc.update(
-                    "UPDATE scheduler_outbox_messages SET attempts=1,claim_token=?,claimed_by='fixture',claim_until=? WHERE execution_id=?",
-                    UUID.randomUUID(), java.sql.Timestamp.from(evidence.equals("claim") ? Instant.now().plusSeconds(60) : Instant.now().minusSeconds(60)), f.execution());
-            case "ack-lost" -> jdbc.update("UPDATE scheduler_outbox_messages SET attempts=1 WHERE execution_id=?", f.execution());
-            case "published" -> jdbc.update("UPDATE scheduler_outbox_messages SET attempts=1,status='PUBLISHED',published_at=? WHERE execution_id=?",
-                    java.sql.Timestamp.from(NOW), f.execution());
-            case "receipt" -> jdbc.update("UPDATE job_execution_histories SET status='RUNNING',meta_json=meta_json || '{\"workerStarted\":true}'::jsonb WHERE id=?", f.execution());
-            case "timeout" -> jdbc.update("INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
-                    f.execution(), java.sql.Timestamp.from(NOW), java.sql.Timestamp.from(NOW.plusSeconds(1800)));
-            case "registration" -> context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class).accept(f.event());
-            case "completion" -> jdbc.update("INSERT INTO output_completion_statuses(execution_id,payload) VALUES (?,jsonb_build_object('status','SUCCESS','executionId',?::text))",
-                    f.execution(), f.execution().toString());
+            case "claim", "expired-claim" ->
+                    jdbc.update(
+                            "UPDATE scheduler_outbox_messages SET attempts=1,claim_token=?,claimed_by='fixture',claim_until=? WHERE execution_id=?",
+                            UUID.randomUUID(),
+                            java.sql.Timestamp.from(
+                                    evidence.equals("claim")
+                                            ? Instant.now().plusSeconds(60)
+                                            : Instant.now().minusSeconds(60)),
+                            f.execution());
+            case "ack-lost" ->
+                    jdbc.update(
+                            "UPDATE scheduler_outbox_messages SET attempts=1 WHERE execution_id=?",
+                            f.execution());
+            case "published" ->
+                    jdbc.update(
+                            "UPDATE scheduler_outbox_messages SET attempts=1,status='PUBLISHED',published_at=? WHERE execution_id=?",
+                            java.sql.Timestamp.from(NOW),
+                            f.execution());
+            case "receipt" ->
+                    jdbc.update(
+                            "UPDATE job_execution_histories SET status='RUNNING',meta_json=meta_json || '{\"workerStarted\":true}'::jsonb WHERE id=?",
+                            f.execution());
+            case "timeout" ->
+                    jdbc.update(
+                            "INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
+                            f.execution(),
+                            java.sql.Timestamp.from(NOW),
+                            java.sql.Timestamp.from(NOW.plusSeconds(1800)));
+            case "registration" ->
+                    context.getBean(
+                                    com.omni.platform.modules.scheduler.metadata
+                                            .OutputRegistrationStore.class)
+                            .accept(f.event());
+            case "completion" ->
+                    jdbc.update(
+                            "INSERT INTO output_completion_statuses(execution_id,payload) VALUES (?,jsonb_build_object('status','SUCCESS','executionId',?::text))",
+                            f.execution(),
+                            f.execution().toString());
         }
         for (int tick = 0; tick < 3; tick++) graph.reconcile();
         assertThat(completionState(f.execution())).isIn("PENDING", "RUNNING");
-        assertThat(jdbc.queryForObject("SELECT status FROM scheduler_outbox_messages WHERE execution_id=?", String.class, f.execution()))
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM scheduler_outbox_messages WHERE execution_id=?",
+                                String.class,
+                                f.execution()))
                 .isEqualTo(evidence.equals("published") ? "PUBLISHED" : "PENDING");
         var member = inspectedMember(owner, f.attempt());
-        assertThat(member).containsEntry("orphaned", true).containsEntry("requiresExecutionReview", true);
+        assertThat(member)
+                .containsEntry("orphaned", true)
+                .containsEntry("requiresExecutionReview", true);
         assertThat(graph.inspect(owner)).containsEntry("isSettled", false);
         if (evidence.equals("timeout")) {
-            jdbc.update("UPDATE job_execution_histories SET status='FAILED' WHERE id=?", f.execution());
-            assertThat(inspectedMember(owner, f.attempt())).containsEntry("requiresExecutionReview", true);
+            jdbc.update(
+                    "UPDATE job_execution_histories SET status='FAILED' WHERE id=?", f.execution());
+            assertThat(inspectedMember(owner, f.attempt()))
+                    .containsEntry("requiresExecutionReview", true);
         }
     }
 
@@ -2304,11 +3300,22 @@ class GraphWorkRequestsPostgresTest {
     void reconciliationSkipsSlotsLockedByAcceptanceAndClosesThemOnALaterTick() {
         UUID owner = request(prepare(target(JobType.SYNC_STOCK_PRICE), "locked-orphan"));
         jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
-        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
-            jdbc.queryForList("SELECT work_id FROM atomic_work_slots ORDER BY work_id FOR UPDATE");
-            assertThatCode(() -> CompletableFuture.runAsync(graph::reconcile).get(10, TimeUnit.SECONDS)).doesNotThrowAnyException();
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM job_execution_histories WHERE error='REQUEST_CLOSED'", Integer.class)).isZero();
-        });
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
+                .executeWithoutResult(
+                        status -> {
+                            jdbc.queryForList(
+                                    "SELECT work_id FROM atomic_work_slots ORDER BY work_id FOR UPDATE");
+                            assertThatCode(
+                                            () ->
+                                                    CompletableFuture.runAsync(graph::reconcile)
+                                                            .get(10, TimeUnit.SECONDS))
+                                    .doesNotThrowAnyException();
+                            assertThat(
+                                            jdbc.queryForObject(
+                                                    "SELECT count(*) FROM job_execution_histories WHERE error='REQUEST_CLOSED'",
+                                                    Integer.class))
+                                    .isZero();
+                        });
         graph.reconcile();
         assertThat(graph.inspect(owner)).containsEntry("isSettled", true);
     }
@@ -2317,49 +3324,793 @@ class GraphWorkRequestsPostgresTest {
     void orphanOutboxAndExecutionUpdatesRollBackTogether() {
         UUID owner = request(prepare(target(JobType.SYNC_STOCK_PRICE), "rollback-orphan"));
         jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
-        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
-            graph.reconcile();
-            assertThat(graph.inspect(owner)).containsEntry("isSettled", true);
-            status.setRollbackOnly();
-        });
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
+                .executeWithoutResult(
+                        status -> {
+                            graph.reconcile();
+                            assertThat(graph.inspect(owner)).containsEntry("isSettled", true);
+                            status.setRollbackOnly();
+                        });
         assertThat(graph.inspect(owner)).containsEntry("isSettled", false);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM scheduler_outbox_messages WHERE status='PENDING'", Integer.class)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM job_execution_histories WHERE error='REQUEST_CLOSED'", Integer.class)).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM scheduler_outbox_messages WHERE status='PENDING'",
+                                Integer.class))
+                .isEqualTo(2);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM job_execution_histories WHERE error='REQUEST_CLOSED'",
+                                Integer.class))
+                .isZero();
     }
 
     @Test
     void failedAttemptStaysFailedWhileSameWorkHasReadyOutputFromALaterAttempt() {
         var old = completionFixture("old-output-attempt", false);
-        UUID owner = jdbc.queryForObject("SELECT request_id FROM atomic_work_request_members WHERE attempt_id=?", UUID.class, old.attempt());
+        UUID owner =
+                jdbc.queryForObject(
+                        "SELECT request_id FROM atomic_work_request_members WHERE attempt_id=?",
+                        UUID.class,
+                        old.attempt());
         jdbc.update("UPDATE atomic_work_requests SET state='FAILED' WHERE id=?", owner);
-        jdbc.update("UPDATE job_execution_histories SET status='FAILED',error='provider failure' WHERE id=?", old.execution());
-        assertThat(inspectedMember(owner, old.attempt())).containsEntry("executionStatus", "FAILED").containsEntry("outputReady", false);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='FAILED',error='provider failure' WHERE id=?",
+                old.execution());
+        assertThat(inspectedMember(owner, old.attempt()))
+                .containsEntry("executionStatus", "FAILED")
+                .containsEntry("outputReady", false);
         var fresh = completionFixture("new-output-attempt", false);
         assertThat(fresh.attempt()).isNotEqualTo(old.attempt());
-        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class).accept(fresh.event());
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class)
+                .accept(fresh.event());
         context.getBean(JobService.class).applyStatus(fresh.status());
-        var promotion = new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(jdbc, true, true);
-        new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> promotion.promote(fresh.execution()));
+        var promotion =
+                new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(
+                        jdbc, true, true);
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
+                .executeWithoutResult(tx -> promotion.promote(fresh.execution()));
         var member = inspectedMember(owner, old.attempt());
-        assertThat(member).containsEntry("executionStatus", "FAILED").containsEntry("status", "FAILED").containsEntry("outputReady", true);
-        assertThat((List<?>) member.get("readyOutputs")).singleElement().satisfies(item -> {
-            var output = (Map<?, ?>) item;
-            assertThat(output.get("executionId")).isEqualTo(fresh.execution().toString());
-            assertThat(output.get("attemptId")).isEqualTo(fresh.attempt().toString());
-        });
+        assertThat(member)
+                .containsEntry("executionStatus", "FAILED")
+                .containsEntry("status", "FAILED")
+                .containsEntry("outputReady", true);
+        assertThat((List<?>) member.get("readyOutputs"))
+                .singleElement()
+                .satisfies(
+                        item -> {
+                            var output = (Map<?, ?>) item;
+                            assertThat(output.get("executionId"))
+                                    .isEqualTo(fresh.execution().toString());
+                            assertThat(output.get("attemptId"))
+                                    .isEqualTo(fresh.attempt().toString());
+                        });
         jdbc.update("DELETE FROM output_ready_rows WHERE dataset='eod'");
         assertThat(inspectedMember(owner, old.attempt())).containsEntry("outputReady", false);
-        assertThat(jdbc.queryForObject("SELECT state FROM atomic_work_requests WHERE id=?", String.class, owner)).isEqualTo("FAILED");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT state FROM atomic_work_requests WHERE id=?",
+                                String.class,
+                                owner))
+                .isEqualTo("FAILED");
     }
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> inspectedMember(UUID requestId, UUID attemptId) {
-        return ((List<Map<String, Object>>) graph.inspect(requestId).get("members")).stream()
-                .filter(member -> attemptId.equals(member.get("attempt_id"))).findFirst().orElseThrow();
+        return ((List<Map<String, Object>>) graph.inspect(requestId).get("members"))
+                .stream()
+                        .filter(member -> attemptId.equals(member.get("attempt_id")))
+                        .findFirst()
+                        .orElseThrow();
     }
 
     private void releaseLease(SchedulerClaim lease) {
         new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
                 .executeWithoutResult(tx -> context.getBean(JobService.class).releaseClaim(lease));
+    }
+
+    private void versionedStorage(boolean enabled) {
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputDeclarations.class),
+                "versionedStorage",
+                enabled);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class),
+                "versionedStorage",
+                enabled);
+    }
+
+    private void promoteStorage(CompletionFixture fixture) {
+        var promotion =
+                new com.omni.platform.modules.scheduler.metadata.OutputReadinessStore(
+                        jdbc, true, true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                promotion,
+                "storageHeads",
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputStorageHeads.class));
+        new TransactionTemplate(context.getBean(PlatformTransactionManager.class))
+                .executeWithoutResult(tx -> promotion.promote(fixture.execution()));
+    }
+
+    private String withStorageVersion(CompletionFixture fixture, String version) {
+        var json = context.getBean("jsonMapper", JsonMapper.class);
+        var event = json.readTree(fixture.event());
+        ((tools.jackson.databind.node.ObjectNode)
+                        event.get("registrations").get(0).get("outputs").get(0))
+                .put("storageVersionId", version);
+        return event.toString();
+    }
+
+    @Test
+    void versionedRegistrationKeepsFirstCoordinateAcrossReplayAndRejectsLogicalChanges() {
+        versionedStorage(true);
+        try {
+            var fixture = completionFixture("versioned-replay", false);
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore
+                                    .class);
+            assertThatThrownBy(() -> store.accept(fixture.event()))
+                    .hasMessageContaining("immutable storage version");
+            assertThatThrownBy(() -> store.accept(withStorageVersion(fixture, "null")))
+                    .hasMessageContaining("storage");
+            store.accept(withStorageVersion(fixture, "accepted-put"));
+            context.getBean(JobService.class).applyStatus(fixture.status());
+            promoteStorage(fixture);
+            store.accept(withStorageVersion(fixture, "replay-put"));
+            assertThat(count("output_registration_events")).isEqualTo(1);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT payload->>'storageVersionId' FROM output_registration_outputs",
+                                    String.class))
+                    .isEqualTo("accepted-put");
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT storage_version_id FROM output_storage_heads",
+                                    String.class))
+                    .isEqualTo("accepted-put");
+            assertThatThrownBy(
+                            () ->
+                                    store.accept(
+                                            withStorageVersion(fixture, "different-data")
+                                                    .replace(
+                                                            "sha256:" + "a".repeat(64),
+                                                            "sha256:" + "c".repeat(64))))
+                    .hasMessageContaining("immutable");
+            var json = context.getBean("jsonMapper", JsonMapper.class);
+            var work =
+                    json.readTree(fixture.event())
+                            .get("registrations")
+                            .get(0)
+                            .get("atomicWorkId")
+                            .asText();
+            var privateProof =
+                    context.getBean(
+                                    com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness
+                                            .class)
+                            .read(work);
+            assertThat(((Map<?, ?>) privateProof.getFirst().get("output")).get("storageVersionId"))
+                    .isEqualTo("accepted-put");
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"both-versioned", "old-canonical", "new-canonical"})
+    void timeoutOwnershipIsReleasedOnlyForTwoVersionedAttempts(String scenario) {
+        versionedStorage(!scenario.equals("old-canonical"));
+        try {
+            var first = completionFixture("timeout-version-old", false);
+            jdbc.update(
+                    "UPDATE job_execution_histories SET status='FAILED' WHERE id=?",
+                    first.execution());
+            jdbc.update(
+                    "INSERT INTO output_attempt_timeouts(execution_id,published_at,timed_out_at) VALUES (?,?,?)",
+                    first.execution(),
+                    java.sql.Timestamp.from(NOW),
+                    java.sql.Timestamp.from(NOW.plusSeconds(1800)));
+            versionedStorage(!scenario.equals("new-canonical"));
+            var next = completionFixture("timeout-version-new", false);
+            var admission =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputWriteAdmission
+                                    .class);
+            assertThat(admission.waiting(next.execution()))
+                    .isEqualTo(!scenario.equals("both-versioned"));
+            // A late stream from the failed attempt cannot promote a head or reopen SUCCESS.
+            context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore
+                                    .class)
+                    .accept(
+                            scenario.equals("old-canonical")
+                                    ? first.event()
+                                    : withStorageVersion(first, "late-put"));
+            context.getBean(JobService.class).applyStatus(first.status());
+            promoteStorage(first);
+            assertThat(completionState(first.execution())).isEqualTo("FAILED");
+            assertThat(count("output_storage_heads")).isZero();
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void storageBasesFreezeOnceAtAcceptedHeadAndHeadPromotionIsMonotonic() {
+        versionedStorage(true);
+        try {
+            var heads =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputStorageHeads.class);
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore
+                                    .class);
+            var tx = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+            var first = completionFixture("bases-first", false);
+            tx.executeWithoutResult(status -> heads.freeze(first.execution()));
+            assertThat(heads.read(first.execution()).getFirst())
+                    .containsEntry("storageVersionId", null)
+                    .containsEntry("generation", null);
+            store.accept(withStorageVersion(first, "first-put"));
+            context.getBean(JobService.class).applyStatus(first.status());
+            var next = completionFixture("bases-next", false);
+            var admission =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputWriteAdmission
+                                    .class);
+            assertThat(admission.waiting(next.execution()))
+                    .isTrue(); // SUCCESS without physical promotion is not a merge base.
+            promoteStorage(first);
+            assertThat(admission.waiting(next.execution())).isFalse();
+            tx.executeWithoutResult(status -> heads.freeze(next.execution()));
+            assertThat(heads.read(next.execution()).getFirst())
+                    .containsEntry("storageVersionId", "first-put");
+            tx.executeWithoutResult(status -> heads.freeze(first.execution()));
+            assertThat(heads.read(first.execution()).getFirst())
+                    .containsEntry("storageVersionId", null);
+            store.accept(withStorageVersion(next, "second-put"));
+            context.getBean(JobService.class).applyStatus(next.status());
+            promoteStorage(next);
+            promoteStorage(first);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT storage_version_id FROM output_storage_heads",
+                                    String.class))
+                    .isEqualTo("second-put");
+            assertThatThrownBy(
+                            () -> jdbc.update("UPDATE output_storage_write_bases SET bases='[]'"))
+                    .hasMessageContaining("immutable");
+            assertThatThrownBy(
+                            () ->
+                                    jdbc.update(
+                                            "UPDATE output_storage_heads SET generation=generation-1"))
+                    .hasMessageContaining("must advance");
+            assertThatThrownBy(() -> jdbc.update("DELETE FROM output_storage_heads"))
+                    .hasMessageContaining("cannot be deleted");
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void versionedReadyHistoryKeepsFrozenAttemptAfterARefreshWithoutChangingDiscovery() {
+        versionedStorage(true);
+        try {
+            var first =
+                    completionFixture("frozen-ready-first", false, target(JobType.SYNC_INDICATORS));
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore
+                                    .class);
+            var reader =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            String work =
+                    mapper.readTree(first.event())
+                            .get("registrations")
+                            .get(0)
+                            .get("atomicWorkId")
+                            .asText();
+            var child =
+                    jdbc.queryForMap(
+                            "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
+                                    + "JOIN atomic_work_dependencies d ON d.attempt_id=a.id "
+                                    + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                    + "WHERE d.upstream_attempt_id=? AND e.meta_json->'workExpansion'->>'jobType'='SYNC_INDICATORS'",
+                            first.attempt());
+            context.getBean(com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class)
+                    .enroll(
+                            (UUID) child.get("execution_id"),
+                            (UUID) child.get("id"),
+                            List.of(
+                                    new com.omni.platform.modules.scheduler.metadata
+                                            .OutputRegistrationEvent.LogicalOutput(
+                                            "indicators",
+                                            Map.of(
+                                                    "exchange",
+                                                    "hose",
+                                                    "code",
+                                                    "aaa",
+                                                    "source",
+                                                    "ad_close",
+                                                    "timeframe",
+                                                    "1d"))),
+                            List.of());
+            store.accept(withStorageVersion(first, "frozen-first-version"));
+            context.getBean(JobService.class).applyStatus(first.status());
+            assertThat(reader.read(work, first.attempt())).isEmpty();
+            assertThat(count("output_work_ready_history"))
+                    .isZero(); // SUCCESS/registration alone is not READY.
+            promoteStorage(first);
+            var next = completionFixture("frozen-ready-refreshed", false);
+            store.accept(
+                    withStorageVersion(next, "refreshed-version")
+                            .replace("sha256:" + "a".repeat(64), "sha256:" + "c".repeat(64)));
+            context.getBean(JobService.class).applyStatus(next.status());
+            promoteStorage(next);
+            assertThat(reader.read(work).getFirst())
+                    .containsEntry("atomicAttemptId", next.attempt().toString());
+            var frozen = reader.read(work, first.attempt());
+            assertThat(frozen).hasSize(1);
+            assertThat(frozen.getFirst()).containsEntry("dataVersion", "sha256:" + "a".repeat(64));
+            assertThat(((Map<?, ?>) frozen.getFirst().get("output")).get("storageVersionId"))
+                    .isEqualTo("frozen-first-version");
+            var ref =
+                    com.omni.platform.modules.scheduler.dependencies.DatasetRef.of(
+                            "eod", Map.of("exchange", "hose", "code", "aaa"));
+            var bound =
+                    reader.bind((UUID) child.get("execution_id"), Map.of(ref, "unrelated-latest"));
+            assertThat(bound).hasSize(1).containsValue("sha256:" + "a".repeat(64));
+            var binding = bound.keySet().iterator().next();
+            assertThat(binding.approvedInput(bound.get(binding)))
+                    .containsEntry("atomicAttemptId", first.attempt().toString());
+            assertThat(reader.read(work, UUID.randomUUID())).isEmpty();
+            assertThat(reader.read("work:" + "f".repeat(64), first.attempt())).isEmpty();
+            promoteStorage(first);
+            assertThat(count("output_work_ready_history")).isEqualTo(2);
+            assertThatThrownBy(() -> jdbc.update("DELETE FROM output_work_ready_history"))
+                    .hasMessageContaining("immutable");
+            assertThatThrownBy(
+                            () ->
+                                    jdbc.update(
+                                            "UPDATE output_work_ready_history SET promoted_at=CURRENT_TIMESTAMP"))
+                    .hasMessageContaining("immutable");
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void canonicalRefreshDoesNotInventImmutableHistoricalReadiness() {
+        var first = completionFixture("canonical-history-first", false);
+        var store =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class);
+        var reader =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+        store.accept(first.event());
+        context.getBean(JobService.class).applyStatus(first.status());
+        promoteStorage(first);
+        String work =
+                jdbc.queryForObject(
+                        "SELECT work_id FROM atomic_work_attempts WHERE id=?",
+                        String.class,
+                        first.attempt());
+        assertThat(reader.read(work, first.attempt())).hasSize(1);
+        var next = completionFixture("canonical-history-next", false);
+        store.accept(next.event());
+        context.getBean(JobService.class).applyStatus(next.status());
+        promoteStorage(next);
+        assertThat(reader.read(work, first.attempt())).isEmpty();
+        assertThat(reader.read(work, next.attempt())).hasSize(1);
+        assertThat(count("output_work_ready_history")).isZero();
+    }
+
+    @Test
+    void readyHistoryFailureRollsBackCompletionAndRetryCommitsEverythingTogether() {
+        versionedStorage(true);
+        var ready =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputReadinessStore.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(ready, "enabled", true);
+        try {
+            var fixture = completionFixture("history-rollback", false);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            var wire = mapper.readTree(unifiedCompletion(fixture, true));
+            ((tools.jackson.databind.node.ObjectNode)
+                            wire.get("registration")
+                                    .get("registrations")
+                                    .get(0)
+                                    .get("outputs")
+                                    .get(0))
+                    .put("storageVersionId", "first-version");
+            var store =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.WorkerCompletionStore
+                                    .class);
+            jdbc.execute(
+                    "CREATE FUNCTION reject_ready_history_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'ready-history-write-failure'; END $$");
+            jdbc.execute(
+                    "CREATE TRIGGER reject_ready_history_test BEFORE INSERT ON output_work_ready_history FOR EACH ROW EXECUTE FUNCTION reject_ready_history_test()");
+            try {
+                assertThatThrownBy(() -> store.accept(wire.toString()))
+                        .hasMessageContaining("ready-history-write-failure");
+                assertThat(count("output_registrations")).isZero();
+                assertThat(count("output_work_ready_history")).isZero();
+                assertThat(count("output_storage_heads")).isZero();
+                assertThat(count("output_work_ready")).isZero();
+                assertThat(completionState(fixture.execution())).isIn("PENDING", "RUNNING");
+            } finally {
+                jdbc.execute("DROP TRIGGER reject_ready_history_test ON output_work_ready_history");
+                jdbc.execute("DROP FUNCTION reject_ready_history_test()");
+            }
+            store.accept(wire.toString());
+            assertThat(count("output_work_ready_history")).isEqualTo(1);
+            assertThat(count("output_storage_heads")).isEqualTo(1);
+            assertThat(completionState(fixture.execution())).isEqualTo("SUCCESS");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(ready, "enabled", false);
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void physicalBaselineIsFencedImmutableAndDoesNotInventWorkReadiness() {
+        var fixture = completionFixture("physical-baseline", false);
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class)
+                .accept(fixture.event());
+        context.getBean(JobService.class).applyStatus(fixture.status());
+        promoteStorage(fixture);
+        var service =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputBackfillService.class);
+        var api =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputBackfillController
+                                .class);
+        long fence = service.begin();
+        long revision =
+                jdbc.queryForObject(
+                        "SELECT revision FROM output_ready_revision WHERE id=1", Long.class);
+        var request =
+                new java.util.LinkedHashMap<String, Object>(
+                        Map.of(
+                                "fence",
+                                fence,
+                                "revision",
+                                revision,
+                                "dataset",
+                                "eod",
+                                "partition",
+                                Map.of("exchange", "hose", "code", "aaa"),
+                                "storageVersionId",
+                                "historical-clone",
+                                "checksum",
+                                "sha256:" + "d".repeat(64),
+                                "totalBytes",
+                                128));
+        var json = context.getBean("jsonMapper", JsonMapper.class);
+        int ready = count("output_work_ready");
+        request.put("revision", revision + 1);
+        assertThatThrownBy(() -> api.pinStorage(json.writeValueAsString(request)))
+                .hasMessageContaining("READY changed");
+        request.put("revision", revision);
+        assertThat(api.pinStorage(json.writeValueAsString(request)))
+                .containsEntry("revision", revision + 1);
+        assertThat(count("output_work_ready")).isEqualTo(ready);
+        request.put("revision", revision + 1);
+        assertThat(api.pinStorage(json.writeValueAsString(request)))
+                .containsEntry("revision", revision + 1);
+        request.put("storageVersionId", "other-clone");
+        assertThatThrownBy(() -> api.pinStorage(json.writeValueAsString(request)))
+                .hasMessageContaining("immutable");
+        var heads =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputStorageHeads.class);
+        long generation =
+                jdbc.queryForObject(
+                        "SELECT generation FROM output_completion_contracts WHERE execution_id=?",
+                        Long.class,
+                        fixture.execution());
+        assertThat(
+                        heads.coordinate(
+                                "eod", Map.of("exchange", "hose", "code", "aaa"), generation, null))
+                .isEqualTo("historical-clone");
+        assertThat(
+                        heads.coordinate(
+                                "eod",
+                                Map.of("exchange", "hose", "code", "aaa"),
+                                generation + 1,
+                                null))
+                .isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "fence",
+                "dataset",
+                "partition",
+                "upper",
+                "null-value",
+                "version-empty",
+                "version-null",
+                "version-space",
+                "version-long",
+                "checksum",
+                "bytes",
+                "fraction",
+                "unknown",
+                "oversize"
+            })
+    void invalidPhysicalBaselineCannotCreateAStorageHead(String scenario) {
+        var api =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputBackfillController
+                                .class);
+        long fence = api.fence().get("fence");
+        long revision =
+                jdbc.queryForObject(
+                        "SELECT revision FROM output_ready_revision WHERE id=1", Long.class);
+        var request =
+                new java.util.LinkedHashMap<String, Object>(
+                        Map.of(
+                                "fence",
+                                fence,
+                                "revision",
+                                revision,
+                                "dataset",
+                                "eod",
+                                "partition",
+                                Map.of("exchange", "hose", "code", "aaa"),
+                                "storageVersionId",
+                                "clone",
+                                "checksum",
+                                "sha256:" + "d".repeat(64),
+                                "totalBytes",
+                                128));
+        switch (scenario) {
+            case "fence" -> request.put("fence", fence + 1);
+            case "dataset" -> request.put("dataset", "unsupported");
+            case "partition" -> request.put("partition", Map.of("exchange", "hose"));
+            case "upper" -> request.put("partition", Map.of("exchange", "HOSE", "code", "aaa"));
+            case "null-value" -> {
+                var partition = new java.util.HashMap<String, String>();
+                partition.put("exchange", null);
+                request.put("partition", partition);
+            }
+            case "version-empty" -> request.put("storageVersionId", "");
+            case "version-null" -> request.put("storageVersionId", "null");
+            case "version-space" -> request.put("storageVersionId", "two versions");
+            case "version-long" -> request.put("storageVersionId", "x".repeat(1025));
+            case "checksum" -> request.put("checksum", "not-a-checksum");
+            case "bytes" -> request.put("totalBytes", 0);
+            case "fraction" -> request.put("revision", 0.5);
+            case "unknown" -> request.put("unknown", true);
+        }
+        String payload =
+                scenario.equals("oversize")
+                        ? "x".repeat(16385)
+                        : context.getBean("jsonMapper", JsonMapper.class)
+                                .writeValueAsString(request);
+        assertThatThrownBy(() -> api.pinStorage(payload)).isInstanceOf(RuntimeException.class);
+        assertThat(count("output_storage_heads")).isZero();
+    }
+
+    @Test
+    void strictReadersRejectUnpinnedProofsAndUseOnlyTheImmutableBaselineForLegacyWork() {
+        var fixture = completionFixture("strict-legacy-proof", false);
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class)
+                .accept(fixture.event());
+        context.getBean(JobService.class).applyStatus(fixture.status());
+        promoteStorage(fixture);
+        var json = context.getBean("jsonMapper", JsonMapper.class);
+        String work =
+                json.readTree(fixture.event())
+                        .get("registrations")
+                        .get(0)
+                        .get("atomicWorkId")
+                        .asText();
+        var reader =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+        var provider =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputReadinessProvider.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                reader, "versionedStorage", true);
+        context.getEnvironment()
+                .getPropertySources()
+                .addFirst(
+                        new MapPropertySource(
+                                "strict-storage-test",
+                                Map.of("app.output-registration.versioned-storage-enabled", true)));
+        try {
+            assertThatThrownBy(() -> reader.read(work))
+                    .hasMessageContaining("STORAGE_BASELINE_REQUIRED");
+            assertThatThrownBy(() -> provider.page(0, 200, null))
+                    .hasMessageContaining("STORAGE_BASELINE_REQUIRED");
+            var service =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputBackfillService
+                                    .class);
+            long fence = service.begin();
+            long revision =
+                    jdbc.queryForObject(
+                            "SELECT revision FROM output_ready_revision WHERE id=1", Long.class);
+            service.pinStorage(
+                    new com.omni.platform.modules.scheduler.metadata.OutputBackfillService
+                            .StorageBaseline(
+                            fence,
+                            revision,
+                            "eod",
+                            Map.of("exchange", "hose", "code", "aaa"),
+                            "baseline-version",
+                            "sha256:" + "d".repeat(64),
+                            128));
+            assertThat(
+                            ((Map<?, ?>) reader.read(work).getFirst().get("output"))
+                                    .get("storageVersionId"))
+                    .isEqualTo("baseline-version");
+            List<Map<String, Object>> items =
+                    (List<Map<String, Object>>) provider.page(0, 200, null).get("items");
+            assertThat(((Map<?, ?>) items.getFirst().get("manifest")).get("storageVersionId"))
+                    .isEqualTo("baseline-version");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    reader, "versionedStorage", false);
+            context.getEnvironment().getPropertySources().remove("strict-storage-test");
+        }
+    }
+
+    @Test
+    void versionedDownstreamWaitsForAnImmutableCoordinateEvenWhenLogicalUpstreamIsReady() {
+        var fixture =
+                completionFixture("pinned-upstream-guard", false, target(JobType.SYNC_INDICATORS));
+        context.getBean(com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore.class)
+                .accept(fixture.event());
+        context.getBean(JobService.class).applyStatus(fixture.status());
+        promoteStorage(fixture);
+        var downstream =
+                jdbc.queryForMap(
+                        "SELECT a.id,a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id "
+                                + "WHERE e.meta_json->'workExpansion'->>'jobType'='SYNC_INDICATORS'");
+        versionedStorage(true);
+        try {
+            context.getBean(com.omni.platform.modules.scheduler.metadata.OutputCompletionGate.class)
+                    .enroll(
+                            (UUID) downstream.get("execution_id"),
+                            (UUID) downstream.get("id"),
+                            List.of(
+                                    new com.omni.platform.modules.scheduler.metadata
+                                            .OutputRegistrationEvent.LogicalOutput(
+                                            "indicators",
+                                            Map.of(
+                                                    "source",
+                                                    "ad_close",
+                                                    "timeframe",
+                                                    "1d",
+                                                    "exchange",
+                                                    "hose",
+                                                    "code",
+                                                    "aaa"))),
+                            List.of());
+            var reader =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputWorkReadiness.class);
+            assertThat(reader.bind((UUID) downstream.get("execution_id"), Map.of())).isNull();
+            // Seed a previously approved physical baseline in this disposable fixture.
+            // The real endpoint deliberately refuses to pin while downstream is pending.
+            long generation =
+                    jdbc.queryForObject(
+                            "SELECT max(generation) FROM output_completion_contracts", Long.class);
+            jdbc.update(
+                    "INSERT INTO output_storage_heads(dataset,partition_values,storage_version_id,generation,baseline_version_id,baseline_generation,baseline_checksum,baseline_total_bytes) "
+                            + "VALUES ('eod','{\"exchange\":\"hose\",\"code\":\"aaa\"}','pinned-history',?,'pinned-history',?,? ,128)",
+                    generation,
+                    generation,
+                    "sha256:" + "d".repeat(64));
+            assertThat(reader.bind((UUID) downstream.get("execution_id"), Map.of())).hasSize(1);
+        } finally {
+            versionedStorage(false);
+        }
+    }
+
+    @Test
+    void physicalPinRoutesLegacyWholeFileBaselineToItsCanonicalVersionWithoutInventingWork() {
+        var fixture = completionFixture("legacy-physical-route", false);
+        jdbc.update(
+                "UPDATE job_execution_histories SET status='FAILED' WHERE id=?",
+                fixture.execution());
+        var json = context.getBean("jsonMapper", JsonMapper.class);
+        var output =
+                (tools.jackson.databind.node.ObjectNode)
+                        json.readTree(fixture.event())
+                                .get("registrations")
+                                .get(0)
+                                .get("outputs")
+                                .get(0)
+                                .deepCopy();
+        output.remove("workScope");
+        var service =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputBackfillService.class);
+        long fence = service.begin();
+        service.commit(
+                new com.omni.platform.modules.scheduler.metadata.OutputBackfillService.Baseline(
+                        fence,
+                        UUID.randomUUID(),
+                        json.treeToValue(
+                                output,
+                                com.omni.platform.modules.scheduler.metadata.OutputRegistrationEvent
+                                        .Output.class)));
+        long revision =
+                jdbc.queryForObject(
+                        "SELECT revision FROM output_ready_revision WHERE id=1", Long.class);
+        service.pinStorage(
+                new com.omni.platform.modules.scheduler.metadata.OutputBackfillService
+                        .StorageBaseline(
+                        fence,
+                        revision,
+                        "eod",
+                        Map.of("exchange", "hose", "code", "aaa"),
+                        "legacy-canonical-version",
+                        "sha256:" + "d".repeat(64),
+                        128));
+        List<Map<String, Object>> items =
+                (List<Map<String, Object>>)
+                        context.getBean(
+                                        com.omni.platform.modules.scheduler.metadata
+                                                .OutputReadinessProvider.class)
+                                .page(0, 200, null)
+                                .get("items");
+        var manifest = (Map<?, ?>) items.getFirst().get("manifest");
+        assertThat(manifest.get("path")).isEqualTo("eod/hose/aaa.parquet");
+        assertThat(manifest.get("canonicalPath")).isEqualTo(manifest.get("path"));
+        assertThat(manifest.get("storageVersionId")).isEqualTo("legacy-canonical-version");
+        assertThat(manifest.get("sourceExecutionId")).isNull();
+        assertThat(count("output_work_ready")).isZero();
+    }
+
+    @Test
+    void disablingVersionedFlagCannotEnrollMutableWritesOverAnAcceptedPhysicalHead() {
+        var declarations =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.metadata.OutputDeclarations.class);
+        boolean original = declarations.enabled();
+        versionedStorage(true);
+        try {
+            var fixture = completionFixture("storage-floor-first", false);
+            context.getBean(
+                            com.omni.platform.modules.scheduler.metadata.OutputRegistrationStore
+                                    .class)
+                    .accept(withStorageVersion(fixture, "accepted-version"));
+            context.getBean(JobService.class).applyStatus(fixture.status());
+            promoteStorage(fixture);
+            int contracts = count("output_completion_contracts"),
+                    attempts = count("atomic_work_attempts"),
+                    outbox = count("scheduler_outbox_messages");
+            versionedStorage(false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    declarations, "enabled", true);
+            assertThatThrownBy(
+                            () ->
+                                    prepare(
+                                            target(JobType.SYNC_STOCK_PRICE),
+                                            "unsafe-storage-downgrade"))
+                    .hasMessageContaining("CANONICAL_WORK_ON_VERSIONED_PARTITION");
+            assertThat(count("output_completion_contracts")).isEqualTo(contracts);
+            assertThat(count("atomic_work_attempts")).isEqualTo(attempts);
+            assertThat(count("scheduler_outbox_messages")).isEqualTo(outbox);
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    declarations, "enabled", original);
+            versionedStorage(false);
+        }
     }
 }

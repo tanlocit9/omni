@@ -19,6 +19,7 @@ flowchart TD
     Measured --> GuardResidue["TD-013: legacy guard residue"]
     Measured --> DispatchResidue["TD-014: closed by P14-I4"]
     Measured --> JavaQuality["TD-015: Java static analysis and Sonar gate"]
+    Measured --> Watchdog["TD-018: observe before automatic expiry"]
     Later --> Features["TD-002/004/011: operations and features"]
     Later --> RequestAudit["TD-017: manual job triggers and audit"]
 
@@ -29,7 +30,7 @@ flowchart TD
     class Gate pending;
     class Safety,Identity,Data,Kafka active;
     class Planner active;
-    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Later,Features,RequestAudit pending;
+    class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Watchdog,Later,Features,RequestAudit pending;
 ```
 
 ## Reading the Diagram
@@ -42,3 +43,4 @@ flowchart TD
 - TD-015 records the missing Sonar/static-analysis target plus confirmed Java type-safety/tooling warnings; it is conditional quality debt, not evidence of a failed Sonar gate.
 - Closed TD-006 is intentionally excluded.
 - TD-017 retains owner-accepted deferred rejection audit; it does not block current I3.d or authorize weakening run correctness/permissions.
+- [TD-018](018-execution-watchdog-observation.md) keeps automatic execution expiry disabled during owner observation; reactivation needs evidence and approval, not elapsed job age alone.

@@ -1,5 +1,27 @@
 # ADR-008: Platform-owned PostgreSQL Output Readiness via Kafka
 
+November 11 frozen-proof amendment: owner-approved V26 READY promotion history
+allows exact VERSIONED attempt lookup after refresh. Only actual READY promotion
+creates this immutable evidence; registration/SUCCESS alone remains insufficient.
+Current discovery and mutable CANONICAL boundaries are preserved. See
+[scope and evidence](../reference/019-i10-review-20261111.md).
+
+November 11 terminal-replay amendment: [validated terminal VERSIONED completion](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+keeps the first accepted result. Same-output SUCCESS replay is a no-op; conflicting
+SUCCESS or late FAILED output is durably audited before ACK. Malformed/foreign and
+legacy records retain strict handling. This exception does not replace READY checks,
+activate watchdogs or authorize accepting a different output version.
+
+Owner amendment 2026-11-11: [TD-018](../technical-debt/018-execution-watchdog-observation.md)
+defers automatic expiry/watchdog during observation; keep its flag false. Completion
+evidence, terminal-state immutability and safe READY/reader cutover remain required.
+Historical watchdog timing requirements below are not current I10 completion gates.
+
+Owner amendment (2026-11-10): [one worker completion](../reference/018-i10-worker-completion.md)
+carries terminal status and validated output evidence for newly declared work.
+Platform commits registration, status and eligible READY together. This removes
+the new-command cross-topic join, not the existing backlog/late-writer gates.
+
 Owner-scoped operational exception (2026-11-05): [Indicators sector/date
 backfill](../reference/009-indicators-backfill.md) may explicitly enroll and promote
 its accepted work while global realtime readiness flags remain off. It retains
@@ -48,6 +70,13 @@ Platform schema. The future writer needs the same registration boundary after
 batching output writes, without becoming the owner of Platform database access.
 
 ## Decision
+
+Owner physical-safety amendment (2026-11-09): approve an opt-in backend-version
+coordinate, frozen accepted merge bases and exact-version readers at existing
+logical paths. Timeout replacement is allowed only for two versioned contracts;
+legacy uncertainty remains fenced. Historical pinning adds no work READY or
+producer provenance. See [protocol and rollout](../reference/017-i10-versioned-storage.md).
+This records the approved design, not retained-environment cutover evidence.
 
 Owner amendment (2026-11-02): historical baselines may retain NULL producer
 provenance when unknown, without synthetic executions/attempts. They require

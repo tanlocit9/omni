@@ -38,6 +38,7 @@ from py_common.storage.ports import (
     DeletableStorage,
     ListableStorage,
     ReadableStorage,
+    VersionedStorage,
     WritableStorage,
 )
 from py_common.storage.providers import StorageProvider
@@ -48,7 +49,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # S3 error codes that mean "object does not exist"
-_NOT_FOUND_CODES = frozenset({"NoSuchKey", "NoSuchObject", "NoSuchBucket"})
+_NOT_FOUND_CODES = frozenset(
+    {"NoSuchKey", "NoSuchObject", "NoSuchBucket", "NoSuchVersion"}
+)
+
+
+def _require_version_id(value):
+    if (
+        not isinstance(value, str)
+        or not value
+        or value == "null"
+        or len(value) > 1024
+        or any(not 33 <= ord(c) < 127 for c in value)
+    ):
+        raise ValueError("Invalid immutable storage version")
 
 
 def _is_not_found(exc: Exception) -> bool:
@@ -69,6 +83,7 @@ class MinioStorageAdapter(
     CopyableStorage,
     DeletableStorage,
     ListableStorage,
+    VersionedStorage,
 ):
     """Async storage adapter backed by the MinIO Python SDK.
 
@@ -183,6 +198,71 @@ class MinioStorageAdapter(
     # ------------------------------------------------------------------
     # WritableStorage
     # ------------------------------------------------------------------
+
+    async def read_versioned_bytes(
+        self, bucket: str, object_name: str, version_id: str
+    ) -> bytes:
+        """Read the named immutable version without a mutable GET fallback."""
+
+        def _read():
+            _require_version_id(version_id)
+            response = None
+            try:
+                response = self._client.get_object(
+                    bucket, object_name, version_id=version_id
+                )
+                if response.headers.get("x-amz-version-id") != version_id:
+                    raise ValueError(
+                        "Backend did not return the requested object version"
+                    )
+                return response.read()
+            finally:
+                if response is not None:
+                    response.close()
+                    response.release_conn()
+
+        try:
+            return await asyncio.to_thread(_read)
+        except Exception as exc:
+            if _is_not_found(exc):
+                raise StorageObjectNotFoundError(bucket, object_name) from exc
+            raise StorageReadError(bucket, object_name, exc) from exc
+
+    async def write_versioned_bytes(
+        self, bucket: str, object_name: str, data: bytes, content_type: str
+    ) -> str:
+        """Require versioning and return the uploaded version without a HEAD race."""
+
+        def _write():
+            from minio.commonconfig import ENABLED
+
+            config = self._client.get_bucket_versioning(bucket)
+            if (
+                config.status != ENABLED
+                or any(
+                    object_name.startswith(prefix)
+                    for prefix in (config.excluded_prefixes or [])
+                )
+                or (config.exclude_folders and object_name.endswith("/"))
+            ):
+                raise ValueError(
+                    "Versioned publication requires enabled, non-excluded "
+                    "bucket versioning"
+                )
+            result = self._client.put_object(
+                bucket_name=bucket,
+                object_name=object_name,
+                data=io.BytesIO(data),
+                length=len(data),
+                content_type=content_type,
+            )
+            _require_version_id(result.version_id)
+            return result.version_id
+
+        try:
+            return await asyncio.to_thread(_write)
+        except Exception as exc:
+            raise StorageWriteError(bucket, object_name, exc) from exc
 
     async def write_bytes(
         self,

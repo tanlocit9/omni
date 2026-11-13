@@ -18,6 +18,24 @@ services:
       timeout: 20s
       retries: 3
 
+  minio-init:
+    image: amazon/aws-cli:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    restart: 'no'
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: >
+      /bin/sh -c "
+      until aws --endpoint-url http://minio:9000 s3api list-buckets; do sleep 2; done;
+      aws --endpoint-url http://minio:9000 s3api head-bucket --bucket stock-data || aws --endpoint-url http://minio:9000 s3api create-bucket --bucket stock-data;
+      aws --endpoint-url http://minio:9000 s3api put-bucket-versioning --bucket stock-data --versioning-configuration Status=Enabled;
+      aws --endpoint-url http://minio:9000 s3api get-bucket-versioning --bucket stock-data
+      "
+
   postgres:
     image: postgres:16
     container_name: postgres

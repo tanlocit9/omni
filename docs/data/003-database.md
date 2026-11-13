@@ -1,5 +1,28 @@
 # Database
 
+V26 also records immutable output_work_ready_history for actual VERSIONED work
+promotions and exposes output_work_ready_attempt_catalog for exact frozen-attempt
+reads after a refresh. It preserves latest/current discovery and creates no history
+from registration/SUCCESS alone. See [the approved correction](../reference/019-i10-review-20261111.md).
+
+V26 now also includes immutable output_completion_rejections for [terminal VERSIONED
+completion audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11).
+The owner authorized extending local unapplied V26 after READ ONLY history showed V25.
+Raw payloads are bounded at 256 KiB and deduplicated by event ID/SHA-256; audit is not
+accepted registration/READY. Apply a forward migration if another environment has
+already applied an older V26; no live repair/migration is performed here.
+
+[Unified I10 completion](../reference/018-i10-worker-completion.md) reuses current
+registration/status/READY tables in one transaction; no new migration is added.
+outputCompletion remains structured server-owned execution metadata after status updates.
+
+I10 [V26 physical storage coordinates](../../database/migrations/V26__versioned_output_storage.sql)
+adds completion storage_policy, immutable output_storage_write_bases and monotonic
+output_storage_heads with an immutable historical baseline coordinate. Defaults are
+CANONICAL; no prior ledger/migration is rewritten. The authenticated physical pin
+rechecks writer fence, readiness revision and promotion gaps without inventing READY.
+See [migration/operations boundary](../reference/017-i10-versioned-storage.md).
+
 Closed-owner maintenance uses existing work-slot locks and outbox/execution fields
 without a migration. Proven never-dispatched ownerless work becomes
 FAILED/REQUEST_CLOSED; other commands remain for review. No terminal request or
@@ -395,7 +418,7 @@ Cache loss or restart requires another manual scan; it is not durable audit hist
 
 ## Empty legacy tracker retirement - 2026-11-05
 
-V24__retire_empty_blocked_jobs.sql retires blocked_jobs and its table-owned indexes.
+V24\_\_retire_empty_blocked_jobs.sql retires blocked_jobs and its table-owned indexes.
 The migration takes an exclusive lock, refuses retained rows, then uses DROP TABLE
 RESTRICT. V7 and existing Flyway history are unchanged. Platform removes the unused
 BlockedJob entity/repository/tracker; scheduler_outbox_messages and execution
@@ -404,7 +427,7 @@ as part of the source cleanup. See [TD-013](../technical-debt/013-legacy-depende
 
 ## Scoped Indicators backfill requests - 2026-11-05
 
-V25__enable_backfill_graph_requests.sql extends the atomic_work_requests mode
+V25\_\_enable_backfill_graph_requests.sql extends the atomic_work_requests mode
 constraint with BACKFILL. Existing membership, attempts, runs and output READY
 tables remain authoritative. It is a forward-only constraint change, with no
 retained-environment execution by the agent. See [API and migration prerequisites](../reference/009-indicators-backfill.md).

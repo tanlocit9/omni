@@ -99,19 +99,27 @@ async def startup_event(app: FastAPI) -> None:
         registry=app.state.storage_registry,
         provider=StorageProvider.MINIO,
         bucket=settings.minio.bucket,
+        snapshot_paths=settings.stock_data_paths,
     )
     readable = app.state.storage_registry.get_port(
         StorageProvider.MINIO, ReadableStorage
     )
-    metadata_reader = GlobalMetadataReader(readable, settings.minio.bucket)
+    from py_common.storage.output_readiness import metadata_reader as create_metadata_reader
+    metadata_reader = create_metadata_reader(settings, readable, parquet=app.state.parquet_storage)
     metadata_writer = GlobalMetadataWriter(
         app.state.storage_registry.get_port(StorageProvider.MINIO, WritableStorage),
         readable,
         settings.minio.bucket,
     )
     app.state.metadata_reader = metadata_reader
+    from py_common.storage.output_reconciliation import OutputReconciler
+    if settings.output_readiness_mode == "postgres" or settings.output_readiness_backfill_enabled:
+        sync_owner = OutputReconciler(settings, metadata_reader, app.state.parquet_storage,
+                                      backfill=settings.output_readiness_backfill_enabled)
+    else:
+        sync_owner = None
     app.state.metadata_sync_handler = MetadataSyncJobHandler(
-        MetadataSynchronizer(
+        sync_owner or MetadataSynchronizer(
             readable=readable,
             listable=app.state.storage_registry.get_port(
                 StorageProvider.MINIO, ListableStorage
@@ -142,15 +150,18 @@ async def startup_event(app: FastAPI) -> None:
         LatestSignalRepository(
             settings,
             app.state.parquet_storage,
+            metadata_reader,
         )
     )
     app.state.signal_outcome_evaluator = SignalOutcomeEvaluator(
         settings,
         app.state.parquet_storage,
+        metadata_reader,
     )
     app.state.sector_wave_handler = SectorWaveJobHandler(
         settings,
         app.state.parquet_storage,
+        metadata_reader,
     )
     app.state.sector_transition_handler = SectorTransitionJobHandler(
         settings,

@@ -86,6 +86,47 @@ class JobRunCrossServiceIntegrationTest {
     }
 
     static void start(boolean overlapControls, boolean graphExpansion) throws Exception {
+        start(overlapControls, graphExpansion, false);
+    }
+
+    static void start(boolean overlapControls, boolean graphExpansion, boolean enrollment)
+            throws Exception {
+        start(overlapControls, graphExpansion, enrollment, enrollment);
+    }
+
+    static void start(
+            boolean overlapControls,
+            boolean graphExpansion,
+            boolean enrollment,
+            boolean globalReader)
+            throws Exception {
+        start(overlapControls, graphExpansion, enrollment, globalReader, false);
+    }
+
+    static void start(
+            boolean overlapControls,
+            boolean graphExpansion,
+            boolean enrollment,
+            boolean globalReader,
+            boolean versionedStorage)
+            throws Exception {
+        start(
+                overlapControls,
+                graphExpansion,
+                enrollment,
+                globalReader,
+                versionedStorage,
+                "manifest");
+    }
+
+    static void start(
+            boolean overlapControls,
+            boolean graphExpansion,
+            boolean enrollment,
+            boolean globalReader,
+            boolean versionedStorage,
+            String workerMetadataMode)
+            throws Exception {
         directory = Files.createTempDirectory("omni-p14-integration-");
         int kafkaPort;
         try (var socket = new ServerSocket(0)) {
@@ -146,6 +187,13 @@ class JobRunCrossServiceIntegrationTest {
         properties.put("app.scheduler.job-run.graph-expansion-enabled", graphExpansion);
         properties.put("app.scheduler.job-run.planning-enabled", true);
         properties.put("app.scheduler.job-run.definition-consolidation-enabled", false);
+        properties.put("app.output-registration.enrollment-enabled", enrollment);
+        properties.put("app.output-registration.shadow-enabled", enrollment);
+        properties.put("app.output-registration.ready-promotion-enabled", enrollment);
+        properties.put("app.output-registration.reader-enabled", globalReader);
+        properties.put("app.output-registration.reader-token", "i10-isolated-fixture");
+        properties.put("app.output-registration.reconcile-token", "i10-isolated-reconciler");
+        properties.put("app.output-registration.versioned-storage-enabled", versionedStorage);
         context =
                 PlatformStartupPostgresTest.startApplication(
                         database,
@@ -158,6 +206,20 @@ class JobRunCrossServiceIntegrationTest {
                                                         "p14Integration", properties)));
         jdbc = context.getBean(JdbcTemplate.class);
         assertThat(context.getEnvironment().getProperty("app.minio.endpoint")).isEqualTo(endpoint);
+        if (versionedStorage) {
+            var client = context.getBean("minioClient", MinioClient.class);
+            if (!client.bucketExists(io.minio.BucketExistsArgs.builder().bucket(bucket).build()))
+                client.makeBucket(io.minio.MakeBucketArgs.builder().bucket(bucket).build());
+            client.setBucketVersioning(
+                    io.minio.SetBucketVersioningArgs.builder()
+                            .bucket(bucket)
+                            .config(
+                                    new io.minio.messages.VersioningConfiguration(
+                                            io.minio.messages.VersioningConfiguration.Status
+                                                    .ENABLED,
+                                            null))
+                            .build());
+        }
         config = directory.resolve("environment.json");
         var environment =
                 new HashMap<String, Object>(
@@ -177,6 +239,19 @@ class JobRunCrossServiceIntegrationTest {
         environment.put(
                 "businessDate",
                 BUSINESS_CLOCK.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate().toString());
+        if (enrollment) {
+            environment.put("workerMetadataMode", workerMetadataMode);
+            environment.put(
+                    "outputReadinessUrl",
+                    "http://127.0.0.1:"
+                            + context.getEnvironment().getRequiredProperty("local.server.port")
+                            + "/api/v1/jobs/output-readiness");
+            environment.put("outputReadinessToken", "i10-isolated-fixture");
+            environment.put("outputReadinessReconcileToken", "i10-isolated-reconciler");
+            environment.put(
+                    "providerControlDir",
+                    Files.createDirectory(directory.resolve("provider-control")).toString());
+        }
         if (overlapControls) {
             Path control = Files.createDirectory(directory.resolve("control"));
             environment.put("overlapControlDir", control.toString());
@@ -201,6 +276,14 @@ class JobRunCrossServiceIntegrationTest {
 
     @AfterAll
     static void stop() throws Exception {
+        stopWorkers();
+        if (context != null) context.close();
+        if (minio != null) minio.stop();
+        if (database != null) database.stop();
+        if (kafka != null) kafka.stop();
+    }
+
+    static void stopWorkers() throws Exception {
         for (Process worker : WORKERS) {
             var children = worker.descendants().toList();
             children.forEach(ProcessHandle::destroy);
@@ -209,12 +292,11 @@ class JobRunCrossServiceIntegrationTest {
             children.stream()
                     .filter(ProcessHandle::isAlive)
                     .forEach(ProcessHandle::destroyForcibly);
+            for (var child : children) if (child.isAlive()) child.onExit().get(5, TimeUnit.SECONDS);
+            assertThat(worker.isAlive()).isFalse();
+            assertThat(children).noneMatch(ProcessHandle::isAlive);
         }
         WORKERS.clear();
-        if (context != null) context.close();
-        if (minio != null) minio.stop();
-        if (database != null) database.stop();
-        if (kafka != null) kafka.stop();
     }
 
     @Test
@@ -282,7 +364,7 @@ class JobRunCrossServiceIntegrationTest {
                                 "%" + eodVersion + "%"))
                 .isEqualTo(1);
         var storage = context.getBean("minioClient", MinioClient.class);
-        proveLegacyStaleReadyIsAdmittedButAtomicWorkerRejectsIt(storage, dispatch);
+        proveLegacyStaleReadyWaitsBeforeKafkaAndResumesAfterRepair(storage, dispatch);
         // The fixture provider has no classification endpoint. Existing symbol
         // data permits the actual fallback branch to complete with warnings.
         jdbc.update(
@@ -411,7 +493,7 @@ class JobRunCrossServiceIntegrationTest {
                 definition.getId());
     }
 
-    private static void proveLegacyStaleReadyIsAdmittedButAtomicWorkerRejectsIt(
+    private static void proveLegacyStaleReadyWaitsBeforeKafkaAndResumesAfterRepair(
             MinioClient storage, SchedulerOutboxDispatcher dispatch) throws Exception {
         byte[] eodBefore = objectBytes(storage, "eod/hose/hpg.parquet");
         byte[] indicatorsBefore = objectBytes(storage, "indicators/ad_close/1d/hose/hpg.parquet");
@@ -435,7 +517,7 @@ class JobRunCrossServiceIntegrationTest {
                     context.getBean(JobDefinitionRepository.class)
                             .findById(definition.getId())
                             .orElseThrow();
-            // Direct legacy producer route matches the live V16 database (no JobRun barrier).
+            // Direct legacy producer route exercises admission without a JobRun barrier.
             UUID root =
                     context.getBean(JobProducerRegistry.class)
                             .getProducer(JobType.SYNC_INDICATORS)
@@ -446,13 +528,8 @@ class JobRunCrossServiceIntegrationTest {
                                     UUID.class,
                                     root))
                     .isNull();
-            await(
-                    () -> {
-                        dispatch.dispatch();
-                        return "FAILED".equals(status(root));
-                    },
-                    90,
-                    "legacy stale READY input produces worker ERROR and parent FAILED");
+            dispatch.dispatch();
+            assertThat(status(root)).isNotIn("FAILED", "SUCCESS");
             assertThat(
                             jdbc.queryForObject(
                                     "SELECT count(*) FROM scheduler_outbox_messages o "
@@ -460,18 +537,36 @@ class JobRunCrossServiceIntegrationTest {
                                             + "WHERE h.parent_log_id=? AND o.status='PUBLISHED'",
                                     Integer.class,
                                     root))
-                    .isEqualTo(1);
+                    .isZero();
             assertThat(
                             jdbc.queryForObject(
-                                    "SELECT error FROM job_execution_histories WHERE parent_log_id=?",
-                                    String.class,
+                                    "SELECT count(*) FROM scheduler_outbox_messages o JOIN job_execution_histories h "
+                                            + "ON h.id=o.execution_id WHERE h.parent_log_id=? AND o.status='PENDING' AND o.attempts=0",
+                                    Integer.class,
                                     root))
-                    .startsWith("Input does not cover business date ");
+                    .isEqualTo(1);
             assertThat(objectBytes(storage, "indicators/ad_close/1d/hose/hpg.parquet"))
                     .isEqualTo(indicatorsBefore);
             var input = JSON.readTree(Files.readString(directory.resolve("stale-eod.json")));
             assertThat(input.path("latestInputDay").asText())
                     .isLessThan(input.path("businessDate").asText());
+            UUID waitingChild =
+                    jdbc.queryForObject(
+                            "SELECT id FROM job_execution_histories WHERE parent_log_id=?",
+                            UUID.class,
+                            root);
+            storage.putObject(
+                    PutObjectArgs.builder().bucket(bucket).object("eod/hose/hpg.parquet").stream(
+                                    new ByteArrayInputStream(eodBefore), eodBefore.length, -1)
+                            .build());
+            finish(prepare(JobType.SYNC_METADATA), dispatch);
+            context.getBean(CachedManifestReader.class)
+                    .invalidate(DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg")));
+            jdbc.update(
+                    "UPDATE scheduler_outbox_messages SET available_at=now()-interval '1 second' WHERE execution_id=?",
+                    waitingChild);
+            finish(root, dispatch);
+            assertThat(status(waitingChild)).isEqualTo("SUCCESS");
             Path evidence =
                     ROOT.resolve(
                             ".agent/check-results/P14-cross-service-integration/stale-ready-result.json");
@@ -485,8 +580,10 @@ class JobRunCrossServiceIntegrationTest {
                                     "latestInputDay",
                                     input.path("latestInputDay").asText(),
                                     "legacyPublishedStaleReady",
+                                    false,
+                                    "dispatchWaitedForExactDay",
                                     true,
-                                    "workerRejectedMissingDay",
+                                    "resumedSameExecutionAfterRepair",
                                     true,
                                     "previousOutputPreserved",
                                     true)));
@@ -523,6 +620,10 @@ class JobRunCrossServiceIntegrationTest {
     }
 
     static void launch(String app, String script, boolean wait) throws Exception {
+        launch(app, script, wait, "");
+    }
+
+    static void launch(String app, String script, boolean wait, String suffix) throws Exception {
         String python =
                 System.getProperty("os.name").startsWith("Windows")
                         ? ".venv/Scripts/python.exe"
@@ -531,7 +632,7 @@ class JobRunCrossServiceIntegrationTest {
                 directory.resolve(
                         script.equals("p14_stale_input.py")
                                 ? "stale-input-fixture.log"
-                                : app + ".log");
+                                : app + suffix + ".log");
         var process =
                 new ProcessBuilder(
                                 ROOT.resolve(python).toString(),

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
 import pandas as pd
+from py_common.messaging.approved_inputs import approved_manifest_version
 from py_common.storage.atomic_work import cutoff_frame
 from py_common.storage.exceptions import (
     ManifestInvalidError,
     StorageObjectNotFoundError,
 )
 from py_common.storage.global_metadata import GlobalMetadataReader
+from py_common.storage.output_readiness import read_input_document
 from py_common.storage.parquet import ParquetStorage
 
 from app.settings import AppSettings
@@ -51,7 +54,11 @@ class SignalJobHandler:
         self._parquet_storage = parquet_storage
         self._metadata_reader = metadata_reader
         self._intraday_resolver = intraday_resolver
-        self._signal_repository = SignalHistoryRepository(parquet_storage)
+        self._signal_repository = SignalHistoryRepository(
+            parquet_storage,
+            snapshots_enabled=getattr(settings, "output_snapshots_enabled", False)
+            is True,
+        )
 
     async def handle(self, payload: dict[str, Any]) -> SignalTransition:
         message = SignalJobMessage.model_validate(payload)
@@ -91,11 +98,11 @@ class SignalJobHandler:
             eod_path,
             indicators_path,
         )
-        document = await self._metadata_reader.read()
+        document = await read_input_document(self._metadata_reader, message.metadata)
         eod_manifest = document.resolve("eod", eod_partition)
         if eod_manifest is None or eod_manifest.status != "READY":
             raise ManifestInvalidError("Signal EOD input must have READY metadata")
-        eod_frame = await self._parquet_storage.read_dataframe(eod_manifest.path)
+        eod_frame = await self._read_input(message, "eod", eod_partition, eod_manifest)
 
         eod_frame = cutoff_frame(eod_frame, message.business_date, require_day=True)
 
@@ -109,6 +116,8 @@ class SignalJobHandler:
                 eod_frame,
                 eod_manifest.dataVersion,
                 message.business_date,
+                message=message,
+                document=document,
             )
 
         indicator_manifest = document.resolve("indicators", indicator_partition)
@@ -119,10 +128,14 @@ class SignalJobHandler:
         indicators_path = indicator_manifest.path
 
         try:
-            indicators_frame = await self._parquet_storage.read_dataframe(
-                indicators_path
+            indicators_frame = await self._read_input(
+                message, "indicators", indicator_partition, indicator_manifest
             )
         except StorageObjectNotFoundError as exc:
+            if message.atomic_work_id is not None:
+                raise ManifestInvalidError(
+                    "Approved signal indicator input is missing"
+                ) from exc
             _logger.warning(
                 "Skipping signal calculation because prerequisite indicator object "
                 "is missing symbolKey=%s timeframe=%s strategy=%s bucket=%s "
@@ -174,6 +187,28 @@ class SignalJobHandler:
             indicators_data_version=indicator_manifest.dataVersion,
         )
 
+    async def _read_input(self, message, dataset, partition, manifest):
+        approved = approved_manifest_version(
+            message.metadata,
+            dataset,
+            partition,
+            manifest,
+            required=message.atomic_work_id is not None
+            or "approvedInputs" in message.metadata,
+        )
+        try:
+            if approved is None:
+                return await self._parquet_storage.read_dataframe(manifest.path)
+            return await self._parquet_storage.read_bound_dataframe(
+                dataset, manifest, approved
+            )
+        except ManifestInvalidError as exc:
+            raise ManifestInvalidError(
+                f"Signal input rejected dataset={dataset} symbol={message.symbol_key} "
+                f"businessDate={message.business_date} "
+                f"approvedVersion={approved}: {exc}"
+            ) from exc
+
     async def _handle_confirmed_trend_equals(
         self,
         symbol_key: str,
@@ -184,20 +219,49 @@ class SignalJobHandler:
         eod_frame: pd.DataFrame,
         eod_data_version: str,
         business_date: date | None = None,
+        message: SignalJobMessage | None = None,
+        document: Any = None,
     ) -> SignalTransition:
         component_results = []
+        component_versions = []
         for strategy in (TREND_MOMENTUM_V1, ICHIMOKU_V1):
             component_path = self._settings.stock_data_paths.signal_history(
                 strategy,
                 timeframe,
                 exchange,
             )
+            component_options = {}
+            if message is not None and message.atomic_work_id is not None:
+                partition = {
+                    "strategy": strategy.lower(),
+                    "timeframe": timeframe.lower(),
+                    "exchange": exchange.lower(),
+                }
+                manifest = document.resolve("signals", partition)
+                if manifest is None or manifest.status != "READY":
+                    raise ManifestInvalidError(
+                        "Signal component input must have READY metadata"
+                    )
+                frame = await self._read_input(message, "signals", partition, manifest)
+                component_versions.append(
+                    {
+                        "dataset": "signals",
+                        "partition": partition,
+                        "dataVersion": manifest.dataVersion,
+                    }
+                )
+                frame = frame.loc[frame["symbol_key"].astype(str) == symbol_key]
+                frame = cutoff_frame(
+                    frame, business_date, column="signal_date", require_day=True
+                )
+                component_options["history_frame"] = frame
             result = await self._signal_repository.latest_result(
                 component_path,
                 symbol_key,
                 timeframe,
                 strategy,
                 as_of_date=business_date,
+                **component_options,
             )
             if result is None:
                 result = SignalResult(
@@ -221,6 +285,14 @@ class SignalJobHandler:
             *component_results,
             expected_signal_date=expected_signal_date,
         )
+        if component_versions:
+            daily_candidate = replace(
+                daily_candidate,
+                input_versions={
+                    **(daily_candidate.input_versions or {}),
+                    "registeredComponents": component_versions,
+                },
+            )
         if self._intraday_resolver is None:
             return await self._signal_repository.persist_transition(
                 history_path,
@@ -240,6 +312,14 @@ class SignalJobHandler:
             daily_candidate,
             intraday_result,
         )
+        if component_versions:
+            result = replace(
+                result,
+                input_versions={
+                    **(result.input_versions or {}),
+                    "registeredComponents": component_versions,
+                },
+            )
         _logger.info(
             "Calculated confirmed signal symbolKey=%s modelVersion=%s "
             "dailySignal=%s intradayResult=%s finalSignal=%s score=%s "

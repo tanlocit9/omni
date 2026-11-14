@@ -6,6 +6,11 @@ stock-data:
   bucket: stock-data
 
   paths:
+    # I10 immutable bytes; no READY pointer or recovery journal at this route.
+    output-snapshots:
+      base: '_output-snapshots/'
+      pattern: '{dataset}/{partition_hash}/{data_version}.parquet'
+
     # Symbol metadata (exchange-level)
     # Pattern: symbols/{exchange}.parquet
     # Examples: symbols/hose.parquet, symbols/hnx.parquet, symbols/upcom.parquet

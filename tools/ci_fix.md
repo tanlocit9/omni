@@ -4,10 +4,14 @@ Run from the repository root through the declared Nx target:
 
 ```text
 nx run omni:ci-fix --report=.agent/ci-jobs.json
+nx run omni:ci-fix --report=.agent/ci-jobs.json --table
 nx run omni:ci-fix --report=.agent/ci-jobs.json --apply
 ```
 
 The default prints a plan without running verification or changing files.
+`--table` changes only the plan's presentation and does not imply `--apply`.
+Child processes use the shared hidden-process and Windows-local quiet-Nx defaults;
+the existing isolated repair environment and stop-on-first-failure policy remain.
 `--apply` requires the authorization in [AGENTS.md](../AGENTS.md). The tool uses
 existing Nx targets and [check_result.py](check_result.py); it does not execute
 commands copied from logs, invent fixes for arbitrary source failures, commit,

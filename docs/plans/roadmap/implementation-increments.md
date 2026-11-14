@@ -1,5 +1,98 @@
 # Dependency-Ordered Implementation Increments
 
+November 12: [criterion-by-criterion I10 reconciliation](../../reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation)
+checks seven proven local criteria. The remaining reader-cutover, reconciliation
+and complete rollout/owner-evidence criteria stay open; P14-I10 remains in_progress.
+
+November 11 review: [remaining acceptance gates](../../reference/019-i10-review-20261111.md)
+record corrected frozen-attempt proof availability and pending retained
+versioning/parity/cutover. P14-I10 remains in_progress; local regression does not
+authorize activation or waive these gates.
+
+Final November 11 local gate: P14-I10-final-review-20261111 PASS 14/14;
+Platform 911 cases (13 skipped), Query 59, Console 34 and real worker-chain 14/14.
+V26 schema validation on local retained DB rolls back cleanly at V25. No retained
+versioning, parity, cutover/rollback or owner attestation is inferred.
+
+November 11 terminal replay: owner-approved [V26 immutable audit](../../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+passes local E2E 14/14 and the scoped regression gate 3/3 for terminal VERSIONED completion. P14-I10 remains
+in_progress; no live migration, cutover or increment completion is inferred.
+
+November 11 owner revision: [TD-018](../../technical-debt/018-execution-watchdog-observation.md)
+defers automatic execution expiry during observation. It is not a current P14-I10
+completion gate; historical increment title is retained. Registration/READY safety,
+diagnostics and the late-completion/cutover gates remain; I10 stays in_progress.
+
+November 10 owner-approved [unified completion](../../reference/018-i10-worker-completion.md)
+is in implementation/verification; P14-I10 remains in_progress with unchanged dependencies.
+
+I10 owner-approved [physical versioning scope](../../reference/017-i10-versioned-storage.md)
+is being implemented and verified alongside Signals backfill. P14-I10 remains
+in_progress; existing dependencies and retained-environment acceptance are unchanged.
+November 10 scoped shadow and physical-baseline E2E pass locally; late registration
+still blocks full recovery. See the linked Signals closure for source-bound evidence.
+
+Owner objective November 9: [complete I10 with safe Signals backfill](../../reference/016-i10-signals-backfill-closure.md).
+Implementation/testing is in progress; no new increment or completed gate is inferred.
+
+I10 follow-up: [request discovery API](../../reference/014-atomic-request-polling.md)
+and [bounded delivery review](../../reference/015-i10-review-20261108.md). P14-I10
+remains in_progress with the same dependencies; no new increment is registered.
+
+Backfill policy separation: [rerun and force](../../reference/013-backfill-attempt-and-data-policy.md).
+Selected local policy/PostgreSQL/worker E2E checks pass. No successful-attempt
+reuse or new increment is introduced; P14-I10 remains in_progress.
+
+I10 closed-owner checkpoint (2026-11-07): [reuse fence, safe reconciliation and
+attempt/output diagnostics](../../reference/012-i10-closed-owner-reconciliation.md).
+Focused PostgreSQL regressions pass. P14-I10 remains
+in_progress; durable worker recovery and default activation are unchanged.
+
+I10 checkpoint delivery (2026-11-07): the owner requested bounded commits without
+per-checkpoint verification. [Scopes and unresolved runtime blockers](../../reference/011-i10-delivery-checkpoints.md).
+P14-I10 remains in_progress; no new increment, acceptance, live recovery or cutover
+is created by this delivery.
+
+Indicators backfill follow-up (2026-11-05): [bounded operator API and scoped
+EOD/Indicators enrollment](../../reference/009-indicators-backfill.md). Source and
+local evidence only; P14-I10 remains in_progress. No I11 or Plan 028 completion
+is introduced; default runtime and full cutover gates remain unchanged.
+
+I10 downstream-guard repair (2026-11-04): exact-day feature dependencies,
+fail-closed declarations, frozen signal/feature reads and metadata discovery are
+implemented. [Impact/test matrix and verification boundary](../../reference/008-p14-i10-dispatch-guard.md).
+P14-I10 remains in_progress; the full verification/cutover gate is not waived.
+
+I10 migration packaging (2026-11-04): V19-V23 are split by responsibility with
+unchanged final schema and feature defaults. Local empty-leftover cleanup and
+rollback-only SQL verification do not close I10 acceptance; see
+[current evidence](../../reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
+I10 review follow-up (2026-11-04): model-aware signal scopes, registration preflight
+before canonical mutation and aggregate catalog bounds are corrected in source.
+See [regressions and deferred writer TODOs](../../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+P14-I10 remains in_progress; P12-I4 remains pending/approval_required. No acceptance,
+dependency, rollout or owner-attestation gate is waived by these local fixes.
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (updated 2026-11-03 UTC+7): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+Historical I10 checkpoint (2026-11-01): `in_progress` on `docs/p14-i10-i11-sync`; shadow registration source is unverified. [Checkpoint and remaining gates](../../reference/004-p14-i10-registration-checkpoint.md). Dependencies and unchecked acceptance are unchanged. Earlier dated pending statements are historical.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -190,7 +283,7 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I7  | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | [P14-I8]                            | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I8  | Unified work expansion                                             | completed            | critical | [P14-I7]              | [P14-I9]                            | [apps/core, apps/analyzer, apps/ingestor, libs/py-common, libs/contracts, database, configs, docs]                                        | autonomous        | false                   | null                                      | null                                     |
 | P14-I9  | Graph-driven expansion and definition consolidation                | completed            | critical | [P14-I8]              | [P14-I10]                           | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
-| P14-I10 | Output metadata registration and execution watchdog                | pending              | critical | [P14-I9]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
+| P14-I10 | Output metadata registration and execution watchdog                | in_progress          | critical | [P14-I9]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
 
 I7 local completion — 2026-10-25: source-bound gate PASS 8/8, 444 tests /
 67 suites, ten migration/upgrade/concurrency cases and all 31 critical Java

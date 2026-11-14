@@ -45,7 +45,26 @@ public class SchedulerConfig {
     public ManifestReader manifestReader(
             MinioClient minioClient,
             ObjectMapper legacyObjectMapper,
-            @Value("${app.minio.bucket}") String bucket) {
+            @Value("${app.minio.bucket}") String bucket,
+            com.omni.platform.modules.scheduler.metadata.OutputReadinessProvider readiness,
+            @Value("${app.output-registration.reader-enabled:false}") boolean postgres) {
+        if (postgres)
+            return new ManifestReader() {
+                public java.util.Optional<
+                                com.omni.platform.modules.scheduler.dependencies.models
+                                        .DatasetManifest>
+                        readManifest(
+                                com.omni.platform.modules.scheduler.dependencies.DatasetRef ref) {
+                    return readiness.readManifest(ref);
+                }
+
+                public boolean coversDate(
+                        com.omni.platform.modules.scheduler.dependencies.DatasetRef ref,
+                        String version,
+                        java.time.LocalDate day) {
+                    return readiness.coversDate(ref, version, day);
+                }
+            };
         MinioManifestReader delegate =
                 new MinioManifestReader(minioClient, bucket, legacyObjectMapper);
         return new CachedManifestReader(delegate); // default: 60s TTL, 500 max entries

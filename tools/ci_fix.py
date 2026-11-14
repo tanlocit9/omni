@@ -4,11 +4,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+try:
+    from tools.cli_output import configure_output, table
+    from tools.process_utils import command_environment, hidden_process_options
+except ModuleNotFoundError as exc:
+    if exc.name != "tools":
+        raise
+    from cli_output import configure_output, table
+    from process_utils import command_environment, hidden_process_options
 
 ROOT = Path(__file__).resolve().parents[1]
 PROJECTS = {
@@ -58,7 +66,7 @@ def repair_plan(report: dict, head: str, root: Path = ROOT) -> list[dict]:
 
 
 def child_environment(project: str, directory: Path, target: str) -> dict[str, str]:
-    env = os.environ.copy()
+    env = command_environment()
     env.update(
         NX_NO_CLOUD="true",
         NX_DAEMON="false",
@@ -75,13 +83,42 @@ def child_environment(project: str, directory: Path, target: str) -> dict[str, s
 
 
 def check_identity(root: Path = ROOT) -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+    return subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        text=True,
+        env=command_environment(),
+        **hidden_process_options(),
+    ).strip()
+
+
+def print_plan(plan: list[dict], *, as_table: bool = False) -> None:
+    commands = [
+        f"nx run {item['project']}:{item['target']} --skip-nx-cache"
+        for item in plan
+    ]
+    if as_table:
+        configure_output()
+        print(
+            table(
+                ["PROJECT", "TARGET", "COMMAND"],
+                [
+                    [item["project"], item["target"], command]
+                    for item, command in zip(plan, commands)
+                ],
+            ),
+            flush=True,
+        )
+    else:
+        for command in commands:
+            print(command, flush=True)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True, type=Path)
     parser.add_argument("--apply", action="store_true", help="Run the printed bounded repair/check plan")
+    parser.add_argument("--table", action="store_true", help="Display the repair plan as a table")
     args = parser.parse_args()
     head = check_identity()
     report = json.loads(args.report.read_text(encoding="utf-8"))
@@ -90,8 +127,7 @@ def main() -> int:
     plan = repair_plan(report, head)
     increment = f"CI-REPAIR-{report['run_id']}-{head[:7]}"
     directory = ROOT / ".agent" / "check-results" / increment
-    for item in plan:
-        print(f"nx run {item['project']}:{item['target']} --skip-nx-cache", flush=True)
+    print_plan(plan, as_table=args.table)
     if not args.apply:
         print("Plan only; add --apply after verification authorization. No commands executed.")
         return 0
@@ -101,7 +137,13 @@ def main() -> int:
     init = [*recorder, "init", "--increment", increment]
     for item in plan:
         init += ["--require", f"other/{item['project']}-{item['target']}"]
-    subprocess.run(init, cwd=ROOT, check=True)
+    subprocess.run(
+        init,
+        cwd=ROOT,
+        check=True,
+        env=command_environment(),
+        **hidden_process_options(),
+    )
     failed = False
     for item in plan:
         if check_identity() != head:
@@ -112,11 +154,21 @@ def main() -> int:
             "--name", f"{project}-{target}", "--", "nx", "run",
             f"{project}:{target}", "--skip-nx-cache",
         ]
-        result = subprocess.run(command, cwd=ROOT, env=child_environment(project, directory, target))
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=child_environment(project, directory, target),
+            **hidden_process_options(),
+        )
         if result.returncode:
             failed = True
             break  # Never run tests/build against a failed sync/lint or hide failure.
-    conclusion = subprocess.run([*recorder, "conclusion", "--increment", increment], cwd=ROOT)
+    conclusion = subprocess.run(
+        [*recorder, "conclusion", "--increment", increment],
+        cwd=ROOT,
+        env=command_environment(),
+        **hidden_process_options(),
+    )
     return 1 if failed else conclusion.returncode
 
 

@@ -43,6 +43,9 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     private final KafkaPublisher kafkaPublisher;
     private final JsonMapper jsonMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.omni.platform.modules.scheduler.metadata.OutputStorageHeads storageHeads;
+
     @Transactional
     public void enqueue(
             JobExecutionHistory execution, String topic, List<KafkaMessage> messages, Instant now) {
@@ -320,9 +323,18 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                 repository.claimEligible(messageId, now, instanceId, leaseDuration);
         if (claim != null && !approvedInputVersions.isEmpty())
             persistApprovedInputs(work, approvedInputVersions);
-        return claim == null ? null : new SchedulerOutboxClaim(
-                claim.messageId(), claim.claimToken(), claim.claimedBy(), claim.executionId(),
-                claim.topic(), claim.key(), bindApprovedInputs(claim.payload(), work), claim.attempts());
+        if (claim != null && storageHeads != null) storageHeads.freeze(work.getId());
+        return claim == null
+                ? null
+                : new SchedulerOutboxClaim(
+                        claim.messageId(),
+                        claim.claimToken(),
+                        claim.claimedBy(),
+                        claim.executionId(),
+                        claim.topic(),
+                        claim.key(),
+                        bindApprovedInputs(claim.payload(), work),
+                        claim.attempts());
     }
 
     /** Reconstruct the exact logical publish envelope from durable intent and its first binding. */
@@ -334,13 +346,23 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     }
 
     private String bindApprovedInputs(String payload, JobExecutionHistory work) {
-        Object approved = work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
-        if (approved == null) return payload;
-        if (!(approved instanceof List<?>)) throw new IllegalStateException("Invalid approved input binding");
+        Object approved =
+                work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
+        var bases = storageHeads == null ? List.of() : storageHeads.read(work.getId());
+        if (approved == null && bases.isEmpty()) return payload;
+        if (approved != null && !(approved instanceof List<?>))
+            throw new IllegalStateException("Invalid approved input binding");
         ObjectNode body = (ObjectNode) jsonMapper.readTree(payload);
-        ObjectNode metadata = body.get("metadata") instanceof ObjectNode object
-                ? object : jsonMapper.createObjectNode();
-        metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
+        ObjectNode metadata =
+                body.get("metadata") instanceof ObjectNode object
+                        ? object
+                        : jsonMapper.createObjectNode();
+        if (approved != null) metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
+        if (!bases.isEmpty()) {
+            if (!(metadata.get("outputCompletion") instanceof ObjectNode contract))
+                throw new IllegalStateException("Versioned execution has no output declaration");
+            contract.set("storageBases", jsonMapper.valueToTree(bases));
+        }
         body.set("metadata", metadata);
         return jsonMapper.writeValueAsString(body);
     }
@@ -395,12 +417,7 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         metadata.put(
                 "approvedInputs",
                 approvedInputVersions.entrySet().stream()
-                        .map(
-                                entry ->
-                                        Map.<String, Object>of(
-                                                "dataset", entry.getKey().getDataset(),
-                                                "partition", entry.getKey().getPartition(),
-                                                "dataVersion", entry.getValue()))
+                        .map(entry -> entry.getKey().approvedInput(entry.getValue()))
                         .toList());
         execution.setMetaJson(metadata);
     }

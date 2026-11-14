@@ -1513,7 +1513,7 @@ class JobRunPreparationPostgresTest {
                                 "SELECT status FROM job_execution_histories WHERE id=?",
                                 String.class,
                                 child))
-                .isEqualTo("RUNNING");
+                .isEqualTo("PENDING");
         UUID message =
                 jdbc.queryForObject(
                         "SELECT id FROM scheduler_outbox_messages WHERE execution_id=?",
@@ -1581,7 +1581,7 @@ class JobRunPreparationPostgresTest {
                                 "SELECT status FROM job_execution_histories WHERE id=?",
                                 String.class,
                                 child))
-                .isEqualTo("RUNNING");
+                .isEqualTo("PENDING");
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT status FROM job_execution_histories WHERE id=?",

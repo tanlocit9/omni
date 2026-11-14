@@ -35,10 +35,12 @@ class KafkaClientFactory:
     ) -> AIOKafkaConsumer:
         """Create an AIOKafkaConsumer instance."""
         _logger.info(
-            "Creating Kafka consumer topics=%s group_id=%s bootstrap_servers=%s",
+            "Creating Kafka consumer topics=%s group_id=%s bootstrap_servers=%s "
+            "max_poll_interval_ms=%s",
             topics,
             group_id,
             settings.bootstrap_servers,
+            settings.max_poll_interval_ms,
         )
         # Command loops own partition-specific commits after acknowledged status.
         if isinstance(topics, list):
@@ -48,6 +50,7 @@ class KafkaClientFactory:
                 group_id=group_id,
                 auto_offset_reset=auto_offset_reset,
                 enable_auto_commit=False,
+                max_poll_interval_ms=settings.max_poll_interval_ms,
                 # Add other common configurations here if needed
             )
         return AIOKafkaConsumer(
@@ -56,5 +59,6 @@ class KafkaClientFactory:
             group_id=group_id,
             auto_offset_reset=auto_offset_reset,
             enable_auto_commit=False,
+            max_poll_interval_ms=settings.max_poll_interval_ms,
             # Add other common configurations here if needed
         )

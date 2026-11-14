@@ -1,5 +1,47 @@
 # Analyzer Service
 
+New I10 Indicators/Signals/evaluation commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md).
+RUNNING stays separate. Two-message ordering below describes legacy commands.
+
+I10 [versioned commands](../../docs/reference/017-i10-versioned-storage.md) merge
+declared output history from frozen accepted bases and read exact upstream versions.
+Registration precedes SUCCESS. Strategies/algorithms and logical paths are unchanged;
+paired deployment is required before enabling the versioned Platform flag.
+
+Shadow mode keeps manifest catalog authority and routes enrolled inputs through
+frozen PostgreSQL proofs. Startup shares its Parquet validator with scoped shadow
+comparison; the [storage runbook](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows)
+defines the comparison and its limits.
+
+Shared Kafka consumers now ACK a RUNNING worker receipt before calling the
+handler. This is neither terminal completion nor READY; command commit still
+requires terminal status ACK. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+For [scoped Indicators backfill](../../docs/reference/009-indicators-backfill.md),
+manifest-mode workers with configured private readiness URL/token read enrolled
+frozen EOD proofs through PostgreSQL while normal catalog reads retain manifests.
+Indicators recalculate and register before SUCCESS; no global reader switch is required.
+
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

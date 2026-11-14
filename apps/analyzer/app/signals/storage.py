@@ -9,6 +9,7 @@ from typing import Any
 
 import pandas as pd
 from py_common.storage.exceptions import StorageObjectNotFoundError
+from py_common.storage.output_snapshots import OutputSnapshotIdentity
 from py_common.storage.parquet import ParquetStorage, ParquetWriteResult
 
 from app.signals.strategy import MarketSignal, SignalResult
@@ -102,9 +103,12 @@ class SignalHistoryRepository:
     processes must not mutate the same history path concurrently.
     """
 
-    def __init__(self, parquet_storage: ParquetStorage) -> None:
+    def __init__(
+        self, parquet_storage: ParquetStorage, *, snapshots_enabled: bool = False
+    ) -> None:
         self._parquet_storage = parquet_storage
         self._locks = _SIGNAL_HISTORY_LOCKS
+        self._snapshots_enabled = snapshots_enabled
 
     async def persist_transition(
         self,
@@ -194,9 +198,16 @@ class SignalHistoryRepository:
         self,
         history_path: str,
         eod_loader: Callable[[str], Awaitable[pd.DataFrame]],
+        *,
+        history_loader: Callable[[], Awaitable[pd.DataFrame]] | None = None,
+        eligible_rows: frozenset[tuple[str, str, str | None]] | None = None,
     ) -> SignalOutcomeEvaluation:
         async def _update() -> SignalOutcomeEvaluation:
-            history = await self._read_history(history_path)
+            history = (
+                await history_loader()
+                if history_loader is not None
+                else await self._read_history(history_path)
+            )
             if history.empty:
                 return SignalOutcomeEvaluation(
                     records_scanned=0,
@@ -216,6 +227,15 @@ class SignalHistoryRepository:
             missing_eod_symbols: set[str] = set()
 
             for index, row in history.iterrows():
+                if eligible_rows is not None:
+                    model = row.get("model_version")
+                    coordinate = (
+                        str(row["symbol_key"]),
+                        pd.Timestamp(row["signal_date"]).date().isoformat(),
+                        None if pd.isna(model) else str(model),
+                    )
+                    if coordinate not in eligible_rows:
+                        continue
                 if str(row.get("signal", "")).upper() == MarketSignal.NO_DECISION.value:
                     continue
                 missing_windows = [
@@ -274,8 +294,13 @@ class SignalHistoryRepository:
         timeframe: str,
         strategy: str,
         as_of_date: date | None = None,
+        history_frame: pd.DataFrame | None = None,
     ) -> SignalResult | None:
-        history = await self._read_history(history_path)
+        history = (
+            await self._read_history(history_path)
+            if history_frame is None
+            else history_frame
+        )
         required = {"symbol_key", "timeframe", "strategy", "signal", "signal_date"}
         if history.empty or not required.issubset(history.columns):
             return None
@@ -349,10 +374,25 @@ class SignalHistoryRepository:
     async def _replace_history(
         self, path: str, frame: pd.DataFrame
     ) -> ParquetWriteResult:
+        snapshot_options = {}
+        if self._snapshots_enabled:
+            partition = {}
+            for key in ("strategy", "timeframe", "exchange"):
+                values = frame[key].dropna().astype(str).str.lower().unique()
+                if len(values) != 1 or frame[key].isna().any():
+                    raise ValueError(
+                        "Snapshot signal history must have "
+                        "one complete logical partition"
+                    )
+                partition[key] = values[0]
+            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
+                "signals", partition
+            )
         return await self._parquet_storage.replace_dataframe(
             path,
             self._sort_history(self._ensure_schema(frame)),
             validate=self._validate_history_frame,
+            **snapshot_options,
         )
 
     def _upsert_signal_row(

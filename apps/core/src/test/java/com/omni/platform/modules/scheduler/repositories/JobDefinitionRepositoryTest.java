@@ -16,18 +16,18 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 
 @ActiveProfiles("test")
-@DataJpaTest(properties = {
-        "spring.test.database.replace=none",
-        "spring.datasource.url=jdbc:h2:mem:job-definition-repository-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.flyway.enabled=false"
-})
+@DataJpaTest(
+        properties = {
+            "spring.test.database.replace=none",
+            "spring.datasource.url=jdbc:h2:mem:job-definition-repository-test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS JSON",
+            "spring.jpa.hibernate.ddl-auto=create-drop",
+            "spring.flyway.enabled=false"
+        })
 class JobDefinitionRepositoryTest {
 
     private static final Instant NOW = Instant.parse("2026-08-11T15:00:00Z");
 
-    @Autowired
-    private JobDefinitionRepository repository;
+    @Autowired private JobDefinitionRepository repository;
 
     @Test
     @DisplayName("findJobsDue returns active due jobs in deterministic order")
@@ -50,8 +50,7 @@ class JobDefinitionRepositoryTest {
         assertThat(dueJobs.subList(1, 3))
                 .containsExactlyInAnyOrder(activePastFirst, activePastSecond);
 
-        assertThat(repository.findJobsDue(NOW))
-                .containsExactlyElementsOf(dueJobs);
+        assertThat(repository.findJobsDue(NOW)).containsExactlyElementsOf(dueJobs);
 
         assertThat(dueJobs)
                 .doesNotContain(activeFuture, inactivePast, inactiveFuture, inactiveNull);

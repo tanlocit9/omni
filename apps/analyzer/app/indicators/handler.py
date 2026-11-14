@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from py_common.messaging.approved_inputs import approved_input_version
+from py_common.messaging.approved_inputs import approved_manifest_version
 from py_common.storage.atomic_work import cutoff_frame, day_rows, write_day
 from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.global_metadata import GlobalMetadataReader
+from py_common.storage.output_readiness import read_input_document
+from py_common.storage.output_snapshots import OutputSnapshotIdentity
 from py_common.storage.parquet import ParquetStorage
 
 from app.calculations.indicators import calculate_supported_indicators
@@ -35,7 +37,7 @@ class IndicatorJobHandler:
         exchange = raw_exchange.lower()
         code = raw_code.lower()
         eod_partition = {"exchange": exchange, "code": code}
-        document = await self._metadata_reader.read()
+        document = await read_input_document(self._metadata_reader, message.metadata)
         eod_manifest = document.resolve("eod", eod_partition)
         if eod_manifest is None or eod_manifest.status != "READY":
             status = eod_manifest.status if eod_manifest is not None else "MISSING"
@@ -59,10 +61,11 @@ class IndicatorJobHandler:
             eod_manifest.dataVersion,
             indicators_path,
         )
-        approved = approved_input_version(
+        approved = approved_manifest_version(
             message.metadata,
             "eod",
             eod_partition,
+            eod_manifest,
             required=message.atomic_work_id is not None
             or "approvedInputs" in message.metadata,
         )
@@ -82,8 +85,22 @@ class IndicatorJobHandler:
         )
         result = result.copy()
         result["eod_data_version"] = approved or eod_manifest.dataVersion
+        snapshot_options = {}
+        if getattr(self._settings, "output_snapshots_enabled", False) is True:
+            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
+                "indicators",
+                {
+                    "source": message.indicator_source.lower(),
+                    "timeframe": message.timeframe.lower(),
+                    **eod_partition,
+                },
+            )
         await write_day(
-            self._parquet_storage, indicators_path, result, message.business_date
+            self._parquet_storage,
+            indicators_path,
+            result,
+            message.business_date,
+            **snapshot_options,
         )
         _logger.info(
             "Persisted indicators partition source=%s timeframe=%s "

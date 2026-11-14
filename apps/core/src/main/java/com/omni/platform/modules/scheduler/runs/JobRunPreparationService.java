@@ -96,21 +96,36 @@ public class JobRunPreparationService {
      * I9.a read-only planning API, using the same I8 producer expansion as every creation route.
      * It does not acquire work, persist attempts or activate the scheduler's preparation path.
      */
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ,
+    @Transactional(
+            readOnly = true,
+            isolation = Isolation.REPEATABLE_READ,
             propagation = Propagation.REQUIRES_NEW)
     public GraphWorkExpansion.Plan planGraphExpansion(
             UUID target, Map<String, Object> request, Instant acceptedAt) {
         Map<String, Boolean> membership = new HashMap<>();
-        return GraphWorkExpansion.resolve(target, request, acceptedAt, definitions.findAll(),
-                (definition, expansionRequest, instant) -> producers.getProducer(definition.getJobType())
-                        .previewAtomicWork(definition, expansionRequest, instant, jdbc, json),
-                (symbol, sector, level) -> membership.computeIfAbsent(
-                        symbol + ":" + level + ":" + sector,
-                        ignored -> Boolean.TRUE.equals(jdbc.queryForObject(
-                                "SELECT EXISTS (SELECT 1 FROM symbols WHERE is_active=true "
-                                        + "AND exchange || '-' || code=? "
-                                        + "AND meta_json->>CAST(? AS text)=?)",
-                                Boolean.class, symbol, "sectorLv" + level + "Code", sector))));
+        return GraphWorkExpansion.resolve(
+                target,
+                request,
+                acceptedAt,
+                definitions.findAll(),
+                (definition, expansionRequest, instant) ->
+                        producers
+                                .getProducer(definition.getJobType())
+                                .previewAtomicWork(
+                                        definition, expansionRequest, instant, jdbc, json),
+                (symbol, sector, level) ->
+                        membership.computeIfAbsent(
+                                symbol + ":" + level + ":" + sector,
+                                ignored ->
+                                        Boolean.TRUE.equals(
+                                                jdbc.queryForObject(
+                                                        "SELECT EXISTS (SELECT 1 FROM symbols WHERE is_active=true "
+                                                                + "AND exchange || '-' || code=? "
+                                                                + "AND meta_json->>CAST(? AS text)=?)",
+                                                        Boolean.class,
+                                                        symbol,
+                                                        "sectorLv" + level + "Code",
+                                                        sector))));
     }
 
     public boolean supports(JobDefinition definition) {
@@ -132,7 +147,9 @@ public class JobRunPreparationService {
         // Historical/range intraday overrides retain the existing manual route until its I3.d
         // cutover.
         return supports(definition)
-                && ((graphWork != null && graphWork.isEnabled()) || definition.getJobType() != JobType.SYNC_INTRADAY_EOD || parameters.isEmpty());
+                && ((graphWork != null && graphWork.isEnabled())
+                        || definition.getJobType() != JobType.SYNC_INTRADAY_EOD
+                        || parameters.isEmpty());
     }
 
     @Transactional(timeout = 60)
@@ -273,8 +290,10 @@ public class JobRunPreparationService {
         }
         int work = 0;
         UUID targetExecution = null;
-        record AcceptedStep(JobDefinition definition, JobExecutionHistory parent,
-                            JobProducer.AcceptedRunWork work) {}
+        record AcceptedStep(
+                JobDefinition definition,
+                JobExecutionHistory parent,
+                JobProducer.AcceptedRunWork work) {}
         List<AcceptedStep> accepted = new ArrayList<>();
         for (int index = 0; index < run.definitionIds().size(); index++) {
             JobDefinition definition = catalog.get(run.definitionIds().get(index));
@@ -305,10 +324,7 @@ public class JobRunPreparationService {
             entities.persist(parent);
             JobRunWorkContext context =
                     JobRunWorkContext.preview(
-                            parent,
-                            jdbc,
-                            json,
-                            Math.min(MAX_STEP_WORK, MAX_RUN_WORK - work));
+                            parent, jdbc, json, Math.min(MAX_STEP_WORK, MAX_RUN_WORK - work));
             var resolved =
                     producers
                             .getProducer(definition.getJobType())
@@ -324,8 +340,10 @@ public class JobRunPreparationService {
             var step = accepted.get(index);
             var parent = step.parent();
             var context = new JobRunWorkContext(parent, entities, jdbc, json, MAX_STEP_WORK);
-            int messages = producers.getProducer(step.definition().getJobType())
-                    .persistAcceptedRunStep(parent, step.work(), now, context);
+            int messages =
+                    producers
+                            .getProducer(step.definition().getJobType())
+                            .persistAcceptedRunStep(parent, step.work(), now, context);
             entities.flush();
             jdbc.update(
                     """

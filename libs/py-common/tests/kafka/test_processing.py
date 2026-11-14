@@ -55,12 +55,25 @@ def test_factory_disables_implicit_commits_for_every_subscription(topics):
     assert constructor.call_args.kwargs["enable_auto_commit"] is False
     assert constructor.call_args.kwargs["group_id"] == "test-group"
     assert constructor.call_args.kwargs["auto_offset_reset"] == "earliest"
+    assert constructor.call_args.kwargs["max_poll_interval_ms"] == 900_000
     expected_topics = topics if isinstance(topics, list) else [topics]
     assert constructor.call_args.args == tuple(expected_topics)
 
 
+@pytest.mark.parametrize("topics", ["jobs", ["jobs", "more-jobs"]])
+def test_factory_passes_configured_poll_interval_without_changing_commit_policy(topics):
+    with patch("py_common.kafka.factory.AIOKafkaConsumer", Mock()) as constructor:
+        KafkaClientFactory.create_consumer(
+            KafkaSettings(max_poll_interval_ms=3_600_000), topics, "test-group"
+        )
+    assert constructor.call_args.kwargs["max_poll_interval_ms"] == 3_600_000
+    assert constructor.call_args.kwargs["enable_auto_commit"] is False
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("outcome", list(JobStatus))
+@pytest.mark.parametrize(
+    "outcome", [JobStatus.SUCCESS, JobStatus.ERROR, JobStatus.PARTIAL_SUCCESS]
+)
 async def test_commit_follows_output_and_status_ack_for_only_processed_partition(
     outcome,
 ):
@@ -147,3 +160,14 @@ async def test_rebalance_commit_failure_stops_without_consuming_later_records():
     with pytest.raises(CommitFailedError):
         await consume_job_records(consumer, AsyncMock(return_value=status()))
     assert consumer.fetched == [first]
+
+
+@pytest.mark.asyncio
+async def test_running_receipt_cannot_acknowledge_a_completed_command():
+    running = status().model_copy(
+        update={"status": JobStatus.RUNNING, "finished_at": None}
+    )
+    consumer = Consumer([record()])
+    with pytest.raises(ValueError, match="terminal status"):
+        await consume_job_records(consumer, AsyncMock(return_value=running))
+    consumer.commit.assert_not_awaited()

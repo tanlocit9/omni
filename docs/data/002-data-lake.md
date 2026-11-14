@@ -1,5 +1,80 @@
 # Data Lake
 
+Frozen worker proofs select their exact atomicAttemptId after a newer work refresh;
+V26 retains only actual immutable VERSIONED READY promotions for that historical
+lookup. Work/date/version checks and exact Parquet version validation still apply.
+No path, writer owner or mutable CANONICAL history guarantee changes. See
+[frozen attempt reads](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+New I10 commands retain Parquet write/read-back and exact-version validation, then
+send [one completion with status and registration](../reference/018-i10-worker-completion.md).
+This changes the completion transport, not dataset ownership, paths or row-version rules.
+
+Current I10 opt-in: [immutable backend versions and frozen merge bases](../reference/017-i10-versioned-storage.md)
+preserve logical paths and row-scoped identity. Versioned workers read back their PUT
+version and approved readers never use mutable fallback. Existing files require a
+fenced physical pin; runtime never enables versioning or deletes retained versions.
+Current force refreshes provider EOD and recalculates downstream; default prefers
+covered EOD from the accepted base. The November 5 wording below is historical.
+
+Indicators backfill (2026-11-05) preserves existing paths and merge keys. Force
+checks exact EOD day rows, reuses them when present, and recalculates Indicators;
+registration/SUCCESS still precede scoped READY. It never refreshes the canonical
+discovery JSON directly. See [semantics and writer window](../reference/009-indicators-backfill.md).
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+## Private PostgreSQL snapshot reads
+
+The private readiness API has 200-item / 4 MiB byte-bounded pages; readers advance
+by `nextOffset` (actual returned count), never the requested limit. Revision stays
+fixed across the catalog read. Python derives the snapshot path from the configured
+logical dataset/partition/dataVersion and rejects mutable or mismatched addresses
+before binding queries. Exact bytes/schema/lineage validation remains required. Confirmed-signal
+snapshots require both persisted component references on every row; incomplete
+historical provenance cannot be backfilled as READY. Legacy manifest compatibility
+does not waive this strict snapshot gate.
+See [paired contract and current evidence](../reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
+## I10 immutable output snapshots — owner approved 2026-11-02
+
+Existing EOD/indicator/signal workers can additionally publish immutable byte
+snapshots with OUTPUT_SNAPSHOTS_ENABLED=false by default. Shared configured route:
+`_output-snapshots/{dataset}/{partition_hash}/{data_version}.parquet`. partition_hash
+is SHA-256 of the normalized partition JSON (sorted keys, compact separators);
+data_version is the SHA-256 hex suffix of the canonical dataset dataVersion.
+Canonical version hashing still uses the trusted original logical object identity,
+its checksum/schema and persisted lineage, not the new physical snapshot filename.
+No physical paths are added to Kafka business messages.
+
+Snapshot publication validates encoded/read-back bytes before the canonical write;
+existing conflicting snapshot bytes fail closed. Version reads recheck identity,
+bytes/checksum/length/schema/lineage. All conforming same-version writers publish
+identical bytes; no S3 Object Lock/WORM or external-writer exclusion is claimed.
+Existing READY/manifests remain authoritative until coordinated reader cutover.
+This API creates no READY/latest pointer and no recovery journal, automatic repair
+or GC. Lost ACK can leave an orphan and a reported failure. Additional durable
+worker recovery is explicitly deferred by the owner. Sector/intraday publication
+protocols are unchanged. Fresh local verification and remaining gates are recorded
+in the current handoff below; the earlier source-only checkpoint is historical.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -121,6 +196,14 @@ statistics, timestamp range, source execution, and exact upstream lineage. Inter
 paths are never returned to browsers or accepted in commands.
 
 ### Publication Semantics
+
+The registry also includes `symbol-features` (timeframe/exchange/code) and
+`sector-features` (timeframe/sector_level/sector_code), using the existing trusted
+`features/symbol/` and `features/sector/` paths. Both publish exact `coverageDates`
+for dispatch admission. Their existing Parquet schema has no authoritative input
+version columns: metadata records empty lineage rather than fabricating it.
+This is discovery/date evidence, not scoped I10 enrollment or approval for
+PostgreSQL cutover of these datasets.
 
 Dataset producers write and validate Parquet only. Analyzer's `SYNC_METADATA` worker
 is the only metadata writer and supports three logical modes:
@@ -260,15 +343,15 @@ dual read, per-tick write, or historical rewrite.
 
 ### signals
 
-| Field           | Value                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Config key      | `signals` and compatibility alias `signal-current`                                                                                 |
-| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                                                |
-| Producer        | Analyzer signal jobs                                                                                                               |
-| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                                            |
-| Schema/key      | Strategy/timeframe/exchange-level signal history. Versioned combined rows include symbol, signal date, and model version identity. |
-| Update strategy | Upsert matching model-version rows while preserving historical V1 rows; latest state is derived from history.                      |
-| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status.                  |
+| Field           | Value                                                                                                                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Config key      | `signals` and compatibility alias `signal-current`                                                                                                                                                                            |
+| Path            | `signals/{strategy}/{timeframe}/{exchange}.parquet`                                                                                                                                                                           |
+| Producer        | Analyzer signal jobs                                                                                                                                                                                                          |
+| Consumer        | Analyzer evaluation jobs, Platform notifications/status consumers, analytical consumers                                                                                                                                       |
+| Schema/key      | Strategy/timeframe/exchange-level signal history. Versioned combined rows and I10 row scopes include symbol, signal date, and model_version identity. Omitted model_version in a scope matches only legacy/null-version rows. |
+| Update strategy | Upsert matching model-version rows while preserving historical V1 rows; latest state is derived from history.                                                                                                                 |
+| Ownership       | Analyzer owns signal calculation and Parquet history; Platform owns notification delivery and operational status.                                                                                                             |
 
 ### symbol-features
 

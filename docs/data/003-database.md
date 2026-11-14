@@ -1,5 +1,63 @@
 # Database
 
+V26 also records immutable output_work_ready_history for actual VERSIONED work
+promotions and exposes output_work_ready_attempt_catalog for exact frozen-attempt
+reads after a refresh. It preserves latest/current discovery and creates no history
+from registration/SUCCESS alone. See [the approved correction](../reference/019-i10-review-20261111.md).
+
+V26 now also includes immutable output_completion_rejections for [terminal VERSIONED
+completion audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11).
+The owner authorized extending local unapplied V26 after READ ONLY history showed V25.
+Raw payloads are bounded at 256 KiB and deduplicated by event ID/SHA-256; audit is not
+accepted registration/READY. Apply a forward migration if another environment has
+already applied an older V26; no live repair/migration is performed here.
+
+[Unified I10 completion](../reference/018-i10-worker-completion.md) reuses current
+registration/status/READY tables in one transaction; no new migration is added.
+outputCompletion remains structured server-owned execution metadata after status updates.
+
+I10 [V26 physical storage coordinates](../../database/migrations/V26__versioned_output_storage.sql)
+adds completion storage_policy, immutable output_storage_write_bases and monotonic
+output_storage_heads with an immutable historical baseline coordinate. Defaults are
+CANONICAL; no prior ledger/migration is rewritten. The authenticated physical pin
+rechecks writer fence, readiness revision and promotion gaps without inventing READY.
+See [migration/operations boundary](../reference/017-i10-versioned-storage.md).
+
+Closed-owner maintenance uses existing work-slot locks and outbox/execution fields
+without a migration. Proven never-dispatched ownerless work becomes
+FAILED/REQUEST_CLOSED; other commands remain for review. No terminal request or
+READY history is rewritten. See [eligibility, atomic updates and focused PostgreSQL evidence](../reference/012-i10-closed-owner-reconciliation.md).
+
+Graph lifecycle follow-up (2026-11-06): new atomic children persist PENDING with
+null started_at; worker receipts establish RUNNING. Request owners remain
+PREPARED/admissible until every member settles, then finalize SUCCESS/FAILED.
+Existing terminal request states stay immutable; no migration or historical
+state reset is introduced. See [settlement evidence and API fields](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+Current I10 migration packaging (2026-11-04): V19-V23 separate registration,
+completion/timeout, READY projection, historical baseline and work/row readiness.
+Install the complete sequence from a reconciled V18 baseline before current runtime.
+See [local cleanup and SQL verification boundaries](../reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -15,7 +73,7 @@ are sample-only and READY/worker timing remain unknown. See
 I10 trace preparation only: meta_json.workIdentity/workExpansion.atomicWorkId map to canonical atomicWorkId; atomicAttemptId reuses existing graph attempt identity. Reserve optional structured meta_json.traceContext without assuming current stringifying merges preserve objects. Query Service query_id/data_versions are separate SQLite state; future per-query trace/provenance storage needs its own explicit extension, not a claimed existing Platform column.
 See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
 
-Planned P14-I10 adds a Platform-owned registration inbox, output version/work-date coverage and completion correlation through forward migrations. A new Kafka array consumer performs bounded transactional upserts; workers never connect directly. PostgreSQL becomes readiness authority only after backfill, shadow comparison and reader cutover. No I10 tables or migrations exist from this plan update.
+Historical planning baseline (2026-10-30; superseded by the current source handoff above): P14-I10 adds a Platform-owned registration inbox, output version/work-date coverage and completion correlation through forward migrations. A new Kafka array consumer performs bounded transactional upserts; workers never connect directly. PostgreSQL becomes readiness authority only after backfill, shadow comparison and reader cutover. No I10 tables or migrations exist from this plan update.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
 Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
@@ -357,3 +415,19 @@ Cache loss or restart requires another manual scan; it is not durable audit hist
 7. For data-changing migrations, add a disposable-database harness when no Nx
    database target exists; record that exception and never substitute production
    execution for migration tests.
+
+## Empty legacy tracker retirement - 2026-11-05
+
+V24\_\_retire_empty_blocked_jobs.sql retires blocked_jobs and its table-owned indexes.
+The migration takes an exclusive lock, refuses retained rows, then uses DROP TABLE
+RESTRICT. V7 and existing Flyway history are unchanged. Platform removes the unused
+BlockedJob entity/repository/tracker; scheduler_outbox_messages and execution
+history remain the active WAITING/BLOCKED evidence. No live migration is executed
+as part of the source cleanup. See [TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).
+
+## Scoped Indicators backfill requests - 2026-11-05
+
+V25\_\_enable_backfill_graph_requests.sql extends the atomic_work_requests mode
+constraint with BACKFILL. Existing membership, attempts, runs and output READY
+tables remain authoritative. It is a forward-only constraint change, with no
+retained-environment execution by the agent. See [API and migration prerequisites](../reference/009-indicators-backfill.md).

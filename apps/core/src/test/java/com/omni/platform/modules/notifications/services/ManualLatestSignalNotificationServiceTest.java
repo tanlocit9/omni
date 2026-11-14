@@ -20,18 +20,23 @@ class ManualLatestSignalNotificationServiceTest {
     void forwardsNormalizedSymbolAndMapsCompletedSignalData() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://analyzer:8000");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        server.expect(requestTo("http://analyzer:8000/v1/signals/notifications/latest?symbolKey=HOSE-ACB"))
+        server.expect(
+                        requestTo(
+                                "http://analyzer:8000/v1/signals/notifications/latest?symbolKey=HOSE-ACB"))
                 .andExpect(method(HttpMethod.POST))
-                .andRespond(withSuccess("""
+                .andRespond(
+                        withSuccess(
+                                """
                         {"completed":true,"status":"COMPLETED","symbolKey":"HOSE-ACB",
                          "previousSignal":null,"newSignal":"BULLISH","price":25000.0,
                          "signalDate":"2026-08-29","reasonCodes":["MOMENTUM"],"score":4,
                          "strategy":"TREND_MOMENTUM_V1","timeframe":"1d",
                          "generatedAt":"2026-08-29T10:00:00+00:00"}
-                        """, MediaType.APPLICATION_JSON));
+                        """,
+                                MediaType.APPLICATION_JSON));
 
-        var result = new ManualLatestSignalNotificationService(builder.build())
-                .findLatest(" hose-acb ");
+        var result =
+                new ManualLatestSignalNotificationService(builder.build()).findLatest(" hose-acb ");
 
         assertThat(result.completed()).isTrue();
         assertThat(result.status()).isEqualTo("COMPLETED");

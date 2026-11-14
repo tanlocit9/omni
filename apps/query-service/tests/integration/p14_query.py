@@ -13,6 +13,10 @@ from py_common.config.models import MinioSettings
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.global_metadata import GlobalMetadataReader
+from py_common.storage.output_readiness import metadata_reader
+from py_common.storage.parquet import ParquetStorage
+from py_common.storage.providers import StorageProvider
+from py_common.storage.registry import StorageProviderRegistry
 
 from app.executor import DuckDBExecutor
 from app.models import DatasetRef
@@ -35,9 +39,18 @@ async def main():
     )
     assert settings.minio.endpoint == config["minio"], "MinIO isolation mismatch"
     assert settings.minio.bucket == config["bucket"], "Bucket isolation mismatch"
+    if "outputReadinessUrl" in config:
+        settings.output_readiness_mode = "postgres"
+        settings.output_readiness_api_url = config["outputReadinessUrl"]
+        from pydantic import SecretStr
+        settings.output_readiness_api_token = SecretStr(config["outputReadinessToken"])
     adapter = MinioStorageAdapter(create_minio_client(settings.minio))
     await adapter.validate()
-    reader = GlobalMetadataReader(adapter, settings.minio.bucket)
+    reader = (
+        metadata_reader(settings, adapter)
+        if "outputReadinessUrl" in config
+        else GlobalMetadataReader(adapter, settings.minio.bucket)
+    )
     document = await reader.read()
     eod = document.resolve("eod", {"exchange": "hose", "code": "hpg"})
     indicators = document.resolve(
@@ -53,7 +66,12 @@ async def main():
             dataVersion=indicators.dataVersion,
         )
     ]
-    datasets = await DatasetResolver(reader, settings).resolve_many(refs)
+    parquet = ParquetStorage(
+        registry=StorageProviderRegistry([adapter]),
+        provider=StorageProvider.MINIO,
+        bucket=settings.minio.bucket,
+    )
+    datasets = await DatasetResolver(reader, settings, parquet).resolve_many(refs)
     result = await DuckDBExecutor(settings).execute(
         "p14-integration",
         validate_read_only_sql(

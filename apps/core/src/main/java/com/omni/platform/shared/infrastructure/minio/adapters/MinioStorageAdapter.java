@@ -21,13 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@ConditionalOnProperty(
-        prefix = "min-io",
-        name = "enabled",
-        havingValue = "true"
-)
+@ConditionalOnProperty(prefix = "min-io", name = "enabled", havingValue = "true")
 @AllArgsConstructor
-public class MinioStorageAdapter extends AbstractStorageAdapter implements DeletablePort, WritablePort, ReadablePort {
+public class MinioStorageAdapter extends AbstractStorageAdapter
+        implements DeletablePort, WritablePort, ReadablePort {
 
     private final MinioClient minioClient;
 
@@ -52,14 +49,14 @@ public class MinioStorageAdapter extends AbstractStorageAdapter implements Delet
     public void delete(String folderName, String objectName) {
         try {
             minioClient.removeObject(
-                    RemoveObjectArgs.builder()
-                            .bucket(folderName)
-                            .object(objectName)
-                            .build()
-            );
+                    RemoveObjectArgs.builder().bucket(folderName).object(objectName).build());
             log.info("Successfully deleted object: {} from bucket: {}", objectName, folderName);
         } catch (Exception e) {
-            log.error("Failed to delete object: {} from bucket: {}. Error: {}", objectName, folderName, e.getMessage());
+            log.error(
+                    "Failed to delete object: {} from bucket: {}. Error: {}",
+                    objectName,
+                    folderName,
+                    e.getMessage());
             throw new RuntimeException("Error during MinIO delete operation", e);
         }
     }
@@ -68,13 +65,13 @@ public class MinioStorageAdapter extends AbstractStorageAdapter implements Delet
     public InputStream read(String folderName, String objectName) {
         try {
             return minioClient.getObject(
-                    GetObjectArgs.builder()
-                            .bucket(folderName)
-                            .object(objectName)
-                            .build()
-            );
+                    GetObjectArgs.builder().bucket(folderName).object(objectName).build());
         } catch (Exception e) {
-            log.error("Failed to read object: {} from bucket: {}. Error: {}", objectName, folderName, e.getMessage());
+            log.error(
+                    "Failed to read object: {} from bucket: {}. Error: {}",
+                    objectName,
+                    folderName,
+                    e.getMessage());
             throw new RuntimeException("Error during MinIO read operation", e);
         }
     }
@@ -90,11 +87,14 @@ public class MinioStorageAdapter extends AbstractStorageAdapter implements Delet
                             .object(objectName)
                             .contentType(contentType)
                             .stream(data, -1, 10485760) // 10MiB part size for unknown stream length
-                            .build()
-            );
+                            .build());
             log.info("Successfully uploaded object: {} to bucket: {}", objectName, folderName);
         } catch (Exception e) {
-            log.error("Failed to upload object: {} to bucket: {}. Error: {}", objectName, folderName, e.getMessage());
+            log.error(
+                    "Failed to upload object: {} to bucket: {}. Error: {}",
+                    objectName,
+                    folderName,
+                    e.getMessage());
             throw new RuntimeException("Error during MinIO upload operation", e);
         }
     }

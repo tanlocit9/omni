@@ -61,17 +61,25 @@ public abstract class JobProducer {
 
     /** Resolve through I8 without claim, persistence, outbox or Kafka side effects. */
     public List<ExpandedJobMessage> previewAtomicWork(
-            JobDefinition job, Map<String, Object> request, Instant acceptedAt,
-            JdbcTemplate jdbc, JsonMapper json) {
+            JobDefinition job,
+            Map<String, Object> request,
+            Instant acceptedAt,
+            JdbcTemplate jdbc,
+            JsonMapper json) {
         var parent = new JobExecutionHistory();
         parent.setId(UUID.randomUUID());
         parent.setJob(job);
         parent.setUsedSource(job.getSource());
-        parent.setMetaJson(Map.of("expansionRequest", WorkExpansion.freeze(request),
-                "businessDate", acceptedAt.atZone(WorkExpansion.ZONE).toLocalDate().toString()));
+        parent.setMetaJson(
+                Map.of(
+                        "expansionRequest",
+                        WorkExpansion.freeze(request),
+                        "businessDate",
+                        acceptedAt.atZone(WorkExpansion.ZONE).toLocalDate().toString()));
         var context = JobRunWorkContext.preview(parent, jdbc, json);
         return expandMessages(job, parent, acceptedAt, context).stream()
-                .map(message -> (ExpandedJobMessage) message.payload()).toList();
+                .map(message -> (ExpandedJobMessage) message.payload())
+                .toList();
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -92,32 +100,51 @@ public abstract class JobProducer {
 
     /** Resolve membership once, before the run's aggregate budget admits any child writes. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public AcceptedRunWork acceptRunStep(JobDefinition job, JobExecutionHistory parent,
-                                        Instant now, JobRunWorkContext preview) {
+    public AcceptedRunWork acceptRunStep(
+            JobDefinition job, JobExecutionHistory parent, Instant now, JobRunWorkContext preview) {
         var messages = expandMessages(job, parent, now, preview);
         return new AcceptedRunWork(messages, preview.children());
     }
 
     /** Materialize accepted work; execution UUID allocation is not a second expansion. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public int persistAcceptedRunStep(JobExecutionHistory parent, AcceptedRunWork accepted,
-                                      Instant now, JobRunWorkContext context) {
+    public int persistAcceptedRunStep(
+            JobExecutionHistory parent,
+            AcceptedRunWork accepted,
+            Instant now,
+            JobRunWorkContext context) {
         Map<UUID, JobExecutionHistory> previews = new LinkedHashMap<>();
         accepted.children().forEach(child -> previews.put(child.getId(), child));
         List<KafkaMessage> messages = new ArrayList<>();
         for (KafkaMessage message : accepted.messages()) {
             var work = (ExpandedJobMessage) message.payload();
             var preview = previews.get(work.executionId());
-            if (preview == null || !parent.getId().equals(work.parentExecutionId())
+            if (preview == null
+                    || !parent.getId().equals(work.parentExecutionId())
                     || !work.atomicWorkId().equals(preview.getMetaJson().get("workIdentity")))
                 throw new IllegalArgumentException("Accepted run work identity mismatch");
-            var child = context.child(WorkIdentity.of(work.workType(), work.workKey()),
-                    preview.getMetaJson(), now);
+            var child =
+                    context.child(
+                            WorkIdentity.of(work.workType(), work.workKey()),
+                            preview.getMetaJson(),
+                            now);
             child.setUsedSource(preview.getUsedSource());
-            var command = copyIdentity(work.command(), child.getId(), parent.getId(),
-                    work.businessDate(), work.metadata());
-            messages.add(new KafkaMessage(message.key(), new ExpandedJobMessage(command,
-                    work.jobType(), work.businessDate(), work.parameters(), work.atomicWorkId())));
+            var command =
+                    copyIdentity(
+                            work.command(),
+                            child.getId(),
+                            parent.getId(),
+                            work.businessDate(),
+                            work.metadata());
+            messages.add(
+                    new KafkaMessage(
+                            message.key(),
+                            new ExpandedJobMessage(
+                                    command,
+                                    work.jobType(),
+                                    work.businessDate(),
+                                    work.parameters(),
+                                    work.atomicWorkId())));
         }
         jobService.enqueueRunDispatch(parent, getTopic(), messages, now, context.children());
         if (messages.isEmpty()) jobService.markParentWithNoChildren(parent, now);
@@ -126,26 +153,68 @@ public abstract class JobProducer {
 
     /** Persist a single graph descriptor without resolving membership a second time. */
     @Transactional(propagation = Propagation.MANDATORY)
-    public JobExecutionHistory persistAtomicRunStep(JobExecutionHistory parent,
-            ExpandedJobMessage accepted, Map<String,Object> configuration,
-            Instant now, JobRunWorkContext context) {
+    public JobExecutionHistory persistAtomicRunStep(
+            JobExecutionHistory parent,
+            ExpandedJobMessage accepted,
+            Map<String, Object> configuration,
+            Instant now,
+            JobRunWorkContext context) {
+        return persistAtomicRunStep(parent, accepted, configuration, now, context, Map.of());
+    }
+
+    public JobExecutionHistory persistAtomicRunStep(
+            JobExecutionHistory parent,
+            ExpandedJobMessage accepted,
+            Map<String, Object> configuration,
+            Instant now,
+            JobRunWorkContext context,
+            Map<String, Object> completionMetadata) {
         if (getJobType() != JobType.valueOf(accepted.jobType()))
             throw new IllegalArgumentException("Atomic producer mismatch");
-        Map<String,Object> metadata = new LinkedHashMap<>(accepted.metadata());
+        Map<String, Object> metadata = new LinkedHashMap<>(accepted.metadata());
+        metadata.putAll(completionMetadata);
         metadata.put("workBusinessDate", accepted.businessDate().toString());
-        var child = context.child(WorkIdentity.of(accepted.workType(), accepted.workKey()), metadata, now);
-        Map<String,Object> snapshot = WorkExpansion.freeze(Map.of(
-                "jobType", accepted.jobType(), "workType", accepted.workType().name(),
-                "workKey", accepted.workKey(), "businessDate", accepted.businessDate().toString(),
-                "parameters", accepted.parameters(), "atomicWorkId", accepted.atomicWorkId(),
-                "configuration", configuration));
+        var child =
+                context.child(
+                        WorkIdentity.of(accepted.workType(), accepted.workKey()), metadata, now);
+        Map<String, Object> snapshot =
+                WorkExpansion.freeze(
+                        Map.of(
+                                "jobType",
+                                accepted.jobType(),
+                                "workType",
+                                accepted.workType().name(),
+                                "workKey",
+                                accepted.workKey(),
+                                "businessDate",
+                                accepted.businessDate().toString(),
+                                "parameters",
+                                accepted.parameters(),
+                                "atomicWorkId",
+                                accepted.atomicWorkId(),
+                                "configuration",
+                                configuration));
         context.snapshot(child.getId(), snapshot, accepted.source());
-        var command = copyIdentity(accepted.command(), child.getId(), parent.getId(),
-                accepted.businessDate(), accepted.metadata());
-        var message = new ExpandedJobMessage(command, accepted.jobType(), accepted.businessDate(),
-                accepted.parameters(), accepted.atomicWorkId());
-        jobService.enqueueRunDispatch(parent, getTopic(),
-                List.of(new KafkaMessage(accepted.workKey(), message)), now, context.children());
+        var command =
+                copyIdentity(
+                        accepted.command(),
+                        child.getId(),
+                        parent.getId(),
+                        accepted.businessDate(),
+                        metadata);
+        var message =
+                new ExpandedJobMessage(
+                        command,
+                        accepted.jobType(),
+                        accepted.businessDate(),
+                        accepted.parameters(),
+                        accepted.atomicWorkId());
+        jobService.enqueueRunDispatch(
+                parent,
+                getTopic(),
+                List.of(new KafkaMessage(accepted.workKey(), message)),
+                now,
+                context.children());
         return child;
     }
 

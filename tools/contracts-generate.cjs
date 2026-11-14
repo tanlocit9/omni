@@ -1,6 +1,7 @@
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const { hiddenProcessOptions } = require('./process-options.cjs');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const contractsRoot = path.join(repositoryRoot, 'libs', 'contracts');
@@ -21,13 +22,16 @@ if (!fs.existsSync(buf)) {
 
 fs.rmSync(generatedRoot, { recursive: true, force: true });
 
-const generation = spawnSync(buf, ['generate'], {
-  cwd: contractsRoot,
-  encoding: 'utf8',
-  stdio: 'inherit',
-  windowsHide: true,
-  shell: process.platform === 'win32',
-});
+const generation = spawnSync(
+  buf,
+  ['generate'],
+  hiddenProcessOptions({
+    cwd: contractsRoot,
+    encoding: 'utf8',
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
+);
 
 if (generation.error) {
   process.stderr.write(`${generation.error.message}\n`);

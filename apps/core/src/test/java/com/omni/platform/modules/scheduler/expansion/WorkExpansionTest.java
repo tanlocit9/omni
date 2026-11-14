@@ -22,14 +22,36 @@ import tools.jackson.databind.json.JsonMapper;
 
 class WorkExpansionTest {
     @Test
+    void currentSnapshotsIncludeWeekendsButMarketJobsDoNot() {
+        var sunday = Instant.parse("2026-11-01T05:00:00Z");
+        assertThat(
+                        WorkExpansion.resolve(
+                                        job(JobDefinition.JobType.SYNC_METADATA, Map.of()),
+                                        parent(Map.of()),
+                                        sunday)
+                                .days())
+                .containsExactly(LocalDate.parse("2026-11-01"));
+        assertThat(WorkExpansion.resolve(job(JobDefinition.JobType.SYNC_SYMBOLS, Map.of()),
+                parent(Map.of()), sunday).days()).containsExactly(LocalDate.parse("2026-11-01"));
+        assertThat(
+                        WorkExpansion.resolve(
+                                        job(JobDefinition.JobType.SYNC_INDICATORS, Map.of()),
+                                        parent(Map.of()),
+                                        sunday)
+                                .days())
+                .isEmpty();
+    }
+
+    @Test
     void rejectsMalformedRequestObjectsAndScopeBeforePreparation() {
         var definition = job(JobDefinition.JobType.SYNC_INDICATORS, Map.of());
-        for (var request : List.of(
-                Map.<String, Object>of("unexpected", true),
-                Map.<String, Object>of("parameters", "not-an-object"),
-                Map.<String, Object>of("scope", "HOSE"),
-                Map.<String, Object>of("scope", Map.of("type", "SYMBOL")),
-                Map.<String, Object>of("scope", Map.of("type", "SYMBOL", "key", " ")))) {
+        for (var request :
+                List.of(
+                        Map.<String, Object>of("unexpected", true),
+                        Map.<String, Object>of("parameters", "not-an-object"),
+                        Map.<String, Object>of("scope", "HOSE"),
+                        Map.<String, Object>of("scope", Map.of("type", "SYMBOL")),
+                        Map.<String, Object>of("scope", Map.of("type", "SYMBOL", "key", " ")))) {
             assertThatThrownBy(() -> WorkExpansion.resolve(definition, parent(request), monday))
                     .isInstanceOf(IllegalArgumentException.class);
         }
@@ -38,15 +60,26 @@ class WorkExpansionTest {
     @Test
     void scopesAndParameterOverridesResolveWithoutMutatingPresets() {
         var definition = job(JobDefinition.JobType.SYNC_INDICATORS, Map.of("timeframe", "1d"));
-        var plan = WorkExpansion.resolve(definition,
-                parent(Map.of("scope", Map.of("type", "SYMBOL", "key", "hose-hpg"),
-                        "parameters", Map.of("timeframe", "1h"))), monday);
-        assertThat(plan.config()).containsEntry("timeframe", "1h")
+        var plan =
+                WorkExpansion.resolve(
+                        definition,
+                        parent(
+                                Map.of(
+                                        "scope",
+                                        Map.of("type", "SYMBOL", "key", "hose-hpg"),
+                                        "parameters",
+                                        Map.of("timeframe", "1h"))),
+                        monday);
+        assertThat(plan.config())
+                .containsEntry("timeframe", "1h")
                 .containsEntry("_expansionScope", Map.of("type", "SYMBOL", "key", "HOSE-HPG"));
         assertThat(definition.getConfigJson()).containsExactlyEntriesOf(Map.of("timeframe", "1d"));
-        assertThat(WorkExpansion.unit(JobDefinition.JobType.SYNC_SYMBOLS)).isEqualTo(WorkType.EXCHANGE);
-        assertThat(WorkExpansion.unit(JobDefinition.JobType.PRECOMPUTE_SECTOR_FEATURES)).isEqualTo(WorkType.SECTOR);
-        assertThat(WorkExpansion.unit(JobDefinition.JobType.SYNC_METADATA)).isEqualTo(WorkType.GLOBAL);
+        assertThat(WorkExpansion.unit(JobDefinition.JobType.SYNC_SYMBOLS))
+                .isEqualTo(WorkType.EXCHANGE);
+        assertThat(WorkExpansion.unit(JobDefinition.JobType.PRECOMPUTE_SECTOR_FEATURES))
+                .isEqualTo(WorkType.SECTOR);
+        assertThat(WorkExpansion.unit(JobDefinition.JobType.SYNC_METADATA))
+                .isEqualTo(WorkType.GLOBAL);
     }
 
     @Test
@@ -57,19 +90,29 @@ class WorkExpansionTest {
         nested.add("MACD");
         var values = (List<String>) ((Map<String, Object>) frozen.get("nested")).get("values");
         assertThat(values).containsExactly("MA20");
-        assertThatThrownBy(() -> values.add("MACD")).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> values.add("MACD"))
+                .isInstanceOf(UnsupportedOperationException.class);
         var definition = job(JobDefinition.JobType.SYNC_INDICATORS, Map.of("timeframe", "1h"));
         var execution = parent(Map.of());
         execution.setJob(definition);
         assertThat(WorkExpansion.candidate(execution)).isSameAs(definition);
-        execution.setMetaJson(Map.of("workExpansion", Map.of("businessDate", "2026-10-29",
-                "configuration", Map.of("timeframe", "1d", "source", "ANALYZER"))));
-        assertThat(WorkExpansion.candidate(execution).getConfigJson()).containsEntry("timeframe", "1d");
+        execution.setMetaJson(
+                Map.of(
+                        "workExpansion",
+                        Map.of(
+                                "businessDate",
+                                "2026-10-29",
+                                "configuration",
+                                Map.of("timeframe", "1d", "source", "ANALYZER"))));
+        assertThat(WorkExpansion.candidate(execution).getConfigJson())
+                .containsEntry("timeframe", "1d");
         assertThat(definition.getConfigJson()).containsEntry("timeframe", "1h");
         assertThat(WorkExpansion.canonical(null)).isEqualTo("null");
         assertThat(WorkExpansion.canonical(true)).isEqualTo("true");
-        assertThatThrownBy(() -> WorkExpansion.map("invalid")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> WorkExpansion.map("invalid"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
+
     @Test
     void canonicalNumbersMatchSharedVectorsWithoutPrecisionLoss() throws Exception {
         var json = JsonMapper.builder().build();

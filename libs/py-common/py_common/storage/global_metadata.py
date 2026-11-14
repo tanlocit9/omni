@@ -168,6 +168,11 @@ class GlobalPartitionMetadata:
     maxTimestamp: str | None = None
     inputs: list[GlobalDatasetInput] = field(default_factory=list)
     sourceExecutionId: str | None = None
+    canonicalPath: str | None = None
+    coverageDates: list[str] = field(default_factory=list)
+    workScope: dict | None = None
+    workProofs: list[dict] = field(default_factory=list)
+    storageVersionId: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.values, dict):
@@ -175,6 +180,20 @@ class GlobalPartitionMetadata:
         if self.status != "READY":
             raise _invalid("global metadata partitions must have READY status")
         _require_path(self.path, "partition path")
+        if self.storageVersionId is not None and (
+            not isinstance(self.storageVersionId, str)
+            or not 1 <= len(self.storageVersionId) <= 1024
+            or self.storageVersionId == "null"
+            or any(not 33 <= ord(c) <= 126 for c in self.storageVersionId)
+        ):
+            raise _invalid("Invalid immutable storage version")
+        if self.canonicalPath is not None:
+            _require_path(self.canonicalPath, "canonical partition path")
+        if self.coverageDates != sorted(set(self.coverageDates)):
+            raise _invalid("coverageDates must be sorted and unique")
+        for day in self.coverageDates:
+            if not isinstance(day, str) or date.fromisoformat(day).isoformat() != day:
+                raise _invalid("coverageDates must contain ISO calendar dates")
         if not _SHA256.fullmatch(self.dataVersion or ""):
             raise _invalid("partition dataVersion must be a SHA-256 fingerprint")
         if self.schemaVersion != _SCHEMA_VERSION:
@@ -402,6 +421,31 @@ def _document_dict(document: GlobalMetadataDocument) -> dict[str, Any]:
                         "inputs": [vars(item) for item in partition.inputs],
                         "generatedAt": partition.generatedAt,
                         "sourceExecutionId": partition.sourceExecutionId,
+                        **(
+                            {"canonicalPath": partition.canonicalPath}
+                            if partition.canonicalPath is not None
+                            else {}
+                        ),
+                        **(
+                            {"coverageDates": partition.coverageDates}
+                            if partition.coverageDates
+                            else {}
+                        ),
+                        **(
+                            {"workScope": partition.workScope}
+                            if partition.workScope
+                            else {}
+                        ),
+                        **(
+                            {"workProofs": partition.workProofs}
+                            if partition.workProofs
+                            else {}
+                        ),
+                        **(
+                            {"storageVersionId": partition.storageVersionId}
+                            if partition.storageVersionId is not None
+                            else {}
+                        ),
                     }
                     for partition in dataset.partitions
                 ],

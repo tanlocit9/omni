@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "eventId": "00000000-0000-0000-0000-000000000004",
+  "registrations": [
+    {
+      "registrationId": "00000000-0000-0000-0000-000000000003",
+      "executionId": "00000000-0000-0000-0000-000000000001",
+      "atomicAttemptId": "00000000-0000-0000-0000-000000000002",
+      "atomicWorkId": "work:8c64cd0b2134c923c40006d4b2cc420fe782e25f134ad8481b7f9db4406ddf5e",
+      "jobType": "SYNC_STOCK_PRICE",
+      "workType": "SYMBOL",
+      "workKey": "VCI",
+      "businessDate": "2035-01-02",
+      "parameters": {},
+      "requiredOutputs": [
+        {
+          "dataset": "stock-prices",
+          "partition": {
+            "symbol": "vci"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "dataset": "stock-prices",
+          "partition": {
+            "symbol": "vci"
+          },
+          "dataVersion": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "coverageDates": ["2035-01-02"],
+          "rowCount": 1,
+          "totalBytes": 128,
+          "schemaVersion": 1,
+          "schemaHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "columns": [
+            {
+              "name": "date",
+              "type": "date",
+              "nullable": false
+            }
+          ],
+          "inputs": []
+        }
+      ],
+      "validEmptyReason": null
+    }
+  ]
+}

@@ -34,29 +34,36 @@ import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
 @ExtendWith(MockitoExtension.class)
 class SectorTransitionOutcomeEvaluationJobProducerTest {
 
-    @Mock
-    private JobService jobService;
-    @Mock
-    private KafkaPublisher kafkaPublisher;
-    @Mock
-    private SymbolRepository symbolRepository;
+    @Mock private JobService jobService;
+    @Mock private KafkaPublisher kafkaPublisher;
+    @Mock private SymbolRepository symbolRepository;
 
     @Test
     void resolvesCanonicalUniverseAndFocusedOutput() {
         var producer = producer();
-        var job = job(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES, List.of(),
-                JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(" banks "),
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, 2));
+        var job =
+                job(
+                        Map.of(
+                                JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES, List.of(),
+                                JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES,
+                                        List.of(" banks "),
+                                JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, 2));
         var parent = execution(UUID.randomUUID());
         var child = execution(UUID.randomUUID());
         when(symbolRepository.findDistinctSectorCodesByLevel(null, 2))
                 .thenReturn(List.of("BANKS", "REAL_ESTATE", "TECH"));
-        when(jobService.createChildExecution(eq(parent.getId()),
-                eq(WorkIdentity.of(WorkType.GLOBAL, JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
-                any(), any())).thenReturn(child);
+        when(jobService.createChildExecution(
+                        eq(parent.getId()),
+                        eq(
+                                WorkIdentity.of(
+                                        WorkType.GLOBAL,
+                                        JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
+                        any(),
+                        any()))
+                .thenReturn(child);
 
-        List<KafkaMessage> messages = producer.buildMessages(job, parent, Instant.parse("2026-08-09T00:00:00Z"));
+        List<KafkaMessage> messages =
+                producer.buildMessages(job, parent, Instant.parse("2026-08-09T00:00:00Z"));
 
         assertThat(producer.getJobType()).isEqualTo(JobType.SECTOR_TRANSITION_EVALUATE_OUTCOMES);
         var payload = (SectorTransitionOutcomeEvaluationJobMessage) messages.getFirst().payload();
@@ -72,26 +79,38 @@ class SectorTransitionOutcomeEvaluationJobProducerTest {
     @Test
     void resolvesEmptyFocusToFullUniverseAndPreservesLineageMetadata() {
         var producer = producer();
-        var job = job(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES, List.of("BANKS", "TECH"),
-                JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(),
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, 2));
+        var job =
+                job(
+                        Map.of(
+                                JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES,
+                                        List.of("BANKS", "TECH"),
+                                JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES, List.of(),
+                                JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, 2));
         var parent = execution(UUID.randomUUID());
         var child = execution(UUID.randomUUID());
-        when(symbolRepository.findDistinctSectorCodesByLevel(new String[] { "BANKS", "TECH" }, 2))
+        when(symbolRepository.findDistinctSectorCodesByLevel(new String[] {"BANKS", "TECH"}, 2))
                 .thenReturn(List.of("BANKS", "TECH"));
-        when(jobService.createChildExecution(eq(parent.getId()),
-                eq(WorkIdentity.of(WorkType.GLOBAL, JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
-                any(), any())).thenReturn(child);
+        when(jobService.createChildExecution(
+                        eq(parent.getId()),
+                        eq(
+                                WorkIdentity.of(
+                                        WorkType.GLOBAL,
+                                        JobDefinitionConfig.SECTOR_TRANSITION_STRATEGY_V1)),
+                        any(),
+                        any()))
+                .thenReturn(child);
 
-        var payload = (SectorTransitionOutcomeEvaluationJobMessage) producer
-                .buildMessages(job, parent, Instant.parse("2026-08-09T00:00:00Z"))
-                .getFirst().payload();
+        var payload =
+                (SectorTransitionOutcomeEvaluationJobMessage)
+                        producer.buildMessages(job, parent, Instant.parse("2026-08-09T00:00:00Z"))
+                                .getFirst()
+                                .payload();
 
         assertThat(payload.parentExecutionId()).isEqualTo(parent.getId());
         assertThat(payload.focusSectorCodes()).containsExactly("BANKS", "TECH");
         ArgumentCaptor<Map<String, Object>> metadata = ArgumentCaptor.forClass(Map.class);
-        verify(jobService).createChildExecution(eq(parent.getId()), any(), metadata.capture(), any());
+        verify(jobService)
+                .createChildExecution(eq(parent.getId()), any(), metadata.capture(), any());
         assertThat(metadata.getValue())
                 .containsEntry("resolvedSectorCodes", List.of("BANKS", "TECH"))
                 .containsEntry("resolvedFocus", List.of("BANKS", "TECH"));
@@ -100,22 +119,30 @@ class SectorTransitionOutcomeEvaluationJobProducerTest {
     @Test
     void rejectsFocusOutsideResolvedUniverseBeforeCreatingChild() {
         var producer = producer();
-        var job = job(Map.of(
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES, List.of("BANKS"),
-                JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES, List.of("TECH"),
-                JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, 2));
-        when(symbolRepository.findDistinctSectorCodesByLevel(new String[] { "BANKS" }, 2))
+        var job =
+                job(
+                        Map.of(
+                                JobDefinitionConfig.CONFIG_KEY_SECTOR_CODES, List.of("BANKS"),
+                                JobDefinitionConfig.CONFIG_KEY_FOCUS_SECTOR_CODES, List.of("TECH"),
+                                JobDefinitionConfig.CONFIG_KEY_SECTOR_LEVEL, 2));
+        when(symbolRepository.findDistinctSectorCodesByLevel(new String[] {"BANKS"}, 2))
                 .thenReturn(List.of("BANKS"));
 
-        assertThatThrownBy(() -> producer.buildMessages(
-                job, execution(UUID.randomUUID()), Instant.parse("2026-08-09T00:00:00Z")))
+        assertThatThrownBy(
+                        () ->
+                                producer.buildMessages(
+                                        job,
+                                        execution(UUID.randomUUID()),
+                                        Instant.parse("2026-08-09T00:00:00Z")))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("focusSectorCodes must be within resolved sectorCodes universe")
+                .hasMessageContaining(
+                        "focusSectorCodes must be within resolved sectorCodes universe")
                 .hasMessageContaining("TECH");
     }
 
     private SectorTransitionOutcomeEvaluationJobProducer producer() {
-        return new SectorTransitionOutcomeEvaluationJobProducer(jobService, kafkaPublisher, symbolRepository);
+        return new SectorTransitionOutcomeEvaluationJobProducer(
+                jobService, kafkaPublisher, symbolRepository);
     }
 
     private JobDefinition job(Map<String, Object> config) {

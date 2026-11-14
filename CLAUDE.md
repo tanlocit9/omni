@@ -1,33 +1,19 @@
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
 
-# General Guidelines for working with Nx
+# Nx
 
-- Prefer Nx targets over underlying tools for repository operations.
-- Use Nx workspace/project MCP tools when available to inspect architecture,
-  project details, configuration errors, and current Nx documentation.
-- Check `node_modules/@nx/<plugin>/PLUGIN.md` for plugin-specific guidance when
-  present.
+- Prefer defined Nx targets; use available Nx MCP tools for project/configuration
+  inspection and current documentation.
+- Read `node_modules/@nx/<plugin>/PLUGIN.md` when relevant and present.
 
 <!-- nx configuration end-->
 
-# Omni repository guidance
+# Omni
 
-[`AGENTS.md`](AGENTS.md) is the canonical repository-wide agent policy. Follow its
-workflow, verification approval gate, Nx boundary, contract/data guardrails, and
-repository boundaries without duplicating them here.
+Follow [AGENTS.md](AGENTS.md) for repository policy, delegation, graph workflow,
+Nx commands and permission/verification gates.
 
-Use `code-review-graph` before manual exploration, for impact analysis of shared
-contracts, and for post-edit change detection as specified in [`AGENTS.md`](AGENTS.md).
-
-Canonical navigation:
-
-- [`.agents/skills`](.agents/skills) — shared repository skills; load the relevant
-  entrypoint there instead of maintaining a copy in `.claude/skills`.
-- [`docs/README.md`](docs/README.md) — documentation index
-- [`docs/development/001-where-to-change.md`](docs/development/001-where-to-change.md) — ownership
-- [`docs/governance/001-implementation-plan-standard.md`](docs/governance/001-implementation-plan-standard.md) — plan rules
-- [`docs/plans/roadmap/automation-rules.md`](docs/plans/roadmap/automation-rules.md) — roadmap automation
-
-Do not execute build, test, lint, format, affected checks, or equivalent tools
-without the explicit request or command approval required by [`AGENTS.md`](AGENTS.md).
+Use [shared skills](.agents/skills), the [docs index](docs/README.md) and
+[ownership guide](docs/development/001-where-to-change.md). Keep editor guidance
+here minimal; do not duplicate repository rules or skills.

@@ -1,5 +1,48 @@
 # Ingestor Service
 
+New enrolled EOD commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md)
+after validated writes. Errors have no output evidence; old commands keep two messages.
+
+I10 [versioned EOD commands](../../docs/reference/017-i10-versioned-storage.md) read
+existing EOD from the claim-frozen accepted base before deciding reuse/refresh.
+PUT captures/read-validates its immutable backend version before registration.
+Workers require externally configured bucket versioning; they never enable it.
+
+Atomic SYNC_SYMBOLS accepts current Saturday/Sunday snapshots, matching Platform
+projection for historical backfills. This exception does not permit weekend EOD
+work or weaken identity validation. See [the correction and retry boundary](../../docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
+The Kafka router ACKs a RUNNING worker receipt before entering a job handler.
+Receipt failure prevents provider work and command offset advancement; terminal
+output/status ordering remains unchanged. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+[Indicators backfill](../../docs/reference/013-backfill-attempt-and-data-policy.md)
+attaches explicit PREFER_EXISTING/REFRESH data policy. Default/rerun reuses actual
+covered Parquet day rows or fetches missing days. Force always fetches provider
+data; missing provider-day output fails without falling back to old rows. Queued
+commands without dataPolicy preserve old force behavior. Both branches still
+validate/register before SUCCESS; existing merge keys and unrelated history remain.
+
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

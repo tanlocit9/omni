@@ -1,0 +1,604 @@
+"""Explicit metadata authority selection. API failures never fall back to JSON."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import replace
+from datetime import UTC, datetime
+
+import httpx
+
+from py_common.config.paths import StockDataPaths
+from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
+from py_common.storage.exceptions import (
+    ManifestInvalidError,
+    ParquetError,
+    StorageError,
+)
+from py_common.storage.global_metadata import (
+    GlobalColumnMetadata,
+    GlobalDatasetInput,
+    GlobalDatasetMetadata,
+    GlobalMetadataDocument,
+    GlobalMetadataReader,
+    GlobalPartitionMetadata,
+)
+from py_common.storage.output_snapshots import (
+    OutputSnapshotIdentity,
+    snapshot_object_name,
+)
+
+
+class PostgresMetadataReader:
+    def __init__(
+        self,
+        url: str,
+        token: str,
+        *,
+        paths: StockDataPaths | None = None,
+        transport=None,
+    ) -> None:
+        if not url.startswith(("http://", "https://")) or not token:
+            raise ValueError(
+                "PostgreSQL metadata requires an authenticated private API URL"
+            )
+        self._url, self._token = url, token
+        self._transport = transport
+        self._paths = paths if paths is not None else StockDataPaths.from_config({})
+
+    async def read(self) -> GlobalMetadataDocument:
+        partitions: dict[str, list[GlobalPartitionMetadata]] = {
+            definition.name: [] for definition in OMNI_DATASET_REGISTRY.all()
+        }
+        revision = None
+        offset = 0
+        try:
+            async with httpx.AsyncClient(
+                timeout=10,
+                follow_redirects=False,
+                trust_env=False,
+                transport=self._transport,
+            ) as client:
+                for _ in range(100001):
+                    params = {"offset": offset, "limit": 200}
+                    if revision is not None:
+                        params["revision"] = revision
+                    response = await client.get(
+                        self._url,
+                        params=params,
+                        headers={"Authorization": f"Bearer {self._token}"},
+                    )
+                    response.raise_for_status()
+                    if len(response.content) > 4 * 1024 * 1024:
+                        raise ManifestInvalidError("Readiness page exceeds size limit")
+                    page = response.json()
+                    if type(page["revision"]) is not int or (
+                        revision is not None and revision != page["revision"]
+                    ):
+                        raise ManifestInvalidError("Inconsistent readiness revision")
+                    revision = page["revision"]
+                    if (
+                        not isinstance(page["items"], list)
+                        or len(page["items"]) > 200
+                        or type(page["hasMore"]) is not bool
+                    ):
+                        raise ManifestInvalidError("Invalid readiness page")
+                    next_offset = page.get("nextOffset", offset + len(page["items"]))
+                    if (
+                        type(next_offset) is not int
+                        or next_offset != offset + len(page["items"])
+                        or next_offset > 100000
+                        or (page["hasMore"] and next_offset == offset)
+                    ):
+                        raise ManifestInvalidError("Invalid readiness page cursor")
+                    for item in page["items"]:
+                        raw = dict(item["manifest"])
+                        if not raw.get("canonicalPath") or not raw.get("coverageDates"):
+                            raise ManifestInvalidError(
+                                "READY requires snapshot identity and exact coverage"
+                            )
+                        if raw.get("workScope"):
+                            self._validate_work_path(item["dataset"], raw)
+                        else:
+                            self._validate_snapshot_path(item["dataset"], raw)
+                        raw["columns"] = [
+                            GlobalColumnMetadata(**column) for column in raw["columns"]
+                        ]
+                        raw["inputs"] = [
+                            GlobalDatasetInput(**value) for value in raw["inputs"]
+                        ]
+                        partitions[item["dataset"]].append(
+                            GlobalPartitionMetadata(**raw)
+                        )
+                    if not page["hasMore"]:
+                        break
+                    offset = next_offset
+                else:
+                    raise ManifestInvalidError("Readiness catalog exceeds bounded read")
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            raise ManifestInvalidError(
+                "PostgreSQL readiness read failed; no manifest fallback"
+            ) from exc
+        return self._document(partitions)
+
+    def _validate_snapshot_path(self, dataset, raw):
+        if raw.get("storageVersionId") is not None:
+            expected = getattr(self._paths, dataset)(**raw["values"])
+            if raw["path"] != expected or raw["canonicalPath"] != expected:
+                raise ManifestInvalidError(
+                    "Pinned historical baseline differs from canonical route"
+                )
+            return
+        expected_path = snapshot_object_name(
+            OutputSnapshotIdentity(dataset, raw["values"]),
+            raw["dataVersion"],
+            self._paths,
+        )
+        if raw["path"] != expected_path or raw["path"] == raw["canonicalPath"]:
+            raise ManifestInvalidError(
+                "READY path differs from immutable snapshot identity"
+            )
+
+    def _validate_work_path(self, dataset, raw):
+        from py_common.messaging.output_registration import WorkRowScope
+
+        WorkRowScope.model_validate(raw["workScope"])
+        from py_common.messaging.output_registration import RegisteredOutput
+
+        RegisteredOutput.model_validate(
+            {
+                "dataset": dataset,
+                "partition": raw["values"],
+                **{
+                    k: raw[k]
+                    for k in (
+                        "dataVersion",
+                        "coverageDates",
+                        "rowCount",
+                        "totalBytes",
+                        "schemaVersion",
+                        "schemaHash",
+                        "columns",
+                        "inputs",
+                        "workScope",
+                    )
+                },
+            }
+        )
+        expected = getattr(self._paths, dataset)(**raw["values"])
+        if raw["path"] != expected or raw["canonicalPath"] != expected:
+            raise ManifestInvalidError(
+                "Work READY path differs from configured canonical path"
+            )
+
+    @staticmethod
+    def _document(partitions):
+        # The private page lists work proofs. Public discovery retains one item
+        # per partition.
+        grouped = {}
+        for dataset, manifests in partitions.items():
+            values = {}
+            for manifest in manifests:
+                key = tuple(sorted(manifest.values.items()))
+                values.setdefault(key, []).append(manifest)
+            grouped[dataset] = []
+            for manifests in values.values():
+                scoped = [m for m in manifests if m.workScope]
+                if not scoped:
+                    if len(manifests) != 1:
+                        raise ManifestInvalidError(
+                            "Duplicate legacy partition readiness"
+                        )
+                    grouped[dataset].append(manifests[0])
+                    continue
+                proofs = [
+                    {
+                        "workScope": m.workScope,
+                        "schemaHash": m.schemaHash,
+                        "columns": [vars(c) for c in m.columns],
+                        "inputs": [vars(i) for i in m.inputs],
+                        "dataVersion": m.dataVersion,
+                        **(
+                            {"storageVersionId": m.storageVersionId}
+                            if m.storageVersionId is not None
+                            else {}
+                        ),
+                    }
+                    for m in scoped
+                ]
+                if len({p["workScope"]["atomicWorkId"] for p in proofs}) != len(proofs):
+                    raise ManifestInvalidError("Duplicate work readiness proof")
+                if len(scoped) == 1:
+                    grouped[dataset].append(scoped[0])
+                    continue
+                version = (
+                    "sha256:"
+                    + hashlib.sha256(
+                        json.dumps(
+                            sorted(
+                                [
+                                    {
+                                        k: v
+                                        for k, v in p.items()
+                                        if k != "storageVersionId"
+                                    }
+                                    for p in proofs
+                                ],
+                                key=lambda p: p["workScope"]["atomicWorkId"],
+                            ),
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode()
+                    ).hexdigest()
+                )
+                grouped[dataset].append(
+                    replace(
+                        scoped[0],
+                        dataVersion=version,
+                        workScope=None,
+                        workProofs=proofs,
+                        coverageDates=sorted(
+                            {d for m in scoped for d in m.coverageDates}
+                        ),
+                        rowCount=sum(m.rowCount for m in scoped),
+                        minTimestamp=min(
+                            (
+                                m.minTimestamp
+                                for m in scoped
+                                if m.minTimestamp is not None
+                            ),
+                            default=None,
+                        ),
+                        maxTimestamp=max(
+                            (
+                                m.maxTimestamp
+                                for m in scoped
+                                if m.maxTimestamp is not None
+                            ),
+                            default=None,
+                        ),
+                        inputs=[],
+                        sourceExecutionId=None,
+                    )
+                )
+        return GlobalMetadataDocument(
+            version=1,
+            generatedAt=datetime.now(UTC).isoformat(),
+            datasets=[
+                GlobalDatasetMetadata(
+                    name=d.name,
+                    label=d.label,
+                    dataPrefix=d.data_prefix,
+                    partitionKeys=list(d.partition_keys),
+                    partitions=grouped[d.name],
+                )
+                for d in OMNI_DATASET_REGISTRY.all()
+            ],
+        )
+
+    async def read_for(self, metadata):
+        if "outputCompletion" not in metadata:
+            return await self.read()
+        from py_common.messaging.approved_inputs import approved_input_bindings
+
+        bindings = approved_input_bindings(metadata)
+        partitions = {d.name: [] for d in OMNI_DATASET_REGISTRY.all()}
+        try:
+            async with httpx.AsyncClient(
+                timeout=10,
+                follow_redirects=False,
+                trust_env=False,
+                transport=self._transport,
+            ) as client:
+                for binding in bindings:
+                    response = await client.get(
+                        self._url.rstrip("/") + "/work",
+                        params={
+                            "atomicWorkId": binding["atomicWorkId"],
+                            "atomicAttemptId": binding["atomicAttemptId"],
+                        },
+                        headers={"Authorization": f"Bearer {self._token}"},
+                    )
+                    response.raise_for_status()
+                    if len(response.content) > 4 * 1024 * 1024:
+                        raise ManifestInvalidError(
+                            "Work readiness response exceeds size limit"
+                        )
+                    body = response.json()
+                    matches = [
+                        x
+                        for x in body["items"]
+                        if x["output"]["dataset"] == binding["dataset"]
+                        and x["output"]["partition"] == binding["partition"]
+                    ]
+                    if len(matches) != 1:
+                        raise ManifestInvalidError("Approved work output is not READY")
+                    item = matches[0]
+                    if any(
+                        item.get(k) != binding[k]
+                        for k in (
+                            "atomicWorkId",
+                            "atomicAttemptId",
+                            "businessDate",
+                            "dataVersion",
+                        )
+                    ):
+                        raise ManifestInvalidError(
+                            "Current work proof differs from approved binding"
+                        )
+                    from py_common.messaging.output_registration import RegisteredOutput
+
+                    output = RegisteredOutput.model_validate(item["output"]).model_dump(
+                        mode="json", by_alias=True
+                    )
+                    if metadata["outputCompletion"].get(
+                        "storagePolicy"
+                    ) == "VERSIONED" and not output.get("storageVersionId"):
+                        raise ManifestInvalidError(
+                            "Approved work is not pinned to an immutable "
+                            "storage version"
+                        )
+                    if (
+                        not output["workScope"]
+                        or output["workScope"]["atomicWorkId"]
+                        != binding["atomicWorkId"]
+                    ):
+                        raise ManifestInvalidError(
+                            "Work proof lacks matching data scope"
+                        )
+                    path = getattr(self._paths, binding["dataset"])(
+                        **binding["partition"]
+                    )
+                    raw = dict(
+                        values=output["partition"],
+                        status="READY",
+                        path=path,
+                        canonicalPath=path,
+                        dataVersion=output["dataVersion"],
+                        schemaVersion=output["schemaVersion"],
+                        schemaHash=output["schemaHash"],
+                        objectCount=1,
+                        totalBytes=output["totalBytes"],
+                        rowCount=output["rowCount"],
+                        columnCount=len(output["columns"]),
+                        columns=[GlobalColumnMetadata(**c) for c in output["columns"]],
+                        inputs=[GlobalDatasetInput(**i) for i in output["inputs"]],
+                        coverageDates=output["coverageDates"],
+                        workScope=output["workScope"],
+                        storageVersionId=output.get("storageVersionId"),
+                        generatedAt=datetime.now(UTC).isoformat(),
+                        sourceExecutionId=item["executionId"],
+                    )
+                    partitions[binding["dataset"]].append(
+                        GlobalPartitionMetadata(**raw)
+                    )
+        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+            raise ManifestInvalidError(
+                "Approved work readiness read failed; no manifest fallback"
+            ) from exc
+        return self._document(partitions)
+
+
+class ShadowMetadataReader:
+    def __init__(self, manifest, postgres, *, parquet=None) -> None:
+        self._manifest, self._postgres = manifest, postgres
+        self.enrolled_work_reader = postgres
+        self._parquet = parquet
+        self.last_comparison = {"compared": False}
+
+    async def read(self):
+        manifest = await self._manifest.read()
+        try:
+            postgres = await self._postgres.read()
+            scoped = any(
+                p.workScope or p.workProofs
+                for d in postgres.datasets
+                for p in d.partitions
+            )
+            if scoped or self._parquet is not None:
+                if self._parquet is None:
+                    self.last_comparison = {
+                        "compared": False,
+                        "matches": False,
+                        "reason": "SCOPED_PARITY_REQUIRES_BYTES",
+                    }
+                    return manifest
+                try:
+                    self.last_comparison = await self._compare_scoped(
+                        manifest, postgres
+                    )
+                except ManifestInvalidError, StorageError, ParquetError:
+                    self.last_comparison = {
+                        "compared": False,
+                        "matches": False,
+                        "reason": "PARITY_INPUT_INVALID",
+                    }
+                return manifest
+
+            def inventory(document):
+                return {
+                    (d.name, tuple(sorted(p.values.items()))): self._metadata_identity(
+                        p
+                    )
+                    for d in document.datasets
+                    for p in d.partitions
+                }
+
+            old, new = inventory(manifest), inventory(postgres)
+            mismatches = [
+                str(key)
+                for key in old.keys() | new.keys()
+                if old.get(key) != new.get(key)
+            ]
+            self.last_comparison = {
+                "compared": True,
+                "matches": not mismatches,
+                "mismatchCount": len(mismatches),
+                "examples": mismatches[:20],
+                "scope": "PARTITION_METADATA",
+            }
+        except ManifestInvalidError:
+            self.last_comparison = {
+                "compared": False,
+                "matches": False,
+                "reason": "POSTGRES_UNAVAILABLE",
+            }
+        # Shadow remains manifest-authoritative; do not use after postgres cutover.
+        return manifest
+
+    @staticmethod
+    def _metadata_identity(partition):
+        return (
+            partition.dataVersion,
+            partition.schemaHash,
+            partition.rowCount,
+            partition.totalBytes,
+            tuple(partition.coverageDates),
+            tuple(
+                sorted(
+                    (i.dataset, tuple(sorted(i.partition.items())), i.dataVersion)
+                    for i in partition.inputs
+                )
+            ),
+        )
+
+    async def _compare_scoped(self, manifest, postgres):
+        import pandas as pd
+
+        from py_common.storage.work_rows import select_rows
+
+        def index(document):
+            return {
+                (d.name, tuple(sorted(p.values.items()))): p
+                for d in document.datasets
+                for p in d.partitions
+            }
+
+        old, new = index(manifest), index(postgres)
+        mismatches = set(old.keys() ^ new.keys())
+        compared_rows = 0
+        for key in sorted(old.keys() & new.keys()):
+            legacy, ready = old[key], new[key]
+            proofs = ready.workProofs or (
+                [
+                    {
+                        "workScope": ready.workScope,
+                        "columns": [vars(c) for c in ready.columns],
+                        "inputs": [vars(i) for i in ready.inputs],
+                    }
+                ]
+                if ready.workScope
+                else []
+            )
+            if not proofs:
+                if self._metadata_identity(legacy) != self._metadata_identity(ready):
+                    mismatches.add(key)
+                else:
+                    await self._parquet.read_bound_dataframe(
+                        key[0], legacy, legacy.dataVersion
+                    )
+                    await self._parquet.read_bound_dataframe(
+                        key[0], ready, ready.dataVersion
+                    )
+                continue
+            legacy_frame = await self._parquet.read_bound_dataframe(
+                key[0], legacy, legacy.dataVersion
+            )
+            ready_frame = await self._parquet.read_bound_dataframe(
+                key[0], ready, ready.dataVersion
+            )
+            if (
+                len(legacy_frame) != legacy.rowCount
+                or len(legacy_frame.columns) != legacy.columnCount
+            ):
+                mismatches.add(key)
+                continue
+            legacy_inputs = {
+                (i.dataset, tuple(sorted(i.partition.items())), i.dataVersion)
+                for i in legacy.inputs
+            }
+            partition_rows = 0
+            for proof in proofs:
+                inputs = {
+                    (
+                        i["dataset"],
+                        tuple(sorted(i["partition"].items())),
+                        i["dataVersion"],
+                    )
+                    for i in proof["inputs"]
+                }
+                if not inputs.issubset(legacy_inputs):
+                    mismatches.add(key)
+                    break
+                try:
+                    columns = [c["name"] for c in proof["columns"]]
+                    previous = select_rows(
+                        key[0], legacy_frame, proof["workScope"], columns
+                    )
+                    current = select_rows(
+                        key[0], ready_frame, proof["workScope"], columns
+                    )
+                    pd.testing.assert_frame_equal(
+                        previous, current, check_exact=True, check_dtype=False
+                    )
+                except AssertionError, ManifestInvalidError:
+                    mismatches.add(key)
+                    break
+                partition_rows += len(current)
+            if partition_rows != ready.rowCount:
+                mismatches.add(key)
+            compared_rows += partition_rows
+        return {
+            "compared": True,
+            "matches": not mismatches,
+            "mismatchCount": len(mismatches),
+            "examples": [str(key) for key in sorted(mismatches)[:20]],
+            "scope": "WORK_ROWS_V1"
+            if any(p.workScope or p.workProofs for p in new.values())
+            else "PARTITIONS",
+            "comparedRows": compared_rows,
+        }
+
+
+def metadata_reader(settings, readable, *, parquet=None):
+    if settings.output_readiness_mode == "manifest":
+        reader = GlobalMetadataReader(readable, settings.minio.bucket)
+        if (
+            getattr(settings, "output_readiness_api_url", "")
+            and settings.output_readiness_api_token.get_secret_value()
+        ):
+            reader.enrolled_work_reader = PostgresMetadataReader(
+                settings.output_readiness_api_url,
+                settings.output_readiness_api_token.get_secret_value(),
+                paths=settings.stock_data_paths,
+            )
+        return reader
+    if settings.output_readiness_mode == "postgres":
+        return PostgresMetadataReader(
+            settings.output_readiness_api_url,
+            settings.output_readiness_api_token.get_secret_value(),
+            paths=settings.stock_data_paths,
+        )
+    if settings.output_readiness_mode == "shadow":
+        return ShadowMetadataReader(
+            GlobalMetadataReader(readable, settings.minio.bucket),
+            PostgresMetadataReader(
+                settings.output_readiness_api_url,
+                settings.output_readiness_api_token.get_secret_value(),
+                paths=settings.stock_data_paths,
+            ),
+            parquet=parquet,
+        )
+    raise ValueError("Unsupported output_readiness_mode")
+
+
+async def read_input_document(reader, metadata):
+    if "outputCompletion" in metadata:
+        reader = getattr(reader, "enrolled_work_reader", reader)
+        if not isinstance(reader, PostgresMetadataReader):
+            raise ManifestInvalidError(
+                "Enrolled work requires PostgreSQL work readiness reader"
+            )
+        return await reader.read_for(metadata)
+    return await reader.read()

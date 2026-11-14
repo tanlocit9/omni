@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 public class JobRunDispatchCoordinator {
+    public static final int CANDIDATE_MULTIPLIER = 3;
+
     private final JobRunDispatchStore store;
     private final JobRunDispatchSnapshotReader snapshots;
     private final SchedulerOutboxService outbox;
@@ -58,12 +60,12 @@ public class JobRunDispatchCoordinator {
         if (!enabled)
             return new Batch(
                     Mode.DISABLED,
-                    outbox.findCandidates(now, budget * 4).stream()
+                    outbox.findCandidates(now, budget * CANDIDATE_MULTIPLIER).stream()
                             .map(c -> new PlannedCandidate(c, null))
                             .toList());
         long started = System.nanoTime();
         try {
-            var legacy = store.findLegacyCandidates(now, budget * 4);
+            var legacy = store.findLegacyCandidates(now, budget * CANDIDATE_MULTIPLIER);
             var runs = store.findRunPage(now, runCursor, 32);
             List<Group> groups = new ArrayList<>();
             int managedBudget = legacy.isEmpty() ? budget : Math.max(1, budget / 2);
@@ -91,7 +93,9 @@ public class JobRunDispatchCoordinator {
                         || plan.status() == JobRunDispatchPlanner.Status.STALE)
                     return fallback(now, budget);
                 for (var selection : plan.selections()) {
-                    var scoped = store.findScopedCandidates(selection, now, selection.quota() * 4);
+                    var scoped =
+                            store.findScopedCandidates(
+                                    selection, now, selection.quota() * CANDIDATE_MULTIPLIER);
                     if (scoped.isEmpty()) runCursor = selection.jobRunId();
                     else
                         groups.add(
@@ -125,7 +129,8 @@ public class JobRunDispatchCoordinator {
 
     private Batch fallback(Instant now, int budget) {
         try {
-            var result = store.findFallbackCandidates(now, fallbackCursor, budget * 4);
+            var result =
+                    store.findFallbackCandidates(now, fallbackCursor, budget * CANDIDATE_MULTIPLIER);
             fallbackCursor = result.nextCursor();
             log.warn("JOB_RUN_GUARDED_FIFO_FALLBACK candidates={}", result.candidates().size());
             return new Batch(Mode.FALLBACK, result.candidates());

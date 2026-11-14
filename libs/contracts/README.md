@@ -1,5 +1,27 @@
 # Omni Cross-Service Contracts
 
+WorkerCompletionEvent/WorkerCompletionStatus and worker-completion-v1.json define
+[unified I10 completion](../../docs/reference/018-i10-worker-completion.md): terminal
+status plus optional output evidence on the existing registration topic. Deploy paired adapters.
+
+I10 review correction (2026-11-04): signal row coordinates include model_version
+when non-null; omission identifies only a legacy/null-version row. Existing
+row_keys Struct fields carry the distinction without new protobuf fields. The
+shared output-registration-signal-models-v1.json fixture covers legacy/V1/V2
+coexistence in both JSON adapters. Deploy paired Java/Python adapters; see
+[compatibility and verification](../../docs/reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
 Current local acceptance (2026-11-01): **I8/I9 completed**. Canonical proto is
 unchanged; pinned generation/artifact checks are recorded in the
 [closure evidence](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
@@ -25,7 +47,12 @@ This Nx project owns Omni's versioned Protocol Buffer schemas for Kafka and othe
 
 Generated files are disposable, ignored build artifacts and must not be committed or edited manually. `nx run contracts:generate` recreates both language trees from the canonical schemas. `nx run contracts:test` depends on generation automatically, and consumer build/package targets must depend on `contracts:generate` when they begin compiling these types.
 
-The repository pins the Buf CLI and `grpc-tools` compiler in `package-lock.json`. Generation runs locally through the repository-owned wrapper and Buf's `protoc_builtin` Java/Python generators. It requires no remote generation service; output is reproducible from a clean dependency installation.
+The repository pins the Buf CLI in `package-lock.json`. Generation runs locally
+through the repository-owned wrapper and Buf's `protoc_builtin` Java/Python
+generators, using a compatible `protoc` installed on `PATH`. Local development
+and CI must supply that compiler; npm installation alone does not install it.
+Use the same compiler version when comparing generated output. No remote
+generation service or `grpc-tools` npm dependency is required.
 
 ## Commands
 
@@ -52,3 +79,17 @@ as compatibility validation. The target is uncached because the baseline changes
 independently of the working tree. See the [CI policy](../../docs/development/004-ci-quality-gate.md).
 
 This increment defines contracts only. Existing JSON Kafka producers and consumers are migrated through adapters and compatibility tests in later increments.
+
+## I10 paired private HTTP fixture
+
+`fixtures/output-readiness-page-v1.json` is shared by Platform
+`OutputReadinessProviderTest` and py-common `test_output_readiness`. It freezes the
+private readiness page shape, exact coverage, snapshot/canonical identity and NULL
+historical provenance. Pages allow at most 200 items and 4 MiB UTF-8 bytes;
+`nextOffset` equals request offset plus returned item count. Byte-bounded pages may
+be shorter than the requested limit. Keep revision fixed across pages and fail
+closed on invalid/non-progress cursors. This fixture is an internal HTTP JSON
+contract, separate from Kafka/protobuf; it does not change registration bounds.
+`contracts:test` also requires generated OutputRegistrationEvent.java,
+WorkerCompletionEvent.java, WorkerCompletionStatus.java and
+output_registration_pb2.py. Never hand-edit generated artifacts.

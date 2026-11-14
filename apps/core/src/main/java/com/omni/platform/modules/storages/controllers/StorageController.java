@@ -41,12 +41,14 @@ public class StorageController {
             @PathVariable StorageProvider provider,
             @PathVariable String bucket,
             @RequestParam List<String> fileNames,
-            HttpServletResponse response) throws IOException {
+            HttpServletResponse response)
+            throws IOException {
 
         response.setContentType("application/zip");
         response.setHeader("Content-Disposition", "attachment; filename=files.zip");
 
         // Read each file from Provider then write into Zip
-        fileUseCaseService.downloadBulkAsZip(provider, bucket, fileNames, response.getOutputStream());
+        fileUseCaseService.downloadBulkAsZip(
+                provider, bucket, fileNames, response.getOutputStream());
     }
 }

@@ -39,7 +39,8 @@ public class FileUseCaseService implements FileUseCase {
 
     @Override
     @Transactional
-    public List<FileUploadResult> uploadBulk(StorageProvider provider, String bucket, MultipartFile[] files) {
+    public List<FileUploadResult> uploadBulk(
+            StorageProvider provider, String bucket, MultipartFile[] files) {
         var writer = registry.getPort(provider, WritablePort.class);
 
         log.info("Start uploading");
@@ -47,24 +48,39 @@ public class FileUseCaseService implements FileUseCase {
         // Step 1: Upload files in parallel
         List<FileUploadResult> results;
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<FileUploadResult>> futures = Arrays.stream(files).map(file ->
-                    executor.submit(() -> {
-                        try {
-                            var fileId = String.valueOf(UUID.randomUUID());
-                            writer.write(bucket, fileId, file.getInputStream(), file.getContentType());
-                            // Return result with fileId for event publishing later
-                            return new FileUploadResult(
-                                    file.getOriginalFilename(),
-                                    fileId,  // Add fileId to result
-                                    file.getContentType(),
-                                    true,
-                                    "Success"
-                            );
-                        } catch (Exception e) {
-                            return new FileUploadResult(file.getOriginalFilename(), null, null, false, e.getMessage());
-                        }
-                    })
-            ).toList();
+            List<Future<FileUploadResult>> futures =
+                    Arrays.stream(files)
+                            .map(
+                                    file ->
+                                            executor.submit(
+                                                    () -> {
+                                                        try {
+                                                            var fileId =
+                                                                    String.valueOf(
+                                                                            UUID.randomUUID());
+                                                            writer.write(
+                                                                    bucket,
+                                                                    fileId,
+                                                                    file.getInputStream(),
+                                                                    file.getContentType());
+                                                            // Return result with fileId for event
+                                                            // publishing later
+                                                            return new FileUploadResult(
+                                                                    file.getOriginalFilename(),
+                                                                    fileId, // Add fileId to result
+                                                                    file.getContentType(),
+                                                                    true,
+                                                                    "Success");
+                                                        } catch (Exception e) {
+                                                            return new FileUploadResult(
+                                                                    file.getOriginalFilename(),
+                                                                    null,
+                                                                    null,
+                                                                    false,
+                                                                    e.getMessage());
+                                                        }
+                                                    }))
+                            .toList();
 
             results = futures.stream().map(this::waitForFuture).toList();
         }
@@ -72,14 +88,14 @@ public class FileUseCaseService implements FileUseCase {
         // Step 2: Publish events in main thread (inside transaction)
         results.stream()
                 .filter(FileUploadResult::success)
-                .forEach(result -> eventPublisher.publishEvent(
-                        new FileUploadedEvent(
-                                result.fileId(),
-                                bucket,
-                                result.contentType(),
-                                provider
-                        )
-                ));
+                .forEach(
+                        result ->
+                                eventPublisher.publishEvent(
+                                        new FileUploadedEvent(
+                                                result.fileId(),
+                                                bucket,
+                                                result.contentType(),
+                                                provider)));
 
         log.info("Published {} events", results.stream().filter(FileUploadResult::success).count());
         return results;
@@ -87,7 +103,11 @@ public class FileUseCaseService implements FileUseCase {
 
     @Override
     @Transactional
-    public void downloadBulkAsZip(StorageProvider provider, String bucket, List<String> fileNames, OutputStream outputStream) {
+    public void downloadBulkAsZip(
+            StorageProvider provider,
+            String bucket,
+            List<String> fileNames,
+            OutputStream outputStream) {
         var reader = registry.getPort(provider, ReadablePort.class);
 
         try (ZipOutputStream zos = new ZipOutputStream(outputStream)) {
@@ -110,20 +130,29 @@ public class FileUseCaseService implements FileUseCase {
     }
 
     @Override
-    public List<FileDeleteResult> deleteBulk(StorageProvider provider, String bucket, List<String> fileNames) {
+    public List<FileDeleteResult> deleteBulk(
+            StorageProvider provider, String bucket, List<String> fileNames) {
         var deleter = registry.getPort(provider, DeletablePort.class);
 
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Future<FileDeleteResult>> futures = fileNames.stream().map(fileName ->
-                    executor.submit(() -> {
-                        try {
-                            deleter.delete(bucket, fileName);
-                            return new FileDeleteResult(fileName, true, "Deleted");
-                        } catch (Exception e) {
-                            return new FileDeleteResult(fileName, false, e.getMessage());
-                        }
-                    })
-            ).toList();
+            List<Future<FileDeleteResult>> futures =
+                    fileNames.stream()
+                            .map(
+                                    fileName ->
+                                            executor.submit(
+                                                    () -> {
+                                                        try {
+                                                            deleter.delete(bucket, fileName);
+                                                            return new FileDeleteResult(
+                                                                    fileName, true, "Deleted");
+                                                        } catch (Exception e) {
+                                                            return new FileDeleteResult(
+                                                                    fileName,
+                                                                    false,
+                                                                    e.getMessage());
+                                                        }
+                                                    }))
+                            .toList();
 
             return futures.stream().map(this::waitForFuture).toList();
         }

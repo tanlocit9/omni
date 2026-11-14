@@ -92,5 +92,25 @@ OMNI_DATASET_REGISTRY = DatasetAdapterRegistry(
                 _key("exchange", 2, "Exchange"),
             ),
         ),
+        DatasetAdapterDefinition(
+            name="symbol-features",
+            label="Symbol Features",
+            data_prefix="features/symbol/",
+            partition_keys=(
+                _key("timeframe", 0, "Timeframe"),
+                _key("exchange", 1, "Exchange"),
+                _key("code", 2, "Code"),
+            ),
+        ),
+        DatasetAdapterDefinition(
+            name="sector-features",
+            label="Sector Features",
+            data_prefix="features/sector/",
+            partition_keys=(
+                _key("timeframe", 0, "Timeframe"),
+                _key("sector_level", 1, "Sector Level"),
+                _key("sector_code", 2, "Sector Code"),
+            ),
+        ),
     )
 )

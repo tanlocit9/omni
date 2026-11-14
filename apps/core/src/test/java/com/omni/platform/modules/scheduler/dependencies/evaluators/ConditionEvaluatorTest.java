@@ -59,7 +59,8 @@ class ConditionEvaluatorTest {
 
     @Test
     void existsEvaluator_returnsError_onException() {
-        when(manifestReader.manifestExists(ref)).thenThrow(new RuntimeException("Connection refused"));
+        when(manifestReader.manifestExists(ref))
+                .thenThrow(new RuntimeException("Connection refused"));
         ExistsEvaluator evaluator = new ExistsEvaluator();
 
         DependencyCheckResult result = evaluator.evaluate(ref, null, context);
@@ -161,34 +162,67 @@ class ConditionEvaluatorTest {
 
     private DatasetManifest readyManifest() {
         return new DatasetManifest(
-            1, "eod", Map.of("exchange", "hose"), "READY",
-            "sha256:abc123", "eod/hose/data.parquet",
-            1, 4096L, 1000L, 5, List.of(), // columns
-            1, "schema-hash-abc",
-            null, null, List.of(), // inputs
-            null, "2024-01-15T10:00:00Z"
-        );
+                1,
+                "eod",
+                Map.of("exchange", "hose"),
+                "READY",
+                "sha256:abc123",
+                "eod/hose/data.parquet",
+                1,
+                4096L,
+                1000L,
+                5,
+                List.of(), // columns
+                1,
+                "schema-hash-abc",
+                null,
+                null,
+                List.of(), // inputs
+                null,
+                "2024-01-15T10:00:00Z");
     }
 
     private DatasetManifest manifestWithStatus(String status) {
         return new DatasetManifest(
-            1, "eod", Map.of("exchange", "hose"), status,
-            "sha256:dummy", "eod/hose/data.parquet",
-            0, 0L, 0L, 0, List.of(), // columns
-            1, "schema-hash-dummy",
-            null, null, List.of(), // inputs
-            null, "2024-01-15T10:00:00Z"
-        );
+                1,
+                "eod",
+                Map.of("exchange", "hose"),
+                status,
+                "sha256:dummy",
+                "eod/hose/data.parquet",
+                0,
+                0L,
+                0L,
+                0,
+                List.of(), // columns
+                1,
+                "schema-hash-dummy",
+                null,
+                null,
+                List.of(), // inputs
+                null,
+                "2024-01-15T10:00:00Z");
     }
 
     private DatasetManifest manifestWithRowCount(long rowCount) {
         return new DatasetManifest(
-            1, "eod", Map.of("exchange", "hose"), "READY",
-            "sha256:def456", "eod/hose/data.parquet",
-            1, 4096L, rowCount, 5, List.of(), // columns
-            1, "schema-hash-def",
-            null, null, List.of(), // inputs
-            null, "2024-01-15T10:00:00Z"
-        );
+                1,
+                "eod",
+                Map.of("exchange", "hose"),
+                "READY",
+                "sha256:def456",
+                "eod/hose/data.parquet",
+                1,
+                4096L,
+                rowCount,
+                5,
+                List.of(), // columns
+                1,
+                "schema-hash-def",
+                null,
+                null,
+                List.of(), // inputs
+                null,
+                "2024-01-15T10:00:00Z");
     }
 }

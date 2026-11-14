@@ -104,8 +104,10 @@ public final class WorkExpansion {
         }
         if (meta.get("expansionRequest") instanceof Map<?, ?> supplied)
             supplied.forEach((k, v) -> request.put(String.valueOf(k), v));
-        if (!Set.of("scope", "dateFrom", "dateTo", "parameters").containsAll(request.keySet()))
+        if (!Set.of("scope", "dateFrom", "dateTo", "parameters", "sectorCodes", "sectorLevel", "force", "rerun").containsAll(request.keySet()))
             throw new IllegalArgumentException("Unknown expansion request field");
+        if (request.containsKey("sectorCodes")) config.put("sectorCodes", request.get("sectorCodes"));
+        if (request.containsKey("sectorLevel")) config.put("sectorLevel", request.get("sectorLevel"));
         Object override = request.get("parameters");
         if (override != null && !(override instanceof Map<?, ?>))
             throw new IllegalArgumentException("Expansion parameters must be an object");
@@ -149,8 +151,10 @@ public final class WorkExpansion {
         config.put("source", config.getOrDefault("source", job.getSource().name()));
         List<LocalDate> days = new ArrayList<>();
         for (LocalDate day = from; !day.isAfter(to); day = day.plusDays(1))
-            if (day.getDayOfWeek() != DayOfWeek.SATURDAY && day.getDayOfWeek() != DayOfWeek.SUNDAY)
-                days.add(day);
+            if (job.getJobType() == JobType.SYNC_METADATA
+                    || job.getJobType() == JobType.SYNC_SYMBOLS
+                    || (day.getDayOfWeek() != DayOfWeek.SATURDAY
+                            && day.getDayOfWeek() != DayOfWeek.SUNDAY)) days.add(day);
         Map<String, Object> accepted = new LinkedHashMap<>();
         accepted.put("membershipPolicy", "CURRENT_ACTIVE_AT_ACCEPTANCE");
         accepted.put("dateFrom", from.toString());

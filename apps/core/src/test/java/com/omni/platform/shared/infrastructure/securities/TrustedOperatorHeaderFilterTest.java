@@ -18,9 +18,12 @@ class TrustedOperatorHeaderFilterTest {
         var request = new MockHttpServletRequest("GET", "/api/v1/jobs/definitions");
         var response = new MockHttpServletResponse();
 
-        filter.doFilter(request, response, (ignoredRequest, ignoredResponse) -> {
-            throw new AssertionError("filter chain must not run");
-        });
+        filter.doFilter(
+                request,
+                response,
+                (ignoredRequest, ignoredResponse) -> {
+                    throw new AssertionError("filter chain must not run");
+                });
 
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getContentType()).isEqualTo("application/problem+json");
@@ -34,11 +37,16 @@ class TrustedOperatorHeaderFilterTest {
         var response = new MockHttpServletResponse();
         AtomicReference<Authentication> observed = new AtomicReference<>();
 
-        filter.doFilter(request, response, (ignoredRequest, ignoredResponse) ->
-                observed.set(SecurityContextHolder.getContext().getAuthentication()));
+        filter.doFilter(
+                request,
+                response,
+                (ignoredRequest, ignoredResponse) ->
+                        observed.set(SecurityContextHolder.getContext().getAuthentication()));
 
         assertThat(observed.get().getName()).isEqualTo("alice@example.com");
-        assertThat(observed.get().getAuthorities()).extracting("authority").containsExactly("ROLE_OPERATOR");
+        assertThat(observed.get().getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_OPERATOR");
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 

@@ -1,5 +1,112 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+November 11 acceptance review: [findings, fresh checks and retained preflight](../reference/019-i10-review-20261111.md).
+Frozen proof history under concurrent refresh now has owner-approved V26/API source
+and passing focused regressions. Retained DB is V25 and bucket versioning is not enabled; I10 remains
+in_progress until the source and coordinated-cutover gates are satisfied.
+The follow-up full integration run passes 14/14 without skips, including drained
+canonical repair with PostgreSQL authority and preserved post-cutover history.
+Retained baseline/parity, coordinated cutover/rollback and owner acceptance remain
+open; disposable evidence is not permission to activate the live environment.
+
+November 11 terminal-replay approval: [V26 rejection audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+handles valid completion of terminal VERSIONED attempts without changing accepted
+outputs. Local E2E passes 14/14 and the scoped regression gate passes 3/3;
+historical failures remain evidence and retained rollout gates remain open.
+
+November 11 owner revision: automatic execution expiry is disabled and deferred
+to [TD-018](../technical-debt/018-execution-watchdog-observation.md), outside current
+I10 completion gates. Retain diagnostics and recovery safety; observe real requests
+before deciding whether watchdog reactivation is necessary. The historical I10
+title and original watchdog specification below are retained for traceability.
+
+November 10 owner amendment: [unified worker completion](../reference/018-i10-worker-completion.md)
+replaces separate terminal status/registration for new commands. Local verification
+is in progress; unchanged timeout/late-evidence gates still require explicit evidence.
+
+I10 physical-safety amendment (November 9): owner approved [version-addressable
+canonical objects and frozen merge bases](../reference/017-i10-versioned-storage.md).
+The additive V26/contract/reader implementation is under local verification; this
+does not activate P12, retained migrations, bucket changes or global reader cutover.
+November 10 disposable physical-baseline/scoped-shadow/Signals E2E passes; the
+late-registration partition regression remains failing in the linked closure gate.
+
+I10 closure objective (November 9): [safe backfill through Signals](../reference/016-i10-signals-backfill-closure.md).
+This API/verification extension is in progress and does not close writer-safety or
+coordinated-cutover acceptance. I10 remains in_progress.
+
+I10 polling checkpoint: [request discovery and per-job summaries](../reference/014-atomic-request-polling.md).
+[Delivery review and remaining gates](../reference/015-i10-review-20261108.md)
+retain I10 in_progress; no new increment or coordinated cutover is introduced.
+
+Backfill execution/data policy: [rerun versus forced provider refresh](../reference/013-backfill-attempt-and-data-policy.md).
+Both flags default false; force implies rerun. Attempt sharing remains IN_FLIGHT_ONLY;
+selected local policy/PostgreSQL/worker E2E checks pass; full I10 coverage/cutover
+remains open and I10 remains in_progress.
+
+I10 closed-owner checkpoint: [reuse fence, never-dispatched reconciliation and
+attempt/output diagnostics](../reference/012-i10-closed-owner-reconciliation.md).
+Focused PostgreSQL regressions pass; I10 stays in_progress.
+
+I10 delivery (2026-11-07): [bounded commit checkpoints and unresolved runtime blockers](../reference/011-i10-delivery-checkpoints.md).
+The owner requested no per-checkpoint verification rerun. I10 remains in_progress;
+delivery does not replace the acceptance or coordinated-cutover gate.
+
+Owner lifecycle decision (2026-11-06): continue healthy branches after a target
+failure and finalize only when all request members settle. Add PENDING preparation,
+worker RUNNING receipts and settlement diagnostics; see [source/test matrix](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+This bounded correction does not change I10 in_progress or reopen terminal history.
+
+Indicators backfill follow-up (2026-11-05): the owner requested a bounded
+sector/date Indicators API with EOD registration/READY. See [scope, contract impact,
+cross-service matrix and checks](../reference/009-indicators-backfill.md). This
+default-off exception does not activate general manual triggering, complete Plan
+028, or change I10's in_progress status and coordinated cutover requirements.
+
+I10 downstream-guard repair (2026-11-04): exact dated feature dependencies,
+frozen predecessor declarations, approved worker reads and typed-date publication
+regressions are covered by the [current repair matrix](../reference/008-p14-i10-dispatch-guard.md).
+I10 remains in_progress; required checks, attributable coverage and cutover remain.
+
+I10 migration packaging (2026-11-04): the owner requested ordered V19-V23 stages.
+Final schema/runtime contracts and I10 status are unchanged. See
+[local V18 cleanup and transaction-only SQL verification](../reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
+The [current end-to-end flow](../flows/007-p14-end-to-end.md) maps scheduler,
+preparation, worker publication, Platform READY and Query/Console to the existing
+P14 tickets, including Mermaid and deferred writer review boundaries.
+
+I10 review correction (2026-11-04): signal scope retains model_version, workers
+preflight bounded registration before canonical replacement, and catalog bounds
+cover all work proofs. See [source, regressions and writer TODOs](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+P14-I10 remains in_progress; this fix does not activate P12 or waive cutover gates.
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+Owner revision (2026-11-02): immutable output snapshots are approved within I10;
+additional durable worker publication recovery is deferred. No recovery journal,
+new writer service, batching or concurrency activation. Existing duplicate safety,
+durable Platform completion correlation and failure/late-attempt guards remain.
+Snapshot/registration/READY integration has opt-in source; local and runtime gates remain open.
+See [current scope and matrix](../reference/005-p14-i10-completion-watchdog-handoff.md).
+
+I10 READY integration (updated 2026-11-03 UTC+7): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 implementation started (2026-11-01): shadow registration contract/inbox source is present, NOT RUN. See [checkpoint and remaining acceptance](../reference/004-p14-i10-registration-checkpoint.md). Current increment is `in_progress`; I10.a is incomplete and readiness/watchdog remain planned. Earlier pending statements below are dated baseline history.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -191,8 +298,12 @@ cross-service impact, limits and owner-local handoff are in the linked review.
 
 ## P14-I10 — Output metadata registration and execution watchdog
 
-Status: **pending**, depends on P14-I9. Owner requested this plan on 2026-10-30;
-no I10 source, schema, topic, consumer, rollout or verification is delivered here.
+Status: **in_progress**, depends on P14-I9. Registration/completion/watchdog source is present;
+worker registration and READY/readers now have opt-in source; full verification
+and rollout remain open. Additional durable worker recovery is owner-deferred.
+See the current handoff above, including the November 3 paired-contract review;
+the acceptance criteria below use the current owner amendments above, including
+the November 11 watchdog deferral to TD-018.
 I8/I9 have local acceptance completion recorded above. I10.a/b/c are internal checkpoints, not
 additional registry IDs. P12 writer/concurrency remains deferred.
 Architecture decision: [ADR-008](../adr/008-postgres-output-readiness.md).
@@ -214,8 +325,9 @@ Timeout is an execution outcome, not proof that a worker has stopped writing.
 
 ### Dataset Outputs
 
-No analytical dataset output. Existing Parquet paths, analytical ownership, schemas
-and date types remain unchanged; operational readiness ownership moves to Platform.
+No new logical analytical dataset. Canonical paths, analytical ownership, schemas
+and date types remain; owner-approved immutable physical snapshot copies are added.
+Operational readiness moves to Platform only after the verified cutover.
 
 ### Metadata Outputs
 
@@ -254,9 +366,11 @@ lineage after registration. No new analytical formula or strategy is introduced.
   \_metadata/metadata.json as readiness authority. Retain the legacy manifest during
   shadow comparison; stop its readiness reads/writes only after all readers migrate.
   This is the scoped ADR-008 exception to the existing JSON-manifest baseline.
-- **Storage path/dataset ownership:** no new physical paths or analytical writer.
+- **Storage path/dataset ownership:** owner-approved immutable output snapshot paths
+  under `_output-snapshots/{dataset}/{partition_hash}/{data_version}.parquet`; retain
+  logical ownership/canonical version semantics. No new analytical writer service.
   Metadata events use logical dataset/partition references; approved storage builders
-  derive paths. Never send arbitrary object paths/buckets as business-routing fields.
+  derive snapshot paths. Never send arbitrary object paths/buckets as business-routing fields.
 - **Public Java/Python API:** shared publisher/read-provider ports and a bounded,
   authenticated Platform metadata lookup API change. Python readers, including Query
   Service and Analyzer, use that API/provider, never Platform DB credentials. Preserve
@@ -287,17 +401,19 @@ lineage after registration. No new analytical formula or strategy is introduced.
    READY pointer. Batch acceptance never silently drops an invalid member. Pause/report
    poison records and retry DB failures without committing past the failing partition
    offset. Unrelated partitions may progress; no new automatic DLT/discard policy.
-4. Keep the existing terminal-status topic separate. Producers acknowledge registration
-   publication before terminal SUCCESS/source-command completion. Kafka ACK means durable
-   transport, not DB registration. Platform correlates both streams durably: SUCCESS
-   waits for the complete registration set (or explicit valid-empty declaration) before
-   authoritative completion. Either arrival order, duplicates, restart and replay must
-   work. Preserve existing non-migrated/legacy status behavior behind explicit rollout
-   boundaries; missing registration cannot silently fall back to SUCCESS on migrated work.
-5. Publication order is data write -> validation -> acknowledged registration -> terminal
-   status, with Platform completion gated on committed metadata. Storage-success/event-
-   failure leaves no new READY; command replay/reconciliation recovers the registration.
-   Event-success/status-failure remains replayable without duplicate output mutation.
+4. Owner amendment November 10: keep RUNNING separate, but newly declared commands
+   send terminal status and registration together in one WorkerCompletionEvent. Kafka
+   ACK is durable transport, not DB acceptance. Platform commits registration, status
+   and eligible READY in one transaction. Queued legacy commands retain the separate
+   registration/status protocol: either arrival order, duplicates, restart and replay
+   remain supported. Missing registration cannot fall back to SUCCESS on enrolled work.
+5. New publication order is data write -> validation -> acknowledged completion ->
+   source-command commit. Legacy commands retain registration ACK -> terminal status
+   ACK -> command commit. Platform completion requires committed evidence. Storage-success/event-
+   failure leaves no new READY and reports explicit failure/pending until bounded
+   timeout or operator resolution. Additional durable worker recovery/journaling is
+   owner-deferred. Identical event/status redelivery remains idempotent; do not claim
+   automatic crash recovery or silently promote an unproven orphan.
    Metadata success/failure is independent from the prior READY version: failure never
    clears the last validated pointer or treats a broken replacement as readable.
 
@@ -327,6 +443,12 @@ lineage after registration. No new analytical formula or strategy is introduced.
 
 ### I10.c — Timeout watchdog and query diagnostics
 
+Owner revision 2026-11-11: automatic expiry described below is a deferred design
+under [TD-018](../technical-debt/018-execution-watchdog-observation.md), not an active
+I10 acceptance gate. Keep the source/flag disabled during observation. Read-only
+diagnostics, terminal-state immutability and late-writer/READY safety remain active.
+The original deadline/cadence details below describe the parked implementation.
+
 Bounded, indexed, multi-instance-safe scans select actual child executions whose outbox
 is PUBLISHED, terminal status is absent and published_at is older than 30 minutes.
 Do not time out unpublished dependency WAITING, infer start from preparation's RUNNING,
@@ -350,11 +472,11 @@ start reader cutover merely because I10.a accepts events. Keep registration/shad
 readiness cutover and watchdog enablement separately configurable and disabled by
 default. I10 is planned source work; the commands below are proposed, not run for I10.
 
-| Checkpoint | Bounded delivery and owners                                                                                                                                                                                                                                                                                                                                             | Verification required before advancing                                                                                                                                                                                                                                                                                                                               |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I10.a      | Contracts/shared config: freeze topic/group, immutable event/item IDs, ordering key, bounded counts/bytes and canonical JSON fixtures. Platform: forward inbox/version/coverage/completion migration, transactional consumer and durable status correlation. py-common/Ingestor/Analyzer: shared registration publisher after validated writes, before terminal status. | Cross-language round trip; exact coverage and explicit valid-empty; whole-record rejection without partial mutation; duplicate/conflicting/stale attempts; both status/event orders, DB/ACK failures, restart and per-partition offset replay. Real worker -> registration -> Platform completion fixture.                                                           |
-| I10.b      | Platform metadata API/provider and admission; shared reader port; Analyzer, Query Service and Console adapters; validated backfill/shadow comparison; SYNC_METADATA reconciliation every 12 hours.                                                                                                                                                                      | Auth, bounded reads, exact lineage/bytes/coverage holes, API failure closed, output D versus origin T, concurrent scan/commit fencing, all-reader parity and rollback retaining post-cutover registrations. A stale worker that can still overwrite mutable bytes blocks that output's cutover; record the ownership/version-addressability prerequisite explicitly. |
-| I10.c      | Platform bounded multi-instance watchdog and diagnostics, two-minute scan and thirty-minute published deadline; normal failure/request aggregation; no automatic unsafe rerun.                                                                                                                                                                                          | Clock-controlled deadline edges; unpublished WAITING excluded; status/registration race; duplicate scans, restart, late status/event cannot reopen FAILED; new retry attempt cannot rebind frozen dependents; visible completion-pending and quarantined ownership.                                                                                                  |
+| Checkpoint | Bounded delivery and owners                                                                                                                                                                                                                                                                      | Verification required before advancing                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I10.a      | Contracts/shared config: immutable IDs, bounded wire and canonical fixtures. Platform: inbox/version/coverage and transactional completion acceptance. Shared Python/Ingestor/Analyzer: one terminal completion with output evidence for new commands; legacy separate streams remain supported. | Cross-language round trip, exact coverage/valid-empty, complete-record rejection, duplicate/conflicting/stale attempts, DB/ACK failures and rollback, restart/partition replay, both legacy arrival orders, real worker -> completion -> Platform fixture.                                                                                                           |
+| I10.b      | Platform metadata API/provider and admission; shared reader port; Analyzer, Query Service and Console adapters; validated backfill/shadow comparison; SYNC_METADATA reconciliation every 12 hours.                                                                                               | Auth, bounded reads, exact lineage/bytes/coverage holes, API failure closed, output D versus origin T, concurrent scan/commit fencing, all-reader parity and rollback retaining post-cutover registrations. A stale worker that can still overwrite mutable bytes blocks that output's cutover; record the ownership/version-addressability prerequisite explicitly. |
+| I10.c      | Existing diagnostics remain active; automatic expiry/watchdog is owner-deferred to TD-018 during observation, source retained and disabled.                                                                                                                                                      | Current scope: truthful completion/ownership diagnostics, immutable terminal state and safe late completion. Future watchdog deadline/scan/recovery acceptance belongs to TD-018; no automatic unsafe retry is authorized.                                                                                                                                           |
 
 Cross-service impact: Platform owns schema/consumer/API/watchdog; Ingestor and
 Analyzer own actual output declarations and registration publication; py-common
@@ -551,25 +673,31 @@ ready conclusion; no fabricated test, coverage, CI, provider or deployment evide
 
 ### Acceptance Criteria
 
-- [ ] Versioned topic/array contract, paired producers and Platform consumer agree;
+November 12 reconciliation: the seven checked criteria below are proven by the
+recorded local/disposable evidence in [the criterion matrix](../reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation).
+They do not imply retained deployment, reader cutover or overall I10 completion.
+The three unchecked criteria retain their operational/owner evidence requirements.
+
+- [x] Versioned topic/array contract, paired producers and Platform consumer agree;
       bounded size/count, idempotency, validation and partition-offset behavior are proven.
-- [ ] Only durable validated outputs grant exact work/date coverage; valid-empty never
+- [x] Only durable validated outputs grant exact work/date coverage; valid-empty never
       fabricates READY, and failed replacement retains the last valid version.
-- [ ] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
+- [x] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
       metadata registration or explicit valid-empty, and failures cannot reopen terminal work.
 - [ ] All applicable readers use PostgreSQL via approved boundaries after verified
       backfill/shadow/cutover; no silent manifest fallback or weakened byte/lineage checks.
 - [ ] Reconciliation runs every 12 hours on safely quiesced affected outputs; timed-out
       worker ownership and scan/write races cannot promote unproven data.
-- [ ] Watchdog runs every 2 minutes with a 30-minute published deadline, handles concurrent
-      terminal arrival, excludes unpublished WAITING and preserves normal aggregation/retry.
-- [ ] Late workers/status/events cannot corrupt current readiness or substitute attempts;
+- Deferred to TD-018 by the owner on November 11: automatic watchdog cadence,
+  published deadline, scan races and activation. Keep the source disabled during
+  observation; terminal immutability, late-writer safety and diagnostics remain active.
+- [x] Late workers/status/events cannot corrupt current readiness or substitute attempts;
       mutable-object safety is proven before each affected reader cuts over.
-- [ ] End-to-end atomicWorkId and per-output provenance retain execution/atomicAttemptId;
+- [x] End-to-end atomicWorkId and per-output provenance retain execution/atomicAttemptId;
       aliases normalize consistently and batch/multi-work attribution is not lost.
-- [ ] Optional trace/query extension names, durable query snapshot boundary and
+- [x] Optional trace/query extension names, durable query snapshot boundary and
       multi-root linkage are documented; no tracing implementation is required in I10.
-- [ ] Writer can emit the same metadata arrays after future batches; no P12 activation,
+- [x] Writer can emit the same metadata arrays after future batches; no P12 activation,
       direct worker DB access, new topology authority or physical-path business routing.
 - [ ] Source/field/test/coverage matrix, migrations, rollout/recovery, cross-service docs
       and owner-local verification gates are complete before I10 completion.
@@ -764,9 +892,11 @@ The separate read-only `planGraphExpansion` API remains a preview and does not a
   claims remain separate and mandatory.
 - Cancel is owner-scoped and removes only the request's interest. Other owners keep
   the work eligible. No in-flight worker is killed; already-publishing work may
-  finish. Unpublished work without an active requester is parked, not deleted;
-  a later matching request may reattach. Operator cleanup is a separate retention
-  concern. No public manual/cancel/retry command API is enabled here.
+  finish. The November 7 I10 closed-owner checkpoint supersedes ownerless
+  reattachment: new requests require a live owner to share an attempt. Safely
+  never-dispatched orphans settle as FAILED/REQUEST_CLOSED; uncertain dispatch
+  stays for review. Membership/history are never deleted. No public generic
+  manual/cancel/retry command API is enabled here.
 - The bounded reconciler propagates upstream FAILED/ERROR/BLOCKED to unpublished
   dependents, closes atomic parents/runs, and aggregates target status into requester
   executions. Request pages use a rotating advisory cursor; cursor loss on restart
@@ -1079,7 +1209,12 @@ Unsupported/missing scope mappings, malformed identities, unknown strategies and
 missing required ancestors fail rather than returning partial plans. Bounds are
 20,000 selected works, 100,000 edges, 1,024 expansions/catalog definitions, 200,000
 candidate rows/visits and depth 32. Candidate expansions are cached by definition
-and canonical request. Reversed catalog order and transient execution UUIDs do not
+and canonical request. Cached membership is indexed by work key/exchange; sector
+membership selections are cached by scope, business date and classification level.
+This avoids rescanning the whole symbol universe for every dependent symbol.
+Generated rows, real membership scans and selected visits remain bounded; all
+scope/date/strategy checks and definition bindings remain authoritative.
+Reversed catalog order and transient execution UUIDs do not
 change the logical graph result.
 
 | Area                       | Impact / no-impact reason                                                                                  | Regression evidence                                                                            |
@@ -1194,8 +1329,11 @@ supersedes earlier pending/design-only I8 statements, not historical evidence.
 `JobProducer` now uses `WorkExpansion` for legacy scheduled, internal manual and
 JobRun preparation. Definitions remain configuration/presets and execution FKs.
 Requests accept `scope: {type,key}`, inclusive `dateFrom`/`dateTo`, and `parameters`.
-Missing dates resolve once to the accepted Vietnam calendar day; weekends produce
-no work. Selection is current active membership at acceptance, not a historical
+Missing dates resolve once to the accepted Vietnam calendar day; market jobs
+produce no weekend work. Current SYNC_SYMBOLS/SYNC_METADATA snapshots may run on
+weekends, including the shared worker validation correction recorded on
+[2026-11-07](../reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+Selection is current active membership at acceptance, not a historical
 listing universe. Exchange scopes resolve to symbol work for symbol job types.
 Explicit unknown/empty symbol scopes fail closed; limits are 366 calendar days and
 5,000 atomic works per parent, with transactional failure rather than truncation.
@@ -1355,7 +1493,7 @@ writer contracts, relevant links and introduced claims. Graph tools are unavaila
 no graph impact/change-detection PASS, executable test/lint/build/format,
 numeric coverage, CI, deployment or increment completion is claimed by this audit.
 
-Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 and I9 are locally completed with source-bound acceptance, coverage and rollback evidence; I10 is pending. Preparation remains disabled; no retained rollout or deployment is claimed.
+Status: Owner-approved active epic in Milestone 1. The [increment registry](roadmap/implementation-increments.md) owns status/dependencies/readiness. I1–I5 are completed on local source-bound evidence; I6 is superseded into I5; I7 is locally completed; I8 and I9 are locally completed with source-bound acceptance, coverage and rollback evidence; I10 is in_progress. Preparation remains disabled; no retained rollout or deployment is claimed.
 
 Owner decisions recorded: 2026-10-08; scope clarified on 2026-10-13.
 

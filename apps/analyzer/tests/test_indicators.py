@@ -119,6 +119,32 @@ def test_indicator_job_message_validates_supported_indicator_subset():
     assert message.parse_symbol_key() == ("HOSE", "HPG")
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_indicator_worker_passes_snapshot_identity_only_when_enabled(enabled):
+    from py_common.storage.output_snapshots import OutputSnapshotIdentity
+
+    handler, parquet, _ = _indicator_handler()
+    handler._settings.output_snapshots_enabled = enabled
+    await handler.handle(_job_payload())
+    options = parquet.write_dataframe.await_args.kwargs
+    assert options == (
+        {
+            "snapshot_identity": OutputSnapshotIdentity(
+                "indicators",
+                {
+                    "source": "ad_close",
+                    "timeframe": "1d",
+                    "exchange": "hose",
+                    "code": "hpg",
+                },
+            )
+        }
+        if enabled
+        else {}
+    )
+
+
 @pytest.mark.parametrize(
     "overrides",
     [

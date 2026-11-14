@@ -22,6 +22,10 @@ class JobStatusPublisher:
         self._status_topic = status_topic
         self._service_name = service_name
 
+    @property
+    def producer(self) -> AIOKafkaProducer:
+        return self._producer
+
     async def publish(self, status: JobStatusMessage, key: str | None = None) -> None:
         publish_key = key if key is not None else status.work_key
         result = await self._producer.send_and_wait(

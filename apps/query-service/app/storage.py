@@ -25,6 +25,7 @@ class ResolvedDataset:
     manifest: GlobalPartitionMetadata
     paths: list[str]
     include_filename: bool = False
+    frame: Any = None
 
 
 def create_storage_registry(settings: QueryServiceSettings) -> StorageProviderRegistry:
@@ -39,9 +40,11 @@ class DatasetResolver:
         self,
         reader: GlobalMetadataReader,
         settings: QueryServiceSettings,
+        parquet_storage=None,
     ) -> None:
         self._reader = reader
         self._settings = settings
+        self._parquet_storage = parquet_storage
 
     async def resolve_many(self, refs: list[DatasetRef]) -> list[ResolvedDataset]:
         document = await self._reader.read()
@@ -54,11 +57,38 @@ class DatasetResolver:
                 raise ValueError(
                     f"Dataset {ref.dataset!r} current version no longer matches request"
                 )
+            frame = None
+            if getattr(manifest, "canonicalPath", None) is not None:
+                if self._settings.query_storage_scheme != "s3":
+                    raise ValueError(
+                        "PostgreSQL snapshot authority requires the S3 reader; "
+                        "local-file cutover is not supported"
+                    )
+                if self._parquet_storage is None:
+                    raise ValueError("Snapshot validation is unavailable")
+                frame = await self._parquet_storage.read_bound_dataframe(
+                    ref.dataset, manifest, manifest.dataVersion
+                )
+                if manifest.workScope or manifest.workProofs:
+                    from py_common.storage.work_rows import select_rows
+
+                    scopes = [p["workScope"] for p in manifest.workProofs] or [
+                        manifest.workScope
+                    ]
+                    keys = {
+                        tuple(sorted(k.items()))
+                        for scope in scopes
+                        for k in scope["rowKeys"]
+                    }
+                    frame = select_rows(
+                        ref.dataset, frame, {"rowKeys": [dict(k) for k in sorted(keys)]}
+                    )
             resolved.append(
                 ResolvedDataset(
                     view_name=ref.view_name,
                     manifest=manifest,
                     paths=[self._physical_path(manifest.path)],
+                    frame=frame,
                 )
             )
         return resolved
@@ -177,8 +207,18 @@ def build_metadata_services(
     registry: StorageProviderRegistry,
     settings: QueryServiceSettings,
 ) -> tuple[DatasetResolver, DatasetCatalogService]:
-    reader = GlobalMetadataReader(
-        registry.get_port(StorageProvider.MINIO, ReadableStorage),
+    from py_common.storage.output_readiness import metadata_reader
+    from py_common.storage.parquet import ParquetStorage
+
+    parquet = ParquetStorage(
+        registry,
+        StorageProvider.MINIO,
         settings.minio.bucket,
+        snapshot_paths=settings.stock_data_paths,
     )
-    return DatasetResolver(reader, settings), DatasetCatalogService(reader)
+    reader = metadata_reader(
+        settings,
+        registry.get_port(StorageProvider.MINIO, ReadableStorage),
+        parquet=parquet,
+    )
+    return DatasetResolver(reader, settings, parquet), DatasetCatalogService(reader)

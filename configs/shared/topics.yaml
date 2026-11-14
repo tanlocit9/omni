@@ -17,6 +17,7 @@ kafka:
     topic-sector-transition-analyze: topic-sector-transition-analyze
     topic-sector-transition-evaluate-outcomes: topic-sector-transition-evaluate-outcomes
     topic-sync-metadata: topic-sync-metadata
+    topic-register-output-metadata-v1: topic-register-output-metadata-v1
 
 app:
   scheduler:

@@ -6,6 +6,8 @@ import com.omni.platform.modules.scheduler.dependencies.evaluators.ReadyEvaluato
 import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
@@ -49,21 +51,25 @@ class DefaultJobDependencyGuardTest {
         when(manifestReader.readManifest(eodRef)).thenReturn(Optional.of(readyManifest));
         when(manifestReader.manifestExists(eodRef)).thenReturn(true);
 
-        JobExecutionContext context = contextWithDeps(List.of(
-            Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose"),
-                "conditions", List.of("EXISTS", "READY"),
-                "mode", "ENFORCED"
-            )
-        ));
+        JobExecutionContext context =
+                contextWithDeps(
+                        List.of(
+                                Map.of(
+                                        "dataset",
+                                        "eod",
+                                        "partition",
+                                        Map.of("exchange", "hose"),
+                                        "conditions",
+                                        List.of("EXISTS", "READY"),
+                                        "mode",
+                                        "ENFORCED")));
 
         JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
 
         assertThat(result.canExecute()).isTrue();
         assertThat(result.isBlocked()).isFalse();
         assertThat(result.approvedInputVersions())
-            .containsExactly(Map.entry(eodRef, "sha256:abc123"));
+                .containsExactly(Map.entry(eodRef, "sha256:abc123"));
     }
 
     @Test
@@ -72,14 +78,18 @@ class DefaultJobDependencyGuardTest {
         when(manifestReader.manifestExists(missingRef)).thenReturn(false);
         when(manifestReader.readManifest(missingRef)).thenReturn(Optional.empty());
 
-        JobExecutionContext context = contextWithDeps(List.of(
-            Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose"),
-                "conditions", List.of("EXISTS"),
-                "mode", "ENFORCED"
-            )
-        ));
+        JobExecutionContext context =
+                contextWithDeps(
+                        List.of(
+                                Map.of(
+                                        "dataset",
+                                        "eod",
+                                        "partition",
+                                        Map.of("exchange", "hose"),
+                                        "conditions",
+                                        List.of("EXISTS"),
+                                        "mode",
+                                        "ENFORCED")));
 
         JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
 
@@ -99,14 +109,18 @@ class DefaultJobDependencyGuardTest {
         when(manifestReader.manifestExists(ref)).thenReturn(true);
         when(manifestReader.readManifest(ref)).thenReturn(Optional.of(processingManifest));
 
-        JobExecutionContext context = contextWithDeps(List.of(
-            Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose"),
-                "conditions", List.of("READY"),
-                "mode", "ENFORCED"
-            )
-        ));
+        JobExecutionContext context =
+                contextWithDeps(
+                        List.of(
+                                Map.of(
+                                        "dataset",
+                                        "eod",
+                                        "partition",
+                                        Map.of("exchange", "hose"),
+                                        "conditions",
+                                        List.of("READY"),
+                                        "mode",
+                                        "ENFORCED")));
 
         JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
 
@@ -121,14 +135,18 @@ class DefaultJobDependencyGuardTest {
         when(manifestReader.manifestExists(ref)).thenReturn(false);
         when(manifestReader.readManifest(ref)).thenReturn(Optional.empty());
 
-        JobExecutionContext context = contextWithDeps(List.of(
-            Map.of(
-                "dataset", "symbols",
-                "partition", Map.of(),
-                "conditions", List.of("EXISTS"),
-                "mode", "DOCUMENTATION_ONLY"
-            )
-        ));
+        JobExecutionContext context =
+                contextWithDeps(
+                        List.of(
+                                Map.of(
+                                        "dataset",
+                                        "symbols",
+                                        "partition",
+                                        Map.of(),
+                                        "conditions",
+                                        List.of("EXISTS"),
+                                        "mode",
+                                        "DOCUMENTATION_ONLY")));
 
         JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
 
@@ -149,20 +167,27 @@ class DefaultJobDependencyGuardTest {
         when(manifestReader.manifestExists(docOnly)).thenReturn(false);
         when(manifestReader.readManifest(docOnly)).thenReturn(Optional.empty());
 
-        JobExecutionContext context = contextWithDeps(List.of(
-            Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose"),
-                "conditions", List.of("EXISTS"),
-                "mode", "ENFORCED"
-            ),
-            Map.of(
-                "dataset", "symbols",
-                "partition", Map.of(),
-                "conditions", List.of("EXISTS"),
-                "mode", "DOCUMENTATION_ONLY"
-            )
-        ));
+        JobExecutionContext context =
+                contextWithDeps(
+                        List.of(
+                                Map.of(
+                                        "dataset",
+                                        "eod",
+                                        "partition",
+                                        Map.of("exchange", "hose"),
+                                        "conditions",
+                                        List.of("EXISTS"),
+                                        "mode",
+                                        "ENFORCED"),
+                                Map.of(
+                                        "dataset",
+                                        "symbols",
+                                        "partition",
+                                        Map.of(),
+                                        "conditions",
+                                        List.of("EXISTS"),
+                                        "mode",
+                                        "DOCUMENTATION_ONLY")));
 
         JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
 
@@ -172,28 +197,33 @@ class DefaultJobDependencyGuardTest {
 
     @Test
     void blocksWithoutPartialApprovals_whenAnyEnforcedDependencyFails() {
-        DatasetRef readyRef = DatasetRef.of(
-            "eod", Map.of("exchange", "hose", "code", "hpg"));
-        DatasetRef missingRef = DatasetRef.of(
-            "eod", Map.of("exchange", "hose", "code", "vnm"));
+        DatasetRef readyRef = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg"));
+        DatasetRef missingRef = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "vnm"));
 
-        when(manifestReader.readManifest(readyRef))
-            .thenReturn(Optional.of(readyManifest("eod")));
-        when(manifestReader.readManifest(missingRef))
-            .thenReturn(Optional.empty());
+        when(manifestReader.readManifest(readyRef)).thenReturn(Optional.of(readyManifest("eod")));
+        when(manifestReader.readManifest(missingRef)).thenReturn(Optional.empty());
 
-        JobExecutionContext context = contextWithDeps(List.of(
-            Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose", "code", "hpg"),
-                "conditions", List.of("READY"),
-                "mode", "ENFORCED"),
-            Map.of(
-                "dataset", "eod",
-                "partition", Map.of("exchange", "hose", "code", "vnm"),
-                "conditions", List.of("READY"),
-                "mode", "ENFORCED")
-        ));
+        JobExecutionContext context =
+                contextWithDeps(
+                        List.of(
+                                Map.of(
+                                        "dataset",
+                                        "eod",
+                                        "partition",
+                                        Map.of("exchange", "hose", "code", "hpg"),
+                                        "conditions",
+                                        List.of("READY"),
+                                        "mode",
+                                        "ENFORCED"),
+                                Map.of(
+                                        "dataset",
+                                        "eod",
+                                        "partition",
+                                        Map.of("exchange", "hose", "code", "vnm"),
+                                        "conditions",
+                                        List.of("READY"),
+                                        "mode",
+                                        "ENFORCED")));
 
         JobDependencyGuard.GuardResult result = guard.checkDependencies(context);
 
@@ -212,14 +242,78 @@ class DefaultJobDependencyGuardTest {
     // Helpers
     // -------------------------------------------------------------------------
 
+    @Test
+    void malformedEnforcedDependencyCannotDisappearIntoAnEmptyReadyResult() {
+        var context = contextWithConfig(Map.of("dependsOnDatasets", List.of(Map.of(
+                "dataset", "eod", "mode", "ENFORCED", "conditions", List.of("MISSPELLED_READY")))));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> guard.checkDependencies(context))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid dataset dependency");
+        verifyNoInteractions(manifestReader);
+    }
+
+    @Test
+    void malformedDependencyContainerCannotBecomeAnEmptyApproval() {
+        var context = contextWithConfig(Map.of("dependsOnDatasets", Map.of("dataset", "eod")));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> guard.checkDependencies(context))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a list");
+        verifyNoInteractions(manifestReader);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "processing", "null-version", "blank-version", "read-error"})
+    void finalApprovalCannotAdmitDisappearedUnreadyOrUnversionedInput(String state) {
+        var ref = DatasetRef.of("eod", Map.of());
+        when(manifestReader.manifestExists(ref)).thenReturn(true);
+        var manifest = mock(DatasetManifest.class);
+        when(manifest.isReady()).thenReturn(!state.equals("processing"));
+        when(manifest.dataVersion()).thenReturn(state.equals("blank-version") ? " " : null);
+        if (state.equals("read-error"))
+            when(manifestReader.readManifest(ref)).thenThrow(new IllegalStateException("read failed"));
+        else
+            when(manifestReader.readManifest(ref)).thenReturn(
+                    state.equals("missing") ? Optional.empty() : Optional.of(manifest));
+        var result = guard.checkDependencies(contextWithDeps(List.of(Map.of(
+                "dataset", "eod", "conditions", List.of("EXISTS"), "mode", "ENFORCED"))));
+        assertThat(result.isBlocked()).isTrue();
+        assertThat(result.approvedInputVersions()).isEmpty();
+    }
+
+    @Test
+    void documentationOnlySuccessDoesNotGrantAnInputApproval() {
+        when(manifestReader.manifestExists(any())).thenReturn(true);
+        var result = guard.checkDependencies(contextWithDeps(List.of(Map.of(
+                "dataset", "eod", "conditions", List.of("EXISTS"), "mode", "DOCUMENTATION_ONLY"))));
+        assertThat(result.canExecute()).isTrue();
+        assertThat(result.approvedInputVersions()).isEmpty();
+        verify(manifestReader, never()).readManifest(any());
+    }
+
+    @Test
+    void unsupportedPolicyAndInsufficientRowsCannotGrantApproval() {
+        when(manifestReader.readManifest(any())).thenReturn(Optional.of(readyManifest("eod")));
+        for (var policy : List.of(
+                Map.<String, Object>of("dataset", "eod", "conditions", List.of("PARTITION_MATCH"), "mode", "ENFORCED"),
+                Map.<String, Object>of("dataset", "eod", "conditions", List.of("MIN_ROW_COUNT"), "minRowCount", 1001, "mode", "ENFORCED"),
+                Map.<String, Object>of("dataset", "eod", "conditions", List.of("CURRENT_INPUTS"), "upstreamDatasets", List.of(DatasetRef.of("indicators", Map.of())), "mode", "ENFORCED"))) {
+            var result = guard.checkDependencies(contextWithDeps(List.of(policy)));
+            assertThat(result.isBlocked()).isTrue();
+            assertThat(result.approvedInputVersions()).isEmpty();
+        }
+    }
+
     private JobExecutionContext contextWithConfig(Map<String, Object> config) {
         com.omni.platform.modules.scheduler.entities.JobDefinition job =
-            mock(com.omni.platform.modules.scheduler.entities.JobDefinition.class);
+                mock(com.omni.platform.modules.scheduler.entities.JobDefinition.class);
         when(job.getConfigJson()).thenReturn(config);
-        when(job.getJobType()).thenReturn(
-            com.omni.platform.modules.scheduler.entities.JobDefinition.JobType.SYNC_INDICATORS);
-        when(job.getSource()).thenReturn(
-            com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource.VCI);
+        when(job.getJobType())
+                .thenReturn(
+                        com.omni.platform.modules.scheduler.entities.JobDefinition.JobType
+                                .SYNC_INDICATORS);
+        when(job.getSource())
+                .thenReturn(
+                        com.omni.platform.modules.scheduler.entities.JobDefinition.DataSource.VCI);
         return new JobExecutionContext(job, "test-exec-id", Map.of());
     }
 
@@ -229,23 +323,45 @@ class DefaultJobDependencyGuardTest {
 
     private DatasetManifest readyManifest(String dataset) {
         return new DatasetManifest(
-            1, dataset, Map.of(), "READY",
-            "sha256:abc123", "path/to/data.parquet",
-            1, 4096L, 1000L, 5, List.of(),
-            1, "schema-hash-xyz",
-            null, null, null, null,
-            "2024-01-15T10:00:00Z"
-        );
+                1,
+                dataset,
+                Map.of(),
+                "READY",
+                "sha256:abc123",
+                "path/to/data.parquet",
+                1,
+                4096L,
+                1000L,
+                5,
+                List.of(),
+                1,
+                "schema-hash-xyz",
+                null,
+                null,
+                null,
+                null,
+                "2024-01-15T10:00:00Z");
     }
 
     private DatasetManifest processingManifest(String dataset) {
         return new DatasetManifest(
-            1, dataset, Map.of(), "PROCESSING",
-            null, "path/to/data.parquet",
-            0, 0L, 0L, 0, List.of(),
-            1, null,
-            null, null, null, null,
-            "2024-01-15T10:00:00Z"
-        );
+                1,
+                dataset,
+                Map.of(),
+                "PROCESSING",
+                null,
+                "path/to/data.parquet",
+                0,
+                0L,
+                0L,
+                0,
+                List.of(),
+                1,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "2024-01-15T10:00:00Z");
     }
 }

@@ -2,8 +2,18 @@
 
 import argparse
 import json
+import re
 import subprocess
 from datetime import datetime, timezone
+
+try:
+    from tools.cli_output import bold, configure_output, dim, green, red, table, yellow
+    from tools.process_utils import command_environment, hidden_process_options
+except ModuleNotFoundError as exc:
+    if exc.name != "tools":
+        raise
+    from cli_output import bold, configure_output, dim, green, red, table, yellow
+    from process_utils import command_environment, hidden_process_options
 
 
 def positive(value):
@@ -11,6 +21,34 @@ def positive(value):
     if number < 1 or number > 10000:
         raise argparse.ArgumentTypeError("Expected an integer between 1 and 10000")
     return number
+
+
+DURATION_RE = re.compile(r"^(\d+)\s*(m|min|h|hr|d)?$", re.IGNORECASE)
+
+
+def duration_minutes(value):
+    """Parse 45, 45m, 2h, 1d into whole minutes (1 minute to 30 days)."""
+    match = DURATION_RE.match(value.strip())
+    if not match:
+        raise argparse.ArgumentTypeError(
+            "Use a duration like 45m, 2h or 1d (plain number = minutes)"
+        )
+    number = int(match.group(1))
+    unit = (match.group(2) or "m").lower()
+    minutes = number * {"m": 1, "min": 1, "h": 60, "hr": 60, "d": 1440}[unit]
+    if minutes < 1 or minutes > 43200:
+        raise argparse.ArgumentTypeError(
+            "Duration must be between 1 minute and 30 days"
+        )
+    return minutes
+
+
+def format_minutes(minutes):
+    if minutes % 1440 == 0:
+        return f"{minutes // 1440}d"
+    if minutes % 60 == 0:
+        return f"{minutes // 60}h"
+    return f"{minutes}m"
 
 
 def database_sql(minutes, limit):
@@ -56,9 +94,15 @@ ROLLBACK;
 
 def command(args, stdin=None):
     result = subprocess.run(
-        args, input=stdin, text=True, encoding="utf-8", errors="replace",
-        capture_output=True, timeout=30,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        args,
+        input=stdin,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        timeout=30,
+        env=command_environment(),
+        **hidden_process_options(),
     )
     if result.returncode:
         raise RuntimeError((result.stderr.strip() or result.stdout.strip())[-1000:])
@@ -66,10 +110,24 @@ def command(args, stdin=None):
 
 
 def read_database(args):
-    output, _ = command([
-        "docker", "exec", "-i", args.postgres_container, "psql", "-X", "-qAt",
-        "-v", "ON_ERROR_STOP=1", "-U", args.db_user, "-d", args.database,
-    ], database_sql(args.stale_minutes, args.limit))
+    output, _ = command(
+        [
+            "docker",
+            "exec",
+            "-i",
+            args.postgres_container,
+            "psql",
+            "-X",
+            "-qAt",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-U",
+            args.db_user,
+            "-d",
+            args.database,
+        ],
+        database_sql(args.stale_minutes, args.limit),
+    )
     result = json.loads(output.strip())
     if not isinstance(result, dict) or "unfinishedCount" not in result:
         raise ValueError("Invalid PostgreSQL diagnostic response")
@@ -93,15 +151,22 @@ def parse_kafka(stdout, stderr=""):
             raise ValueError("Consumer group exists without readable offsets")
         fields = line.split()
         if len(fields) >= 9 and fields[2].isdigit():
+
             def offset(value):
                 number = None if value == "-" else int(value)
                 return number if number is not None and number >= 0 else None
 
-            rows.append({
-                "group": fields[0], "topic": fields[1], "partition": int(fields[2]),
-                "committedOffset": offset(fields[3]), "logEndOffset": offset(fields[4]),
-                "lag": offset(fields[5]), "hasActiveConsumer": fields[6] != "-",
-            })
+            rows.append(
+                {
+                    "group": fields[0],
+                    "topic": fields[1],
+                    "partition": int(fields[2]),
+                    "committedOffset": offset(fields[3]),
+                    "logEndOffset": offset(fields[4]),
+                    "lag": offset(fields[5]),
+                    "hasActiveConsumer": fields[6] != "-",
+                }
+            )
         elif "ERROR" in line.upper() or "EXCEPTION" in line.upper():
             raise ValueError("Kafka returned an error while describing offsets")
         elif line.startswith("Warning:") or line.startswith("[20"):
@@ -115,23 +180,38 @@ def parse_kafka(stdout, stderr=""):
         "observedAt": datetime.now(timezone.utc).isoformat(),
         "knownLag": sum(row["lag"] for row in rows if row["lag"] is not None),
         "unknownLagPartitions": sum(row["lag"] is None for row in rows),
-        "inactiveGroups": sorted(set(inactive)), "partitions": rows,
+        "inactiveGroups": sorted(set(inactive)),
+        "partitions": rows,
     }
 
 
 def read_kafka(args):
-    stdout, stderr = command([
-        "docker", "exec", args.kafka_container, "kafka-consumer-groups",
-        "--bootstrap-server", args.bootstrap_server, "--describe", "--all-groups", "--offsets",
-    ])
+    stdout, stderr = command(
+        [
+            "docker",
+            "exec",
+            args.kafka_container,
+            "kafka-consumer-groups",
+            "--bootstrap-server",
+            args.bootstrap_server,
+            "--describe",
+            "--all-groups",
+            "--offsets",
+        ]
+    )
     return parse_kafka(stdout, stderr)
 
 
 def collect(args):
-    report = {"version": 1, "staleMinutes": args.stale_minutes,
-              "note": "Execution age is since trigger, not a heartbeat. Kafka lag is committed-offset backlog; DB and Kafka are separate observations. Atomic ownership, dataset readiness and provider health are not checked."}
-    for name, reader, skip in [("database", read_database, args.skip_db),
-                               ("kafka", read_kafka, args.skip_kafka)]:
+    report = {
+        "version": 1,
+        "staleMinutes": args.stale_minutes,
+        "note": "Execution age is since trigger, not a heartbeat. Kafka lag is committed-offset backlog; DB and Kafka are separate observations. Atomic ownership, dataset readiness and provider health are not checked.",
+    }
+    for name, reader, skip in [
+        ("database", read_database, args.skip_db),
+        ("kafka", read_kafka, args.skip_kafka),
+    ]:
         if skip:
             report[name] = {"status": "not_checked"}
             continue
@@ -139,40 +219,124 @@ def collect(args):
             report[name] = {"status": "observed", **reader(args)}
         except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as error:
             report[name] = {"status": "unavailable", "error": str(error)}
-    report["complete"] = all(report[name]["status"] == "observed" for name in ("database", "kafka"))
+    report["complete"] = all(
+        report[name]["status"] == "observed" for name in ("database", "kafka")
+    )
     return report
 
 
-def render(report):
-    lines = [f"Job backlog (review threshold: {report['staleMinutes']} minutes)"]
+def render(report, only_problems=False):
+    lines = [
+        bold(f"Job backlog (threshold: {format_minutes(report['staleMinutes'])})"),
+        "",
+    ]
+
     db = report["database"]
+    lines.append(bold("DATABASE"))
     if db["status"] == "observed":
-        lines.append(f"DB: {db['unfinishedCount']} unfinished; {db['staleCount']} past threshold; {db['unknownAgeCount']} unknown age")
-        lines.append("JOB TYPE | STATUS | ROLE | COUNT | STALE | OLDEST AGE (min)")
-        for group in db["groups"]:
-            age = group["oldest_age_minutes"]
-            lines.append(f"{group['job_type']} | {group['status']} | {group['role']} | {group['count']} | {group['stale_count']} | {round(age, 1) if age is not None else 'unknown'}")
-        lines.append(f"Oldest execution sample: {len(db['oldestExecutions'])}; truncated={db['sampleTruncated']} (details via --json)")
+        stale = db["staleCount"]
+        lines.append(
+            f"  unfinished: {db['unfinishedCount']}   "
+            f"stale: {red(stale) if stale else green(stale)}   "
+            f"unknown age: {db['unknownAgeCount']}"
+        )
+        groups = db["groups"]
+        if only_problems:
+            groups = [g for g in groups if g["stale_count"]]
+        rows = []
+        for g in groups:
+            age = g["oldest_age_minutes"]
+            stale_c = g["stale_count"]
+            rows.append(
+                [
+                    g["job_type"],
+                    g["status"],
+                    g["role"],
+                    g["count"],
+                    red(stale_c) if stale_c else dim(stale_c),
+                    f"{age:.1f}" if age is not None else "unknown",
+                ]
+            )
+        lines.append(
+            table(["JOB TYPE", "STATUS", "ROLE", "COUNT", "STALE", "OLDEST(min)"], rows)
+        )
+        lines.append(
+            dim(
+                f"  oldest execution sample: {len(db['oldestExecutions'])}; "
+                f"truncated={db['sampleTruncated']} (chi tiết: --json)"
+            )
+        )
         for row in db["outbox"]:
-            if row["status"] != "PUBLISHED" or row["published_unfinished_execution_count"]:
-                lines.append(f"Outbox {row['topic']} {row['status']}: {row['count']}; published/nonterminal={row['published_unfinished_execution_count']}")
+            if (
+                row["status"] != "PUBLISHED"
+                or row["published_unfinished_execution_count"]
+            ):
+                lines.append(
+                    yellow(
+                        f"  outbox {row['topic']} {row['status']}: {row['count']} "
+                        f"(published/nonterminal={row['published_unfinished_execution_count']})"
+                    )
+                )
+    elif db["status"] == "not_checked":
+        lines.append(dim("  not checked"))
     else:
-        lines.append(f"DB: {db['status']} {db.get('error', '')}")
+        lines.append(red(f"  {db['status']}: {db.get('error', '')}"))
+
+    lines.append("")
     kafka = report["kafka"]
+    lines.append(bold("KAFKA"))
     if kafka["status"] == "observed":
-        lines.append(f"Kafka: known lag={kafka['knownLag']}; unknown partitions={kafka['unknownLagPartitions']}")
-        lines.append("GROUP | TOPIC | PARTITION | LAG | ACTIVE")
-        for row in kafka["partitions"]:
-            lines.append(f"{row['group']} | {row['topic']} | {row['partition']} | {row['lag']} | {row['hasActiveConsumer']}")
+        lag = kafka["knownLag"]
+        unknown = kafka["unknownLagPartitions"]
+        lines.append(
+            f"  known lag: {yellow(lag) if lag else green(lag)}   "
+            f"unknown partitions: {red(unknown) if unknown else unknown}"
+        )
+        parts = kafka["partitions"]
+        if only_problems:
+            parts = [
+                p
+                for p in parts
+                if p["lag"] is None or p["lag"] > 0 or not p["hasActiveConsumer"]
+            ]
+        rows = []
+        for r in parts:
+            if r["lag"] is None:
+                lag_cell = red("?")
+            elif r["lag"]:
+                lag_cell = yellow(r["lag"])
+            else:
+                lag_cell = dim(0)
+            rows.append(
+                [
+                    r["group"],
+                    r["topic"],
+                    r["partition"],
+                    lag_cell,
+                    "yes" if r["hasActiveConsumer"] else red("no"),
+                ]
+            )
+        lines.append(table(["GROUP", "TOPIC", "PART", "LAG", "ACTIVE"], rows))
+    elif kafka["status"] == "not_checked":
+        lines.append(dim("  not checked"))
     else:
-        lines.append(f"Kafka: {kafka['status']} {kafka.get('error', '')}")
-    lines.append(report["note"])
+        lines.append(red(f"  {kafka['status']}: {kafka.get('error', '')}"))
+
+    lines += ["", dim(report["note"])]
     return "\n".join(lines)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stale-minutes", type=positive, default=30)
+    parser.add_argument(
+        "--range",
+        "--stale-minutes",
+        dest="stale_minutes",
+        type=duration_minutes,
+        default=30,
+        metavar="DURATION",
+        help="ngưỡng stale, vd 45m, 2h, 1d (số thuần = phút, mặc định 30m)",
+    )
     parser.add_argument("--limit", type=positive, default=20)
     parser.add_argument("--postgres-container", default="postgres")
     parser.add_argument("--database", default="omni")
@@ -181,11 +345,28 @@ def main(argv=None):
     parser.add_argument("--bootstrap-server", default="localhost:9092")
     parser.add_argument("--skip-db", action="store_true")
     parser.add_argument("--skip-kafka", action="store_true")
+    parser.add_argument(
+        "--only-problems",
+        action="store_true",
+        help="chỉ hiện nhóm stale và partition có lag/không active",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if not args.json:
+        configure_output()
     report = collect(args)
-    print(json.dumps(report, indent=2) if args.json else render(report))
-    return 2 if any(report[name]["status"] == "unavailable" for name in ("database", "kafka")) else 0
+    print(
+        json.dumps(report, indent=2)
+        if args.json
+        else render(report, args.only_problems)
+    )
+    return (
+        2
+        if any(
+            report[name]["status"] == "unavailable" for name in ("database", "kafka")
+        )
+        else 0
+    )
 
 
 if __name__ == "__main__":

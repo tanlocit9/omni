@@ -1,5 +1,33 @@
 # py-common Library
 
+Enrolled input reads send the frozen atomicAttemptId to the private work-proof API.
+Matched Platform/V26 can retain actual immutable VERSIONED READY proofs across a
+refresh; workers keep work/day/attempt/version and exact-byte validation. Current
+discovery and mutable CANONICAL history semantics are unchanged. See
+[the approved refresh correction](../../docs/reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+KafkaClientFactory sets the Python consumer fetch-idle limit to 15 minutes by
+default. Override KafkaSettings.max_poll_interval_ms through the existing settings
+object or process-wide KAFKA_MAX_POLL_INTERVAL_MS; values are milliseconds. Restart
+Python services to load a new value. This does not change sequential processing,
+heartbeat/session settings or the Platform watchdog. Metadata scans can exceed
+15 minutes; see [the measured boundary](../../docs/reference/018-i10-worker-completion.md#consumer-poll-window).
+
+WorkerCompletionEvent/publish_terminal_status implement [one terminal record](../../docs/reference/018-i10-worker-completion.md).
+OutputPublication stages embedded evidence for new commands and retains the old
+publisher for queued commands without the protocol marker. No recovery journal is added.
+
+I10 optional [versioned storage](../../docs/reference/017-i10-versioned-storage.md)
+adds VersionedStorage, frozen-base merges and exact-version proof reads. Historical
+physical pinning is explicit/fenced and does not create work READY. Default legacy
+commands remain compatible; workers never enable bucket versioning.
+
+ShadowMetadataReader accepts the caller's Parquet validator for scoped byte/row
+parity. Its enrolled input adapter uses frozen PostgreSQL work proofs; catalog
+reads remain manifest-authoritative. See [scope and evidence](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows).
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
 Execution input context uses `messaging.approved_inputs.approved_input_version`.
 `ParquetStorage.read_bound_dataframe` verifies a canonical version against the same
 bytes decoded. These helpers preserve work identity and dataset paths; they do not

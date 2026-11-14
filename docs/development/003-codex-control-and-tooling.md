@@ -15,7 +15,8 @@ The goal is stronger repository navigation, change-impact analysis, CI control, 
 Omni already has a strong control foundation:
 
 - Nx is the canonical entry point for project operations.
-- AGENTS.md and CLAUDE.md define repository-wide agent behavior.
+- [AGENTS.md](../../AGENTS.md) defines canonical repository-wide agent policy;
+  CLAUDE.md and editor rules provide supplementary guidance.
 - docs/plans/roadmap/automation-rules.md defines selection, branch, draft-PR, verification, and stop rules.
 - Java/Spring Platform, Python data services, Kafka, PostgreSQL, and MinIO/S3-compatible storage have explicit ownership boundaries.
 - The connected GitHub integration can inspect repositories, pull requests, reviews, and GitHub Actions state.
@@ -37,6 +38,65 @@ The assessment also found these gaps:
 5. Treat GitHub, repository source, tests, and CI as implementation evidence; treat the product vault as a synchronized summary.
 6. Do not add an MCP when existing Codex shell, Nx, or GitHub capabilities already provide the required control surface.
 7. Do not merge automatically. Omni's roadmap automation leaves pull requests as drafts until acceptance criteria and CI pass.
+
+## Agent Delegation
+
+[AGENTS.md](../../AGENTS.md#agent-delegation) owns delegation, shared-worktree
+coordination and permission rules. Delegate bounded test-writing,
+behavior-preserving local refactors and repetitive work to the OSS worker when
+worthwhile. Launch it as a separate Codex process, not a native subagent:
+
+```text
+codex exec --profile cheap_worker --cd <repo-root> --sandbox workspace-write "<task>"
+```
+
+The primary agent owns scope, architecture, decomposition, integration and review.
+Resolve decisions requiring owner approval before delegating implementation.
+Cross-service, contract, Kafka, storage and shared-configuration changes remain
+with the primary agent.
+
+The worker has no conversation context. Each task prompt must include:
+
+- the goal and acceptance criteria;
+- owned files and files it must not touch;
+- applicable contract/data guardrails and the Nx command boundary;
+- exact approved build, test, lint or format commands, if any. Without approved
+  commands, the worker reports executable checks as **not run**.
+
+Parallel workers need independent tasks and non-overlapping write ownership in
+the shared worktree. Do not create branches, worktrees or commits for workers
+without an explicit request. Inspect every worker diff against ownership and
+contract rules before accepting it; distinguish worker-reported results from
+checks executed by the primary agent.
+
+Keep profiles, models, providers and credentials in host configuration. If
+`cheap_worker` is unavailable because the profile is missing, the proxy is down
+or an API key is missing, continue locally and report the fallback. A configured
+profile alone does not prove a successful invocation. This documentation update
+does not verify host setup or worker execution.
+
+## Worktree Inspection Boundary
+
+Follow [AGENTS.md](../../AGENTS.md#worktree-inspection-boundary) when coordinating
+local edits:
+
+- Establish Git state once when edits are expected; cache that baseline and track
+  owned files. Repeat repository-wide status/diff only for detected external
+  changes, Git-dependent tasks or commit/push/PR boundaries.
+- Re-read files before editing and preserve unrelated user and agent changes.
+- Inspect history, remotes, PRs, tags, commit identity and CI only when relevant.
+- Create branches, commits, tags, pushes or PRs only when explicitly requested or
+  under an explicit roadmap-automation invocation. Never merge automatically.
+- Keep persistent agent state in ignored local caches; it is advisory, not Git
+  authority.
+
+Delegation and worktree guidance do not relax the
+[verification approval gate](../../AGENTS.md#verification-approval-gate).
+Build, test, lint, format, `nx affected` and executable documentation checks require
+an explicit request in the current prompt or approval of a concrete command list.
+Use matching Nx targets within the approved scope. Otherwise inspect statically
+and report executable checks as **not run**; graph analysis and static path/link
+inspection are not test evidence. Application/runtime behavior is unchanged.
 
 ## Shared Repository Skills
 
@@ -70,6 +130,13 @@ Analyzer, Ingestor, Query Service, Console, contracts/libraries, persistence,
 runtime configuration, datasets, deployment and operations have no behavior change.
 No build/test/lint/format or executable skill validator was run for this migration;
 inspection is static and does not reuse prior application checks as migration proof.
+
+The shared [`check-jobs-backlog`](../../.agents/skills/check-jobs-backlog/SKILL.md)
+skill collects current execution/outbox and Kafka observations through the existing
+`omni:jobs-backlog` target. It distinguishes consumer assignment from enabled job
+definitions, and BLOCKED history from queued delivery. Optional failure summaries
+define their window/denominator and separate operator cancellations. The skill is
+read-only and authorizes no cleanup or runtime/configuration changes.
 
 ## Recommended Controls
 
@@ -133,8 +200,38 @@ Python, with a non-profile shell where supported. Its Windows child environment
 defaults to `NX_NO_CLOUD=true`, `NX_NATIVE_COMMAND_RUNNER=false`, `NX_TUI=false`;
 explicit caller overrides are retained. These defaults are confined to recorded
 commands and descendants; they do not disable cloud in repository configuration
-or Ubuntu CI. Direct manual Nx/MCP commands outside the recorder retain their
+or Ubuntu CI. Direct Nx/MCP commands that bypass repository launchers retain their
 own launch behavior. Temporary hooks are diagnostic only, not a required runtime.
+
+### Shared CLI output and process defaults
+
+[cli_output.py](../../tools/cli_output.py) owns aligned tables, status colors and
+explicit UTF-8 stream setup for human output. It has no import-time console effects;
+Windows ANSI uses the console API instead of launching an empty shell. Redirected
+output stays uncolored unless FORCE_COLOR is set; NO_COLOR takes precedence.
+jobs_backlog keeps its JSON, duration/range and problem-filter contracts. Coverage
+checkers and ci_fix offer opt-in `--table`; their default machine lines, thresholds,
+exit codes and check_result compact conclusions remain compatible.
+
+[process_utils.py](../../tools/process_utils.py) and
+[process-options.cjs](../../tools/process-options.cjs) share the same Windows-local
+quiet-Nx policy across Python/Node launchers. Environment copies retain explicit
+overrides; existing CI-repair isolation still explicitly disables Nx Cloud.
+Immediate children use CREATE_NO_WINDOW/windowsHide; required batch-file shells,
+argv, cwd, streamed logs and signal/exit handling remain in their owners. Helpers
+perform no executable probes and add no subprocesses. They cannot control the outer
+terminal, MCP server or third-party descendants; visible-window suppression still
+requires owner observation.
+
+Scope is repository tooling: Platform, Analyzer, Ingestor, Query Service and Console
+application behavior, contracts/libraries, persistence and deployment are unchanged.
+Shared tooling affects local command execution and root verification configuration;
+added tests target output compatibility, thresholds, failure propagation and child
+options. Execution remains pending for this refactor; test presence is not a pass.
+Run `nx run omni:tools-test`, `nx run omni:tools-process-test` and
+`nx run omni:format-test` only under the verification approval gate. The new process
+test is also included in the root `verify` manifest. No service build, live provider,
+database/Kafka call, watcher or runtime activation is needed for this change.
 
 ### Required verification
 

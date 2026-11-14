@@ -20,10 +20,14 @@ public record SafeWriteIntent(
         int maxAttempts) {
 
     public SafeWriteIntent {
-        if (intentId == null || intentId.isBlank()
-                || outputIdentity == null || outputIdentity.isBlank()
-                || claimToken == null || claimToken.isBlank()) {
-            throw new IllegalArgumentException("Safe-write identity and fencing token are required");
+        if (intentId == null
+                || intentId.isBlank()
+                || outputIdentity == null
+                || outputIdentity.isBlank()
+                || claimToken == null
+                || claimToken.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Safe-write identity and fencing token are required");
         }
         if (leaseUntil == null || attempt < 1 || maxAttempts < attempt) {
             throw new IllegalArgumentException("Safe-write lease and bounded attempt are invalid");

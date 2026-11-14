@@ -3,6 +3,7 @@ spring:
     import:
       - optional:file:../../.env[.properties]
       - optional:file:../../configs/shared/topics.yaml
+      - optional:file:../../configs/shared/s3-paths.yaml
   application:
     name: platform
   threads:
@@ -27,6 +28,20 @@ spring:
       auto-offset-reset: earliest
 
 app:
+  output-registration:
+    versioned-storage-enabled: ${APP_OUTPUT_REGISTRATION_VERSIONED_STORAGE_ENABLED:false}
+    enrollment-enabled: ${APP_OUTPUT_REGISTRATION_ENROLLMENT_ENABLED:false}
+    ready-promotion-enabled: ${APP_OUTPUT_REGISTRATION_READY_PROMOTION_ENABLED:false}
+    reader-enabled: ${APP_OUTPUT_REGISTRATION_READER_ENABLED:false}
+    reader-token: ${OUTPUT_READINESS_API_TOKEN:}
+    reconcile-token: ${OUTPUT_READINESS_RECONCILE_TOKEN:}
+    reconciliation-schedule-enabled: ${APP_OUTPUT_REGISTRATION_RECONCILIATION_SCHEDULE_ENABLED:false}
+    shadow-enabled: ${APP_OUTPUT_REGISTRATION_SHADOW_ENABLED:false}
+    # TD-018: owner-deferred during observation; keep the runtime override false.
+    watchdog-enabled: ${APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED:false}
+    watchdog-delay-ms: ${APP_OUTPUT_REGISTRATION_WATCHDOG_DELAY_MS:120000}
+    watchdog-batch-size: ${APP_OUTPUT_REGISTRATION_WATCHDOG_BATCH_SIZE:100}
+    timeout: ${APP_OUTPUT_REGISTRATION_TIMEOUT:PT30M}
   analyzer:
     base-url: ${ANALYZER_BASE_URL:http://localhost:8000}
     connect-timeout: ${ANALYZER_CONNECT_TIMEOUT:PT2S}
@@ -37,6 +52,8 @@ app:
     secret-key: ${MINIO_SECRET_KEY:minioadmin}
     bucket: ${MINIO_BUCKET:stock-data}
   scheduler:
+    backfill:
+      enabled: ${APP_SCHEDULER_BACKFILL_ENABLED:false}
     zone: ${APP_SCHEDULER_ZONE:Asia/Ho_Chi_Minh}
     job-run:
       # Explicit false is a conscious historical FIFO rollback; incompatible with enabled preparation.

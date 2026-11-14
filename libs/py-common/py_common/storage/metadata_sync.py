@@ -21,7 +21,6 @@ from py_common.storage.exceptions import ManifestInvalidError
 from py_common.storage.global_metadata import (
     GLOBAL_METADATA_VERSION,
     GlobalColumnMetadata,
-    GlobalDatasetInput,
     GlobalDatasetMetadata,
     GlobalMetadataDocument,
     GlobalMetadataReader,
@@ -35,6 +34,7 @@ from py_common.storage.manifest import (
     extract_schema_from_dataframe,
     extract_timestamp_range,
 )
+from py_common.storage.output_lineage import extract_output_lineage as _extract_lineage
 from py_common.storage.parquet import ParquetCodec
 from py_common.storage.ports import ListableStorage, ReadableStorage
 
@@ -269,7 +269,14 @@ class MetadataSynchronizer:
         frame = await asyncio.to_thread(ParquetCodec.decode, payload)
         if frame.empty:
             raise ManifestInvalidError("Canonical Parquet object must not be empty")
-        lineage = _extract_lineage(definition.name, frame, values)
+        # Sector Wave's existing files do not persist authoritative input versions.
+        # Publish discovery/date evidence without inventing producer lineage;
+        # these datasets are not enrolled in the scoped I10 output protocol.
+        lineage = (
+            []
+            if definition.name in {"symbol-features", "sector-features"}
+            else _extract_lineage(definition.name, frame, values)
+        )
         columns = extract_schema_from_dataframe(frame)
         schema_hash = calculate_schema_hash(columns)
         checksum = f"sha256:{hashlib.sha256(payload).hexdigest()}"
@@ -284,6 +291,15 @@ class MetadataSynchronizer:
             ],
         )
         minimum, maximum = extract_timestamp_range(frame)
+        date_column = "signal_date" if definition.name == "signals" else "date"
+        coverage = []
+        if date_column in frame:
+            dates = pd.to_datetime(frame[date_column], errors="raise").dt.date
+            if dates.isna().any():
+                raise ManifestInvalidError(
+                    "Cannot publish coverage with missing calendar dates"
+                )
+            coverage = [day.isoformat() for day in sorted(set(dates))]
         return GlobalPartitionMetadata(
             values=values,
             status="READY",
@@ -304,6 +320,7 @@ class MetadataSynchronizer:
             inputs=lineage,
             generatedAt=generated_at,
             sourceExecutionId=execution_id,
+            coverageDates=coverage,
         )
 
 
@@ -333,6 +350,14 @@ def _parse_object(
             r"^signals/(?P<strategy>[^/]+)/(?P<timeframe>[^/]+)/"
             r"(?P<exchange>[^/]+)\.parquet$"
         ),
+        "symbol-features": (
+            r"^features/symbol/(?P<timeframe>[^/]+)/(?P<exchange>[^/]+)/"
+            r"(?P<code>[^/]+)\.parquet$"
+        ),
+        "sector-features": (
+            r"^features/sector/(?P<timeframe>[^/]+)/lv(?P<sector_level>[0-9]+)/"
+            r"(?P<sector_code>[^/]+)\.parquet$"
+        ),
     }
     pattern = patterns.get(definition.name)
     match = re.fullmatch(pattern, object_name) if pattern is not None else None
@@ -356,59 +381,19 @@ def _object_for_partition(
             f"signals/{values['strategy']}/{values['timeframe']}/"
             f"{values['exchange']}.parquet"
         )
+    if definition.name == "symbol-features":
+        return (
+            f"features/symbol/{values['timeframe']}/{values['exchange']}/"
+            f"{values['code']}.parquet"
+        )
+    if definition.name == "sector-features":
+        return (
+            f"features/sector/{values['timeframe']}/lv{values['sector_level']}/"
+            f"{values['sector_code']}.parquet"
+        )
     raise ManifestInvalidError(
         f"Dataset {definition.name!r} has no trusted path builder"
     )
-
-
-def _extract_lineage(
-    dataset: str, frame: pd.DataFrame, values: Mapping[str, Any]
-) -> list[GlobalDatasetInput]:
-    if dataset == "eod":
-        return []
-    required = {"symbol_key", "eod_data_version"}
-    if dataset == "indicators":
-        required = {"eod_data_version"}
-    if not required.issubset(frame.columns):
-        raise ManifestInvalidError(
-            f"Dataset {dataset!r} lacks authoritative persisted lineage evidence"
-        )
-    inputs: dict[tuple[str, tuple[tuple[str, Any], ...], str], GlobalDatasetInput] = {}
-    for row in frame.to_dict("records"):
-        if dataset == "indicators":
-            partition = {"exchange": values["exchange"], "code": values["code"]}
-            candidates = (("eod", partition, row.get("eod_data_version")),)
-        else:
-            parts = str(row.get("symbol_key", "")).lower().split("-", 1)
-            if len(parts) != 2:
-                raise ManifestInvalidError(
-                    "Signal lineage contains an invalid symbol_key"
-                )
-            partition = {"exchange": parts[0], "code": parts[1]}
-            indicator_partition = {
-                "source": "ad_close",
-                "timeframe": values["timeframe"],
-                **partition,
-            }
-            candidates = [("eod", partition, row.get("eod_data_version"))]
-            if str(values.get("strategy", "")).upper() != "CONFIRMED_TREND_EQUALS":
-                candidates.append(
-                    (
-                        "indicators",
-                        indicator_partition,
-                        row.get("indicators_data_version"),
-                    )
-                )
-        for upstream, partition, version in candidates:
-            if not isinstance(version, str) or not re.fullmatch(
-                r"sha256:[0-9a-f]{64}", version
-            ):
-                raise ManifestInvalidError(
-                    "Derived lineage contains an invalid dataVersion"
-                )
-            item = GlobalDatasetInput(upstream, partition, version)
-            inputs[(upstream, tuple(sorted(partition.items())), version)] = item
-    return list(inputs.values())
 
 
 def _diff(

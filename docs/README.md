@@ -1,5 +1,68 @@
 # Omni Documentation
 
+Current [I10 review and acceptance gates](reference/019-i10-review-20261111.md)
+separate verified local corrections from retained rollout and full acceptance.
+
+I10 [terminal replay audit](reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+is owner-approved in unapplied V26 source; local E2E passes 14/14. Retained rollout
+and full I10 acceptance remain open.
+
+November 11: automatic execution expiry is [deferred to TD-018](technical-debt/018-execution-watchdog-observation.md)
+and disabled during owner observation. Completion/READY safety remains required.
+
+I10 [unified worker completion](reference/018-i10-worker-completion.md) combines
+terminal status and output evidence for new commands; local verification is in progress.
+
+I10 physical safety: [versioned storage, fenced legacy baselines and paired rollout](reference/017-i10-versioned-storage.md).
+Owner approved this scope; implementation/local verification is in progress. No
+retained bucket, migration or reader activation is implied.
+
+I10 closure objective: [backfill through Signals](reference/016-i10-signals-backfill-closure.md).
+API extension and regressions are in progress; physical writer safety and complete
+acceptance remain open. Existing dated evidence below is not a Signals E2E pass.
+
+I10 request discovery: [bounded polling API](reference/014-atomic-request-polling.md)
+and [delivery review](reference/015-i10-review-20261108.md). I10 remains in_progress;
+local regression evidence does not authorize global cutover.
+
+Backfill request policy: [rerun versus forced provider refresh](reference/013-backfill-attempt-and-data-policy.md).
+Selected local PostgreSQL/worker E2E checks pass; default reuse remains
+IN_FLIGHT_ONLY with live owners. Full I10 coverage/cutover remains open.
+
+I10 closed-owner checkpoint: [safe settlement, reuse and execution/output
+diagnostics](reference/012-i10-closed-owner-reconciliation.md). Source/regressions
+have focused PostgreSQL evidence; I10 remains in_progress.
+
+I10 delivery checkpoints (2026-11-07): [commit scopes, verification limits and
+unresolved runtime blockers](reference/011-i10-delivery-checkpoints.md). The owner
+requested no per-checkpoint verification rerun; I10 remains in_progress.
+
+Indicators-only backfill (2026-11-05): [API, force semantics, paired rollout and
+verification](reference/009-indicators-backfill.md). Scoped enrollment remains
+default-off; this does not complete P14-I10 or the general Plan 028 rollout.
+
+Current I10 guard follow-up: [exact dated dependencies, frozen worker reads and
+regression matrix](reference/008-p14-i10-dispatch-guard.md). I10 remains in_progress.
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (updated 2026-11-03 UTC+7): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -13,7 +76,7 @@ has a bounded local regression PASS. The later
 [I9 acceptance report](../database/diagnostics/p14/v2/i9-verification-20261031.md)
 records the earlier checks and historical gaps; use the current closure above for I8/I9 acceptance. Activation remains separately gated.
 
-P14-I10 is planned (pending after I9): metadata registration arrays on a new topic, Platform-owned PostgreSQL readiness, reconciliation and execution watchdog. I8/I9 are locally completed; current manifest runtime and deferred P12 writer are unchanged.
+Historical I10 planning baseline (superseded by the current handoff above): metadata registration arrays on a new topic, Platform-owned PostgreSQL readiness, reconciliation and execution watchdog. I8/I9 are locally completed; current manifest runtime and deferred P12 writer are unchanged.
 See [I10 scope and acceptance](plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
 Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
@@ -52,7 +115,7 @@ semantics are documented in [CI Quality Gate](development/004-ci-quality-gate.md
 4. [Where to change](development/001-where-to-change.md) — which project/file area to start from for common changes.
 5. [Kafka contracts](data/001-kafka-contracts.md) — canonical topic/message map.
 6. [Data lake](data/002-data-lake.md) — canonical Parquet dataset/path ownership.
-7. [Job execution](flows/001-job-execution.md) — scheduler/worker execution flow.
+7. [Job execution](flows/001-job-execution.md) — scheduler/worker execution flow; [P14 end-to-end with tickets and Mermaid](flows/007-p14-end-to-end.md) follows preparation through work READY to Query/Console.
 8. [Implementation plan standard](governance/001-implementation-plan-standard.md) — mandatory plan/outcome/feature/contract/agent-guidance format.
 9. [Pre-roadmap capability baseline](plans/roadmap/pre-roadmap-capability-baseline.md) — working platform capabilities inherited by Phase 0.
 10. [Metadata → Omni Console → Dashboard execution plan](plans/008-omni-metadata-console-dashboard-execution-plan.md) — current focused milestone-gated execution order.

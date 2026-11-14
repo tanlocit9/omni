@@ -30,7 +30,7 @@
       "cache": false,
       "executor": "nx:run-commands",
       "options": {
-        "command": "node ../../tools/run-gradle.cjs test --tests com.omni.platform.JobRunCrossServiceIntegrationTest",
+        "command": "node ../../tools/run-gradle.cjs test --tests com.omni.platform.JobRunCrossServiceIntegrationTest --tests com.omni.platform.I10WorkReadinessIntegrationTest --tests com.omni.platform.BackfillDataPolicyIntegrationTest",
         "cwd": "{projectRoot}",
         "env": { "OMNI_P14_E2E": "1" }
       }

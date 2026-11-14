@@ -12,6 +12,7 @@ from py_common.config.models import KafkaSettings
 from py_common.kafka.factory import KafkaClientFactory
 from py_common.kafka.processing import consume_job_records
 from py_common.messaging import JobStatusMessage, JobStatusPublisher
+from py_common.messaging.lifecycle import running_status
 from py_common.runtime.supervision import WorkerSupervisor
 
 _logger = logging.getLogger(__name__)
@@ -157,6 +158,9 @@ class JobStatusKafkaService(ABC):
             if isinstance(record.value, bytes)
             else record.value
         )
+        started = running_status(payload)
+        if started is not None:
+            await self.publish_status(started)
         return await self.process_payload(payload)
 
     @abstractmethod

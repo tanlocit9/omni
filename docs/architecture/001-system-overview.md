@@ -1,5 +1,53 @@
 # System Overview
 
+Platform retains actual immutable VERSIONED READY promotion evidence for
+[frozen-attempt reads after refresh](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+Current discovery still advances independently; worker provenance never switches
+to the latest attempt. No new service, dataset owner or storage path is introduced.
+
+Platform now owns [terminal VERSIONED completion classification/audit](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+under its existing execution lock. Late output can be audited and acknowledged
+without changing accepted registration/status/READY. Workers, Query/Console APIs,
+logical paths and dataset ownership are unchanged.
+
+Automatic execution expiry is [owner-deferred during observation](../technical-debt/018-execution-watchdog-observation.md).
+Workers and Platform still publish/process completions; stalled work may need manual
+investigation. Readiness authority, dataset ownership and service boundaries are unchanged.
+
+New I10 enrolled commands use [one terminal completion](../reference/018-i10-worker-completion.md)
+for status and output evidence. Ownership/read APIs remain unchanged; RUNNING is
+separate and queued legacy commands keep their old protocol.
+
+The owner-approved [I10 versioned storage protocol](../reference/017-i10-versioned-storage.md)
+keeps Platform as readiness authority and workers as Parquet producers. It adds
+physical version coordinates/frozen bases, without a writer service, new dataset
+owner or logical path. Default flags remain off; coordinated cutover remains gated.
+
+The default-off [Indicators backfill API](../reference/009-indicators-backfill.md)
+adds operator acceptance before the existing static Symbols/EOD/Indicators graph.
+Platform owns request/enrollment/READY; workers own Parquet writes. Scoped enrolled
+reads can coexist with manifest catalog reads under an exclusive legacy-writer
+window; no global readiness cutover or new service ownership is implied.
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

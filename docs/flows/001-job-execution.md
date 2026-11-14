@@ -1,5 +1,92 @@
 # Job Execution Flow
 
+The [Indicators-only backfill API](../reference/009-indicators-backfill.md) is an
+owner-authorized exception to generic manual-trigger withdrawal. It uses the
+same static dependency graph and exact work READY barriers, with a separate
+default-off admission flag and paused/drained legacy writers.
+
+For the current scheduler-to-Console path, ticket/status mapping and detailed
+publication sequence, read [P14 end-to-end flow](007-p14-end-to-end.md).
+That companion covers the November 4 model-aware scopes, registration preflight,
+catalog bounds and deferred writer review; older dated sections below remain
+historical context.
+
+## Current graph and I10 flow
+
+This is the implemented opt-in graph/I10 path, not evidence that production flags
+or PostgreSQL reader cutover are active. I1-I9 below refer to P14 increments;
+I10.a/b/c are internal checkpoints of P14-I10, which remains in_progress.
+
+```mermaid
+flowchart TD
+    scheduled["Scheduler: definition đến hạn"] --> topology["I1-I2: static graph và contract"]
+    topology --> prepare["I3 + I8-I9: chốt work/ngày, identity, attempt và upstream"]
+    prepare --> intents["PostgreSQL: executions và pending outbox"]
+    intents --> admission{"I4 + I10.b: upstream SUCCESS và đúng identity/version READY?"}
+    admission -->|"Chưa đủ"| waiting["Giữ PENDING, xét lại sau"]
+    waiting --> admission
+    admission -->|"Đủ"| dispatch["I4: lock/claim rồi publish Kafka command"]
+    dispatch --> worker["I8 + I10.a: worker đọc approvedInputs, tính và ghi/validate output"]
+    worker --> registration["I10.a: gửi registration, chờ Kafka ACK"]
+    registration --> status["Worker gửi SUCCESS"]
+    registration --> completion["I10.a: Platform lưu và đối chiếu cả hai luồng"]
+    status --> completion
+    completion --> ready["I10.b: commit READY theo atomicWorkId + row scope + version"]
+    ready -.->|"Cho downstream"| admission
+    dispatch -.-> watchdog["I10.c: quá hạn published mà chưa hoàn thành"]
+    watchdog --> timeout["FAILED; ownership UNCERTAIN; chặn late READY"]
+    ready -.-> diagnostics["I5 + I10.c: diagnostics và work lookup"]
+    timeout -.-> diagnostics
+```
+
+1. Identity is the existing hash of jobType, workType, workKey, businessDate and
+   canonical parameters. Each graph node has its own identity; attempts/executions
+   distinguish retries. A logical output version reference is (atomicWorkId,dataVersion).
+2. I9 freezes the exact upstream attempts and shares only eligible in-flight work.
+   I4 checks predecessor completion, leases/budget and dependency admission. I10.b
+   additionally requires the frozen upstream identity/attempt/version, not merely
+   a READY file partition. Missing proof defers pending dispatch without rebinding.
+3. Workers validate approved input rows/schema/date/version before calculation,
+   preflight registration scope/identity/input/wire limits before replacing canonical
+   bytes, then validate read-back before publishing registration. Broker ACK is transport evidence;
+   it is not Platform commit or READY. Write/ACK/validation failure follows ERROR
+   and does not grant new READY; prior validated evidence is not silently replaced.
+   Scope is date for EOD/indicators and symbol_key + signal_date + non-null
+   model_version for signals (omitted version matches only legacy/null-version rows);
+   outcome evaluation registers only changed rows with their original dates.
+4. Registration and SUCCESS use separate Kafka streams and may reach Platform in
+   either order. Durable correlation, immutable identities and generation/timeout
+   guards ensure completion/READY occurs only when all required evidence is committed.
+   Valid-empty completion does not invent date coverage.
+5. The watchdog runs on the configured two-minute cadence with a default thirty-minute
+   deadline from published_at. Timeout cannot prove worker termination, so ownership
+   remains uncertain and later overlapping writers/late READY stay blocked.
+6. Diagnostics joins work -> attempts -> execution/outbox -> registration/output/READY;
+   frozen dependency edges connect different work IDs. This is business correlation,
+   not complete distributed log/span tracing. I7 is the legacy outbox cleanup foundation;
+   I6 is superseded, and no I11 scope is invented here.
+
+The I10 schema uses ordered V19-V23 migrations, starting with
+[V19 registration](../../database/migrations/V19__output_registration.sql) and ending with
+[V23 work readiness](../../database/migrations/V23__output_work_readiness.sql).
+Row-scoped versions keep other days/symbols independent of the shared Parquet file.
+New enrollment no longer requires whole-file snapshots. Range/historical coverage
+and the missing full worker/API E2E gate remain as described in the
+[current identity handoff](../reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -103,7 +190,10 @@ I6 supplies the [bounded read contract](../../database/diagnostics/p14/v1/read-m
 ## Static Graph and Planned Dispatch Planning
 
 I4 integrates bounded JobRun snapshot/planning and `JobRunDispatchCoordinator`
-with the dispatcher. Linked planned/fallback rows require closed transitive
+with the dispatcher. Candidate reads use three times the claim budget: the default
+batch size of 10 reads up to 30 candidates per legacy/fallback query; planned
+scope queries use three times their allocated quota. The claim budget remains 10.
+Linked planned/fallback rows require closed transitive
 predecessor SUCCESS under admission locks; NULL-run legacy rows use strict identity
 revalidation. DependencyRegistry still decides READY/WAITING/BLOCKED for every
 visited candidate. Stale/incomplete snapshots use bounded paginated guarded FIFO;
@@ -482,3 +572,11 @@ P1-I4 `verification_pending`; no production database was modified.
 - [Stock sync](002-stock-sync.md)
 - [Indicator and signal](003-indicator-signal.md)
 - [Sector wave](004-sector-wave.md)
+
+## Legacy tracker retirement - 2026-11-05
+
+The unused BlockedJobTracker, BlockedJobRepository and BlockedJob are removed.
+V24 retires only an empty blocked_jobs table. Dependency admission still evaluates
+at the outbox boundary; transient WAITING remains pending and terminal BLOCKED
+remains outbox/execution state. This does not remove the supported NULL-JobRun
+dispatch path or switch readiness authority. See [TD-013](../technical-debt/013-legacy-dependency-guard-residue.md).

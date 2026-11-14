@@ -8,6 +8,7 @@ from py_common.config import ConsumerGroup
 from py_common.kafka import KafkaClientFactory
 from py_common.kafka.processing import consume_job_records
 from py_common.messaging import JobStatusMessage, JobStatusPublisher
+from py_common.messaging.lifecycle import running_status
 from py_common.storage.adapters import create_minio_client
 from py_common.storage.adapters.minio import MinioStorageAdapter
 from py_common.storage.exceptions import StorageValidationError
@@ -135,6 +136,7 @@ class IngestorKafkaRoutingService:
             registry=registry,
             provider=StorageProvider.MINIO,
             bucket=self._settings.minio.bucket,
+            snapshot_paths=self._settings.stock_data_paths,
         )
         publisher = ImmutableDatasetPublisher(
             registry.get_port(StorageProvider.MINIO, ReadableStorage),
@@ -149,6 +151,10 @@ class IngestorKafkaRoutingService:
         assert self._default_client is not None
         assert self._parquet_storage is not None
         assert self._immutable_publisher is not None
+
+        started = running_status(msg.value)
+        if started is not None:
+            await self._status_publisher.publish(started)
 
         if msg.topic == self._settings.topic_sync_intraday_eod:
             return await process_intraday_eod_message(

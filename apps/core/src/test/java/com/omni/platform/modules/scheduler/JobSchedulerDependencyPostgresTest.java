@@ -23,6 +23,8 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -406,6 +408,64 @@ class JobSchedulerDependencyPostgresTest {
         return executionRepository.saveAndFlush(execution);
     }
 
+    @ParameterizedTest
+    @EnumSource(value = JobType.class, names = {
+        "SYNC_INDICATORS", "PRECOMPUTE_SYMBOL_FEATURES",
+        "PRECOMPUTE_SECTOR_FEATURES", "SECTOR_ROTATION_BACKTEST"
+    })
+    void datedDownstreamWaitsForItsOwnPartitionsAndExactDayBeforeKafka(JobType type) {
+        saveSymbol("HPG", "HOSE");
+        JobDefinition job = saveDueIndicatorsJob();
+        job.setJobType(type);
+        Map<String, Object> config = new java.util.HashMap<>(job.getConfigJson());
+        config.put("sectorCodes", List.of("BANK"));
+        config.put("sectorLevel", 1);
+        config.put("timeframe", "1d");
+        job.setConfigJson(config);
+        jobRepository.saveAndFlush(job);
+        scheduler.scan();
+        assertThat(outboxRepository.count()).isEqualTo(1);
+        var intent = outboxRepository.findAll().getFirst();
+        UUID intentId = intent.getId();
+        String frozenPayload = intent.getPayload();
+        LocalDate day = LocalDate.parse(config.get("dateFrom").toString());
+        DatasetRef input = switch (type) {
+            case PRECOMPUTE_SECTOR_FEATURES -> DatasetRef.of("symbol-features",
+                    Map.of("exchange", "hose", "code", "hpg", "timeframe", "1d"));
+            case SECTOR_ROTATION_BACKTEST -> DatasetRef.of("sector-features",
+                    Map.of("sector_code", "bank", "sector_level", "1", "timeframe", "1d"));
+            default -> DatasetRef.of("eod", Map.of("exchange", "hose", "code", "hpg"));
+        };
+        // Unrelated READY data must not satisfy the missing partition.
+        DatasetRef unrelated = DatasetRef.of("eod", Map.of("exchange", "hose", "code", "vnm"));
+        manifestReader.put(unrelated, readyManifest(unrelated, "sha256:unrelated"));
+        outboxDispatcher.dispatchBatch(Instant.now());
+        assertThat(outboxRepository.findById(intentId).orElseThrow().getStatus())
+                .isEqualTo(SchedulerOutboxMessage.Status.PENDING);
+        assertThat(outboxRepository.findById(intentId).orElseThrow().getAttempts()).isZero();
+        verify(kafkaPublisher, times(0)).publishSerializedAndWait(anyString(), anyString(), anyString(), any());
+        // READY at an older day is insufficient, even if a later timestamp exists elsewhere.
+        manifestReader.put(input, readyManifest(input, "sha256:old"));
+        manifestReader.coverage.put(input, java.util.Set.of(day.minusDays(1), day.plusDays(1)));
+        makeOutboxRetryDue();
+        outboxDispatcher.dispatchBatch(Instant.now());
+        assertThat(outboxRepository.findById(intentId).orElseThrow().getStatus())
+                .isEqualTo(SchedulerOutboxMessage.Status.PENDING);
+        verify(kafkaPublisher, times(0)).publishSerializedAndWait(anyString(), anyString(), anyString(), any());
+        manifestReader.put(input, readyManifest(input, "sha256:current"));
+        manifestReader.coverage.put(input, java.util.Set.of(day));
+        makeOutboxRetryDue();
+        outboxDispatcher.dispatchBatch(Instant.now());
+        var published = outboxRepository.findById(intentId).orElseThrow();
+        assertThat(published.getStatus()).isEqualTo(SchedulerOutboxMessage.Status.PUBLISHED);
+        assertThat(outboxRepository.count()).isEqualTo(1);
+        var before = jsonMapper.readTree(frozenPayload);
+        var after = jsonMapper.readTree(published.getPayload());
+        assertThat(after.path("executionId")).isEqualTo(before.path("executionId"));
+        assertThat(after.path("businessDate")).isEqualTo(before.path("businessDate"));
+        verify(kafkaPublisher, times(1)).publishSerializedAndWait(anyString(), anyString(), anyString(), any());
+    }
+
     private Symbol saveSymbol(String code, String exchange) {
         Symbol symbol = new Symbol();
         symbol.setCode(code);
@@ -489,6 +549,16 @@ class JobSchedulerDependencyPostgresTest {
     static final class InMemoryManifestReader implements ManifestReader {
 
         private final Map<DatasetRef, DatasetManifest> manifests = new ConcurrentHashMap<>();
+        private final Map<DatasetRef, java.util.Set<java.time.LocalDate>> coverage =
+                new ConcurrentHashMap<>();
+
+        @Override
+        public boolean coversDate(DatasetRef ref, String version, java.time.LocalDate day) {
+            var manifest = manifests.get(ref);
+            return manifest != null
+                    && manifest.dataVersion().equals(version)
+                    && coverage.getOrDefault(ref, java.util.Set.of()).contains(day);
+        }
 
         @Override
         public Optional<DatasetManifest> readManifest(DatasetRef datasetRef) {
@@ -497,10 +567,17 @@ class JobSchedulerDependencyPostgresTest {
 
         void put(DatasetRef ref, DatasetManifest manifest) {
             manifests.put(ref, manifest);
+            coverage.put(
+                    ref,
+                    java.util.Set.of(
+                            java.time.LocalDate.now(
+                                    com.omni.platform.modules.scheduler.expansion.WorkExpansion
+                                            .ZONE)));
         }
 
         void clear() {
             manifests.clear();
+            coverage.clear();
         }
     }
 }

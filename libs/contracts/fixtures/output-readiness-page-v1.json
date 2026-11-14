@@ -1,0 +1,39 @@
+{
+  "revision": 7,
+  "hasMore": false,
+  "nextOffset": 1,
+  "items": [
+    {
+      "dataset": "eod",
+      "manifest": {
+        "values": {
+          "exchange": "upcom",
+          "code": "hd6"
+        },
+        "status": "READY",
+        "path": "_output-snapshots/eod/c8d9157442fc3e82e954556fde462f9232d106703950bfffa531d325604eff16/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.parquet",
+        "canonicalPath": "eod/upcom/hd6.parquet",
+        "dataVersion": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "schemaVersion": 1,
+        "schemaHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "objectCount": 1,
+        "totalBytes": 128,
+        "rowCount": 2,
+        "columnCount": 1,
+        "columns": [
+          {
+            "name": "date",
+            "type": "DATE",
+            "nullable": false
+          }
+        ],
+        "inputs": [],
+        "coverageDates": ["2026-10-30", "2026-11-02"],
+        "minTimestamp": "2026-10-30T00:00:00",
+        "maxTimestamp": "2026-11-02T00:00:00",
+        "generatedAt": "2026-11-02T12:00:00Z",
+        "sourceExecutionId": null
+      }
+    }
+  ]
+}

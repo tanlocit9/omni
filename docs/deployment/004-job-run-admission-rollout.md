@@ -1,5 +1,114 @@
 # JobRun Admission Rollout and Rollback
 
+Matched V26/Platform/shared-reader deployment also enables frozen-attempt proof
+lookup backed by immutable actual VERSIONED READY history. The optional
+atomicAttemptId API selector preserves old latest/current clients. Schema/runtime
+must be paired; canonical mutable history is not backfilled into immutable READY.
+The [November 11 preflight and remaining gates](../reference/019-i10-review-20261111.md)
+record local V25 and bucket versioning unset; no retained rollout has occurred.
+The disposable drained canonical-repair rehearsal now passes, preserving accepted
+versions, registration/READY history and Query reads while refusing mutable writer
+downgrade. It retains PostgreSQL authority and does not replace retained parity or
+authorize live maintenance.
+
+Terminal VERSIONED completion audit requires the amended V26 schema before the
+new Platform handler runs. Local Flyway history was checked READ ONLY at V25;
+the owner approved extending unapplied V26. If any other environment applied an
+older V26, use a forward migration there rather than rewriting Flyway history.
+No retained DB migration, Kafka offset reset or service restart is performed by
+this change. See [terminal replay policy](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11).
+
+Owner observation policy (November 11): keep APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false
+as recorded in [TD-018](../technical-debt/018-execution-watchdog-observation.md).
+Local/environment examples set it explicitly; application.yaml remains default-off.
+A running process with an older true override requires restart/reconfiguration;
+editing files is not proof of runtime deactivation. Do not reopen existing FAILED
+attempts or automatically retry uncertain writers. Missing completions may require
+manual recovery during observation. Historical watchdog enablement guidance below
+is superseded by this owner decision.
+
+Python Kafka consumers now default to KAFKA_MAX_POLL_INTERVAL_MS=900000 (15 minutes).
+The override applies to consumers in that process and is read on startup; existing
+processes need restart/redeploy by the operator. No restart is performed by this
+source change. Metadata has an observed ~54-minute scan and remains an exception;
+15 minutes is not a universal execution deadline. Java consumers, heartbeat/session
+timeouts and the watchdog are unchanged. See [poll-window evidence](../reference/018-i10-worker-completion.md#consumer-poll-window).
+
+Deploy matched Platform/shared Python/Ingestor/Analyzer for [unified completion](../reference/018-i10-worker-completion.md)
+before issuing newly enrolled work. Existing queued commands without protocol keep
+the old path; no message rewrite, offset reset or new topic/migration is required.
+
+Versioned I10 requires [V26, backend-version permissions, historical pins and matched
+Platform/Python/Query deployment](../reference/017-i10-versioned-storage.md#paired-rollout-and-rollback).
+APP_OUTPUT_REGISTRATION_VERSIONED_STORAGE_ENABLED defaults false. Do not enable it
+before baseline validation, or roll back by flipping flags while a stale writer can
+still mutate canonical bytes. Disposable test evidence is not retained activation.
+
+Deploy matched Platform/Ingestor for [rerun/force semantics](../reference/013-backfill-attempt-and-data-policy.md).
+New force means provider refresh and implies rerun. Old workers can ignore
+dataPolicy and reuse old EOD instead; do not rely on new force semantics until the
+pair is deployed. Old queued commands without dataPolicy retain old behavior;
+no payload rewrite/offset reset is required. Existing backfill gate/drain applies.
+
+The [closed-owner checkpoint](../reference/012-i10-closed-owner-reconciliation.md)
+changes existing graph/backfill reconciliation: updated Platform may settle
+historical proven never-dispatched orphans when that gate is enabled. It does not
+retry, reopen requests or close uncertain published work. No new flag/migration
+is required; focused local regressions pass and no live cleanup/deployment was
+run for this change. Full I10 coverage/cutover remains open.
+
+The [2026-11-06 lifecycle correction](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06)
+requires matched Platform/Ingestor/Analyzer code for pending-at-preparation,
+worker receipts and request settlement. Terminal-only workers still report their
+outcome but do not show an intermediate start. No migration reopens old FAILED
+requests: use a new key after reviewing remaining published work. Keep dispatcher,
+status/registration consumers and reconciliation running while cron is paused.
+
+Indicators-only backfill has a separate default-off admission flag, V25 mode,
+paired worker reader configuration and an exclusive legacy-writer window. Follow
+[the scoped rollout requirements](../reference/009-indicators-backfill.md#contract-impact-and-operations).
+Enabling it does not authorize a global I10 cutover. Drain accepted work before
+disabling the backfill flag; it also controls reconciliation when graph mode is off.
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+## I10 paired private-reader deployment
+
+The 2026-11-04 signal-scope correction also requires paired Java/Python adapters:
+model_version distinguishes versioned rows, while omission matches only legacy
+null-version rows. Old two-coordinate proofs cannot certify versioned rows under
+the corrected reader. Drain old commands and obtain fresh registration through
+legitimate attempts as needed; do not patch immutable evidence. See the
+[current handoff and writer checklist](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+
+Deploy the byte-bounded Platform readiness provider together with the py-common
+cursor-aware reader used by Analyzer, Ingestor and Query Service before enabling
+postgres authority or collecting shadow parity evidence. Earlier Python readers
+advanced by a fixed 200 and can skip rows when a valid page is shortened by the
+4 MiB budget; a mixed provider/reader revision is not a supported cutover.
+Current readers accept earlier v1 pages without nextOffset by deriving the actual
+count. Keep the revision fixed and fail closed on cursor/path/lineage mismatch.
+Confirmed histories lacking both persisted component versions stay excluded from
+snapshot backfill until explicitly rebuilt from validated inputs. See the
+[contract review and operational gates](../reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

@@ -5,8 +5,13 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from py_common.kafka import decode_json_object_payload
 from py_common.messaging import JobStatus, JobStatusMessage, JobStatusPublisher, utc_now
+from py_common.messaging.output_publication import (
+    capture_output_publication,
+    publish_terminal_status,
+)
 from py_common.storage.atomic_work import cutoff_frame, day_rows
 from py_common.storage.date_contracts import normalize_date_contracts
+from py_common.storage.output_snapshots import OutputSnapshotIdentity
 from py_common.storage.parquet import ParquetStorage
 
 from app.messaging.messages import SymbolJobMessage
@@ -61,6 +66,7 @@ async def process_stock_price_message(
 ) -> JobStatusMessage:
     started_at = utc_now()
     payload: dict[str, object] = {}
+    publication = None
 
     try:
         payload = decode_json_object_payload(raw_msg, "Stock price sync job")
@@ -75,7 +81,17 @@ async def process_stock_price_message(
         from_date = message.from_offset.date() if message.from_offset else None
         to_date = message.to_offset.date() if message.to_offset else date.today()
         object_name = settings.get_eod_path(exchange, code)
-        existing_df = await parquet_storage.read_optional_dataframe(object_name)
+        if (message.metadata.get("outputCompletion") or {}).get(
+            "storagePolicy"
+        ) == "VERSIONED":
+            existing_df = await parquet_storage.read_work_base_dataframe(
+                payload,
+                OutputSnapshotIdentity(
+                    "eod", {"exchange": exchange.lower(), "code": code.lower()}
+                ),
+            )
+        else:
+            existing_df = await parquet_storage.read_optional_dataframe(object_name)
         bootstrap = existing_df is None or existing_df.empty
 
         if message.business_date is not None:
@@ -88,7 +104,33 @@ async def process_stock_price_message(
             limit = _ALL_RECORDS_LIMIT if bootstrap else age + 30
         else:
             limit = compute_limit(from_date, to_date)
-        new_df = await fetch_stock_data(client, code, limit)
+        backfill_policy = message.metadata.get("backfillPolicy", {})
+        data_policy = backfill_policy.get("dataPolicy")
+        if data_policy is not None and data_policy not in (
+            "PREFER_EXISTING",
+            "REFRESH",
+        ):
+            raise ValueError("Unsupported backfill data policy")
+        # Missing dataPolicy retains the old policy for already accepted commands.
+        prefer_existing = data_policy == "PREFER_EXISTING" or (
+            data_policy is None and backfill_policy.get("force") is True
+        )
+        reuse_eod = (
+            prefer_existing
+            and backfill_policy.get("verifyEodParquet") is True
+            and message.business_date is not None
+            and existing_df is not None
+            and not existing_df.empty
+            and "date" in existing_df
+            and pd.to_datetime(existing_df["date"], errors="raise")
+            .dt.date.eq(message.business_date)
+            .any()
+        )
+        new_df = (
+            existing_df.copy()
+            if reuse_eod
+            else await fetch_stock_data(client, code, limit)
+        )
         if message.business_date is not None:
             new_df = normalize_stock_price_dataframe_columns(new_df)
             if bootstrap:
@@ -108,7 +150,19 @@ async def process_stock_price_message(
             )
             combined = combined.sort_values("date")
 
-        await parquet_storage.write_dataframe(object_name, combined)
+        snapshot_options = {}
+        if getattr(settings, "output_snapshots_enabled", False) is True:
+            snapshot_options["snapshot_identity"] = OutputSnapshotIdentity(
+                "eod", {"exchange": exchange.lower(), "code": code.lower()}
+            )
+        with capture_output_publication(
+            payload, getattr(settings, "output_snapshots_enabled", False) is True
+        ) as publication:
+            await parquet_storage.write_dataframe(
+                object_name, combined, **snapshot_options
+            )
+            if publication.contract is not None:
+                await publication.publish(status_publisher.producer)
 
         status = build_status(
             payload,
@@ -116,7 +170,7 @@ async def process_stock_price_message(
             # TODO(TD-005): Distinguish valid-empty work from missing/invalid output.
             # Ref: docs/technical-debt/005-job-status-empty-output-semantics.md
             JobStatus.SUCCESS,
-            records_inserted=len(new_df),
+            records_inserted=0 if reuse_eod else len(new_df),
             total_records=len(combined),
             new_offset=to_date.isoformat(),
         )
@@ -129,5 +183,11 @@ async def process_stock_price_message(
             error_message=str(exc),
         )
 
-    await status_publisher.publish(status, key=status.work_key)
+    await publish_terminal_status(
+        getattr(status_publisher, "producer", None),
+        status_publisher.publish,
+        status,
+        payload,
+        publication,
+    )
     return status

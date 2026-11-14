@@ -102,7 +102,10 @@ class AtomicWorkEnvelope(BaseModel):
             return self  # Historical wire records retain their old behavior.
         if any(v is None for v in fields):
             raise ValueError("Atomic command requires all identity fields")
-        if self.job_type not in _UNITS or self.business_date.weekday() >= 5:
+        if self.job_type not in _UNITS or (
+            self.business_date.weekday() >= 5
+            and self.job_type not in {"SYNC_METADATA", "SYNC_SYMBOLS"}
+        ):
             raise ValueError("Unsupported atomic job type or weekend business date")
         expected = _TYPES.get(type(self).__name__)
         if expected is not None and expected != self.job_type:

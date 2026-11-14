@@ -29,7 +29,11 @@ from py_common.storage.exceptions import (
     StorageObjectNotFoundError,
     StorageWriteError,
 )
-from py_common.storage.manifest import calculate_data_version
+from py_common.storage.manifest import (
+    calculate_data_version,
+    calculate_schema_hash,
+    extract_schema_from_dataframe,
+)
 from py_common.storage.parquet import ParquetCodec, ParquetStorage
 from py_common.storage.ports import (
     CopyableStorage,
@@ -99,7 +103,7 @@ async def test_bound_read_checks_the_same_bytes_it_decodes(change):
     )
     path = "eod/hose/hpg.parquet"
     values = {"exchange": "hose", "code": "hpg"}
-    schema = "sha256:" + "1" * 64
+    schema = calculate_schema_hash(extract_schema_from_dataframe(frame))
     version = calculate_data_version(
         "eod",
         values,

@@ -1,5 +1,43 @@
 # Omni Query Service
 
+Graceful shutdown waits for an already started terminal DB completion and its
+audit to finish; query execution remains cancellable. This prevents cancelling
+the audit after polling observes a committed terminal state. It is not durable
+crash recovery. See the [I10 review and source/test evidence](../../docs/reference/019-i10-review-20261111.md).
+
+I10 [versioned proofs](../../docs/reference/017-i10-versioned-storage.md) carry an
+optional storageVersionId. Shared Parquet readers fetch and validate exact backend
+versions, combine approved rows and pass the checked buffer to DuckDB. No mutable
+fallback or UI/public discovery identity change is introduced.
+
+Shadow catalog comparison uses the Query Parquet validator to compare registered
+rows and input lineage against legacy files while returning manifest discovery.
+See [comparison scope](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows).
+
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+Private PostgreSQL catalog reads enforce both item and byte limits, follow actual
+returned cursors under one revision, and derive snapshot addresses from configured
+logical identities. Mutable/mismatched addresses fail closed before DuckDB binding;
+public catalog DTOs retain their existing shape. See the
+[current paired contract tests](../../docs/reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Private, read-only server-side query boundary for Omni Console. It resolves
 logical dataset references through canonical `READY` manifests and executes
 bounded SQL with native DuckDB. Object-storage credentials and physical paths

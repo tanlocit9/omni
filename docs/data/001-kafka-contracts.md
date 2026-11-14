@@ -1,5 +1,71 @@
 # Kafka Contracts
 
+The private work-proof HTTP API now accepts an optional atomicAttemptId selector.
+Workers send their existing frozen approved-input attempt; Kafka fields, topics,
+logical references and generated contracts are unchanged by this correction. See
+[frozen-attempt history](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+Valid unified completion for a terminal VERSIONED attempt now follows the
+[terminal audit policy](../reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11):
+same-output SUCCESS replay is acknowledged; rejected terminal output is durably
+audited before listener success/ACK. Audit failure still retries; malformed/foreign,
+CANONICAL and legacy registration-only records keep their existing policy. No wire,
+topic, ordering key or generated-contract change is introduced by this amendment.
+
+Python consumers created by KafkaClientFactory explicitly use a 900000 ms
+max_poll_interval_ms (15 minutes). KafkaSettings.max_poll_interval_ms and the
+flat KAFKA_MAX_POLL_INTERVAL_MS environment override configure the process-wide
+value; settings reject nonpositive, fractional and out-of-range values. This is
+the fetch-idle/rebalance limit, not a processing watchdog or heartbeat timeout.
+Sequential dispatch and offset-after-terminal-ACK behavior are unchanged. It
+does not cover every observed SYNC_METADATA scan; retained timing evidence and
+the remaining boundary are recorded in the [I10 completion handoff](../reference/018-i10-worker-completion.md#consumer-poll-window).
+
+New enrolled I10 commands use [WorkerCompletionEvent](../reference/018-i10-worker-completion.md)
+on the existing registration topic: terminal status plus optional registration in
+one bounded record. RUNNING stays on the status topic; old queued commands retain
+their two-message protocol. Deploy matched Platform/workers before issuing new work.
+
+I10 versioned storage adds optional RegisteredOutput.storageVersionId (proto field
+12), plus server-owned outputCompletion.storagePolicy/storageBases metadata.
+Opaque backend coordinates contain no physical paths and do not change row-version
+hashes. First physical evidence wins across logically identical replay; logical
+conflicts remain rejected. Deploy matched adapters before opt-in; legacy wire records
+retain their behavior. See [exact protocol](../reference/017-i10-versioned-storage.md).
+
+Indicators backfill uses existing message metadata for backfillPolicy.force,
+rerun, dataPolicy and verifyEodParquet; topic names and protobuf schemas are
+unchanged. New PREFER_EXISTING/REFRESH values separate data policy from creating
+new attempts. Missing dataPolicy retains the old command semantics. Deploy matched
+Platform/Ingestor before relying on force refresh; old workers do not implement it.
+See [the policy and compatibility boundary](../reference/013-backfill-attempt-and-data-policy.md).
+
+I10 review correction (2026-11-04): signal rowKeys include non-null model_version;
+omission means a legacy/null-version row. Paired Platform/Python adapters and the
+shared signal-model fixture retain that distinction. Workers preflight registration
+limits before canonical replacement; Kafka ACK still precedes SUCCESS. Topic names,
+field numbers, envelope limits and path-free logical references are unchanged.
+See [compatibility and writer review](../reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+
+Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
+already present in canonical Parquet, not the whole file. Additive workScope and
+row-based versions preserve unrelated days/symbols; new enrollment does not require
+whole-file snapshots. Frozen approvals remain provenance, separate from perpetual
+freshness. See the current identity handoff for compatibility and cutover gates.
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. The I10 migration sequence and the private work lookup
+are documented in the [current identity handoff](../reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -9,7 +75,7 @@ handoffs below record their historical status and do not override this result.
 I10 identity/trace reservation: canonical atomicWorkId and atomicAttemptId survive per array member through future writer output registration. Existing persisted workIdentity is an alias of atomicWorkId, not another identifier. Reserve optional diagnostic traceContext/header propagation outside business parameters; keep correlationId/requestId header names and hash semantics. Trace instrumentation stays deferred.
 See [identity and query tracing reservation](../plans/030-static-graph-dispatch-planner.md#end-to-end-work-identity-and-reserved-query-tracing).
 
-Planned P14-I10 introduces a separate versioned metadata-registration topic, bounded registrations/output arrays and a new Platform consumer. Preserve execution/attempt/work identity, logical outputs, exact versions/lineage and real coverage dates. Existing status topic stays separate; Platform must tolerate either arrival order and gate successful completion on durable registration. Topic literal/schema/adapters and limits are implementation deliverables, not deployed configuration.
+Historical planning baseline (2026-10-30; source now described in the current handoff above): P14-I10 introduces a separate versioned metadata-registration topic, bounded registrations/output arrays and a new Platform consumer. Preserve execution/attempt/work identity, logical outputs, exact versions/lineage and real coverage dates. Existing status topic stays separate; Platform must tolerate either arrival order and gate successful completion on durable registration. Topic literal/schema/adapters and limits are implementation deliverables, not deployed configuration.
 See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
 
 ## Approved execution input context — 2026-10-30
@@ -207,6 +273,11 @@ generated contracts.
 
 ### topic-sync-symbols
 
+Current atomic Symbols snapshots use the request's acceptance calendar day,
+including weekends, even when downstream EOD/Indicators target historical
+weekdays. Shared worker validation now matches Platform's snapshot expansion;
+domain/work identity guards remain required. See [weekend snapshot correction](../reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
 | Field           | Value                                                       |
 | --------------- | ----------------------------------------------------------- |
 | Topic key       | `topic-sync-symbols`                                        |
@@ -238,14 +309,24 @@ generated contracts.
 
 ### topic-sync-job-status
 
-| Field            | Value                                                          |
-| ---------------- | -------------------------------------------------------------- |
-| Topic key        | `topic-sync-job-status`                                        |
-| Producer         | Ingestor and Analyzer workers                                  |
-| Consumer         | Platform scheduler job status consumer                         |
-| Purpose          | Report child job completion/failure metrics to Platform.       |
-| Related flow     | [Job execution](../flows/001-job-execution.md)                 |
-| Related database | [Job execution history](003-database.md#job-execution-history) |
+Worker receipt follow-up (2026-11-06): Analyzer shared consumers and Ingestor
+publish RUNNING after receiving an identifiable command and await that status ACK
+before handler work. RUNNING has startedAt, null finishedAt and
+metaJson.workerStarted=true; it grants neither completion nor READY and cannot
+commit the command offset. Terminal statuses require finishedAt and retain
+output/registration-before-SUCCESS and terminal-ACK-before-commit ordering.
+Java already accepts RUNNING and the canonical execution enum includes it; no
+protobuf field or generated file changes. See [request settlement and paired
+deployment](../reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+| Field            | Value                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| Topic key        | `topic-sync-job-status`                                           |
+| Producer         | Ingestor and Analyzer workers                                     |
+| Consumer         | Platform scheduler job status consumer                            |
+| Purpose          | Report worker receipt and terminal execution metrics to Platform. |
+| Related flow     | [Job execution](../flows/001-job-execution.md)                    |
+| Related database | [Job execution history](003-database.md#job-execution-history)    |
 
 Status payloads must carry enough identity to update the correct child execution
 and aggregate parent state. After P1-I4 the canonical fields are
@@ -261,7 +342,7 @@ producers/consumers together. Domain command payloads and signal notification co
 `executionId` plus canonical `workType`/`workKey`.
 
 Every scheduler job payload also carries the same required `workType` and
-`workKey`. Workers copy those fields unchanged into terminal status messages;
+`workKey`. Workers copy those fields unchanged into receipt and terminal status messages;
 they do not derive execution identity from `symbolKey`, `exchange`, `sectorCode`,
 strategy, or arbitrary metadata. Platform rejects a child status whose work
 identity does not match the persisted child execution.

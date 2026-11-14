@@ -1,5 +1,17 @@
 # Stock Sync Flow
 
+## I10 opt-in output publication
+
+For enrolled EOD attempts, the Ingestor prepares day-scoped registration evidence
+and validates its limits before writing canonical Parquet. It validates read-back,
+then awaits registration Kafka ACK before SUCCESS. Whole-file snapshots are not an
+enrollment prerequisite. Platform correlates registration/status and commits READY
+last; preflight rejection leaves canonical bytes unchanged. A later write/read-back
+or ACK failure grants no new READY and does not guarantee old mutable bytes remain
+valid. Missing exact-date EOD never means no-trade. Manifest authority remains the
+default until coordinated cutover. See the [current end-to-end flow and tickets](007-p14-end-to-end.md)
+and [source/compatibility handoff](../reference/007-p14-i10-work-identity.md).
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

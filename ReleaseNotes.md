@@ -1,5 +1,384 @@
 # Omni Release Notes
 
+## 2026-11-12 - Record completion delivery and storage commit debt
+
+Record two operational boundaries in [TD-018](docs/technical-debt/018-execution-watchdog-observation.md#completion-delivery-and-storage-commit-boundaries):
+worker Kafka ACK precedes Platform DB consumption/commit, and Parquet writes can
+exist without committed registration/READY. Track diagnostic and recovery follow-up
+without changing I10 acceptance, enabling watchdogs or authorizing retries/cleanup.
+Documentation only; no tests or runtime changes.
+
+## 2026-11-12 - Reconcile I10 acceptance against executed evidence
+
+Close seven Plan 030 criteria using the existing source/test/coverage evidence and
+passing recorded gates. Keep three operational/full-acceptance criteria open:
+all-reader PostgreSQL cutover, quiesced 12-hour reconciliation, and complete retained
+rollout/recovery plus owner review. No new tests or runtime mutations are inferred.
+See [criterion matrix](docs/reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation).
+
+## 2026-11-11 - I10 acceptance review and Query shutdown audit safety
+
+Complete the missing local build/Console/format checks and add Query discovery,
+security and terminal-audit regression coverage. Query graceful shutdown now waits
+for an already started terminal DB commit and its audit. Review also identifies
+frozen upstream proof availability under a concurrent refresh; owner-approved
+V26 READY history and exact-attempt API reads now correct this path. Read-only retained preflight finds V25,
+bucket versioning unset and no retained parity/cutover evidence. I10 remains
+in_progress. See [review, source/test matrix and current gates](docs/reference/019-i10-review-20261111.md).
+
+Final local recorder gate passes 14/14. Platform has 911 cases, zero failures and
+13 skips; Query 59 and Console 34 pass. Real worker-chain passes 14/14, including
+old frozen proof/Parquet reads after refresh; Kafka recovery, sharing and overlap
+pass. V26 executes successfully on the retained local schema inside a rolled-back
+transaction, leaving Flyway at V25. No retained installation or reader activation.
+
+Follow-up disposable integration also passes 14/14 without skips: stop owned
+workers, restore three canonical partitions from accepted immutable versions,
+preserve registration/READY history and Query results, and reject a CANONICAL
+writer downgrade with HTTP 503. This keeps PostgreSQL authority; retained parity,
+coordinated cutover/rollback and owner acceptance remain open.
+
+## 2026-11-11 - Audit terminal versioned completion without blocking Kafka
+
+After server identity/declaration validation under the execution lock, keep terminal
+VERSIONED execution/READY immutable. Identical successful output replay is a no-op;
+conflicting SUCCESS or late FAILED completion is stored in bounded immutable audit
+before ACK. Audit DB failure still retries. Add the audit to V26 source with owner
+approval after local Flyway history confirmed V25. Existing applied schemas were
+not changed. See [policy and verification](docs/reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11).
+
+Local regression: worker-chain E2E 14/14; Platform coverage 907 cases, zero failures,
+13 skips. Completion store coverage is 96.88% line / 88.46% branch. No retained
+migration, runtime activation, commit or complete I10 acceptance is inferred.
+
+## 2026-11-11 - Defer automatic execution expiry during observation
+
+Set APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false explicitly in local and environment
+examples, retaining the default-off source implementation. Move automatic-expiry
+acceptance from current I10 scope to owner-deferred [TD-018](docs/technical-debt/018-execution-watchdog-observation.md).
+Observe real requests before deciding on reactivation; missing completions may need
+manual investigation. The legacy Metadata full-scan duration is accepted outside
+this PostgreSQL-readiness observation path. Completion/READY and late-evidence
+correctness remain required. Static inspection only; no tests, restart or DB mutation.
+
+## 2026-11-10 - Raise the Python consumer poll interval to 15 minutes
+
+Pass validated KafkaSettings.max_poll_interval_ms to both factory subscription
+paths, defaulting to 900000 ms with process-wide KAFKA_MAX_POLL_INTERVAL_MS override.
+Live historical duration review supports the larger window for ordinary jobs but
+identifies a ~54-minute Metadata scan as an unresolved exception. Sequential handling,
+heartbeat/session limits and Platform watchdog are unchanged. No services restarted.
+See [scope and timing evidence](docs/reference/018-i10-worker-completion.md#consumer-poll-window).
+
+## 2026-11-10 - Combine I10 terminal status and output evidence
+
+New enrolled commands stage registration locally and send one completion envelope.
+Platform commits registration/status/eligible READY together; RUNNING and old queued
+commands retain compatibility. Preserve structured server-owned completion metadata
+across status updates. Local verification and remaining blockers are recorded in
+[the protocol handoff](docs/reference/018-i10-worker-completion.md); no live activation.
+
+## 2026-11-10 - Validate scoped I10 shadow reads and physical baselines
+
+Fix shadow-mode enrolled input routing to the frozen PostgreSQL reader. Analyzer
+and Query share their Parquet validator with shadow comparison, which checks exact
+registered rows and lineage while retaining manifest catalog authority. Disposable
+physical-baseline-to-Signals E2E passes; it does not prove retained-inventory parity.
+The late-registration partition blocker keeps I10 in_progress. See
+[source-bound results and remaining gates](docs/reference/016-i10-signals-backfill-closure.md).
+
+## 2026-11-09 - Add opt-in physical versions for I10 writers/readers
+
+Owner approved immutable backend coordinates at current logical keys. Add V26,
+frozen claim-time merge bases, exact-version write/read-back, monotonic physical
+heads and a fenced historical physical-pin API/helper. Logically identical replay
+retains first physical evidence; logical conflicts remain rejected. Legacy timeout
+ownership stays blocked; only two versioned contracts permit safe replacement.
+Verification is in progress in [the storage runbook](docs/reference/017-i10-versioned-storage.md)
+and [Signals evidence](docs/reference/016-i10-signals-backfill-closure.md).
+No retained migration, bucket configuration or reader activation was performed.
+
+## 2026-11-09 - Extend enrolled backfill through Signals
+
+Accept SYNC_SIGNALS with optional canonical targetDefinitionId for strategy selection;
+reject ambiguous selection and unsupported ancestor output protocols before durable
+acceptance. Signals goals also drain legacy signal-history writers. Apply the existing
+write-generation barrier to scoped enrolled work even when global enrollment is off.
+Trend Momentum/Ichimoku worker-chain regressions pass; expanded range/retry/failure
+checks and full closure evidence are tracked in the
+[Signals handoff](docs/reference/016-i10-signals-backfill-closure.md).
+No global cutover, live migration, provider run or I10 completion is claimed.
+
+## 2026-11-08 - Discover active and historical atomic requests for polling
+
+Add the authenticated read-only request list with camelCase summaries, per-job
+status counts, elapsed time and bounded cursor pagination. Reuse existing tables;
+no graph payloads, new UI, execution mutations or schema migration are included.
+Owner-approved selected checks pass 100/100; polling query coverage is 94.23%
+line/97.30% branch. No full-I10 coverage or live cutover is claimed.
+[API contract](docs/reference/014-atomic-request-polling.md) and
+[I10 review](docs/reference/015-i10-review-20261108.md) retain the existing open
+coverage, writer-safety and coordinated-cutover gates.
+
+## 2026-11-08 - Aggregate graph request target counters
+
+Root execution finalization sums recordsSynced/recordsSkipped from target members
+only, excluding EOD/Symbols ancestors. A missing target counter preserves null for
+that counter; known zero remains zero. Closed requests are not rewritten.
+Selected disposable PostgreSQL regression passes 70/70 cases, including the two
+new target-counter cases; no live history update or deployment was performed.
+See [counter semantics](docs/reference/009-indicators-backfill.md#root-execution-counters).
+
+## 2026-11-07 - Index graph candidates within existing safety bounds
+
+Avoid repeated full-universe upstream scans during Indicators graph expansion.
+Index producer membership by key/exchange and cache sector membership selections;
+retain date/strategy/identity checks, definition bindings and all existing limits.
+Local regression: 16 graph tests and 68 PostgreSQL request tests pass. The new
+lookup helper has 71.88% branch coverage; full attributable coverage remains open.
+See [scope and local regression manifest](docs/reference/013-backfill-attempt-and-data-policy.md#bounded-graph-candidate-lookup).
+No live activation, deployment or I10 completion is claimed.
+
+## 2026-11-07 - Execute backfill policy and closed-owner regression checks
+
+Owner-authorized selected checks pass: PostgreSQL/API/expansion 98 cases,
+Ingestor policy 40 cases, real-worker Kafka/Parquet/READY integration 8 cases
+(six new policy scenarios plus two existing flows). Covered Parquet days are reused
+without PostgreSQL READY; force fetches corrected rows and cannot fall back to
+cached rows on provider failure/missing dates. Tests use disposable infrastructure
+and an isolated Gradle build directory. [Evidence and coverage limits](docs/reference/013-backfill-attempt-and-data-policy.md#actual-cross-service-policy-execution).
+WorkExpansion class branch coverage remains 78.98%; no full-I10 acceptance,
+real-provider, live cleanup, deployment or increment completion is claimed.
+
+## 2026-11-07 - Separate backfill rerun from forced provider refresh
+
+Add rerun=false and retain force=false defaults. Default shares compatible live
+in-flight attempts; rerun creates new attempts while preferring covered EOD;
+force implies rerun and fetches provider EOD before recalculating Indicators.
+Explicit dataPolicy preserves old semantics for commands already queued without
+it. Deploy matched Platform/Ingestor; no successful-attempt reuse or schema change.
+See [policy matrix and local regression results](docs/reference/013-backfill-attempt-and-data-policy.md).
+No live activation/provider calls or I10 completion are claimed.
+
+## 2026-11-07 - Reconcile never-dispatched work after its last owner closes
+
+Exclude ownerless attempts from reuse. The reconciler locks work slots and
+settles only commands with no dispatch/worker/completion evidence; uncertain
+delivery stays for review. Keep terminal request history and output proofs.
+Add member executionStatus, current outputReady/readyOutputs and ownership-review
+diagnostics. [Scope and focused PostgreSQL evidence](docs/reference/012-i10-closed-owner-reconciliation.md).
+No live cleanup, deployment or I10 completion is claimed.
+
+## 2026-11-07 - Package I10 as bounded delivery checkpoints
+
+Separate backlog tooling, candidate-budget tuning, migration packaging,
+dated/frozen-input guards, scoped Indicators backfill and documentation handoff.
+The earlier runtime repair is retained as its own commit. The owner requested no
+per-checkpoint verification rerun; earlier local results remain dated evidence.
+The owner also reports blocked jobs after startup; those jobs have not been
+diagnosed or changed in this delivery. I10 remains in_progress. See
+[checkpoint scopes and remaining work](docs/reference/011-i10-delivery-checkpoints.md).
+
+## 2026-11-07 - Accept current Symbols snapshots on weekends
+
+Align shared Python validation with Platform's existing current-snapshot
+expansion: SYNC_SYMBOLS, like SYNC_METADATA, may run on Saturday/Sunday while
+historical EOD/Indicators retain weekday and exact-date guards. Reproduce both
+weekend failures on the real Ingestor message model, then verify identity/target
+guards remain enforced. Coverage passes: Ingestor 100, Analyzer 268, py-common
+420 passed/5 skipped. Forced Kafka integration passed 2/2 after aligning the
+fixture snapshot clock with HTTP acceptance; historical EOD fixtures remain dated.
+No live replay, restart, migration or job reset was performed.
+See [impact and integration evidence](docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
+## 2026-11-06 - Keep healthy atomic branches dispatchable until request settlement
+
+The owner chose to continue healthy work after a sibling failure. Keep requests
+PREPARED until all members are terminal, then determine SUCCESS/FAILED. Prepare
+children as PENDING; worker RUNNING receipts carry actual start timestamps.
+Expose settlement counts and outbox status in request inspection. A snapshot
+showed 160 unpublished members rejected by the failed owner predicate while
+consumer lag was zero. Preserve terminal history, READY-last and terminal command
+commit rules; no live reset/retry or concurrency activation is performed. See
+[impact, protocol compatibility and checks](docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+Approved local checks pass: Platform 744 passed/5 skipped, py-common 419 passed/5
+skipped, Analyzer 268 passed, Ingestor 98 passed, paired worker/Kafka integration
+2/2 passed. Named changed production components exceed 80% line/branch coverage.
+This is local evidence; existing FAILED requests were not reopened or retried.
+
+## 2026-11-06 - Fix atomic output merge with Parquet calendar dates
+
+Reproduce the Indicators Timestamp/date exception using actual Parquet DATE
+history. Sort merged atomic output using a normalized temporary date key while
+preserving history values and the codec's DATE contract. Shared helper and
+Indicators regressions now include real storage roundtrips. Approved coverage
+reruns pass: py-common 403 passed/5 skipped; Analyzer 268 passed. No service restart,
+live retry or job-state mutation was performed. See [cause, caller impact and
+evidence](docs/reference/009-indicators-backfill.md#parquet-date-merge-correction---2026-11-06).
+
+## 2026-11-06 - Local BANKS backfill operator package
+
+Prepare ignored host-local backfill settings and a Postman collection/curl example
+for BANKS, 2026-11-02 through 2026-11-06. Keep readiness credentials only in local
+env files. Clarify fixed operator UUID fallback versus the required HTTP header.
+No restart, migration, schedule mutation or backfill submission was performed.
+See [local operator instructions](docs/reference/009-indicators-backfill.md#local-operator-package---2026-11-06).
+
+## 2026-11-05 - Scoped Indicators sector/date backfill
+
+Add a default-off authenticated backfill API and forward V25 request mode.
+EOD/Indicators enroll and promote READY within the accepted backfill even when
+realtime I10 flags are off. Force checks existing EOD day rows before fetching;
+Indicators recalculate. Require paused/drained legacy writers and paired private
+readers. [Scope, test matrix and rollout limits](docs/reference/009-indicators-backfill.md).
+The separately authorized local backlog cleanup marked 1,360 unfinished legacy
+executions FAILED and reset inactive Kafka groups to latest; follow-up counts
+were zero unfinished executions and zero lag. No definitions were disabled, live
+migrations applied, service flags activated or provider backfill run by this change.
+Owner-approved local checks passed: Platform 741 passed/5 skipped; Analyzer 266;
+Ingestor 96; py-common 399 passed/5 skipped; real-worker integration 2/2.
+The named changed components meet 80% line/branch coverage; see the linked matrix.
+This bounded result does not complete I10 or establish retained-environment rollout.
+
+## 2026-11-05 - Retire the unused blocked-job tracker
+
+Remove BlockedJobTracker, BlockedJobRepository and BlockedJob. V24 locks and drops
+blocked_jobs only if it is empty; retained rows reject the migration without
+deletion. V7 stays unchanged. Active WAITING/BLOCKED handling remains in the
+scheduler outbox/execution path. Add empty/non-empty upgrade regressions.
+The owner's local database was observed at V23 with zero tracker rows and no
+inbound foreign keys; V24 was not applied to that database by this cleanup.
+
+## 2026-11-05 - Remove the unused grpc-tools compiler dependency
+
+Remove grpc-tools from npm dependencies and the lockfile. Retain the owner's Buf
+configuration change to resolve the Java/Python built-in compiler from PATH.
+Document the local/CI protoc prerequisite and matching compiler versions; npm
+installation alone no longer claims to supply a compiler. Protobuf schemas,
+generated output ownership and runtime service/Kafka contracts are unchanged.
+
+## 2026-11-04 - Repair downstream admission and frozen-input reads
+
+Require exact dated input partitions for Symbol Features, Sector Features and
+Backtest, reject malformed enforced declarations, and reject missing enrollment
+on frozen I10 predecessors. Add the two existing feature datasets to metadata
+discovery with exact date coverage and explicit historical lineage limitations.
+Signal evaluation validates approved signal/EOD rows once and preserves unrelated
+history; Sector Wave consumes approved input versions. Cross-service integration
+also exposed and corrected typed businessDate handling in scoped publication.
+See [source/test matrix and unresolved gate](docs/reference/008-p14-i10-dispatch-guard.md).
+I10 remains in_progress pending the complete gate, attributable coverage and cutover.
+
+## 2026-11-04 - Split I10 migrations and reconcile the local V18 baseline
+
+Split consolidated V19 into ordered V19-V23 registration, completion/timeout,
+READY projection, historical baseline and work/row readiness stages. Preserve
+final SQL semantics and use replaceable trigger-function declarations. Update
+migration test expectations for five upgrades and latest version 23.
+Remove two confirmed-empty leftover registration tables and their owned indexes/
+triggers from the local V18 database with RESTRICT. Execute the five SQL files in
+one transaction, check schema/retained counts, then roll back; the local DB remains
+at V18. This is SQL evidence, not a Flyway/application/test-suite pass. See
+[scope, results and unchanged gates](docs/reference/007-p14-i10-work-identity.md#migration-stages-and-local-v18-reconciliation--2026-11-04).
+
+## 2026-11-04 - Full workspace formatting and current P14 flow
+
+Run the repository-wide formatter and resolve remaining Python style findings
+without changing execution contracts. Add the [P14 end-to-end flow](docs/flows/007-p14-end-to-end.md)
+with existing ticket mapping, overview/sequence Mermaid, scoped registration,
+READY/Query behavior, failure boundaries and deferred P12 writer TODOs. Correct
+the Stock Sync and Indicator/Signal flow summaries to current canonical row-scope
+semantics. Formatting results and static graph/documentation analysis are recorded
+in the current handoff; they do not replace the earlier runtime regression gates.
+
+## 2026-11-04 - I10 review corrections and writer handoff
+
+Preserve model_version in signal row scopes while keeping legacy/null-version
+rows distinct. Preflight registration identities, scope/input bounds and wire
+size before either canonical write path mutates data; confirm evidence only
+after successful read-back. Aggregate catalog min/max timestamps across work
+proofs and retain null bounds where absent. Add regression cases and shared
+Java/Python signal-model fixture. See [current evidence and writer TODOs](docs/reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+P14-I10 remains in_progress. No commit, flags, retained migration, deployment,
+writer batching, paging or durable recovery is performed by this fix.
+
+## 2026-11-03 - READY covers work data inside Parquet
+
+Owner clarifies READY as availability of a work's data, not the complete file.
+Add exact workScope row coordinates, scoped dataVersion fingerprints, canonical
+write/read-back registration without a snapshot prerequisite, row ownership in
+unapplied V19, frozen work-proof input reads and Query execution on validated READY
+rows. Unrelated appends preserve prior day/symbol proof; overlapping changes
+supersede it. Keep direct approvals as provenance, separate from recursive freshness.
+Old unscoped artifact/backfill contracts remain explicit compatibility boundaries.
+Fresh tests/evidence and remaining cutover limits are in the
+[current handoff](docs/reference/007-p14-i10-work-identity.md).
+No flags, retained migrations, deployment, writer service or durable recovery enabled.
+I10 remains in_progress pending full acceptance.
+
+## 2026-11-03 - Consolidate unapplied I10 migrations into V19
+
+Owner confirms V19/V20 were never applied. Replace the unshipped V19-V23 sequence
+with one V19\_\_output_registration_and_work_readiness.sql containing the same final
+registration/completion/timeout, catalog/baseline and canonical work READY schema.
+Keep V1-V18 intact, define generation/FK directly, and remove the empty intermediate
+pointer copy. Preserve advisory-lock protocol keys and runtime behavior. Update
+fresh/V16/V18 upgrade tests and canonical flow/increment documentation. No retained
+migration, Flyway repair, flags or deployment executed; full I10 E2E/cutover remains open.
+
+## 2026-11-03 - Reconcile I10 around canonical work identity
+
+Use graph atomicWorkId for work READY, preserve execution/attempt/version separately,
+and bind enrolled approvals to frozen upstream identities rather than the latest
+partition. Add candidate V23 without rewriting V18-V22, an authenticated work lookup,
+and shared complete-identity validation. Partition catalog/writer exclusion and
+artifact fingerprints remain distinct physical concerns. The earlier history-lineage
+paging decision is superseded for work lineage; no paging protocol is introduced.
+No I11 scope or runtime flag/migration activation. See [source, compatibility limits
+and fresh verification](docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress.
+
+## 2026-11-03 - I10 private reader contract and regression coverage (UTC+7)
+
+Continue owner commit `7a6699e` on `codex/p14-i10-snapshots`. Bound Platform
+readiness pages by 4 MiB as well as 200 items; Python follows validated actual-count
+cursors under one revision. Derive and verify immutable snapshot addresses with
+shared path configuration before query binding. Reject confirmed-signal snapshots
+with missing/partial persisted component lineage while preserving legacy manifest
+compatibility. Add a shared Java/Python HTTP
+fixture, worker failure/date/context regression cases and real Parquet lineage
+round-trip tests. Contracts generation now checks output registration in both
+languages. Fresh Linux suite/coverage results, graph limitations and unresolved
+acceptance are in the [current review](docs/reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+I10 remains in_progress; full-lineage transport, complete impact coverage and live
+integration/retained rollout gates remain open. No new migration, protobuf wire
+change, runtime activation or durable worker recovery. A follow-up review is
+scheduled for 02:00 UTC+7 on November 3. A trigger timestamp exists without a
+recorded automation result; the foreground follow-up after interrupted delivery
+is documented in the handoff, together with the collected questions.
+
+## 2026-11-02 - I10 enrollment and READY integration
+
+Add opt-in production declarations/enrollment, acknowledged worker registration, generation-fenced READY pointers, private provider/read adapters, owner-approved NULL-provenance historical baselines, fenced backfill and explicit shadow/reconciliation modes. Exact-date admission keeps missing inputs pending for repair; signal reads validate approved versions and retain require_day. Platform and four Python suites passed locally; contracts generation remains blocked by Windows debug runtime dependencies. Critical component coverage and the full-lineage transport decision remain open; I10 is in_progress. No retained migration, cutover, deployment, worker recovery, tracing or P12 activation is claimed. See [source and gates](docs/reference/006-p14-i10-ready-integration.md).
+
+## 2026-11-02 - Owner-approved immutable snapshots, recovery deferred
+
+Add configured immutable output byte snapshots within existing EOD/indicator/signal workers, disabled by default. Snapshot publication and reading validate exact bytes, canonical version, schema and persisted lineage; publication failure preserves the prior canonical bytes before replacement. Signal replacement snapshots use final identity rather than staging paths. Reuse shared lineage extraction. No READY pointer, recovery journal/service, automatic repair or P12 activation. Source regression cases added; all checks NOT RUN pending verification-command approval. I10 remains in_progress with registration/READY-reader integration open. See [scope revision and matrix](docs/reference/005-p14-i10-completion-watchdog-handoff.md).
+
+## 2026-11-02 - Continue I10 completion and watchdog source
+
+Reproduce the tracked dc424b7 registration checkpoint on the local 4cc0011 baseline. Add a new candidate V20 with server-owned completion contracts, durable first-SUCCESS correlation, normalized output/date evidence and immutable timeout evidence. Serialize status/registration/timeout on execution locks, add opt-in bounded watchdog and authenticated completion diagnostics, and tighten paired JSON validation. Focused regression source added; all verification NOT RUN. Original uncommitted V20 was unavailable, so reconcile migration identity before any retained upgrade. Worker publication/recovery, PostgreSQL READY/provider/readers and reconciliation remain missing; I10 stays in_progress. No flags/deployment or I11/P12 activation. See [current source and blockers](docs/reference/005-p14-i10-completion-watchdog-handoff.md).
+
+## 2026-11-01 - Start I10 shadow registration checkpoint
+
+Add paired JSON adapters, canonical schema/shared fixture, shared acknowledged publisher seam, V19 immutable shadow inbox and an opt-in Platform consumer with unlimited retry rather than record discard. Tests are source only, NOT RUN. Worker handlers, durable SUCCESS correlation, READY pointers, reader cutover, watchdog and reconciliation remain open. No flags or runtime services were activated. See [checkpoint](docs/reference/004-p14-i10-registration-checkpoint.md).
+
+## 2026-11-01 ? Reconcile P14 I10 and unconfirmed I11 against main
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
+Documentation only; no runtime changes or executed verification. Historical evidence is preserved.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,

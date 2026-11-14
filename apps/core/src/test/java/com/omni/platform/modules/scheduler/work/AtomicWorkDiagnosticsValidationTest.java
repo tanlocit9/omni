@@ -15,13 +15,16 @@ class AtomicWorkDiagnosticsValidationTest {
     @Test
     void databaseFailureReturnsUnavailableWithoutConnectionDetails() throws Exception {
         var source = mock(DataSource.class);
-        when(source.getConnection()).thenThrow(new java.sql.SQLException("private connection details"));
+        when(source.getConnection())
+                .thenThrow(new java.sql.SQLException("private connection details"));
         var service = new AtomicWorkDiagnosticsService(source, JsonMapper.builder().build());
         assertThatThrownBy(() -> service.snapshot(null, null, null, null, 25, 24))
                 .isInstanceOf(JobOperationException.class)
                 .hasMessage("Work diagnostics are unavailable; check schema and database health.")
-                .matches(error -> ((JobOperationException) error).getStatus()
-                        == org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+                .matches(
+                        error ->
+                                ((JobOperationException) error).getStatus()
+                                        == org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
     }
 
     @Test
@@ -33,7 +36,10 @@ class AtomicWorkDiagnosticsValidationTest {
                 .isInstanceOf(JobOperationException.class);
         assertThatThrownBy(() -> service.snapshot(now, now.minusSeconds(1), null, null, 25, 24))
                 .isInstanceOf(JobOperationException.class);
-        assertThatThrownBy(() -> service.snapshot(now.minusSeconds(8 * 86400), now, null, null, 25, 24))
+        assertThatThrownBy(
+                        () ->
+                                service.snapshot(
+                                        now.minusSeconds(8 * 86400), now, null, null, 25, 24))
                 .isInstanceOf(JobOperationException.class);
         assertThatThrownBy(() -> service.snapshot(null, null, now.plusSeconds(3600), null, 25, 24))
                 .isInstanceOf(JobOperationException.class);

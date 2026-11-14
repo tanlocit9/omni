@@ -2,6 +2,7 @@ const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { hiddenProcessOptions } = require('./process-options.cjs');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const generatedRoot = path.join(repositoryRoot, 'libs', 'contracts', 'gen');
@@ -34,12 +35,15 @@ function digestDirectory(root) {
 }
 
 function generate() {
-  const generation = spawnSync(process.execPath, [generator], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    stdio: 'inherit',
-    windowsHide: true,
-  });
+  const generation = spawnSync(
+    process.execPath,
+    [generator],
+    hiddenProcessOptions({
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      stdio: 'inherit',
+    })
+  );
 
   if (generation.error) {
     process.stderr.write(`${generation.error.message}\n`);

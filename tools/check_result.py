@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -15,6 +14,15 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+try:
+    from tools.process_utils import command_environment as process_environment
+    from tools.process_utils import hidden_process_options
+except ModuleNotFoundError as exc:
+    if exc.name != "tools":
+        raise
+    from process_utils import command_environment as process_environment
+    from process_utils import hidden_process_options
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULT_ROOT = ROOT / ".agent" / "check-results"
@@ -130,12 +138,7 @@ def log_path(directory: Path, name: str) -> Path:
 
 
 def command_environment() -> dict[str, str]:
-    environment = os.environ.copy()
-    if sys.platform == "win32":
-        environment.setdefault("NX_NO_CLOUD", "true")
-        environment.setdefault("NX_NATIVE_COMMAND_RUNNER", "false")
-        environment.setdefault("NX_TUI", "false")
-    return environment
+    return process_environment()
 
 
 def command_run(args: argparse.Namespace) -> int:
@@ -161,7 +164,7 @@ def command_run(args: argparse.Namespace) -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            **hidden_process_options(),
         )
         assert process.stdout is not None
         for line in process.stdout:

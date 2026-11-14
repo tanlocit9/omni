@@ -2,20 +2,18 @@
 
 import argparse
 import json
-import os
 import re
 import subprocess
-import sys
 from datetime import datetime, timezone
 
-os.system("")  # bật ANSI trong PowerShell/conhost
 try:
-    sys.stdout.reconfigure(encoding="utf-8")  # tránh lỗi ký tự kẻ bảng trên Windows
-except AttributeError, ValueError:
-    pass
-
-USE_COLOR = sys.stdout.isatty() or os.environ.get("FORCE_COLOR") == "1"
-ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+    from tools.cli_output import bold, configure_output, dim, green, red, table, yellow
+    from tools.process_utils import command_environment, hidden_process_options
+except ModuleNotFoundError as exc:
+    if exc.name != "tools":
+        raise
+    from cli_output import bold, configure_output, dim, green, red, table, yellow
+    from process_utils import command_environment, hidden_process_options
 
 
 def positive(value):
@@ -23,6 +21,34 @@ def positive(value):
     if number < 1 or number > 10000:
         raise argparse.ArgumentTypeError("Expected an integer between 1 and 10000")
     return number
+
+
+DURATION_RE = re.compile(r"^(\d+)\s*(m|min|h|hr|d)?$", re.IGNORECASE)
+
+
+def duration_minutes(value):
+    """Parse 45, 45m, 2h, 1d into whole minutes (1 minute to 30 days)."""
+    match = DURATION_RE.match(value.strip())
+    if not match:
+        raise argparse.ArgumentTypeError(
+            "Use a duration like 45m, 2h or 1d (plain number = minutes)"
+        )
+    number = int(match.group(1))
+    unit = (match.group(2) or "m").lower()
+    minutes = number * {"m": 1, "min": 1, "h": 60, "hr": 60, "d": 1440}[unit]
+    if minutes < 1 or minutes > 43200:
+        raise argparse.ArgumentTypeError(
+            "Duration must be between 1 minute and 30 days"
+        )
+    return minutes
+
+
+def format_minutes(minutes):
+    if minutes % 1440 == 0:
+        return f"{minutes // 1440}d"
+    if minutes % 60 == 0:
+        return f"{minutes // 60}h"
+    return f"{minutes}m"
 
 
 def database_sql(minutes, limit):
@@ -75,7 +101,8 @@ def command(args, stdin=None):
         errors="replace",
         capture_output=True,
         timeout=30,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        env=command_environment(),
+        **hidden_process_options(),
     )
     if result.returncode:
         raise RuntimeError((result.stderr.strip() or result.stdout.strip())[-1000:])
@@ -198,55 +225,11 @@ def collect(args):
     return report
 
 
-# ---------- Hiển thị ----------
-
-
-def color(text, code):
-    return f"\033[{code}m{text}\033[0m" if USE_COLOR else str(text)
-
-
-def red(t):
-    return color(t, 31)
-
-
-def green(t):
-    return color(t, 32)
-
-
-def yellow(t):
-    return color(t, 33)
-
-
-def bold(t):
-    return color(t, 1)
-
-
-def dim(t):
-    return color(t, 2)
-
-
-def visible_len(text):
-    return len(ANSI_RE.sub("", str(text)))
-
-
-def table(headers, rows):
-    if not rows:
-        return dim("  (none)")
-    all_rows = [headers] + rows
-    widths = [max(visible_len(r[i]) for r in all_rows) for i in range(len(headers))]
-
-    def fmt(row):
-        return "  " + "  ".join(
-            str(cell) + " " * (w - visible_len(cell)) for cell, w in zip(row, widths)
-        )
-
-    out = [bold(fmt(headers)), "  " + "  ".join("─" * w for w in widths)]
-    out += [fmt(r) for r in rows]
-    return "\n".join(out)
-
-
 def render(report, only_problems=False):
-    lines = [bold(f"Job backlog (threshold: {report['staleMinutes']} min)"), ""]
+    lines = [
+        bold(f"Job backlog (threshold: {format_minutes(report['staleMinutes'])})"),
+        "",
+    ]
 
     db = report["database"]
     lines.append(bold("DATABASE"))
@@ -345,7 +328,15 @@ def render(report, only_problems=False):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--stale-minutes", type=positive, default=30)
+    parser.add_argument(
+        "--range",
+        "--stale-minutes",
+        dest="stale_minutes",
+        type=duration_minutes,
+        default=30,
+        metavar="DURATION",
+        help="ngưỡng stale, vd 45m, 2h, 1d (số thuần = phút, mặc định 30m)",
+    )
     parser.add_argument("--limit", type=positive, default=20)
     parser.add_argument("--postgres-container", default="postgres")
     parser.add_argument("--database", default="omni")
@@ -361,6 +352,8 @@ def main(argv=None):
     )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    if not args.json:
+        configure_output()
     report = collect(args)
     print(
         json.dumps(report, indent=2)

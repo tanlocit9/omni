@@ -3,6 +3,7 @@
 const { spawn } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const { resolve } = require('node:path');
+const { hiddenProcessOptions } = require('./process-options.cjs');
 
 const isWindows = process.platform === 'win32';
 const localPython = resolve(
@@ -19,11 +20,11 @@ if (isWindows && !existsSync(localPython)) {
   process.exitCode = 1;
 } else {
   const python = existsSync(localPython) ? localPython : 'python3';
-  const child = spawn(python, ['-u', ...process.argv.slice(2)], {
-    shell: false,
-    windowsHide: true,
-    stdio: 'inherit',
-  });
+  const child = spawn(
+    python,
+    ['-u', ...process.argv.slice(2)],
+    hiddenProcessOptions({ shell: false, stdio: 'inherit' })
+  );
   child.on('error', (error) => {
     console.error('Failed to run Python: ' + error.message);
     process.exitCode = 1;

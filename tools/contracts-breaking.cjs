@@ -1,5 +1,6 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
+const { hiddenProcessOptions } = require('./process-options.cjs');
 
 const repositoryRoot = path.resolve(__dirname, '..');
 const contractsRoot = path.join(repositoryRoot, 'libs', 'contracts');
@@ -11,14 +12,17 @@ const buf = path.join(
 );
 
 function run(command, args, options = {}) {
-  return spawnSync(command, args, {
-    cwd: contractsRoot,
-    encoding: 'utf8',
-    stdio: 'inherit',
-    windowsHide: true,
-    shell: process.platform === 'win32',
-    ...options,
-  });
+  return spawnSync(
+    command,
+    args,
+    hiddenProcessOptions({
+      cwd: contractsRoot,
+      encoding: 'utf8',
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      ...options,
+    })
+  );
 }
 
 function resolveBaseline(baseline, git) {
@@ -45,11 +49,11 @@ if (require.main === module) {
   try {
     const baseline = process.env.CONTRACTS_BASE_SHA;
     const subdir = resolveBaseline(baseline, (args) =>
-      spawnSync('git', args, {
-        cwd: repositoryRoot,
-        stdio: 'ignore',
-        windowsHide: true,
-      })
+      spawnSync(
+        'git',
+        args,
+        hiddenProcessOptions({ cwd: repositoryRoot, stdio: 'ignore' })
+      )
     );
     console.log(`Checking contracts against ${baseline}:${subdir}`);
     process.exit(

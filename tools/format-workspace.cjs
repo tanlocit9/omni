@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { hiddenProcessOptions } = require('./process-options.cjs');
 
 const root = path.resolve(__dirname, '..');
 const pythonRoots = {
@@ -11,13 +12,16 @@ const pythonRoots = {
 };
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: 'inherit',
-    windowsHide: true,
-    ...options,
-  });
+  const result = spawnSync(
+    command,
+    args,
+    hiddenProcessOptions({
+      cwd: root,
+      encoding: 'utf8',
+      stdio: 'inherit',
+      ...options,
+    })
+  );
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(`${command} failed (exit ${result.status}).`);

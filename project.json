@@ -23,6 +23,13 @@
         "command": "node tools/run-python.cjs -m unittest discover -s tools/tests -p \"test_*.py\""
       }
     },
+    "tools-process-test": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test tools/tests/process-options.test.cjs"
+      }
+    },
     "ci-policy-test": {
       "cache": false,
       "executor": "nx:run-commands",
@@ -65,8 +72,9 @@
       "executor": "nx:run-commands",
       "options": {
         "commands": [
-          "node tools/run-python.cjs tools/check_result.py init --increment {args.increment} --require test/tools-tests --require test/ci-policy-tests --require test/format-tests --require test/platform-tests --require test/analyzer-tests --require test/ingestor-tests --require test/query-service-tests --require test/omni-console-tests --require test/py-common-tests --require test/contracts-tests --require integration/ingestor-integration",
+          "node tools/run-python.cjs tools/check_result.py init --increment {args.increment} --require test/tools-tests --require test/tools-process-tests --require test/ci-policy-tests --require test/format-tests --require test/platform-tests --require test/analyzer-tests --require test/ingestor-tests --require test/query-service-tests --require test/omni-console-tests --require test/py-common-tests --require test/contracts-tests --require integration/ingestor-integration",
           "node tools/run-python.cjs tools/check_result.py run --increment {args.increment} --kind test --name tools-tests -- nx run omni:tools-test",
+          "node tools/run-python.cjs tools/check_result.py run --increment {args.increment} --kind test --name tools-process-tests -- nx run omni:tools-process-test",
           "node tools/run-python.cjs tools/check_result.py run --increment {args.increment} --kind test --name ci-policy-tests -- nx run omni:ci-policy-test",
           "node tools/run-python.cjs tools/check_result.py run --increment {args.increment} --kind test --name format-tests -- nx run omni:format-test",
           "node tools/run-python.cjs tools/check_result.py run --increment {args.increment} --kind test --name platform-tests -- nx run platform:test",

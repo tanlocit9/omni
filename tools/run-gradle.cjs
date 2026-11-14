@@ -2,15 +2,19 @@
 
 const { spawn } = require('node:child_process');
 const { resolve } = require('node:path');
+const { hiddenProcessOptions } = require('./process-options.cjs');
 
 const isWindows = process.platform === 'win32';
 const wrapper = isWindows ? 'gradlew.bat' : './gradlew';
-const child = spawn(wrapper, process.argv.slice(2), {
-  cwd: resolve(__dirname, '../apps/core'),
-  shell: isWindows,
-  windowsHide: true,
-  stdio: 'inherit',
-});
+const child = spawn(
+  wrapper,
+  process.argv.slice(2),
+  hiddenProcessOptions({
+    cwd: resolve(__dirname, '../apps/core'),
+    shell: isWindows,
+    stdio: 'inherit',
+  })
+);
 
 child.on('error', (error) => {
   console.error('Failed to run Gradle wrapper: ' + error.message);

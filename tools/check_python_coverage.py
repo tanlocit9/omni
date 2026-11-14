@@ -8,12 +8,22 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+try:
+    from tools.cli_output import configure_output, green, red, table, yellow
+except ModuleNotFoundError as exc:
+    if exc.name != "tools":
+        raise
+    from cli_output import configure_output, green, red, table, yellow
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--xml", required=True, type=Path)
     parser.add_argument("--line", type=float, default=0.80)
     parser.add_argument("--branch", type=float, default=0.80)
+    parser.add_argument(
+        "--table", action="store_true", help="Show a human-readable coverage table"
+    )
     parser.add_argument("files", nargs="+")
     return parser.parse_args()
 
@@ -30,6 +40,9 @@ def main() -> int:
         for element in root.findall(".//class")
     }
     failed = False
+    rows = []
+    if args.table:
+        configure_output()
     for requested in args.files:
         name = normalized(requested)
         aliases = {name}
@@ -45,18 +58,34 @@ def main() -> int:
             )
         ]
         if len(matches) != 1:
-            print(f"COVERAGE MISSING file={name} matches={len(matches)}")
+            if args.table:
+                rows.append([yellow("MISSING"), name, "-", "-", len(matches)])
+            else:
+                print(f"COVERAGE MISSING file={name} matches={len(matches)}")
             failed = True
             continue
         element = matches[0]
         line_rate = float(element.attrib.get("line-rate", "0"))
         branch_rate = float(element.attrib.get("branch-rate", "0"))
         status = "PASS" if line_rate >= args.line and branch_rate >= args.branch else "FAIL"
-        print(
-            f"COVERAGE {status} file={name} "
-            f"line={line_rate:.2%} branch={branch_rate:.2%}"
-        )
+        if args.table:
+            rows.append(
+                [
+                    green(status) if status == "PASS" else red(status),
+                    name,
+                    f"{line_rate:.2%}",
+                    f"{branch_rate:.2%}",
+                    1,
+                ]
+            )
+        else:
+            print(
+                f"COVERAGE {status} file={name} "
+                f"line={line_rate:.2%} branch={branch_rate:.2%}"
+            )
         failed |= status == "FAIL"
+    if args.table:
+        print(table(["STATUS", "FILE", "LINE", "BRANCH", "MATCHES"], rows))
     return 1 if failed else 0
 
 

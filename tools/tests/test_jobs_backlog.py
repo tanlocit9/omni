@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import unittest
 from contextlib import redirect_stdout
@@ -94,7 +95,7 @@ class JobsBacklogTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue()), report)
 
     def test_invalid_numeric_arguments_are_rejected_before_any_connection(self):
-        for value in ("0", "-1", "10001", "1;DROP TABLE x"):
+        for value in ("0", "-1", "43201", "31d", "1;DROP TABLE x"):
             with self.subTest(value=value), patch.object(tool, "collect") as collect, \
                     redirect_stdout(io.StringIO()), patch("sys.stderr", io.StringIO()):
                 with self.assertRaises(SystemExit):
@@ -116,12 +117,45 @@ class JobsBacklogTests(unittest.TestCase):
             },
             "kafka": {"status": "not_checked"},
         }
-        text = tool.render(report)
-        self.assertIn("2 unfinished; 1 past threshold", text)
-        self.assertIn("SYNC_STOCK_PRICE | RUNNING | child | 2 | 1 | 90.1", text)
+        with patch.dict(os.environ, {"NO_COLOR": "1"}):
+            text = tool.render(report)
+        self.assertIn("unfinished: 2", text)
+        self.assertIn("stale: 1", text)
+        self.assertRegex(text, r"SYNC_STOCK_PRICE\s+RUNNING\s+child\s+2\s+1\s+90\.1")
         self.assertIn("published/nonterminal=2", text)
         self.assertIn("truncated=True", text)
-        self.assertIn("Kafka: not_checked", text)
+        self.assertIn("KAFKA\n  not checked", text)
+
+    def test_duration_aliases_preserve_minutes_and_json_contract(self):
+        report = {"database": {"status": "not_checked"}, "kafka": {"status": "not_checked"}}
+        for option, value, minutes in (
+            ("--range", "2h", 120),
+            ("--stale-minutes", "1d", 1440),
+            ("--stale-minutes", "10001", 10001),
+            ("--range", "30d", 43200),
+        ):
+            output = io.StringIO()
+            with (
+                self.subTest(option=option, value=value),
+                patch.object(tool, "collect", return_value=report) as collect,
+                redirect_stdout(output),
+            ):
+                self.assertEqual(tool.main([option, value, "--json"]), 0)
+            self.assertEqual(collect.call_args.args[0].stale_minutes, minutes)
+            self.assertEqual(json.loads(output.getvalue()), report)
+
+    def test_commands_use_one_hidden_child_without_shell_and_propagate_failure(self):
+        completed = SimpleNamespace(returncode=0, stdout="data", stderr="")
+        with patch.object(tool.subprocess, "run", return_value=completed) as run:
+            self.assertEqual(tool.command(["docker", "info"], "input"), ("data", ""))
+        run.assert_called_once()
+        self.assertNotIn("shell", run.call_args.kwargs)
+        self.assertEqual(run.call_args.kwargs["input"], "input")
+        self.assertEqual(run.call_args.kwargs["timeout"], 30)
+        completed.returncode, completed.stderr = 1, "backend unavailable"
+        with patch.object(tool.subprocess, "run", return_value=completed):
+            with self.assertRaisesRegex(RuntimeError, "backend unavailable"):
+                tool.command(["docker", "info"])
 
 
 if __name__ == "__main__":

@@ -194,20 +194,26 @@ def command_run(args: argparse.Namespace) -> int:
 def parse_log(text: str, parser: str) -> tuple[str, str]:
     normalized = text.replace("\x1b", "")
     if parser == "pytest":
-        failure = re.search(r"(?:^|\s)(\d+) (?:failed|error(?:s)?)(?:,|\s|$)", normalized, re.I)
+        failure = re.search(
+            r"(?:^|\s)(\d+) (?:failed|error(?:s)?)(?:,|\s|$)", normalized, re.I
+        )
         success = re.search(r"(?:^|\s)(\d+) passed(?:,|\s|$)", normalized, re.I)
         if failure and int(failure.group(1)) > 0:
             return "fail", failure.group(0).strip()
         if success:
             return "pass", success.group(0).strip()
     elif parser == "eslint":
-        count = re.search(r"(?:^|\s)(\d+) problems? \((\d+) errors?[,)]", normalized, re.I)
+        count = re.search(
+            r"(?:^|\s)(\d+) problems? \((\d+) errors?[,)]", normalized, re.I
+        )
         if count:
             return ("fail" if int(count.group(2)) else "pass"), count.group(0).strip()
         if re.search(r"\berror\b", normalized, re.I):
             return "fail", "ESLint error marker"
     elif parser == "nx":
-        if re.search(r"Running target .+ failed|Failed tasks?:|NX\s+.*failed", normalized, re.I):
+        if re.search(
+            r"Running target .+ failed|Failed tasks?:|NX\s+.*failed", normalized, re.I
+        ):
             return "fail", "Nx failure summary"
         match = re.search(r"Successfully ran target[^\r\n]*", normalized, re.I)
         if match:
@@ -253,14 +259,22 @@ def command_import(args: argparse.Namespace) -> int:
         "log_sha256": file_hash(path),
     }
     append_record(directory, record)
-    print(f"IMPORTED {args.increment} {args.kind}/{args.name} status={status} source={source}")
-    return 0 if status == "pass" else EXIT_FAILED if status == "fail" else EXIT_INCOMPLETE
+    print(
+        f"IMPORTED {args.increment} {args.kind}/{args.name} status={status} source={source}"
+    )
+    return (
+        0 if status == "pass" else EXIT_FAILED if status == "fail" else EXIT_INCOMPLETE
+    )
 
 
 def load_manifest(directory: Path, increment: str) -> tuple[dict[str, Any], Path]:
     path = directory / "required.json"
     manifest = load_json(path)
-    if not isinstance(manifest, dict) or manifest.get("schema_version") != 1 or manifest.get("increment") != increment:
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != 1
+        or manifest.get("increment") != increment
+    ):
         raise CheckResultError("invalid required.json")
     required = manifest.get("required")
     if not isinstance(required, list) or not required:
@@ -293,20 +307,34 @@ def build_summary(increment: str) -> dict[str, Any]:
             record["evidence_source"] = "changed_log"
         latest[key] = record
     checks = []
-    counts = {"required": len(manifest["required"]), "pass": 0, "fail": 0, "unknown": 0, "missing": 0}
+    counts = {
+        "required": len(manifest["required"]),
+        "pass": 0,
+        "fail": 0,
+        "unknown": 0,
+        "missing": 0,
+    }
     for item in manifest["required"]:
         key = check_key(item["kind"], item["name"])
         record = latest.get(key)
         status = "missing" if record is None else record["status"]
         counts[status] += 1
-        checks.append({
-            "kind": item["kind"],
-            "name": item["name"],
-            "status": status,
-            "source": "none" if record is None else record["evidence_source"],
-            "exit_code": None if record is None else record.get("exit_code"),
-        })
-    conclusion = "fail" if counts["fail"] else "incomplete" if counts["unknown"] or counts["missing"] else "pass"
+        checks.append(
+            {
+                "kind": item["kind"],
+                "name": item["name"],
+                "status": status,
+                "source": "none" if record is None else record["evidence_source"],
+                "exit_code": None if record is None else record.get("exit_code"),
+            }
+        )
+    conclusion = (
+        "fail"
+        if counts["fail"]
+        else "incomplete"
+        if counts["unknown"] or counts["missing"]
+        else "pass"
+    )
     return {
         "schema_version": 1,
         "increment": increment,
@@ -322,12 +350,16 @@ def command_summarize(args: argparse.Namespace) -> int:
     summary = build_summary(args.increment)
     atomic_json(result_dir(args.increment) / "summary.json", summary)
     counts = summary["counts"]
-    print(f"{summary['conclusion'].upper()} {args.increment} required={counts['required']} pass={counts['pass']} fail={counts['fail']} unknown={counts['unknown']} missing={counts['missing']}")
+    print(
+        f"{summary['conclusion'].upper()} {args.increment} required={counts['required']} pass={counts['pass']} fail={counts['fail']} unknown={counts['unknown']} missing={counts['missing']}"
+    )
     return status_exit(summary["conclusion"])
 
 
 def status_exit(status: str) -> int:
-    return 0 if status == "pass" else EXIT_FAILED if status == "fail" else EXIT_INCOMPLETE
+    return (
+        0 if status == "pass" else EXIT_FAILED if status == "fail" else EXIT_INCOMPLETE
+    )
 
 
 def command_conclusion(args: argparse.Namespace) -> int:
@@ -337,9 +369,16 @@ def command_conclusion(args: argparse.Namespace) -> int:
     prefix = f"{summary['conclusion'].upper()} {args.increment}"
     if summary["conclusion"] == "pass":
         sources = sorted({item["source"] for item in summary["checks"]})
-        print(f"{prefix} required={counts['required']} pass={counts['pass']} fail=0 unknown=0 missing=0 sources={','.join(sources)}")
+        print(
+            f"{prefix} required={counts['required']} pass={counts['pass']} fail=0 unknown=0 missing=0 sources={','.join(sources)}"
+        )
     else:
-        item = next(check for check in summary["checks"] if check["status"] in ({"fail"} if summary["conclusion"] == "fail" else {"unknown", "missing"}))
+        item = next(
+            check
+            for check in summary["checks"]
+            if check["status"]
+            in ({"fail"} if summary["conclusion"] == "fail" else {"unknown", "missing"})
+        )
         detail = f"check={item['kind']}/{item['name']} source={item['source']}"
         if item["exit_code"] is not None:
             detail += f" code={item['exit_code']}"
@@ -409,7 +448,9 @@ def parser() -> argparse.ArgumentParser:
 
     init = commands.add_parser("init", help="define required checks")
     init.add_argument("--increment", required=True)
-    init.add_argument("--require", action="append", default=[], required=True, metavar="KIND/NAME")
+    init.add_argument(
+        "--require", action="append", default=[], required=True, metavar="KIND/NAME"
+    )
     init.set_defaults(handler=command_init)
 
     run = commands.add_parser("run", help="run and record a manually selected command")
@@ -423,26 +464,36 @@ def parser() -> argparse.ArgumentParser:
     imported.add_argument("--increment", required=True)
     imported.add_argument("--kind", required=True, choices=sorted(VALID_KINDS))
     imported.add_argument("--name", required=True)
-    imported.add_argument("--format", required=True, choices=["nx", "pytest", "eslint", "generic"])
+    imported.add_argument(
+        "--format", required=True, choices=["nx", "pytest", "eslint", "generic"]
+    )
     imported.add_argument("--exit-code", type=int)
     imported.add_argument("--log", required=True)
     imported.set_defaults(handler=command_import)
 
-    summarize = commands.add_parser("summarize", help="write and display the compact summary")
+    summarize = commands.add_parser(
+        "summarize", help="write and display the compact summary"
+    )
     summarize.add_argument("--increment", required=True)
     summarize.set_defaults(handler=command_summarize)
 
-    conclusion = commands.add_parser("conclusion", help="print one agent-facing conclusion line")
+    conclusion = commands.add_parser(
+        "conclusion", help="print one agent-facing conclusion line"
+    )
     conclusion.add_argument("--increment", required=True)
     conclusion.set_defaults(handler=command_conclusion)
 
-    attest = commands.add_parser("attest", help="record owner verification of a passing gate")
+    attest = commands.add_parser(
+        "attest", help="record owner verification of a passing gate"
+    )
     attest.add_argument("--increment", required=True)
     attest.add_argument("--verified-by", required=True)
     attest.add_argument("--confirm", required=True, metavar="I-VERIFIED")
     attest.set_defaults(handler=command_attest)
 
-    attestation = commands.add_parser("attestation", help="validate and print owner attestation")
+    attestation = commands.add_parser(
+        "attestation", help="validate and print owner attestation"
+    )
     attestation.add_argument("--increment", required=True)
     attestation.set_defaults(handler=command_attestation)
     return result

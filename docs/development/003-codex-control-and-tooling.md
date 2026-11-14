@@ -233,6 +233,30 @@ Run `nx run omni:tools-test`, `nx run omni:tools-process-test` and
 test is also included in the root `verify` manifest. No service build, live provider,
 database/Kafka call, watcher or runtime activation is needed for this change.
 
+### Workspace formatting scope
+
+`nx run omni:format` selects staged, unstaged and untracked files; `--all` explicitly
+selects all tracked files as well. Prettier handles supported text formats, Platform
+Java uses its dedicated formatter, and the four Python application/library roots
+retain their Ruff lint-fix/format/check pipeline. Ignore rules and root/path checks
+apply before routing; generated and external trees are not formatting targets.
+
+Root `tools/**/*.py` and `.pyi` now route to `nx run omni:tools-format`, using
+`tools/run-python.cjs` and the existing workspace Ruff installation with
+[tools/ruff.toml](../../tools/ruff.toml). This target formats selected files only;
+it does not introduce lint autofixes, install dependencies or change application
+Ruff policies. Direct invocation defaults to changed tooling files; an internal
+`OMNI_FORMAT_FILES` JSON array can supply a bounded explicit selection. Missing
+Ruff or formatter failure fails the command rather than silently skipping tools.
+
+This review changes local tooling/configuration and formatting regression tests.
+Platform, Analyzer, Ingestor, Query Service, Console, transport contracts, shared
+runtime libraries, persistence, Kafka, storage paths and deployment behavior remain
+unchanged. Architecture, ADR, service/data/flow docs and increment statuses need no
+update because no runtime contract or activation changes. Graph results were stale
+and did not index root tooling; direct target/launcher/test inspection supplies the
+impact assessment rather than treating an empty graph radius as proof.
+
 ### Required verification
 
 The setup is accepted when Codex can:

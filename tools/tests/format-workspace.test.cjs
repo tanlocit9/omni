@@ -11,7 +11,68 @@ const {
   routeJava,
   regularFile,
   formatPrettierFiles,
+  formatPython,
 } = require('../format-workspace.cjs');
+
+test('tools Python selection includes tests and rejects other roots and traversal', () => {
+  assert.deepEqual(
+    pythonFiles(
+      [
+        'tools/jobs_backlog.py',
+        'tools/tests/test_jobs_backlog.py',
+        'tools/schema.pyi',
+        'tools/../apps/analyzer/app/main.py',
+        'apps/analyzer/app/main.py',
+        'tools/file.cjs',
+        'tools\\bad.py',
+      ],
+      'tools'
+    ),
+    [
+      'tools/jobs_backlog.py',
+      'tools/tests/test_jobs_backlog.py',
+      'tools/schema.pyi',
+    ]
+  );
+});
+
+test('tools formatting preserves argv boundaries and propagates failure', (t) => {
+  const previous = process.env.OMNI_FORMAT_FILES;
+  t.after(() => {
+    if (previous === undefined) delete process.env.OMNI_FORMAT_FILES;
+    else process.env.OMNI_FORMAT_FILES = previous;
+  });
+  process.env.OMNI_FORMAT_FILES = JSON.stringify([
+    'tools/jobs_backlog.py',
+    'apps/analyzer/app/main.py',
+    'tools/nonexistent.py',
+  ]);
+  const calls = [];
+  formatPython('tools', (command, args) => calls.push({ command, args }));
+  assert.deepEqual(calls, [
+    {
+      command: process.execPath,
+      args: [
+        'tools/run-python.cjs',
+        '-m',
+        'ruff',
+        'format',
+        '--force-exclude',
+        '--',
+        'tools/jobs_backlog.py',
+      ],
+    },
+  ]);
+  assert.throws(
+    () =>
+      formatPython('tools', () => {
+        throw new Error('Ruff failed');
+      }),
+    /Ruff failed/
+  );
+  process.env.OMNI_FORMAT_FILES = '[]';
+  formatPython('tools', () => assert.fail('No formatter for empty selection'));
+});
 
 test('changed selection handles staged, unstaged, untracked and ignored files', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'omni-format-'));

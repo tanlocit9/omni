@@ -16,7 +16,7 @@ def configure_output(stream=None):
     if reconfigure is not None:
         try:
             reconfigure(encoding="utf-8", errors="backslashreplace")
-        except (OSError, ValueError):
+        except OSError, ValueError:
             pass  # Captured or already closed streams may not be reconfigurable.
 
 
@@ -24,7 +24,7 @@ def is_interactive(stream=None):
     stream = sys.stdout if stream is None else stream
     try:
         return bool(stream.isatty())
-    except (AttributeError, OSError, ValueError):
+    except AttributeError, OSError, ValueError:
         return False
 
 
@@ -36,7 +36,10 @@ def _windows_ansi(stream):
         from ctypes import wintypes
 
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel.GetConsoleMode.argtypes = [
+            wintypes.HANDLE,
+            ctypes.POINTER(wintypes.DWORD),
+        ]
         kernel.GetConsoleMode.restype = wintypes.BOOL
         kernel.SetConsoleMode.argtypes = [wintypes.HANDLE, wintypes.DWORD]
         kernel.SetConsoleMode.restype = wintypes.BOOL
@@ -46,7 +49,7 @@ def _windows_ansi(stream):
             kernel.GetConsoleMode(handle, ctypes.byref(mode))
             and kernel.SetConsoleMode(handle, mode.value | 0x0004)
         )
-    except (AttributeError, ImportError, OSError, ValueError):
+    except AttributeError, ImportError, OSError, ValueError:
         return False
 
 
@@ -112,7 +115,7 @@ def table(headers, rows, *, stream=None):
     separator = "─"
     try:
         separator.encode(getattr(stream, "encoding", None) or "utf-8")
-    except (LookupError, UnicodeEncodeError):
+    except LookupError, UnicodeEncodeError:
         separator = "-"
     return "\n".join(
         [

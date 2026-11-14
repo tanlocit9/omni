@@ -1,5 +1,20 @@
 # Omni Release Notes
 
+## 2026-11-14 - Record historical recalculation debt and cover tooling formatting
+
+Record [TD-019](docs/technical-debt/019-historical-recalculation-and-outcome-invalidation.md):
+historical corrections do not automatically propagate to later calculations, and
+signal reruns retain populated outcomes. No runtime repair or I10 closure is implied.
+
+Route root Python tools through the workspace formatter with the existing Ruff
+installation and an explicit 88-column policy. Keep application lint policies and
+runtime behavior unchanged; regression-test source does not establish execution.
+
+Executed `nx run omni:format` for changed files and `nx run omni:tools-format` for
+all 12 tracked Python tooling files: both succeeded, with 10 Python files
+reformatted and two unchanged. No service test, lint, build, provider replay or
+database verification is claimed. The format regression suite awaits approval.
+
 ## 2026-11-12 - Record completion delivery and storage commit debt
 
 Record two operational boundaries in [TD-018](docs/technical-debt/018-execution-watchdog-observation.md#completion-delivery-and-storage-commit-boundaries):

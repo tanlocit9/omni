@@ -69,8 +69,14 @@ class CheckResultTests(unittest.TestCase):
         process.wait.return_value = 0
 
         with (
-            patch.object(check_result.shutil, "which", return_value="C:\\repo\\node_modules\\.bin\\nx.CMD"),
-            patch.object(check_result.subprocess, "Popen", return_value=process) as popen,
+            patch.object(
+                check_result.shutil,
+                "which",
+                return_value="C:\\repo\\node_modules\\.bin\\nx.CMD",
+            ),
+            patch.object(
+                check_result.subprocess, "Popen", return_value=process
+            ) as popen,
         ):
             result = check_result.command_run(args)
 
@@ -105,7 +111,9 @@ class CheckResultTests(unittest.TestCase):
 
     def test_run_uses_shared_hidden_options_and_preserves_log_and_exit_evidence(self):
         args = SimpleNamespace(
-            increment="P3-I5", kind="test", name="platform-tests",
+            increment="P3-I5",
+            kind="test",
+            name="platform-tests",
             command=["nx", "run", "platform:test"],
         )
         process = MagicMock()
@@ -114,8 +122,14 @@ class CheckResultTests(unittest.TestCase):
         output = io.StringIO()
         with (
             patch.object(check_result.shutil, "which", return_value="nx"),
-            patch.object(check_result, "hidden_process_options", return_value={"creationflags": 32}),
-            patch.object(check_result.subprocess, "Popen", return_value=process) as popen,
+            patch.object(
+                check_result,
+                "hidden_process_options",
+                return_value={"creationflags": 32},
+            ),
+            patch.object(
+                check_result.subprocess, "Popen", return_value=process
+            ) as popen,
             redirect_stdout(output),
         ):
             self.assertEqual(check_result.command_run(args), 7)
@@ -171,9 +185,7 @@ class CheckResultTests(unittest.TestCase):
 
     def test_failed_exit_code_overrides_success_looking_log(self):
         self.init()
-        self.import_log(
-            "test", "analyzer-tests", "Successfully ran target test", 1
-        )
+        self.import_log("test", "analyzer-tests", "Successfully ran target test", 1)
         self.import_log("lint", "analyzer-lint", "anything", 0)
 
         summary = check_result.build_summary("P3-I5")
@@ -183,9 +195,15 @@ class CheckResultTests(unittest.TestCase):
         self.assertEqual(failed["exit_code"], 1)
 
     def test_parsers_are_conservative(self):
-        self.assertEqual(check_result.parse_log("12 passed in 1.2s", "pytest")[0], "pass")
-        self.assertEqual(check_result.parse_log("1 failed, 11 passed", "pytest")[0], "fail")
-        self.assertEqual(check_result.parse_log("ordinary output", "pytest")[0], "unknown")
+        self.assertEqual(
+            check_result.parse_log("12 passed in 1.2s", "pytest")[0], "pass"
+        )
+        self.assertEqual(
+            check_result.parse_log("1 failed, 11 passed", "pytest")[0], "fail"
+        )
+        self.assertEqual(
+            check_result.parse_log("ordinary output", "pytest")[0], "unknown"
+        )
         self.assertEqual(
             check_result.parse_log(
                 "Successfully ran target lint for project analyzer", "nx"
@@ -207,7 +225,9 @@ class CheckResultTests(unittest.TestCase):
         summary = check_result.build_summary("P3-I5")
 
         self.assertEqual(summary["conclusion"], "incomplete")
-        changed = next(item for item in summary["checks"] if item["name"] == "analyzer-tests")
+        changed = next(
+            item for item in summary["checks"] if item["name"] == "analyzer-tests"
+        )
         self.assertEqual(changed["source"], "changed_log")
 
     def test_owner_can_attest_only_after_pass(self):
@@ -260,9 +280,7 @@ class CheckResultTests(unittest.TestCase):
         )
         self.import_log("test", "analyzer-tests", "failed", 1)
 
-        with self.assertRaisesRegex(
-            check_result.CheckResultError, "no longer passes"
-        ):
+        with self.assertRaisesRegex(check_result.CheckResultError, "no longer passes"):
             check_result.command_attestation(SimpleNamespace(increment="P3-I5"))
 
     def test_attestation_requires_explicit_confirmation_phrase(self):

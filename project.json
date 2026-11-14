@@ -46,6 +46,14 @@
       },
       "outputs": []
     },
+    "tools-format": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/format-workspace.cjs --python=tools"
+      },
+      "outputs": []
+    },
     "format-test": {
       "cache": false,
       "executor": "nx:run-commands",

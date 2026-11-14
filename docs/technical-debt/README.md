@@ -10,6 +10,11 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 
 ## Reviewed records
 
+November 14: [TD-019](019-historical-recalculation-and-outcome-invalidation.md)
+records missing forward recalculation after historical corrections and retention
+of populated signal outcomes on rerun. P1 when historical inputs change; source
+inspection only, with implementation and live-data impact still unverified.
+
 November 11 owner decision: [TD-018](018-execution-watchdog-observation.md) defers
 automatic execution expiry during observation. Keep the watchdog disabled;
 completion validation and the existing I10 late-evidence/cutover gates remain active.
@@ -95,6 +100,12 @@ TODOs are added only to existing source with a current gap; no placeholder runti
 | [libs/py-common/py_common/kafka/job_status_service.py](../../libs/py-common/py_common/kafka/job_status_service.py)                                                                                                       | [TD-009](009-python-kafka-worker-throughput-and-offset-safety.md) |
 | [apps/ingestor/app/messaging/consumer.py](../../apps/ingestor/app/messaging/consumer.py)                                                                                                                                 | [TD-009](009-python-kafka-worker-throughput-and-offset-safety.md) |
 | [apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java](../../apps/core/src/main/java/com/omni/platform/modules/scheduler/consumers/JobStatusConsumer.java)                       | [TD-010](010-kafka-poison-record-and-dead-letter-policy.md)       |
+
+## Historical correction follow-up
+
+| ID                                                                 | Type                    | Review status                                   | Priority / activation                                                                                                                      |
+| ------------------------------------------------------------------ | ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [TD-019](019-historical-recalculation-and-outcome-invalidation.md) | calculation correctness | OPEN / source-confirmed; live impact unverified | P1 when historical inputs change or evaluated signals are refreshed; bounded forward recomputation and outcome invalidation need approval. |
 
 ## Closure and evidence
 

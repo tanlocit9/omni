@@ -1,5 +1,8 @@
 // Shared child-process defaults; this module never launches a process.
-function commandEnvironment(environment = process.env, platform = process.platform) {
+function commandEnvironment(
+  environment = process.env,
+  platform = process.platform
+) {
   const childEnvironment = { ...environment };
   if (platform === 'win32') {
     for (const [name, value] of Object.entries({

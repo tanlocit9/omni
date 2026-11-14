@@ -24,12 +24,12 @@ they do not retroactively verify the isolated runtime commit or complete I10.
 
 ## Source and regression evidence
 
-| Boundary | Regression coverage |
-| --- | --- |
-| Shared storage write_day; Analyzer | Timestamp/calendar-date merge, historical preservation, actual Parquet round trips |
+| Boundary                                       | Regression coverage                                                                                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Shared storage write_day; Analyzer             | Timestamp/calendar-date merge, historical preservation, actual Parquet round trips                                            |
 | Platform member preparation and reconciliation | PENDING without start time; worker RUNNING receipt; terminal immutability; healthy sibling and unfinished ancestor settlement |
-| Shared messaging and Kafka; Ingestor | RUNNING receipt and terminal timestamp contracts; no command commit for RUNNING-only acknowledgements |
-| Shared atomic envelope; Ingestor message model | Both weekend snapshot days accepted; wrong target/hash and weekend market work rejected |
+| Shared messaging and Kafka; Ingestor           | RUNNING receipt and terminal timestamp contracts; no command commit for RUNNING-only acknowledgements                         |
+| Shared atomic envelope; Ingestor message model | Both weekend snapshot days accepted; wrong target/hash and weekend market work rejected                                       |
 
 Existing local runs on the combined working tree: lifecycle Platform 744 passed/5
 skipped; latest py-common 420 passed/5 skipped, Analyzer 268 passed, Ingestor 100

@@ -50,7 +50,9 @@ test('hidden options preserve shell requirements, stdio, cwd and additional envi
   assert.equal(result.env.OMNI_FORMAT_FILES, environment.OMNI_FORMAT_FILES);
   assert.equal(result.env.NX_NO_CLOUD, 'true');
   assert.equal(options.windowsHide, undefined);
-  assert.deepEqual(environment, { OMNI_FORMAT_FILES: '["file with spaces.java"]' });
+  assert.deepEqual(environment, {
+    OMNI_FORMAT_FILES: '["file with spaces.java"]',
+  });
 });
 
 test('native executables can explicitly avoid a shell', () => {

@@ -12,11 +12,11 @@ by this checkpoint or implied by Parquet/READY existence.
 false. Force implies rerun, including an explicit rerun=false. The normalized
 values participate in request idempotency and the 202 response, not atomicWorkId.
 
-| Input | Attempts | EOD | Indicators |
-| --- | --- | --- | --- |
-| Flags absent / both false | Reuse compatible PENDING/RUNNING attempts with live requesters; otherwise create new | On new execution, reuse exact covered Parquet day; otherwise fetch | Compute on new execution |
-| rerun=true, force=false | New attempts throughout the expanded chain | Reuse exact covered day; fetch if missing | Recompute |
-| force=true | New attempts throughout the expanded chain | Always invoke provider; never satisfy the command from existing day rows | Recompute from approved refreshed EOD |
+| Input                     | Attempts                                                                             | EOD                                                                      | Indicators                            |
+| ------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------- |
+| Flags absent / both false | Reuse compatible PENDING/RUNNING attempts with live requesters; otherwise create new | On new execution, reuse exact covered Parquet day; otherwise fetch       | Compute on new execution              |
+| rerun=true, force=false   | New attempts throughout the expanded chain                                           | Reuse exact covered day; fetch if missing                                | Recompute                             |
+| force=true                | New attempts throughout the expanded chain                                           | Always invoke provider; never satisfy the command from existing day rows | Recompute from approved refreshed EOD |
 
 FAILED/BLOCKED/SUCCESS or ownerless attempts are not reused. Frozen upstream
 attempts and work identity must match for sharing. Symbols still use a current-day
@@ -68,11 +68,11 @@ ownership and analytical work hashes remain unchanged.
 
 ## Impact and verification inventory
 
-| Production boundary | Regression source / intended branches | Executed now |
-| --- | --- | --- |
-| IndicatorBackfillController | Controller tests: omitted/false flags, rerun, force overriding rerun, normalized policy/idempotency response | PASS: 21 controller cases |
-| GraphWorkRequestService and WorkExpansion | PostgreSQL policy cases: in-flight sharing, distinct rerun/force attempts with unchanged work IDs, same-key policy conflict, persisted worker policy | PASS: 68 PostgreSQL + 9 expansion cases |
-| Ingestor stock_prices | covered/missing EOD across legacy-force, legacy-normal, PREFER_EXISTING and REFRESH; changed fetched value; unknown policy rejects without fetch/write | PASS: 40 focused cases |
+| Production boundary                       | Regression source / intended branches                                                                                                                  | Executed now                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| IndicatorBackfillController               | Controller tests: omitted/false flags, rerun, force overriding rerun, normalized policy/idempotency response                                           | PASS: 21 controller cases               |
+| GraphWorkRequestService and WorkExpansion | PostgreSQL policy cases: in-flight sharing, distinct rerun/force attempts with unchanged work IDs, same-key policy conflict, persisted worker policy   | PASS: 68 PostgreSQL + 9 expansion cases |
+| Ingestor stock_prices                     | covered/missing EOD across legacy-force, legacy-normal, PREFER_EXISTING and REFRESH; changed fetched value; unknown policy rejects without fetch/write | PASS: 40 focused cases                  |
 
 Graph impact over four source files was truncated to 60/72 impacted nodes and had
 979 unresolved calls. Cross-service reconciliation: Platform owns the HTTP/attempt
@@ -92,14 +92,14 @@ external market provider is stubbed. The fixture records provider calls and read
 actual canonical Parquet before/after the real handler; it does not substitute
 PostgreSQL readiness for a file read or replace computation/publication code.
 
-| Case | Observed result |
-| --- | --- |
-| Default, covered day and no PostgreSQL READY for that work | SUCCESS and new exact-day EOD/Indicators READY; zero provider calls despite a provider-failure switch |
-| rerun, covered day and no prior PostgreSQL READY | Same Parquet reuse behavior with rerun policy; no provider call |
-| File exists but requested day is absent | Exactly one fetch, day row appears and both outputs become READY; unrelated rows preserved |
-| force with an existing day | Exactly one fetch, canonical close changes 177 to 777; unrelated row digest preserved; new exact-day READY |
-| force provider failure | Expected FAILED request; cached row remains 777, no new-attempt READY and Indicators not published |
-| force provider response lacks requested day | Same fail-closed behavior; cached day is not used as fallback |
+| Case                                                       | Observed result                                                                                            |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Default, covered day and no PostgreSQL READY for that work | SUCCESS and new exact-day EOD/Indicators READY; zero provider calls despite a provider-failure switch      |
+| rerun, covered day and no prior PostgreSQL READY           | Same Parquet reuse behavior with rerun policy; no provider call                                            |
+| File exists but requested day is absent                    | Exactly one fetch, day row appears and both outputs become READY; unrelated rows preserved                 |
+| force with an existing day                                 | Exactly one fetch, canonical close changes 177 to 777; unrelated row digest preserved; new exact-day READY |
+| force provider failure                                     | Expected FAILED request; cached row remains 777, no new-attempt READY and Indicators not published         |
+| force provider response lacks requested day                | Same fail-closed behavior; cached day is not used as fallback                                              |
 
 All six new cases and the two existing cross-service cases pass: 8/8, no skips.
 Seven request probes (one seed plus six cases) and five provider invocations

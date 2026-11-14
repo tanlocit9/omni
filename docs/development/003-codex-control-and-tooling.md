@@ -235,11 +235,19 @@ database/Kafka call, watcher or runtime activation is needed for this change.
 
 ### Workspace formatting scope
 
-`nx run omni:format` selects staged, unstaged and untracked files; `--all` explicitly
-selects all tracked files as well. Prettier handles supported text formats, Platform
+`nx run omni:format` defaults to all tracked files plus non-ignored untracked
+files, even when the worktree is clean. `--all` remains an explicit alias;
+`--changed` (or the compatible `--all=false`) selects only staged, unstaged and
+untracked files. Conflicting mode flags fail instead of selecting an ambiguous scope.
+Prettier handles supported text formats, Platform
 Java uses its dedicated formatter, and the four Python application/library roots
 retain their Ruff lint-fix/format/check pipeline. Ignore rules and root/path checks
 apply before routing; generated and external trees are not formatting targets.
+Maintain exclusions in [.prettierignore](../../.prettierignore), including `.agent`,
+`.agents`, other local agent/editor directories, generated contracts, dependencies,
+build outputs, reports and caches. These exclusions apply before Java/Python routing
+as well as to Prettier. The command uses Git inventory, not recursive traversal of
+ignored local directories; it does not format every file present on disk.
 
 Root `tools/**/*.py` and `.pyi` now route to `nx run omni:tools-format`, using
 `tools/run-python.cjs` and the existing workspace Ruff installation with

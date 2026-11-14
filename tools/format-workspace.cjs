@@ -30,7 +30,7 @@ function run(command, args, options = {}) {
   return result.stdout;
 }
 
-function gitFiles(all, git = (args) => run('git', args, { stdio: 'pipe' })) {
+function gitFiles(all = true, git = (args) => run('git', args, { stdio: 'pipe' })) {
   const lists = all
     ? [git(['ls-files', '--cached', '-z'])]
     : [
@@ -54,6 +54,19 @@ function gitFiles(all, git = (args) => run('git', args, { stdio: 'pipe' })) {
   return [
     ...new Set(lists.flatMap((list) => list.split('\0').filter(Boolean))),
   ];
+}
+
+function formatAll(args) {
+  const allFlags = ['--all', '--all=true'];
+  const changedFlags = ['--changed', '--all=false'];
+  if (args.some((arg) => ![...allFlags, ...changedFlags].includes(arg))) {
+    throw new Error('Usage: nx run omni:format [--all | --changed]');
+  }
+  const changed = args.some((arg) => changedFlags.includes(arg));
+  if (changed && args.some((arg) => allFlags.includes(arg))) {
+    throw new Error('Choose either --all or --changed, not both.');
+  }
+  return !changed;
 }
 
 function pythonFiles(files, project) {
@@ -244,12 +257,7 @@ async function main(args) {
     formatPython(args[0].slice('--python='.length));
     return;
   }
-  if (
-    args.some((arg) => !['--all', '--all=true', '--all=false'].includes(arg))
-  ) {
-    throw new Error('Usage: nx run omni:format [--all]');
-  }
-  const all = args.includes('--all') || args.includes('--all=true');
+  const all = formatAll(args);
   const candidates = gitFiles(all).filter((file) => regularFile(file));
   if (!candidates.length) {
     console.log('No files to format.');
@@ -280,6 +288,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  formatAll,
   gitFiles,
   pythonFiles,
   javaFiles,

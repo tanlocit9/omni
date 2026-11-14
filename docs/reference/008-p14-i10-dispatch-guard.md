@@ -45,18 +45,18 @@ date checks remain fail closed; missing EOD never becomes inferred no-trade.
 
 ## Impact and regression matrix
 
-| Boundary / source | Safety behavior | Executed or required evidence |
-| --- | --- | --- |
-| Platform context factory, registry, guard, execution context | Exact partitions/day; malformed declarations reject; same waiting execution resumes once | JobDependencyContextFactoryTest, PlatformIdentityAdmissionTest, DefaultJobDependencyGuardTest, JobSchedulerDependencyPostgresTest |
-| Platform OutputWorkReadiness | Missing frozen predecessor declaration cannot disappear through an inner join | OutputWorkReadinessTest, GraphWorkRequestsPostgresTest |
-| Platform completion declaration | Invalid sizes/nulls/duplicates and late/conflicting enrollment reject | OutputCompletionDeclarationTest |
-| Platform watchdog/backfill | Unsafe timing/batch bounds reject; publication/terminal races cannot expire work; baseline requires stable fence, drained writers and known ownership | OutputSafetyBoundaryTest, GraphWorkRequestsPostgresTest |
-| Platform registration inbox | Frozen work aliases and event/member IDs cannot conflict; malformed wire/semantic fields never reach persistence | OutputRegistrationEventTest, GraphWorkRequestsPostgresTest |
-| Analyzer signal evaluator/history | Validate actual approved bytes, retain unrelated rows/models, load metadata once | test_signal_evaluation_readiness.py, test_signals.py |
-| Analyzer Sector Wave | All three routes consume approved versions and reject drift before write | test_sector_wave_handler_paths.py |
-| py-common registry/metadata synchronization/work rows | FULL and EXACT metadata preserve date holes; wire and model dates select the same scoped day | tests/storage/test_metadata_sync.py, tests/storage/test_work_rows.py |
-| Kafka → worker → Platform → Query | Status without committed registration cannot dispatch downstream or expose READY; scoped query without metadata sync; provider failure/new-attempt recovery | I10WorkReadinessIntegrationTest, JobRunCrossServiceIntegrationTest |
-| Existing request sharing/overlap | Cancellation/replay cannot rebind shared attempts | platform:test-overlap, platform:test-atomic-sharing |
+| Boundary / source                                            | Safety behavior                                                                                                                                             | Executed or required evidence                                                                                                     |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Platform context factory, registry, guard, execution context | Exact partitions/day; malformed declarations reject; same waiting execution resumes once                                                                    | JobDependencyContextFactoryTest, PlatformIdentityAdmissionTest, DefaultJobDependencyGuardTest, JobSchedulerDependencyPostgresTest |
+| Platform OutputWorkReadiness                                 | Missing frozen predecessor declaration cannot disappear through an inner join                                                                               | OutputWorkReadinessTest, GraphWorkRequestsPostgresTest                                                                            |
+| Platform completion declaration                              | Invalid sizes/nulls/duplicates and late/conflicting enrollment reject                                                                                       | OutputCompletionDeclarationTest                                                                                                   |
+| Platform watchdog/backfill                                   | Unsafe timing/batch bounds reject; publication/terminal races cannot expire work; baseline requires stable fence, drained writers and known ownership       | OutputSafetyBoundaryTest, GraphWorkRequestsPostgresTest                                                                           |
+| Platform registration inbox                                  | Frozen work aliases and event/member IDs cannot conflict; malformed wire/semantic fields never reach persistence                                            | OutputRegistrationEventTest, GraphWorkRequestsPostgresTest                                                                        |
+| Analyzer signal evaluator/history                            | Validate actual approved bytes, retain unrelated rows/models, load metadata once                                                                            | test_signal_evaluation_readiness.py, test_signals.py                                                                              |
+| Analyzer Sector Wave                                         | All three routes consume approved versions and reject drift before write                                                                                    | test_sector_wave_handler_paths.py                                                                                                 |
+| py-common registry/metadata synchronization/work rows        | FULL and EXACT metadata preserve date holes; wire and model dates select the same scoped day                                                                | tests/storage/test_metadata_sync.py, tests/storage/test_work_rows.py                                                              |
+| Kafka → worker → Platform → Query                            | Status without committed registration cannot dispatch downstream or expose READY; scoped query without metadata sync; provider failure/new-attempt recovery | I10WorkReadinessIntegrationTest, JobRunCrossServiceIntegrationTest                                                                |
+| Existing request sharing/overlap                             | Cancellation/replay cannot rebind shared attempts                                                                                                           | platform:test-overlap, platform:test-atomic-sharing                                                                               |
 
 Ingestor and Query production code are unchanged; their integration adapters select
 the actual PostgreSQL reader/provider fixture, and their existing suites remain
@@ -100,30 +100,30 @@ commit, deployment, live consumer action or retained migration is included.
 Final Python coverage reports are preserved in the gate's ignored `artifacts/`
 directory. These are attributable per-source results, not project aggregate rates:
 
-| Changed production source | Line | Branch |
-| --- | ---: | ---: |
-| Analyzer signals/evaluator.py | 97.78% | 91.67% |
-| Analyzer signals/storage.py | 92.20% | 81.63% |
-| Analyzer sector_wave/handler.py | 96.77% | 89.29% |
-| py-common storage/dataset_registry.py | 100% | 100% |
-| py-common storage/metadata_sync.py | 93.37% | 81.48% |
-| py-common storage/work_rows.py | 95.65% | 92.11% |
+| Changed production source             |   Line | Branch |
+| ------------------------------------- | -----: | -----: |
+| Analyzer signals/evaluator.py         | 97.78% | 91.67% |
+| Analyzer signals/storage.py           | 92.20% | 81.63% |
+| Analyzer sector_wave/handler.py       | 96.77% | 89.29% |
+| py-common storage/dataset_registry.py |   100% |   100% |
+| py-common storage/metadata_sync.py    | 93.37% | 81.48% |
+| py-common storage/work_rows.py        | 95.65% | 92.11% |
 
 The final Platform JaCoCo report is preserved as `platform-full-jacoco.xml` in
 the same artifact directory, with `production-source-hashes.json` for this repair:
 
-| Changed or directly exercised safety component | Line | Branch |
-| --- | ---: | ---: |
-| JobDependencyContextFactory | 95.38% | 87.50% |
-| JobExecutionContext | 94.44% | 100% |
-| PlatformDependencyRegistry | 100% | 98.21% |
-| DefaultJobDependencyGuard | 92.22% | 90.20% |
-| OutputWorkReadiness | 100% | 95.45% |
-| OutputCompletionGate | 89.42% | 87.88% |
-| OutputRegistrationStore | 100% | 88.24% |
-| OutputBackfillService | 100% | 100% |
-| ExecutionTimeoutWatchdog | 95.83% | 96.15% |
-| OutputRegistrationEvent | 100% | 85.45% |
+| Changed or directly exercised safety component |   Line | Branch |
+| ---------------------------------------------- | -----: | -----: |
+| JobDependencyContextFactory                    | 95.38% | 87.50% |
+| JobExecutionContext                            | 94.44% |   100% |
+| PlatformDependencyRegistry                     |   100% | 98.21% |
+| DefaultJobDependencyGuard                      | 92.22% | 90.20% |
+| OutputWorkReadiness                            |   100% | 95.45% |
+| OutputCompletionGate                           | 89.42% | 87.88% |
+| OutputRegistrationStore                        |   100% | 88.24% |
+| OutputBackfillService                          |   100% |   100% |
+| ExecutionTimeoutWatchdog                       | 95.83% | 96.15% |
+| OutputRegistrationEvent                        |   100% | 85.45% |
 
 This repair's source matrix clears the default thresholds. It does not establish
 coverage for every older I10 DTO, diagnostics/admin route, configuration class or

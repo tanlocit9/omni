@@ -1,0 +1,3 @@
+# Root CLI tooling shares the workspace interpreter; formatting adds no dependency.
+line-length = 88
+target-version = "py314"

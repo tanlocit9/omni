@@ -9,6 +9,7 @@ const pythonRoots = {
   ingestor: 'apps/ingestor',
   'query-service': 'apps/query-service',
   'py-common': 'libs/py-common',
+  tools: 'tools',
 };
 
 function run(command, args, options = {}) {
@@ -64,6 +65,7 @@ function pythonFiles(files, project) {
     if (!file.startsWith(`${projectRoot}/`)) return false;
     const relative = file.slice(projectRoot.length + 1);
     if (!/\.(py|pyi)$/.test(relative)) return false;
+    if (project === 'tools') return true;
     return project === 'py-common'
       ? /^(py_common|tests)\//.test(relative)
       : /^(app|tests)\//.test(relative) ||
@@ -114,8 +116,12 @@ function regularFile(file, workspace = root) {
   }
 }
 
-function formatPython(project) {
-  const selected = JSON.parse(process.env.OMNI_FORMAT_FILES || '[]');
+function formatPython(project, execute = run) {
+  const selected = process.env.OMNI_FORMAT_FILES
+    ? JSON.parse(process.env.OMNI_FORMAT_FILES)
+    : project === 'tools'
+    ? gitFiles(false)
+    : [];
   if (
     !Array.isArray(selected) ||
     !selected.every((file) => typeof file === 'string')
@@ -126,6 +132,20 @@ function formatPython(project) {
     regularFile(file)
   );
   if (!files.length) return;
+  if (project === 'tools') {
+    for (let offset = 0; offset < files.length; offset += 20) {
+      execute(process.execPath, [
+        'tools/run-python.cjs',
+        '-m',
+        'ruff',
+        'format',
+        '--force-exclude',
+        '--',
+        ...files.slice(offset, offset + 20),
+      ]);
+    }
+    return;
+  }
   const cwd = path.join(root, pythonRoots[project]);
   // Explicit files respect Ruff excludes; argv avoids shell/glob interpretation.
   for (let offset = 0; offset < files.length; offset += 20) {
@@ -241,7 +261,11 @@ async function main(args) {
     const selected = pythonFiles(files, project);
     if (!selected.length) continue;
     // Only fixed project/target names enter this Windows command shell.
-    run('nx', ['run', `${project}:lint-fix`, '--configuration=changed'], {
+    const target =
+      project === 'tools'
+        ? ['run', 'omni:tools-format']
+        : ['run', `${project}:lint-fix`, '--configuration=changed'];
+    run('nx', target, {
       shell: process.platform === 'win32',
       env: { ...process.env, OMNI_FORMAT_FILES: JSON.stringify(selected) },
     });
@@ -262,4 +286,5 @@ module.exports = {
   routeJava,
   regularFile,
   formatPrettierFiles,
+  formatPython,
 };

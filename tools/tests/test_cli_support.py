@@ -14,7 +14,9 @@ class CliOutputTests(unittest.TestCase):
         with patch.dict(os.environ, {"FORCE_COLOR": "1"}, clear=True):
             colored = cli_output.red("failure", stream=output)
             self.assertIn("\033[31m", colored)
-            rendered = cli_output.table(["STATUS", "COUNT"], [[colored, 3]], stream=output)
+            rendered = cli_output.table(
+                ["STATUS", "COUNT"], [[colored, 3]], stream=output
+            )
         plain = cli_output.ANSI_RE.sub("", rendered).splitlines()
         self.assertEqual(plain[0].index("COUNT"), plain[2].index("3"))
         self.assertEqual(cli_output.visible_len(colored), len("failure"))
@@ -74,7 +76,9 @@ class ProcessDefaultsTests(unittest.TestCase):
         original = {"OTHER": "keep"}
         with patch.object(process_utils.sys, "platform", "linux"):
             self.assertEqual(process_utils.command_environment(original), original)
-            self.assertEqual(process_utils.hidden_process_options(), {"creationflags": 0})
+            self.assertEqual(
+                process_utils.hidden_process_options(), {"creationflags": 0}
+            )
 
 
 if __name__ == "__main__":

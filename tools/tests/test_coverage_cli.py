@@ -71,7 +71,13 @@ class CoverageCliTests(unittest.TestCase):
         )
         self.assertEqual(result, 1)
         for expected in (
-            "STATUS", "FILE", "MATCHES", "FAIL", "79.00%", "MISSING", "shared.py"
+            "STATUS",
+            "FILE",
+            "MATCHES",
+            "FAIL",
+            "79.00%",
+            "MISSING",
+            "shared.py",
         ):
             self.assertIn(expected, output)
         self.assertNotIn("COVERAGE ", output)
@@ -96,7 +102,7 @@ class CoverageCliTests(unittest.TestCase):
         xml = (
             '<report><class name="pkg/Ready"><counter type="LINE" covered="8" '
             'missed="2"/><counter type="BRANCH" covered="0" missed="0"/>'
-            '</class></report>'
+            "</class></report>"
         )
         result, output = self.run_tool(
             jacoco_coverage, xml, "pkg.Ready", interactive=True
@@ -116,9 +122,7 @@ class CoverageCliTests(unittest.TestCase):
             jacoco_coverage, xml, "--table", "pkg.Incomplete", "pkg.Missing"
         )
         self.assertEqual(result, 1)
-        for expected in (
-            "STATUS", "CLASS", "FAIL", "0.00%", "MISSING", "pkg.Missing"
-        ):
+        for expected in ("STATUS", "CLASS", "FAIL", "0.00%", "MISSING", "pkg.Missing"):
             self.assertIn(expected, output)
         self.assertNotIn("COVERAGE ", output)
         self.assertNotIn("\033[", output)
@@ -127,7 +131,7 @@ class CoverageCliTests(unittest.TestCase):
         xml = (
             '<report><class name="pkg/Ready"><counter type="LINE" covered="10" '
             'missed="0"/><counter type="BRANCH" covered="8" missed="2"/>'
-            '</class></report>'
+            "</class></report>"
         )
         result, output = self.run_tool(
             jacoco_coverage, xml, "--table", "--branch", "0.9", "pkg.Ready"

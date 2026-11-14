@@ -39,10 +39,14 @@ def repair_plan(report: dict, head: str, root: Path = ROOT) -> list[dict]:
     for job in failed:
         if job.get("name") == "CI Quality Gate":
             continue  # Aggregate failure is not a separate repair command.
-        match = re.fullmatch(r"Python / ([a-z-]+) / Verify ([a-z-]+)", job.get("name", ""))
+        match = re.fullmatch(
+            r"Python / ([a-z-]+) / Verify ([a-z-]+)", job.get("name", "")
+        )
         if not match or match[1] != match[2] or match[1] not in PROJECTS:
             raise ValueError(f"Unsupported failed job: {job.get('name')}")
-        broken = [s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"]
+        broken = [
+            s["name"] for s in job.get("steps", []) if s.get("conclusion") == "failure"
+        ]
         if len(broken) != 1 or broken[0] not in STEPS:
             raise ValueError(f"Unsupported failed steps: {broken}")
         project = match[1]
@@ -50,7 +54,9 @@ def repair_plan(report: dict, head: str, root: Path = ROOT) -> list[dict]:
             raise ValueError(f"Duplicate failed project: {project}")
         selected[project] = broken[0]
     if not selected:
-        raise ValueError("No supported failed leaf jobs; nothing can be reported as repaired")
+        raise ValueError(
+            "No supported failed leaf jobs; nothing can be reported as repaired"
+        )
     plan = []
     for project, broken in sorted(selected.items()):
         config = json.loads((root / PROJECTS[project] / "project.json").read_text())
@@ -94,8 +100,7 @@ def check_identity(root: Path = ROOT) -> str:
 
 def print_plan(plan: list[dict], *, as_table: bool = False) -> None:
     commands = [
-        f"nx run {item['project']}:{item['target']} --skip-nx-cache"
-        for item in plan
+        f"nx run {item['project']}:{item['target']} --skip-nx-cache" for item in plan
     ]
     if as_table:
         configure_output()
@@ -117,8 +122,12 @@ def print_plan(plan: list[dict], *, as_table: bool = False) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True, type=Path)
-    parser.add_argument("--apply", action="store_true", help="Run the printed bounded repair/check plan")
-    parser.add_argument("--table", action="store_true", help="Display the repair plan as a table")
+    parser.add_argument(
+        "--apply", action="store_true", help="Run the printed bounded repair/check plan"
+    )
+    parser.add_argument(
+        "--table", action="store_true", help="Display the repair plan as a table"
+    )
     args = parser.parse_args()
     head = check_identity()
     report = json.loads(args.report.read_text(encoding="utf-8"))
@@ -129,10 +138,14 @@ def main() -> int:
     directory = ROOT / ".agent" / "check-results" / increment
     print_plan(plan, as_table=args.table)
     if not args.apply:
-        print("Plan only; add --apply after verification authorization. No commands executed.")
+        print(
+            "Plan only; add --apply after verification authorization. No commands executed."
+        )
         return 0
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "input.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (directory / "input.json").write_text(
+        json.dumps(report, indent=2), encoding="utf-8"
+    )
     recorder = [sys.executable, str(ROOT / "tools" / "check_result.py")]
     init = [*recorder, "init", "--increment", increment]
     for item in plan:
@@ -150,9 +163,19 @@ def main() -> int:
             raise ValueError("HEAD changed during repair; stopping")
         project, target = item["project"], item["target"]
         command = [
-            *recorder, "run", "--increment", increment, "--kind", "other",
-            "--name", f"{project}-{target}", "--", "nx", "run",
-            f"{project}:{target}", "--skip-nx-cache",
+            *recorder,
+            "run",
+            "--increment",
+            increment,
+            "--kind",
+            "other",
+            "--name",
+            f"{project}-{target}",
+            "--",
+            "nx",
+            "run",
+            f"{project}:{target}",
+            "--skip-nx-cache",
         ]
         result = subprocess.run(
             command,

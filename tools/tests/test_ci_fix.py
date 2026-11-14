@@ -10,7 +10,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 
-SPEC = importlib.util.spec_from_file_location("ci_fix", Path(__file__).resolve().parents[1] / "ci_fix.py")
+SPEC = importlib.util.spec_from_file_location(
+    "ci_fix", Path(__file__).resolve().parents[1] / "ci_fix.py"
+)
 ci_fix = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ci_fix)
 
@@ -31,28 +33,63 @@ class CiFixTests(unittest.TestCase):
         for path in ci_fix.PROJECTS.values():
             directory = self.root / path
             directory.mkdir(parents=True)
-            (directory / "project.json").write_text(json.dumps({
-                "targets": {target: {} for target in ["sync-ci", "lint-fix", "lint", "test", "build"]}
-            }))
+            (directory / "project.json").write_text(
+                json.dumps(
+                    {
+                        "targets": {
+                            target: {}
+                            for target in [
+                                "sync-ci",
+                                "lint-fix",
+                                "lint",
+                                "test",
+                                "build",
+                            ]
+                        }
+                    }
+                )
+            )
 
     def plan(self, jobs, **overrides):
         report = {"head_sha": "exact-head", "jobs": jobs, **overrides}
         return ci_fix.repair_plan(report, "exact-head", self.root)
 
     def test_supported_failures_are_bounded_and_aggregate_does_not_duplicate(self):
-        plan = self.plan([job(), job("py-common", "Lint"), {"name": "CI Quality Gate", "conclusion": "failure"}])
-        self.assertEqual([p["target"] for p in plan if p["project"] == "ingestor"], ["sync-ci", "lint", "test", "build"])
-        self.assertEqual([p["target"] for p in plan if p["project"] == "py-common"], ["sync-ci", "lint-fix", "lint", "test", "build"])
+        plan = self.plan(
+            [
+                job(),
+                job("py-common", "Lint"),
+                {"name": "CI Quality Gate", "conclusion": "failure"},
+            ]
+        )
+        self.assertEqual(
+            [p["target"] for p in plan if p["project"] == "ingestor"],
+            ["sync-ci", "lint", "test", "build"],
+        )
+        self.assertEqual(
+            [p["target"] for p in plan if p["project"] == "py-common"],
+            ["sync-ci", "lint-fix", "lint", "test", "build"],
+        )
 
     def test_successful_jobs_are_not_rerun(self):
-        self.assertEqual({p["project"] for p in self.plan([job(), job("analyzer", conclusion="success")])}, {"ingestor"})
+        self.assertEqual(
+            {
+                p["project"]
+                for p in self.plan([job(), job("analyzer", conclusion="success")])
+            },
+            {"ingestor"},
+        )
 
     def test_stale_snapshot_is_refused_before_commands(self):
         with self.assertRaisesRegex(ValueError, "match HEAD"):
             self.plan([job()], head_sha="other-head")
 
     def test_unknown_jobs_and_injected_commands_are_never_executable(self):
-        for invalid in [job("ingestor;echo-secret"), job(step="echo secret"), {"name": "Java / platform", "conclusion": "failure"}]:
+        for invalid in [
+            job("ingestor;echo-secret"),
+            job(step="echo secret"),
+            {"name": "Java / platform", "conclusion": "failure"},
+        ]:
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 self.plan([job(), invalid])
 
@@ -80,7 +117,9 @@ class CiFixTests(unittest.TestCase):
             shared = ci_fix.child_environment("py-common", self.root, "test")
             self.assertEqual(test["UV_LOCKED"], "true")
             self.assertNotIn("UV_LOCKED", build)
-            self.assertNotEqual(test["UV_PROJECT_ENVIRONMENT"], shared["UV_PROJECT_ENVIRONMENT"])
+            self.assertNotEqual(
+                test["UV_PROJECT_ENVIRONMENT"], shared["UV_PROJECT_ENVIRONMENT"]
+            )
             self.assertEqual(test["NX_NO_CLOUD"], "true")
             self.assertEqual(os.environ["UV_LOCKED"], "true")
             self.assertEqual(os.environ["NX_NO_CLOUD"], "false")
@@ -88,19 +127,29 @@ class CiFixTests(unittest.TestCase):
     def test_identity_lookup_is_one_hidden_child_with_shared_environment(self):
         with (
             patch.object(ci_fix, "command_environment", return_value={"PATH": "bin"}),
-            patch.object(ci_fix, "hidden_process_options", return_value={"creationflags": 32}),
-            patch.object(ci_fix.subprocess, "check_output", return_value="abc123\n") as lookup,
+            patch.object(
+                ci_fix, "hidden_process_options", return_value={"creationflags": 32}
+            ),
+            patch.object(
+                ci_fix.subprocess, "check_output", return_value="abc123\n"
+            ) as lookup,
         ):
             self.assertEqual(ci_fix.check_identity(self.root), "abc123")
         lookup.assert_called_once_with(
-            ["git", "rev-parse", "HEAD"], cwd=self.root, text=True,
-            env={"PATH": "bin"}, creationflags=32,
+            ["git", "rev-parse", "HEAD"],
+            cwd=self.root,
+            text=True,
+            env={"PATH": "bin"},
+            creationflags=32,
         )
 
     def test_default_plan_keeps_copyable_command_lines(self):
         plan = [{"project": "ingestor", "target": "test"}]
         output = io.StringIO()
-        with redirect_stdout(output), patch.object(ci_fix, "configure_output") as configure:
+        with (
+            redirect_stdout(output),
+            patch.object(ci_fix, "configure_output") as configure,
+        ):
             ci_fix.print_plan(plan)
         self.assertEqual(output.getvalue(), "nx run ingestor:test --skip-nx-cache\n")
         configure.assert_not_called()
@@ -127,7 +176,9 @@ class CiFixTests(unittest.TestCase):
         report = self.root / "jobs.json"
         report.write_text(json.dumps({"run_id": 7}), encoding="utf-8")
         with (
-            patch.object(ci_fix.sys, "argv", ["ci_fix", "--report", str(report), "--table"]),
+            patch.object(
+                ci_fix.sys, "argv", ["ci_fix", "--report", str(report), "--table"]
+            ),
             patch.object(ci_fix, "check_identity", return_value="exact-head"),
             patch.object(ci_fix, "repair_plan", return_value=[]),
             patch.object(ci_fix, "print_plan") as print_plan,
@@ -147,17 +198,25 @@ class CiFixTests(unittest.TestCase):
         ]
         with (
             patch.object(ci_fix, "ROOT", self.root),
-            patch.object(ci_fix.sys, "argv", ["ci_fix", "--report", str(report), "--apply"]),
+            patch.object(
+                ci_fix.sys, "argv", ["ci_fix", "--report", str(report), "--apply"]
+            ),
             patch.object(ci_fix, "check_identity", return_value="exact-head"),
             patch.object(ci_fix, "repair_plan", return_value=plan),
             patch.object(ci_fix, "command_environment", return_value={"TOOL": "1"}),
             patch.object(ci_fix, "child_environment", return_value={"PROJECT": "1"}),
-            patch.object(ci_fix, "hidden_process_options", return_value={"creationflags": 32}),
-            patch.object(ci_fix.subprocess, "run", side_effect=[
-                SimpleNamespace(returncode=0),
-                SimpleNamespace(returncode=1),
-                SimpleNamespace(returncode=3),
-            ]) as run,
+            patch.object(
+                ci_fix, "hidden_process_options", return_value={"creationflags": 32}
+            ),
+            patch.object(
+                ci_fix.subprocess,
+                "run",
+                side_effect=[
+                    SimpleNamespace(returncode=0),
+                    SimpleNamespace(returncode=1),
+                    SimpleNamespace(returncode=3),
+                ],
+            ) as run,
             redirect_stdout(io.StringIO()),
         ):
             self.assertEqual(ci_fix.main(), 1)

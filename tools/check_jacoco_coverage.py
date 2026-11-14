@@ -79,9 +79,7 @@ def main() -> int:
         line_rate = ratio(element, "LINE")
         branch_rate = ratio(element, "BRANCH")
         status = (
-            "PASS"
-            if line_rate >= args.line and branch_rate >= args.branch
-            else "FAIL"
+            "PASS" if line_rate >= args.line and branch_rate >= args.branch else "FAIL"
         )
         if args.table:
             rows.append(

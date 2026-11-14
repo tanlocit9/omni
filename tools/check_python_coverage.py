@@ -53,8 +53,7 @@ def main() -> int:
             element
             for filename, element in classes.items()
             if any(
-                filename == alias or filename.endswith(f"/{alias}")
-                for alias in aliases
+                filename == alias or filename.endswith(f"/{alias}") for alias in aliases
             )
         ]
         if len(matches) != 1:
@@ -67,7 +66,9 @@ def main() -> int:
         element = matches[0]
         line_rate = float(element.attrib.get("line-rate", "0"))
         branch_rate = float(element.attrib.get("branch-rate", "0"))
-        status = "PASS" if line_rate >= args.line and branch_rate >= args.branch else "FAIL"
+        status = (
+            "PASS" if line_rate >= args.line and branch_rate >= args.branch else "FAIL"
+        )
         if args.table:
             rows.append(
                 [

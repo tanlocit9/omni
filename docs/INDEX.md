@@ -171,6 +171,7 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | technical-debt/015 | [Java Static Analysis and Sonar Quality Gate](technical-debt/015-java-static-analysis-and-sonar-quality-gate.md) | Open Java code-quality/tooling debt | P2 conditional; no configured Sonar gate | [Platform project targets](../apps/core/project.json), [Platform Gradle configuration](../apps/core/build.gradle.kts), [technical-debt index](technical-debt/README.md) |
 | technical-debt/017 | [Deferred Manual Triggering and Request Audit](technical-debt/017-manual-request-rejection-audit.md) | Owner-accepted deferred audit gap | P14-I3.d / future operator audit | [Plan 030](plans/030-static-graph-dispatch-planner.md), [debt index](technical-debt/README.md) |
 | technical-debt/018 | [Execution Watchdog Observation](technical-debt/018-execution-watchdog-observation.md) | Owner-deferred automatic expiry | P14-I10 nonblocking; observe before reactivation | [Plan 030](plans/030-static-graph-dispatch-planner.md), [debt index](technical-debt/README.md) |
+| technical-debt/019 | [Historical Recalculation and Outcome Invalidation](technical-debt/019-historical-recalculation-and-outcome-invalidation.md) | Open correctness debt; static source evidence | P1 when historical inputs change; implementation not scheduled | [Plan 028](plans/028-reusable-date-range-backfill.md), [Plan 030](plans/030-static-graph-dispatch-planner.md), [debt index](technical-debt/README.md) |
 
 ## Roadmap View
 
@@ -199,6 +200,10 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 - A registry mapping records relevance; it does not establish implementation status or completion evidence.
 
 ## Technical-debt priority and review
+
+[TD-019 - Historical Recalculation and Outcome Invalidation](technical-debt/019-historical-recalculation-and-outcome-invalidation.md)
+records source-confirmed gaps after historical corrections; P1 conditional on
+changed inputs, without changing current backfill APIs or increment completion.
 
 [Reviewed debt index](technical-debt/README.md) distinguishes correctness, measured performance, historical closure and deferred features. [Mermaid priority source](technical-debt/priority-order.md) shows conditional priority lanes. [TD-011](technical-debt/011-deferred-observability-capacity-and-realtime.md) records P10/P11/P12 follow-up deferral; source-local TODOs link to the existing debt record and do not change runtime behavior.
 

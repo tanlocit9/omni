@@ -14,6 +14,7 @@ flowchart TD
     Safety --> Identity["TD-003: identity before exposure"]
     Safety --> Data["TD-001/005/008: status and completeness"]
     Safety --> Kafka["TD-009/010: offsets and recovery"]
+    Safety --> Recalculate["TD-019: historical corrections and outcomes"]
     Measured --> Resources["TD-007/009: resources and concurrency"]
     Measured --> Planner["TD-012 to Plan 030: bounded graph dispatch"]
     Measured --> GuardResidue["TD-013: legacy guard residue"]
@@ -28,12 +29,16 @@ flowchart TD
     classDef pending fill:#e2e3e5,stroke:#6c757d,color:#111;
     classDef blocked fill:#f8d7da,stroke:#b02a37,color:#111;
     class Gate pending;
-    class Safety,Identity,Data,Kafka active;
+    class Safety,Identity,Data,Kafka,Recalculate active;
     class Planner active;
     class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Watchdog,Later,Features,RequestAudit pending;
 ```
 
 ## Reading the Diagram
+
+- [TD-019](019-historical-recalculation-and-outcome-invalidation.md) activates on
+  historical input corrections; request-scoped backfill does not automatically
+  repair later results or invalidate populated signal outcomes.
 
 - TD-012 is a historical promoted-design record; active bounded work is owned by [Plan 030](../plans/030-static-graph-dispatch-planner.md) and P14-I1 through P14-I5 and P14-I7 (former I6 merged into I5).
 - Persisted topology, expanded provider policy, adaptive quotas, and advanced fairness remain deferred.

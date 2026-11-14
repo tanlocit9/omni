@@ -1,27 +1,9 @@
-# Contracts and Plan Sync
+# Contracts and Documentation
 
-Use [`AGENTS.md`](../../AGENTS.md) for repository policy and
-[`docs/governance/001-implementation-plan-standard.md`](../../docs/governance/001-implementation-plan-standard.md)
-for plan requirements.
+Follow [AGENTS.md](../../AGENTS.md#contract-and-data-guardrails) for contracts,
+readiness, lineage and deferred operator triggers.
 
-- For contract changes, review producers, consumers, schemas/configuration, tests,
-  compatibility, and canonical contract docs together; run graph impact analysis.
-- Never edit [`libs/contracts/gen`](../../libs/contracts/gen), reuse protobuf field
-  numbers/names, or put physical storage paths in Kafka business messages.
-- Preserve current manifest readiness, `dataVersion` lineage and READY-last writes.
-  Planned [ADR-008](../../docs/adr/008-postgres-output-readiness.md) / P14-I10
-  changes authority only after its verified cutover; the plan is not implementation.
-- Operator job triggering is deferred under [TD-017](../../docs/technical-debt/017-manual-request-rejection-audit.md).
-  Future approved manual jobs must reuse Platform claims, dependency guards,
-  registered producers and outbox; never add force/bypass or browser-to-Kafka.
-- When implementation changes architecture, contracts, workflow, or tooling,
-  synchronize [`AGENTS.md`](../../AGENTS.md), [`CLAUDE.md`](../../CLAUDE.md),
-  applicable rules, and canonical docs before marking work done.
-- Increment finalization must invoke [`update-implementation-plans`](../../.agents/skills/update-implementation-plans/SKILL.md), explicitly review
-  applicable architecture/ADR/flow/data/deployment/development/service/index docs,
-  run post-edit code-review-graph change detection, and invoke
-  `verify-document-consistency`; missing or unresolved documentation evidence blocks
-  a completion claim.
-- Keep rules short and link to canonical documentation instead of copying it.
-- Required build, test, lint, format, or contract checks remain subject to the
-  verification approval gate in [`AGENTS.md`](../../AGENTS.md).
+Use the [plan standard](../../docs/governance/001-implementation-plan-standard.md)
+and [documentation workflow](../../AGENTS.md#plans-and-documentation) when changing
+architecture, contracts, workflow or tooling. Link to canonical owners instead of
+copying policy into editor rules. Verification still requires repository approval.

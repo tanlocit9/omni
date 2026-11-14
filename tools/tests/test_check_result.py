@@ -1,6 +1,7 @@
 import importlib.util
 import io
 import json
+import os
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -93,14 +94,41 @@ class CheckResultTests(unittest.TestCase):
     def test_windows_check_environment_is_local_and_noninteractive(self):
         with (
             patch.object(check_result.sys, "platform", "win32"),
-            patch.dict(check_result.os.environ, {"PATH": "test-path"}, clear=True),
+            patch.dict(os.environ, {"PATH": "test-path"}, clear=True),
         ):
             environment = check_result.command_environment()
             self.assertEqual(environment["NX_NO_CLOUD"], "true")
             self.assertEqual(environment["NX_NATIVE_COMMAND_RUNNER"], "false")
             self.assertEqual(environment["NX_TUI"], "false")
             self.assertEqual(environment["PATH"], "test-path")
-            self.assertNotIn("NX_NO_CLOUD", check_result.os.environ)
+            self.assertNotIn("NX_NO_CLOUD", os.environ)
+
+    def test_run_uses_shared_hidden_options_and_preserves_log_and_exit_evidence(self):
+        args = SimpleNamespace(
+            increment="P3-I5", kind="test", name="platform-tests",
+            command=["nx", "run", "platform:test"],
+        )
+        process = MagicMock()
+        process.stdout = ["first line\n", "failed check\n"]
+        process.wait.return_value = 7
+        output = io.StringIO()
+        with (
+            patch.object(check_result.shutil, "which", return_value="nx"),
+            patch.object(check_result, "hidden_process_options", return_value={"creationflags": 32}),
+            patch.object(check_result.subprocess, "Popen", return_value=process) as popen,
+            redirect_stdout(output),
+        ):
+            self.assertEqual(check_result.command_run(args), 7)
+        self.assertEqual(popen.call_args.kwargs["creationflags"], 32)
+        self.assertEqual(output.getvalue(), "first line\nfailed check\n")
+        record = check_result.read_records(check_result.result_dir("P3-I5"))[0]
+        self.assertEqual(record["command"], args.command)
+        self.assertEqual(record["status"], "fail")
+        self.assertEqual(record["exit_code"], 7)
+        self.assertEqual(record["evidence_source"], "exit_code")
+        log = self.root / record["log"]
+        self.assertEqual(log.read_text(encoding="utf-8"), output.getvalue())
+        self.assertEqual(record["log_sha256"], check_result.file_hash(log))
 
     def test_windows_check_environment_preserves_explicit_overrides(self):
         requested = {
@@ -110,14 +138,14 @@ class CheckResultTests(unittest.TestCase):
         }
         with (
             patch.object(check_result.sys, "platform", "win32"),
-            patch.dict(check_result.os.environ, requested, clear=True),
+            patch.dict(os.environ, requested, clear=True),
         ):
             self.assertEqual(check_result.command_environment(), requested)
 
     def test_other_platform_check_environment_is_unchanged(self):
         with (
             patch.object(check_result.sys, "platform", "linux"),
-            patch.dict(check_result.os.environ, {"PATH": "test-path"}, clear=True),
+            patch.dict(os.environ, {"PATH": "test-path"}, clear=True),
         ):
             self.assertEqual(check_result.command_environment(), {"PATH": "test-path"})
 

@@ -1,4 +1,17 @@
 # Add files here to ignore them from prettier formatting
+# Generated contracts and build/cache artifacts are never formatter inputs.
+/libs/contracts/gen/**
+**/build/**
+**/.gradle/**
+**/.ruff_cache/**
+**/__pycache__/**
+.git
+**/.git/**
+.code-review-graph
+**/.code-review-graph/**
+.codex
+**/.codex/**
+
 node_modules
 node_modules/
 /node_modules

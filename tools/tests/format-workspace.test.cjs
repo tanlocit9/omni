@@ -5,6 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const {
+  formatAll,
   gitFiles,
   pythonFiles,
   javaFiles,
@@ -13,6 +14,45 @@ const {
   formatPrettierFiles,
   formatPython,
 } = require('../format-workspace.cjs');
+
+test('workspace format defaults to all files and keeps explicit changed mode', () => {
+  for (const args of [[], ['--all'], ['--all=true']]) {
+    assert.equal(formatAll(args), true);
+  }
+  for (const args of [['--changed'], ['--all=false']]) {
+    assert.equal(formatAll(args), false);
+  }
+  assert.throws(() => formatAll(['--unknown']), /Usage/);
+  assert.throws(() => formatAll(['--all', '--changed']), /not both/);
+  assert.throws(() => formatAll(['--all=false', '--all=true']), /not both/);
+});
+
+test('repository ignore rules protect agent, generated and dependency directories', async () => {
+  const prettier = require('prettier');
+  const workspace = path.resolve(__dirname, '../..');
+  for (const file of [
+    '.agent/report.md',
+    '.agents/skills/example/SKILL.md',
+    'nested/.agent/report.md',
+    '.codex/config.toml',
+    'node_modules/package/index.js',
+    'externals/example/README.md',
+    'libs/contracts/gen/typescript/message.ts',
+    'apps/core/build/report.json',
+    'reports/check.json',
+    'coverage/index.html',
+  ]) {
+    const info = await prettier.getFileInfo(path.join(workspace, file), {
+      ignorePath: path.join(workspace, '.prettierignore'),
+    });
+    assert.equal(info.ignored, true, file);
+  }
+  const info = await prettier.getFileInfo(
+    path.join(workspace, 'tools/process-options.cjs'),
+    { ignorePath: path.join(workspace, '.prettierignore') }
+  );
+  assert.equal(info.ignored, false);
+});
 
 test('tools Python selection includes tests and rejects other roots and traversal', () => {
   assert.deepEqual(

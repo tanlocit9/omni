@@ -39,13 +39,13 @@ that the worker never received a command. No worker is killed.
 `GET /api/v1/jobs/atomic-work/requests/{id}` preserves status, counts and isSettled.
 Each member adds:
 
-| Field | Meaning |
-| --- | --- |
-| executionStatus | Existing persisted attempt status; never overwritten by a later attempt's success |
-| outputReady | Current scoped work catalog covers declared logical outputs; null if neither declaration nor current work output exists |
-| readyOutputs | Current dataset/partition/dataVersion/businessDate plus source executionId/attemptId |
-| reasonCode | Persisted REQUEST_CLOSED or ATOMIC_UPSTREAM_FAILED, otherwise null |
-| orphaned | Nonterminal attempt has no PREPARING/PREPARED requester |
+| Field                   | Meaning                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| executionStatus         | Existing persisted attempt status; never overwritten by a later attempt's success                                        |
+| outputReady             | Current scoped work catalog covers declared logical outputs; null if neither declaration nor current work output exists  |
+| readyOutputs            | Current dataset/partition/dataVersion/businessDate plus source executionId/attemptId                                     |
+| reasonCode              | Persisted REQUEST_CLOSED or ATOMIC_UPSTREAM_FAILED, otherwise null                                                       |
+| orphaned                | Nonterminal attempt has no PREPARING/PREPARED requester                                                                  |
 | requiresExecutionReview | Nonterminal orphan lacks never-dispatched proof, or execution has timeout ownership uncertainty even if already terminal |
 
 A failed attempt may report outputReady=true with readyOutputs identifying a
@@ -57,14 +57,14 @@ READY and does not perform a fresh Parquet/provider read.
 
 ## Impact and regression inventory
 
-| Source / safety branch | Regression in GraphWorkRequestsPostgresTest | Executed now |
-| --- | --- | --- |
-| Owner-aware acquire and terminal history | closedOwnerAttemptsAreReplacedThenSafelySettledWithoutReopeningHistory: FAILED/CANCELLED/SUCCESS owners | PASS |
-| Shared ownership remains usable | overlappingRequestsShareIndependentAncestorRunsAndCancellationKeepsOtherOwner; final owner closure now requires new attempts | PASS |
-| Claim, expired lease, ACK loss, publish, receipt, timeout, registration, completion remain untouched | orphanWithAnyDispatchEvidenceIsPreservedForReviewEvenWhenItsUpstreamFails | PASS |
-| Acceptance lock contention and later settlement | reconciliationSkipsSlotsLockedByAcceptanceAndClosesThemOnALaterTick | PASS |
-| Transaction rollback preserves execution and outbox together | orphanOutboxAndExecutionUpdatesRollBackTogether | PASS |
-| Old FAILED versus newer exact-work READY; invalidated row proof | failedAttemptStaysFailedWhileSameWorkHasReadyOutputFromALaterAttempt | PASS |
+| Source / safety branch                                                                               | Regression in GraphWorkRequestsPostgresTest                                                                                  | Executed now |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Owner-aware acquire and terminal history                                                             | closedOwnerAttemptsAreReplacedThenSafelySettledWithoutReopeningHistory: FAILED/CANCELLED/SUCCESS owners                      | PASS         |
+| Shared ownership remains usable                                                                      | overlappingRequestsShareIndependentAncestorRunsAndCancellationKeepsOtherOwner; final owner closure now requires new attempts | PASS         |
+| Claim, expired lease, ACK loss, publish, receipt, timeout, registration, completion remain untouched | orphanWithAnyDispatchEvidenceIsPreservedForReviewEvenWhenItsUpstreamFails                                                    | PASS         |
+| Acceptance lock contention and later settlement                                                      | reconciliationSkipsSlotsLockedByAcceptanceAndClosesThemOnALaterTick                                                          | PASS         |
+| Transaction rollback preserves execution and outbox together                                         | orphanOutboxAndExecutionUpdatesRollBackTogether                                                                              | PASS         |
+| Old FAILED versus newer exact-work READY; invalidated row proof                                      | failedAttemptStaysFailedWhileSameWorkHasReadyOutputFromALaterAttempt                                                         | PASS         |
 
 Graph impact found two HTTP callers/four impacted nodes and 196 unresolved call
 sites. Direct cross-service reconciliation, rather than graph reachability alone:

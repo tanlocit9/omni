@@ -31,7 +31,8 @@ env:
 jobs:
   affected:
     name: Detect affected projects
-    runs-on: ubuntu-latest
+    # Python 3.14.5 has no setup-python build for Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
       contracts-base: ${{ steps.baseline.outputs.sha }}
@@ -115,7 +116,8 @@ jobs:
     name: Contracts / protobuf
     needs: affected
     if: needs.affected.outputs.contracts == 'true'
-    runs-on: ubuntu-latest
+    # Keep the exact Python pin compatible with setup-python's published builds.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       CONTRACTS_BASE_SHA: ${{ needs.affected.outputs.contracts-base }}

@@ -25,30 +25,44 @@ The camelCase response is:
 ```json
 {
   "observedAt": "2026-11-08T00:00:00Z",
-  "items": [{
-    "requestId": "f7534016-a06c-42bc-9bbc-2ce4013f610b",
-    "executionId": "251b14e2-48d7-434f-9d7c-d1f45ca52fc3",
-    "targetDefinitionId": "c7ad4cb3-a53a-418c-81b1-aeb24558fef3",
-    "goal": "SYNC_INDICATORS",
-    "mode": "BACKFILL",
-    "state": "SUCCESS",
-    "createdAt": "2026-11-07T16:47:46.254292Z",
-    "startedAt": "2026-11-07T16:47:46.254292Z",
-    "finishedAt": "2026-11-07T16:56:07.696666Z",
-    "elapsedMs": 501442,
-    "totalMembers": 603,
-    "memberCounts": {"SUCCESS": 603},
-    "unfinishedMembers": 0,
-    "isSettled": true,
-    "hasFailure": false,
-    "jobs": [
-      {"jobType": "SYNC_INDICATORS", "totalMembers": 300, "memberCounts": {"SUCCESS": 300}},
-      {"jobType": "SYNC_STOCK_PRICE", "totalMembers": 300, "memberCounts": {"SUCCESS": 300}},
-      {"jobType": "SYNC_SYMBOLS", "totalMembers": 3, "memberCounts": {"SUCCESS": 3}}
-    ],
-    "recordsSynced": null,
-    "recordsSkipped": null
-  }],
+  "items": [
+    {
+      "requestId": "f7534016-a06c-42bc-9bbc-2ce4013f610b",
+      "executionId": "251b14e2-48d7-434f-9d7c-d1f45ca52fc3",
+      "targetDefinitionId": "c7ad4cb3-a53a-418c-81b1-aeb24558fef3",
+      "goal": "SYNC_INDICATORS",
+      "mode": "BACKFILL",
+      "state": "SUCCESS",
+      "createdAt": "2026-11-07T16:47:46.254292Z",
+      "startedAt": "2026-11-07T16:47:46.254292Z",
+      "finishedAt": "2026-11-07T16:56:07.696666Z",
+      "elapsedMs": 501442,
+      "totalMembers": 603,
+      "memberCounts": { "SUCCESS": 603 },
+      "unfinishedMembers": 0,
+      "isSettled": true,
+      "hasFailure": false,
+      "jobs": [
+        {
+          "jobType": "SYNC_INDICATORS",
+          "totalMembers": 300,
+          "memberCounts": { "SUCCESS": 300 }
+        },
+        {
+          "jobType": "SYNC_STOCK_PRICE",
+          "totalMembers": 300,
+          "memberCounts": { "SUCCESS": 300 }
+        },
+        {
+          "jobType": "SYNC_SYMBOLS",
+          "totalMembers": 3,
+          "memberCounts": { "SUCCESS": 3 }
+        }
+      ],
+      "recordsSynced": null,
+      "recordsSkipped": null
+    }
+  ],
   "hasMore": false,
   "nextCursor": null
 }
@@ -109,16 +123,16 @@ No READY, dispatch, retry, writer-exclusion or lineage rule is altered by pollin
 The owner approved the selected Platform test command recorded through
 tools/check_result.py under P14-I10-polling-20261108. The source/test matrix is:
 
-| Changed behavior | Regression |
-| --- | --- |
-| Controller delegation and bounded query forwarding | GraphWorkOperationsControllerTest.forwardsBoundedPollingParametersWithoutLoadingFullGraph |
-| Invalid filters, limits, cursor pairing/window | GraphWorkOperationsControllerTest.rejectsInvalidPollingQueriesBeforeDatabaseAccess |
-| Query errors and operator boundary | GraphWorkOperationsControllerTest.unavailableDatabaseIsReportedAsUnavailableRatherThanEmpty; pollingUsesExistingTrustedOperatorBoundary |
-| Real SQL, tied cursor ordering, high-water exclusion, shared membership counts, camelCase and no graph | GraphWorkRequestsPostgresTest.pollingPagesHaveStableTieBreakersAndExcludeGraphsAndLaterRequests |
-| Live failure, settlement/history filtering, finished duration | GraphWorkRequestsPostgresTest.pollingReflectsMemberFailureSettlementAndHistoricalRootTimes |
-| Cancellation versus shared attempt progress and successful history counters | GraphWorkRequestsPostgresTest.pollingSeparatesCancelledOwnersFromProgressOfSharedAttempts |
-| Root target aggregates and unknown counters | GraphWorkRequestsPostgresTest.rootCountsOnlyTargetsAndPreservesUnknownCounters |
-| Large graph identity, exact dates and definition bindings | GraphWorkExpansionTest.indexesLargeSymbolUniverseWithoutRepeatedFullCandidateScans |
+| Changed behavior                                                                                       | Regression                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Controller delegation and bounded query forwarding                                                     | GraphWorkOperationsControllerTest.forwardsBoundedPollingParametersWithoutLoadingFullGraph                                               |
+| Invalid filters, limits, cursor pairing/window                                                         | GraphWorkOperationsControllerTest.rejectsInvalidPollingQueriesBeforeDatabaseAccess                                                      |
+| Query errors and operator boundary                                                                     | GraphWorkOperationsControllerTest.unavailableDatabaseIsReportedAsUnavailableRatherThanEmpty; pollingUsesExistingTrustedOperatorBoundary |
+| Real SQL, tied cursor ordering, high-water exclusion, shared membership counts, camelCase and no graph | GraphWorkRequestsPostgresTest.pollingPagesHaveStableTieBreakersAndExcludeGraphsAndLaterRequests                                         |
+| Live failure, settlement/history filtering, finished duration                                          | GraphWorkRequestsPostgresTest.pollingReflectsMemberFailureSettlementAndHistoricalRootTimes                                              |
+| Cancellation versus shared attempt progress and successful history counters                            | GraphWorkRequestsPostgresTest.pollingSeparatesCancelledOwnersFromProgressOfSharedAttempts                                               |
+| Root target aggregates and unknown counters                                                            | GraphWorkRequestsPostgresTest.rootCountsOnlyTargetsAndPreservesUnknownCounters                                                          |
+| Large graph identity, exact dates and definition bindings                                              | GraphWorkExpansionTest.indexesLargeSymbolUniverseWithoutRepeatedFullCandidateScans                                                      |
 
 Manifest PASS: 100 cases (73 PostgreSQL, 11 controller/validation/operator checks,
 16 graph), zero failures/errors/skips. Query service coverage is 94.23% line and

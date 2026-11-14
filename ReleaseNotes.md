@@ -1,5 +1,24 @@
 # Omni Release Notes
 
+## 2026-11-15 - Format the full workspace by default
+
+`nx run omni:format` now includes unchanged tracked files by default, preventing
+committed formatting violations from being skipped on a clean worktree. Keep
+`--all` compatible and offer `--changed` / `--all=false` for the previous scope.
+Retain agent-directory exclusions and explicitly exclude generated contracts,
+build artifacts and local caches in `.prettierignore` before language routing.
+This changes local formatting selection, not application behavior or CI quality
+requirements. Regression tests were added; execution is recorded separately.
+
+## 2026-11-14 - Pin Python CI jobs to a compatible Ubuntu image
+
+Pin the affected/tooling, contracts and reusable Python jobs to Ubuntu 24.04.
+The exact Python 3.14.5 setup-python build is unavailable for Ubuntu 26.04 as
+`ubuntu-latest` migrates. Keep Python, dependency locks, job selection and quality
+gates unchanged. Source inspection and upstream build-manifest evidence only;
+no hosted rerun or local verification was performed for this fix. See the
+[CI environment notes](docs/development/004-ci-quality-gate.md#python-runner-compatibility---2026-11-14).
+
 ## 2026-11-14 - Record historical recalculation debt and cover tooling formatting
 
 Record [TD-019](docs/technical-debt/019-historical-recalculation-and-outcome-invalidation.md):

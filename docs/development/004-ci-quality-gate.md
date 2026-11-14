@@ -9,6 +9,29 @@ does not trigger it. Manual dispatch requires a previous full commit SHA and sel
 all stacks. New pushes cancel older runs for the same PR/ref. Runner jobs have
 explicit timeouts, including the job inside the reusable Python workflow.
 
+## Python runner compatibility - 2026-11-14
+
+`affected`, `contracts` and the reusable Python verification job pin
+`runs-on: ubuntu-24.04`. They install the workspace's exact Python 3.14.5;
+the [published setup-python manifest](https://github.com/actions/python-versions/blob/main/versions-manifest.json)
+provides Linux x64 builds for 24.04, but not 26.04, for that patch version.
+GitHub's [ubuntu-latest migration](https://github.com/actions/runner-images/issues/14748)
+can otherwise move these jobs onto an incompatible runner before tests start.
+Other jobs retain their existing runner selection. Review this pin together with
+the Python version and published build matrix when upgrading the CI environment.
+
+This is a source-only CI environment fix. No hosted rerun, local test, lint, build
+or formatting execution was performed for it. All four Python projects and
+Ingestor integration inherit the reusable job's OS pin; root tooling and contracts
+use the other two pinned jobs. Platform and Console runtime, Python application
+logic, transport schemas, shared libraries, storage, database, Kafka and deployment
+are unchanged. Existing workflow selection and quality gates remain intact.
+Architecture, data, service and flow docs, ADRs and increment status need no update:
+this change restores setup compatibility without changing runtime contracts.
+
+Graph impact is unavailable for these unindexed workflow files; the affected
+jobs and reusable-workflow callers were reconciled directly from source.
+
 ## Source-bound CI repair runner — 2026-11-01
 
 For the bounded local repair runner, use

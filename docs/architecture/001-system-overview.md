@@ -60,8 +60,11 @@ work GETs. SQL is packaged in Platform and reused by manual psql wrappers. No br
 DB access, worker instrumentation, scheduler mutation or readiness authority change.
 See [contract and impact](../../database/diagnostics/p14/v2/README.md).
 
-Planned P14-I10 moves readiness authority to Platform PostgreSQL through a new Kafka metadata-registration topic and array consumer. Ingestor/Analyzer, and later writer, publish after durable output writes; Python readers use an authenticated metadata provider/API. Current runtime still uses the MinIO manifest until coordinated cutover; no direct worker database coupling.
-See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+P14-I10 uses verified worker completion evidence for scoped Platform PostgreSQL
+readiness. Enrolled Python readers use the authenticated readiness API. MinIO
+manifest discovery remains the default until coordinated cutover. See
+[ADR-008](../adr/008-postgres-output-readiness.md) and
+[the remaining cutover gates](../reference/019-i10-review-20261111.md).
 
 Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
 I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with

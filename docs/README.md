@@ -63,7 +63,7 @@ I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and rema
 
 Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
 
-Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+Historical local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
 PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
@@ -129,7 +129,7 @@ semantics are documented in [CI Quality Gate](development/004-ci-quality-gate.md
 18. [Realtime tick foundation](flows/006-realtime-tick-foundation.md) — strict contract plus finite archive/rebuild/bars/reconciliation; VCI provider discovery and live runtime are deferred and owner-gated; historical blocked states remain.
 19. [Concurrent workers and writer batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 design; owner reactivation and the Phase 13 measurement gate are required.
 20. [Operator Trust Console](plans/029-operator-trust-console.md) — owner-approved Phase 13 plan for truthful Job Operations, manual EOD Data Health, and the fixed Job Operations → Data Health → Market Review order.
-21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — Milestone 1 epic: I1 topology, I2 static handoff, I3 JobRun preparation, I4 guarded admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup; locally completed I8 unified expansion and I9 graph/shared-work/definition consolidation; pending I10 metadata registration/watchdog; former I6 is superseded into I5.
+21. [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — Milestone 1 epic: I1 topology, I2 static handoff, I3 JobRun preparation, I4 guarded admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup; locally completed I8 unified expansion and I9 graph/shared-work/definition consolidation; I10 scoped PostgreSQL readiness and unified completion in progress; former I6 is superseded into I5.
 
 ## Planning Map
 
@@ -161,7 +161,7 @@ Compatibility indexes and superseded plans remain only as navigation aids and mu
 - [Polyglot Correlation and Structured Logging](plans/024-polyglot-correlation-structured-logging.md) — deferred Phase 11 design; historical dependencies are retained, owner reactivation is required.
 - [Concurrent Workers and Writer Batching](plans/027-concurrent-workers-and-writer-batching.md) — deferred Phase 12 detail; capacity work requires measured baseline and owner reactivation.
 - [Operator Trust Console](plans/029-operator-trust-console.md) — Phase 13 UI owner; JobRun-specific graph presentation consumes P14-I5 evidence and read-model handoff.
-- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup, followed by locally completed I8 expansion and I9 graph/shared-work/definition consolidation, then pending I10 metadata registration/watchdog.
+- [Static Graph & DispatchPlanner](plans/030-static-graph-dispatch-planner.md) — P14-I1 topology, I2 static contract, I3 durable JobRun preparation, I4 guarded outbox admission, consolidated I5 diagnostics/read handoff and I7 legacy cleanup, followed by locally completed I8 expansion and I9 graph/shared-work/definition consolidation, then I10 scoped PostgreSQL readiness and unified completion in progress. Retained cutover remains open and automatic expiry is deferred.
 
 ### Proposed, Historical, and Compatibility Plans
 
@@ -211,6 +211,9 @@ JobRun planner activation/rollback and lease/configuration safety are described 
 - Keep one canonical document per concept.
 - Do not duplicate Kafka topic or S3 path details outside canonical data docs.
 - Flow changes update the matching numbered document under `flows/`.
+- When a change revises a durable architecture decision, update the governing
+  ADR in the same PR and link it from the PR description. Use the relevant flow,
+  contract or runbook for implementation changes within an existing decision.
 - Kafka/contract changes update `data/001-kafka-contracts.md` and the canonical proto definitions.
 - Storage/manifest changes update `data/002-data-lake.md`.
 - Service responsibility changes update the related service README.

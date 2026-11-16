@@ -122,7 +122,7 @@ flowchart TD
 | P14-I9          | Graph expansion, eligible shared attempts and definition consolidation.                               | Completed; freeze exact upstream attempts and preserve scheduled coverage. |
 | P14-I10 (I10.a) | Enrollment before dispatch, scoped worker publication, registration inbox and completion correlation. | Source present; whole-I10 acceptance remains open.                         |
 | P14-I10 (I10.b) | Work/row READY, frozen input admission, readers, backfill and reconciliation.                         | Source present; coordinated PostgreSQL cutover remains separately gated.   |
-| P14-I10 (I10.c) | Published-deadline watchdog and completion diagnostics.                                               | Source present; default flags remain off.                                  |
+| P14-I10 (I10.c) | Completion and ownership diagnostics.                                                                | Automatic execution expiry is deferred under [TD-018](../technical-debt/018-execution-watchdog-observation.md). |
 | P12-I4          | Future independent dataset writer and compatible batching.                                            | Pending and owner-gated; use the writer TODOs below when reactivated.      |
 
 ## Preparation and frozen input admission

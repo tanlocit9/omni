@@ -29,9 +29,27 @@ Phase 4 extends this boundary because checking dataset dependencies before execu
   - `WAITING`: retain PENDING state, persist a bounded reason and retry time, and do not increment delivery attempts;
   - `BLOCKED`: atomically make the outbox and execution terminal `BLOCKED`, without fabricating a worker `FAILED` result.
 - Candidate over-fetch prevents waiting rows from consuming the ready publication batch.
-- Manifest READY state and exact `dataVersion` lineage remain the hard data dependency contract.
+- Default data admission uses manifest READY and exact `dataVersion` lineage.
+  Explicitly enrolled work can use scoped PostgreSQL readiness under
+  [ADR-008](008-postgres-output-readiness.md), with exact frozen input evidence.
 - Terminal outbox rows are never reclaimable, while publish retry and acknowledgement remain conditional on the exact claim owner and token.
 - Dependency policy is not shared with workers or the future dataset-writer service. Reusable safe-write mechanics are limited to immutable intent/output identity, fenced leases, bounded retries, conditional state transitions, idempotent completion, and acknowledgement only after durable output.
+
+### P14-I9 shared atomic work
+
+Each graph request keeps independent identity, membership, progress and schedule
+coverage. Under `IN_FLIGHT_ONLY`, compatible requests may attach to the same
+PENDING or RUNNING attempt while it has a live owner. Sharing requires matching
+atomic work identity and exact frozen upstream attempts. Terminal or ownerless
+attempts cannot be reused. Cancelling a requester ends its ownership of the
+attempt. Another live owner keeps shared work eligible. Published work with uncertain
+ownership remains subject to completion and recovery guards.
+
+The static JobType graph supplies topology. Frozen request membership and exact
+dependency barriers govern dispatch. Shared attempts preserve the existing
+Platform claim/outbox boundary. Writer exclusion and physical version safety
+remain separate rollout gates. See the [P14 flow](../flows/007-p14-end-to-end.md)
+and [attempt policy](../reference/013-backfill-attempt-and-data-policy.md).
 
 ## Consequences
 
@@ -75,12 +93,12 @@ using a newer input than approved. Claim fencing does not provide dataset snapsh
 isolation. The opt-in safety test fails; no new production locking/snapshot strategy
 is selected here. Owner reports V15 already applied to the retained database.
 
-Preparation remains disabled. Owner selected terminal definition entries (including
-standalone metadata); claims filter those identities before batch limits when
-preparation is enabled. Ancestors retain their definitions and execute inside each
-run. This does not coalesce ancestors across runs or establish shared-writer safety;
-overlap and retained rollout evidence remain required. See the
-[current entry policy](../deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26).
+Historical October 26 entry policy: preparation was disabled and the owner selected
+terminal definition entries, including standalone metadata. Claims filter those
+identities before batch limits when preparation is enabled. At this checkpoint,
+ancestors retained their definitions and executed within each run. P14-I9 later
+added shared attempts as described above. See the
+[October 26 entry policy](../deployment/004-job-run-admission-rollout.md#worker-recovery-and-terminal-entries--2026-10-26).
 See [I4 completion](../plans/030-static-graph-dispatch-planner.md#i4c-integrated-admission-and-completion--2026-10-24) and the
 [rollout/rollback runbook](../deployment/004-job-run-admission-rollout.md).
 

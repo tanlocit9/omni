@@ -4,8 +4,10 @@ Matched V26/Platform/shared-reader deployment also enables frozen-attempt proof
 lookup backed by immutable actual VERSIONED READY history. The optional
 atomicAttemptId API selector preserves old latest/current clients. Schema/runtime
 must be paired; canonical mutable history is not backfilled into immutable READY.
-The [November 11 preflight and remaining gates](../reference/019-i10-review-20261111.md)
-record local V25 and bucket versioning unset; no retained rollout has occurred.
+The [November 11 observations](../reference/019-i10-review-20261111.md) record
+local V25 and bucket versioning unset. Use the
+[read-only preflight below](#i10-retained-v26-preflight-and-stop-conditions) for a
+fresh retained-environment snapshot.
 The disposable drained canonical-repair rehearsal now passes, preserving accepted
 versions, registration/READY history and Query reads while refusing mutable writer
 downgrade. It retains PostgreSQL authority and does not replace retained parity or
@@ -122,8 +124,11 @@ are unavailable (503), not empty healthy output. No scheduler/graph/consolidatio
 activation or I10 readiness cutover is part of this change. See
 [bounded read-only API and pending local gates](../../database/diagnostics/p14/v2/README.md).
 
-Planned P14-I10 requires additive schema/topic provisioning, paired worker/Platform deployment, metadata backfill and shadow comparison before coordinated PostgreSQL reader cutover. Keep legacy readiness authoritative until all affected gates pass. Retain exact-byte safety and resolve stale writer ownership; do not roll back to stale JSON after DB-only registrations. Watchdog defaults: scan 2 minutes, timeout 30 minutes from publication; reconciliation 12 hours. No rollout is performed here.
-See [I10 scope and acceptance](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+Global I10 cutover requires paired deployment, validated backfill, exact-byte
+safety, resolved writer ownership and reader shadow parity. Keep manifest
+discovery authoritative until those gates pass. Scheduled reconciliation targets
+a 12-hour interval after cutover. Keep automatic expiry off under TD-018. See the
+[current decision and compatibility rules](../adr/008-postgres-output-readiness.md).
 
 Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes change evaluationDate semantics to as-of day D while saved prediction origins remain T. Deploy matching Analyzer workers after draining old consumers; no message field, migration or activation flag changes. Frozen prediction/outcome rows cannot be safely handed back to the former upsert implementation. No retained rollout or verification ran.
 See [source, impact matrix and local handoff](../plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
@@ -145,10 +150,86 @@ deferred. Prior indicator approval/byte-binding evidence remains historical.
 No verification ran for this continuation; defaults remain unactivated. See
 [full contract, impact and review handoff](../plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
 
-This runbook covers Plan 030 P14-I4's Platform-local planner/admission path.
-It is operational guidance, not evidence that a retained environment was deployed.
-See [Plan 030](../plans/030-static-graph-dispatch-planner.md) for executed local
+This runbook covers JobRun admission and the I10 readiness rollout. See
+[Plan 030](../plans/030-static-graph-dispatch-planner.md) for executed local
 checks and [ADR-007](../adr/007-scheduler-claim-and-outbox-boundary.md) for ownership.
+
+## I10 retained V26 preflight and stop conditions
+
+Run the read-only checks from this checkout against the reviewed environment.
+Use a read-only PostgreSQL service named `omni-retained-readonly` with the same
+schema search path as Platform. The example assumes a V25-or-later candidate
+database and the default Flyway history table. Record the environment, UTC
+observation time, deployed service revisions and migration results with the
+rollout evidence. Repeat these checks after pausing acceptance and producers and
+draining workers.
+
+```bash
+psql -X "service=omni-retained-readonly" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout = '10s';
+SET LOCAL lock_timeout = '3s';
+
+SELECT now() AS observed_at, current_database() AS database_name;
+SELECT installed_rank, version, script, checksum, success
+FROM flyway_schema_history ORDER BY installed_rank;
+SELECT to_regclass('output_storage_heads') AS versioned_heads,
+       to_regclass('output_storage_write_bases') AS frozen_bases,
+       to_regclass('output_completion_rejections') AS completion_audit,
+       to_regclass('output_work_ready_history') AS ready_history,
+       to_regclass('output_work_ready_attempt_catalog') AS attempt_catalog;
+
+SELECT j.job_type, e.status, count(*) AS executions
+FROM job_execution_histories e JOIN job_definitions j ON j.id = e.job_id
+WHERE e.parent_log_id IS NOT NULL AND e.status IN ('PENDING', 'RUNNING')
+  AND j.job_type IN ('SYNC_STOCK_PRICE', 'SYNC_INDICATORS', 'SYNC_SIGNALS', 'EVALUATE_SIGNALS')
+GROUP BY j.job_type, e.status ORDER BY j.job_type, e.status;
+SELECT count(*) AS recorded_timeouts FROM output_attempt_timeouts;
+SELECT topic, count(*) AS pending_commands,
+       count(*) FILTER (WHERE claim_until > now()) AS live_claims
+FROM scheduler_outbox_messages
+WHERE status = 'PENDING'
+GROUP BY topic ORDER BY topic;
+COMMIT;
+SQL
+```
+
+Use the retained broker's configured client to inspect the affected worker groups
+and relevant Platform status/registration groups, including lag, uncommitted
+partitions and active members. On a matching local Docker deployment,
+`nx run omni:jobs-backlog --json` reports Kafka offsets, lag and active assignments.
+Use the documented container and broker overrides when applicable. Check that
+producer instances and active handlers for the affected writers have stopped or
+settled. Zero reported lag alone cannot prove that a handler has stopped writing.
+
+With the deployment's authorized S3 profile, endpoint and bucket, record versioning
+and check exact version access for each referenced object in the reviewed
+inventory. Use paths resolved from the catalog and the shared path configuration.
+
+```bash
+aws --endpoint-url "$OMNI_S3_ENDPOINT" s3api get-bucket-versioning \
+  --bucket "$OMNI_S3_BUCKET"
+aws --endpoint-url "$OMNI_S3_ENDPOINT" s3api head-object \
+  --bucket "$OMNI_S3_BUCKET" --key "$OMNI_OBJECT_KEY" --version-id "$OMNI_VERSION_ID"
+```
+
+The object HEAD is an availability check. The parity gate also requires exact
+version GET and comparison of bytes, dates, schema, lineage and affected reader
+results. Check write access through the approved rollout procedure before opening
+traffic.
+
+**Stop before pinning or cutover** if writer ownership is uncertain, the DB gate
+finds nonterminal affected executions or recorded timeouts, affected commands have
+not drained, or Flyway history differs from the reviewed predecessor. For an
+older recorded V26, reconcile with a forward migration. Unset bucket versioning
+blocks versioned writes until the approved configuration is enabled and verified.
+
+**Stop expansion after deployment** if the bounded Signals request fails, a
+referenced version is unavailable, or shadow parity fails. Pause affected writes,
+retain the accepted registration and READY history, then follow the
+[paired rollback procedure](../reference/017-i10-versioned-storage.md#paired-rollout-and-rollback).
+Keep PostgreSQL reads on the verified accepted versions until restored canonical
+bytes and manifest discovery pass the rollback parity check.
 
 ## Configuration boundary
 

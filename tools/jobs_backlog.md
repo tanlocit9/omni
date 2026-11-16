@@ -8,6 +8,7 @@ Run once from the workspace root:
 
 ```bash
 nx run omni:jobs-backlog
+nx run omni:jobs-backlog --range=2h --only-problems
 nx run omni:jobs-backlog --stale-minutes=60 --limit=50 --json
 nx run omni:jobs-backlog --skip-kafka --json
 ```
@@ -46,8 +47,15 @@ of a hung worker. Dataset READY, input-date coverage, provider health, ownership
 deployment flags are not evaluated. Empty history/zero lag does not establish those
 properties. A 30-minute threshold is diagnostic only, never an automatic failure.
 
-Text is the default; `--json` returns section status, observation timestamps,
-summary, bounded execution IDs and all parsed partition offsets. Exports omit raw
+Set the stale execution threshold with `--range` or its alias `--stale-minutes`.
+Both accept durations such as `45m`, `2h` and `1d`, or a plain number of minutes.
+This changes which unfinished executions count as stale.
+
+Text is the default. In text output, `--only-problems` limits the execution-group
+table to groups with stale work and the Kafka table to partitions with lag,
+unknown lag or no active consumer. Section totals and outbox lines keep their
+normal scope. `--json` retains section status, observation timestamps, complete
+summaries, bounded execution IDs and all parsed partition offsets. Exports omit raw
 payloads/errors/metadata but contain operational identifiers; keep them private.
 Exit 0 means requested reads succeeded (or were explicitly skipped), regardless of
 backlog; exit 2 means at least one requested source was unavailable. Inspect section

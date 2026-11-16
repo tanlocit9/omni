@@ -69,14 +69,18 @@ isolated commit.
 
 ## Delivery traceability
 
-| Checkpoint                           | Commit    | Scope                                                               |
-| ------------------------------------ | --------- | ------------------------------------------------------------------- |
-| Earlier runtime repair               | `2bbfe38` | Lifecycle, settlement, date merge and weekend validation            |
-| Backlog tooling                      | `e27f816` | docs(ops): add read-only job backlog workflow                       |
-| Scheduler candidate budget           | `80a0466` | fix(scheduler): limit dispatch candidates to three times batch size |
-| I10 migration packaging              | `864f9f7` | refactor(db): split I10 readiness schema into V19-V23 stages        |
-| I10 dispatch and frozen-input guards | `2144c30` | fix(p14): enforce dated dependencies and frozen input reads         |
-| I10 bounded Indicators backfill      | `07ae4d1` | feat(p14): connect bounded Indicators backfill to scoped READY      |
+| Checkpoint                           | Original checkpoint | Commit on `main` | Scope                                             |
+| ------------------------------------ | ------------------- | ---------------- | ------------------------------------------------- |
+| Earlier runtime repair               | `2bbfe38`           | `c2f85cf`        | Lifecycle, settlement, date merge and weekends    |
+| Backlog tooling                      | `e27f816`           | `4743827`        | Read-only job backlog workflow                    |
+| Scheduler candidate budget           | `80a0466`           | `42b9ed0`        | Three times the dispatch batch size               |
+| I10 migration packaging              | `864f9f7`           | `e9c8dc9`        | Split the readiness schema into V19–V23 stages    |
+| I10 dispatch and frozen-input guards | `2144c30`           | `0626c86`        | Enforce dated dependencies and frozen reads       |
+| I10 bounded Indicators backfill      | `07ae4d1`           | `e2d1fdb`        | Connect bounded Indicators backfill to scoped READY |
+
+The original SHAs identify the local delivery checkpoints. The corresponding
+`main` commits are navigation references and leave the recorded verification
+scope unchanged.
 
 The final documentation commit links this handoff from the index, roadmap,
 increment registry, Plan 030 and release notes. No new roadmap increment or

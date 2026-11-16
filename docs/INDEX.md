@@ -28,7 +28,7 @@ old source/checkpoint statements below are historical for this revised scope.
 
 I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
 
-Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+Historical local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
 PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
@@ -38,8 +38,11 @@ handoffs below record their historical status and do not override this result.
 are source artifacts outside the numbered docs registry; I8/I9 local acceptance is recorded above;
 I10 implementation remains open. See the linked review for source findings and limits.
 
-P14-I10 is planned/pending after I9: Kafka output-registration arrays -> Platform PostgreSQL readiness, reader cutover, reconciliation and watchdog. I8/I9 are locally completed; no I10 implementation is claimed.
-See [I10 scope and acceptance](plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog).
+P14-I10 is `in_progress`. Scoped PostgreSQL readiness, unified worker completion
+and VERSIONED storage have source and local evidence. Manifest discovery remains
+the default pending retained cutover. Automatic expiry is deferred under TD-018.
+See [ADR-008](adr/008-postgres-output-readiness.md) and the
+[current acceptance gates](reference/019-i10-review-20261111.md).
 
 Historical October 30 source handoff: I8 and I9 were
 `verification_pending`. Opt-in shared atomic JobRuns and reversible preset

@@ -31,6 +31,50 @@ def anyio_backend():
     return "asyncio"
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize("api_status", [200, 503])
+@pytest.mark.parametrize("legacy_state", ["missing", "corrupt"])
+async def test_postgres_authority_never_reads_retired_json_even_when_api_fails(
+    api_status, legacy_state
+):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from pydantic import SecretStr
+
+    from py_common.config.paths import StockDataPaths
+    from py_common.storage.output_readiness import metadata_reader
+
+    readable = SimpleNamespace(
+        read_bytes=AsyncMock(
+            side_effect=FileNotFoundError("legacy deleted")
+            if legacy_state == "missing"
+            else ValueError("invalid legacy JSON")
+        )
+    )
+    settings = SimpleNamespace(
+        output_readiness_mode="postgres",
+        output_readiness_api_url="http://platform/readiness",
+        output_readiness_api_token=SecretStr("fixture"),
+        minio=SimpleNamespace(bucket="stock-data"),
+        stock_data_paths=StockDataPaths.from_config({}),
+    )
+    reader = metadata_reader(settings, readable)
+    reader._transport = httpx.MockTransport(
+        lambda request: httpx.Response(api_status, json=page())
+    )
+    if api_status == 200:
+        document = await reader.read()
+        assert (
+            document.resolve("eod", {"exchange": "upcom", "code": "hd6"}).dataVersion
+            == page()["items"][0]["manifest"]["dataVersion"]
+        )
+    else:
+        with pytest.raises(ManifestInvalidError):
+            await reader.read()
+    readable.read_bytes.assert_not_called()
+
+
 def page(revision=1):
     return {
         "revision": revision,
@@ -409,7 +453,6 @@ def test_authority_selection_keeps_explicit_mode_and_shared_path_configuration(m
     from pydantic import SecretStr
 
     from py_common.config.paths import StockDataPaths
-    from py_common.storage.global_metadata import GlobalMetadataReader
     from py_common.storage.output_readiness import metadata_reader
 
     paths = StockDataPaths.from_config(
@@ -422,19 +465,11 @@ def test_authority_selection_keeps_explicit_mode_and_shared_path_configuration(m
         output_readiness_api_token=SecretStr("reader"),
         stock_data_paths=paths,
     )
-    if mode == "invalid":
-        with pytest.raises(ValueError, match="Unsupported"):
+    if mode != "postgres":
+        with pytest.raises(ValueError, match="legacy JSON authority is retired"):
             metadata_reader(settings, Mock())
         return
     validator = object()
     reader = metadata_reader(settings, Mock(), parquet=validator)
-    if mode == "manifest":
-        assert isinstance(reader, GlobalMetadataReader)
-        assert isinstance(reader.enrolled_work_reader, PostgresMetadataReader)
-    else:
-        postgres = reader._postgres if mode == "shadow" else reader
-        assert isinstance(postgres, PostgresMetadataReader)
-        assert postgres._paths is paths
-        if mode == "shadow":
-            assert reader._parquet is validator
-            assert reader.enrolled_work_reader is postgres
+    assert isinstance(reader, PostgresMetadataReader)
+    assert reader._paths is paths

@@ -43,6 +43,19 @@ const detail: JobDefinitionDetail = {
 };
 
 describe('read-only JobsPanel', () => {
+  it('links to bounded work requests without treating active definitions as scheduled or READY', async () => {
+    const onOpenWork = vi.fn();
+    render(<JobsPanel onOpenWork={onOpenWork} />);
+    await screen.findByRole('heading', { name: 'Indicator sync' });
+    expect(
+      screen.getByText(/active definition does not prove cron scheduling/)
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open backfills and work requests' })
+    );
+    expect(onOpenWork).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Stored next-run timestamp')).toBeInTheDocument();
+  });
   afterEach(() => cleanup());
   beforeEach(() => {
     vi.clearAllMocks();

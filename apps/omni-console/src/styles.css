@@ -1033,6 +1033,84 @@ tbody tr:hover {
 .work-panel h3 {
   margin-top: 0;
 }
+.work-panel .panel-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.work-panel .actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.work-table .selected-member {
+  background: var(--accent-soft);
+}
+.output-evidence {
+  margin-top: 18px;
+}
+.detail-panel > .actions {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.schema-card code {
+  overflow-wrap: anywhere;
+}
+.work-panel button:not(.work-link) {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 13px;
+  color: #dce6e3;
+  background: var(--panel-2);
+}
+.work-panel button:not(.work-link):focus-visible,
+.backfill-form textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.backfill-form fieldset {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.backfill-form legend {
+  padding: 0 6px;
+  color: var(--muted);
+}
+.backfill-form .work-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+.backfill-form .work-toolbar label {
+  min-width: 0;
+}
+.backfill-form textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  color: #e9f2ef;
+  background: #091512;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 9px 11px;
+}
+.backfill-form button[type='submit'] {
+  color: #062015;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.work-panel code {
+  overflow-wrap: anywhere;
+}
+.work-table details summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.work-table details ul {
+  padding-left: 18px;
+}
 .work-toolbar {
   display: flex;
   gap: 16px;

@@ -1,5 +1,14 @@
 # Indicators sector/date backfill
 
+November 17: the owner-approved optional symbolKey narrows the declared sector/date
+universe to one active canonical EXCHANGE-CODE symbol. Missing symbolKey preserves
+complete sector-wide behavior. Malformed, inactive, unknown or out-of-sector symbols
+are rejected before durable work; normalized scope participates in idempotency and
+accepted membership. It does not change analytical parameters or bypass enrollment,
+frozen inputs, versioned ownership or READY guards. The existing sectorLevel remains
+part of Signals work identity and must match the intended retained proof.
+See [current verification and retained scope](020-i10-postgres-only-cutover.md#november-17-postgresql-only-e2e-and-retained-scope).
+
 November 9 extension in progress: [Signals backfill](016-i10-signals-backfill-closure.md).
 The API also accepts SYNC_SIGNALS with optional targetDefinitionId selecting one
 active canonical strategy definition. Ambiguous/mismatched selection is 409.
@@ -55,6 +64,50 @@ graph into Symbols -> dated EOD -> dated Indicators. Frozen attempt membership,
 registration before SUCCESS and exact work READY gate downstream dispatch.
 
 ## API
+
+### Goal discovery
+
+November 15 Console source consumes this catalog in Work Operations. Its New
+backfill form submits the selected target and explicit sector/date/policy values
+through the existing POST below, then refreshes the request list. The UI retains
+an unchanged request's idempotency key after an uncertain submission outcome.
+The browser never writes Kafka or database state directly. Owner-approved Console
+Nx typecheck, lint, test and build pass (71/71 tests across 10 files). This is UI
+unit/component evidence, not browser, backend integration or deployment evidence.
+
+`GET /api/v1/jobs/backfills/goals` uses the same trusted operator authentication
+as the private jobs API and returns a JSON array:
+
+```json
+[
+  {
+    "goal": "SYNC_INDICATORS",
+    "targets": [
+      { "targetDefinitionId": "<definition UUID>", "title": "Indicators" }
+    ]
+  }
+]
+```
+
+The allow-list is shared with POST: `SYNC_INDICATORS` and `SYNC_SIGNALS`. Only
+active canonical definitions are returned; aliases and unsupported job types are
+excluded. Cron scheduling may be disabled. Goals without eligible definitions are
+omitted; an empty catalog returns `[]`. Goals follow the allow-list order and
+targets are sorted by UUID. Titles may be null.
+
+Pass the selected `goal` and `targetDefinitionId` to POST. When there are multiple
+targets for a goal, selecting the ID avoids an ambiguous-target HTTP 409.
+Discovery is a definition inventory, not an admission or READY verdict: POST
+revalidates definitions, feature flags, scope and dependencies at acceptance.
+It never creates work or enables a job.
+
+The owner removed the obsolete `POST /api/v1/jobs/definitions/{definitionId}/triggers`
+route on November 15. It has no controller mapping; authenticated requests receive
+HTTP 404 instead of the historical 410 stub. The separate legacy
+`GET /api/v1/jobs/triggers/{requestId}` still returns HTTP 410. This discovery
+endpoint does not restore generic manual triggering.
+
+### Create a backfill
 
 `POST /api/v1/jobs/backfills` requires the trusted proxy `X-Omni-User` operator UUID
 and `Idempotency-Key`. Apply the existing private jobs API deployment boundary;

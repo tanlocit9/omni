@@ -20,7 +20,7 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 class I10WorkReadinessIntegrationTest {
     @BeforeAll
     static void initialize() throws Exception {
-        start(false, true, true, false, false, "shadow");
+        start(false, true, true, true, false, "postgres");
     }
 
     @AfterAll
@@ -299,8 +299,11 @@ class I10WorkReadinessIntegrationTest {
         assertThat(result.path("pinnedDatasets").asInt()).isEqualTo(2);
         assertThat(result.path("logicalVersionsUnchanged").asBoolean()).isTrue();
         assertThat(result.path("bytesPreserved").asBoolean()).isTrue();
-        assertThat(result.path("shadow").path("matches").asBoolean()).isTrue();
-        assertThat(result.path("shadow").path("comparedRows").asInt()).isEqualTo(2);
+        assertThat(result.path("postgresValidatedRows").asInt())
+                .isEqualTo(2)
+                .isEqualTo(result.path("postgresExpectedRows").asInt());
+        assertThat(result.path("legacyJsonReads").asInt()).isZero();
+        assertThat(result.path("legacyJsonAbsent").asBoolean()).isTrue();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM output_registrations", Integer.class))
                 .isEqualTo(registrations);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM output_work_ready", Integer.class))
@@ -338,6 +341,9 @@ class I10WorkReadinessIntegrationTest {
         int fetches =
                 Files.readAllLines(directory.resolve("provider-control/stock-fetches.jsonl"))
                         .size();
+        jdbc.update(
+                "INSERT INTO symbols(code,exchange,is_active,meta_json) "
+                        + "VALUES ('QQQ','HOSE',true,'{\"sectorLv1Code\":\"BANK\"}'::jsonb)");
         String body =
                 JSON.writeValueAsString(
                         java.util.Map.of(
@@ -351,6 +357,8 @@ class I10WorkReadinessIntegrationTest {
                                 java.util.List.of("BANK"),
                                 "sectorLevel",
                                 1,
+                                "symbolKey",
+                                "HOSE-HPG",
                                 "rerun",
                                 true));
         var command =
@@ -370,6 +378,26 @@ class I10WorkReadinessIntegrationTest {
                         com.omni.platform.modules.scheduler.work.GraphWorkRequestService.class));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM output_storage_heads", Integer.class))
                 .isEqualTo(3);
+        var graph =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.work.GraphWorkRequestService.class);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT e.meta_json->>'workKey' FROM atomic_work_request_members m "
+                                        + "JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                                        + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                        + "WHERE m.request_id=? AND m.is_target",
+                                String.class,
+                                graph.requestId(root)))
+                .containsExactly("HOSE-HPG");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                                        + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                        + "WHERE m.request_id=? AND e.meta_json->>'workKey'='HOSE-QQQ'",
+                                Integer.class,
+                                graph.requestId(root)))
+                .isZero();
         assertThat(Files.readAllLines(directory.resolve("provider-control/stock-fetches.jsonl")))
                 .hasSize(fetches);
         var prices = JSON.writeValueAsString(java.util.Map.of(day, 180));
@@ -447,6 +475,7 @@ class I10WorkReadinessIntegrationTest {
         assertThat(result.path("validatedProofs").asInt()).isGreaterThanOrEqualTo(3);
         assertThat(result.path("canonicalWasStale").asBoolean()).isTrue();
         assertThat(result.path("discoveryUnchanged").asBoolean()).isTrue();
+        assertThat(result.path("legacyJsonAbsent").asBoolean()).isTrue();
         assertThat(readinessHistorySnapshot()).isEqualTo(before);
         launch("query-service", "p14_pinned_query.py", true, "-query-after-repair");
         // Rollback stops writers; it never permits a mutable writer on pinned data.

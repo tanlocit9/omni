@@ -19,6 +19,7 @@ from py_common.storage.parquet import ParquetStorage
 from app.settings import AppSettings
 from app.signals.intraday_confirmation import (
     IntradayDatasetResolver,
+    PostgresIntradayDatasetResolver,
     calculate_intraday_facts,
     evaluate_intraday_confirmation,
 )
@@ -48,7 +49,9 @@ class SignalJobHandler:
         settings: AppSettings,
         parquet_storage: ParquetStorage,
         metadata_reader: GlobalMetadataReader,
-        intraday_resolver: IntradayDatasetResolver | None = None,
+        intraday_resolver: IntradayDatasetResolver
+        | PostgresIntradayDatasetResolver
+        | None = None,
     ) -> None:
         self._settings = settings
         self._parquet_storage = parquet_storage

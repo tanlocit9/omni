@@ -11,6 +11,13 @@ when V14 is applied, not merely by editing migration source.
 
 ## Current Evidence
 
+November 15 owner amendment: the obsolete POST
+`/api/v1/jobs/definitions/{definitionId}/triggers` stub is removed (authenticated
+HTTP 404). The GET audit stub remains HTTP 410. Authenticated
+`GET /api/v1/jobs/backfills/goals` lists eligible targets for the existing bounded
+Indicators/Signals backfill API; it does not reactivate generic manual triggering
+or request audit. Earlier 410 statements below describe the I3.d withdrawal.
+
 Historical V8 `manual_job_triggers` stored REQUESTED, ACCEPTED, BLOCKED, CONFLICT
 and FAILED, with rejection/error/resolution details and an optional execution ID.
 I3.d removes its service/entity/repository and Console actions. Old POST trigger
@@ -36,14 +43,16 @@ Owner exception (2026-11-05): the new [Indicators-only sector/date backfill
 API](../reference/009-indicators-backfill.md) accepts durable BACKFILL graph
 requests behind existing operator authentication. This bounded request does not
 restore generic trigger/poll routes, metadata buttons, or standalone rejected
-request audit. Existing generic routes remain 410; this debt remains deferred.
+request audit. The legacy audit route remains 410; the obsolete trigger POST has
+been removed as recorded above. This debt remains deferred.
 
 - Defer durable standalone audit for requests that never produce a valid committed
   JobRun, including rejection reason/time and a durable audit-only request ID.
 - Do not extend JobRun with unsealed request-only rows, nullable fake paths or
   fabricated successful executions solely to replace this legacy audit feature.
-- Old operator trigger/poll routes return explicit sanitized HTTP 410 reasons
-  behind existing authentication; they never accept work. Future reactivation
+- The removed operator trigger POST has no mapping; the old poll route returns
+  explicit sanitized HTTP 410 reasons behind existing authentication. Neither
+  accepts work. Future reactivation
   requires reviewed authorization, actor isolation, allow-list and validation.
 - Preserve committed-run idempotency, frozen membership, rollback, retry/fencing,
   and run/execution failure diagnosis. These are active correctness requirements.

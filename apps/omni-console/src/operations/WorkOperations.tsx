@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { ApiError } from '../api';
+import { BackfillForm } from './BackfillForm';
+import { RequestList } from './RequestList';
+import { RequestDetail } from './RequestDetail';
+import { WorkProvenance } from './WorkProvenance';
 import {
   getAtomicSnapshot,
   getPublishedUnfinished,
-  inspectAtomicWork,
   type SnapshotWindow,
 } from './api';
-import type { AtomicSnapshot, PublishedPage, WorkInspection } from './types';
+import type { AtomicSnapshot, BackfillAccepted, PublishedPage } from './types';
 
 function errorText(error: unknown) {
   if (error instanceof ApiError && error.status === 401)
@@ -23,7 +26,22 @@ function age(seconds: number | null) {
   return seconds === null ? 'Unknown' : `${Math.floor(seconds / 60)} min`;
 }
 
-export function WorkOperations() {
+export function WorkOperations({
+  requestId,
+  onRequestChange,
+}: {
+  requestId?: string | null;
+  onRequestChange?: (requestId: string | null) => void;
+} = {}) {
+  const [accepted, setAccepted] = useState<BackfillAccepted | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [localRequestId, setLocalRequestId] = useState<string | null>(null);
+  const selectedRequestId =
+    requestId === undefined ? localRequestId : requestId;
+  const selectRequest = (id: string | null) => {
+    if (onRequestChange) onRequestChange(id);
+    else setLocalRequestId(id);
+  };
   const [window, setWindow] = useState<SnapshotWindow>({ hours: 24 });
   const [snapshot, setSnapshot] = useState<AtomicSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,11 +93,40 @@ export function WorkOperations() {
 
   return (
     <section className="work-operations" aria-label="Work operations">
+      <div>
+        <p className="eyebrow">Operations</p>
+        <h2>Work Operations</h2>
+        <p className="muted">
+          Create a bounded backfill and follow its requests. Detailed work and
+          publication diagnostics remain read-only.
+        </p>
+      </div>
+      <BackfillForm
+        onAccepted={(result) => {
+          setAccepted(result);
+          selectRequest(result.requestId);
+          setRefreshToken((value) => value + 1);
+          setWindow((value) => ({ hours: value.hours }));
+        }}
+      />
+      <RequestList
+        refreshToken={refreshToken}
+        acceptedRequestId={accepted?.requestId}
+        onSelectRequest={selectRequest}
+      />
+      {selectedRequestId && (
+        <RequestDetail
+          key={selectedRequestId}
+          requestId={selectedRequestId}
+          onClose={() => selectRequest(null)}
+          onInspectWork={setSelectedWork}
+        />
+      )}
       <section className="panel work-panel">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">P14 · read-only</p>
-            <h2>Work Operations</h2>
+            <h3>Work diagnostics</h3>
           </div>
           <button
             type="button"
@@ -141,7 +188,7 @@ export function WorkOperations() {
         )}
         <div className="stat-grid work-stats">
           {[
-            'Requests on page',
+            'Requests in diagnostic sample',
             'Distinct sampled attempts',
             'Published unfinished >30m (sample)',
             'Attempts with multiple owners',
@@ -158,9 +205,10 @@ export function WorkOperations() {
           are unknown here.
         </p>
         <p className="muted">
-          Metadata registration and watchdog are planned I10. Query tracing is
-          reserved, not implemented. This view never changes execution or
-          readiness state.
+          These diagnostics do not expose registration or READY evidence.
+          Automatic execution expiry is deferred. Query tracing is reserved, not
+          implemented. The diagnostic views never change execution or readiness
+          state.
         </p>
       </section>
       <section className="panel work-panel">
@@ -286,43 +334,16 @@ export function WorkOperations() {
           </button>
         )}
       </section>
-      {selectedWork && <WorkDetail atomicWorkId={selectedWork} />}
+      {selectedWork && (
+        <WorkProvenance
+          atomicWorkId={selectedWork}
+          onSelectRequest={selectRequest}
+          onSelectWork={setSelectedWork}
+        />
+      )}
       <PublishedUnfinished />
       {snapshot && (
         <>
-          <section className="panel work-panel">
-            <h3>Requests on page</h3>
-            <div className="work-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Graph request</th>
-                    <th>State</th>
-                    <th>Created UTC</th>
-                    <th>Members / targets / sampled</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {snapshot.requests.map((request) => (
-                    <tr key={request.graphRequestId}>
-                      <td>
-                        <code>{request.graphRequestId}</code>
-                      </td>
-                      <td>{request.state}</td>
-                      <td>{request.createdAt}</td>
-                      <td>
-                        {request.memberCount} / {request.targetCount} /{' '}
-                        {request.sampledMemberCount}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!snapshot.requests.length && (
-              <p>No requests created in this window.</p>
-            )}
-          </section>
           <section className="panel work-panel">
             <h3>Definition inventory</h3>
             <p className="muted">
@@ -352,53 +373,6 @@ export function WorkOperations() {
               </table>
             </div>
           </section>
-        </>
-      )}
-    </section>
-  );
-}
-
-function WorkDetail({ atomicWorkId }: { atomicWorkId: string }) {
-  const [detail, setDetail] = useState<WorkInspection | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const abort = new AbortController();
-    setDetail(null);
-    setError(null);
-    inspectAtomicWork(atomicWorkId, abort.signal)
-      .then((value) => {
-        if (!abort.signal.aborted) setDetail(value);
-      })
-      .catch((reason) => {
-        if (!abort.signal.aborted) setError(errorText(reason));
-      });
-    return () => abort.abort();
-  }, [atomicWorkId]);
-  return (
-    <section className="panel work-panel">
-      <h3>Work provenance</h3>
-      <code>{atomicWorkId}</code>
-      {error && (
-        <p role="alert" className="callout warning">
-          {error}
-        </p>
-      )}
-      {!error && !detail && <p>Loading work provenance…</p>}
-      {detail && (
-        <>
-          <p className="muted">
-            One-hop upstreams and owners. Trace presence does not prove
-            propagation or query-level persistence.
-          </p>
-          {(detail.attemptsTruncated ||
-            detail.ownersTruncated ||
-            detail.upstreamsTruncated) && (
-            <p className="callout warning">
-              Work provenance is truncated; missing links are not proof of no
-              dependency.
-            </p>
-          )}
-          <pre className="work-json">{JSON.stringify(detail, null, 2)}</pre>
         </>
       )}
     </section>

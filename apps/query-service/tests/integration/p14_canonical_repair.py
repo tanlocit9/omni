@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pandas as pd
+from minio.error import S3Error
 from py_common.config.models import MinioSettings
 from py_common.storage.adapters import MinioStorageAdapter, create_minio_client
 from py_common.storage.global_metadata import GLOBAL_METADATA_PATH
@@ -40,7 +41,8 @@ async def main():
         output_readiness_api_url=config["outputReadinessUrl"],
         output_readiness_api_token=SecretStr(config["outputReadinessToken"]),
     )
-    adapter = MinioStorageAdapter(create_minio_client(settings.minio))
+    client = create_minio_client(settings.minio)
+    adapter = MinioStorageAdapter(client)
     await adapter.validate()
     reader = PostgresMetadataReader(
         settings.output_readiness_api_url,
@@ -53,7 +55,18 @@ async def main():
         settings.minio.bucket,
         settings.stock_data_paths,
     )
-    discovery = await adapter.read_bytes(settings.minio.bucket, GLOBAL_METADATA_PATH)
+
+    async def assert_json_absent():
+        try:
+            await asyncio.to_thread(
+                client.stat_object, settings.minio.bucket, GLOBAL_METADATA_PATH
+            )
+        except S3Error as error:
+            assert error.code in {"NoSuchKey", "NoSuchObject"}
+        else:
+            raise AssertionError("Canonical repair republished retired discovery JSON")
+
+    await assert_json_absent()
     document = await reader.read()
     checked = []
     for dataset in document.datasets:
@@ -99,10 +112,7 @@ async def main():
     for dataset, proof, expected in checked:
         actual = await parquet.read_bound_dataframe(dataset, proof, proof.dataVersion)
         pd.testing.assert_frame_equal(expected, actual, check_exact=True)
-    assert (
-        await adapter.read_bytes(settings.minio.bucket, GLOBAL_METADATA_PATH)
-        == discovery
-    )
+    await assert_json_absent()
     (control / "canonical-repair-result.json").write_text(
         json.dumps(
             {
@@ -110,6 +120,7 @@ async def main():
                 "validatedProofs": len(checked),
                 "canonicalWasStale": True,
                 "discoveryUnchanged": True,
+                "legacyJsonAbsent": True,
             }
         )
     )

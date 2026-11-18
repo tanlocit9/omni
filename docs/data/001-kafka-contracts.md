@@ -1,5 +1,11 @@
 # Kafka Contracts
 
+November 16 [PostgreSQL-only reader default](../reference/020-i10-postgres-only-cutover.md)
+retires active legacy JSON authority without changing completion/status messages,
+topics, protobuf fields or logical dataset references. Worker enrollment and
+validated publication before committed READY remain required. SYNC_METADATA in
+PostgreSQL mode validates registered outputs rather than publishing legacy JSON.
+
 The private work-proof HTTP API now accepts an optional atomicAttemptId selector.
 Workers send their existing frozen approved-input attempt; Kafka fields, topics,
 logical references and generated contracts are unchanged by this correction. See

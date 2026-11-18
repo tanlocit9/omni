@@ -1,5 +1,11 @@
 # I10 versioned physical storage
 
+November 16 owner amendment: [PostgreSQL-only reader defaults and legacy JSON
+retirement](020-i10-postgres-only-cutover.md) supersede active legacy/shadow
+comparison requirements below. Exact registered rows, frozen versions, immutable
+byte validation and safe rollout/recovery still apply. The scoped retained probe
+passes after JSON retirement; no complete inventory or Signals rollout is inferred.
+
 November 11: [automatic expiry is owner-deferred](../technical-debt/018-execution-watchdog-observation.md)
 and disabled during observation. Existing timed-out history and late-writer safety
 remain; this decision does not promote old outputs or resolve conflicting completion.

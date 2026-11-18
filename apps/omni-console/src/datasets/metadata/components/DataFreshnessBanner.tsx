@@ -28,10 +28,16 @@ export function DataFreshnessBanner({ definition }: DatasetWidgetProps) {
         .filter((value): value is string => Boolean(value))
         .sort()
         .at(-1);
-      const stale = latestGeneratedAt
-        ? Date.now() - Date.parse(latestGeneratedAt) >
-          STALE_AFTER_HOURS * 60 * 60 * 1000
-        : true;
+      const now = Date.now();
+      const stale = data.datasets.some((item) => {
+        const generated = Date.parse(item.generatedAt ?? '');
+        return (
+          item.status !== 'READY' ||
+          !Number.isFinite(generated) ||
+          generated > now ||
+          now - generated > STALE_AFTER_HOURS * 60 * 60 * 1000
+        );
+      });
       return {
         status: stale ? 'stale' : 'ready',
         data,
@@ -57,14 +63,29 @@ export function DataFreshnessBanner({ definition }: DatasetWidgetProps) {
       state={state}
       onRefresh={refresh}
       renderReady={(data) => (
-        <ul className="freshness-list">
-          {data.datasets.slice(0, 6).map((item) => (
-            <li key={item.dataset}>
-              <strong>{item.dataset}</strong>
-              <span>{item.effectiveDataDate ?? item.status}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="muted">
+            Latest catalog partitions only; this does not establish exact-date
+            work coverage or I10 READY.
+          </p>
+          <ul className="freshness-list">
+            {data.datasets.slice(0, 6).map((item) => (
+              <li key={item.dataset}>
+                <strong>{item.dataset}</strong>
+                <span>
+                  {item.effectiveDataDate ?? 'Unknown date'} · Catalog:{' '}
+                  {item.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {data.datasets.length > 6 && (
+            <p className="muted">
+              Showing 6 of {data.datasets.length} catalog datasets. Freshness
+              checks include every returned dataset.
+            </p>
+          )}
+        </>
       )}
     />
   );

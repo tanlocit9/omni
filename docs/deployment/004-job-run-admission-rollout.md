@@ -1,11 +1,42 @@
 # JobRun Admission Rollout and Rollback
 
+November 18 session-based scope: [TD-020](../technical-debt/020-session-runtime-operations.md)
+defers fleet-wide continuous rollout/recovery qualification and 12-hour schedule
+activation. Keep the schedule off; no automatic startup catch-up is approved.
+For each backfill, matched services, affected-partition pinning/proofs/bytes,
+writer ownership and bounded recovery remain required. Earlier broader operational
+blocker descriptions are superseded by this explicit owner scope amendment.
+
+November 18 retained checkpoint: [retained MBB Signals and accepted-byte repair](../reference/020-i10-postgres-only-cutover.md#november-18-retained-signals-and-readerrepair-checkpoint)
+pass through finite normal workers and a full-classpath reader. All maintenance
+hosts stopped; no persistent deployment or schedule activation is claimed.
+Read-only parity covers 59 partitions, but only three are pinned. Full-inventory
+write safety/recovery, coordinated rollout, 12-hour reconciliation activation and
+owner review remain open. Earlier dated pending/no-dispatch notes are historical.
+
+November 16: [owner-approved PostgreSQL-only defaults and V27 JPA](../reference/020-i10-postgres-only-cutover.md).
+The local full Platform validates with normal JPA/Modulith dependencies, and
+reader/Query/frozen-input checks pass after retiring the exact global JSON key.
+Configure private API credentials for Python services and do not select legacy
+manifest/shadow overrides after retirement. Prior metadata versions/backups remain;
+complete worker rollout, inventory validation, reconciliation and retained rollback
+are separate gates. Earlier failed legacy-parity notes below are historical.
+
+Owner-approved November 16 maintenance [pinned three retained pilot containers](../reference/019-i10-review-20261111.md#november-16-approved-retained-pilot)
+through the existing fenced API after backup/restore and accepted-work validation.
+Legacy manifest parity fails for all three, so no authority switch, Signals
+dispatch or retained rollback follows. Baselines and backups remain; the owned
+API-only host and disposable restore container are stopped/removed. This does not
+establish complete inventory parity or matched full-service rollout.
+
 Matched V26/Platform/shared-reader deployment also enables frozen-attempt proof
 lookup backed by immutable actual VERSIONED READY history. The optional
 atomicAttemptId API selector preserves old latest/current clients. Schema/runtime
 must be paired; canonical mutable history is not backfilled into immutable READY.
-The [November 11 preflight and remaining gates](../reference/019-i10-review-20261111.md)
-record local V25 and bucket versioning unset; no retained rollout has occurred.
+The [November 16 preflight and remaining gates](../reference/019-i10-review-20261111.md#november-16-main-reconciliation-and-fresh-preflight)
+observe local V26 and bucket versioning Enabled, but zero storage heads and
+immutable READY history. Historical November 11 observations were V25/versioning
+unset. Neither snapshot establishes complete inventory parity or reader cutover.
 The disposable drained canonical-repair rehearsal now passes, preserving accepted
 versions, registration/READY history and Query reads while refusing mutable writer
 downgrade. It retains PostgreSQL authority and does not replace retained parity or

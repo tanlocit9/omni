@@ -45,7 +45,7 @@ public class OutputDeclarations {
         boolean evaluation = work.jobType().equals("EVALUATE_SIGNALS");
         if (!List.of("SYNC_STOCK_PRICE", "SYNC_INDICATORS", "SYNC_SIGNALS", "EVALUATE_SIGNALS")
                 .contains(work.jobType()))
-            return List.of(); // Other protocols retain manifest authority until separately adapted.
+            return List.of(); // Other protocols have no enrolled dataset readiness until adapted.
         if (!evaluation && symbol.length != 2)
             throw new IllegalArgumentException("Invalid symbol work key");
         Map<String, String> partition = new LinkedHashMap<>();

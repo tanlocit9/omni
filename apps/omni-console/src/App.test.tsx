@@ -1,5 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
 
@@ -92,9 +98,50 @@ vi.stubGlobal(
   })
 );
 
+beforeEach(() => window.history.replaceState(null, '', '/'));
 afterEach(cleanup);
 
 describe('App', () => {
+  it('restores a linked request without the empty catalog overriding Work Operations', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=work&requestId=request-linked&keep=yes'
+    );
+    render(<App />);
+    expect(
+      screen.getByRole('heading', { name: 'Work Operations' })
+    ).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Request detail' });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Work Operations' })
+      ).toHaveAttribute('aria-current', 'page')
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Close request' }));
+    expect(new URLSearchParams(window.location.search).has('requestId')).toBe(
+      false
+    );
+    expect(new URLSearchParams(window.location.search).get('keep')).toBe('yes');
+  });
+
+  it('follows browser history route changes and persists manual navigation', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Work Operations' }));
+    expect(new URLSearchParams(window.location.search).get('view')).toBe(
+      'work'
+    );
+    window.history.replaceState(
+      null,
+      '',
+      '/?view=work&requestId=history-request'
+    );
+    fireEvent.popState(window);
+    expect(
+      await screen.findByRole('heading', { name: 'Request detail' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('history-request')).toBeInTheDocument();
+  });
   it('opens on the fixed Market Dashboard', () => {
     render(<App />);
 

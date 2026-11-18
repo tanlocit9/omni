@@ -1,5 +1,17 @@
 # Data Lake
 
+November 18: [TD-020](../technical-debt/020-session-runtime-operations.md) defers
+continuous fleet-wide rollout/recovery qualification and 12-hour reconciliation
+activation for session-based use. Per-affected-partition proof/byte validation and
+immutable write safety remain mandatory; pinning does not enroll historical rows.
+Older descriptions of the periodic schedule are future scope under that debt.
+
+November 16: [legacy global JSON discovery is retired for active readers](../reference/020-i10-postgres-only-cutover.md).
+PostgreSQL defaults retain exact work/attempt/version and Parquet-byte validation.
+The local \_metadata/metadata.json key has a recoverable delete marker; no Parquet,
+immutable version or registration was deleted. Unregistered history is not READY.
+Historical manifest-authority descriptions below do not override this decision.
+
 Frozen worker proofs select their exact atomicAttemptId after a newer work refresh;
 V26 retains only actual immutable VERSIONED READY promotions for that historical
 lookup. Work/date/version checks and exact Parquet version validation still apply.
@@ -205,8 +217,14 @@ version columns: metadata records empty lineage rather than fabricating it.
 This is discovery/date evidence, not scoped I10 enrollment or approval for
 PostgreSQL cutover of these datasets.
 
-Dataset producers write and validate Parquet only. Analyzer's `SYNC_METADATA` worker
-is the only metadata writer and supports three logical modes:
+Active SYNC_METADATA now reconciles registered PostgreSQL outputs and exact Parquet
+bytes without publishing discovery JSON. Unregistered datasets remain unavailable.
+Intraday JSON READY pointers are excluded from active Signals confirmation until
+intraday has a supported PostgreSQL registration contract; confirmation reports
+MISSING_POSTGRES_INTRADAY_PROOF rather than reading legacy publication artifacts.
+
+Historical JSON publication (retired): dataset producers wrote and validated
+Parquet only. Analyzer's legacy SYNC_METADATA writer supported three logical modes:
 
 - no target: rebuild every registered dataset;
 - dataset target: replace that complete dataset section;
@@ -294,12 +312,12 @@ cannot move another symbol's pointer. Exact duplicate provider IDs collapse;
 conflicting IDs, mixed/out-of-session timestamps, cursor ambiguity, unavailable
 symbols, reconciliation rejection, or any publication failure prevent replacement of
 that symbol's READY pointer. Prior immutable versions and the prior pointer remain
-valid. `SYNC_METADATA` remains the sole writer of canonical
-`_metadata/metadata.json`; the per-partition `READY.json` is the ingestion publication
-boundary, not a second global discovery writer. The V2 confirmed-signal resolver reads
-the exact provider/exchange/date/symbol READY pointer and immutable version manifest,
-accepts reconciliation `READY` or `WARNING`, and never falls back to another symbol or
-trading date.
+valid. These P9 JSON publication artifacts are retained; active SYNC_METADATA no
+longer publishes global discovery JSON. The historical V2 resolver read the exact
+provider/exchange/date/symbol READY pointer and immutable version manifest and
+accepted reconciliation READY or WARNING. Active Signals startup excludes that
+resolver until intraday has PostgreSQL registration support; no symbol/date or
+legacy JSON substitution is allowed.
 
 Objects published under the earlier shared provider/exchange/date READY layout are not
 valid V2 inputs. They must be republished into symbol-level partitions; consumers do

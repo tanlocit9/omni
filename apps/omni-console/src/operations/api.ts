@@ -1,5 +1,98 @@
 import { platformRequest } from '../api';
-import type { AtomicSnapshot, PublishedPage, WorkInspection } from './types';
+export { getAtomicRequestDetail, getAttemptReadiness } from './detailApi';
+import type {
+  AtomicRequestPage,
+  AtomicRequestQuery,
+  AtomicSnapshot,
+  BackfillAccepted,
+  BackfillGoal,
+  BackfillRequest,
+  PublishedPage,
+  WorkInspection,
+} from './types';
+
+export async function getBackfillGoals(signal?: AbortSignal) {
+  const goals = await platformRequest<BackfillGoal[]>(
+    '/api/v1/jobs/backfills/goals',
+    { signal }
+  );
+  if (
+    !Array.isArray(goals) ||
+    goals.some(
+      (goal) =>
+        !goal ||
+        typeof goal.goal !== 'string' ||
+        !Array.isArray(goal.targets) ||
+        goal.targets.some(
+          (target) => !target || typeof target.targetDefinitionId !== 'string'
+        )
+    )
+  ) {
+    throw new Error('The backfill goal catalog is unavailable.');
+  }
+  return goals;
+}
+
+export async function createBackfill(
+  input: BackfillRequest,
+  idempotencyKey: string,
+  signal?: AbortSignal
+) {
+  const result = await platformRequest<BackfillAccepted>(
+    '/api/v1/jobs/backfills',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+      signal,
+    }
+  );
+  if (
+    !result ||
+    result.status !== 'ACCEPTED' ||
+    typeof result.requestId !== 'string' ||
+    typeof result.executionId !== 'string'
+  ) {
+    throw new Error(
+      'The acceptance response is unavailable. Check request history before starting another request.'
+    );
+  }
+  return result;
+}
+
+export async function listAtomicRequests(
+  query: AtomicRequestQuery,
+  signal?: AbortSignal
+) {
+  const params = new URLSearchParams({
+    status: query.status,
+    limit: String(query.limit ?? 20),
+  });
+  for (const key of ['observedAt', 'beforeCreatedAt', 'beforeId'] as const) {
+    const value = query[key];
+    if (value) params.set(key, value);
+  }
+  const result = await platformRequest<AtomicRequestPage>(
+    `/api/v1/jobs/atomic-work/requests?${params}`,
+    { signal }
+  );
+  if (
+    !result ||
+    !Array.isArray(result.items) ||
+    typeof result.observedAt !== 'string' ||
+    typeof result.hasMore !== 'boolean' ||
+    (result.hasMore &&
+      (!result.nextCursor ||
+        typeof result.nextCursor.beforeCreatedAt !== 'string' ||
+        typeof result.nextCursor.beforeId !== 'string'))
+  ) {
+    throw new Error('The request list contract is unavailable.');
+  }
+  return result;
+}
 
 export interface SnapshotWindow {
   hours: number;
@@ -54,10 +147,23 @@ export async function getPublishedUnfinished(
   return result;
 }
 
-export function inspectAtomicWork(atomicWorkId: string, signal?: AbortSignal) {
+export async function inspectAtomicWork(
+  atomicWorkId: string,
+  signal?: AbortSignal
+) {
   const params = new URLSearchParams({ atomicWorkId });
-  return platformRequest<WorkInspection>(
+  const result = await platformRequest<WorkInspection>(
     `/api/v1/jobs/atomic-work/work?${params}`,
     { signal }
   );
+  if (
+    !result ||
+    result.atomicWorkId !== atomicWorkId ||
+    !Array.isArray(result.attempts) ||
+    !Array.isArray(result.owners) ||
+    !Array.isArray(result.upstreams)
+  ) {
+    throw new Error('The work provenance contract is unavailable.');
+  }
+  return result;
 }

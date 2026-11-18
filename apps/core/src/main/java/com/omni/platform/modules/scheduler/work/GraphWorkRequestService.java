@@ -226,6 +226,24 @@ public class GraphWorkRequestService {
                             "No active symbols for requested sector: " + sector);
             }
         }
+        List<String> backfillSymbols = List.of();
+        if (backfill) {
+            backfillSymbols =
+                    jdbc.queryForList(
+                            "SELECT exchange || '-' || code FROM symbols WHERE is_active=true "
+                                    + "AND meta_json->>CAST(? AS text) IN (SELECT jsonb_array_elements_text(?::jsonb))",
+                            String.class,
+                            "sectorLv" + expansion.get("sectorLevel") + "Code",
+                            json.writeValueAsString(expansion.get("sectorCodes")));
+            if (expansion.get("scope") instanceof Map<?, ?> scope
+                    && "SYMBOL".equalsIgnoreCase(String.valueOf(scope.get("type")))) {
+                String selected =
+                        String.valueOf(scope.get("key")).toUpperCase(java.util.Locale.ROOT);
+                if (!backfillSymbols.contains(selected))
+                    throw new IllegalArgumentException("BACKFILL_SYMBOL_NOT_ACTIVE_IN_SECTOR");
+                backfillSymbols = List.of(selected);
+            }
+        }
         List<JobDefinition> catalog =
                 definitions.findAll().stream()
                         .filter(
@@ -283,15 +301,8 @@ public class GraphWorkRequestService {
             var acceptedParent = new JobExecutionHistory();
             acceptedParent.setMetaJson(Map.of("expansionRequest", expansion));
             var days = WorkExpansion.resolve(target, acceptedParent, now).days();
-            var symbols =
-                    jdbc.queryForList(
-                            "SELECT exchange || '-' || code FROM symbols WHERE is_active=true "
-                                    + "AND meta_json->>CAST(? AS text) IN (SELECT jsonb_array_elements_text(?::jsonb))",
-                            String.class,
-                            "sectorLv" + expansion.get("sectorLevel") + "Code",
-                            json.writeValueAsString(expansion.get("sectorCodes")));
             Set<String> expected =
-                    symbols.stream()
+                    backfillSymbols.stream()
                             .flatMap(symbol -> days.stream().map(day -> symbol + "@" + day))
                             .collect(Collectors.toSet());
             Set<String> targetWorkIds = Set.copyOf(plan.targets());

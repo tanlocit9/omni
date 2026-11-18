@@ -5,17 +5,16 @@ import com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest;
 import java.util.Optional;
 
 /**
- * Logical partition reader backed by the canonical global metadata document.
+ * Logical partition readiness port. Active runtime uses PostgreSQL registered proofs.
  *
- * <p>Implementations load {@code _metadata/metadata.json} and resolve the requested
- * dataset and partition without deriving physical metadata object paths.
+ * <p>Resolve dataset, partition and approved work identity without falling back to
+ * legacy JSON discovery. Historical JSON implementations are direct test fixtures only.
  *
  * <p>The reader is expected to handle:
  * <ul>
- *   <li>Missing manifests (return empty Optional)</li>
- *   <li>I/O errors (throw ManifestReadException)</li>
- *   <li>Malformed JSON (throw ManifestReadException)</li>
- *   <li>Caching for performance (implementation-specific)</li>
+ *   <li>Missing registered proof (return empty Optional)</li>
+ *   <li>Read failures (propagate; never substitute another authority)</li>
+ *   <li>Exact approved-version date coverage</li>
  * </ul>
  *
  * <p>Thread-safety: Implementations must be thread-safe for concurrent scheduler access.

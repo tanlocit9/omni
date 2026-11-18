@@ -1,5 +1,13 @@
 # Database
 
+[V27](../../database/migrations/V27__modulith_jpa_event_publications.sql) adds
+event_publication and event_publication_archive for the existing Spring Modulith
+2.0.1 JPA registry. Active/archive fields include status, completion attempts and
+timestamps, and serialized_event uses TEXT. Flyway owns these tables; Hibernate
+DDL updates are not used. Strict full-Platform validation and a retained V26 -> V27
+upgrade pass locally; see [source and evidence](../reference/020-i10-postgres-only-cutover.md).
+No I10 contract, registration, work identity or physical baseline row is rewritten.
+
 V26 also records immutable output_work_ready_history for actual VERSIONED work
 promotions and exposes output_work_ready_attempt_catalog for exact frozen-attempt
 reads after a refresh. It preserves latest/current discovery and creates no history

@@ -12,7 +12,7 @@ public class OutputReconciliationPolicy {
     public OutputReconciliationPolicy(
             @Value("${app.output-registration.reconciliation-schedule-enabled:false}")
                     boolean enabled,
-            @Value("${app.output-registration.reader-enabled:false}") boolean postgres) {
+            @Value("${app.output-registration.reader-enabled:true}") boolean postgres) {
         if (enabled && !postgres)
             throw new IllegalArgumentException(
                     "12-hour reconciliation requires PostgreSQL reader cutover");

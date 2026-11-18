@@ -26,16 +26,14 @@ async def test_analyzer_health_checks_each_enabled_consumer(running):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mode", ["manifest", "shadow", "postgres"])
 @pytest.mark.parametrize("consumers_enabled", [False, True])
 async def test_startup_wires_readiness_validator_and_shutdown_without_live_clients(
-    monkeypatch, mode, consumers_enabled
+    monkeypatch, consumers_enabled
 ):
     from unittest.mock import AsyncMock, Mock
 
     from py_common.storage.output_readiness import (
         PostgresMetadataReader,
-        ShadowMetadataReader,
     )
     from pydantic import SecretStr
 
@@ -58,7 +56,7 @@ async def test_startup_wires_readiness_validator_and_shutdown_without_live_clien
     }
     settings = AppSettings(
         **flags,
-        output_readiness_mode=mode,
+        output_readiness_mode="postgres",
         output_readiness_api_url="http://platform/readiness",
         output_readiness_api_token=SecretStr("fixture"),
         output_readiness_backfill_enabled=False,
@@ -85,14 +83,13 @@ async def test_startup_wires_readiness_validator_and_shutdown_without_live_clien
     await main.startup_event(app)
     registry.validate_all.assert_awaited_once_with(fail_fast=True)
     reader = app.state.metadata_reader
-    if mode == "shadow":
-        assert isinstance(reader, ShadowMetadataReader)
-        assert reader._parquet is app.state.parquet_storage
-        assert isinstance(reader.enrolled_work_reader, PostgresMetadataReader)
-    elif mode == "postgres":
-        assert isinstance(reader, PostgresMetadataReader)
-    else:
-        assert isinstance(reader.enrolled_work_reader, PostgresMetadataReader)
+    assert isinstance(reader, PostgresMetadataReader)
+    intraday = await app.state.signal_handler._intraday_resolver.resolve(
+        provider="VCI", exchange="HOSE", symbol="HPG", trading_date="2026-09-11"
+    )
+    assert intraday.dataset is None
+    assert intraday.reason_codes == ["MISSING_POSTGRES_INTRADAY_PROOF"]
+    registry.get_port.return_value.read_bytes.assert_not_awaited()
     assert worker.start.await_count == (9 if consumers_enabled else 0)
     await main.shutdown_event(app)
     assert worker.stop.await_count == (9 if consumers_enabled else 0)

@@ -2,6 +2,14 @@
 
 Status: **DEFERRED / owner-gated technical debt**. Date: 2026-10-15. Priority: **P2 conditional**, or P1 only if a demonstrated readiness correctness defect requires remediation. This record proposes no running process, migration or activation.
 
+## November 18 ownership clarification
+
+[TD-020](020-session-runtime-operations.md) owns deferred continuous rollout/
+recovery qualification and 12-hour SYNC_METADATA activation for session-based
+operation. This record still owns the distinct future range-aware reconstruction
+and read-optimization proposal. Its historical manifest-based candidate wording
+does not override the active [PostgreSQL-only/no-JSON authority](../reference/020-i10-postgres-only-cutover.md).
+
 ## Motivation and boundary
 
 Historical EOD/indicator/signal Parquet can exist without corresponding current `JobRun` and `JobExecutionHistory` records. Reading MinIO/manifests for every dependency check may eventually be expensive. Provide an **evidence-backed PostgreSQL dataset readiness projection**, optionally seeded via one-time/backfill reconciliation, so future `DependencyGuard` checks _may_ query PostgreSQL efficiently.

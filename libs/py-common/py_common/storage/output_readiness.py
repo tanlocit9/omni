@@ -21,7 +21,6 @@ from py_common.storage.global_metadata import (
     GlobalDatasetInput,
     GlobalDatasetMetadata,
     GlobalMetadataDocument,
-    GlobalMetadataReader,
     GlobalPartitionMetadata,
 )
 from py_common.storage.output_snapshots import (
@@ -562,35 +561,15 @@ class ShadowMetadataReader:
 
 
 def metadata_reader(settings, readable, *, parquet=None):
-    if settings.output_readiness_mode == "manifest":
-        reader = GlobalMetadataReader(readable, settings.minio.bucket)
-        if (
-            getattr(settings, "output_readiness_api_url", "")
-            and settings.output_readiness_api_token.get_secret_value()
-        ):
-            reader.enrolled_work_reader = PostgresMetadataReader(
-                settings.output_readiness_api_url,
-                settings.output_readiness_api_token.get_secret_value(),
-                paths=settings.stock_data_paths,
-            )
-        return reader
-    if settings.output_readiness_mode == "postgres":
-        return PostgresMetadataReader(
-            settings.output_readiness_api_url,
-            settings.output_readiness_api_token.get_secret_value(),
-            paths=settings.stock_data_paths,
+    if settings.output_readiness_mode != "postgres":
+        raise ValueError(
+            "Unsupported readiness mode: legacy JSON authority is retired; use postgres"
         )
-    if settings.output_readiness_mode == "shadow":
-        return ShadowMetadataReader(
-            GlobalMetadataReader(readable, settings.minio.bucket),
-            PostgresMetadataReader(
-                settings.output_readiness_api_url,
-                settings.output_readiness_api_token.get_secret_value(),
-                paths=settings.stock_data_paths,
-            ),
-            parquet=parquet,
-        )
-    raise ValueError("Unsupported output_readiness_mode")
+    return PostgresMetadataReader(
+        settings.output_readiness_api_url,
+        settings.output_readiness_api_token.get_secret_value(),
+        paths=settings.stock_data_paths,
+    )
 
 
 async def read_input_document(reader, metadata):

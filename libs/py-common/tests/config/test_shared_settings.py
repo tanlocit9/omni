@@ -214,6 +214,32 @@ def test_base_app_settings_supports_flat_environment_overrides(
     assert settings.minio.bucket == "override-bucket"
 
 
+def test_readiness_defaults_to_postgres_without_implicit_legacy_fallback(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("OUTPUT_READINESS_MODE", raising=False)
+    configured = BaseAppSettings(shared_config_root=tmp_path, _env_file=None)
+    assert configured.output_readiness_mode == "postgres"
+
+
+@pytest.mark.parametrize("mode", ["manifest", "shadow"])
+def test_retired_readiness_modes_fail_settings_startup(tmp_path, mode):
+    with pytest.raises(ValueError, match="legacy JSON authority is retired"):
+        BaseAppSettings(
+            shared_config_root=tmp_path, _env_file=None, output_readiness_mode=mode
+        )
+
+
+def test_active_reader_rejects_concurrent_historical_backfill(tmp_path):
+    with pytest.raises(ValueError, match="Historical backfill must finish"):
+        BaseAppSettings(
+            shared_config_root=tmp_path,
+            _env_file=None,
+            output_readiness_mode="postgres",
+            output_readiness_backfill_enabled=True,
+        )
+
+
 def test_consumer_poll_interval_has_a_fifteen_minute_default_and_flat_override(
     tmp_path: Path, monkeypatch
 ):

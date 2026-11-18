@@ -87,7 +87,7 @@ export function SqlConsole({ manifest }: Props) {
 
   async function run() {
     if (!manifest) {
-      setError('Select a READY dataset first.');
+      setError('Select a catalog partition in Explorer first.');
       return;
     }
     setError(null);
@@ -168,6 +168,14 @@ export function SqlConsole({ manifest }: Props) {
               <strong>{alias}</strong>
               <small>{manifest.dataVersion.slice(0, 20)}…</small>
             </button>
+            <details className="schema-card">
+              <summary>Selected catalog version</summary>
+              <code>{manifest.dataVersion}</code>
+              <p>
+                Source execution:{' '}
+                <code>{manifest.sourceExecutionId ?? 'Not reported'}</code>
+              </p>
+            </details>
             <div className="schema-list">
               {manifest.columns.map((column) => (
                 <button
@@ -225,6 +233,11 @@ export function SqlConsole({ manifest }: Props) {
             )}
           </div>
         </div>
+        <p className="muted">
+          Queries pin the selected catalog data version. Catalog partition
+          status is separate from exact-date work readiness; query versions
+          below describe the accepted query, not the latest catalog.
+        </p>
         <div className="editor-shell">
           <Editor
             height="330px"
@@ -252,6 +265,22 @@ export function SqlConsole({ manifest }: Props) {
             ))}
           </div>
         ) : null}
+        {status && (
+          <details className="schema-card">
+            <summary>Accepted query data versions</summary>
+            {Object.keys(status.dataVersions).length ? (
+              <ul>
+                {Object.entries(status.dataVersions).map(([name, version]) => (
+                  <li key={name}>
+                    {name}: <code>{version}</code>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Data versions have not been reported for this query.</p>
+            )}
+          </details>
+        )}
         {error && <div className="error-banner">{error}</div>}
         <ResultTable result={result} />
       </main>

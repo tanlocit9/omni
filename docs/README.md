@@ -1,5 +1,16 @@
 # Omni Documentation
 
+Session-based I10 operations (November 18): [TD-020](technical-debt/020-session-runtime-operations.md)
+defers continuous rollout/recovery qualification and 12-hour reconciliation
+activation. Affected-scope proof/byte and write-safety checks remain mandatory;
+see the [56-partition checklist](reference/020-i10-postgres-only-cutover.md#remaining-56-partitions--bounded-work-checklist).
+Older broader operational-blocker notes are superseded. I10 remains in_progress.
+
+
+Current I10 authority: [020 - PostgreSQL-only defaults, JPA schema and legacy retirement](reference/020-i10-postgres-only-cutover.md).
+The owner retired JSON/shadow comparison; exact PostgreSQL proofs, byte validation
+and no-fallback evidence remain required. I10 remains in_progress.
+
 Current [I10 review and acceptance gates](reference/019-i10-review-20261111.md)
 separate verified local corrections from retained rollout and full acceptance.
 

@@ -1,5 +1,10 @@
 # Omni Query Service
 
+[PostgreSQL is the active readiness default](../../docs/reference/020-i10-postgres-only-cutover.md).
+Set the private API URL/reader token. Resolution validates registered row versions
+and immutable bytes without legacy JSON fallback; API outage remains an error.
+The scoped retained Query/DuckDB probe passes after global JSON retirement.
+
 Graceful shutdown waits for an already started terminal DB completion and its
 audit to finish; query execution remains cancellable. This prevents cancelling
 the audit after polling observes a committed terminal state. It is not durable

@@ -18,10 +18,10 @@ HASH = "sha256:" + "a" * 64
 SCHEMA_HASH = "sha256:" + "b" * 64
 
 
-def test_shadow_services_share_the_query_parquet_validator():
+def test_postgres_services_share_the_query_readiness_reader():
     from unittest.mock import AsyncMock, Mock
 
-    from py_common.storage.output_readiness import ShadowMetadataReader
+    from py_common.storage.output_readiness import PostgresMetadataReader
     from pydantic import SecretStr
 
     from app.storage import build_metadata_services
@@ -29,14 +29,14 @@ def test_shadow_services_share_the_query_parquet_validator():
     registry = Mock()
     registry.get_port.return_value = AsyncMock()
     settings = QueryServiceSettings(
-        output_readiness_mode="shadow",
+        output_readiness_mode="postgres",
         output_readiness_api_url="http://platform/readiness",
         output_readiness_api_token=SecretStr("fixture"),
     )
     resolver, catalog = build_metadata_services(registry, settings)
-    assert isinstance(resolver._reader, ShadowMetadataReader)
+    assert isinstance(resolver._reader, PostgresMetadataReader)
     assert catalog._reader is resolver._reader
-    assert resolver._reader._parquet is resolver._parquet_storage
+    assert resolver._parquet_storage is not None
 
 
 class FakeMetadataReader:

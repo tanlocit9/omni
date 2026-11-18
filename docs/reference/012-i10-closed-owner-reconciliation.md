@@ -36,6 +36,29 @@ that the worker never received a command. No worker is killed.
 
 ## Additive request diagnostics
 
+November 15 Console follow-up: Request detail consumes these diagnostics without
+changing their semantics. The UI normalizes mixed SQL/camelCase response names in
+one adapter, offers explicit target/upstream and status filters and displays review
+flags. Frontend pagination limits rendered rows only; the API still loads all
+members and graph. Selecting one member loads proof via the existing exact-attempt
+work-readiness lookup, with no fallback to the latest work on empty/error. Physical
+object coordinates are omitted from the UI model. Approved Console Nx typecheck,
+lint, test and build pass: 96/96 cases across 13 files. Browser and backend
+integration remain unexecuted. Prior Platform gates remain historical.
+
+| UI criterion / source                                                                                                                        | Executed Console test mapping                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| RequestDetail member roles, execution/review state, filters/client paging, abort and stale identities                                        | RequestDetail.test.tsx: 7 passed                                                            |
+| Current coverage versus exact selected attempt, failed attempt with newer proof, empty/error without fallback, frozen inputs and stale reads | OutputReadinessPanel.test.tsx: 10 passed                                                    |
+| Mixed backend key normalization, exact request/work/attempt identity, missing flags, empty proof and physical-coordinate omission            | detailApi.test.ts: 7 passed                                                                 |
+| List opens exact request; acceptance opens detail and closing clears it                                                                      | RequestList.test.tsx: 11 passed; WorkOperations.test.tsx: 7 passed including existing cases |
+
+This is attributable unit/component evidence without numeric coverage. The first
+Console run passed 95/96 due to a test selector also counting the FAILED filter
+option; the corrected assertion checks request and member status separately. No
+production behavior was relaxed. No migration, live request, deployment, fresh
+byte validation or complete I10 acceptance is established by this UI gate.
+
 `GET /api/v1/jobs/atomic-work/requests/{id}` preserves status, counts and isSettled.
 Each member adds:
 

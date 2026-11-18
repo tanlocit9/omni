@@ -20,7 +20,7 @@ public class OutputCompletionDiagnostics {
     private final JdbcTemplate jdbc;
 
     @org.springframework.beans.factory.annotation.Value(
-            "${app.output-registration.reader-enabled:false}")
+            "${app.output-registration.reader-enabled:true}")
     private boolean postgres;
 
     public OutputCompletionDiagnostics(JdbcTemplate jdbc) {

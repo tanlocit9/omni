@@ -122,16 +122,22 @@ infer a pass. Graph analysis and static path/link inspection are not test eviden
   [Kafka contracts](docs/data/001-kafka-contracts.md) together.
 - Kafka business messages carry logical dataset references, never physical paths;
   storage builders use [s3-paths.yaml](configs/shared/s3-paths.yaml).
-- Producers write/validate Parquet; only `SYNC_METADATA` writes canonical
-  `_metadata/metadata.json`. Manifest publication is READY-last: validate Parquet,
-  publish the immutable version manifest, then replace `READY.json`; preserve the
-  previous READY pointer on failure.
-- Dependencies require global metadata and exact `dataVersion` lineage.
+- Producers write/validate Parquet; committed work proofs and eligible READY remain
+  READY-last and preserve the previous accepted version on failure. The active
+  PostgreSQL path does not read/publish retired `_metadata/metadata.json`; historical
+  manifest publication code is compatibility/test evidence, not active authority.
+- Dependencies require authoritative metadata and exact `dataVersion` lineage.
   `dependsOnDatasets` governs readiness/currentness; `dependsOnJobs` is traceability.
   Cron gaps never guarantee readiness; missing/stale inputs wait or defer dispatch.
-- Default readiness remains manifest-authoritative. P14-I10 enrollment and
-  PostgreSQL adapters require verified coordinated [ADR-008](docs/adr/008-postgres-output-readiness.md)
-  cutover. Follow the [current handoff](docs/reference/007-p14-i10-work-identity.md)
+- Owner-approved [PostgreSQL-only defaults](docs/reference/020-i10-postgres-only-cutover.md)
+  retire legacy JSON/shadow comparison as active readiness authority. Runtime
+  factories reject legacy/shadow selection and disabling the PostgreSQL reader. Missing
+  PostgreSQL proof/API/bytes must fail or wait without JSON fallback. For current
+  session-based operation, [TD-020](docs/technical-debt/020-session-runtime-operations.md)
+  defers fleet-wide continuous rollout/recovery qualification and 12-hour schedule
+  activation. Affected-scope inventory/proof/byte validation, matched services,
+  write safety and bounded recovery remain required under [ADR-008](docs/adr/008-postgres-output-readiness.md).
+  Follow the [identity handoff](docs/reference/007-p14-i10-work-identity.md)
   for approved NULL-provenance baselines and unresolved gates; additional durable
   worker recovery and tracing remain deferred.
 - I10 READY covers exact registered canonical Parquet rows, not whole files.

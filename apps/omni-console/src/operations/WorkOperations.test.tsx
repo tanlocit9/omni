@@ -13,7 +13,60 @@ import {
   inspectAtomicWork,
 } from './api';
 import { WorkOperations } from './WorkOperations';
-import type { AtomicSnapshot } from './types';
+import type { AtomicSnapshot, BackfillAccepted } from './types';
+
+vi.mock('./BackfillForm', () => ({
+  BackfillForm: ({
+    onAccepted,
+  }: {
+    onAccepted: (result: BackfillAccepted) => void;
+  }) => (
+    <button
+      onClick={() =>
+        onAccepted({
+          requestId: 'accepted-request',
+          executionId: 'accepted-execution',
+          status: 'ACCEPTED',
+          goal: 'SYNC_INDICATORS',
+          rerun: false,
+          force: false,
+          membershipPolicy: 'CURRENT_ACTIVE_AT_ACCEPTANCE',
+        })
+      }
+    >
+      Submit backfill fixture
+    </button>
+  ),
+}));
+
+vi.mock('./RequestList', () => ({
+  RequestList: ({
+    refreshToken,
+    acceptedRequestId,
+  }: {
+    refreshToken: number;
+    acceptedRequestId?: string;
+  }) => (
+    <div data-testid="request-refresh">
+      {refreshToken}:{acceptedRequestId ?? ''}
+    </div>
+  ),
+}));
+
+vi.mock('./RequestDetail', () => ({
+  RequestDetail: ({
+    requestId,
+    onClose,
+  }: {
+    requestId: string;
+    onClose: () => void;
+  }) => (
+    <section aria-label="Request detail fixture">
+      <p>Selected request: {requestId}</p>
+      <button onClick={onClose}>Close request fixture</button>
+    </section>
+  ),
+}));
 
 vi.mock('./api', () => ({
   getAtomicSnapshot: vi.fn(),
@@ -52,7 +105,7 @@ describe('Work Operations', () => {
     render(<WorkOperations />);
     expect(screen.getByText('Loading work snapshot…')).toBeInTheDocument();
     expect(
-      await screen.findByText('No requests created in this window.')
+      await screen.findByRole('heading', { name: 'Work diagnostics' })
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Worker processing and dataset READY are unknown/)
@@ -76,10 +129,35 @@ describe('Work Operations', () => {
       render(<WorkOperations />);
       expect(await screen.findByRole('alert')).toBeInTheDocument();
       expect(
-        screen.queryByText('No requests created in this window.')
+        screen.queryByText('No attempts in this sample match the filters.')
       ).not.toBeInTheDocument();
     }
   );
+  it('refreshes requests and the diagnostic window after acceptance', async () => {
+    render(<WorkOperations />);
+    await screen.findByText('No attempts in this sample match the filters.');
+    expect(screen.getByTestId('request-refresh')).toHaveTextContent('0:');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Submit backfill fixture' })
+    );
+    expect(screen.getByTestId('request-refresh')).toHaveTextContent(
+      '1:accepted-request'
+    );
+    expect(
+      screen.getByText('Selected request: accepted-request')
+    ).toBeInTheDocument();
+    await waitFor(() => expect(getAtomicSnapshot).toHaveBeenCalledTimes(2));
+    expect(getAtomicSnapshot).toHaveBeenLastCalledWith(
+      { hours: 24 },
+      expect.any(AbortSignal)
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close request fixture' })
+    );
+    expect(
+      screen.queryByLabelText('Request detail fixture')
+    ).not.toBeInTheDocument();
+  });
   it('keeps the exact observation window across request pages and resets it on refresh', async () => {
     vi.mocked(getAtomicSnapshot).mockResolvedValue({
       ...snapshot,

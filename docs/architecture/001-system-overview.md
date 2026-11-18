@@ -1,5 +1,16 @@
 # System Overview
 
+November 18 session-based scope: [TD-020](../technical-debt/020-session-runtime-operations.md)
+defers continuous fleet-wide rollout/recovery qualification and 12-hour schedule
+activation. Affected-scope proofs/bytes, matched readers/writers and bounded
+recovery remain required. Earlier broad operational-blocker wording is superseded.
+
+Owner amendment November 16: [PostgreSQL is the default readiness reader](../reference/020-i10-postgres-only-cutover.md)
+for Platform and Python services. The active path has no legacy JSON fallback;
+V27 persists the existing Modulith JPA registry. Dataset owners, Kafka/protobuf
+and logical storage paths are unchanged. The scoped retained probe passes;
+complete I10 rollout/recovery and unregistered inventory remain separately gated.
+
 Platform retains actual immutable VERSIONED READY promotion evidence for
 [frozen-attempt reads after refresh](../reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
 Current discovery still advances independently; worker provenance never switches

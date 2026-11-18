@@ -223,9 +223,31 @@ export interface DatasetPartitionPage {
 }
 
 export function listPartitions(dataset: string): Promise<DatasetManifest[]> {
-  return queryServiceRequest<DatasetPartitionPage>(
-    `/v1/datasets/${encodeURIComponent(dataset)}/partitions?offset=0&limit=500`
-  ).then((page) => page.items);
+  return getDatasetPartitionPage(dataset).then((page) => page.items);
+}
+
+export async function getDatasetPartitionPage(
+  dataset: string,
+  offset = 0,
+  signal?: AbortSignal
+): Promise<DatasetPartitionPage> {
+  const result = await queryServiceRequest<DatasetPartitionPage>(
+    `/v1/datasets/${encodeURIComponent(
+      dataset
+    )}/partitions?offset=${offset}&limit=500`,
+    { signal }
+  );
+  if (
+    !result ||
+    !Array.isArray(result.items) ||
+    result.offset !== offset ||
+    !Number.isInteger(result.total) ||
+    result.total < 0 ||
+    (result.items.length === 0 && offset < result.total)
+  ) {
+    throw new Error('The partition catalog page is unavailable.');
+  }
+  return result;
 }
 
 export function listPartitionOptions(

@@ -1,5 +1,13 @@
 # Analyzer Service
 
+The [active readiness default is PostgreSQL](../../docs/reference/020-i10-postgres-only-cutover.md).
+Configure the private API URL/reader token; API/byte errors fail without JSON
+fallback. PostgreSQL-mode SYNC_METADATA validates registered outputs instead of
+publishing legacy JSON. Explicit manifest/shadow fixtures below are historical;
+full inventory and the 12-hour operational gate remain separate. Active intraday
+confirmation reports UNAVAILABLE/MISSING_POSTGRES_INTRADAY_PROOF: intraday has no
+supported PostgreSQL registration contract and its JSON READY resolver is not wired.
+
 New I10 Indicators/Signals/evaluation commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md).
 RUNNING stays separate. Two-message ordering below describes legacy commands.
 

@@ -4,16 +4,11 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from py_common.runtime import create_fastapi_app, run_asgi_app
-from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
 from py_common.storage.exceptions import StorageError
-from py_common.storage.global_metadata import GlobalMetadataReader, GlobalMetadataWriter
-from py_common.storage.metadata_sync import MetadataSynchronizer
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.ports import (
-    ListableStorage,
     ReadableStorage,
     StorageProviderInfo,
-    WritableStorage,
 )
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
@@ -43,7 +38,7 @@ from app.settings import settings
 from app.signals.evaluation_kafka import SignalEvaluationKafkaService
 from app.signals.evaluator import SignalOutcomeEvaluator
 from app.signals.handler import SignalJobHandler
-from app.signals.intraday_confirmation import IntradayDatasetResolver
+from app.signals.intraday_confirmation import PostgresIntradayDatasetResolver
 from app.signals.kafka import SignalKafkaService
 from app.signals.latest_notification import (
     InvalidSymbolKeyError,
@@ -104,30 +99,22 @@ async def startup_event(app: FastAPI) -> None:
     readable = app.state.storage_registry.get_port(
         StorageProvider.MINIO, ReadableStorage
     )
-    from py_common.storage.output_readiness import metadata_reader as create_metadata_reader
-    metadata_reader = create_metadata_reader(settings, readable, parquet=app.state.parquet_storage)
-    metadata_writer = GlobalMetadataWriter(
-        app.state.storage_registry.get_port(StorageProvider.MINIO, WritableStorage),
-        readable,
-        settings.minio.bucket,
+    from py_common.storage.output_readiness import (
+        metadata_reader as create_metadata_reader,
+    )
+
+    metadata_reader = create_metadata_reader(
+        settings, readable, parquet=app.state.parquet_storage
     )
     app.state.metadata_reader = metadata_reader
     from py_common.storage.output_reconciliation import OutputReconciler
-    if settings.output_readiness_mode == "postgres" or settings.output_readiness_backfill_enabled:
-        sync_owner = OutputReconciler(settings, metadata_reader, app.state.parquet_storage,
-                                      backfill=settings.output_readiness_backfill_enabled)
-    else:
-        sync_owner = None
+
     app.state.metadata_sync_handler = MetadataSyncJobHandler(
-        sync_owner or MetadataSynchronizer(
-            readable=readable,
-            listable=app.state.storage_registry.get_port(
-                StorageProvider.MINIO, ListableStorage
-            ),
-            reader=metadata_reader,
-            writer=metadata_writer,
-            registry=OMNI_DATASET_REGISTRY,
-            bucket=settings.minio.bucket,
+        OutputReconciler(
+            settings,
+            metadata_reader,
+            app.state.parquet_storage,
+            backfill=settings.output_readiness_backfill_enabled,
         )
     )
     app.state.indicator_handler = IndicatorJobHandler(
@@ -139,12 +126,7 @@ async def startup_event(app: FastAPI) -> None:
         settings,
         app.state.parquet_storage,
         metadata_reader,
-        IntradayDatasetResolver(
-            readable,
-            app.state.parquet_storage,
-            settings.minio.bucket,
-            settings.stock_data_paths,
-        ),
+        PostgresIntradayDatasetResolver(),
     )
     app.state.latest_signal_query_service = LatestSignalQueryService(
         LatestSignalRepository(

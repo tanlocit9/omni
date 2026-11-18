@@ -17,9 +17,9 @@ function describeError(error: unknown): string {
   if (error.status === 404)
     return 'The job definition or execution no longer exists.';
   if (error.status === 409)
-    return error.message || 'The job is already owned by another execution.';
+    return error.message || 'The job catalog changed. Refresh and try again.';
   if (error.status === 422)
-    return error.message || 'The trigger request is invalid.';
+    return error.message || 'The catalog request is invalid.';
   return error.message || `The job service returned ${error.status}.`;
 }
 
@@ -27,7 +27,7 @@ function formatTime(value: string | null | undefined): string {
   return value ? new Date(value).toLocaleString() : '—';
 }
 
-export function JobsPanel() {
+export function JobsPanel({ onOpenWork }: { onOpenWork?: () => void } = {}) {
   const [jobs, setJobs] = useState<JobDefinitionSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<JobDefinitionDetail | null>(null);
@@ -69,6 +69,7 @@ export function JobsPanel() {
       return;
     }
     let current = true;
+    setDetail(null);
     getJobDefinition(selectedId)
       .then((value) => current && setDetail(value))
       .catch((error) => current && setMessage(describeError(error)));
@@ -131,6 +132,16 @@ export function JobsPanel() {
       </aside>
 
       <div className="panel job-detail">
+        <p className="muted">
+          This catalog shows stored job definitions and execution history. An
+          active definition does not prove cron scheduling is enabled or that
+          its outputs are READY.
+        </p>
+        {onOpenWork && (
+          <button className="secondary" type="button" onClick={onOpenWork}>
+            Open backfills and work requests
+          </button>
+        )}
         <div aria-live="polite">
           {message && <p className="callout warning">{message}</p>}
         </div>
@@ -151,7 +162,7 @@ export function JobsPanel() {
                 <strong>{detail.jobType}</strong>
               </div>
               <div>
-                <span>Next scheduled run</span>
+                <span>Stored next-run timestamp</span>
                 <strong>{formatTime(detail.nextRun)}</strong>
               </div>
               <div>

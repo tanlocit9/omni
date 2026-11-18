@@ -1,5 +1,24 @@
 # ADR-008: Platform-owned PostgreSQL Output Readiness via Kafka
 
+November 18 owner scope amendment: [TD-020](../technical-debt/020-session-runtime-operations.md)
+defers fleet-wide continuous rollout/recovery qualification and 12-hour
+reconciliation activation while Omni runs by session. These are nonblocking for
+current I10; affected-scope proof/byte validation, write safety and bounded recovery
+remain. This supersedes earlier broad operational requirements, not their evidence.
+
+November 18 retained evidence: [MBB Signals and reader/repair checkpoint](../reference/020-i10-postgres-only-cutover.md#november-18-retained-signals-and-readerrepair-checkpoint)
+passes without JSON fallback. Read-only reconciliation matches 59 partitions;
+only three have physical heads. This does not establish complete write safety,
+global rollout/recovery, 12-hour activation or owner acceptance. I10 is in_progress.
+
+November 16 owner amendment: [PostgreSQL-only reader defaults and legacy retirement](../reference/020-i10-postgres-only-cutover.md)
+replace JSON/shadow parity with authoritative work/attempt/version, byte and
+no-fallback verification. V27 supplies existing Modulith JPA tables. The local
+retained three-partition probe passes after retiring the global JSON key;
+full-inventory rollout, reconciliation/recovery and owner acceptance remain open.
+Older dated manifest-default/cutover prerequisites below are historical where
+they require retaining or comparing the retired JSON authority.
+
 November 11 frozen-proof amendment: owner-approved V26 READY promotion history
 allows exact VERSIONED attempt lookup after refresh. Only actual READY promotion
 creates this immutable evidence; registration/SUCCESS alone remains insufficient.

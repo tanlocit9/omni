@@ -1,9 +1,7 @@
 package com.omni.platform.modules.scheduler.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.omni.platform.modules.scheduler.dependencies.CachedManifestReader;
 import com.omni.platform.modules.scheduler.dependencies.ManifestReader;
-import com.omni.platform.modules.scheduler.dependencies.MinioManifestReader;
 import io.minio.MinioClient;
 import okhttp3.Dispatcher;
 import okhttp3.OkHttpClient;
@@ -47,26 +45,23 @@ public class SchedulerConfig {
             ObjectMapper legacyObjectMapper,
             @Value("${app.minio.bucket}") String bucket,
             com.omni.platform.modules.scheduler.metadata.OutputReadinessProvider readiness,
-            @Value("${app.output-registration.reader-enabled:false}") boolean postgres) {
-        if (postgres)
-            return new ManifestReader() {
-                public java.util.Optional<
-                                com.omni.platform.modules.scheduler.dependencies.models
-                                        .DatasetManifest>
-                        readManifest(
-                                com.omni.platform.modules.scheduler.dependencies.DatasetRef ref) {
-                    return readiness.readManifest(ref);
-                }
+            @Value("${app.output-registration.reader-enabled:true}") boolean postgres) {
+        if (!postgres)
+            throw new IllegalArgumentException(
+                    "Legacy JSON readiness is retired; enable the PostgreSQL reader");
+        return new ManifestReader() {
+            public java.util.Optional<
+                            com.omni.platform.modules.scheduler.dependencies.models.DatasetManifest>
+                    readManifest(com.omni.platform.modules.scheduler.dependencies.DatasetRef ref) {
+                return readiness.readManifest(ref);
+            }
 
-                public boolean coversDate(
-                        com.omni.platform.modules.scheduler.dependencies.DatasetRef ref,
-                        String version,
-                        java.time.LocalDate day) {
-                    return readiness.coversDate(ref, version, day);
-                }
-            };
-        MinioManifestReader delegate =
-                new MinioManifestReader(minioClient, bucket, legacyObjectMapper);
-        return new CachedManifestReader(delegate); // default: 60s TTL, 500 max entries
+            public boolean coversDate(
+                    com.omni.platform.modules.scheduler.dependencies.DatasetRef ref,
+                    String version,
+                    java.time.LocalDate day) {
+                return readiness.coversDate(ref, version, day);
+            }
+        };
     }
 }

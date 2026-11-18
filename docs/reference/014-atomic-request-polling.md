@@ -87,6 +87,41 @@ unfinished members; only a terminal request state proves request closure.
 
 ## UI flow and pagination
 
+November 15 UI alignment follow-up: request selection is preserved in
+`?view=work&requestId=<UUID>` and restored on reload/history navigation. Work
+provenance tables link request owners back to this detail surface. List polling
+and server cursor semantics below are unchanged. See the
+[current UI scope](../../apps/omni-console/README.md#i10-ui-alignment---november-15).
+
+Console source update (November 15): Work Operations now consumes this list in a
+dedicated request panel with Active/History/All filters and five-second polling on
+the first Active page only. A newly accepted bounded backfill refreshes that page.
+Pagination keeps the original observation/cursor values; refreshing resets them.
+Loading, unavailable, stale and empty results are distinct. Request state remains
+separate from member settlement/failure and no global member sum is presented.
+Request-detail/output UI was outside this initial list checkpoint; the subsequent
+November 15 source follow-up is described in the [Console guide](../../apps/omni-console/README.md#i10-request-detail-and-output-evidence---source-follow-up).
+Owner-approved Console Nx typecheck,
+lint, test and build pass; Vitest passes 71/71 cases across 10 files. Browser and
+backend integration checks were not run. See [Console scope](../../apps/omni-console/README.md#i10-backfill-requests---source-update-november-15).
+
+The source/test mapping for this initial UI update is separate from the executed
+November 8 Platform evidence below. All rows passed at that checkpoint; later
+detail/evidence changes are covered by a subsequent 96/96 Console pass, mapped in
+the [diagnostic UI follow-up](012-i10-closed-owner-reconciliation.md#additive-request-diagnostics):
+
+| UI source         | Test source / intended behavior                                                                                                        |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| BackfillForm      | BackfillForm.test.tsx (21 passed): discovered targets, scope/policy, Vietnam date boundary, unchanged-key retry and acceptance         |
+| RequestList       | RequestList.test.tsx (10 passed): filters, cursor pairing, polling/abort/stale responses, unknown counters and member settlement       |
+| operations/api.ts | api.test.ts (5 passed): JSON body/idempotency header, unchanged cursor and unavailable-contract handling                               |
+| WorkOperations    | WorkOperations.test.tsx (7 passed): accepted form refreshes the list and resets the diagnostic window, existing diagnostic regressions |
+
+Static scoped review aligns API paths, camelCase DTO fields, the existing private
+proxy boundary and request/settlement semantics. Graph change detection is stale
+and does not establish new-file coverage or execution evidence. No numeric UI
+coverage, complete-I10 acceptance, browser or deployment claim is made.
+
 1. On opening the page, fetch active requests. Poll the first page every 3-5 seconds
    with a fresh observedAt (or omit it). Keep requestId as the row identity.
 2. Use status=all/history for completed requests. A request disappearing from active
@@ -115,7 +150,8 @@ history count, graph JSON, raw payload or per-member READY HTTP lookup is return
 Platform owns the new query service, DTOs, route and regression cases. Persistence
 is read-only over existing request/member/attempt/execution/definition tables;
 there is no migration or new table. The existing detail endpoint and old naming
-remain compatible. Console has no source change; a future UI can consume the route.
+remain compatible. The November 8 checkpoint had no Console changes; the November
+15 source update above adds the consuming UI without changing this API.
 Analyzer, Ingestor, Query Service, shared Python/contracts, Kafka, Parquet, dataset
 ownership, default feature flags and deployment configuration have no change.
 No READY, dispatch, retry, writer-exclusion or lineage rule is altered by polling.

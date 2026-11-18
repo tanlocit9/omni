@@ -1,5 +1,36 @@
 # Omni — Consolidated Implementation Roadmap
 
+November 18 owner scope amendment: [TD-020](../../technical-debt/020-session-runtime-operations.md)
+defers continuous fleet-wide rollout/recovery qualification and 12-hour
+reconciliation activation while Omni runs by session. Affected-scope proof,
+pinning/write safety and bounded recovery remain required; status is unchanged.
+Earlier dated operational-blocker wording below is superseded by this decision.
+
+November 18: [retained MBB Signals and reader/repair checkpoint](../../reference/020-i10-postgres-only-cutover.md#november-18-retained-signals-and-readerrepair-checkpoint)
+completes the approved HOSE metadata prerequisite and bounded analytical run.
+Read-only reconciliation matches 59/59 partitions; only three are physically
+pinned. Full rollout/recovery, 12-hour activation and owner review remain open;
+I10 stays in_progress. Earlier pending-scope statements below are historical.
+
+November 17: [PostgreSQL-only Signals/repair E2E passes](../../reference/020-i10-postgres-only-cutover.md#november-17-postgresql-only-e2e-and-retained-scope)
+on disposable infrastructure. Optional symbolKey is approved/verified; retained
+HOSE Symbols prerequisite scope awaits approval before MBB Signals dispatch;
+complete inventory, rollout/recovery, reconciliation and owner acceptance remain open.
+
+Latest November 16 owner amendment: [PostgreSQL-only reader defaults, V27 JPA and
+legacy JSON retirement](../../reference/020-i10-postgres-only-cutover.md).
+The scoped retained no-JSON probe and bounded 9/9 gate pass; complete I10 inventory, rollout/recovery,
+reconciliation and owner acceptance remain open. I10 stays in_progress.
+
+I10 approved November 16 pilot: [three retained physical baselines pinned](../../reference/019-i10-review-20261111.md#november-16-approved-retained-pilot),
+with original bytes/history preserved. Legacy manifest parity fails; no authority
+switch or Signals dispatch follows. Full inventory/cutover/reconciliation and
+owner acceptance remain open; status remains in_progress.
+
+I10 November 16: [fresh main review and retained observations](../../reference/019-i10-review-20261111.md#november-16-main-reconciliation-and-fresh-preflight)
+supersede the older preflight. V26/versioning are present; inventory pinning,
+reader cutover and owner acceptance remain open. Status remains in_progress.
+
 I10 discovery: [polling API](../../reference/014-atomic-request-polling.md) and
 [delivery review](../../reference/015-i10-review-20261108.md). Status and dependencies
 remain unchanged; this is not increment acceptance or global cutover.

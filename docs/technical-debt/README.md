@@ -10,6 +10,12 @@ P0 is conditional on exposure. P1 correctness precedes capacity decisions when e
 
 ## Reviewed records
 
+November 18 owner decision: [TD-020](020-session-runtime-operations.md) defers
+fleet-wide continuous rollout/recovery qualification and 12-hour reconciliation
+activation while Omni runs by session. These are nonblocking for current I10;
+per-scope proof/byte validation, physical write safety and bounded recovery remain.
+TD-016 retains historical range reconstruction; TD-018 retains watchdog observation.
+
 November 14: [TD-019](019-historical-recalculation-and-outcome-invalidation.md)
 records missing forward recalculation after historical corrections and retention
 of populated signal outcomes on rerun. P1 when historical inputs change; source
@@ -44,6 +50,7 @@ validation or authorize automatic retries/cleanup.
 | [TD-016](016-parquet-readiness-reconciliation.md)                 | data readiness / future read optimization      | DEFERRED / evidence and approval required                     | P2 on measured manifest/MinIO query pressure or P1 on proven readiness correctness risk; never infer JobRun SUCCESS from data files.                                                                                                                                                                                        |
 | [TD-017](017-manual-request-rejection-audit.md)                   | Deferred manual job triggering / request audit | DEFERRED / owner-accepted for current phase                   | P3 conditional: owner reactivation of manual triggering or durable rejected-request history/polling/recovery; nonblocking for current I3.d.                                                                                                                                                                                 |
 | [TD-018](018-execution-watchdog-observation.md)                   | Execution expiry / operational observation     | DEFERRED / owner-accepted; watchdog disabled                  | P2 conditional on observed stalled work; P1 on proven correctness impact. Nonblocking for current I10.                                                                                                                                                                                                                      |
+| [TD-020](020-session-runtime-operations.md) | Continuous runtime operations | DEFERRED / owner-accepted for session-based use | P3 before approved persistent/unattended operation or independent writers; P1 for demonstrated data-safety defects. Current affected-scope safety remains mandatory. |
 
 ## Deferred Parquet-to-PostgreSQL readiness reconstruction — TD-016
 

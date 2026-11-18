@@ -105,8 +105,22 @@ class IntradayConfirmationResult:
         return metadata
 
 
+class PostgresIntradayDatasetResolver:
+    """Fail closed until intraday has a supported PostgreSQL registration contract."""
+
+    async def resolve(
+        self,
+        *,
+        provider: str,
+        exchange: str,
+        symbol: str,
+        trading_date: str,
+    ) -> IntradayResolution:
+        return IntradayResolution(None, ["MISSING_POSTGRES_INTRADAY_PROOF"])
+
+
 class IntradayDatasetResolver:
-    """Resolve one exact P9 immutable intraday partition and its lineage."""
+    """Historical P9 JSON fixture, excluded from active runtime wiring."""
 
     def __init__(
         self,

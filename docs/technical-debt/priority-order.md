@@ -34,6 +34,11 @@ flowchart TD
     class Measured,Resources,GuardResidue,DispatchResidue,JavaQuality,Watchdog,Later,Features,RequestAudit pending;
 ```
 
+Session-based I10 operations: [TD-020](020-session-runtime-operations.md) is P3
+conditional on persistent/unattended operation or independent writers. It owns
+continuous rollout/recovery qualification and 12-hour reconciliation activation;
+per-scope data-safety defects remain P1 and cannot wait for that promotion.
+
 ## Reading the Diagram
 
 - [TD-019](019-historical-recalculation-and-outcome-invalidation.md) activates on

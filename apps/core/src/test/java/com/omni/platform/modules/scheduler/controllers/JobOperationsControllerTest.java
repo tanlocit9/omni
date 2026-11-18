@@ -18,21 +18,15 @@ class JobOperationsControllerTest {
     @Mock private JobOperationsCatalogService catalog;
 
     @Test
-    void retiredTriggerAndAuditRoutesFailExplicitlyWithoutStorage() {
+    void retiredAuditRouteFailsExplicitlyWithoutStorage() {
         var controller = new JobOperationsController(catalog);
-        for (Runnable call :
-                new Runnable[] {
-                    () -> controller.trigger(UUID.randomUUID()),
-                    () -> controller.triggerStatus(UUID.randomUUID())
-                }) {
-            assertThatThrownBy(call::run)
-                    .isInstanceOfSatisfying(
-                            JobOperationException.class,
-                            error -> {
-                                assertThat(error.getStatus()).isEqualTo(HttpStatus.GONE);
-                                assertThat(error.getCode()).isEqualTo("manual_trigger_deferred");
-                            });
-        }
+        assertThatThrownBy(() -> controller.triggerStatus(UUID.randomUUID()))
+                .isInstanceOfSatisfying(
+                        JobOperationException.class,
+                        error -> {
+                            assertThat(error.getStatus()).isEqualTo(HttpStatus.GONE);
+                            assertThat(error.getCode()).isEqualTo("manual_trigger_deferred");
+                        });
         verifyNoInteractions(catalog);
     }
 

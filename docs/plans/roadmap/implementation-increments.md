@@ -1,5 +1,45 @@
 # Dependency-Ordered Implementation Increments
 
+November 18 owner scope amendment: [TD-020](../../technical-debt/020-session-runtime-operations.md)
+defers continuous fleet-wide rollout/recovery qualification and 12-hour
+reconciliation activation for session-based use. These are nonblocking for current
+I10; affected-scope validation/write safety, bounded recovery and owner review
+remain. Status/dependencies are unchanged; earlier broader blocker notes are historical.
+
+November 18: [retained MBB Signals and reader/repair evidence](../../reference/020-i10-postgres-only-cutover.md#november-18-retained-signals-and-readerrepair-checkpoint)
+now includes the owner-approved HOSE metadata prerequisite, four terminal members,
+59/59 read-only inventory parity and three accepted-byte repair rehearsals.
+The provider count warning (309/336) is retained. Full write-safety inventory,
+coordinated rollout/recovery, 12-hour activation and owner review remain open;
+P14-I10 stays in_progress with unchanged dependencies. Prior dated scope blockers
+below describe their historical checkpoints.
+
+November 17: [focused PostgreSQL-only I10 E2E](../../reference/020-i10-postgres-only-cutover.md#november-17-postgresql-only-e2e-and-retained-scope)
+passes 2/2 with disposable Signals and drained repair, without JSON discovery.
+The owner-approved optional symbolKey extension passes its 4/4 gate and preserves
+MBB-only analytical scope. Read-only preview still requires a separate HOSE Symbols
+metadata prerequisite outside the three-output pilot; that scope awaits approval.
+Full inventory, retained rollout/recovery, reconciliation and
+owner acceptance remain open; status and dependencies are unchanged.
+
+November 16 owner authority amendment: [PostgreSQL-only defaults and V27 JPA](../../reference/020-i10-postgres-only-cutover.md)
+replace the legacy JSON comparison gate with exact registered-proof/byte and
+no-fallback verification. V27 is applied locally and the scoped retained probe
+passes after JSON retirement; the bounded follow-up gate passes 9/9. Earlier failed parity evidence is preserved;
+full inventory, coordinated rollout/recovery, reconciliation and owner acceptance
+remain open. P14-I10 stays in_progress with unchanged dependencies.
+
+Earlier November 16, before the authority amendment: [approved retained pilot](../../reference/019-i10-review-20261111.md#november-16-approved-retained-pilot)
+pins three physical baselines after backup/restore and 270-proof byte validation.
+Legacy manifest/byte parity fails for all three; authority, Signals dispatch and
+rollback rehearsal remain unperformed. I10 remains in_progress with the same
+three unchecked acceptance criteria. This supersedes the zero-head preflight below.
+
+November 16: [main comparison and fresh read-only preflight](../../reference/019-i10-review-20261111.md#november-16-main-reconciliation-and-fresh-preflight)
+observe V26, versioning Enabled and no PENDING/RUNNING executions, but zero storage
+heads/immutable READY history. Retained inventory pinning/parity, coordinated
+cutover/reconciliation and owner acceptance remain open; I10 stays in_progress.
+
 November 12: [criterion-by-criterion I10 reconciliation](../../reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation)
 checks seven proven local criteria. The remaining reader-cutover, reconciliation
 and complete rollout/owner-evidence criteria stay open; P14-I10 remains in_progress.

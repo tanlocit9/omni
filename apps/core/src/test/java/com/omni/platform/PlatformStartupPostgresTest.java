@@ -195,6 +195,147 @@ class PlatformStartupPostgresTest {
         }
     }
 
+    @Test
+    @Timeout(180)
+    void validatesModulithSchemaAndPersistsActiveArchiveAndRollback() {
+        try (var context = startApplication();
+                var manager =
+                        context.getBean(jakarta.persistence.EntityManagerFactory.class)
+                                .createEntityManager()) {
+            assertThat(
+                            context.getEnvironment()
+                                    .getProperty(
+                                            "app.output-registration.reader-enabled",
+                                            Boolean.class))
+                    .isTrue();
+            assertThat(
+                            context.getBean(
+                                            com.omni.platform.modules.scheduler.dependencies
+                                                    .ManifestReader.class)
+                                    .readManifest(
+                                            com.omni.platform.modules.scheduler.dependencies
+                                                    .DatasetRef.of(
+                                                    "eod",
+                                                    Map.of(
+                                                            "exchange",
+                                                            "hose",
+                                                            "code",
+                                                            "not-registered"))))
+                    .isEmpty();
+            UUID active = UUID.randomUUID();
+            UUID archived = UUID.randomUUID();
+            UUID rolledBack = UUID.randomUUID();
+            Instant published = Instant.parse("2035-01-02T03:04:05Z");
+            String event =
+                    tools.jackson.databind.json.JsonMapper.builder()
+                            .build()
+                            .writeValueAsString("x".repeat(2048));
+            var status = org.springframework.modulith.events.EventPublication.Status.PUBLISHED;
+            try {
+                manager.getTransaction().begin();
+                manager.persist(
+                        new org.springframework.modulith.events.jpa.updating
+                                .DefaultJpaEventPublication(
+                                active,
+                                published,
+                                "schema-regression",
+                                event,
+                                String.class,
+                                status,
+                                null,
+                                0));
+                manager.persist(
+                        new org.springframework.modulith.events.jpa.archiving
+                                .ArchivedJpaEventPublication(
+                                archived,
+                                published,
+                                "schema-regression",
+                                event,
+                                String.class,
+                                org.springframework.modulith.events.EventPublication.Status
+                                        .COMPLETED,
+                                published,
+                                1));
+                manager.getTransaction().commit();
+                manager.clear();
+                assertThat(
+                                manager.find(
+                                        org.springframework.modulith.events.jpa.updating
+                                                .DefaultJpaEventPublication.class,
+                                        active))
+                        .isNotNull();
+                assertThat(
+                                manager.find(
+                                        org.springframework.modulith.events.jpa.archiving
+                                                .ArchivedJpaEventPublication.class,
+                                        archived))
+                        .isNotNull();
+                assertThat(
+                                manager.createQuery(
+                                                "select p.serializedEvent from DefaultJpaEventPublication p where p.id=:id",
+                                                String.class)
+                                        .setParameter("id", active)
+                                        .getSingleResult())
+                        .isEqualTo(event);
+                assertThat(
+                                manager.createQuery(
+                                                "select p.publicationDate from DefaultJpaEventPublication p where p.id=:id",
+                                                Instant.class)
+                                        .setParameter("id", active)
+                                        .getSingleResult())
+                        .isEqualTo(published);
+                assertThat(
+                                manager.createQuery(
+                                                "select p.eventType from DefaultJpaEventPublication p where p.id=:id",
+                                                Class.class)
+                                        .setParameter("id", active)
+                                        .getSingleResult())
+                        .isEqualTo(String.class);
+                assertThat(
+                                manager.createQuery(
+                                                "select p.status from ArchivedJpaEventPublication p where p.id=:id",
+                                                org.springframework.modulith.events.EventPublication
+                                                        .Status.class)
+                                        .setParameter("id", archived)
+                                        .getSingleResult())
+                        .isEqualTo(
+                                org.springframework.modulith.events.EventPublication.Status
+                                        .COMPLETED);
+                manager.getTransaction().begin();
+                manager.persist(
+                        new org.springframework.modulith.events.jpa.updating
+                                .DefaultJpaEventPublication(
+                                rolledBack,
+                                published,
+                                "schema-regression",
+                                event,
+                                String.class,
+                                status,
+                                null,
+                                0));
+                manager.flush();
+                manager.getTransaction().rollback();
+                manager.clear();
+                assertThat(
+                                manager.find(
+                                        org.springframework.modulith.events.jpa.updating
+                                                .DefaultJpaEventPublication.class,
+                                        rolledBack))
+                        .isNull();
+            } finally {
+                if (manager.getTransaction().isActive()) manager.getTransaction().rollback();
+                manager.getTransaction().begin();
+                manager.createQuery("delete from DefaultJpaEventPublication p where p.id in :ids")
+                        .setParameter("ids", List.of(active, rolledBack))
+                        .executeUpdate();
+                manager.createQuery("delete from ArchivedJpaEventPublication p where p.id=:id")
+                        .setParameter("id", archived)
+                        .executeUpdate();
+                manager.getTransaction().commit();
+            }
+        }
+    }
+
     private ConfigurableApplicationContext startApplication() {
         return startApplication(POSTGRES, false);
     }
@@ -229,7 +370,7 @@ class PlatformStartupPostgresTest {
                         "--spring.datasource.password=" + database.getPassword(),
                         "--app.scheduler.job-run.preparation-enabled=" + preparationEnabled,
                         "--spring.datasource.driver-class-name=org.postgresql.Driver",
-                        "--spring.jpa.hibernate.ddl-auto=none",
+                        "--spring.jpa.hibernate.ddl-auto=validate",
                         "--spring.flyway.enabled=true",
                         "--spring.flyway.baseline-on-migrate=false",
                         "--spring.flyway.locations=filesystem:"
@@ -285,28 +426,44 @@ class PlatformStartupPostgresTest {
                             .build();
             assertThat(client.send(unauthorized, HttpResponse.BodyHandlers.ofString()).statusCode())
                     .isEqualTo(401);
-            for (var request :
-                    List.of(
-                            HttpRequest.newBuilder(
-                                            URI.create(
-                                                    base
-                                                            + "/definitions/"
-                                                            + definitionId
-                                                            + "/triggers"))
-                                    .header("X-Omni-User", "test-operator")
-                                    .timeout(Duration.ofSeconds(10))
-                                    .POST(HttpRequest.BodyPublishers.ofString("{}"))
-                                    .build(),
-                            HttpRequest.newBuilder(
-                                            URI.create(base + "/triggers/" + UUID.randomUUID()))
-                                    .header("X-Omni-User", "test-operator")
-                                    .timeout(Duration.ofSeconds(10))
-                                    .GET()
-                                    .build())) {
-                var response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                assertThat(response.statusCode()).isEqualTo(410);
-                assertThat(response.body()).contains("manual_trigger_deferred");
-            }
+            var removedTrigger =
+                    HttpRequest.newBuilder(
+                                    URI.create(base + "/definitions/" + definitionId + "/triggers"))
+                            .header("X-Omni-User", "test-operator")
+                            .timeout(Duration.ofSeconds(10))
+                            .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                            .build();
+            assertThat(
+                            client.send(removedTrigger, HttpResponse.BodyHandlers.ofString())
+                                    .statusCode())
+                    .isEqualTo(404);
+            var retiredAudit =
+                    HttpRequest.newBuilder(URI.create(base + "/triggers/" + UUID.randomUUID()))
+                            .header("X-Omni-User", "test-operator")
+                            .timeout(Duration.ofSeconds(10))
+                            .GET()
+                            .build();
+            var response = client.send(retiredAudit, HttpResponse.BodyHandlers.ofString());
+            assertThat(response.statusCode()).isEqualTo(410);
+            assertThat(response.body()).contains("manual_trigger_deferred");
+            var goals =
+                    HttpRequest.newBuilder(URI.create(base + "/backfills/goals"))
+                            .header("X-Omni-User", "test-operator")
+                            .timeout(Duration.ofSeconds(10))
+                            .GET()
+                            .build();
+            var goalsResponse = client.send(goals, HttpResponse.BodyHandlers.ofString());
+            assertThat(goalsResponse.statusCode()).isEqualTo(200);
+            assertThat(goalsResponse.body().strip()).startsWith("[").endsWith("]");
+            var anonymousGoals =
+                    HttpRequest.newBuilder(URI.create(base + "/backfills/goals"))
+                            .timeout(Duration.ofSeconds(10))
+                            .GET()
+                            .build();
+            assertThat(
+                            client.send(anonymousGoals, HttpResponse.BodyHandlers.ofString())
+                                    .statusCode())
+                    .isEqualTo(401);
             var catalog =
                     client.send(
                             HttpRequest.newBuilder(

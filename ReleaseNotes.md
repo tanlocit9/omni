@@ -1,5 +1,231 @@
 # Omni Release Notes
 
+## 2026-11-18 - Defer continuous operations for session-based I10
+
+The owner currently runs Omni by session. [TD-020](docs/technical-debt/020-session-runtime-operations.md)
+records fleet-wide continuous rollout/recovery qualification and 12-hour
+reconciliation activation as deferred, nonblocking for current I10 acceptance.
+Affected-scope pinning, exact PostgreSQL proofs/bytes, matched services, ownership,
+READY-last and bounded recovery remain required. The schedule stays disabled;
+no automatic startup catch-up or new trigger is introduced.
+
+The [56-partition checklist](docs/reference/020-i10-postgres-only-cutover.md#remaining-56-partitions--bounded-work-checklist)
+separates batch inventory, drain/backup, validation, fenced pinning and per-scope
+reader/backfill acceptance. It authorizes no additional data mutation. I10 remains
+in_progress. Documentation-only update; no tests, format, migration, deployment,
+runtime activation or new live inventory scan was run for this amendment.
+
+## 2026-11-18 - Complete bounded retained I10 Signals and repair evidence
+
+The approved HOSE Symbols prerequisite and MBB-only Signals request completed
+through the normal dispatcher/workers. All four members succeeded. The returned
+309-symbol snapshot is fully applied; its prior expected-count warning of 336
+remains and does not establish provider completeness. Existing EOD was reused.
+
+Actual retained Query and frozen-input readers pass without discovery JSON;
+read-only reconciliation matches 59/59 partitions. Three canonical accepted-byte
+repair rehearsals retain previous versions and all 37 public-table row digests.
+API outage fails closed. Evidence and verification boundaries are in the
+[retained checkpoint](docs/reference/020-i10-postgres-only-cutover.md#november-18-retained-signals-and-readerrepair-checkpoint).
+I10 remains in_progress: 56 partitions are unpinned, global rollout/recovery,
+12-hour schedule activation and owner review remain open. Earlier dated pending
+approval/no-dispatch notes remain historical; no commit, deployment or attestation
+is claimed.
+
+## 2026-11-17 - Verify I10 Signals and repair without legacy JSON
+
+The focused PostgreSQL-only I10 E2E passes: actual Kafka completion/worker flow,
+authenticated backfill, versioned Signals, Query and drained canonical repair run
+against disposable PostgreSQL/MinIO. Two registered rows are validated separately
+from 181 preserved container rows; three accepted partitions remain readable after
+repair, with registration/READY/head history retained and global JSON absent.
+Recorder P14-I10-pg-e2e-20261117 passes 2/2.
+
+Fresh retained reads still find V27/three heads/revision 2188 and no unfinished
+DB work or Kafka lag. Owner-approved optional symbolKey now narrows sector/date
+backfill to one active symbol, preserving sector-wide compatibility, scope-bound
+idempotency and complete declared membership. Its 4/4 gate includes 929 Platform
+tests (916 passed/13 skipped), narrowed real E2E and build.
+
+The retained read-only preview matches the three existing MBB work IDs, but also
+requires SYNC_SYMBOLS HOSE outside the approved three outputs. Its exact existing
+object was backed up; the prerequisite scope awaits owner approval. No retained
+dispatch, provider refresh, scope widening or increment completion occurred.
+See [evidence and remaining gates](docs/reference/020-i10-postgres-only-cutover.md#november-17-postgresql-only-e2e-and-retained-scope).
+
+## 2026-11-16 - Add Modulith JPA schema and retire active legacy JSON
+
+Owner-approved V27 supplies the existing Modulith active/archive JPA tables with
+TEXT serialized events. Strict startup/restart, entity persistence and rollback
+regressions pass. All runtime factories require PostgreSQL readiness: Python
+rejects manifest/shadow and Platform rejects disabling its PostgreSQL reader.
+Analyzer always wires PostgreSQL reconciliation. Missing/corrupt JSON and API-error
+tests prove no fallback. Low-level legacy classes remain for historical direct fixtures.
+
+After a fresh DB backup, full Platform applied V27 through Flyway with strict JPA
+and its complete runtime classpath, while business scheduling/listeners were off.
+The exact \_metadata/metadata.json key was backed up and hidden by a versioned
+delete marker; old versions remain. PostgreSQL readers and actual Query/DuckDB
+read 27 EOD, 27 Indicators and 216 Signals registered rows after removal; retained
+frozen inputs and API-outage failure also pass, with zero legacy reads.
+Contracts/proofs/heads/revision remain 2598/1598/3/2188. No Signals dispatch,
+provider request, watchdog or global worker rollout occurred. I10 stays in_progress;
+see [source, evidence and remaining gates](docs/reference/020-i10-postgres-only-cutover.md).
+The bounded follow-up gate passes 9/9; 56 of 59 PostgreSQL READY partitions remain
+outside the three-partition physical pilot. Intraday confirmation is unavailable
+without PostgreSQL registration support and does not read its legacy JSON pointers.
+
+## 2026-11-16 - Pin retained I10 pilot and stop on legacy parity
+
+Owner-approved maintenance backed up PostgreSQL and three pilot objects, restored
+the DB backup in isolated infrastructure, matched all 26 Flyway checksums and
+validated 270 registered work proofs. Existing authenticated fenced APIs pinned
+EOD HOSE/MBB, Indicators AD_CLOSE/1D/HOSE/MBB and Signals ICHIMOKU_V1/1D/HOSE.
+Storage heads changed 0 -> 3 and readiness revision 2185 -> 2188; immutable
+read-back and retained older versions pass. Row digests of 33/35 tables remain
+unchanged; only storage heads/revision differ. Logical contracts, proofs, execution
+states, discovery bytes and READY history are preserved.
+
+Scoped shadow parity fails because all three legacy manifest versions from
+November 4 differ from canonical bytes already present before maintenance.
+No metadata rewrite, authority change, Signals dispatch or retained rollback
+rehearsal follows this failed gate. An additional strict full-Platform JPA
+validation finds absent event_publication; the successful API-only JDBC host is
+not full runtime acceptance. Owned host/restore infrastructure is stopped/removed;
+backups and retained pins remain. I10 stays in_progress. See
+[exact mechanism, evidence and remaining gates](docs/reference/019-i10-review-20261111.md#november-16-approved-retained-pilot).
+
+## 2026-11-16 - Review staged I10 changes against current main
+
+Freshly fetched origin/main and the main checkout both resolve to 6604726.
+Review preserves the existing 42-file staged change set. Fix Dataset Explorer's
+All option being treated as an empty physical partition value; clearing the filter
+now retains catalog controls and permits another selection. A focused regression
+is included in the passing 126-case Console suite; lint, typecheck and build pass.
+No numeric Console coverage or browser flow is claimed.
+
+Scoped recorder P14-I10-review-20261116 passes 8/8: Platform coverage (913 cases,
+900 passed/13 opt-in skips, zero failures/errors), real worker-chain integration
+(14 passed, zero skips), Platform build, Console test/lint/typecheck/build and
+changed-file format. The changed backfill controller has 100% line/branch coverage;
+current safety-component attribution is recorded in the linked review.
+
+[Fresh retained observations and impact/gate reconciliation](docs/reference/019-i10-review-20261111.md#november-16-main-reconciliation-and-fresh-preflight)
+record successful V26 history, versioning Enabled and no PENDING/RUNNING executions.
+Storage heads and immutable READY history remain empty; observed schema/versioning
+do not prove retained pinning/parity/cutover. No retained mutation, service restart,
+dispatch, owner attestation, commit or deployment is performed by this review.
+P14-I10 remains in_progress with the existing three operational criteria open.
+
+## 2026-11-15 - Align remaining Console views with I10 evidence
+
+Restore view/request selection through URL query parameters and browser history;
+empty metadata cannot override explicit navigation. Replace JSON-only provenance
+with readable attempt/input/owner/upstream tables and keep raw evidence under
+Advanced. Jobs links to bounded work requests and no longer implies active means
+scheduled. Dataset Explorer displays full version/source/input lineage, loads
+later catalog pages and rejects overlapping observations; changed selections
+clear stale previews. SQL Console shows full accepted query versions. Backfill
+503 errors retain the backend reason and unchanged-request retry guidance.
+
+Freshness keeps its 48-hour threshold but considers every returned dataset,
+including invalid/future/missing timestamp and unavailable sources. A fresh latest
+partition cannot hide other stale sources or imply exact work READY.
+
+Console-only source changes reuse current Platform/Query read contracts and the
+existing bounded backfill POST. Platform, Analyzer, Ingestor, Query Service,
+shared libraries/protobuf, Kafka, persistence, object paths, runtime configuration,
+security and deployment boundaries are unchanged. Existing service/API/flow guides
+retain ownership; Console and polling guidance are updated. Architecture, ADR,
+data, governance, index and agent-policy contracts need no revision; registry/I10
+status remains in_progress. No new sector lookup/capability API, generic manual
+trigger, reconciliation action, tracing or watchdog activation is introduced.
+
+Approved Console unit/component tests pass 125/125 cases in 17 files; lint and
+typecheck pass. An earlier typecheck rejected an incomplete QueryStatus fixture;
+the fixture now includes required timestamps/truncation and checks pass. No
+numeric coverage, browser/live backend, provider, retained cutover or deployment
+evidence is claimed. Approved production build passes through the existing Console
+Nx target. Graph impact/change detection remains stale and is navigation only;
+the scoped static documentation audit reconciles routes, DTOs, evidence wording
+and relative links without claiming whole-repository synchronization.
+
+| Changed UI criterion                                                              | Executed test source                                           |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Request URL/history, explicit navigation versus empty catalog                     | App.test.tsx: 9 cases including existing shell checks          |
+| Readable frozen inputs, owner/upstream navigation, truncation and stale reads     | WorkProvenance.test.tsx: 4 cases                               |
+| Catalog pages/version/lineage, overlapping pages, stale dataset/preview responses | DatasetExplorer.test.tsx: 6 cases; catalogApi.test.ts: 2 cases |
+| Per-dataset freshness, missing/invalid/future timestamps, display bounds, errors  | DataFreshnessBanner.test.tsx: 7 cases                          |
+| Read-only job catalog link and state wording                                      | JobsPanel.test.tsx: 7 cases including existing reads           |
+| Selected and accepted query version semantics                                     | SqlConsole.test.tsx: 2 cases                                   |
+
+## 2026-11-15 - Add request detail and exact-attempt output evidence to Console
+
+Open read-only request detail from the list or backfill acceptance. Show target
+and upstream members, execution/outbox state and review flags separately from
+root closure and member settlement. Client paging limits rendering to 50 rows;
+the existing detail endpoint still returns the full member/graph response.
+Selected-member output evidence separates current work coverage from retained
+proof for the exact selected attempt. A newer current proof cannot turn a failed
+attempt into SUCCESS or substitute for missing selected-attempt evidence.
+
+One frontend adapter normalizes mixed response keys, enforces requested identity
+and exposes logical proof/version/frozen lineage without physical coordinates or
+credentials. Existing Platform reads and private operator auth are reused; no
+backend, Kafka, database, storage, shared contract, runtime flag or deployment
+change. Analyzer, Ingestor, Query Service and Jobs catalog behavior are unchanged.
+Console/API/flow guidance is updated; architecture, ADR, data, index, registry and
+agent-policy contracts need no revision. I10 remains in_progress. Approved Console
+Nx typecheck, lint, test and build pass; Vitest passes 96/96 cases across 13 files.
+The first run passed 95/96 because a status assertion also counted a filter option;
+the corrected assertion separately checks request and member state. Browser and
+backend integration remain unexecuted. The earlier 71-test Console result remains
+a prior-revision checkpoint. No numeric coverage, live rollout or I10 completion.
+
+## 2026-11-15 - Add bounded backfill creation and request polling to Console
+
+Work Operations now includes backend-discovered goals/targets, sector/date input,
+and Default/Recalculate/Refresh policies for the existing bounded backfill API.
+Preserve the idempotency key when retrying an unchanged request after uncertain
+delivery. Accepted work refreshes the Active request page. A separate request list
+shows per-request/per-job member states, settlement, failure and unknown record
+counts, polls only the first Active page and preserves cursor/observation values
+on pagination. Snapshot and publication diagnostics remain read-only; replace the
+old minimal snapshot request table with the dedicated list.
+
+Separate form/list components share DTOs, API calls and existing panel styles;
+component, API boundary and acceptance-to-list wiring test sources are included.
+Console README and API references describe source behavior. Console is the only
+runtime source owner changed in this UI update: Platform endpoints, Analyzer,
+Ingestor, Query Service, shared contracts/libraries, Kafka, persistence, storage
+paths, runtime flags and deployment/authentication boundary are unchanged. No
+architecture, ADR, data, index, registry or agent-policy revision is required;
+I10 remains in_progress and full request-detail/output UI stays outside scope.
+Owner-approved `omni-console:typecheck`, `omni-console:lint`, `omni-console:test`
+and `omni-console:build` all pass through Nx. Vitest passes 71/71 cases across 10
+files, including 21 backfill-form, 10 request-list, five API-boundary and seven
+Work Operations cases. No numeric coverage, browser flow, backend integration,
+live request, deployment or I10 completion is established by these Console checks.
+
+## 2026-11-15 - Discover eligible backfill goals and remove obsolete trigger POST
+
+Remove POST `/api/v1/jobs/definitions/{definitionId}/triggers`; authenticated
+requests now have no mapping (404). Keep the legacy GET audit route deferred (410).
+Add authenticated GET `/api/v1/jobs/backfills/goals`, returning supported goals
+with active canonical target definition IDs/titles. Discovery and creation share
+the allow-list and eligibility filter; cron enablement is not required and POST
+still revalidates admission. See [API details](docs/reference/009-indicators-backfill.md#goal-discovery).
+
+Platform controllers, controller tests and the disposable PostgreSQL startup HTTP
+test are updated. No Console caller of the removed route was found. Analyzer,
+Ingestor, Query Service, shared libraries/protobuf, persistence, configuration,
+storage paths and worker/READY behavior have no change. Existing private operator
+authentication and deployment boundary are retained. Flow/API/TD-017 guidance is
+updated; architecture, ADR, data, deployment, indexes and agent policy need no
+contract or ownership revision. Plan 030/I10 acceptance and registry status remain
+unchanged. Tests, build and format are not run for this change; source presence
+does not establish deployed behavior or I10 completion.
+
 ## 2026-11-15 - Format the full workspace by default
 
 `nx run omni:format` now includes unchanged tracked files by default, preventing

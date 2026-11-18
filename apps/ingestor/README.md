@@ -1,5 +1,10 @@
 # Ingestor Service
 
+[PostgreSQL readiness is the active shared default](../../docs/reference/020-i10-postgres-only-cutover.md).
+Configure its authenticated private API; missing proof/bytes must wait or fail
+without JSON fallback. Retirement of global discovery does not make unregistered
+historical dates READY or change provider/enrollment/publication semantics.
+
 New enrolled EOD commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md)
 after validated writes. Errors have no output evidence; old commands keep two messages.
 

@@ -673,10 +673,48 @@ ready conclusion; no fabricated test, coverage, CI, provider or deployment evide
 
 ### Acceptance Criteria
 
+November 18 owner scope amendment: [TD-020](../technical-debt/020-session-runtime-operations.md)
+defers fleet-wide continuous rollout/recovery qualification and 12-hour schedule
+activation for session-based operation. They are nonblocking for current I10;
+affected-scope pinning, proof/byte validation, matched services and bounded recovery
+remain required. This supersedes broader operational-blocker wording in earlier
+dated checkpoints without changing their recorded results or completing I10.
+
+November 18 retained amendment: [MBB Signals and reader/repair checkpoint](../reference/020-i10-postgres-only-cutover.md#november-18-retained-signals-and-readerrepair-checkpoint)
+executes the subsequently approved HOSE Symbols prerequisite and bounded MBB run.
+All four members succeed; exact Query/frozen-input reads and accepted-byte repair
+preserve ownership/history. Full read-only parity is 59/59; 56 partitions remain
+unpinned. Full rollout/recovery, 12-hour reconciliation activation and owner review
+remain open, so no additional completion checkbox or status promotion is inferred.
+
+November 17: optional symbolKey for the approved bounded backfill API is implemented
+and verified (4/4 gate), preserving complete declared membership and request-bound
+idempotency. PostgreSQL-only Signals/canonical-repair E2E passes on disposable
+infrastructure. The retained MBB preview preserves all three work IDs but requires
+an additional exchange-wide Symbols prerequisite outside the approved output
+boundary. That scope awaits approval; no retained dispatch or acceptance checkbox
+is inferred. See [current evidence](../reference/020-i10-postgres-only-cutover.md#november-17-postgresql-only-e2e-and-retained-scope).
+
+November 16 owner amendment: [PostgreSQL-only readiness and JPA schema](../reference/020-i10-postgres-only-cutover.md)
+retires legacy JSON/shadow parity as an authority gate. Replacement evidence must
+prove registered PostgreSQL work/attempt/version coverage, exact bytes and no
+fallback with missing/corrupt JSON or API failure. The earlier failed legacy
+comparison remains historical; full inventory, reconciliation and rollout/recovery
+requirements are not waived. I10 remains in_progress.
+
 November 12 reconciliation: the seven checked criteria below are proven by the
 recorded local/disposable evidence in [the criterion matrix](../reference/019-i10-review-20261111.md#acceptance-criterion-reconciliation).
 They do not imply retained deployment, reader cutover or overall I10 completion.
 The three unchecked criteria retain their operational/owner evidence requirements.
+
+The [November 16 main review and fresh preflight](../reference/019-i10-review-20261111.md#november-16-main-reconciliation-and-fresh-preflight)
+observe V26/versioning already present, but no pinned storage heads or immutable
+READY history. This refresh does not close any of the three operational criteria.
+
+Later November 16, the [owner-approved retained pilot](../reference/019-i10-review-20261111.md#november-16-approved-retained-pilot)
+pins three physical baselines and preserves logical history. Legacy manifest/byte
+parity fails, so cutover, dispatch and retained rollback remain unexecuted. No
+unchecked criterion is closed and no acceptance scope is changed by this result.
 
 - [x] Versioned topic/array contract, paired producers and Platform consumer agree;
       bounded size/count, idempotency, validation and partition-offset behavior are proven.
@@ -685,9 +723,14 @@ The three unchecked criteria retain their operational/owner evidence requirement
 - [x] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
       metadata registration or explicit valid-empty, and failures cannot reopen terminal work.
 - [ ] All applicable readers use PostgreSQL via approved boundaries after verified
-      backfill/shadow/cutover; no silent manifest fallback or weakened byte/lineage checks.
-- [ ] Reconciliation runs every 12 hours on safely quiesced affected outputs; timed-out
-      worker ownership and scan/write races cannot promote unproven data.
+      registered-output coverage/cutover; exact work/attempt/version and byte/lineage
+      checks remain required, with no retired JSON dependency or API-error fallback.
+- Deferred to [TD-020](../technical-debt/020-session-runtime-operations.md) by the
+  owner on November 18: fleet-wide continuous rollout/recovery qualification and
+  activation of reconciliation every 12 hours. Omni currently runs by session.
+  Affected-scope pinning, matched services, safe ownership, exact proofs/bytes,
+  READY-last and bounded recovery remain mandatory; scan/write races cannot
+  promote unproven data. No automatic startup catch-up is introduced.
 - Deferred to TD-018 by the owner on November 11: automatic watchdog cadence,
   published deadline, scan races and activation. Keep the source disabled during
   observation; terminal immutability, late-writer safety and diagnostics remain active.
@@ -699,7 +742,7 @@ The three unchecked criteria retain their operational/owner evidence requirement
       multi-root linkage are documented; no tracing implementation is required in I10.
 - [x] Writer can emit the same metadata arrays after future batches; no P12 activation,
       direct worker DB access, new topology authority or physical-path business routing.
-- [ ] Source/field/test/coverage matrix, migrations, rollout/recovery, cross-service docs
+- [ ] Source/field/test/coverage matrix, migrations, affected-scope rollout/recovery, cross-service docs
       and owner-local verification gates are complete before I10 completion.
 
 ## Sector Transition outcomes as-of correction — 2026-10-30

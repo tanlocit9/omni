@@ -19,6 +19,7 @@ from py_common.storage.dataset_registry import OMNI_DATASET_REGISTRY
 from py_common.storage.global_metadata import GlobalMetadataReader, GlobalMetadataWriter
 from py_common.storage.metadata_sync import MetadataSynchronizer
 from py_common.storage.output_readiness import metadata_reader
+from py_common.storage.output_reconciliation import OutputReconciler
 from py_common.storage.parquet import ParquetStorage
 from py_common.storage.providers import StorageProvider
 from py_common.storage.registry import StorageProviderRegistry
@@ -30,6 +31,7 @@ from app.metadata.handler import MetadataSyncJobHandler
 from app.metadata.kafka import MetadataSyncKafkaService
 from app.settings import AppSettings
 from app.signals.handler import SignalJobHandler
+from app.signals.intraday_confirmation import PostgresIntradayDatasetResolver
 from app.signals.kafka import SignalKafkaService
 
 
@@ -63,29 +65,36 @@ async def main():
     assert settings.minio.endpoint == config["minio"], "MinIO isolation mismatch"
     assert settings.minio.bucket == config["bucket"], "Bucket isolation mismatch"
     if "outputReadinessUrl" in config:
-        # Exercise scoped enrolled reads; legacy catalog reads retain manifest mode.
-        settings.output_readiness_mode = config.get("workerMetadataMode", "manifest")
+        settings.output_readiness_mode = config.get("workerMetadataMode", "postgres")
         settings.output_readiness_api_url = config["outputReadinessUrl"]
         from pydantic import SecretStr
 
         settings.output_readiness_api_token = SecretStr(config["outputReadinessToken"])
+        settings.output_readiness_reconcile_token = SecretStr(
+            config["outputReadinessReconcileToken"]
+        )
     adapter = MinioStorageAdapter(create_minio_client(settings.minio))
     await adapter.ensure_bucket(settings.minio.bucket)
     registry = StorageProviderRegistry([adapter])
     await registry.validate_all(fail_fast=True)
-    reader = GlobalMetadataReader(adapter, settings.minio.bucket)
-    synchronizer = MetadataSynchronizer(
-        readable=adapter,
-        listable=adapter,
-        reader=reader,
-        writer=GlobalMetadataWriter(adapter, adapter, settings.minio.bucket),
-        registry=OMNI_DATASET_REGISTRY,
-        bucket=settings.minio.bucket,
-    )
-    metadata = MetadataSyncKafkaService(settings, MetadataSyncJobHandler(synchronizer))
     parquet = ParquetStorage(
         registry=registry, provider=StorageProvider.MINIO, bucket=settings.minio.bucket
     )
+    if "outputReadinessUrl" in config:
+        reader = metadata_reader(settings, adapter, parquet=parquet)
+        synchronizer = OutputReconciler(settings, reader, parquet, backfill=False)
+    else:
+        # Historical non-enrolled fixtures are separate from PostgreSQL-only I10.
+        reader = GlobalMetadataReader(adapter, settings.minio.bucket)
+        synchronizer = MetadataSynchronizer(
+            readable=adapter,
+            listable=adapter,
+            reader=reader,
+            writer=GlobalMetadataWriter(adapter, adapter, settings.minio.bucket),
+            registry=OMNI_DATASET_REGISTRY,
+            bucket=settings.minio.bucket,
+        )
+    metadata = MetadataSyncKafkaService(settings, MetadataSyncJobHandler(synchronizer))
     handler = IndicatorJobHandler(
         settings,
         parquet,
@@ -153,6 +162,7 @@ async def main():
             metadata_reader(settings, adapter, parquet=parquet)
             if "outputReadinessUrl" in config
             else reader,
+            PostgresIntradayDatasetResolver(),
         ),
     )
     await signals.start()

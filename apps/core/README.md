@@ -1,5 +1,10 @@
 # Platform / Core Service
 
+[November 16 PostgreSQL-only default and JPA schema](../../docs/reference/020-i10-postgres-only-cutover.md):
+V27 supplies the existing Modulith active/archive event tables. Admission defaults
+to PostgreSQL (reader-enabled=true); do not select legacy JSON after retirement.
+Strict JPA and the scoped retained probe pass locally; full I10 rollout is open.
+
 The private work-proof GET accepts optional atomicAttemptId; V26 records actual
 VERSIONED READY history so a refresh cannot erase frozen upstream availability.
 Default discovery remains current/latest. Registration/SUCCESS does not substitute

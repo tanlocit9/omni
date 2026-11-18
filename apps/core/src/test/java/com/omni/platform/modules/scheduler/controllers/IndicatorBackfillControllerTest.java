@@ -19,6 +19,144 @@ import com.omni.platform.modules.scheduler.work.GraphWorkRequestService;
 import tools.jackson.databind.json.JsonMapper;
 
 class IndicatorBackfillControllerTest {
+    @Test
+    void freezesNormalizedOptionalSymbolScopeWithoutChangingAnalyticalParameters() {
+        var target = definition("00000000-0000-0000-0000-000000000011", JobType.SYNC_SIGNALS);
+        when(definitions.findAll()).thenReturn(List.of(target));
+        var execution = UUID.randomUUID();
+        when(graph.prepareBackfill(any(), eq(target.getId()), any(), any())).thenReturn(execution);
+        when(graph.requestId(execution)).thenReturn(UUID.randomUUID());
+        api.create(
+                "operator",
+                "narrow",
+                new IndicatorBackfillController.Backfill(
+                        "SYNC_SIGNALS",
+                        List.of("BANKS"),
+                        1,
+                        day,
+                        day,
+                        false,
+                        true,
+                        target.getId(),
+                        "hose-mbb"));
+        var request = ArgumentCaptor.forClass(JobRunSnapshot.Request.class);
+        verify(graph)
+                .prepareBackfill(
+                        request.capture(),
+                        eq(target.getId()),
+                        any(),
+                        eq(Map.of("force", false, "rerun", true)));
+        var expansion = json.readTree(request.getValue().parametersJson());
+        assertThat(expansion.path("scope").path("type").asText()).isEqualTo("SYMBOL");
+        assertThat(expansion.path("scope").path("key").asText()).isEqualTo("HOSE-MBB");
+        assertThat(expansion.path("parameters").isEmpty()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "MBB", "HOSE-MBB/other", "s3://bucket/key", " HOSE-MBB", "HOSE-"})
+    void rejectsMalformedSymbolScopeBeforePreparingWork(String symbol) {
+        assertThatThrownBy(
+                        () ->
+                                api.create(
+                                        "operator",
+                                        "invalid-symbol",
+                                        new IndicatorBackfillController.Backfill(
+                                                "SYNC_SIGNALS",
+                                                List.of("BANKS"),
+                                                1,
+                                                day,
+                                                day,
+                                                false,
+                                                true,
+                                                null,
+                                                symbol)))
+                .isInstanceOfSatisfying(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verifyNoInteractions(graph, definitions);
+    }
+
+    @Test
+    void discoversOnlySupportedActiveCanonicalTargetsWithoutRequiringCron() {
+        var indicator = definition("00000000-0000-0000-0000-000000000001", JobType.SYNC_INDICATORS);
+        indicator.setTitle("Indicators");
+        indicator.setScheduleEnabled(false);
+        var first = definition("00000000-0000-0000-0000-000000000002", JobType.SYNC_SIGNALS);
+        var second = definition("00000000-0000-0000-0000-000000000003", JobType.SYNC_SIGNALS);
+        var inactive = definition("00000000-0000-0000-0000-000000000004", JobType.SYNC_INDICATORS);
+        inactive.setIsActive(false);
+        var alias = definition("00000000-0000-0000-0000-000000000005", JobType.SYNC_SIGNALS);
+        alias.setCanonicalDefinitionId(first.getId());
+        var unsupported = definition("00000000-0000-0000-0000-000000000006", JobType.SYNC_SYMBOLS);
+        var unknownActive =
+                definition("00000000-0000-0000-0000-000000000007", JobType.SYNC_SIGNALS);
+        unknownActive.setIsActive(null);
+        when(definitions.findAll())
+                .thenReturn(
+                        List.of(
+                                second,
+                                inactive,
+                                alias,
+                                unsupported,
+                                first,
+                                unknownActive,
+                                indicator));
+
+        assertThat(api.goals())
+                .containsExactly(
+                        new IndicatorBackfillController.Goal(
+                                "SYNC_INDICATORS",
+                                List.of(
+                                        new IndicatorBackfillController.Target(
+                                                indicator.getId(), "Indicators"))),
+                        new IndicatorBackfillController.Goal(
+                                "SYNC_SIGNALS",
+                                List.of(
+                                        new IndicatorBackfillController.Target(first.getId(), null),
+                                        new IndicatorBackfillController.Target(
+                                                second.getId(), null))));
+        verifyNoInteractions(graph);
+
+        UUID execution = UUID.randomUUID();
+        UUID selected = api.goals().get(1).targets().get(1).targetDefinitionId();
+        when(graph.prepareBackfill(any(), eq(selected), any(), any())).thenReturn(execution);
+        when(graph.requestId(execution)).thenReturn(UUID.randomUUID());
+        assertThat(
+                        api.create(
+                                "operator",
+                                "discovered-target",
+                                new IndicatorBackfillController.Backfill(
+                                        "SYNC_SIGNALS",
+                                        List.of("BANK"),
+                                        2,
+                                        day,
+                                        day,
+                                        false,
+                                        false,
+                                        selected)))
+                .containsEntry("executionId", execution);
+    }
+
+    @Test
+    void omitsGoalsWithoutEligibleDefinitions() {
+        when(definitions.findAll()).thenReturn(List.of());
+        assertThat(api.goals()).isEmpty();
+        var signal = definition("00000000-0000-0000-0000-000000000001", JobType.SYNC_SIGNALS);
+        when(definitions.findAll()).thenReturn(List.of(signal));
+        assertThat(api.goals())
+                .extracting(IndicatorBackfillController.Goal::goal)
+                .containsExactly("SYNC_SIGNALS");
+        verifyNoInteractions(graph);
+    }
+
+    private static JobDefinition definition(String id, JobType type) {
+        var definition = new JobDefinition();
+        definition.setId(UUID.fromString(id));
+        definition.setJobType(type);
+        definition.setIsActive(true);
+        return definition;
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"single", "selected", "ambiguous", "wrongType"})
     void signalsGoalSelectsCanonicalStrategyExplicitly(String scenario) {

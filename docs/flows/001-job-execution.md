@@ -1,5 +1,19 @@
 # Job Execution Flow
 
+[November 18 session-based amendment](../technical-debt/020-session-runtime-operations.md):
+continuous fleet rollout/recovery qualification and 12-hour reconciliation
+activation are deferred. Completion still validates exact proofs/bytes and
+promotes READY transactionally; no periodic scan is needed for a successful
+backfill to register its outputs. Affected-scope safety and bounded recovery stay
+required. No startup catch-up or new manual trigger is introduced.
+
+[November 16 owner amendment](../reference/020-i10-postgres-only-cutover.md):
+Platform admission and Python readers default to PostgreSQL; no legacy JSON
+fallback participates in the active flow. Frozen approved inputs, enrollment
+before dispatch and transactional validated completion/READY remain unchanged.
+V27 supplies the existing JPA publication registry; it adds no job trigger,
+retry policy, Kafka route or watchdog activation.
+
 The [Indicators-only backfill API](../reference/009-indicators-backfill.md) is an
 owner-authorized exception to generic manual-trigger withdrawal. It uses the
 same static dependency graph and exact work READY barriers, with a separate
@@ -154,8 +168,9 @@ results can complete SUCCESS while dataset READY remains independently enforced.
 
 Operator-triggered jobs are deferred by owner decision in I3.d ([TD-017](../technical-debt/017-manual-request-rejection-audit.md)).
 The private Console retains read-only job catalog/history and dataset browsing.
-Old POST `/api/v1/jobs/definitions/{id}/triggers` and GET `/api/v1/jobs/triggers/{id}`
-return authenticated HTTP 410 with code `manual_trigger_deferred`; they create no
+Old POST `/api/v1/jobs/definitions/{id}/triggers` has no controller mapping as of
+November 15 (authenticated HTTP 404). GET `/api/v1/jobs/triggers/{id}` still returns
+authenticated HTTP 410 with code `manual_trigger_deferred`; these routes create no
 request, execution or outbox intent. Execution status remains available through
 the catalog service. V14 drops the old manual audit table after old instances are
 stopped; no audit history is migrated. JobRun validation/membership is unchanged.
@@ -164,6 +179,15 @@ outbox considers the durable work for dispatch.
 Catalog and status responses expose logical identities only. Operational errors
 are normalized, bounded, and redact secrets plus object-storage or host paths
 before leaving Platform.
+
+The bounded backfill API exposes authenticated `GET /api/v1/jobs/backfills/goals`
+for supported active canonical Indicators/Signals targets. The same eligibility
+filter is used when accepting POST requests; discovery does not evaluate runtime
+admission or dispatch work. See [API details](../reference/009-indicators-backfill.md#goal-discovery).
+Console Work Operations uses that discovery for its bounded backfill form and
+the [request list API](../reference/014-atomic-request-polling.md) for polling.
+The Jobs catalog and diagnostic panels retain their read-only role; this does
+not restore the removed generic trigger or legacy audit features.
 
 The repository now contains versioned `JobCommand` and `JobStatusEvent` Proto3 schemas in [`libs/contracts/proto`](../../libs/contracts/proto). They are a generated contract foundation only: the production flow described below remains on the existing JSON wire format until compatible consumers and adapters are delivered in later Phase 2 increments.
 
@@ -331,7 +355,9 @@ sequenceDiagram
   Proxy->>API: Authenticate and replace/inject X-Omni-User
   alt missing operator identity
     API-->>Caller: HTTP 401
-  else authenticated caller
+  else authenticated obsolete trigger POST
+    API-->>Caller: HTTP 404 (route removed)
+  else authenticated legacy audit/status GET
     API-->>Caller: HTTP 410 manual_trigger_deferred
   end
   Note over Caller,API: No request audit, JobRun, execution or outbox write
@@ -347,6 +373,12 @@ requires an approved authorization/audit contract. There is no force, bypass or
 direct browser-to-Kafka route.
 
 ### `SYNC_METADATA` operation
+
+Active Analyzer wiring uses OutputReconciler with the private PostgreSQL reader
+and validates registered exact-version Parquet. It does not rebuild or publish
+legacy JSON. Missing PostgreSQL evidence does not trigger a legacy scan. The
+12-hour schedule remains a separate operational gate. The JSON rebuild flow below
+records the retired implementation for historical fixtures only.
 
 Platform publishes an optional logical target to `topic-sync-metadata`; Analyzer
 validates it against the shared dataset registry and is the sole writer of

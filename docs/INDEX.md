@@ -1,5 +1,14 @@
 # Numbered Documentation Registry
 
+Session-based I10 operations (November 18): [TD-020](technical-debt/020-session-runtime-operations.md)
+defers continuous rollout/recovery qualification and 12-hour reconciliation
+activation. Affected-scope proof/byte and write-safety checks remain mandatory;
+see the [56-partition checklist](reference/020-i10-postgres-only-cutover.md#remaining-56-partitions--bounded-work-checklist).
+Older broader operational-blocker notes are superseded. I10 remains in_progress.
+
+
+Current I10 authority: [020 - PostgreSQL-only readiness and JPA schema](reference/020-i10-postgres-only-cutover.md).
+
 Current I10 review: [019 — review and acceptance gates](reference/019-i10-review-20261111.md).
 Includes the frozen-attempt correction, local verification and retained preflight.
 
@@ -84,6 +93,8 @@ This registry covers every non-ADR content document under `docs/`. The navigatio
 | reference/016    | [I10 Signals backfill closure](reference/016-i10-signals-backfill-closure.md)                    | Owner goal, Signals admission/strategy selection and acceptance evidence                         | P14-I10                                              | [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                                                                    |
 | reference/017    | [I10 versioned storage](reference/017-i10-versioned-storage.md)                                  | Immutable backend coordinates, frozen merge bases, fenced historical pin and paired rollout      | P14-I10                                              | [ADR-008](adr/008-postgres-output-readiness.md)                                                                                                           |
 | reference/018    | [I10 unified worker completion](reference/018-i10-worker-completion.md)                          | One terminal result and output evidence, transactional acceptance and legacy compatibility       | P14-I10                                              | [Kafka contracts](data/001-kafka-contracts.md), [I10 closure](reference/016-i10-signals-backfill-closure.md)                                              |
+| reference/019    | [I10 review and acceptance gates](reference/019-i10-review-20261111.md)                          | Source review, retained pilot and dated acceptance evidence                                      | P14-I10                                              | [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                                                                    |
+| reference/020    | [I10 PostgreSQL-only readiness and JPA schema](reference/020-i10-postgres-only-cutover.md)       | Owner-approved reader defaults, V27 and retirement of legacy JSON                                | P14-I10                                              | [ADR-008](adr/008-postgres-output-readiness.md), [Plan 030](plans/030-static-graph-dispatch-planner.md)                                                   |
 
 ## Flow References
 

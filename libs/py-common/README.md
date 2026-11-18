@@ -1,5 +1,10 @@
 # py-common Library
 
+The [active metadata-reader default is postgres](../../docs/reference/020-i10-postgres-only-cutover.md).
+Supply the private API URL and reader token. The PostgreSQL path never falls back
+to JSON on missing proof, invalid bytes or API failure. Explicit manifest/shadow
+classes remain for compatibility fixtures, not the retired active authority.
+
 Enrolled input reads send the frozen atomicAttemptId to the private work-proof API.
 Matched Platform/V26 can retain actual immutable VERSIONED READY proofs across a
 refresh; workers keep work/day/attempt/version and exact-byte validation. Current

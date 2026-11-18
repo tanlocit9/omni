@@ -398,6 +398,116 @@ class GraphWorkRequestsPostgresTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"single", "sector", "inactive", "outside", "missing"})
+    void backfillSymbolScopePreservesCompleteMembershipAndScopeBoundIdempotency(String scenario) {
+        var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", false);
+        try {
+            jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
+            String sector = JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst();
+            jdbc.update(
+                    "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES "
+                            + "('BBB','HOSE',true,jsonb_build_object('sectorLv2Code',?::text)),"
+                            + "('CCC','HOSE',false,jsonb_build_object('sectorLv2Code',?::text)),"
+                            + "('DDD','HOSE',true,'{\"sectorLv2Code\":\"OTHER\"}'::jsonb)",
+                    sector,
+                    sector);
+            var day =
+                    NOW.atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE)
+                            .toLocalDate();
+            String selected =
+                    switch (scenario) {
+                        case "inactive" -> "HOSE-CCC";
+                        case "outside" -> "HOSE-DDD";
+                        case "missing" -> "HOSE-EEE";
+                        default -> "HOSE-AAA";
+                    };
+            var expansion =
+                    new java.util.LinkedHashMap<String, Object>(
+                            Map.of(
+                                    "dateFrom",
+                                    day.toString(),
+                                    "dateTo",
+                                    day.toString(),
+                                    "sectorCodes",
+                                    List.of(sector),
+                                    "sectorLevel",
+                                    2,
+                                    "force",
+                                    true));
+            if (!scenario.equals("sector"))
+                expansion.put("scope", Map.of("type", "SYMBOL", "key", selected));
+            var json = JsonMapper.builder().build();
+            var request =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "symbol-scope",
+                            "Bounded symbol verification",
+                            null,
+                            json.writeValueAsString(expansion));
+            var target = target(JobType.SYNC_INDICATORS);
+            if (!scenario.equals("single") && !scenario.equals("sector")) {
+                assertThatThrownBy(
+                                () ->
+                                        graph.prepareBackfill(
+                                                request,
+                                                target.getId(),
+                                                NOW,
+                                                Map.of("force", true)))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessageContaining("BACKFILL_SYMBOL_NOT_ACTIVE_IN_SECTOR");
+                assertThat(count("atomic_work_requests")).isZero();
+                assertThat(count("atomic_work_attempts")).isZero();
+                assertThat(count("output_completion_contracts")).isZero();
+                return;
+            }
+            var execution =
+                    graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", true));
+            var members =
+                    jdbc.queryForList(
+                            "SELECT e.meta_json->>'workKey' FROM atomic_work_request_members m "
+                                    + "JOIN atomic_work_attempts a ON a.id=m.attempt_id "
+                                    + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                    + "WHERE m.request_id=? AND m.is_target ORDER BY 1",
+                            String.class,
+                            graph.requestId(execution));
+            assertThat(members)
+                    .containsExactlyElementsOf(
+                            scenario.equals("sector")
+                                    ? List.of("HOSE-AAA", "HOSE-BBB")
+                                    : List.of("HOSE-AAA"));
+            assertThat(count("atomic_work_attempts")).isEqualTo(scenario.equals("sector") ? 5 : 3);
+            assertThat(graph.prepareBackfill(request, target.getId(), NOW, Map.of("force", true)))
+                    .isEqualTo(execution);
+            expansion.put("scope", Map.of("type", "SYMBOL", "key", "HOSE-BBB"));
+            var changed =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            request.mode(),
+                            request.actor(),
+                            request.idempotencyKey(),
+                            request.reason(),
+                            null,
+                            json.writeValueAsString(expansion));
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            changed, target.getId(), NOW, Map.of("force", true)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("IDEMPOTENCY_CONFLICT");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(actual, "enabled", true);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"SYNC_SIGNALS", "EVALUATE_SIGNALS"})
     void signalBackfillRequiresHistoryWritersPausedWithoutBlockingIndicatorOnlyGoal(String writer) {
         Object actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);

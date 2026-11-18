@@ -1,5 +1,18 @@
 # Where to Change
 
+Current session-based I10 scope (November 18): [TD-020](../technical-debt/020-session-runtime-operations.md)
+defers fleet-wide continuous rollout/recovery and 12-hour schedule activation.
+Affected-scope write safety, proofs/bytes and bounded recovery remain mandatory;
+the [remaining-partition checklist](../reference/020-i10-postgres-only-cutover.md#remaining-56-partitions--bounded-work-checklist)
+describes work as new backfill scopes are selected. Earlier broader operational
+blocker wording is superseded by this decision.
+
+Current I10 authority amendment (November 16): [PostgreSQL-only defaults, V27 JPA
+schema and retained evidence](../reference/020-i10-postgres-only-cutover.md).
+Start at SchedulerConfig/OutputReadinessProvider, shared Python settings/readers
+and V27. Active readers do not use legacy JSON; full-inventory rollout and the
+remaining I10 gates are still open. Earlier manifest-default notes are historical.
+
 Owner scoped-data amendment (2026-11-03): READY covers exact registered work rows
 already present in canonical Parquet, not the whole file. Additive workScope and
 row-based versions preserve unrelated days/symbols; new enrollment does not require

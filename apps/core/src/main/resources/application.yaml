@@ -32,7 +32,7 @@ app:
     versioned-storage-enabled: ${APP_OUTPUT_REGISTRATION_VERSIONED_STORAGE_ENABLED:false}
     enrollment-enabled: ${APP_OUTPUT_REGISTRATION_ENROLLMENT_ENABLED:false}
     ready-promotion-enabled: ${APP_OUTPUT_REGISTRATION_READY_PROMOTION_ENABLED:false}
-    reader-enabled: ${APP_OUTPUT_REGISTRATION_READER_ENABLED:false}
+    reader-enabled: ${APP_OUTPUT_REGISTRATION_READER_ENABLED:true}
     reader-token: ${OUTPUT_READINESS_API_TOKEN:}
     reconcile-token: ${OUTPUT_READINESS_RECONCILE_TOKEN:}
     reconciliation-schedule-enabled: ${APP_OUTPUT_REGISTRATION_RECONCILIATION_SCHEDULE_ENABLED:false}

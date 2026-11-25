@@ -133,7 +133,7 @@ Coverage requirements are risk-based:
 
 Shared contract changes must include producer and consumer tests. Cross-language Kafka, storage, HTTP, and generated-contract boundaries must be reconciled explicitly because bounded graph hops do not prove no impact.
 
-Agents must not execute build, test, lint, format, coverage, affected checks, or equivalent underlying tools unless the current user prompt explicitly requests them or the user approves a concrete command list. Until approved, record required checks as **not run**; do not treat them as passed or waive them from acceptance criteria.
+Necessary build, test, lint, format, coverage, affected and document checks within authorized work follow [AGENTS.md](../../AGENTS.md#verification-authority-and-scope) without separate command-list approval. Respect explicit read-only, no-test, documentation-only or owner-run limits. Record omitted/unavailable checks as **not run** and never waive required evidence. Retained-runtime operations, publication and explicit owner attestation retain their separate authorization rules.
 
 ### Acceptance Criteria
 

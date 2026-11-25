@@ -252,6 +252,9 @@ class CheckResultTests(unittest.TestCase):
         )
         self.assertEqual(attestation["status"], "owner_verified")
         self.assertEqual(attestation["verified_by"], "owner-1")
+        self.assertEqual(
+            check_result.command_attestation(SimpleNamespace(increment="P3-I5")), 0
+        )
 
     def test_owner_attestation_rejects_incomplete_gate(self):
         self.init()
@@ -266,6 +269,88 @@ class CheckResultTests(unittest.TestCase):
             check_result.CheckResultError, "requires a passing conclusion"
         ):
             check_result.command_attest(args)
+
+    def test_owner_can_attest_without_identity_and_validate_round_trip(self):
+        self.init()
+        self.import_log("test", "analyzer-tests", "anything", 0)
+        self.import_log("lint", "analyzer-lint", "anything", 0)
+        args = check_result.parser().parse_args(
+            ["attest", "--increment", "P3-I5", "--confirm", "I-VERIFIED"]
+        )
+        with redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(check_result.command_attest(args), 0)
+            self.assertEqual(
+                check_result.command_attestation(SimpleNamespace(increment="P3-I5")),
+                0,
+            )
+        self.assertNotIn("verified_by", output.getvalue())
+        attestation = json.loads(
+            (check_result.result_dir("P3-I5") / "attestation.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertNotIn("verified_by", attestation)
+        self.assertEqual(attestation["status"], "owner_verified")
+
+    def test_identity_free_attestation_still_requires_explicit_confirmation(self):
+        self.init()
+        self.import_log("test", "analyzer-tests", "anything", 0)
+        self.import_log("lint", "analyzer-lint", "anything", 0)
+        with self.assertRaisesRegex(
+            check_result.CheckResultError, "must be I-VERIFIED"
+        ):
+            check_result.command_attest(
+                SimpleNamespace(increment="P3-I5", verified_by=None, confirm="yes")
+            )
+
+    def test_identity_free_attestation_rejects_changed_requirements(self):
+        self.init()
+        self.import_log("test", "analyzer-tests", "anything", 0)
+        self.import_log("lint", "analyzer-lint", "anything", 0)
+        check_result.command_attest(
+            SimpleNamespace(increment="P3-I5", verified_by=None, confirm="I-VERIFIED")
+        )
+        manifest = check_result.result_dir("P3-I5") / "required.json"
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        data["required"].reverse()
+        manifest.write_text(json.dumps(data), encoding="utf-8")
+        with self.assertRaisesRegex(check_result.CheckResultError, "changed"):
+            check_result.command_attestation(SimpleNamespace(increment="P3-I5"))
+
+    def test_identity_free_attestation_rejects_incomplete_gate_and_changed_log(self):
+        self.init()
+        self.import_log("test", "analyzer-tests", "anything", 0)
+        args = SimpleNamespace(
+            increment="P3-I5", verified_by=None, confirm="I-VERIFIED"
+        )
+        with self.assertRaisesRegex(
+            check_result.CheckResultError, "requires a passing"
+        ):
+            check_result.command_attest(args)
+        self.import_log("lint", "analyzer-lint", "anything", 0)
+        check_result.command_attest(args)
+        log = check_result.result_dir("P3-I5") / "logs" / "analyzer-tests.log"
+        log.write_text("changed after review", encoding="utf-8")
+        with self.assertRaisesRegex(check_result.CheckResultError, "no longer passes"):
+            check_result.command_attestation(SimpleNamespace(increment="P3-I5"))
+
+    def test_optional_identity_is_still_validated_when_supplied(self):
+        for identity in ("", "invalid/name", None):
+            with self.subTest(identity=identity):
+                self.init()
+                self.import_log("test", "analyzer-tests", "anything", 0)
+                self.import_log("lint", "analyzer-lint", "anything", 0)
+                check_result.command_attest(
+                    SimpleNamespace(
+                        increment="P3-I5", verified_by=None, confirm="I-VERIFIED"
+                    )
+                )
+                path = check_result.result_dir("P3-I5") / "attestation.json"
+                data = json.loads(path.read_text(encoding="utf-8"))
+                data["verified_by"] = identity
+                path.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaises(check_result.CheckResultError):
+                    check_result.command_attestation(SimpleNamespace(increment="P3-I5"))
 
     def test_attestation_is_invalidated_when_latest_result_changes(self):
         self.init()

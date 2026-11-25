@@ -1,6 +1,6 @@
 ---
 name: fix-python-ruff
-description: Diagnose and fix Ruff lint or formatting failures in one or all Omni Python Nx projects, including repository-wide E501 line-length failures, using only declared Nx lint and lint-fix targets while preserving behavior and respecting the verification approval gate.
+description: Diagnose and fix Ruff lint or formatting failures in one or all Omni Python Nx projects, including repository-wide E501 line-length failures, using only declared Nx lint and lint-fix targets while preserving behavior and respecting the repository verification policy.
 ---
 
 # Fix Python Ruff
@@ -24,7 +24,7 @@ This skill handles:
 - small manual repairs for findings Ruff cannot auto-fix;
 - a final comprehensive rerun across all applicable Python projects.
 
-It does not authorize tests, builds, coverage, integration checks, dependency
+It does not authorize unrelated tests, builds, coverage, integration checks, dependency
 changes, commits, or documentation/increment finalization.
 
 ## Required Boundaries
@@ -37,9 +37,9 @@ changes, commits, or documentation/increment finalization.
 - Prefer `nx run <project>:lint-fix` for one project.
 - For a repository-wide scan, use `nx run-many -t lint-fix --all` only after confirming
   the target exists on the applicable Python projects.
-- Lint and format commands remain subject to the verification approval gate in
-  `AGENTS.md`. The current request must explicitly ask to run/fix lint or approve a
-  concrete command list.
+- Run necessary lint/format checks within the requested project scope under
+  `AGENTS.md`, without separate per-command approval. Respect explicit no-test,
+  read-only or manual-verification restrictions.
 - Do not edit generated files under `libs/contracts/gen`.
 - Do not change runtime behavior merely to silence a style finding.
 - Do not rewrite intentional Python imports from `app`; Nx Python targets run with
@@ -145,7 +145,7 @@ Result: <passed or failed>
 Files manually repaired: <paths and findings>
 Auto-formatted files: <known count or "reported by Nx/Ruff">
 Behavior changes: none, or an explicit description
-Tests/builds/coverage: not run unless separately authorized
+Tests/builds/coverage: <executed results, or not run with a scope-based reason>
 ```
 
 Do not describe lint success as test, build, runtime, deployment, or CI success.

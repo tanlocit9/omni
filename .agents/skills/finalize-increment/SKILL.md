@@ -7,35 +7,34 @@ description: Finalize an explicitly requested increment by recording approved ch
 
 Use this skill only when the owner explicitly asks to finalize, verify, format, or
 commit an increment. Invoking the skill is not by itself permission to run every
-operation: the request must clearly authorize each verification action, its exact
-commands and scope, and any commit. Never push or create a pull request unless the
-owner requests that separately.
+operation: select necessary verification within the authorized increment scope
+under AGENTS.md, respecting explicit restrictions. Any commit requires explicit
+authorization. Never push or create a pull request unless separately requested.
 
-Follow the repository workflow and verification approval gate in
+Follow the repository workflow and verification policy in
 [`AGENTS.md`](../../../AGENTS.md). Use
 [`manual-verification-handoff`](../manual-verification-handoff/SKILL.md) instead when
 the owner will run the checks.
 
 ## Required Inputs
 
-Before acting, obtain all of the following. Ask the owner for every missing or
-ambiguous item:
+Before acting, derive the scope and checks from the task, canonical plan and
+declared Nx targets. Ask only for missing owner decisions, ambiguous scope or
+commit details when a commit is actually requested:
 
 1. increment ID;
 2. explicit intended file scope;
 3. complete required check list, with one supported `kind/name` pair and exact
    command for each check;
-4. commit message;
-5. explicit authorization for the exact test, build, lint, format, or equivalent
-   commands to run; and
+4. commit message when committing is requested;
+5. verification scope and any explicit user restrictions; and
 6. explicit authorization to create the commit when committing is requested.
 
 Supported check kinds are `test`, `lint`, `build`, `format`, `integration`, and
 `other`. Do not choose, remove, weaken, invent, or silently omit required checks.
-The owner's invocation counts as verification authorization only when it clearly
-names or approves the exact actions and scope. A request such as "finalize this"
-does not authorize unspecified commands. A commit message alone does not authorize
-a commit.
+The authorized increment work includes its necessary verification under AGENTS.md;
+no separate command-list approval is required. Do not expand the task's scope or
+infer commit permission from verification permission or a commit message alone.
 
 ## Workflow
 
@@ -79,17 +78,17 @@ nx run <project>:<target>
 
 Do not guess target names and do not substitute direct tools when a suitable target
 exists. If no lint or format target exists, do not invent one or silently omit a
-required check. Propose a justified alternative, including its exact intended-file
-scope, and obtain explicit approval. If the check is not required, report it as not
+required check. State a justified underlying-tool exception and its exact intended-file
+scope under AGENTS.md. Ask only when the alternative exceeds the authorized task. If the check is not required, report it as not
 applicable outside the required `check_result` manifest; never add a fake passing or
 N/A run to satisfy the manifest.
 
-Before execution, present the complete exact command list. Under the
-[`AGENTS.md`](../../../AGENTS.md) gate, run test, build, lint, format, `nx affected`,
-or equivalent tools only after the owner authorizes those exact commands and scope.
-Run from the workspace root and only within the approved scope.
+Select and record the complete command list from the increment's requirements
+and declared Nx targets. Run necessary checks from the workspace root within
+the authorized scope under [`AGENTS.md`](../../../AGENTS.md), without requesting
+separate per-command approval. Respect explicit no-test/manual/static-only limits.
 
-### 3. Record every approved check
+### 3. Record every required check
 
 Initialize the manifest once with the complete required list:
 
@@ -97,16 +96,16 @@ Initialize the manifest once with the complete required list:
 python tools/check_result.py init --increment <ID> --require <kind/name> [--require <kind/name> ...]
 ```
 
-Execute each approved command through the recorder, never beside or before it:
+Execute each in-scope command through the recorder, never beside or before it:
 
 ```text
 python tools/check_result.py run --increment <ID> --kind <kind> --name <name> -- nx run <project>:<target>
 ```
 
-For an approved underlying-tool exception where no suitable Nx target exists:
+For a justified underlying-tool exception where no suitable Nx target exists:
 
 ```text
-python tools/check_result.py run --increment <ID> --kind <kind> --name <name> -- <approved-command> <approved-explicit-scope>
+python tools/check_result.py run --increment <ID> --kind <kind> --name <name> -- <command> <explicit-scope>
 ```
 
 Then read only the compact result:

@@ -10,9 +10,10 @@ to consume the result, conclude an increment check, or update roadmap documentat
 
 ## Boundaries
 
-- Follow the verification approval gate in [`AGENTS.md`](../../../AGENTS.md).
-- Do not run lint, test, build, format, or equivalent checks unless the owner's
-  current prompt explicitly authorizes them.
+- Follow the verification policy in [`AGENTS.md`](../../../AGENTS.md).
+- Respect the owner's choice to run these checks manually: consume their recorded
+  results without rerunning them. Agent-run verification for authorized work uses
+  the normal AGENTS.md policy; do not add a separate per-command approval gate.
 - Do not inspect raw logs or implementation code merely to determine whether checks
   passed.
 - Treat results as owner-supplied evidence, never agent-verified evidence.

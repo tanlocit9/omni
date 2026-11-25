@@ -8,26 +8,31 @@ description: Verify an Omni increment through cross-service blast-radius reconci
 Use this skill when the owner says they personally reviewed a passing verification
 gate and wants that ownership recorded as `owner_verified`.
 
-This skill does not run checks unless the owner separately authorizes the exact
-commands under [`AGENTS.md`](../../../AGENTS.md). It never converts owner attestation
+Run necessary verification for authorized work under
+[`AGENTS.md`](../../../AGENTS.md#verification-authority-and-scope), respecting explicit
+manual/no-test restrictions without adding per-command approval. This never converts owner attestation
 into CI, merge, deployment, production, provider, or live-runtime evidence.
 
 ## Required Inputs
 
-Obtain:
+For verification, derive the increment, scope and required checks from the task
+and canonical documents. Explicit owner-review confirmation is required only for
+attestation; do not block necessary checks waiting for it. Verifier ID is not required.
+
+For owner attestation, obtain:
 
 1. increment or shared verification ID;
-2. verifier identity containing only letters, numbers, dots, underscores, or hyphens;
-3. explicit owner confirmation that they reviewed the passing gate;
-4. target roadmap increment IDs when a shared verification ID covers multiple
+2. explicit owner confirmation that they reviewed the passing gate;
+3. target roadmap increment IDs when a shared verification ID covers multiple
    increments; and
-5. increment-specific blast-radius evidence identifying changed and directly impacted
+4. increment-specific blast-radius evidence identifying changed and directly impacted
    files/symbols across all applicable services and boundaries; and
-6. coverage evidence mapping every changed or directly impacted feature, acceptance
+5. coverage evidence mapping every changed or directly impacted feature, acceptance
    criterion, and safety-critical branch to executed tests and relevant source symbols.
 
-Do not infer verifier identity from Git configuration, environment variables, account
-names, or prior messages.
+Do not request a verifier ID as an attestation prerequisite. Omit attribution unless
+the owner explicitly supplies it. The optional legacy --verified-by value is validated
+when present; never infer or fabricate attribution or owner confirmation.
 
 ## Required Workflow
 
@@ -39,12 +44,13 @@ Read only the compact conclusion:
 python tools/check_result.py conclusion --increment <ID>
 ```
 
-Continue only when it returns `PASS`. Stop on `FAIL`, `INCOMPLETE`, or `INVALID`.
+Attest only when it returns `PASS`. On `FAIL`, `INCOMPLETE`, or `INVALID`,
+continue authorized diagnosis, repair and necessary verification without attesting.
 Do not remove or weaken required checks to make attestation possible.
 
 ### 2. Prove blast radius and increment-specific code coverage
 
-Before requesting owner approval:
+Before requesting owner attestation:
 
 1. run code-review-graph impact analysis for the increment's implemented source files;
 2. reconcile the bounded graph result against canonical documentation for Platform,
@@ -94,7 +100,7 @@ approval cannot create an attestation.
 Run:
 
 ```text
-python tools/check_result.py attest --increment <ID> --verified-by <identity> --confirm I-VERIFIED
+python tools/check_result.py attest --increment <ID> --confirm I-VERIFIED
 ```
 
 The tool writes ignored local evidence under
@@ -102,7 +108,7 @@ The tool writes ignored local evidence under
 
 - increment ID;
 - `owner_verified` status;
-- verifier identity;
+- optional owner-supplied attribution, only when provided;
 - attestation timestamp;
 - hash of the exact compact summary;
 - hash of the required-check manifest.
@@ -118,14 +124,14 @@ python tools/check_result.py attestation --increment <ID>
 ```
 
 A changed requirement manifest, changed result/log, non-passing latest gate, malformed
-identity, or summary mismatch makes the attestation invalid.
+optional attribution, or summary mismatch makes the attestation invalid.
 
 ### 6. Update evidence conservatively
 
 When requested, record compact wording in the relevant phase file and execution log:
 
 ```text
-Owner attestation: OWNER_VERIFIED <ID> verified_by=<identity>; bound to the passing
+Owner attestation: OWNER_VERIFIED <ID>; bound to the passing
 check_result summary and required-check manifest.
 ```
 
@@ -161,7 +167,7 @@ canonical surfaces, run post-edit code-review-graph change detection, and invoke
 
 ## Stop Conditions
 
-Stop when:
+Stop attestation when:
 
 - the gate is not `PASS`;
 - blast-radius analysis or cross-service reconciliation is missing or uses bounded
@@ -170,7 +176,7 @@ Stop when:
   incomplete, not executed, or does not cover changed, impacted, and safety-critical branches;
 - a coverage target exists but was omitted from the required gate or failed its
   documented threshold;
-- verifier identity or explicit confirmation is missing;
+- explicit owner confirmation is missing;
 - required checks changed after the pass;
 - latest verification evidence changed after attestation;
 - the shared gate does not genuinely cover a target increment;

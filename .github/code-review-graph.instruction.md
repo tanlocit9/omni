@@ -3,7 +3,7 @@ applyTo: '**'
 description: Follow Omni agent policy and use code-review-graph for code relationships.
 ---
 
-Follow [AGENTS.md](../AGENTS.md), including its verification approval gate.
+Follow [AGENTS.md](../AGENTS.md), including its verification authority and scope.
 
 Use code-review-graph before unfamiliar implementation exploration, before shared
 contract changes, and after edits. Use search/query for entities and relationships,

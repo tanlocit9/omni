@@ -109,9 +109,9 @@ tool output requires it, or when the owner explicitly requests it. Do not substi
 ### 5. Inspect the result statically
 
 Read the selected project's `pyproject.toml` and relevant lockfile after the commands
-to confirm which files changed. Do not run import checks, tests, lint, format, builds,
-or equivalent verification unless separately requested or approved under
-`AGENTS.md`.
+to confirm which files changed. Run necessary import/test/lint/format/build
+verification for the selected project under `AGENTS.md`; do not add per-command
+approval or expand into unrelated projects. Respect explicit user restrictions.
 
 Run code-review-graph change detection after edits as required by repository policy;
 this is analysis, not executable verification.
@@ -126,7 +126,7 @@ Package: <resolved declaration>
 Add: <succeeded or failed>
 Sync: <succeeded, failed, or not run>
 Changed files: <dependency files only>
-Verification: not run unless separately approved
+Verification: list checks actually run and their results; label omitted checks not run
 ```
 
 Never claim runtime compatibility merely because dependency addition and environment

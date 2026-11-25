@@ -96,18 +96,20 @@ changed source path and acceptance criterion.
 Attestation is optional and does not rerun checks:
 
 ```powershell
-python tools/check_result.py attest --increment P3-I5 --verified-by owner-id --confirm I-VERIFIED
+python tools/check_result.py attest --increment P3-I5 --confirm I-VERIFIED
 python tools/check_result.py attestation --increment P3-I5
 ```
 
 The first command writes ignored local `owner_verified` evidence containing the
-verifier, timestamp, required-manifest hash, and exact summary hash. The second command
+timestamp, required-manifest hash, and exact summary hash. Verifier ID is not required;
+the optional legacy `--verified-by` records attribution only when the owner supplies it.
+The second command
 revalidates those bindings before an agent consumes the attestation. Do not edit
 `attestation.json` manually.
 
 Owner attestation is blocked when the impact/source/test coverage matrix is missing or
 incomplete. It is invalid when the latest gate stops passing, the required-check
-manifest changes, the summary changes, or the identity/confirmation is malformed. It
+manifest changes, the summary changes, or optional attribution/confirmation is malformed. It
 never substitutes for missing blast-radius reconciliation, coverage, checks,
 acceptance criteria, dependency completion, documentation synchronization, migration,
 deployment, provider, live-runtime, or production evidence. Commit, PR, merge, and CI

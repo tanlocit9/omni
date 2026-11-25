@@ -387,7 +387,11 @@ def command_conclusion(args: argparse.Namespace) -> int:
 
 
 def command_attest(args: argparse.Namespace) -> int:
-    verifier = validate_value(args.verified_by, "verified-by")
+    verifier = (
+        validate_value(args.verified_by, "verified-by")
+        if args.verified_by is not None
+        else None
+    )
     if args.confirm != OWNER_CONFIRMATION:
         raise CheckResultError("owner confirmation must be I-VERIFIED")
     directory = result_dir(args.increment)
@@ -400,15 +404,17 @@ def command_attest(args: argparse.Namespace) -> int:
         "schema_version": 1,
         "increment": args.increment,
         "status": "owner_verified",
-        "verified_by": verifier,
         "verified_at": now_iso(),
         "summary_sha256": summary_hash(summary),
         "required_sha256": summary["required_sha256"],
         "statement": "Owner reviewed the passing verification gate.",
     }
+    if verifier is not None:
+        attestation["verified_by"] = verifier
     atomic_json(directory / "attestation.json", attestation)
+    identity = f" verified_by={verifier}" if verifier is not None else ""
     print(
-        f"OWNER_VERIFIED {args.increment} verified_by={verifier} "
+        f"OWNER_VERIFIED {args.increment}{identity} "
         f"summary_sha256={attestation['summary_sha256']}"
     )
     return 0
@@ -425,7 +431,13 @@ def command_attestation(args: argparse.Namespace) -> int:
         or attestation.get("status") != "owner_verified"
     ):
         raise CheckResultError("invalid attestation.json")
-    verifier = validate_value(attestation.get("verified_by", ""), "verified-by")
+    if "verified_by" in attestation and not isinstance(attestation["verified_by"], str):
+        raise CheckResultError("invalid verified-by")
+    verifier = (
+        validate_value(attestation["verified_by"], "verified-by")
+        if "verified_by" in attestation
+        else None
+    )
     summary = build_summary(args.increment)
     if summary["conclusion"] != "pass":
         raise CheckResultError("attested verification no longer passes")
@@ -435,8 +447,9 @@ def command_attestation(args: argparse.Namespace) -> int:
         raise CheckResultError("attested summary has changed")
     if summary["required_sha256"] != attestation.get("required_sha256"):
         raise CheckResultError("attested requirements have changed")
+    identity = f" verified_by={verifier}" if verifier is not None else ""
     print(
-        f"OWNER_VERIFIED {args.increment} verified_by={verifier} "
+        f"OWNER_VERIFIED {args.increment}{identity} "
         f"verified_at={attestation.get('verified_at')}"
     )
     return 0
@@ -487,7 +500,7 @@ def parser() -> argparse.ArgumentParser:
         "attest", help="record owner verification of a passing gate"
     )
     attest.add_argument("--increment", required=True)
-    attest.add_argument("--verified-by", required=True)
+    attest.add_argument("--verified-by", help="optional owner-supplied attribution")
     attest.add_argument("--confirm", required=True, metavar="I-VERIFIED")
     attest.set_defaults(handler=command_attest)
 

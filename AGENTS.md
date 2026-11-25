@@ -35,9 +35,10 @@ Canonical repository-wide agent policy. Keep architecture and business details i
 - Parallel workers need independent tasks and non-overlapping write ownership in
   the shared worktree. Do not create branches, worktrees or commits for them
   without an explicit request.
-- The worker inherits the Verification approval gate: it runs build, test, lint or
-  format only when the task prompt names approved commands. Otherwise it reports
-  them as **not run**.
+- The worker inherits the verification authority and scope below. Its task prompt
+  must identify the verification scope, relevant Nx targets and any restrictions.
+  It may run necessary checks within that scope without separate command approval;
+  checks that are restricted, unavailable or omitted must be reported as **not run**.
 - Never accept worker output unreviewed. Inspect its changes, check them against
   the ownership and contract rules, and distinguish reported results from executed
   checks. Cross-service, contract, Kafka, storage and shared-config changes are not
@@ -70,15 +71,30 @@ Canonical repository-wide agent policy. Keep architecture and business details i
 - For PowerShell-only syntax, submit the full command as
   `powershell -NoProfile -Command "..."`; do not wrap plain Nx commands.
 
-## Verification approval gate
+<a id="verification-approval-gate"></a>
 
-Run build, test, lint, format, `nx affected` or equivalent verification tools only
-when the current prompt explicitly requests them or the user approves a concrete
-command list. This includes checks required by plans and executable documentation
-checkers. After approval, use matching Nx targets within the approved scope.
+## Verification authority and scope
 
-Otherwise inspect statically, label recommended commands **not run**, and never
-infer a pass. Graph analysis and static path/link inspection are not test evidence.
+- Authorized work includes the verification needed to implement, diagnose, review
+  or complete it. Run relevant build, test, coverage, lint, format, `nx affected`,
+  executable documentation checks and isolated integration/E2E checks without
+  asking for separate approval of each command or command list. Use declared Nx
+  targets, start with focused checks and expand when failures, impact or the
+  increment's required gate justify it.
+- Respect explicit user limits such as read-only, no tests, documentation-only
+  or owner-run verification. Format only intended files and preserve unrelated
+  dirty work. Repository skills and editor rules must follow this policy rather
+  than add a separate routine-verification approval requirement.
+- Verification may create and clean up its own disposable fixtures, containers
+  and build outputs. It does not authorize destructive operations on retained
+  data, retained database migrations, business-job triggers, Kafka offset resets,
+  schedule/service activation, deployment, Git publication or other actions that
+  require separate authorization under the requested task. Do not silently aim
+  test fixtures at retained services or bypass sandbox/security approvals.
+- Record commands, scope, results and material limitations. Report omitted or
+  unavailable checks as **not run**; never infer a pass. Graph analysis and static
+  path/link inspection are not executed test evidence. Owner attestation remains
+  a separate explicit confirmation and is never inferred from permission to test.
 
 ## Blast-radius and coverage verification
 
@@ -96,11 +112,13 @@ infer a pass. Graph analysis and static path/link inspection are not test eviden
 
 ## Manual verification result handoff
 
-- Ask the owner to record required checks through [tools/check_result.py](tools/check_result.py)
-  and confirm readiness. Read only
-  `python tools/check_result.py conclusion --increment <ID>`; do not run their checks.
-  Read raw logs only when diagnosis is explicitly requested.
-- `PASS` is owner-supplied evidence; `INCOMPLETE` stays `verification_pending`;
+- Record agent-run required checks through [tools/check_result.py](tools/check_result.py)
+  under the verification policy above. When the owner explicitly chooses manual
+  verification, consume their recorded results without rerunning their checks.
+  Prefer `python tools/check_result.py conclusion --increment <ID>` for status;
+  inspect logs when necessary to diagnose failures within the authorized task.
+- Distinguish agent-executed results from owner-supplied evidence. `PASS` does not
+  imply owner attestation; `INCOMPLETE` stays `verification_pending`;
   `FAIL` cannot be recorded as completed. Read only relevant roadmap sections.
 - Use [verify-increment](.agents/skills/verify-increment/SKILL.md) for increment
   verification or owner-reviewed gates. Attestation requires the complete passing
@@ -110,6 +128,9 @@ infer a pass. Graph analysis and static path/link inspection are not test eviden
   `tools/check_result.py attest`. It records `owner_verified`, cannot alone complete
   an increment, and replaces no missing checks, coverage, documentation, dependency,
   acceptance, deployment, provider or runtime evidence.
+- Explicit owner review is required for attestation; a verifier ID is optional and
+  must not block it. Omit attribution unless the owner supplies it. Existing named
+  attestations remain valid; never fabricate a name or owner confirmation.
 
 <a id="dataset-manifest-rule"></a>
 
@@ -176,5 +197,6 @@ docs. Update each applicable area or record an explicit no-update reason.
 After documentation edits, run graph change detection and use
 [verify-document-consistency](.agents/skills/verify-document-consistency/SKILL.md)
 for a static audit. Missing, inconclusive or failed audits block documentation-sync
-and increment-completion claims. Documentation work does not authorize executable
-verification, CI, deployment or runtime checks.
+and increment-completion claims. Necessary document verification follows the
+verification policy above; documentation work does not authorize unrelated suites,
+deployment or retained-runtime changes.

@@ -34,7 +34,9 @@ The assessment also found these gaps:
 1. Use skills for repeatable procedures and repository-specific judgment.
 2. Use MCP only for capabilities that require live structured access or persistent code intelligence.
 3. Prefer repository-scoped configuration over global configuration.
-4. Keep write-capable tools behind explicit approvals and narrow allow lists.
+4. Scope write-capable tools to authorized work and narrow allow lists. Necessary
+   verification follows AGENTS.md without separate per-command approval; retained
+   data, runtime activation and publication keep their explicit authorization boundaries.
 5. Treat GitHub, repository source, tests, and CI as implementation evidence; treat the product vault as a synchronized summary.
 6. Do not add an MCP when existing Codex shell, Nx, or GitHub capabilities already provide the required control surface.
 7. Do not merge automatically. Omni's roadmap automation leaves pull requests as drafts until acceptance criteria and CI pass.
@@ -60,8 +62,9 @@ The worker has no conversation context. Each task prompt must include:
 - the goal and acceptance criteria;
 - owned files and files it must not touch;
 - applicable contract/data guardrails and the Nx command boundary;
-- exact approved build, test, lint or format commands, if any. Without approved
-  commands, the worker reports executable checks as **not run**.
+- verification scope, relevant declared Nx targets and any explicit restrictions.
+  The worker may choose necessary checks within that scope under AGENTS.md;
+  restricted or unexecuted checks are reported as **not run**.
 
 Parallel workers need independent tasks and non-overlapping write ownership in
 the shared worktree. Do not create branches, worktrees or commits for workers
@@ -90,13 +93,16 @@ local edits:
 - Keep persistent agent state in ignored local caches; it is advisory, not Git
   authority.
 
-Delegation and worktree guidance do not relax the
-[verification approval gate](../../AGENTS.md#verification-approval-gate).
-Build, test, lint, format, `nx affected` and executable documentation checks require
-an explicit request in the current prompt or approval of a concrete command list.
-Use matching Nx targets within the approved scope. Otherwise inspect statically
-and report executable checks as **not run**; graph analysis and static path/link
-inspection are not test evidence. Application/runtime behavior is unchanged.
+Delegation and worktree guidance follow the
+[verification policy](../../AGENTS.md#verification-authority-and-scope).
+Authorized work includes necessary build, test, coverage, lint, format, `nx affected`,
+documentation and isolated integration/E2E checks through declared Nx targets.
+Separate per-command approval is not required. Respect explicit read-only/no-test/
+manual-verification limits, format only intended files and preserve unrelated work.
+Disposable test fixtures are allowed; destructive retained-data operations,
+business-job triggers, runtime activation, deployment and Git publication still
+require authorization. Record actual results; static inspection is not executed
+test evidence and test permission is not owner attestation.
 
 ## Shared Repository Skills
 

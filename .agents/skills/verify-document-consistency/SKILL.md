@@ -1,6 +1,6 @@
 ---
 name: verify-document-consistency
-description: Statically verify Omni documentation and roadmap consistency across IDs, statuses, dependencies, required plan sections, links, contract-impact declarations, cross-document claims, and evidence wording without running verification commands or editing documents unless explicitly requested.
+description: Statically verify Omni documentation and roadmap consistency across IDs, statuses, dependencies, required plan sections, links, contract-impact declarations, cross-document claims, and evidence wording with scoped verification and conservative evidence wording.
 ---
 
 # Verify Document Consistency
@@ -9,9 +9,10 @@ Use this skill when asked to review, audit, or verify consistency across Omni
 Markdown documentation, implementation plans, roadmap records, indexes, canonical
 architecture/data/flow documents, or repository guidance.
 
-This is a static, read-only review by default. Invoking this skill does not authorize
-editing files or running build, test, lint, format, migration, deployment, provider,
-network, or other executable verification commands.
+This is a static, read-only review by default. Necessary executable document
+checks follow AGENTS.md without separate per-command approval. Respect explicit
+static-only/no-verification restrictions; editing documents, retained migrations,
+deployment, provider operations and runtime changes still need task authorization.
 
 ## Governing Sources
 
@@ -38,9 +39,11 @@ become competing schedules.
   public API, Kafka message, storage path, dataset owner, or shared configuration.
 - Do not edit a document, rename a file, create a repair plan, or change roadmap
   metadata unless the owner explicitly requests modification.
-- Do not execute build, test, lint, format, Nx, migration, link-checker, deployment,
-  provider, or network commands unless the owner separately approves the exact
-  commands and scope under [`AGENTS.md`](../../../AGENTS.md).
+- Run necessary document verification under
+  [`AGENTS.md`](../../../AGENTS.md#verification-authority-and-scope); do not add a
+  per-command approval gate. Respect explicit static-only/no-test restrictions.
+  Unrelated suites, retained migrations, deployment, provider operations and runtime
+  changes are not authorized by a document review.
 - Static reads, searches, path inspection, and graph analysis are not executable
   verification and must not be reported as tests passing.
 - Never strengthen evidence from local to CI, merged, deployed, production, or live.
@@ -205,8 +208,9 @@ For every directly relevant Markdown link or repository path:
 - check that indexes include newly canonical documents and do not classify historical
   documents as active schedules.
 
-Use file listing, search, and reads. Do not run an executable link checker without
-explicit command approval.
+Use file listing, search and reads first. Run an executable link checker when
+needed under the AGENTS.md verification policy, unless the user limited the task
+to static inspection.
 
 ### 9. Check evidence wording
 
@@ -303,8 +307,8 @@ editing:
    evidence conflicts;
 5. preserve historical evidence and unrelated user changes;
 6. update all applicable roadmap surfaces atomically;
-7. run only static post-edit inspection unless exact executable commands are
-   separately approved;
+7. run appropriate post-edit document checks under AGENTS.md, respecting explicit
+   static-only or no-verification restrictions;
 8. run code-review-graph change detection after edits when available.
 
 Never silently change statuses, dependencies, acceptance criteria, product scope,

@@ -34,7 +34,8 @@ rules link here instead of maintaining another copy. Follow
 4. Bind implementation claims to actual source and executed checks. Record a
    feature/source/test matrix and attributable coverage. Use declared Nx targets
    after inspecting the project. Record not-run/failed/incomplete checks honestly;
-   this workflow does not grant build/test/lint/format or deployment permission.
+   necessary verification follows AGENTS.md without separate command approval;
+   explicit user restrictions still apply and deployment needs authorization.
 5. Reconcile applicable plan, registry, roadmap summary, release notes and direct
    dependent readiness together. Review architecture, ADR, flow, Kafka/data-lake/
    database, deployment, ownership, service guides, indexes, AGENTS, CLAUDE and
@@ -55,7 +56,8 @@ the owning increment or delivery workflow requires them.
 
 Keep `owner_verified` separate from semantic completion; record attestation only
 through [verify-increment](../verify-increment/SKILL.md) after explicit owner review.
-Never infer verifier identity or fabricate attestation.
+Verifier ID is optional and must not block attestation. Omit attribution unless
+explicitly supplied; never fabricate attribution or owner review.
 
 Resolve stale factual descriptions using canonical precedence. Ask for an owner
 decision only when reconciliation would change approved product/architecture,

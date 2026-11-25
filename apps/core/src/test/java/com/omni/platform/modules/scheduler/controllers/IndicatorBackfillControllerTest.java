@@ -19,6 +19,147 @@ import com.omni.platform.modules.scheduler.work.GraphWorkRequestService;
 import tools.jackson.databind.json.JsonMapper;
 
 class IndicatorBackfillControllerTest {
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4})
+    void discoversSectorsUsingTheRequestedActiveSymbolMembership(int level) {
+        when(jdbc.queryForList(anyString(), eq("sectorLv" + level + "Code"), eq("ICB"), eq(level)))
+                .thenReturn(List.of(Map.of("code", "BANK", "name", "Banks")));
+        assertThat(api.sectors(level))
+                .containsExactly(new IndicatorBackfillController.SectorOption("BANK", "Banks"));
+        verifyNoInteractions(graph, definitions);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 5})
+    void rejectsInvalidSectorCatalogLevelBeforeQuerying(int level) {
+        assertThatThrownBy(() -> api.sectors(level))
+                .isInstanceOfSatisfying(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verifyNoInteractions(jdbc, graph, definitions);
+    }
+
+    @Test
+    void keepsAnEmptySectorCatalogEmpty() {
+        when(jdbc.queryForList(anyString(), eq("sectorLv2Code"), eq("ICB"), eq(2)))
+                .thenReturn(List.of());
+        assertThat(api.sectors(2)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rerun", "force", "unexpected"})
+    void rejectsRemovedOrUnknownHttpFields(String field) {
+        assertThatThrownBy(
+                        () ->
+                                json.readValue(
+                                        "{\"goal\":\"SYNC_SYMBOLS\",\"exchange\":\"HOSE\",\""
+                                                + field
+                                                + "\":true}",
+                                        IndicatorBackfillController.Backfill.class))
+                .hasMessageContaining("Unsupported request field");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "refresh", "RECALCULATE", "UNKNOWN"})
+    void rejectsInvalidDataPolicyBeforeAdmission(String policy) {
+        assertThatThrownBy(
+                        () ->
+                                api.create(
+                                        "operator",
+                                        "invalid-policy",
+                                        new IndicatorBackfillController.Backfill(
+                                                "SYNC_SYMBOLS",
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                policy,
+                                                null,
+                                                null,
+                                                "HOSE")))
+                .isInstanceOfSatisfying(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verifyNoInteractions(graph, definitions);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"hose", "HNX", "UPCOM"})
+    void discoversAndAcceptsCurrentSymbolsExchangeSnapshotWithoutSectorOrDates(String exchange) {
+        var target = definition("00000000-0000-0000-0000-000000000012", JobType.SYNC_SYMBOLS);
+        when(definitions.findAll()).thenReturn(List.of(target));
+        assertThat(api.goals())
+                .containsExactly(
+                        new IndicatorBackfillController.Goal(
+                                "SYNC_SYMBOLS",
+                                List.of(
+                                        new IndicatorBackfillController.Target(
+                                                target.getId(), null))));
+        var execution = UUID.randomUUID();
+        when(graph.prepareBackfill(any(), eq(target.getId()), any(), any())).thenReturn(execution);
+        when(graph.requestId(execution)).thenReturn(UUID.randomUUID());
+        var result =
+                api.create(
+                        "operator",
+                        "symbols-" + exchange,
+                        new IndicatorBackfillController.Backfill(
+                                "SYNC_SYMBOLS",
+                                null,
+                                null,
+                                null,
+                                null,
+                                "PREFER_EXISTING",
+                                target.getId(),
+                                null,
+                                exchange));
+        assertThat(result.get("goal")).isEqualTo("SYNC_SYMBOLS");
+        var request = ArgumentCaptor.forClass(JobRunSnapshot.Request.class);
+        verify(graph).prepareBackfill(request.capture(), eq(target.getId()), any(), any());
+        var expansion = json.readTree(request.getValue().parametersJson());
+        assertThat(expansion.path("scope").path("type").asText()).isEqualTo("EXCHANGE");
+        assertThat(expansion.path("scope").path("key").asText())
+                .isEqualTo(exchange.toUpperCase(java.util.Locale.ROOT));
+        assertThat(expansion.path("dateFrom").asText())
+                .isEqualTo(
+                        LocalDate.now(
+                                        com.omni.platform.modules.scheduler.expansion.WorkExpansion
+                                                .ZONE)
+                                .toString());
+        assertThat(expansion.has("sectorCodes")).isFalse();
+        assertThat(expansion.has("sectorLevel")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "unknown", "history", "future", "sector", "symbol"})
+    void rejectsAmbiguousOrHistoricalSymbolsScopeBeforePreparingWork(String scenario) {
+        var today = LocalDate.now(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE);
+        var date =
+                scenario.equals("history")
+                        ? today.minusDays(1)
+                        : scenario.equals("future") ? today.plusDays(1) : today;
+        var exchange =
+                scenario.equals("missing") ? null : scenario.equals("unknown") ? "OTHER" : "HOSE";
+        assertThatThrownBy(
+                        () ->
+                                api.create(
+                                        "operator",
+                                        "bad-symbols",
+                                        new IndicatorBackfillController.Backfill(
+                                                "SYNC_SYMBOLS",
+                                                scenario.equals("sector") ? List.of("BANKS") : null,
+                                                null,
+                                                date,
+                                                date,
+                                                "PREFER_EXISTING",
+                                                null,
+                                                scenario.equals("symbol") ? "HOSE-MBB" : null,
+                                                exchange)))
+                .isInstanceOfSatisfying(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verifyNoInteractions(graph, definitions);
+    }
+
     @Test
     void freezesNormalizedOptionalSymbolScopeWithoutChangingAnalyticalParameters() {
         var target = definition("00000000-0000-0000-0000-000000000011", JobType.SYNC_SIGNALS);
@@ -35,17 +176,17 @@ class IndicatorBackfillControllerTest {
                         1,
                         day,
                         day,
-                        false,
-                        true,
+                        "PREFER_EXISTING",
                         target.getId(),
-                        "hose-mbb"));
+                        "hose-mbb",
+                        null));
         var request = ArgumentCaptor.forClass(JobRunSnapshot.Request.class);
         verify(graph)
                 .prepareBackfill(
                         request.capture(),
                         eq(target.getId()),
                         any(),
-                        eq(Map.of("force", false, "rerun", true)));
+                        eq(Map.of("dataPolicy", "PREFER_EXISTING")));
         var expansion = json.readTree(request.getValue().parametersJson());
         assertThat(expansion.path("scope").path("type").asText()).isEqualTo("SYMBOL");
         assertThat(expansion.path("scope").path("key").asText()).isEqualTo("HOSE-MBB");
@@ -66,10 +207,10 @@ class IndicatorBackfillControllerTest {
                                                 1,
                                                 day,
                                                 day,
-                                                false,
-                                                true,
+                                                "PREFER_EXISTING",
                                                 null,
-                                                symbol)))
+                                                symbol,
+                                                null)))
                 .isInstanceOfSatisfying(
                         org.springframework.web.server.ResponseStatusException.class,
                         error -> assertThat(error.getStatusCode().value()).isEqualTo(400));
@@ -87,7 +228,7 @@ class IndicatorBackfillControllerTest {
         inactive.setIsActive(false);
         var alias = definition("00000000-0000-0000-0000-000000000005", JobType.SYNC_SIGNALS);
         alias.setCanonicalDefinitionId(first.getId());
-        var unsupported = definition("00000000-0000-0000-0000-000000000006", JobType.SYNC_SYMBOLS);
+        var unsupported = definition("00000000-0000-0000-0000-000000000006", JobType.SYNC_METADATA);
         var unknownActive =
                 definition("00000000-0000-0000-0000-000000000007", JobType.SYNC_SIGNALS);
         unknownActive.setIsActive(null);
@@ -131,9 +272,10 @@ class IndicatorBackfillControllerTest {
                                         2,
                                         day,
                                         day,
-                                        false,
-                                        false,
-                                        selected)))
+                                        "PREFER_EXISTING",
+                                        selected,
+                                        null,
+                                        null)))
                 .containsEntry("executionId", execution);
     }
 
@@ -183,7 +325,15 @@ class IndicatorBackfillControllerTest {
                         : scenario.equals("wrongType") ? indicator.getId() : null;
         var input =
                 new IndicatorBackfillController.Backfill(
-                        "SYNC_SIGNALS", List.of("BANK"), 2, day, day, false, false, selected);
+                        "SYNC_SIGNALS",
+                        List.of("BANK"),
+                        2,
+                        day,
+                        day,
+                        "PREFER_EXISTING",
+                        selected,
+                        null,
+                        null);
         if (scenario.equals("ambiguous") || scenario.equals("wrongType")) {
             assertThatThrownBy(() -> api.create("operator", "signal-key", input))
                     .isInstanceOfSatisfying(
@@ -203,26 +353,24 @@ class IndicatorBackfillControllerTest {
 
     private final GraphWorkRequestService graph = mock(GraphWorkRequestService.class);
     private final JobDefinitionRepository definitions = mock(JobDefinitionRepository.class);
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc =
+            mock(org.springframework.jdbc.core.JdbcTemplate.class);
     private final JsonMapper json = JsonMapper.builder().build();
     private final IndicatorBackfillController api =
-            new IndicatorBackfillController(graph, definitions, json);
+            new IndicatorBackfillController(graph, definitions, json, jdbc);
     private final LocalDate day = LocalDate.of(2026, 9, 1);
 
     @ParameterizedTest
-    @ValueSource(strings = {"default", "reuse", "rerun", "force", "force-rerun"})
+    @ValueSource(strings = {"default", "PREFER_EXISTING", "REFRESH"})
     void acceptsOnlyTheIndicatorsGoalWithNormalizedFrozenScope(String policy) {
-        Boolean requestedForce = policy.equals("default") ? null : policy.startsWith("force");
-        Boolean requestedRerun =
-                policy.equals("default")
-                        ? null
-                        : policy.equals("rerun") || policy.equals("force-rerun");
-        boolean force = Boolean.TRUE.equals(requestedForce);
-        boolean rerun = force || Boolean.TRUE.equals(requestedRerun);
+        String requestedPolicy = policy.equals("default") ? null : policy;
+        String acceptedPolicy = requestedPolicy == null ? "PREFER_EXISTING" : requestedPolicy;
         var definition = new JobDefinition();
         definition.setId(UUID.randomUUID());
         definition.setJobType(JobType.SYNC_INDICATORS);
         definition.setIsActive(true);
         var wrongType = new JobDefinition();
+        wrongType.setId(UUID.randomUUID());
         wrongType.setJobType(JobType.SYNC_SYMBOLS);
         var inactive = new JobDefinition();
         inactive.setJobType(JobType.SYNC_INDICATORS);
@@ -246,24 +394,28 @@ class IndicatorBackfillControllerTest {
                                 2,
                                 day,
                                 day,
-                                requestedForce,
-                                requestedRerun));
+                                requestedPolicy,
+                                null,
+                                null,
+                                null));
         assertThat(result)
                 .containsEntry("executionId", execution)
                 .containsEntry("requestId", request);
-        assertThat(result).containsEntry("force", force).containsEntry("rerun", rerun);
+        assertThat(result)
+                .containsEntry("dataPolicy", acceptedPolicy)
+                .doesNotContainKeys("force", "rerun");
         var captured = ArgumentCaptor.forClass(JobRunSnapshot.Request.class);
         verify(graph)
                 .prepareBackfill(
                         captured.capture(),
                         eq(definition.getId()),
                         any(),
-                        eq(Map.of("force", force, "rerun", rerun)));
+                        eq(Map.of("dataPolicy", acceptedPolicy)));
         assertThat(captured.getValue().mode()).isEqualTo(JobRunSnapshot.Mode.BACKFILL);
         var payload = json.readTree(captured.getValue().parametersJson());
         assertThat(payload.get("sectorCodes").size()).isEqualTo(1);
-        assertThat(payload.get("force").asBoolean()).isEqualTo(force);
-        assertThat(payload.get("rerun").asBoolean()).isEqualTo(rerun);
+        assertThat(payload.get("dataPolicy").asText()).isEqualTo(acceptedPolicy);
+        assertThat(payload.has("force") || payload.has("rerun")).isFalse();
     }
 
     @ParameterizedTest
@@ -306,7 +458,9 @@ class IndicatorBackfillControllerTest {
                                                 : invalid.equals("highLevel") ? 5 : 2),
                         invalid.equals("date") ? null : day,
                         invalid.equals("end") ? null : day,
-                        false,
+                        "PREFER_EXISTING",
+                        null,
+                        null,
                         null);
         assertThatThrownBy(
                         () -> api.create("operator", "key", invalid.equals("null") ? null : input))
@@ -328,7 +482,9 @@ class IndicatorBackfillControllerTest {
                                                 2,
                                                 day,
                                                 day,
-                                                false,
+                                                "PREFER_EXISTING",
+                                                null,
+                                                null,
                                                 null)))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verifyNoInteractions(graph);
@@ -361,6 +517,8 @@ class IndicatorBackfillControllerTest {
                                                 2,
                                                 day,
                                                 day,
+                                                "PREFER_EXISTING",
+                                                null,
                                                 null,
                                                 null)))
                 .isInstanceOfSatisfying(

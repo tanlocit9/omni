@@ -28,8 +28,7 @@ vi.mock('./BackfillForm', () => ({
           executionId: 'accepted-execution',
           status: 'ACCEPTED',
           goal: 'SYNC_INDICATORS',
-          rerun: false,
-          force: false,
+          dataPolicy: 'PREFER_EXISTING',
           membershipPolicy: 'CURRENT_ACTIVE_AT_ACCEPTANCE',
         })
       }

@@ -18,16 +18,18 @@ import com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request;
 import com.omni.platform.modules.scheduler.work.GraphWorkRequestService;
 import tools.jackson.databind.json.JsonMapper;
 
-/** Bounded Indicators/Signals entry point; generic manual trigger routes remain retired. */
+/** Bounded snapshot/backfill goals; generic manual trigger routes remain retired. */
 @RestController
 @RequestMapping("/api/v1/jobs/backfills")
 public class IndicatorBackfillController {
     private static final List<JobType> SUPPORTED_GOALS =
-            List.of(JobType.SYNC_INDICATORS, JobType.SYNC_SIGNALS);
+            List.of(JobType.SYNC_INDICATORS, JobType.SYNC_SIGNALS, JobType.SYNC_SYMBOLS);
 
     public record Goal(String goal, List<Target> targets) {}
 
     public record Target(UUID targetDefinitionId, String title) {}
+
+    public record SectorOption(String code, String name) {}
 
     public record Backfill(
             String goal,
@@ -35,52 +37,59 @@ public class IndicatorBackfillController {
             Integer sectorLevel,
             LocalDate dateFrom,
             LocalDate dateTo,
-            Boolean force,
-            Boolean rerun,
+            String dataPolicy,
             UUID targetDefinitionId,
-            String symbolKey) {
-        public Backfill(
-                String goal,
-                List<String> sectorCodes,
-                Integer sectorLevel,
-                LocalDate dateFrom,
-                LocalDate dateTo,
-                Boolean force,
-                Boolean rerun,
-                UUID targetDefinitionId) {
-            this(
-                    goal,
-                    sectorCodes,
-                    sectorLevel,
-                    dateFrom,
-                    dateTo,
-                    force,
-                    rerun,
-                    targetDefinitionId,
-                    null);
-        }
-
-        public Backfill(
-                String goal,
-                List<String> sectorCodes,
-                Integer sectorLevel,
-                LocalDate dateFrom,
-                LocalDate dateTo,
-                Boolean force,
-                Boolean rerun) {
-            this(goal, sectorCodes, sectorLevel, dateFrom, dateTo, force, rerun, null);
+            String symbolKey,
+            String exchange) {
+        @com.fasterxml.jackson.annotation.JsonAnySetter
+        public void rejectUnknownField(String name, Object value) {
+            throw new IllegalArgumentException(
+                    "Unsupported request field: " + name + "; use dataPolicy");
         }
     }
 
     private final GraphWorkRequestService graph;
     private final JobDefinitionRepository definitions;
     private final JsonMapper json;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public IndicatorBackfillController(
-            GraphWorkRequestService graph, JobDefinitionRepository definitions, JsonMapper json) {
+            GraphWorkRequestService graph,
+            JobDefinitionRepository definitions,
+            JsonMapper json,
+            org.springframework.jdbc.core.JdbcTemplate jdbc) {
         this.graph = graph;
         this.definitions = definitions;
         this.json = json;
+        this.jdbc = jdbc;
+    }
+
+    @GetMapping("/sectors")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<SectorOption> sectors(
+            @RequestParam(name = "sectorLevel", defaultValue = "2") int level) {
+        if (level < 1 || level > 4)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid sector level");
+        // Use the same active-symbol membership and JSON key as backfill admission.
+        // Names are optional catalog enrichment, never a replacement for the actual code.
+        return jdbc
+                .queryForList(
+                        """
+                SELECT codes.code, coalesce(nullif(btrim(s.name_en),''),nullif(btrim(s.name_vi),''),codes.code) AS name
+                FROM (SELECT DISTINCT meta_json->>CAST(? AS text) AS code
+                      FROM symbols WHERE is_active=true) codes
+                LEFT JOIN sectors s ON s.code=codes.code AND s.taxonomy=?
+                      AND s.taxonomy_level=? AND s.is_active=true
+                WHERE codes.code ~ '^[A-Z0-9_-]{1,64}$'
+                ORDER BY codes.code
+                """,
+                        "sectorLv" + level + "Code",
+                        com.omni.platform.modules.scheduler.constants.SectorSeedConfig
+                                .DEFAULT_TAXONOMY,
+                        level)
+                .stream()
+                .map(row -> new SectorOption((String) row.get("code"), (String) row.get("name")))
+                .toList();
     }
 
     @GetMapping("/goals")
@@ -115,9 +124,34 @@ public class IndicatorBackfillController {
             @RequestHeader("Idempotency-Key") String key,
             @RequestBody Backfill input) {
         if (input == null
-                || SUPPORTED_GOALS.stream().noneMatch(goal -> goal.name().equals(input.goal()))
-                || input.dateFrom() == null
-                || input.dateTo() == null
+                || SUPPORTED_GOALS.stream().noneMatch(goal -> goal.name().equals(input.goal())))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported goal");
+        String dataPolicy = input.dataPolicy() == null ? "PREFER_EXISTING" : input.dataPolicy();
+        if (!List.of("PREFER_EXISTING", "REFRESH").contains(dataPolicy))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid dataPolicy");
+        boolean symbols = JobType.SYNC_SYMBOLS.name().equals(input.goal());
+        Instant acceptedAt = Instant.now();
+        var today =
+                acceptedAt
+                        .atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE)
+                        .toLocalDate();
+        var from = symbols && input.dateFrom() == null ? today : input.dateFrom();
+        var to = symbols && input.dateTo() == null ? today : input.dateTo();
+        if (symbols) {
+            if (input.exchange() == null
+                    || !List.of("HOSE", "HNX", "UPCOM")
+                            .contains(input.exchange().toUpperCase(java.util.Locale.ROOT))
+                    || input.sectorCodes() != null
+                    || input.sectorLevel() != null
+                    || input.symbolKey() != null
+                    || !today.equals(from)
+                    || !today.equals(to))
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Symbols requires one exchange and today's snapshot only");
+        } else if (from == null
+                || to == null
+                || input.exchange() != null
                 || input.sectorLevel() == null
                 || input.sectorLevel() < 1
                 || input.sectorLevel() > 4
@@ -143,30 +177,37 @@ public class IndicatorBackfillController {
                     HttpStatus.CONFLICT,
                     "Select exactly one active canonical definition for the goal using targetDefinitionId");
         Map<String, Object> expansion = new LinkedHashMap<>();
-        expansion.put("dateFrom", input.dateFrom().toString());
-        expansion.put("dateTo", input.dateTo().toString());
-        expansion.put(
-                "sectorCodes",
-                input.sectorCodes().stream()
-                        .map(s -> s.toUpperCase(java.util.Locale.ROOT))
-                        .distinct()
-                        .sorted()
-                        .toList());
-        expansion.put("sectorLevel", input.sectorLevel());
-        if (input.symbolKey() != null)
+        expansion.put("dateFrom", from.toString());
+        expansion.put("dateTo", to.toString());
+        if (symbols) {
             expansion.put(
                     "scope",
                     Map.of(
                             "type",
-                            "SYMBOL",
+                            "EXCHANGE",
                             "key",
-                            input.symbolKey().toUpperCase(java.util.Locale.ROOT)));
-        boolean force = Boolean.TRUE.equals(input.force());
-        boolean rerun = force || Boolean.TRUE.equals(input.rerun());
+                            input.exchange().toUpperCase(java.util.Locale.ROOT)));
+        } else {
+            expansion.put(
+                    "sectorCodes",
+                    input.sectorCodes().stream()
+                            .map(s -> s.toUpperCase(java.util.Locale.ROOT))
+                            .distinct()
+                            .sorted()
+                            .toList());
+            expansion.put("sectorLevel", input.sectorLevel());
+            if (input.symbolKey() != null)
+                expansion.put(
+                        "scope",
+                        Map.of(
+                                "type",
+                                "SYMBOL",
+                                "key",
+                                input.symbolKey().toUpperCase(java.util.Locale.ROOT)));
+        }
         // Execution/data policy is request identity, not analytical work identity.
         expansion.put("parameters", Map.of());
-        expansion.put("force", force);
-        expansion.put("rerun", rerun);
+        expansion.put("dataPolicy", dataPolicy);
         UUID execution;
         try {
             execution =
@@ -176,15 +217,16 @@ public class IndicatorBackfillController {
                                     actor,
                                     key,
                                     input.goal()
-                                            + " sector/date backfill; rerun="
-                                            + rerun
-                                            + "; force="
-                                            + force,
+                                            + (symbols
+                                                    ? " current exchange snapshot; "
+                                                    : " sector/date backfill; ")
+                                            + "dataPolicy="
+                                            + dataPolicy,
                                     null,
                                     json.writeValueAsString(expansion)),
                             targets.getFirst().getId(),
-                            Instant.now(),
-                            Map.of("force", force, "rerun", rerun));
+                            acceptedAt,
+                            Map.of("dataPolicy", dataPolicy));
         } catch (IllegalArgumentException invalid) {
             throw new ResponseStatusException(
                     invalid.getMessage().contains("IDEMPOTENCY")
@@ -205,10 +247,8 @@ public class IndicatorBackfillController {
                 "ACCEPTED",
                 "goal",
                 input.goal(),
-                "force",
-                force,
-                "rerun",
-                rerun,
+                "dataPolicy",
+                dataPolicy,
                 "membershipPolicy",
                 "CURRENT_ACTIVE_AT_ACCEPTANCE");
     }

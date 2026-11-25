@@ -31,8 +31,13 @@ class WorkExpansionTest {
                                         sunday)
                                 .days())
                 .containsExactly(LocalDate.parse("2026-11-01"));
-        assertThat(WorkExpansion.resolve(job(JobDefinition.JobType.SYNC_SYMBOLS, Map.of()),
-                parent(Map.of()), sunday).days()).containsExactly(LocalDate.parse("2026-11-01"));
+        assertThat(
+                        WorkExpansion.resolve(
+                                        job(JobDefinition.JobType.SYNC_SYMBOLS, Map.of()),
+                                        parent(Map.of()),
+                                        sunday)
+                                .days())
+                .containsExactly(LocalDate.parse("2026-11-01"));
         assertThat(
                         WorkExpansion.resolve(
                                         job(JobDefinition.JobType.SYNC_INDICATORS, Map.of()),
@@ -137,6 +142,173 @@ class WorkExpansionTest {
                                     + expected
                                     + "}]");
         }
+    }
+
+    @Test
+    void symbolSelectionIntersectsExchangeAndExplicitScopeWithoutBroadeningMembership() {
+        var hpg = symbol("HOSE", "HPG");
+        var mbb = symbol("HOSE", "MBB");
+        var bab = symbol("HNX", "BAB");
+        var input = List.of(mbb, bab, hpg);
+        var definition =
+                job(JobDefinition.JobType.SYNC_INDICATORS, Map.of("exchanges", List.of("hose")));
+        assertThat(WorkExpansion.selectSymbols(definition, input)).containsExactly(hpg, mbb);
+        definition.setConfigJson(
+                Map.of("_expansionScope", Map.of("type", "SYMBOL", "key", "hose-mbb")));
+        assertThat(WorkExpansion.selectSymbols(definition, input)).containsExactly(mbb);
+        definition.setConfigJson(
+                Map.of("_expansionScope", Map.of("type", "EXCHANGE", "key", "HNX")));
+        assertThat(WorkExpansion.selectSymbols(definition, input)).containsExactly(bab);
+        definition.setConfigJson(Map.of("_expansionScope", Map.of("type", "GLOBAL", "key", "ALL")));
+        assertThat(WorkExpansion.selectSymbols(definition, input)).containsExactly(bab, hpg, mbb);
+        definition.setConfigJson(
+                Map.of(
+                        "exchanges",
+                        List.of("HNX"),
+                        "_expansionScope",
+                        Map.of("type", "SYMBOL", "key", "HOSE-MBB")));
+        assertThatThrownBy(() -> WorkExpansion.selectSymbols(definition, input))
+                .hasMessageContaining("no active symbol");
+        definition.setConfigJson(null);
+        assertThat(WorkExpansion.selectSymbols(definition, input)).containsExactly(bab, hpg, mbb);
+    }
+
+    @Test
+    void expansionBoundRejectsOversizedFanoutInsteadOfTruncatingIt() {
+        var definition = job(JobDefinition.JobType.SYNC_INDICATORS, Map.of());
+        var selected =
+                java.util.stream.IntStream.rangeClosed(0, WorkExpansion.MAX_WORK)
+                        .mapToObj(index -> symbol("HOSE", "S" + index))
+                        .toList();
+        assertThat(
+                        WorkExpansion.selectSymbols(
+                                definition, selected.subList(0, WorkExpansion.MAX_WORK)))
+                .hasSize(WorkExpansion.MAX_WORK);
+        assertThatThrownBy(() -> WorkExpansion.selectSymbols(definition, selected))
+                .hasMessage("WORK_EXPANSION_BOUND_EXCEEDED");
+    }
+
+    @Test
+    void refreshAndLegacySelectorsCannotChangeAnalyticalWorkIdentity() {
+        var command =
+                new IndicatorJobMessage(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        null,
+                        "ANALYZER",
+                        WorkType.SYMBOL,
+                        "HOSE-MBB",
+                        "HOSE-MBB",
+                        "1d",
+                        "ad_close",
+                        List.of("RSI14", "MA20", "RSI14"),
+                        Map.of("requestId", "trace-only"));
+        var first =
+                WorkExpansion.parameters(
+                        command,
+                        Map.of(
+                                "dataPolicy",
+                                "PREFER_EXISTING",
+                                "scope",
+                                Map.of("type", "GLOBAL"),
+                                "dateFrom",
+                                "2026-10-30",
+                                "force",
+                                false,
+                                "rerun",
+                                false));
+        var refreshed =
+                WorkExpansion.parameters(
+                        command, Map.of("dataPolicy", "REFRESH", "force", true, "rerun", true));
+        assertThat(first)
+                .isEqualTo(refreshed)
+                .doesNotContainKeys(
+                        "scope", "dateFrom", "dataPolicy", "force", "rerun", "metadata");
+        assertThat(first.get("indicators")).isEqualTo(List.of("MA20", "RSI14"));
+        var day = LocalDate.parse("2026-10-30");
+        assertThat(
+                        WorkExpansion.identity(
+                                JobDefinition.JobType.SYNC_INDICATORS,
+                                WorkType.SYMBOL,
+                                "HOSE-MBB",
+                                day,
+                                first))
+                .isEqualTo(
+                        WorkExpansion.identity(
+                                JobDefinition.JobType.SYNC_INDICATORS,
+                                WorkType.SYMBOL,
+                                "HOSE-MBB",
+                                day,
+                                refreshed));
+        assertThatThrownBy(() -> first.put("dataPolicy", "REFRESH"))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void acceptedRangeIncludesItsLastAllowedDayAndRejectsOneDayBeyondTheBound() {
+        var definition = job(JobDefinition.JobType.SYNC_INDICATORS, Map.of());
+        var to = LocalDate.parse("2026-11-02");
+        var from = to.minusDays(WorkExpansion.MAX_RANGE_DAYS - 1L);
+        var plan =
+                WorkExpansion.resolve(
+                        definition,
+                        parent(Map.of("dateFrom", from.toString(), "dateTo", to.toString())),
+                        monday);
+        assertThat(plan.accepted()).containsEntry("dateFrom", from.toString());
+        assertThat(plan.days())
+                .contains(to)
+                .allMatch(
+                        day ->
+                                day.getDayOfWeek() != java.time.DayOfWeek.SATURDAY
+                                        && day.getDayOfWeek() != java.time.DayOfWeek.SUNDAY);
+        assertThatThrownBy(
+                        () ->
+                                WorkExpansion.resolve(
+                                        definition,
+                                        parent(
+                                                Map.of(
+                                                        "dateFrom",
+                                                        from.minusDays(1).toString(),
+                                                        "dateTo",
+                                                        to.toString())),
+                                        monday))
+                .hasMessageContaining("oversized");
+    }
+
+    @Test
+    void datedIntradayCompatibilityCannotExpandTheFrozenChildBackToTheParentRange() {
+        var definition = job(JobDefinition.JobType.SYNC_INTRADAY_EOD, Map.of());
+        var original = parent(Map.of());
+        original.setMetaJson(
+                Map.of(
+                        "metadataTarget",
+                        Map.of("startDate", "2026-10-30", "endDate", "2026-11-02")));
+        assertThat(WorkExpansion.resolve(definition, original, monday).days())
+                .containsExactly(LocalDate.parse("2026-10-30"), LocalDate.parse("2026-11-02"));
+        var child = WorkExpansion.parent(original, definition, LocalDate.parse("2026-10-30"));
+        assertThat(child.getMetaJson())
+                .containsEntry("metadataTarget", Map.of("tradingDate", "2026-10-30"));
+        assertThat(WorkExpansion.workDay(child, monday)).isEqualTo(LocalDate.parse("2026-10-30"));
+        assertThat(original.getMetaJson()).doesNotContainKey("workBusinessDate");
+        assertThat(WorkExpansion.resolve(definition, child, monday).days())
+                .containsExactly(LocalDate.parse("2026-10-30"));
+        original.setMetaJson(null);
+        assertThat(WorkExpansion.workDay(original, Instant.parse("2026-11-01T17:01:00Z")))
+                .isEqualTo(LocalDate.parse("2026-11-02"));
+    }
+
+    private com.omni.platform.modules.scheduler.repositories.projections.SymbolKeyProjection symbol(
+            String exchange, String code) {
+        return new com.omni.platform.modules.scheduler.repositories.projections
+                .SymbolKeyProjection() {
+            public String getCode() {
+                return code;
+            }
+
+            public String getExchange() {
+                return exchange;
+            }
+        };
     }
 
     private final Instant monday = Instant.parse("2026-11-02T03:00:00Z");

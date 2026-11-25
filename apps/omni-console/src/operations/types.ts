@@ -6,12 +6,12 @@ export interface BackfillGoal {
 export interface BackfillRequest {
   goal: string;
   targetDefinitionId: string;
-  sectorCodes: string[];
-  sectorLevel: number;
-  dateFrom: string;
-  dateTo: string;
-  rerun: boolean;
-  force: boolean;
+  sectorCodes?: string[];
+  sectorLevel?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  exchange?: string;
+  dataPolicy: 'PREFER_EXISTING' | 'REFRESH';
 }
 
 export interface BackfillAccepted {
@@ -19,8 +19,7 @@ export interface BackfillAccepted {
   executionId: string;
   status: 'ACCEPTED';
   goal: string;
-  rerun: boolean;
-  force: boolean;
+  dataPolicy: 'PREFER_EXISTING' | 'REFRESH';
   membershipPolicy: string;
 }
 
@@ -242,4 +241,8 @@ export interface WorkInspection {
     upstreamExecutionId: string;
     status: string;
   }>;
+}
+export interface BackfillSector {
+  code: string;
+  name: string;
 }

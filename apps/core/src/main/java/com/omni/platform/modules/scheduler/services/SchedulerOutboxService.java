@@ -46,6 +46,9 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
     @org.springframework.beans.factory.annotation.Autowired
     private com.omni.platform.modules.scheduler.metadata.OutputStorageHeads storageHeads;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     @Transactional
     public void enqueue(
             JobExecutionHistory execution, String topic, List<KafkaMessage> messages, Instant now) {
@@ -349,7 +352,15 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
         Object approved =
                 work.getMetaJson() == null ? null : work.getMetaJson().get("approvedInputs");
         var bases = storageHeads == null ? List.of() : storageHeads.read(work.getId());
-        if (approved == null && bases.isEmpty()) return payload;
+        // Read the durable parent overlay freshly: candidate entities may predate promotion.
+        String policy =
+                jdbc == null || work.getParentLogId() == null
+                        ? null
+                        : jdbc.queryForObject(
+                                "SELECT meta_json->>'dispatchDataPolicy' FROM job_execution_histories WHERE id=?",
+                                String.class,
+                                work.getParentLogId());
+        if (approved == null && bases.isEmpty() && policy == null) return payload;
         if (approved != null && !(approved instanceof List<?>))
             throw new IllegalStateException("Invalid approved input binding");
         ObjectNode body = (ObjectNode) jsonMapper.readTree(payload);
@@ -358,6 +369,13 @@ public class SchedulerOutboxService implements ClaimableOutboxStore<SchedulerOut
                         ? object
                         : jsonMapper.createObjectNode();
         if (approved != null) metadata.set("approvedInputs", jsonMapper.valueToTree(approved));
+        if (policy != null) {
+            if (!"REFRESH".equals(policy))
+                throw new IllegalStateException("Invalid dispatch data policy");
+            metadata.set(
+                    "backfillPolicy",
+                    jsonMapper.valueToTree(Map.of("dataPolicy", policy, "verifyEodParquet", true)));
+        }
         if (!bases.isEmpty()) {
             if (!(metadata.get("outputCompletion") instanceof ObjectNode contract))
                 throw new IllegalStateException("Versioned execution has no output declaration");

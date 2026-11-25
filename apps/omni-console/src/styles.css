@@ -1085,6 +1085,100 @@ tbody tr:hover {
 .backfill-form .work-toolbar label {
   min-width: 0;
 }
+.backfill-form .work-toolbar:has(> .backfill-date-range) {
+  display: flex;
+}
+.backfill-form
+  .work-toolbar:has(> .backfill-date-range)
+  > :not(.backfill-date-range) {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.backfill-form fieldset.backfill-date-range {
+  flex: 0 1 280px;
+  max-width: 100%;
+  margin: 0;
+  padding: 10px 12px 12px;
+  align-self: start;
+  background: #091512;
+}
+.date-range-fields {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.date-range-endpoint {
+  flex: 1;
+  min-width: 0;
+}
+.date-range-endpoint > label {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.date-range-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.backfill-form .date-range-value > input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  border-radius: 3px;
+  padding: 5px 0;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.date-range-separator {
+  color: var(--muted);
+  padding-top: 18px;
+}
+.date-range-calendar {
+  position: relative;
+  flex: 0 0 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--muted);
+}
+.date-range-calendar svg {
+  width: 19px;
+  height: 19px;
+}
+.backfill-form .date-range-calendar input {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.date-range-calendar input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  cursor: pointer;
+}
+.date-range-calendar:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  .date-range-fields {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .date-range-separator {
+    display: none;
+  }
+}
 .backfill-form textarea {
   width: 100%;
   resize: vertical;
@@ -1164,4 +1258,108 @@ tbody tr:hover {
 }
 .app-shell > nav > button {
   flex-shrink: 0;
+}
+
+.sector-picker-field {
+  display: grid;
+  min-width: 0;
+  gap: .5rem;
+}
+.sector-picker {
+  position: relative;
+}
+.sector-picker summary {
+  display: flex;
+  min-height: 40px;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: #091512;
+  padding: 9px 11px;
+  overflow-wrap: anywhere;
+}
+.sector-picker summary::-webkit-details-marker {
+  display: none;
+}
+.sector-picker summary::after {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  color: var(--muted);
+  content: '';
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+  rotate: 45deg;
+}
+.sector-picker[open] summary::after {
+  color: var(--accent);
+  rotate: 225deg;
+}
+.sector-picker-options {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  margin-top: 4px;
+  display: grid;
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 4px;
+  box-shadow: 0 10px 15px rgb(0 0 0 / 25%);
+  max-height: min(16rem, 50dvh);
+}
+.sector-picker-options label {
+  display: flex;
+  cursor: pointer;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+}
+.sector-picker-options label:has(input:checked) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.sector-picker-options label:has(input:not(:disabled)):is(:hover, :focus-within) {
+  background: #091512;
+}
+.sector-picker-options label:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: .6;
+}
+.sector-picker-options input[type='checkbox'] {
+  margin-top: 2px;
+  width: auto;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+.sector-picker-options input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sector-picker-options p {
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--muted);
+}
+.sector-picker summary[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: .6;
+}
+.sector-picker summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.panel:has(> .backfill-form) {
+  overflow: visible;
 }

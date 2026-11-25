@@ -1,9 +1,83 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError } from '../api';
-import { createBackfill, getBackfillGoals } from './api';
-import type { BackfillAccepted, BackfillGoal, BackfillRequest } from './types';
+import { createBackfill, getBackfillGoals, getBackfillSectors } from './api';
+import type {
+  BackfillAccepted,
+  BackfillGoal,
+  BackfillRequest,
+  BackfillSector,
+} from './types';
 
-type Policy = 'default' | 'recalculate' | 'refresh';
+type Policy = 'PREFER_EXISTING' | 'REFRESH';
+
+function isoDate(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return '';
+  const day = `${match[3]}-${match[2]}-${match[1]}`;
+  const parsed = Date.parse(`${day}T00:00:00Z`);
+  return Number.isFinite(parsed) &&
+    new Date(parsed).toISOString().slice(0, 10) === day
+    ? day
+    : '';
+}
+
+function DateEndpoint({
+  label,
+  value,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  max: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="date-range-endpoint">
+      <label htmlFor={id}>{label}</label>
+      <div className="date-range-value">
+        <input
+          id={id}
+          type="text"
+          inputMode="numeric"
+          placeholder="dd/mm/yyyy"
+          maxLength={10}
+          value={value}
+          onChange={(event) => {
+            const digits = event.target.value.replace(/\D/g, '').slice(0, 8);
+            onChange(
+              [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)]
+                .filter(Boolean)
+                .join('/')
+            );
+          }}
+        />
+        <span className="date-range-calendar">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M16 3v4M8 3v4M3 11h18" />
+          </svg>
+          <input
+            type="date"
+            aria-label={`Choose ${label.toLowerCase()}`}
+            value={isoDate(value)}
+            max={max}
+            onChange={(event) =>
+              onChange(event.target.value.split('-').reverse().join('/'))
+            }
+          />
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function vietnamToday() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -51,11 +125,19 @@ export function BackfillForm({
   const [reload, setReload] = useState(0);
   const [goal, setGoal] = useState('');
   const [target, setTarget] = useState('');
-  const [sectorLevel, setSectorLevel] = useState('1');
-  const [sectorCodes, setSectorCodes] = useState('');
+  const [sectorLevel, setSectorLevel] = useState('2');
+  const [sectorCodes, setSectorCodes] = useState<string[]>([]);
+  const [sectors, setSectors] = useState<BackfillSector[]>([]);
+  const [sectorLoading, setSectorLoading] = useState(false);
+  const [sectorError, setSectorError] = useState<string | null>(null);
+  const [sectorCatalogLevel, setSectorCatalogLevel] = useState<number | null>(
+    null
+  );
+  const [sectorReload, setSectorReload] = useState(0);
+  const [exchange, setExchange] = useState('HOSE');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [policy, setPolicy] = useState<Policy>('default');
+  const [policy, setPolicy] = useState<Policy>('PREFER_EXISTING');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState<BackfillAccepted | null>(null);
@@ -101,6 +183,37 @@ export function BackfillForm({
   const targets = goals.find((item) => item.goal === goal)?.targets ?? [];
   const frozen = busy || accepted !== null;
   const today = vietnamToday();
+  const symbolsSnapshot = goal === 'SYNC_SYMBOLS';
+
+  useEffect(() => {
+    const abort = new AbortController();
+    setSectors([]);
+    setSectorCatalogLevel(null);
+    setSectorError(null);
+    if (!goal || symbolsSnapshot) {
+      setSectorLoading(false);
+      return () => abort.abort();
+    }
+    setSectorLoading(true);
+    const level = Number(sectorLevel);
+    getBackfillSectors(level, abort.signal)
+      .then((items) => {
+        if (abort.signal.aborted) return;
+        setSectors(items);
+        setSectorCatalogLevel(level);
+        setSectorCodes((selected) =>
+          selected.filter((code) => items.some((item) => item.code === code))
+        );
+      })
+      .catch(() => {
+        if (abort.signal.aborted) return;
+        setSectorError('Sector catalog is unavailable. Retry loading sectors.');
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setSectorLoading(false);
+      });
+    return () => abort.abort();
+  }, [goal, symbolsSnapshot, sectorLevel, sectorReload]);
 
   function changed() {
     setError(null);
@@ -110,60 +223,72 @@ export function BackfillForm({
     event.preventDefault();
     if (submitting.current || accepted || loading || catalogError) return;
     setError(null);
-    const codes = [
-      ...new Set(
-        sectorCodes
-          .split(/[,\n]/)
-          .map((code) => code.trim().toUpperCase())
-          .filter(Boolean)
-      ),
-    ].sort();
+    const codes = [...new Set(sectorCodes)].sort();
     const level = Number(sectorLevel);
     if (!goal || !targets.some((item) => item.targetDefinitionId === target)) {
       setError('Select an available goal and target definition.');
       return;
     }
     if (
-      !Number.isInteger(level) ||
-      level < 1 ||
-      level > 4 ||
-      codes.length < 1 ||
-      codes.length > 100 ||
-      codes.some((code) => !/^[A-Z0-9_-]{1,64}$/.test(code))
+      !symbolsSnapshot &&
+      (sectorLoading || sectorError || sectorCatalogLevel !== level)
     ) {
       setError(
-        'Enter a sector level from 1 to 4 and 1–100 valid sector codes.'
+        'Load the sector catalog for the selected level before submitting.'
       );
       return;
     }
-    const start = Date.parse(`${dateFrom}T00:00:00Z`);
-    const end = Date.parse(`${dateTo}T00:00:00Z`);
-    const validDay = (value: string, parsed: number) =>
-      /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-      Number.isFinite(parsed) &&
-      new Date(parsed).toISOString().slice(0, 10) === value;
     if (
-      !validDay(dateFrom, start) ||
-      !validDay(dateTo, end) ||
-      end < start ||
-      (end - start) / 86400000 + 1 > 366 ||
-      dateTo > today
+      !symbolsSnapshot &&
+      (!Number.isInteger(level) ||
+        level < 1 ||
+        level > 4 ||
+        codes.length < 1 ||
+        codes.length > 100 ||
+        codes.some((code) => !sectors.some((item) => item.code === code)))
     ) {
       setError(
-        'Choose an ordered range of 1–366 calendar days, ending no later than today in Vietnam.'
+        'Select a sector level from 1 to 4 and 1-100 available sectors.'
       );
       return;
     }
-    const input: BackfillRequest = {
-      goal,
-      targetDefinitionId: target,
-      sectorLevel: level,
-      sectorCodes: codes,
-      dateFrom,
-      dateTo,
-      rerun: policy !== 'default',
-      force: policy === 'refresh',
-    };
+    const fromDay = isoDate(dateFrom);
+    const toDay = isoDate(dateTo);
+    const start = Date.parse(`${fromDay}T00:00:00Z`);
+    const end = Date.parse(`${toDay}T00:00:00Z`);
+    if (
+      !symbolsSnapshot &&
+      (!fromDay ||
+        !toDay ||
+        end < start ||
+        (end - start) / 86400000 + 1 > 366 ||
+        toDay > today)
+    ) {
+      setError(
+        'Enter dates as dd/mm/yyyy. Choose an ordered range of 1–366 calendar days, ending no later than today in Vietnam.'
+      );
+      return;
+    }
+    if (symbolsSnapshot && !['HOSE', 'HNX', 'UPCOM'].includes(exchange)) {
+      setError('Select a supported exchange.');
+      return;
+    }
+    const input: BackfillRequest = symbolsSnapshot
+      ? {
+          goal,
+          targetDefinitionId: target,
+          exchange,
+          dataPolicy: policy,
+        }
+      : {
+          goal,
+          targetDefinitionId: target,
+          sectorLevel: level,
+          sectorCodes: codes,
+          dateFrom: fromDay,
+          dateTo: toDay,
+          dataPolicy: policy,
+        };
     const payload = JSON.stringify(input);
     const previous = submission.current;
     const key =
@@ -249,67 +374,163 @@ export function BackfillForm({
                       key={item.targetDefinitionId}
                       value={item.targetDefinitionId}
                     >
-                      {item.title
-                        ? `${item.title} (${item.targetDefinitionId})`
-                        : item.targetDefinitionId}
+                      {item.title ? `${item.title}` : item.targetDefinitionId}
                     </option>
                   ))}
                 </select>
               </label>
+              {symbolsSnapshot ? (
+                <label>
+                  Exchange
+                  <select
+                    value={exchange}
+                    onChange={(event) => {
+                      changed();
+                      setExchange(event.target.value);
+                    }}
+                  >
+                    {['HOSE', 'HNX', 'UPCOM'].map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <>
+                  <label>
+                    Sector level
+                    <select
+                      value={sectorLevel}
+                      onChange={(event) => {
+                        changed();
+                        if (event.target.value !== sectorLevel)
+                          setSectorCodes([]);
+                        setSectorLevel(event.target.value);
+                      }}
+                    >
+                      {[1, 2, 3, 4].map((level) => (
+                        <option key={level} value={level}>
+                          {level === 2 ? '2 (Recommended)' : level}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="sector-picker-field">
+                    <span id="sector-codes-label">Sector codes</span>
+                    <details className="sector-picker">
+                      <summary
+                        aria-labelledby="sector-codes-label"
+                        aria-disabled={frozen}
+                        onClick={(event) => {
+                          if (frozen) event.preventDefault();
+                        }}
+                      >
+                        {sectorLoading
+                          ? 'Loading sectors...'
+                          : sectorCatalogLevel !== null &&
+                            !sectorError &&
+                            sectors.length === 0
+                          ? 'No sectors available at this level'
+                          : sectorCodes.length
+                          ? `${sectorCodes.length} selected: ${sectorCodes
+                              .slice(0, 3)
+                              .join(', ')}${
+                              sectorCodes.length > 3 ? ', ...' : ''
+                            }`
+                          : 'Select sector codes'}
+                      </summary>
+                      <div
+                        className="sector-picker-options"
+                        role="group"
+                        aria-label="Available sectors"
+                      >
+                        {sectors.map((item) => (
+                          <label key={item.code}>
+                            <input
+                              type="checkbox"
+                              value={item.code}
+                              checked={sectorCodes.includes(item.code)}
+                              disabled={
+                                frozen ||
+                                (sectorCodes.length >= 100 &&
+                                  !sectorCodes.includes(item.code))
+                              }
+                              onChange={(event) => {
+                                changed();
+                                const checked = event.target.checked;
+                                setSectorCodes((selected) =>
+                                  checked
+                                    ? [...selected, item.code]
+                                    : selected.filter(
+                                        (code) => code !== item.code
+                                      )
+                                );
+                              }}
+                            />
+                            <span>
+                              {item.name === item.code
+                                ? item.code
+                                : `${item.code} - ${item.name}`}
+                            </span>
+                          </label>
+                        ))}
+                        {!sectorLoading &&
+                          !sectorError &&
+                          sectorCatalogLevel !== null &&
+                          sectors.length === 0 && (
+                            <p>
+                              No sectors with active symbols are available at
+                              this level.
+                            </p>
+                          )}
+                      </div>
+                    </details>
+                    <small className="muted">
+                      Level 2 is recommended. Select up to 100 sectors.
+                    </small>
+                    {sectorError && (
+                      <div className="callout warning" role="alert">
+                        <p>{sectorError}</p>
+                        <button
+                          type="button"
+                          onClick={() => setSectorReload((value) => value + 1)}
+                        >
+                          Retry sector discovery
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <fieldset className="backfill-date-range">
+                    <legend>Date range · dd/mm/yyyy</legend>
+                    <div className="date-range-fields">
+                      <DateEndpoint
+                        label="From date"
+                        value={dateFrom}
+                        max={today}
+                        onChange={(value) => {
+                          changed();
+                          setDateFrom(value);
+                        }}
+                      />
+                      <span className="date-range-separator" aria-hidden="true">
+                        →
+                      </span>
+                      <DateEndpoint
+                        label="To date"
+                        value={dateTo}
+                        max={today}
+                        onChange={(value) => {
+                          changed();
+                          setDateTo(value);
+                        }}
+                      />
+                    </div>
+                  </fieldset>
+                </>
+              )}
               <label>
-                Sector level
-                <select
-                  value={sectorLevel}
-                  onChange={(event) => {
-                    changed();
-                    setSectorLevel(event.target.value);
-                  }}
-                >
-                  {[1, 2, 3, 4].map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Sector codes
-                <textarea
-                  value={sectorCodes}
-                  onChange={(event) => {
-                    changed();
-                    setSectorCodes(event.target.value);
-                  }}
-                  placeholder="Comma-separated codes or one per line"
-                  rows={2}
-                />
-              </label>
-              <label>
-                From date
-                <input
-                  type="date"
-                  value={dateFrom}
-                  max={today}
-                  onChange={(event) => {
-                    changed();
-                    setDateFrom(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                To date
-                <input
-                  type="date"
-                  value={dateTo}
-                  max={today}
-                  onChange={(event) => {
-                    changed();
-                    setDateTo(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                Execution policy
+                Data policy
                 <select
                   value={policy}
                   onChange={(event) => {
@@ -317,26 +538,33 @@ export function BackfillForm({
                     setPolicy(event.target.value as Policy);
                   }}
                 >
-                  <option value="default">Default</option>
-                  <option value="recalculate">Recalculate</option>
-                  <option value="refresh">
-                    Refresh source and recalculate
-                  </option>
+                  <option value="PREFER_EXISTING">Prefer existing data</option>
+                  <option value="REFRESH">Refresh source data</option>
                 </select>
               </label>
             </div>
             <p className="muted">
-              {policy === 'default'
-                ? 'Share compatible work that is still in flight when possible. New EOD work prefers exact-day stored data and fetches if missing; calculations run on new attempts.'
-                : policy === 'recalculate'
-                ? 'Create new attempts throughout the chain. EOD prefers exact-day stored data and fetches if missing; recalculate from approved inputs.'
-                : 'Create new attempts throughout the chain and refresh EOD from the provider, even when stored day rows exist. Recalculate from approved refreshed inputs.'}
+              {symbolsSnapshot
+                ? 'Sync the current exchange symbol snapshot. Compatible in-flight work is shared automatically; completed work gets a new attempt.'
+                : policy === 'PREFER_EXISTING'
+                ? 'Share compatible in-flight work automatically. New EOD work uses exact-day stored data when available and fetches missing data.'
+                : 'Refresh EOD from the provider. Pending work is upgraded before dispatch; dispatched work is shared only when its data policy satisfies this request.'}
             </p>
             <p className="muted">
               Discovery does not guarantee admission or READY. Missing dates are
               not inferred as no-trade days.
             </p>
-            <button type="submit" disabled={frozen}>
+            <button
+              type="submit"
+              disabled={
+                frozen ||
+                (!symbolsSnapshot &&
+                  (sectorLoading ||
+                    sectorError !== null ||
+                    sectorCatalogLevel !== Number(sectorLevel) ||
+                    sectors.length === 0))
+              }
+            >
               {busy ? 'Submitting backfill…' : 'Create backfill'}
             </button>
           </fieldset>

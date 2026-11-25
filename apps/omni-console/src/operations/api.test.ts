@@ -3,6 +3,7 @@ import { platformRequest } from '../api';
 import {
   createBackfill,
   getBackfillGoals,
+  getBackfillSectors,
   inspectAtomicWork,
   listAtomicRequests,
 } from './api';
@@ -12,6 +13,42 @@ vi.mock('../api', () => ({ platformRequest: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 
 describe('I10 operations API', () => {
+  it('loads the selected sector level and retains an empty catalog', async () => {
+    const signal = new AbortController().signal;
+    vi.mocked(platformRequest).mockResolvedValueOnce([
+      { code: 'STEEL', name: 'Steel' },
+      { code: 'BANK', name: 'Banks' },
+    ]);
+    await expect(getBackfillSectors(2, signal)).resolves.toEqual([
+      { code: 'BANK', name: 'Banks' },
+      { code: 'STEEL', name: 'Steel' },
+    ]);
+    expect(platformRequest).toHaveBeenCalledWith(
+      '/api/v1/jobs/backfills/sectors?sectorLevel=2',
+      { signal }
+    );
+    vi.mocked(platformRequest).mockResolvedValueOnce([]);
+    await expect(getBackfillSectors(4)).resolves.toEqual([]);
+  });
+
+  it.each([
+    { payload: {} },
+    { payload: [null] },
+    { payload: [{ code: '../BANK', name: 'Bad' }] },
+    { payload: [{ code: 'BANK', name: '' }] },
+    {
+      payload: [
+        { code: 'BANK', name: 'Banks' },
+        { code: 'BANK', name: 'Duplicate' },
+      ],
+    },
+  ])('rejects malformed sector catalog %j', async ({ payload }) => {
+    vi.mocked(platformRequest).mockResolvedValue(payload);
+    await expect(getBackfillSectors(2)).rejects.toThrow(
+      'sector catalog is unavailable'
+    );
+  });
+
   it('rejects a provenance response for a different selected work', async () => {
     vi.mocked(platformRequest).mockResolvedValue({
       atomicWorkId: 'wrong-work',
@@ -38,8 +75,7 @@ describe('I10 operations API', () => {
       sectorLevel: 1,
       dateFrom: '2026-09-01',
       dateTo: '2026-09-02',
-      rerun: true,
-      force: true,
+      dataPolicy: 'REFRESH',
     };
     const result = {
       status: 'ACCEPTED',

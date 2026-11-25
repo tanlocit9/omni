@@ -7,9 +7,32 @@ import type {
   BackfillAccepted,
   BackfillGoal,
   BackfillRequest,
+  BackfillSector,
   PublishedPage,
   WorkInspection,
 } from './types';
+
+export async function getBackfillSectors(level: number, signal?: AbortSignal) {
+  const sectors = await platformRequest<BackfillSector[]>(
+    `/api/v1/jobs/backfills/sectors?sectorLevel=${level}`,
+    { signal }
+  );
+  if (
+    !Array.isArray(sectors) ||
+    sectors.some(
+      (item) =>
+        !item ||
+        typeof item.code !== 'string' ||
+        !/^[A-Z0-9_-]{1,64}$/.test(item.code) ||
+        typeof item.name !== 'string' ||
+        !item.name.trim()
+    ) ||
+    new Set(sectors.map((item) => item.code)).size !== sectors.length
+  ) {
+    throw new Error('The sector catalog is unavailable.');
+  }
+  return [...sectors].sort((a, b) => a.code.localeCompare(b.code));
+}
 
 export async function getBackfillGoals(signal?: AbortSignal) {
   const goals = await platformRequest<BackfillGoal[]>(

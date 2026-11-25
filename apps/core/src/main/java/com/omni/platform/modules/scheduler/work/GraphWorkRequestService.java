@@ -163,12 +163,8 @@ public class GraphWorkRequestService {
         if (backfill ? claim != null : (claim == null || !targetId.equals(claim.jobDefinitionId())))
             throw new IllegalArgumentException("Invalid graph request claim/mode");
         Map<String, Object> expansion = readObject(request.parametersJson());
-        if (backfill
-                && (Boolean.TRUE.equals(expansion.get("force"))
-                                != Boolean.TRUE.equals(metadata.get("force"))
-                        || newAttempts(expansion) != newAttempts(metadata)))
-            throw new IllegalArgumentException(
-                    "Backfill rerun/force policy must match accepted request");
+        if (backfill && !dataPolicy(expansion).equals(dataPolicy(metadata)))
+            throw new IllegalArgumentException("Backfill dataPolicy must match accepted request");
         // Serialize one idempotency key, then acquire definitions/slots in stable order.
         jdbc.queryForList(
                 "SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
@@ -199,7 +195,9 @@ public class GraphWorkRequestService {
         jdbc.execute("LOCK TABLE symbols IN SHARE MODE");
         entities.clear();
         JobDefinition target = assertClaim(targetId, claim, now);
+        boolean symbolsSnapshot = target.getJobType() == JobDefinition.JobType.SYNC_SYMBOLS;
         if (backfill
+                && !symbolsSnapshot
                 && Boolean.TRUE.equals(
                         jdbc.queryForObject(
                                 "SELECT EXISTS(SELECT 1 FROM job_definitions WHERE is_active AND schedule_enabled "
@@ -227,7 +225,22 @@ public class GraphWorkRequestService {
             }
         }
         List<String> backfillSymbols = List.of();
-        if (backfill) {
+        if (backfill && symbolsSnapshot) {
+            if (!(expansion.get("scope") instanceof Map<?, ?> scope)
+                    || !"EXCHANGE".equals(scope.get("type"))
+                    || expansion.containsKey("sectorCodes")
+                    || expansion.containsKey("sectorLevel"))
+                throw new IllegalArgumentException("SYMBOLS_REQUIRES_CONFIGURED_EXCHANGE_SCOPE");
+            String exchange = String.valueOf(scope.get("key"));
+            var configured =
+                    target.getConfigJson() == null ? null : target.getConfigJson().get("exchanges");
+            if (!List.of("HOSE", "HNX", "UPCOM").contains(exchange)
+                    || !(configured instanceof List<?> allowed)
+                    || allowed.stream()
+                            .noneMatch(item -> exchange.equalsIgnoreCase(String.valueOf(item))))
+                throw new IllegalArgumentException("SYMBOLS_REQUIRES_CONFIGURED_EXCHANGE_SCOPE");
+            backfillSymbols = List.of(exchange);
+        } else if (backfill) {
             backfillSymbols =
                     jdbc.queryForList(
                             "SELECT exchange || '-' || code FROM symbols WHERE is_active=true "
@@ -446,29 +459,38 @@ public class GraphWorkRequestService {
                                 : outputDeclarations.required(template.message());
         String binding = json.writeValueAsString(upstream.stream().map(UUID::toString).toList());
         var reusable =
-                backfill && newAttempts(requestMetadata)
-                        ? List.<Map<String, Object>>of()
-                        : jdbc.queryForList(
-                                "SELECT a.id,a.execution_id FROM atomic_work_attempts a "
-                                        + "JOIN job_execution_histories e ON e.id=a.execution_id WHERE a.work_id=? AND a.sealed "
-                                        + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
-                                        + "AND "
-                                        + LIVE_OWNER
-                                        + " "
-                                        + "AND NOT EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
-                                        + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
-                                        + "AND (?=false OR EXISTS(SELECT 1 FROM output_completion_contracts c WHERE c.execution_id=e.id AND c.storage_policy=?)) "
-                                        + "ORDER BY a.created_at DESC,a.id LIMIT 1",
-                                work.id(),
-                                binding,
-                                !requiredOutputs.isEmpty(),
-                                outputDeclarations == null
-                                        ? "CANONICAL"
-                                        : outputDeclarations.storagePolicy());
-        if (!reusable.isEmpty())
-            return new Attempt(
-                    (UUID) reusable.getFirst().get("id"),
-                    (UUID) reusable.getFirst().get("execution_id"));
+                jdbc.queryForList(
+                        "SELECT a.id,a.execution_id,a.job_run_id,a.parent_execution_id, "
+                                + "coalesce(p.meta_json->>'dispatchDataPolicy',e.meta_json->'backfillPolicy'->>'dataPolicy', "
+                                + "'PREFER_EXISTING') AS data_policy "
+                                + "FROM atomic_work_attempts a "
+                                + "JOIN job_execution_histories e ON e.id=a.execution_id "
+                                + "JOIN job_execution_histories p ON p.id=a.parent_execution_id WHERE a.work_id=? AND a.sealed "
+                                + "AND a.upstream_attempt_ids=?::jsonb AND e.status IN ('PENDING','RUNNING') "
+                                + "AND "
+                                + LIVE_OWNER
+                                + " "
+                                + "AND NOT EXISTS(SELECT 1 FROM atomic_work_dependencies d JOIN atomic_work_attempts u ON u.id=d.upstream_attempt_id "
+                                + "JOIN job_execution_histories h ON h.id=u.execution_id WHERE d.attempt_id=a.id AND h.status IN ('FAILED','ERROR','BLOCKED')) "
+                                + "AND (?=false OR EXISTS(SELECT 1 FROM output_completion_contracts c WHERE c.execution_id=e.id AND c.storage_policy=?)) "
+                                + "ORDER BY (coalesce(p.meta_json->>'dispatchDataPolicy',e.meta_json->'backfillPolicy'->>'dataPolicy')='REFRESH') DESC NULLS LAST,a.created_at DESC,a.id",
+                        work.id(),
+                        binding,
+                        !requiredOutputs.isEmpty(),
+                        outputDeclarations == null
+                                ? "CANONICAL"
+                                : outputDeclarations.storagePolicy());
+        for (var candidate : reusable) {
+            // Only EOD consumes the cache/provider policy. Other nodes always execute their
+            // normal work; exact upstream-attempt bindings carry refreshed lineage downstream.
+            if (!backfill
+                    || work.jobType() != JobDefinition.JobType.SYNC_STOCK_PRICE
+                    || !dataPolicy(requestMetadata).equals("REFRESH")
+                    || "REFRESH".equals(candidate.get("data_policy"))
+                    || promotePendingDataPolicy(candidate))
+                return new Attempt(
+                        (UUID) candidate.get("id"), (UUID) candidate.get("execution_id"));
+        }
         UUID attemptId = UUID.randomUUID();
         var definition = template.definition();
         var key =
@@ -527,17 +549,7 @@ public class GraphWorkRequestService {
         if (backfill)
             childMetadata.put(
                     "backfillPolicy",
-                    Map.of(
-                            "force",
-                            Boolean.TRUE.equals(requestMetadata.get("force")),
-                            "rerun",
-                            newAttempts(requestMetadata),
-                            "dataPolicy",
-                            Boolean.TRUE.equals(requestMetadata.get("force"))
-                                    ? "REFRESH"
-                                    : "PREFER_EXISTING",
-                            "verifyEodParquet",
-                            true));
+                    Map.of("dataPolicy", dataPolicy(requestMetadata), "verifyEodParquet", true));
         var child =
                 producers
                         .getProducer(work.jobType())
@@ -596,8 +608,48 @@ public class GraphWorkRequestService {
         return parent;
     }
 
-    private static boolean newAttempts(Map<String, Object> policy) {
-        return Boolean.TRUE.equals(policy.get("force")) || Boolean.TRUE.equals(policy.get("rerun"));
+    private static String dataPolicy(Map<String, Object> policy) {
+        Object value = policy.get("dataPolicy");
+        // Read compatibility for accepted requests and previously emitted commands.
+        if (value == null)
+            return Boolean.TRUE.equals(policy.get("force")) ? "REFRESH" : "PREFER_EXISTING";
+        if (!Set.of("PREFER_EXISTING", "REFRESH").contains(value))
+            throw new IllegalArgumentException("Invalid dataPolicy");
+        return value.toString();
+    }
+
+    /** Follow dispatcher lock order; a claimed/ambiguous command is never upgraded. */
+    private boolean promotePendingDataPolicy(Map<String, Object> candidate) {
+        UUID run = (UUID) candidate.get("job_run_id");
+        UUID parent = (UUID) candidate.get("parent_execution_id");
+        UUID execution = (UUID) candidate.get("execution_id");
+        if (jdbc.queryForList(
+                        "SELECT id FROM job_runs WHERE id=? AND state='PREPARED' FOR UPDATE SKIP LOCKED",
+                        run)
+                .isEmpty()) return false;
+        if (jdbc.queryForList(
+                                "SELECT id FROM job_execution_histories WHERE id IN (?,?) ORDER BY (parent_log_id IS NOT NULL),id FOR UPDATE SKIP LOCKED",
+                                parent,
+                                execution)
+                        .size()
+                != 2) return false;
+        var messages =
+                jdbc.queryForList(
+                        "SELECT o.id FROM scheduler_outbox_messages o JOIN job_execution_histories e ON e.id=o.execution_id "
+                                + "WHERE e.id=? AND e.status='PENDING' AND NOT jsonb_exists(e.meta_json,'approvedInputs') "
+                                + "AND NOT EXISTS(SELECT 1 FROM output_storage_write_bases base WHERE base.execution_id=e.id) "
+                                + "AND "
+                                + NEVER_DISPATCHED
+                                + " FOR UPDATE OF o SKIP LOCKED",
+                        execution);
+        if (messages.size() != 1) return false;
+        // The one-child attempt's parent is never rewritten by approved-input binding.
+        // Keep sealed outbox intent and child identity untouched; bind this durable overlay on
+        // publish/replay.
+        jdbc.update(
+                "UPDATE job_execution_histories SET meta_json=jsonb_set(coalesce(meta_json,'{}'::jsonb),'{dispatchDataPolicy}','\"REFRESH\"'::jsonb) WHERE id=?",
+                parent);
+        return true;
     }
 
     @SuppressWarnings("unchecked")

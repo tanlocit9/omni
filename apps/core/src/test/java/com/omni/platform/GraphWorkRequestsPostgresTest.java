@@ -68,7 +68,13 @@ class GraphWorkRequestsPostgresTest {
                                                         "graph-work-test",
                                                         Map.of(
                                                                 "app.scheduler.job-run.graph-expansion-enabled",
-                                                                graphEnabled))));
+                                                                graphEnabled,
+                                                                // Compatibility cases opt into
+                                                                // VERSIONED explicitly.
+                                                                // Do not inherit the operator's
+                                                                // retained-runtime .env.
+                                                                "app.output-registration.versioned-storage-enabled",
+                                                                false))));
         jdbc = context.getBean(JdbcTemplate.class);
         preparation = context.getBean(JobRunPreparationService.class);
         graph = context.getBean(GraphWorkRequestService.class);
@@ -101,6 +107,135 @@ class GraphWorkRequestsPostgresTest {
         jdbc.update(
                 "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('AAA','HOSE',true,jsonb_build_object('sectorLv2Code',?::text))",
                 sector);
+    }
+
+    @Test
+    void sectorDiscoveryUsesActualActiveMembershipAndOptionalCatalogNames() {
+        try {
+            jdbc.update(
+                    "UPDATE symbols SET meta_json='{\"sectorLv1Code\":\"ROOT\",\"sectorLv2Code\":\"MISSING\"}'::jsonb");
+            jdbc.update(
+                    "INSERT INTO symbols(code,exchange,is_active,meta_json) VALUES ('BBB','HOSE',true,'{\"sectorLv2Code\":\"MISSING\"}'),('OFF','HOSE',false,'{\"sectorLv2Code\":\"INACTIVE\"}'),('CCC','HOSE',true,'{\"sectorLv2Code\":\"NAMED\"}'),('DDD','HNX',true,'{\"sectorLv2Code\":\"VI_ONLY\"}')");
+            jdbc.update(
+                    "INSERT INTO sectors(id,code,name_en,name_vi,taxonomy,taxonomy_level,source_code,is_active) VALUES (?,'NAMED','  English name  ','Vietnamese name','ICB',2,'TEST_NAMED',true),(?,'VI_ONLY',' ','Vietnamese name','ICB',2,'TEST_VI',true),(?,'UNUSED','Unused',null,'ICB',2,'TEST_UNUSED',true)",
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    UUID.randomUUID());
+            var api =
+                    context.getBean(
+                            com.omni.platform.modules.scheduler.controllers
+                                    .IndicatorBackfillController.class);
+            assertThat(api.sectors(2))
+                    .containsExactly(
+                            new com.omni.platform.modules.scheduler.controllers
+                                    .IndicatorBackfillController.SectorOption("MISSING", "MISSING"),
+                            new com.omni.platform.modules.scheduler.controllers
+                                    .IndicatorBackfillController.SectorOption(
+                                    "NAMED", "English name"),
+                            new com.omni.platform.modules.scheduler.controllers
+                                    .IndicatorBackfillController.SectorOption(
+                                    "VI_ONLY", "Vietnamese name"));
+            assertThat(api.sectors(1))
+                    .containsExactly(
+                            new com.omni.platform.modules.scheduler.controllers
+                                    .IndicatorBackfillController.SectorOption("ROOT", "ROOT"));
+            assertThat(api.sectors(4)).isEmpty();
+            assertThat(count("atomic_work_requests")).isZero();
+            assertThat(count("atomic_work_attempts")).isZero();
+        } finally {
+            jdbc.update(
+                    "DELETE FROM sectors WHERE taxonomy='ICB' AND taxonomy_level=2 AND source_code IN ('TEST_NAMED','TEST_VI','TEST_UNUSED')");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"valid", "empty-universe", "history", "wrong-scope", "unconfigured"})
+    void symbolsGoalFreezesOneExchangeAndPreservesScopeBoundIdempotency(String scenario) {
+        var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
+        try {
+            var target = target(JobType.SYNC_SYMBOLS);
+            if (scenario.equals("empty-universe")) jdbc.update("DELETE FROM symbols");
+            if (scenario.equals("unconfigured"))
+                jdbc.update(
+                        "UPDATE job_definitions SET config_json=jsonb_set(config_json,'{exchanges}','[\"HNX\"]'::jsonb) WHERE id=?",
+                        target.getId());
+            var day =
+                    NOW.atZone(com.omni.platform.modules.scheduler.expansion.WorkExpansion.ZONE)
+                            .toLocalDate();
+            var date = scenario.equals("history") ? day.minusDays(1) : day;
+            var expansion =
+                    new java.util.LinkedHashMap<String, Object>(
+                            Map.of(
+                                    "dateFrom",
+                                    date.toString(),
+                                    "dateTo",
+                                    date.toString(),
+                                    "rerun",
+                                    true,
+                                    "scope",
+                                    Map.of(
+                                            "type",
+                                            scenario.equals("wrong-scope") ? "SYMBOL" : "EXCHANGE",
+                                            "key",
+                                            "HOSE")));
+            var json = JsonMapper.builder().build();
+            var request =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "symbols-goal",
+                            "Current exchange snapshot",
+                            null,
+                            json.writeValueAsString(expansion));
+            if (!List.of("valid", "empty-universe").contains(scenario)) {
+                assertThatThrownBy(
+                                () ->
+                                        graph.prepareBackfill(
+                                                request,
+                                                target.getId(),
+                                                NOW,
+                                                Map.of("rerun", true)))
+                        .isInstanceOf(IllegalArgumentException.class);
+                assertThat(count("atomic_work_requests")).isZero();
+                assertThat(count("atomic_work_attempts")).isZero();
+                return;
+            }
+            UUID execution =
+                    graph.prepareBackfill(request, target.getId(), NOW, Map.of("rerun", true));
+            assertThat(
+                            jdbc.queryForList(
+                                    "SELECT e.meta_json->>'workKey' FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories e ON e.id=a.execution_id WHERE m.request_id=? AND m.is_target",
+                                    String.class,
+                                    graph.requestId(execution)))
+                    .containsExactly("HOSE");
+            assertThat(count("atomic_work_attempts")).isEqualTo(1);
+            assertThat(count("output_completion_contracts")).isZero();
+            assertThat(graph.prepareBackfill(request, target.getId(), NOW, Map.of("rerun", true)))
+                    .isEqualTo(execution);
+            expansion.put("scope", Map.of("type", "EXCHANGE", "key", "HNX"));
+            var changed =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            request.mode(),
+                            request.actor(),
+                            request.idempotencyKey(),
+                            request.reason(),
+                            null,
+                            json.writeValueAsString(expansion));
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            changed, target.getId(), NOW, Map.of("rerun", true)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("IDEMPOTENCY");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
+        }
     }
 
     JobDefinition target(JobType type) {
@@ -875,7 +1010,7 @@ class GraphWorkRequestsPostgresTest {
                                 case "empty" -> "no target work";
                                 case "partial" -> "INCOMPLETE_TARGET_MEMBERSHIP";
                                 case "unsupported" -> "BACKFILL_UNSUPPORTED_OUTPUT_PROTOCOL";
-                                default -> "force policy";
+                                default -> "dataPolicy";
                             });
             assertThat(count("atomic_work_requests")).isZero();
             assertThat(count("atomic_work_attempts")).isZero();
@@ -3230,6 +3365,375 @@ class GraphWorkRequestsPostgresTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"dataPolicy", "force", "rerun"})
+    void rejectsExecutionPolicyInsideAnalyticalParameters(String field) {
+        var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
+        try {
+            jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
+            var expansion =
+                    Map.of(
+                            "dateFrom",
+                            "2035-01-02",
+                            "dateTo",
+                            "2035-01-02",
+                            "sectorCodes",
+                            List.of(JobDefinitionConfig.ENABLED_SECTOR_CODES.getFirst()),
+                            "sectorLevel",
+                            2,
+                            "dataPolicy",
+                            "PREFER_EXISTING",
+                            "parameters",
+                            Map.of(field, "REFRESH"));
+            var request =
+                    new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                            com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode.BACKFILL,
+                            "operator",
+                            "policy-parameter",
+                            "Parameter guard",
+                            null,
+                            context.getBean("jsonMapper", JsonMapper.class)
+                                    .writeValueAsString(expansion));
+            assertThatThrownBy(
+                            () ->
+                                    graph.prepareBackfill(
+                                            request,
+                                            target(JobType.SYNC_INDICATORS).getId(),
+                                            NOW,
+                                            Map.of("dataPolicy", "PREFER_EXISTING")))
+                    .hasMessageContaining("Put selectors at request level");
+            assertThat(count("atomic_work_requests")).isZero();
+            assertThat(count("atomic_work_attempts")).isZero();
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "pending",
+                "refresh-first",
+                "claimed-eod",
+                "ambiguous-publication",
+                "published-eod",
+                "running-eod",
+                "terminal-eod",
+                "claimed-symbols",
+                "approved-inputs",
+                "frozen-storage-base",
+                "rollback",
+                "locked-run",
+                "locked-child",
+                "bound-replay",
+                "invalid-overlay",
+                "invalid-approved",
+                "invalid-output-binding",
+                "concurrent"
+            })
+    void sharesInflightWorkAndPromotesOnlyNeverDispatchedEod(String scenario) throws Exception {
+        var actual = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(graph);
+        org.springframework.test.util.ReflectionTestUtils.setField(actual, "backfillEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                actual, "registrationConsumerEnabled", true);
+        try {
+            jdbc.update("UPDATE job_definitions SET schedule_enabled=false");
+            var target = target(JobType.SYNC_INDICATORS);
+            var mapper = context.getBean("jsonMapper", JsonMapper.class);
+            java.util.function.BiFunction<String, String, UUID> submit =
+                    (key, policy) -> {
+                        var expansion =
+                                Map.of(
+                                        "dateFrom",
+                                        "2035-01-02",
+                                        "dateTo",
+                                        "2035-01-02",
+                                        "sectorCodes",
+                                        List.of(
+                                                JobDefinitionConfig.ENABLED_SECTOR_CODES
+                                                        .getFirst()),
+                                        "sectorLevel",
+                                        2,
+                                        "dataPolicy",
+                                        policy);
+                        var request =
+                                new com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Request(
+                                        com.omni.platform.modules.scheduler.runs.JobRunSnapshot.Mode
+                                                .BACKFILL,
+                                        "operator",
+                                        key,
+                                        "Policy sharing",
+                                        null,
+                                        mapper.writeValueAsString(expansion));
+                        return graph.prepareBackfill(
+                                request, target.getId(), NOW, Map.of("dataPolicy", policy));
+                    };
+            if (scenario.equals("concurrent")) {
+                try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                    var lower =
+                            pool.submit(() -> submit.apply("concurrent-lower", "PREFER_EXISTING"));
+                    var stronger =
+                            pool.submit(() -> submit.apply("concurrent-stronger", "REFRESH"));
+                    assertThat(lower.get(30, java.util.concurrent.TimeUnit.SECONDS))
+                            .isNotEqualTo(stronger.get(30, java.util.concurrent.TimeUnit.SECONDS));
+                }
+                assertThat(count("atomic_work_attempts")).isEqualTo(3);
+                return;
+            }
+            String initial = scenario.equals("refresh-first") ? "REFRESH" : "PREFER_EXISTING";
+            UUID first = submit.apply("policy-first", initial);
+            UUID eod =
+                    jdbc.queryForObject(
+                            "SELECT a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id JOIN job_definitions d ON d.id=e.job_id WHERE d.job_type='SYNC_STOCK_PRICE'",
+                            UUID.class);
+            UUID symbols =
+                    jdbc.queryForObject(
+                            "SELECT a.execution_id FROM atomic_work_attempts a JOIN job_execution_histories e ON e.id=a.execution_id JOIN job_definitions d ON d.id=e.job_id WHERE d.job_type='SYNC_SYMBOLS'",
+                            UUID.class);
+            UUID message =
+                    jdbc.queryForObject(
+                            "SELECT id FROM scheduler_outbox_messages WHERE execution_id=?",
+                            UUID.class,
+                            eod);
+            if (scenario.equals("claimed-eod") || scenario.equals("claimed-symbols"))
+                jdbc.update(
+                        "UPDATE scheduler_outbox_messages SET attempts=1,claim_token=?,claimed_by='fixture',claim_until=? WHERE execution_id=?",
+                        UUID.randomUUID(),
+                        java.sql.Timestamp.from(NOW.plusSeconds(60)),
+                        scenario.equals("claimed-eod") ? eod : symbols);
+            if (scenario.equals("published-eod"))
+                jdbc.update(
+                        "UPDATE scheduler_outbox_messages SET attempts=1,status='PUBLISHED',published_at=? WHERE execution_id=?",
+                        java.sql.Timestamp.from(NOW),
+                        eod);
+            if (scenario.equals("ambiguous-publication"))
+                jdbc.update(
+                        "UPDATE scheduler_outbox_messages SET attempts=1 WHERE execution_id=?",
+                        eod);
+            if (scenario.equals("running-eod") || scenario.equals("terminal-eod"))
+                jdbc.update(
+                        "UPDATE job_execution_histories SET status=? WHERE id=?",
+                        scenario.equals("running-eod") ? "RUNNING" : "FAILED",
+                        eod);
+            if (scenario.equals("approved-inputs"))
+                jdbc.update(
+                        "UPDATE job_execution_histories SET meta_json=meta_json || '{"
+                                + "\"approvedInputs\":[]}'::jsonb WHERE id=?",
+                        eod);
+            if (scenario.equals("frozen-storage-base"))
+                jdbc.update(
+                        "INSERT INTO output_storage_write_bases(execution_id,bases) VALUES (?,?::jsonb)",
+                        eod,
+                        "[{\"dataset\":\"eod\",\"partition\":{\"exchange\":\"hose\",\"code\":\"aaa\"},\"storageVersionId\":null,\"generation\":null}]");
+            var originalIntent =
+                    jdbc.queryForList(
+                            "SELECT id,payload FROM scheduler_outbox_messages ORDER BY id");
+            if (scenario.equals("rollback")) {
+                var transaction =
+                        new org.springframework.transaction.support.TransactionTemplate(
+                                context.getBean(
+                                        org.springframework.transaction.PlatformTransactionManager
+                                                .class));
+                assertThatThrownBy(
+                                () ->
+                                        transaction.execute(
+                                                status -> {
+                                                    submit.apply("rolled-back-refresh", "REFRESH");
+                                                    throw new IllegalStateException(
+                                                            "ROLLBACK_POLICY_PROMOTION");
+                                                }))
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("ROLLBACK_POLICY_PROMOTION");
+                assertThat(count("atomic_work_requests")).isEqualTo(1);
+                assertThat(count("atomic_work_attempts")).isEqualTo(3);
+                assertThat(
+                                jdbc.queryForList(
+                                        "SELECT id,payload FROM scheduler_outbox_messages ORDER BY id"))
+                        .isEqualTo(originalIntent);
+                var bound =
+                        mapper.readTree(
+                                context.getBean(SchedulerOutboxService.class)
+                                        .boundPayload(message));
+                assertThat(
+                                bound.path("metadata")
+                                        .path("backfillPolicy")
+                                        .path("dataPolicy")
+                                        .asText())
+                        .isEqualTo("PREFER_EXISTING");
+                return;
+            }
+            UUID second;
+            if (scenario.startsWith("locked-")) {
+                var locked = new java.util.concurrent.CountDownLatch(1);
+                var release = new java.util.concurrent.CountDownLatch(1);
+                var transaction =
+                        new org.springframework.transaction.support.TransactionTemplate(
+                                context.getBean(
+                                        org.springframework.transaction.PlatformTransactionManager
+                                                .class));
+                try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                    var holder =
+                            pool.submit(
+                                    () ->
+                                            transaction.execute(
+                                                    status -> {
+                                                        jdbc.queryForList(
+                                                                scenario.equals("locked-run")
+                                                                        ? "SELECT id FROM job_runs WHERE id=(SELECT job_run_id FROM atomic_work_attempts WHERE execution_id=?) FOR UPDATE"
+                                                                        : "SELECT id FROM job_execution_histories WHERE id=? FOR UPDATE",
+                                                                eod);
+                                                        locked.countDown();
+                                                        try {
+                                                            if (!release.await(
+                                                                    20, TimeUnit.SECONDS))
+                                                                throw new IllegalStateException(
+                                                                        "LOCK_HOLDER_TIMEOUT");
+                                                        } catch (InterruptedException interrupted) {
+                                                            Thread.currentThread().interrupt();
+                                                            throw new IllegalStateException(
+                                                                    interrupted);
+                                                        }
+                                                        return null;
+                                                    }));
+                    try {
+                        assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+                        second =
+                                pool.submit(() -> submit.apply("policy-second", "REFRESH"))
+                                        .get(10, TimeUnit.SECONDS);
+                    } finally {
+                        release.countDown();
+                    }
+                    holder.get(10, TimeUnit.SECONDS);
+                }
+            } else {
+                second =
+                        submit.apply(
+                                "policy-second",
+                                scenario.equals("refresh-first") ? "PREFER_EXISTING" : "REFRESH");
+            }
+            assertThat(second).isNotEqualTo(first);
+            boolean shared =
+                    List.of(
+                                    "pending",
+                                    "refresh-first",
+                                    "claimed-symbols",
+                                    "bound-replay",
+                                    "invalid-overlay",
+                                    "invalid-approved",
+                                    "invalid-output-binding")
+                            .contains(scenario);
+            assertThat(count("atomic_work_attempts")).isEqualTo(shared ? 3 : 5);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(DISTINCT work_id) FROM atomic_work_attempts",
+                                    Integer.class))
+                    .isEqualTo(3);
+            for (var intent : originalIntent)
+                assertThat(
+                                jdbc.queryForObject(
+                                        "SELECT payload FROM scheduler_outbox_messages WHERE id=?",
+                                        String.class,
+                                        intent.get("id")))
+                        .isEqualTo(intent.get("payload"));
+            var outbox = context.getBean(SchedulerOutboxService.class);
+            if (scenario.equals("invalid-overlay")) {
+                jdbc.update(
+                        "UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{dispatchDataPolicy}','\"UNKNOWN\"'::jsonb) WHERE id=(SELECT parent_execution_id FROM atomic_work_attempts WHERE execution_id=?)",
+                        eod);
+                assertThatThrownBy(() -> outbox.boundPayload(message))
+                        .hasMessageContaining("Invalid dispatch data policy");
+                return;
+            }
+            if (scenario.equals("invalid-approved")) {
+                jdbc.update(
+                        "UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{approvedInputs}','\"invalid\"'::jsonb) WHERE id=?",
+                        eod);
+                assertThatThrownBy(() -> outbox.boundPayload(message))
+                        .hasMessageContaining("Invalid approved input binding");
+                return;
+            }
+            if (scenario.equals("invalid-output-binding")) {
+                jdbc.update(
+                        "INSERT INTO output_storage_write_bases(execution_id,bases) VALUES (?,?::jsonb)",
+                        eod,
+                        "[{\"dataset\":\"eod\",\"partition\":{\"exchange\":\"hose\",\"code\":\"aaa\"},\"storageVersionId\":null,\"generation\":null}]");
+                var execution =
+                        context.getBean(
+                                        com.omni.platform.modules.scheduler.repositories
+                                                .JobExecutionHistoryRepository.class)
+                                .findById(eod)
+                                .orElseThrow();
+                // Test malformed envelope refusal without changing any sealed outbox intent.
+                var binder =
+                        org.springframework.test.util.AopTestUtils.getUltimateTargetObject(outbox);
+                assertThatThrownBy(
+                                () ->
+                                        org.springframework.test.util.ReflectionTestUtils
+                                                .invokeMethod(
+                                                        binder,
+                                                        "bindApprovedInputs",
+                                                        "{}",
+                                                        execution))
+                        .hasMessageContaining("Versioned execution has no output declaration");
+                return;
+            }
+            if (scenario.equals("bound-replay")) {
+                // Exercise envelope reconstruction only; no worker, storage or READY is fabricated.
+                jdbc.update(
+                        "UPDATE job_execution_histories SET status='SUCCESS' WHERE id=?", symbols);
+                jdbc.update(
+                        "UPDATE job_execution_histories SET meta_json=jsonb_set(meta_json,'{approvedInputs}','[]'::jsonb) WHERE id=?",
+                        eod);
+                jdbc.update(
+                        "INSERT INTO output_storage_write_bases(execution_id,bases) VALUES (?,?::jsonb)",
+                        eod,
+                        "[{\"dataset\":\"eod\",\"partition\":{\"exchange\":\"hose\",\"code\":\"aaa\"},\"storageVersionId\":null,\"generation\":null}]");
+                var claimed =
+                        outbox.claimEligible(
+                                message, NOW, "policy-binding", Duration.ofSeconds(60), Map.of());
+                assertThat(claimed).isNotNull();
+                assertThat(claimed.payload()).isEqualTo(outbox.boundPayload(message));
+                var envelope = mapper.readTree(claimed.payload()).path("metadata");
+                assertThat(envelope.path("backfillPolicy").path("dataPolicy").asText())
+                        .isEqualTo("REFRESH");
+                assertThat(envelope.path("approvedInputs").isArray()).isTrue();
+                assertThat(envelope.path("outputCompletion").path("storageBases").size())
+                        .isEqualTo(1);
+                assertThat(outbox.scheduleRetry(claimed, NOW.plusSeconds(1), "fixture-retry"))
+                        .isTrue();
+                var retried =
+                        outbox.claimEligible(
+                                message,
+                                NOW.plusSeconds(2),
+                                "policy-retry",
+                                Duration.ofSeconds(60),
+                                Map.of());
+                assertThat(retried).isNotNull();
+                assertThat(retried.payload()).isEqualTo(claimed.payload());
+            }
+            var bound =
+                    mapper.readTree(
+                            context.getBean(SchedulerOutboxService.class).boundPayload(message));
+            assertThat(bound.path("metadata").path("backfillPolicy").path("dataPolicy").asText())
+                    .isEqualTo(shared ? "REFRESH" : "PREFER_EXISTING");
+            // Same-key replay keeps accepted membership, even if another request strengthened its
+            // shared EOD.
+            assertThat(submit.apply("policy-first", initial)).isEqualTo(first);
+            assertThat(graph.inspect(graph.requestId(second)).get("members")).isNotNull();
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "backfillEnabled", false);
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    actual, "registrationConsumerEnabled", false);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"default", "rerun", "force"})
     void backfillSeparatesAttemptReuseFromProviderRefreshWithoutChangingWorkIdentity(
             String policy) {
@@ -3279,7 +3783,7 @@ class GraphWorkRequestsPostgresTest {
                             null,
                             request.parametersJson());
             graph.prepareBackfill(second, target.getId(), NOW, metadata);
-            int expected = rerun ? 6 : 3;
+            int expected = 3;
             assertThat(count("atomic_work_attempts")).isEqualTo(expected);
             assertThat(
                             jdbc.queryForObject(
@@ -3288,11 +3792,9 @@ class GraphWorkRequestsPostgresTest {
                     .isEqualTo(3);
             assertThat(
                             jdbc.queryForObject(
-                                    "SELECT count(*) FROM job_execution_histories WHERE meta_json->'backfillPolicy'->>'dataPolicy'=? "
-                                            + "AND (meta_json->'backfillPolicy'->>'rerun')::boolean=?",
+                                    "SELECT count(*) FROM job_execution_histories WHERE meta_json->'backfillPolicy'->>'dataPolicy'=?",
                                     Integer.class,
-                                    force ? "REFRESH" : "PREFER_EXISTING",
-                                    rerun))
+                                    force ? "REFRESH" : "PREFER_EXISTING"))
                     .isEqualTo(expected);
             expansion.put("force", !force);
             expansion.put("rerun", true);

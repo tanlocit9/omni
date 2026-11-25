@@ -117,41 +117,60 @@ async def main():
             write_marker(entered, {"executionId": execution, "attempts": attempts + 1})
             while not (control / "release-indicators").exists():
                 await asyncio.sleep(0.05)
-            count = await actual_handle(payload)
-            message = IndicatorJobMessage.model_validate(payload)
-            exchange, code = message.parse_symbol_key()
-            path = handler._build_indicators_path(
-                message.indicator_source,
-                message.timeframe,
-                exchange.lower(),
-                code.lower(),
-            )
-            frame = await parquet.read_dataframe(path)
-            write_marker(
-                control / f"output-{execution}.json",
-                {
-                    "rows": len(frame),
-                    "inputVersions": sorted(
-                        frame["eod_data_version"].dropna().unique().tolist()
-                    ),
-                },
-            )
-            return count
+            return await actual_handle(payload)
 
         handler.handle = gated_handle
     indicators = IndicatorKafkaService(settings, handler)
     if control:
-        actual_publish = indicators.publish_status
+        actual_process = indicators.process_payload
 
-        async def observed_publish(status):
-            await actual_publish(status)
+        async def observed_process(payload):
+            # Enrolled success publishes through the registration/completion bundle,
+            # not publish_status. Observe its returned, acknowledged terminal result.
+            status = await actual_process(payload)
+            if status is None:
+                return None
+            if status.status == "SUCCESS":
+                raw = (
+                    json.loads(payload)
+                    if isinstance(payload, (str, bytes))
+                    else payload
+                )
+                message = IndicatorJobMessage.model_validate(raw)
+                exchange, code = message.parse_symbol_key()
+                path = handler._build_indicators_path(
+                    message.indicator_source,
+                    message.timeframe,
+                    exchange.lower(),
+                    code.lower(),
+                )
+                # Observe persisted output after the publication context closes;
+                # an in-handler read would read the frozen pre-write storage base.
+                frame = await parquet.read_dataframe(path)
+                write_marker(
+                    control / f"output-{status.execution_id}.json",
+                    {
+                        "rows": len(frame),
+                        "inputVersions": sorted(
+                            frame["eod_data_version"].dropna().unique().tolist()
+                        ),
+                    },
+                )
             marker = control / f"ack-{status.execution_id}.json"
             attempts = (
                 json.loads(marker.read_text())["attempts"] if marker.exists() else 0
             )
-            write_marker(marker, {"attempts": attempts + 1, "status": status.status})
+            write_marker(
+                marker,
+                {
+                    "attempts": attempts + 1,
+                    "status": status.status,
+                    "errorMessage": status.error_message,
+                },
+            )
+            return status
 
-        indicators.publish_status = observed_publish
+        indicators.process_payload = observed_process
     await metadata.start()
     await indicators.start()
     signals = SignalKafkaService(

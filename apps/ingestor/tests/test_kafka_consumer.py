@@ -18,7 +18,8 @@ async def test_ingestor_confirms_worker_start_before_stock_handler(start_ack_fai
     from py_common.messaging import JobStatus
 
     config = SimpleNamespace(
-        topic_sync_symbols="symbols", topic_sync_stock_prices="prices",
+        topic_sync_symbols="symbols",
+        topic_sync_stock_prices="prices",
         topic_sync_intraday_eod="intraday",
     )
     service = IngestorKafkaRoutingService(config)
@@ -40,8 +41,10 @@ async def test_ingestor_confirms_worker_start_before_stock_handler(start_ack_fai
 
     service._status_publisher = SimpleNamespace(publish=AsyncMock(side_effect=publish))
     raw = {
-        "jobDefinitionId": str(uuid4()), "executionId": str(uuid4()),
-        "workType": "SYMBOL", "workKey": "HOSE-HPG",
+        "jobDefinitionId": str(uuid4()),
+        "executionId": str(uuid4()),
+        "workType": "SYMBOL",
+        "workKey": "HOSE-HPG",
     }
     msg = SimpleNamespace(topic="prices", value=json.dumps(raw).encode())
     with pytest.MonkeyPatch.context() as patcher:

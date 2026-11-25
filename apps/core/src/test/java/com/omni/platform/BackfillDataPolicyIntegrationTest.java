@@ -50,7 +50,7 @@ class BackfillDataPolicyIntegrationTest {
 
     @BeforeAll
     static void initialize() throws Exception {
-        start(false, true, true, false, true);
+        start(false, true, true, true, true, "postgres");
         jdbc.execute("TRUNCATE job_runs,job_execution_histories,symbols,atomic_work_slots CASCADE");
         var retained =
                 jdbc.queryForList(
@@ -88,7 +88,7 @@ class BackfillDataPolicyIntegrationTest {
                 control.resolve("symbol-classification.json"), "{\"sectorLv1Code\":\"BANK\"}");
         // Seed real canonical history through the worker, leaving one historical day absent.
         Files.writeString(control.resolve("omit-stock-date"), previousDay(4).toString());
-        finish(submit(day, Map.of("force", true)), true);
+        finish(submit(day, Map.of("dataPolicy", "REFRESH")), true);
         Files.delete(control.resolve("omit-stock-date"));
         assertThat(fetches()).isEqualTo(1);
     }
@@ -114,7 +114,8 @@ class BackfillDataPolicyIntegrationTest {
         int before = fetches();
         Files.writeString(control.resolve("fail-stock"), "cache hit must not call provider");
         try {
-            var request = submit(target, rerun ? Map.of("rerun", true) : Map.of());
+            var request =
+                    submit(target, rerun ? Map.of("dataPolicy", "PREFER_EXISTING") : Map.of());
             finish(request, true);
             var proof = proof(request);
             assertThat(proof.path("before").path("dayRows").asInt()).isEqualTo(1);
@@ -124,7 +125,7 @@ class BackfillDataPolicyIntegrationTest {
                     .isEqualTo(proof.path("before").path("otherRows").asText());
             assertThat(proof.path("policy").path("dataPolicy").asText())
                     .isEqualTo("PREFER_EXISTING");
-            assertThat(proof.path("policy").path("rerun").asBoolean()).isEqualTo(rerun);
+            assertThat(proof.path("policy").has("rerun")).isFalse();
             assertThat(fetches()).isEqualTo(before);
             assertReady(request);
         } finally {
@@ -158,7 +159,7 @@ class BackfillDataPolicyIntegrationTest {
         Files.writeString(
                 control.resolve("stock-price-overrides.json"),
                 JSON.writeValueAsString(Map.of(target.toString(), 777)));
-        var request = submit(target, Map.of("force", true, "rerun", false));
+        var request = submit(target, Map.of("dataPolicy", "REFRESH"));
         finish(request, true);
         var proof = proof(request);
         assertThat(proof.path("before").path("dayRows").asInt()).isEqualTo(1);
@@ -167,7 +168,7 @@ class BackfillDataPolicyIntegrationTest {
         assertThat(proof.path("after").path("otherRows").asText())
                 .isEqualTo(proof.path("before").path("otherRows").asText());
         assertThat(proof.path("policy").path("dataPolicy").asText()).isEqualTo("REFRESH");
-        assertThat(proof.path("policy").path("rerun").asBoolean()).isTrue();
+        assertThat(proof.path("policy").has("rerun")).isFalse();
         assertThat(fetches()).isEqualTo(before + 1);
         assertReady(request);
     }
@@ -179,7 +180,7 @@ class BackfillDataPolicyIntegrationTest {
         Files.writeString(
                 control.resolve("fail-stock"), "force must fetch even though cached day exists");
         try {
-            var request = submit(previousDay(3), Map.of("force", true));
+            var request = submit(previousDay(3), Map.of("dataPolicy", "REFRESH"));
             finish(request, false);
             assertUnchangedFailedRefresh(request);
             assertThat(fetches()).isEqualTo(before + 1);
@@ -194,7 +195,7 @@ class BackfillDataPolicyIntegrationTest {
         int before = fetches();
         Files.writeString(control.resolve("omit-stock-date"), previousDay(3).toString());
         try {
-            var request = submit(previousDay(3), Map.of("force", true));
+            var request = submit(previousDay(3), Map.of("dataPolicy", "REFRESH"));
             finish(request, false);
             assertUnchangedFailedRefresh(request);
             assertThat(fetches()).isEqualTo(before + 1);
@@ -302,10 +303,10 @@ class BackfillDataPolicyIntegrationTest {
                                 previousDay(scenario.equals("range") ? 2 : 1).toString(),
                                 "dateTo",
                                 previousDay(1).toString()));
-        if (scenario.equals("rerun")) body.put("rerun", true);
+        if (scenario.equals("rerun")) body.put("dataPolicy", "PREFER_EXISTING");
         boolean failed = scenario.equals("force-failure");
         if (failed) {
-            body.put("force", true);
+            body.put("dataPolicy", "REFRESH");
             Files.writeString(control.resolve("fail-stock"), "Signals must not bypass failed EOD");
         }
         int before = fetches();
@@ -341,7 +342,7 @@ class BackfillDataPolicyIntegrationTest {
         }
     }
 
-    static Submitted submit(LocalDate target, Map<String, Boolean> flags) throws Exception {
+    static Submitted submit(LocalDate target, Map<String, String> policy) throws Exception {
         Map<String, Object> body =
                 new LinkedHashMap<>(
                         Map.of(
@@ -355,7 +356,7 @@ class BackfillDataPolicyIntegrationTest {
                                 target.toString(),
                                 "dateTo",
                                 target.toString()));
-        body.putAll(flags);
+        body.putAll(policy);
         return postBackfill(body);
     }
 
@@ -382,8 +383,8 @@ class BackfillDataPolicyIntegrationTest {
                                 firstDay.toString(),
                                 "dateTo",
                                 firstDay.toString(),
-                                "force",
-                                true));
+                                "dataPolicy",
+                                "REFRESH"));
         await(
                 () -> {
                     dispatcher.dispatch();
@@ -434,8 +435,8 @@ class BackfillDataPolicyIntegrationTest {
                                 firstDay.toString(),
                                 "dateTo",
                                 secondDay.toString(),
-                                "force",
-                                true));
+                                "dataPolicy",
+                                "REFRESH"));
         finish(next, true);
         String accepted =
                 jdbc.queryForObject(
@@ -504,8 +505,8 @@ class BackfillDataPolicyIntegrationTest {
                                 firstDay.toString(),
                                 "dateTo",
                                 secondDay.toString(),
-                                "rerun",
-                                true));
+                                "dataPolicy",
+                                "PREFER_EXISTING"));
         finish(rerun, true);
         assertThat(fetches()).isEqualTo(beforeRerun);
         var workReader =

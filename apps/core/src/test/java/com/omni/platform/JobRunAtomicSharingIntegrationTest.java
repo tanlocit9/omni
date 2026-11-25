@@ -36,7 +36,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 class JobRunAtomicSharingIntegrationTest {
     @BeforeAll
     static void boot() throws Exception {
-        JobRunCrossServiceIntegrationTest.start(true, true);
+        JobRunCrossServiceIntegrationTest.start(true, true, true, true, true, "postgres");
     }
 
     @AfterAll
@@ -127,23 +127,19 @@ class JobRunAtomicSharingIntegrationTest {
                 () -> {
                     dispatch.dispatch();
                     graph.reconcile();
-                    return "SUCCESS".equals(status(stock));
+                    return "SUCCESS".equals(status(stock))
+                            && jdbc.queryForObject(
+                                            "SELECT count(*) FROM output_work_ready WHERE dataset='eod'",
+                                            Integer.class)
+                                    == 1;
                 },
                 180,
                 "real catalog and stock ancestor attempts complete once for both owners");
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT status FROM scheduler_outbox_messages WHERE execution_id=?",
-                                String.class,
-                                indicator))
-                .isEqualTo("PENDING");
-        assertThat(
-                        jdbc.queryForObject(
                                 "SELECT atomic_work_admissible(?)", Boolean.class, indicator))
                 .isTrue();
-        assertThat(Files.exists(control.resolve("entered-" + indicator + ".json"))).isFalse();
-        // Execution completion alone must not bypass missing global dataset discovery.
-        finishRequest(request(JobType.SYNC_METADATA, "discover-eod"), dispatch, graph);
+        // Committed PostgreSQL READY admits the shared command; no discovery job is required.
         await(
                 () -> {
                     dispatch.dispatch();
@@ -192,6 +188,8 @@ class JobRunAtomicSharingIntegrationTest {
                                 Integer.class))
                 .isZero();
 
+        var readyBeforeReplay =
+                jdbc.queryForList("SELECT * FROM output_work_ready ORDER BY atomic_work_id");
         var message =
                 jdbc.queryForMap(
                         "SELECT topic,message_key FROM scheduler_outbox_messages WHERE id=?",
@@ -212,7 +210,14 @@ class JobRunAtomicSharingIntegrationTest {
                 },
                 45,
                 "completed shared command replay is actually acknowledged");
-        assertThat(marker(control, "ack", indicator).path("status").asText()).isEqualTo("SUCCESS");
+        // Replaying a sealed first-write command retains its frozen empty base.
+        // The existing object must not be silently adopted as a new writable base.
+        assertThat(marker(control, "ack", indicator).path("status").asText()).isEqualTo("ERROR");
+        assertThat(marker(control, "ack", indicator).path("errorMessage").asText())
+                .contains("STORAGE_BASELINE_REQUIRED");
+        assertThat(status(indicator)).isEqualTo("SUCCESS");
+        assertThat(jdbc.queryForList("SELECT * FROM output_work_ready ORDER BY atomic_work_id"))
+                .isEqualTo(readyBeforeReplay);
         assertThat(marker(control, "output", indicator).path("rows").asInt()).isEqualTo(1);
         assertThat(marker(control, "output", indicator).path("inputVersions").get(0).asText())
                 .isEqualTo(approval);
@@ -248,7 +253,11 @@ class JobRunAtomicSharingIntegrationTest {
                     30,
                     "shared command and duplicate have committed offsets after status ACK");
         }
-        finishRequest(request(JobType.SYNC_METADATA, "discover-output"), dispatch, graph);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM job_execution_histories h JOIN job_definitions d ON d.id=h.job_id WHERE d.job_type='SYNC_METADATA'",
+                                Integer.class))
+                .isZero();
         launch("query-service", "p14_query.py", true);
         var query = JSON.readTree(Files.readString(directory.resolve("query-result.json")));
         assertThat(query.path("rows").asInt()).isEqualTo(1);

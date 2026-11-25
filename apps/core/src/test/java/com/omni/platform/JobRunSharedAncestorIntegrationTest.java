@@ -16,8 +16,6 @@ import com.omni.platform.modules.scheduler.SchedulerOutboxDispatcher;
 import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.services.SchedulerOutboxService;
 import com.omni.platform.shared.infrastructure.kafka.KafkaPublisher;
-import io.minio.GetObjectArgs;
-import io.minio.MinioClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -31,7 +29,7 @@ import tools.jackson.databind.JsonNode;
 class JobRunSharedAncestorIntegrationTest {
     @BeforeAll
     static void boot() throws Exception {
-        JobRunCrossServiceIntegrationTest.start(true);
+        JobRunCrossServiceIntegrationTest.start(true, true, true, true, false, "postgres");
     }
 
     @AfterAll
@@ -41,7 +39,15 @@ class JobRunSharedAncestorIntegrationTest {
 
     @Test
     void overlappingRunsAndReplayNeverReportSuccessWithUnapprovedInputVersion() throws Exception {
-        jdbc.execute("TRUNCATE job_runs, job_execution_histories, symbols CASCADE");
+        jdbc.execute(
+                "TRUNCATE job_runs, job_execution_histories, symbols, atomic_work_slots CASCADE");
+        var retained =
+                jdbc.queryForList(
+                        "SELECT DISTINCT ON (job_type) id FROM job_definitions WHERE is_active=true ORDER BY job_type,id",
+                        UUID.class);
+        jdbc.update("UPDATE job_definitions SET is_active=false");
+        for (UUID id : retained)
+            jdbc.update("UPDATE job_definitions SET is_active=true WHERE id=?", id);
         jdbc.update(
                 "UPDATE job_definitions SET config_json=jsonb_set(config_json,'{sectorCodes}','[]') WHERE job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS')");
         jdbc.update(
@@ -49,13 +55,15 @@ class JobRunSharedAncestorIntegrationTest {
         jdbc.update("INSERT INTO symbols(code,exchange,is_active) VALUES ('HPG','HOSE',true)");
         var dispatcher = context.getBean(SchedulerOutboxDispatcher.class);
         Path control = directory.resolve("control");
-        UUID first = prepare(JobType.SYNC_INDICATORS),
+        UUID
+                first =
+                        JobRunAtomicSharingIntegrationTest.request(
+                                JobType.SYNC_INDICATORS, "overlap-first"),
                 firstRun = run(first),
                 firstWork = child(first);
         completeAncestors(firstRun, dispatcher);
-        finish(prepare(JobType.SYNC_METADATA), dispatcher);
         var initial = eod();
-        assertThat(initial.path("rowCount").asInt()).isEqualTo(180);
+        assertThat(initial.path("rowCount").asInt()).isEqualTo(1);
         await(
                 () -> {
                     dispatcher.dispatch();
@@ -68,23 +76,26 @@ class JobRunSharedAncestorIntegrationTest {
 
         // Both runs are alive: B's real stock ancestors overwrite the same EOD
         // path while A's indicator command has already been approved/published.
-        Files.writeString(control.resolve("second-generation"), "same-day-correction");
-        UUID second = prepare(JobType.SYNC_INDICATORS),
+        Files.writeString(
+                directory.resolve("provider-control/second-generation"), "same-day-correction");
+        UUID
+                second =
+                        JobRunAtomicSharingIntegrationTest.request(
+                                JobType.SYNC_INDICATORS, "overlap-second"),
                 secondRun = run(second),
                 secondWork = child(second);
         assertThat(secondRun).isNotEqualTo(firstRun);
         assertThat(status(first)).isNotIn("SUCCESS", "FAILED", "BLOCKED");
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM (SELECT job_id FROM job_execution_histories WHERE job_run_id IN (?,?) AND parent_log_id IS NULL GROUP BY job_id HAVING count(DISTINCT job_run_id)=2) shared",
+                                "SELECT count(*) FROM (SELECT h.job_id FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories h ON h.id=a.execution_id WHERE m.request_id IN (?,?) GROUP BY h.job_id HAVING count(DISTINCT m.request_id)=2) shared",
                                 Integer.class,
                                 firstRun,
                                 secondRun))
                 .isGreaterThan(1);
         completeAncestors(secondRun, dispatcher);
-        finish(prepare(JobType.SYNC_METADATA), dispatcher);
         var replacement = eod();
-        assertThat(replacement.path("rowCount").asInt()).isEqualTo(180);
+        assertThat(replacement.path("rowCount").asInt()).isEqualTo(1);
         assertThat(replacement.path("dataVersion").asText()).isNotEqualTo(approvedFirst);
         Files.writeString(control.resolve("release-indicators"), "release");
         await(
@@ -135,7 +146,6 @@ class JobRunSharedAncestorIntegrationTest {
         assertThat(status(firstWork)).isEqualTo(persistedBeforeReplay);
         if ("SUCCESS".equals(firstAck.path("status").asText())
                 || "SUCCESS".equals(secondAck.path("status").asText())) {
-            finish(prepare(JobType.SYNC_METADATA), dispatcher);
             launch("query-service", "p14_query.py", true);
         }
         boolean firstConsistent = consistent(firstAck, firstOutput, approvedFirst);
@@ -146,8 +156,8 @@ class JobRunSharedAncestorIntegrationTest {
         evidence.put("secondRun", secondRun.toString());
         evidence.put("firstApprovedVersion", approvedFirst);
         evidence.put("secondApprovedVersion", approvedSecond);
-        evidence.put("initialRows", 180);
-        evidence.put("replacementRows", 180);
+        evidence.put("initialRows", 1);
+        evidence.put("replacementRows", 1);
         evidence.put("replacementVersion", replacement.path("dataVersion").asText());
         evidence.put("firstStatus", firstAck.path("status").asText());
         evidence.put("secondStatus", secondAck.path("status").asText());
@@ -169,16 +179,19 @@ class JobRunSharedAncestorIntegrationTest {
     }
 
     static UUID run(UUID execution) {
-        return jdbc.queryForObject(
-                "SELECT job_run_id FROM job_execution_histories WHERE id=?", UUID.class, execution);
+        return JobRunAtomicSharingIntegrationTest.requestId(execution);
     }
 
     static UUID child(UUID parent) {
         return jdbc.queryForObject(
-                "SELECT id FROM job_execution_histories WHERE parent_log_id=?", UUID.class, parent);
+                "SELECT a.execution_id FROM atomic_work_request_members m JOIN atomic_work_requests r ON r.id=m.request_id JOIN atomic_work_attempts a ON a.id=m.attempt_id WHERE r.execution_id=? AND m.is_target=true",
+                UUID.class,
+                parent);
     }
 
     static boolean terminal(UUID execution) {
+        context.getBean(com.omni.platform.modules.scheduler.work.GraphWorkRequestService.class)
+                .reconcile();
         return List.of("SUCCESS", "FAILED", "BLOCKED").contains(status(execution));
     }
 
@@ -186,8 +199,12 @@ class JobRunSharedAncestorIntegrationTest {
         await(
                 () -> {
                     dispatcher.dispatch();
+                    context.getBean(
+                                    com.omni.platform.modules.scheduler.work.GraphWorkRequestService
+                                            .class)
+                            .reconcile();
                     return jdbc.queryForObject(
-                                    "SELECT count(*) FROM job_execution_histories h JOIN job_definitions d ON d.id=h.job_id WHERE h.job_run_id=? AND d.job_type IN ('SYNC_SYMBOLS','SYNC_STOCK_PRICE') AND h.status<>'SUCCESS'",
+                                    "SELECT count(*) FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories h ON h.id=a.execution_id JOIN job_definitions d ON d.id=h.job_id WHERE m.request_id=? AND d.job_type IN ('SYNC_SYMBOLS','SYNC_STOCK_PRICE') AND h.status<>'SUCCESS'",
                                     Integer.class,
                                     run)
                             == 0;
@@ -212,21 +229,21 @@ class JobRunSharedAncestorIntegrationTest {
     }
 
     static JsonNode eod() throws Exception {
-        try (var input =
-                context.getBean("minioClient", MinioClient.class)
-                        .getObject(
-                                GetObjectArgs.builder()
-                                        .bucket(bucket)
-                                        .object("_metadata/metadata.json")
-                                        .build())) {
-            var document = JSON.readTree(input.readAllBytes());
-            for (var dataset : document.path("datasets"))
-                if ("eod".equals(dataset.path("name").asText()))
-                    for (var partition : dataset.path("partitions"))
-                        if ("hpg".equals(partition.path("values").path("code").asText()))
-                            return partition;
-            throw new IllegalStateException("No EOD discovery partition");
-        }
+        var manifest =
+                context.getBean(
+                                com.omni.platform.modules.scheduler.dependencies.ManifestReader
+                                        .class)
+                        .readManifest(
+                                com.omni.platform.modules.scheduler.dependencies.DatasetRef.of(
+                                        "eod", Map.of("exchange", "hose", "code", "hpg")))
+                        .orElseThrow();
+        return JSON.readTree(
+                JSON.writeValueAsString(
+                        Map.of(
+                                "rowCount",
+                                manifest.rowCount(),
+                                "dataVersion",
+                                manifest.dataVersion())));
     }
 
     static JsonNode marker(Path control, String prefix, UUID work) throws Exception {

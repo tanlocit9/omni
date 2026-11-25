@@ -12,25 +12,46 @@ from app.handlers import stock_prices
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("covered", [True, False])
-@pytest.mark.parametrize("policy", ["legacy-force", "legacy-normal", "prefer-existing", "refresh", "invalid"])
-async def test_backfill_data_policy_controls_provider_fetch_and_preserves_other_days(monkeypatch, covered, policy):
+@pytest.mark.parametrize(
+    "policy", ["legacy-force", "legacy-normal", "prefer-existing", "refresh", "invalid"]
+)
+async def test_backfill_data_policy_controls_provider_fetch_and_preserves_other_days(
+    monkeypatch, covered, policy
+):
     day = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date() - timedelta(days=7)
     while day.weekday() >= 5:
         day -= timedelta(days=1)
     parameters = {"source": "VND"}
     payload = {
-        "jobDefinitionId": "job", "executionId": "execution", "source": "VND",
-        "jobType": "SYNC_STOCK_PRICE", "workType": "SYMBOL", "workKey": "HOSE-HPG",
-        "symbolKey": "HOSE-HPG", "businessDate": day.isoformat(), "parameters": parameters,
-        "atomicWorkId": atomic_work_id("SYNC_STOCK_PRICE", "SYMBOL", "HOSE-HPG", day, parameters),
-        "metadata": {"backfillPolicy": {"force": policy in {"legacy-force", "refresh"}, "verifyEodParquet": True}},
+        "jobDefinitionId": "job",
+        "executionId": "execution",
+        "source": "VND",
+        "jobType": "SYNC_STOCK_PRICE",
+        "workType": "SYMBOL",
+        "workKey": "HOSE-HPG",
+        "symbolKey": "HOSE-HPG",
+        "businessDate": day.isoformat(),
+        "parameters": parameters,
+        "atomicWorkId": atomic_work_id(
+            "SYNC_STOCK_PRICE", "SYMBOL", "HOSE-HPG", day, parameters
+        ),
+        "metadata": {
+            "backfillPolicy": {
+                "force": policy in {"legacy-force", "refresh"},
+                "verifyEodParquet": True,
+            }
+        },
     }
     if policy in {"prefer-existing", "refresh", "invalid"}:
         payload["metadata"]["backfillPolicy"]["dataPolicy"] = {
-            "prefer-existing": "PREFER_EXISTING", "refresh": "REFRESH", "invalid": "UNKNOWN",
+            "prefer-existing": "PREFER_EXISTING",
+            "refresh": "REFRESH",
+            "invalid": "UNKNOWN",
         }[policy]
-    rows = [{"date": day - timedelta(days=1), "close": 10},
-            {"date": day + timedelta(days=1), "close": 30}]
+    rows = [
+        {"date": day - timedelta(days=1), "close": 10},
+        {"date": day + timedelta(days=1), "close": 30},
+    ]
     if covered:
         rows.append({"date": day, "close": 20})
     storage = AsyncMock()
@@ -39,8 +60,14 @@ async def test_backfill_data_policy_controls_provider_fetch_and_preserves_other_
     client.fetch_recent_stock.return_value = [{"date": day.isoformat(), "close": 99}]
     publisher = SimpleNamespace(publish=AsyncMock())
     monkeypatch.setattr(stock_prices, "get_or_create_client", lambda *args: client)
-    monkeypatch.setattr(stock_prices, "settings", SimpleNamespace(get_eod_path=lambda *args: "eod/hose/hpg.parquet"))
-    result = await stock_prices.process_stock_price_message(payload, publisher, client, storage)
+    monkeypatch.setattr(
+        stock_prices,
+        "settings",
+        SimpleNamespace(get_eod_path=lambda *args: "eod/hose/hpg.parquet"),
+    )
+    result = await stock_prices.process_stock_price_message(
+        payload, publisher, client, storage
+    )
     if policy == "invalid":
         assert result.status == "ERROR"
         storage.write_dataframe.assert_not_awaited()
@@ -48,9 +75,15 @@ async def test_backfill_data_policy_controls_provider_fetch_and_preserves_other_
         return
     assert result.status == "SUCCESS"
     written = storage.write_dataframe.await_args.args[1]
-    assert pd.to_datetime(written["date"]).dt.date.tolist() == [day - timedelta(days=1), day, day + timedelta(days=1)]
+    assert pd.to_datetime(written["date"]).dt.date.tolist() == [
+        day - timedelta(days=1),
+        day,
+        day + timedelta(days=1),
+    ]
     reused = covered and policy in {"legacy-force", "prefer-existing"}
-    value = written.loc[pd.to_datetime(written["date"]).dt.date.eq(day), "close"].iloc[0]
+    value = written.loc[pd.to_datetime(written["date"]).dt.date.eq(day), "close"].iloc[
+        0
+    ]
     assert value == (20 if reused else 99)
     if reused:
         client.fetch_recent_stock.assert_not_awaited()
@@ -85,9 +118,14 @@ async def test_atomic_stock_proves_requested_day_before_write_and_status(
         ),
     }
     if refresh:
-        raw["metadata"] = {"backfillPolicy": {
-            "force": True, "rerun": True, "dataPolicy": "REFRESH", "verifyEodParquet": True,
-        }}
+        raw["metadata"] = {
+            "backfillPolicy": {
+                "force": True,
+                "rerun": True,
+                "dataPolicy": "REFRESH",
+                "verifyEodParquet": True,
+            }
+        }
     events = []
     client = AsyncMock()
     client.fetch_recent_stock.return_value = [

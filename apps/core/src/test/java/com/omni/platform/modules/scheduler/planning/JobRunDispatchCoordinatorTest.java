@@ -236,6 +236,9 @@ class JobRunDispatchCoordinatorTest {
     void configurationBindingFailsClosedForUnsafePreparationRollbackCombination() {
         new org.springframework.boot.test.context.runner.ApplicationContextRunner()
                 .withBean(
+                        org.springframework.jdbc.core.JdbcTemplate.class,
+                        () -> mock(org.springframework.jdbc.core.JdbcTemplate.class))
+                .withBean(
                         com.omni.platform.modules.scheduler.metadata.OutputStorageHeads.class,
                         () ->
                                 mock(

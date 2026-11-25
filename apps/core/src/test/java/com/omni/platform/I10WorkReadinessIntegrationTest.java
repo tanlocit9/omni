@@ -226,8 +226,8 @@ class I10WorkReadinessIntegrationTest {
                                 java.util.List.of("BANK"),
                                 "sectorLevel",
                                 1,
-                                "force",
-                                true));
+                                "dataPolicy",
+                                "REFRESH"));
         var http = java.net.http.HttpClient.newHttpClient();
         var unauthorized =
                 java.net.http.HttpRequest.newBuilder(endpoint)
@@ -359,8 +359,8 @@ class I10WorkReadinessIntegrationTest {
                                 1,
                                 "symbolKey",
                                 "HOSE-HPG",
-                                "rerun",
-                                true));
+                                "dataPolicy",
+                                "PREFER_EXISTING"));
         var command =
                 java.net.http.HttpRequest.newBuilder(endpoint)
                         .header("Content-Type", "application/json")

@@ -27,8 +27,6 @@ import com.omni.platform.modules.scheduler.entities.JobDefinition.JobType;
 import com.omni.platform.modules.scheduler.entities.JobDefinition;
 import com.omni.platform.modules.scheduler.dependencies.CachedManifestReader;
 import com.omni.platform.modules.scheduler.dependencies.DatasetRef;
-import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshot;
-import com.omni.platform.modules.scheduler.planning.JobRunDispatchSnapshotReader;
 import com.omni.platform.modules.scheduler.repositories.JobDefinitionRepository;
 import com.omni.platform.modules.scheduler.producers.JobProducerRegistry;
 import com.omni.platform.modules.scheduler.runs.JobRunPreparationService;
@@ -78,7 +76,7 @@ class JobRunCrossServiceIntegrationTest {
 
     @BeforeAll
     static void start() throws Exception {
-        start(false);
+        start(false, true, true, true, false, "postgres");
     }
 
     static void start(boolean overlapControls) throws Exception {
@@ -300,131 +298,130 @@ class JobRunCrossServiceIntegrationTest {
     }
 
     @Test
-    void actualClosedRunDispatchesThroughWorkersAndPreservesReadyOnMetadataFailure()
+    void actualRegisteredChainDispatchesThroughWorkersAndIgnoresUnregisteredObjects()
             throws Exception {
         jdbc.execute("TRUNCATE job_runs, job_execution_histories, symbols CASCADE");
+        var retained =
+                jdbc.queryForList(
+                        "SELECT DISTINCT ON (job_type) id FROM job_definitions WHERE is_active=true ORDER BY job_type,id",
+                        UUID.class);
+        jdbc.update("UPDATE job_definitions SET is_active=false");
+        for (UUID id : retained) {
+            jdbc.update("UPDATE job_definitions SET is_active=true WHERE id=?", id);
+        }
         jdbc.update(
                 "UPDATE job_definitions SET config_json=jsonb_set(config_json,'{sectorCodes}','[]') WHERE job_type IN ('SYNC_STOCK_PRICE','SYNC_INDICATORS')");
         jdbc.update(
                 "UPDATE job_definitions SET config_json=config_json || '{\"exchanges\":[\"HOSE\"],\"includeSectorClassification\":false}'::jsonb WHERE job_type='SYNC_SYMBOLS'");
         jdbc.update("INSERT INTO symbols(code,exchange,is_active) VALUES ('HPG','HOSE',true)");
-        UUID target = prepare(JobType.SYNC_INDICATORS);
-        UUID run =
-                jdbc.queryForObject(
-                        "SELECT job_run_id FROM job_execution_histories WHERE id=?",
-                        UUID.class,
-                        target);
+        UUID target =
+                JobRunAtomicSharingIntegrationTest.request(
+                        JobType.SYNC_INDICATORS, "registered-cross-service-chain");
+        var graph =
+                context.getBean(
+                        com.omni.platform.modules.scheduler.work.GraphWorkRequestService.class);
+        UUID run = JobRunAtomicSharingIntegrationTest.requestId(target);
         var dispatch = context.getBean(SchedulerOutboxDispatcher.class);
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM job_run_steps WHERE job_run_id=?",
+                                "SELECT count(*) FROM atomic_work_request_members WHERE request_id=?",
                                 Integer.class,
                                 run))
-                .isGreaterThan(3);
-        await(
-                () -> {
-                    dispatch.dispatch();
-                    return jdbc.queryForObject(
-                                    "SELECT count(*) FROM job_execution_histories h JOIN job_definitions d ON d.id=h.job_id WHERE h.job_run_id=? AND d.job_type IN ('SYNC_SYMBOLS','SYNC_STOCK_PRICE') AND h.status<>'SUCCESS'",
-                                    Integer.class,
-                                    run)
-                            == 0;
-                },
-                180,
-                "symbol and stock workers, parent aggregation");
-        // No global discovery exists yet, so execution SUCCESS must not bypass dataset WAITING.
+                .isEqualTo(3);
+        // Committed registration, rather than a JSON discovery scan, unlocks the next step.
+        JobRunAtomicSharingIntegrationTest.finishRequest(target, dispatch, graph);
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM scheduler_outbox_messages o JOIN job_execution_histories h ON h.id=o.execution_id JOIN job_definitions d ON d.id=h.job_id WHERE h.job_run_id=? AND d.job_type='SYNC_INDICATORS' AND o.status='PUBLISHED'",
+                                "SELECT count(*) FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories h ON h.id=a.execution_id WHERE m.request_id=? AND h.status<>'SUCCESS'",
                                 Integer.class,
                                 run))
                 .isZero();
-        UUID metadata = prepare(JobType.SYNC_METADATA);
-        finish(metadata, dispatch);
-        finish(target, dispatch);
-        var snapshot =
-                context.getBean(JobRunDispatchSnapshotReader.class)
-                        .capture(Instant.now(), List.of(run));
-        assertThat(snapshot.complete()).isTrue();
-        assertThat(snapshot.runs().getFirst().steps())
-                .allSatisfy(
-                        step ->
-                                assertThat(step.progress())
-                                        .isEqualTo(JobRunDispatchSnapshot.Progress.SUCCESS));
-        finish(prepare(JobType.SYNC_METADATA), dispatch);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM output_work_ready", Integer.class))
+                .isEqualTo(2);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM job_execution_histories h JOIN job_definitions d ON d.id=h.job_id WHERE d.job_type='SYNC_METADATA'",
+                                Integer.class))
+                .isZero();
         launch("query-service", "p14_query.py", true);
         var result = JSON.readTree(Files.readString(directory.resolve("query-result.json")));
         assertThat(result.path("rows").asInt()).isEqualTo(1);
         String eodVersion = result.path("eodDataVersion").asText();
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM job_execution_histories h JOIN job_definitions d ON d.id=h.job_id WHERE h.job_run_id=? AND d.job_type='SYNC_INDICATORS' AND h.parent_log_id IS NOT NULL AND h.meta_json::text LIKE ?",
+                                "SELECT count(*) FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories h ON h.id=a.execution_id WHERE m.request_id=? AND h.meta_json->'workExpansion'->>'jobType'='SYNC_INDICATORS' AND h.meta_json::text LIKE ?",
                                 Integer.class,
                                 run,
                                 "%" + eodVersion + "%"))
                 .isEqualTo(1);
         var storage = context.getBean("minioClient", MinioClient.class);
-        proveLegacyStaleReadyWaitsBeforeKafkaAndResumesAfterRepair(storage, dispatch);
         // The fixture provider has no classification endpoint. Existing symbol
         // data permits the actual fallback branch to complete with warnings.
         jdbc.update(
                 "UPDATE job_definitions SET config_json=jsonb_set(config_json,'{includeSectorClassification}','true') WHERE job_type='SYNC_SYMBOLS'");
-        UUID symbolsWithWarning = prepare(JobType.SYNC_SYMBOLS);
-        finish(symbolsWithWarning, dispatch);
+        var symbolsDefinition =
+                context.getBean(JobDefinitionRepository.class).findAll().stream()
+                        .filter(
+                                job ->
+                                        job.getJobType() == JobType.SYNC_SYMBOLS
+                                                && Boolean.TRUE.equals(job.getIsActive()))
+                        .findFirst()
+                        .orElseThrow();
+        var symbolsClaim =
+                context.getBean(SchedulerClaimService.class)
+                        .claimJobDefinition(
+                                symbolsDefinition.getId(), BUSINESS_CLOCK, "registered-e2e")
+                        .orElseThrow();
+        UUID symbolsWithWarning =
+                context.getBean(JobRunPreparationService.class)
+                        .prepareManual(
+                                symbolsDefinition,
+                                symbolsClaim,
+                                BUSINESS_CLOCK,
+                                "registered-e2e",
+                                "registered-symbol-warning",
+                                "Exchange snapshot classification warning",
+                                Map.of("scope", Map.of("type", "EXCHANGE", "key", "HOSE")),
+                                Map.of());
+        JobRunAtomicSharingIntegrationTest.finishRequest(symbolsWithWarning, dispatch, graph);
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM job_execution_histories WHERE parent_log_id=? AND status='SUCCESS' AND meta_json->>'result'='PARTIAL_SUCCESS' AND meta_json->>'warnings' IS NOT NULL",
+                                "SELECT count(*) FROM atomic_work_request_members m JOIN atomic_work_attempts a ON a.id=m.attempt_id JOIN job_execution_histories h ON h.id=a.execution_id JOIN atomic_work_requests r ON r.id=m.request_id WHERE r.execution_id=? AND h.status='SUCCESS' AND h.meta_json->>'result'='PARTIAL_SUCCESS' AND h.meta_json->>'warnings' IS NOT NULL",
                                 Integer.class,
                                 symbolsWithWarning))
                 .isEqualTo(1);
-        // A noncanonical auxiliary object produces a partial result, not a failed run.
+        // Unregistered auxiliary/corrupt objects must not become authoritative datasets.
+        var accepted = jdbc.queryForList("SELECT * FROM output_work_ready ORDER BY atomic_work_id");
         byte[] note = "auxiliary".getBytes(StandardCharsets.UTF_8);
         storage.putObject(
                 PutObjectArgs.builder().bucket(bucket).object("eod/hose/notes.txt").stream(
                                 new ByteArrayInputStream(note), note.length, -1)
                         .build());
-        UUID partial = prepare(JobType.SYNC_METADATA);
-        finish(partial, dispatch);
-        String partialMeta =
-                jdbc.queryForObject(
-                        "SELECT meta_json::text FROM job_execution_histories WHERE id=?",
-                        String.class,
-                        partial);
-        var partialResult = JSON.readTree(partialMeta);
-        assertThat(partialResult.path("result").asText()).isEqualTo("PARTIAL_SUCCESS");
-        assertThat(partialResult.path("objectsSkipped").asInt()).isEqualTo(1);
-        assertThat(partialResult.path("warning").asText()).contains("1 skipped object(s)");
-        // Real bad Parquet still fails before replacing prior validated discovery.
-        byte[] previous;
-        try (var input =
-                storage.getObject(
-                        GetObjectArgs.builder()
-                                .bucket(bucket)
-                                .object("_metadata/metadata.json")
-                                .build())) {
-            previous = input.readAllBytes();
-        }
         byte[] corrupt = "invalid-parquet".getBytes(StandardCharsets.UTF_8);
         storage.putObject(
                 PutObjectArgs.builder().bucket(bucket).object("eod/hose/bad.parquet").stream(
                                 new ByteArrayInputStream(corrupt), corrupt.length, -1)
                         .build());
-        UUID failed = prepare(JobType.SYNC_METADATA);
+        // An actual provider failure must preserve the accepted analytical versions too.
+        var failedSwitch = directory.resolve("provider-control/fail-stock");
+        Files.writeString(failedSwitch, "fail before write");
+        UUID failed =
+                JobRunAtomicSharingIntegrationTest.request(
+                        JobType.SYNC_STOCK_PRICE, "registered-stock-failure");
         await(
                 () -> {
                     dispatch.dispatch();
+                    graph.reconcile();
                     return "FAILED".equals(status(failed));
                 },
                 90,
-                "failed metadata status applied to PostgreSQL");
-        try (var input =
-                storage.getObject(
-                        GetObjectArgs.builder()
-                                .bucket(bucket)
-                                .object("_metadata/metadata.json")
-                                .build())) {
-            assertThat(input.readAllBytes()).isEqualTo(previous);
-        }
+                "provider failure applied without replacing accepted READY");
+        Files.delete(failedSwitch);
+        assertThat(jdbc.queryForList("SELECT * FROM output_work_ready ORDER BY atomic_work_id"))
+                .isEqualTo(accepted);
+        launch("query-service", "p14_query.py", true);
+        assertThat(JSON.readTree(Files.readString(directory.resolve("query-result.json"))))
+                .isEqualTo(result);
         Path evidence =
                 ROOT.resolve(
                         ".agent/check-results/P14-cross-service-integration/workflow-result.json");
@@ -443,13 +440,13 @@ class JobRunCrossServiceIntegrationTest {
                                 result.path("indicatorDataVersion").asText(),
                                 "allStepsSuccess",
                                 true,
-                                "metadataFailureApplied",
-                                true,
-                                "partialWarningApplied",
+                                "providerFailureApplied",
                                 true,
                                 "symbolWarningApplied",
                                 true,
-                                "previousDiscoveryPreserved",
+                                "previousReadyPreserved",
+                                true,
+                                "unregisteredObjectsIgnored",
                                 true)));
     }
 

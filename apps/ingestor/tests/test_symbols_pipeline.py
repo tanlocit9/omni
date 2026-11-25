@@ -93,6 +93,8 @@ async def test_catalog_history_is_rejected_before_provider_or_storage_access():
         "disabled",
         "bad-coverage",
         "write-failure",
+        "read-failure",
+        "readback-mismatch",
         "publish-failure",
     ],
 )
@@ -142,6 +144,13 @@ async def test_real_symbols_pipeline_preserves_classification_and_reports_failur
     )
     if mode == "write-failure":
         storage.write_dataframe.side_effect = RuntimeError("write failed")
+    storage.read_dataframe.side_effect = lambda path: (
+        storage.write_dataframe.await_args.args[1].copy()
+    )
+    if mode == "read-failure":
+        storage.read_dataframe.side_effect = RuntimeError("read failed")
+    if mode == "readback-mismatch":
+        storage.read_dataframe.side_effect = lambda path: previous_snapshot()
     if mode == "publish-failure":
         producer.send_and_wait.side_effect = RuntimeError("publish failed")
     payload = {
@@ -160,11 +169,24 @@ async def test_real_symbols_pipeline_preserves_classification_and_reports_failur
     status = await symbols.process_sync_symbols_message(
         payload, producer, publisher, client, storage
     )
-    failed = mode in ("no-previous", "bad-coverage", "write-failure", "publish-failure")
+    failed = mode in (
+        "no-previous",
+        "bad-coverage",
+        "write-failure",
+        "read-failure",
+        "readback-mismatch",
+        "publish-failure",
+    )
     assert status.status == (JobStatus.ERROR if failed else JobStatus.SUCCESS)
     assert status.execution_id == "execution" and status.parent_execution_id == "parent"
     publisher.publish.assert_awaited_once_with(status, key="HOSE")
-    if mode in ("no-previous", "bad-coverage", "write-failure"):
+    if mode in (
+        "no-previous",
+        "bad-coverage",
+        "write-failure",
+        "read-failure",
+        "readback-mismatch",
+    ):
         producer.send_and_wait.assert_not_awaited()
     if mode in ("no-previous", "bad-coverage"):
         storage.write_dataframe.assert_not_awaited()

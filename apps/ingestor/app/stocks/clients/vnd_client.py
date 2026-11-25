@@ -135,23 +135,29 @@ class VNDirectClient(StockClient):
         )
 
         total_pages = first_page.get("totalPages", 1)
+        if type(total_pages) is not int or not 0 <= total_pages <= 10000:
+            raise ValueError("Invalid symbol pagination totalPages")
 
-        records = list(first_page.get("data", []))
+        def page_records(result: dict[str, Any], page: int) -> list[dict[str, Any]]:
+            if result.get("totalPages", total_pages) != total_pages:
+                raise ValueError("Symbol pagination changed during collection")
+            if result.get("currentPage", page) != page:
+                raise ValueError("Symbol provider returned another page")
+            rows = result.get("data")
+            if not isinstance(rows, list) or any(
+                not isinstance(row, dict) for row in rows
+            ):
+                raise ValueError("Invalid symbol page data")
+            if total_pages > 0 and not rows:
+                raise ValueError("Missing symbol page data")
+            return rows
 
-        if total_pages > 1:
-            tasks = [
-                self.fetch_symbols_page(
-                    exchange=exchange,
-                    page=page,
-                    size=size,
-                )
-                for page in range(2, total_pages + 1)
-            ]
-
-            results = await asyncio.gather(*tasks)
-
-            for result in results:
-                records.extend(result.get("data", []))
+        records = list(page_records(first_page, 1))
+        for page in range(2, total_pages + 1):
+            result = await self.fetch_symbols_page(
+                exchange=exchange, page=page, size=size
+            )
+            records.extend(page_records(result, page))
 
         return records
 

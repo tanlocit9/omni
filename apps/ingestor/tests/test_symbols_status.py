@@ -20,6 +20,9 @@ async def test_symbol_warnings_complete_without_hiding_real_failure(
     client = AsyncMock()
     client.fetch_symbols.return_value = frame.to_dict("records")
     storage, publisher, producer = AsyncMock(), AsyncMock(), AsyncMock()
+    storage.read_dataframe.side_effect = lambda path: (
+        storage.write_dataframe.await_args.args[1].copy()
+    )
     storage.read_optional_dataframe.return_value = (
         pd.DataFrame() if mode == "missing" else frame
     )

@@ -89,6 +89,8 @@ async def process_sync_symbols_message(
 
         object_name = settings.get_symbols_path(exchange)
         previous_df = await parquet_storage.read_optional_dataframe(object_name)
+        if previous_df is None:
+            previous_df = pd.DataFrame()
 
         warnings: list[str] = []
         classification_source = "NONE"
@@ -123,6 +125,13 @@ async def process_sync_symbols_message(
             include_sector=include_sector,
         )
 
+        if expected_count is not None and len(canonical_df) != expected_count:
+            warnings.append(
+                "Provider symbol count differs from expected: "
+                f"expected={expected_count}, fetched={len(canonical_df)}; "
+                "previous symbols retained"
+            )
+
         if include_sector and sectors:
             classification_metrics = calculate_classification_metrics(
                 canonical_df, sectors
@@ -131,9 +140,11 @@ async def process_sync_symbols_message(
             if status_warning:
                 warnings.append(status_warning)
 
-        await parquet_storage.write_dataframe(object_name, canonical_df)
-
-        active_df = canonical_df
+        merged_df = upsert_symbol_snapshot(previous_df, canonical_df, exchange)
+        await parquet_storage.write_dataframe(object_name, merged_df)
+        active_df = await parquet_storage.read_dataframe(object_name)
+        if symbol_snapshot_json(active_df) != symbol_snapshot_json(merged_df):
+            raise ValueError("Persisted symbol snapshot differs from the upsert")
         if "delistedDate" in active_df.columns:
             delisted_mask = active_df["delistedDate"].notna()
             if delisted_mask.any():
@@ -189,6 +200,8 @@ async def process_sync_symbols_message(
         )
         status_extras: dict[str, Any] = {
             "classificationSource": classification_source,
+            "fetchedSymbols": len(canonical_df),
+            "persistedSymbols": current_count,
         }
         if warnings:
             status_extras["warnings"] = warnings
@@ -202,6 +215,8 @@ async def process_sync_symbols_message(
                 "meta_json": {
                     **status.meta_json,
                     "classificationSource": classification_source,
+                    "fetchedSymbols": len(canonical_df),
+                    "persistedSymbols": current_count,
                     **(
                         {"result": "PARTIAL_SUCCESS", "warnings": warnings}
                         if warnings
@@ -392,6 +407,44 @@ def normalize_symbols_dataframe(
             df[column] = None
 
     return df
+
+
+def upsert_symbol_snapshot(
+    previous: pd.DataFrame, incoming: pd.DataFrame, exchange: str
+) -> pd.DataFrame:
+    """Update returned fields and retain symbols missing from the provider."""
+    keys = ["exchange", "code"]
+
+    def indexed(frame: pd.DataFrame) -> pd.DataFrame:
+        frame = frame.copy()
+        if "exchange" not in frame.columns and "floor" in frame.columns:
+            frame["exchange"] = frame["floor"]
+        if not set(keys).issubset(frame.columns):
+            raise ValueError("Symbol upsert requires exchange and code")
+        for column in keys:
+            if frame[column].isna().any():
+                raise ValueError("Symbol identity must not be null")
+            frame[column] = frame[column].astype(str).str.strip().str.upper()
+            if frame[column].eq("").any():
+                raise ValueError("Symbol identity must not be blank")
+        if not frame["exchange"].eq(exchange.upper()).all():
+            raise ValueError("Symbol snapshot contains another exchange")
+        return frame.drop_duplicates(keys, keep="last").set_index(keys)
+
+    if incoming.empty:
+        raise ValueError("Cannot upsert an empty provider symbol snapshot")
+    current = indexed(incoming)
+    if not previous.empty:
+        current = current.combine_first(indexed(previous))
+    return current.sort_index().reset_index()
+
+
+def symbol_snapshot_json(frame: pd.DataFrame) -> str:
+    return (
+        frame.sort_values(["exchange", "code"])
+        .reindex(sorted(frame.columns), axis=1)
+        .to_json(orient="records", date_format="iso", date_unit="ns")
+    )
 
 
 def _to_canonical_sector_column(column: str) -> str:

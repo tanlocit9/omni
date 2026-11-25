@@ -123,7 +123,7 @@
       "cache": true,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run pytest tests/ --ignore=tests/integration",
+        "command": "uv run python -m pytest tests/ --ignore=tests/integration",
         "cwd": "{projectRoot}"
       },
       "outputs": [
@@ -135,7 +135,7 @@
       "cache": true,
       "executor": "@nxlv/python:run-commands",
       "options": {
-        "command": "uv run pytest tests/",
+        "command": "uv run python -m pytest tests/",
         "cwd": "{projectRoot}"
       },
       "outputs": ["{workspaceRoot}/coverage/{projectRoot}"]

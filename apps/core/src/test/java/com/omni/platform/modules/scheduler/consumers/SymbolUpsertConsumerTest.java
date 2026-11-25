@@ -58,6 +58,54 @@ class SymbolUpsertConsumerTest {
         verify(events).publishEvent(any(Object.class));
     }
 
+    @Test
+    void persistedUpsertsNeverTreatMissingSymbolsAsDelistingEvidence() {
+        var symbols = mock(SymbolRepository.class);
+        var jobs = mock(JobService.class);
+        var consumer =
+                new SymbolUpsertConsumer(
+                        mock(ApplicationEventPublisher.class), symbols, jobs, new JsonMapper());
+        for (int expected : new int[] {1, 336}) {
+            String payload =
+                    "{\"exchange\":\"HOSE\",\"expectedCount\":"
+                            + expected
+                            + ",\"actualCount\":1,\"symbols\":[{\"code\":\"MBB\",\"exchange\":\"HOSE\"}]}";
+            consumer.handleSymbolUpsert(record(payload));
+        }
+        verify(symbols, times(2)).upsertOne(eq("MBB"), eq("HOSE"), anyString());
+        verifyNoMoreInteractions(symbols);
+        verifyNoInteractions(jobs);
+    }
+
+    @Test
+    void successfulProjectionPreservesPreparedMembershipAndLegacyChildCompletion() {
+        for (boolean prepared : new boolean[] {true, false}) {
+            var symbols = mock(SymbolRepository.class);
+            var jobs = mock(JobService.class);
+            var parent = UUID.randomUUID();
+            var child = new JobExecutionHistory();
+            when(jobs.isRunPreparedExecution(parent)).thenReturn(prepared);
+            when(jobs.createChildExecution(any(), any(), any(), any())).thenReturn(child);
+            var consumer =
+                    new SymbolUpsertConsumer(
+                            mock(ApplicationEventPublisher.class), symbols, jobs, new JsonMapper());
+            consumer.handleSymbolUpsert(
+                    record(
+                            "{\"exchange\":\"HOSE\",\"expectedCount\":336,\"actualCount\":1,\"parentExecutionId\":\""
+                                    + parent
+                                    + "\",\"detectedAt\":\"2035-01-02T12:00:00Z\",\"symbols\":[{\"code\":\"MBB\",\"exchange\":\"HOSE\",\"meta\":{\"sector\":\"BANKS\"}}]}"));
+            verify(symbols).upsertOne(eq("MBB"), eq("HOSE"), anyString());
+            verifyNoMoreInteractions(symbols);
+            verify(jobs).aggregateParentExecution(parent);
+            if (prepared) {
+                verify(jobs, never()).createChildExecution(any(), any(), any(), any());
+                verify(jobs, never()).markExecutionSuccess(any(), anyInt(), anyInt(), any(), any());
+            } else {
+                verify(jobs).markExecutionSuccess(eq(child), eq(1), eq(0), any(), any());
+            }
+        }
+    }
+
     private static ConsumerRecord<String, String> record(String payload) {
         return new ConsumerRecord<>("test-symbol-upsert", 0, 0L, "HOSE", payload);
     }

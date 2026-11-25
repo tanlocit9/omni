@@ -4,9 +4,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Value;
@@ -132,8 +130,8 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
             }
         }
 
-        Set<String> incomingCodes = symbols.stream().map(r -> r.code()).collect(Collectors.toSet());
-        symbolRepository.deactivateMissing(event.exchange(), incomingCodes);
+        // This is a persisted Parquet upsert batch, not authoritative delisting
+        // evidence. Absence from a provider response must not deactivate symbols.
 
         UUID parentExecutionId = event.parentExecutionId();
         if (parentExecutionId != null) {
@@ -141,11 +139,11 @@ public class SymbolUpsertConsumer extends AbstractConsumer {
         }
 
         log.info(
-                "Symbol upsert complete for [{}]: success={} failed={} deactivatedCheck against {} codes",
+                "Symbol upsert complete for [{}]: success={} failed={} received={} (membership preserved)",
                 event.exchange(),
                 successfulUpserts,
                 failedUpserts,
-                incomingCodes.size());
+                symbols.size());
 
         if (failedUpserts > 0) {
             throw new IllegalStateException(

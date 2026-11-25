@@ -1,5 +1,82 @@
 # I10 PostgreSQL-only readiness and JPA schema
 
+## November 24 completion
+
+P14-I10 is completed for the approved session-based scope after parent PASS 28/28
+and explicit owner review. See [the final evidence and attestation](019-i10-review-20261111.md#november-24-owner-verified-completion).
+Earlier dated open/pilot status below is historical. Unregistered physical history
+remains unproven; TD-020/TD-018 and all deferred runtime activation remain unchanged.
+
+## November 20 full physical baseline maintenance
+
+Request `8e991eeb-7335-43ac-a54a-cf81c52d7efa` settled with 19 SUCCESS, 168 FAILED
+and 168 BLOCKED members. Every failed EOD reported STORAGE_BASELINE_REQUIRED;
+blocked Indicators depended on those EOD attempts. Earlier maintenance covered
+only the three retained MBB pilot containers.
+
+The earlier 59-partition inventory described the PostgreSQL catalog. Fresh MinIO
+enumeration found 2,748 physical canonical containers: 1,536 EOD, 1,203 Indicators
+and nine Signals. Owner-approved maintenance pinned all 2,745 missing baselines
+through the existing coordinator/fence/revision API and verified all 2,748 against
+exact backups and immutable version reads. Canonical bytes and accepted logical
+versions are unchanged. Unregistered history remains unproven; pinning creates no
+logical READY evidence.
+
+Heads changed 3 -> 2,748 and revision 2,207 -> 4,952. All 1,614 current work proofs
+and 2,953 completion contracts remained unchanged. Protected public-table digests
+differ only for output_storage_heads and output_ready_revision; the fence sequence
+advances by design. No status, graph membership, registration or logical history
+was repaired. Legacy discovery JSON read attempts were zero.
+
+The 92,456,797-byte PostgreSQL archive passed pg_restore --list; this is archive
+validation, not a restoration rehearsal. Exact object backups and prior backend
+versions remain. Interrupted checkpoints are retained separately; only the final
+journal records complete PASS. The finite PostgreSQL-only host validated full JPA,
+had no scheduler/consumers/business dispatch and exited. Strict version enforcement
+was off only in this initial-baseline reader host; normal writers remain VERSIONED.
+
+Evidence: ignored `.agent/reports/i10-full-baseline-final-20261120/result.json`;
+backups/journal: `.agent/operations/i10-full-baseline-20261120/`. Standalone Python
+is a bounded operations exception because no pin/backup Nx target exists; Java
+uses platform:serve. Business retry results are separate from this physical PASS.
+The dated remaining-56 checklist below is historical. This checkpoint does not
+activate deferred continuous rollout/recovery or 12-hour reconciliation, provide
+fleet recovery evidence or complete I10.
+
+## November 20 original BANKS request recovery
+
+The original 22-bank/date/PREFER_EXISTING scope now passes through normal VERSIONED
+workers: **355/355 unique attempts SUCCESS**, comprising three shared Symbols,
+176 EOD and 176 Indicators. All 22 symbolKey requests succeeded; their union was
+verified against the original 355 canonical atomicWorkIds before dispatch.
+Preparing all requests first shared exactly three Symbols upstream attempts across
+request boundaries. All 352 analytical outputs have exact successful-attempt
+proofs. Exact out-of-scope row values were preserved in all 44 affected containers.
+
+The original request remains FAILED with 19 SUCCESS / 168 FAILED / 168 BLOCKED;
+terminal history was not rewritten. Its 16 successful MBB attempt proofs remain
+available through immutable history. Current proof count is 1,950, READY history
+371 and revision 5,304 after the business run; physical heads remain 2,748.
+
+Current BANKS membership contains ABB/BVB/HDB in addition to the original 22.
+The first accepted sector-wide replay detected 403 nodes and was cancelled before
+dispatch. Automatic review rejected the proposed 48-node business expansion without
+explicit approval; that command did not execute. The successful run uses only the
+original 22 symbols via the existing symbolKey API. A prior malformed HTTP body
+was rejected before admission. These checkpoints remain separate from PASS.
+
+Post-run nx run omni:jobs-backlog --json observed zero unfinished/stale DB work,
+zero known/unknown Kafka lag and zero active consumer partitions. The finite host
+and both workers exited, and maintenance ports 18084-18088 are closed. Historical
+BLOCKED/PUBLISHED outbox rows remain. No offsets/statuses were repaired, no schedule
+or watchdog was activated. Provider Symbols count/duplicate warnings remain;
+existing rows were retained and SUCCESS does not establish provider completeness.
+
+Evidence: `.agent/reports/i10-request-retry-20261120/approved-run-04/result.json`,
+`post-backlog.json` and `summary.md` (all 22 request IDs). No new production source,
+contract, migration or executable regression coverage is claimed. This is bounded
+retained runtime evidence, not full I10 completion or fleet recovery acceptance.
+
 ## Owner scope amendment - November 18 session-based operation
 
 Omni currently runs by session, not continuously. The owner defers fleet-wide
@@ -300,6 +377,10 @@ owner review remain open. Schedules, watchdog and notifications stayed off;
 durable worker recovery, tracing and P12 remain deferred. I10 stays in_progress.
 
 ## Remaining 56 partitions - bounded work checklist
+
+Historical November 18 scope: [November 20 maintenance](#november-20-full-physical-baseline-maintenance)
+now pins all 2,748 physical containers, including these 56. This procedure remains
+useful for future existing files; the heading is retained for incoming links.
 
 The November 18 snapshot has 28 EOD, 28 Indicators and three Signals catalog
 partitions. One of each is pinned, leaving 27 EOD, 27 Indicators and two Signals.

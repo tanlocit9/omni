@@ -1,5 +1,45 @@
 # Dependency-Ordered Implementation Increments
 
+November 24 completion: [P14-I10 owner-verified closure](../../reference/019-i10-review-20261111.md#november-24-owner-verified-completion)
+records parent PASS 28/28, the complete impact/source/test/coverage and dated
+retained-evidence package, and explicit owner review. Verifier ID is optional under
+the owner-approved tooling amendment; summary/manifest validation remains mandatory.
+P14-I10 is completed with unchanged dependencies and session-operation deferrals.
+Earlier dated in_progress and identity-required notes remain historical.
+
+November 24 parent review: [I10 verification package](../../reference/019-i10-review-20261111.md#november-24-parent-verification-and-owner-review-package)
+creates the complete P14-I10 required manifest, refreshes graph impact and records
+current suites plus explicitly dated retained evidence. VND reaches 100% lines/
+branches; Ingestor passes 141 tests. Owner-supplied identity/review remains separate
+from agent-run checks. P14-I10 remains in_progress with unchanged dependencies;
+the combined completion criterion is not checked before the parent PASS and review.
+
+November 24: [verification continuation](../../reference/019-i10-review-20261111.md#november-24-verification-continuation)
+executes the new safety tests and full Platform coverage: 992 cases, zero failures,
+13 opt-in skips; WorkExpansion and SchedulerOutboxService exceed 80% lines/branches.
+Ingestor's cold-start Symbols fix passes 134 tests and lint. Necessary scoped
+verification now follows AGENTS.md without per-command approval. Worker-chain E2E
+passes 14/14 without skips. Scoped gate P14-I10-coverage-20261124 passes 10/10,
+including Platform/Console builds. The complete parent manifest and owner review remain open;
+P14-I10 stays in_progress with unchanged dependencies and deferred runtime scope.
+
+November 23: [session acceptance reconciliation](../../reference/019-i10-review-20261111.md#november-23-session-acceptance-reconciliation)
+closes the PostgreSQL-reader criterion using recorded cutover/read/repair evidence;
+fresh DB/Kafka observations remain idle. The final source/test/coverage, complete
+verification manifest and owner-review criterion is open. Twelve new safety tests
+are not run pending command approval. P14-I10 remains in_progress with unchanged
+dependencies; deferred schedules/recovery/watchdog are not activated.
+
+November 20: [full physical baseline maintenance](../../reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance)
+pins all 2,745 missing EOD/Indicators/Signals heads and verifies 2,748/2,748
+containers, preserving logical proofs. The old remaining-56 snapshot is historical.
+The [original BANKS scope recovery](../../reference/020-i10-postgres-only-cutover.md#november-20-original-banks-request-recovery)
+separately passes 355/355 unique attempts through 22 symbol-scoped requests,
+sharing three Symbols upstreams and preserving all 44 affected containers outside
+scope. Original terminal history is unchanged; additional ABB/BVB/HDB scope was
+not dispatched. This is not full I10 acceptance. TD-020 deferrals and all increment
+statuses/dependencies remain unchanged.
+
 November 18 owner scope amendment: [TD-020](../../technical-debt/020-session-runtime-operations.md)
 defers continuous fleet-wide rollout/recovery qualification and 12-hour
 reconciliation activation for session-based use. These are nonblocking for current
@@ -323,7 +363,7 @@ See [`automation-rules.md`](automation-rules.md) for allowed statuses, execution
 | P14-I7  | Legacy outbox data cleanup and compatibility retirement            | completed            | high     | [P14-I4, P14-I5]      | [P14-I8]                            | [apps/core, database, docs]                                                                                                               | autonomous        | false                   | null                                      | null                                     |
 | P14-I8  | Unified work expansion                                             | completed            | critical | [P14-I7]              | [P14-I9]                            | [apps/core, apps/analyzer, apps/ingestor, libs/py-common, libs/contracts, database, configs, docs]                                        | autonomous        | false                   | null                                      | null                                     |
 | P14-I9  | Graph-driven expansion and definition consolidation                | completed            | critical | [P14-I8]              | [P14-I10]                           | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
-| P14-I10 | Output metadata registration and execution watchdog                | in_progress          | critical | [P14-I9]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
+| P14-I10 | Output metadata registration and execution watchdog                | completed            | critical | [P14-I9]              | []                                  | [apps/core, apps/analyzer, apps/ingestor, apps/query-service, apps/omni-console, libs/py-common, libs/contracts, database, configs, docs] | autonomous        | false                   | null                                      | null                                     |
 
 I7 local completion — 2026-10-25: source-bound gate PASS 8/8, 444 tests /
 67 suites, ten migration/upgrade/concurrency cases and all 31 critical Java

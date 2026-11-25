@@ -1,5 +1,15 @@
 # JobRun Admission Rollout and Rollback
 
+November 20 retained maintenance: [all 2,748 physical baselines verified](../reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance).
+The earlier remaining-56 inventory is historical; logical proofs and canonical
+bytes were preserved. The finite baseline host exited without business dispatch.
+This is not persistent deployment, fleet recovery or scheduled reconciliation
+activation. The separate [original BANKS recovery](../reference/020-i10-postgres-only-cutover.md#november-20-original-banks-request-recovery)
+passes all 355 attempts with matched VERSIONED workers, 352 analytical proofs and
+44-container out-of-scope preservation. Owned services exited; final DB unfinished
+and Kafka known/unknown lag are zero. This is finite retained execution, not a
+persistent deployment. I10 remains in_progress.
+
 November 18 session-based scope: [TD-020](../technical-debt/020-session-runtime-operations.md)
 defers fleet-wide continuous rollout/recovery qualification and 12-hour schedule
 activation. Keep the schedule off; no automatic startup catch-up is approved.

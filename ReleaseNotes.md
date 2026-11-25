@@ -1,5 +1,180 @@
 # Omni Release Notes
 
+## 2026-11-24 - Group backfill dates in day/month/year format
+
+The Console backfill form groups From/To dates in one Date range box. Text entry
+and calendar selection display dd/mm/yyyy; API dates remain ISO YYYY-MM-DD.
+Strict real-calendar validation, Vietnam-day limits, range ordering and the
+366-day bound remain enforced before submission. The compound field stacks on
+narrow screens and retains native calendar controls and accessible endpoint labels.
+
+## 2026-11-24 - Complete I10 and make verifier ID optional
+
+The owner explicitly reviewed the passing I10 gate and approved removing mandatory
+verifier ID. `check_result.py attest` now accepts no `--verified-by`, omits absent
+attribution and validates legacy named attestations. Explicit I-VERIFIED, passing
+checks and exact summary/required-manifest binding remain mandatory. The change
+passes 58 tools tests, including tampered evidence and compatibility cases.
+
+The [completed I10 gate](docs/reference/019-i10-review-20261111.md#november-24-owner-verified-completion)
+is PASS 28/28 with owner_verified attestation. Registry, Plan 030, roadmap and
+current guides record completion of the approved PostgreSQL-only session scope.
+Historical evidence keeps its dates. TD-020/TD-018, Intraday, tracing, durable
+worker recovery and P12 remain deferred; no CI, deployment, Git publication or
+additional retained operation is claimed.
+
+## 2026-11-24 - Assemble the I10 parent verification package
+
+The [parent review package](docs/reference/019-i10-review-20261111.md#november-24-parent-verification-and-owner-review-package)
+consolidates P14-I10 checks, fresh graph impact, attributable coverage and dated
+retained maintenance/recovery evidence. Fresh suites pass Analyzer 273, Query 59,
+py-common 553, Console 135 and Kafka recovery 5/5; contracts, Console lint/types
+and Ingestor 141/lint pass. HTTP/pagination regression tests bring VND client
+coverage to 100% lines/branches. Shared fixtures now observe enrolled terminal
+publication correctly and keep Query/version safety assertions under PostgreSQL.
+
+The parent recorder supplies the final gate result. Owner review/identity remains
+required before attestation or I10 completion. The plan standard now follows the
+owner-approved AGENTS verification policy. No retained trigger/migration, CI,
+deployment, schedule, watchdog or Git publication is performed by this package.
+
+## 2026-11-24 - Continue I10 coverage and cold-start verification
+
+Fresh Platform coverage passes 992 cases (979 executed, 13 opt-in skips), closing
+the WorkExpansion and SchedulerOutboxService component coverage gaps. Ingestor
+passes 134 tests and lint. Its Symbols handler now accepts an absent prior Parquet
+snapshot on first sync while preserving storage failures and all-pages persistence
+before consumer publication. Nx invokes pytest through Python's module entrypoint
+to avoid a blocked Windows launcher without changing App Control policy.
+
+PostgreSQL-only cross-service fixtures pass opt-in E2E 14/14 without skips,
+including prior READY preservation on provider failure and real Query/lineage.
+Platform/Console builds pass; scoped gate P14-I10-coverage-20261124 is PASS 10/10.
+[Current evidence and limits](docs/reference/019-i10-review-20261111.md#november-24-verification-continuation)
+keep I10 in_progress. No retained business jobs, schedules, deployment or owner
+attestation are activated by these local checks.
+
+## 2026-11-24 - Allow necessary verification within authorized work
+
+AGENTS.md now permits necessary scoped build/test/coverage/lint/format/document
+and isolated integration/E2E checks without separate command-list approval.
+Worker guidance, shared skills and the development tooling guide follow the same
+policy. Explicit read-only/no-test/manual limits still apply; formatting preserves
+unrelated dirty files. Retained-data destruction/migrations, business-job triggers,
+runtime activation, deployment and Git publication remain separately authorized.
+Verification permission is not owner attestation. The old verification-approval-gate
+anchor remains available for existing links. No runtime or acceptance result is
+changed by this policy update.
+
+## 2026-11-23 - Reconcile I10 acceptance and prepare coverage closure
+
+[Current session acceptance](docs/reference/019-i10-review-20261111.md#november-23-session-acceptance-reconciliation)
+consolidates the PostgreSQL-reader criterion from existing cutover/reader/repair,
+2,748-container baseline and successful BANKS evidence. A fresh read-only snapshot
+has zero DB unfinished/stale work, Kafka known/unknown lag and active consumers;
+readiness counters remain V27 / 2,748 heads / 1,950 proofs / revision 5,304.
+Five WorkExpansion and seven SchedulerOutboxService safety tests are added without
+production changes. Tests/coverage/format are not run pending command approval;
+the prior selected-suite coverage is insufficient for complete component claims.
+Final coverage/matrix, complete verification manifest and owner review remain open.
+Graph MCP is unavailable; stale read-only graph cache plus source tracing is
+navigation evidence only. I10 remains in_progress; no job, schedule, watchdog,
+deployment, owner attestation or increment completion is activated by this slice.
+
+## 2026-11-20 - Complete retained physical storage baselines
+
+The failed BANKS request exposed the remaining pilot-only baseline scope. Fresh
+MinIO inventory found 2,748 EOD/Indicators/Signals containers, beyond the earlier
+59-partition PostgreSQL catalog. Owner-approved maintenance pinned all 2,745
+missing baselines and verified 2,748/2,748 exact bytes/versions. Canonical bytes,
+all 1,614 current proofs and 2,953 completion contracts remain unchanged; protected
+table changes are limited to heads and revision. Unregistered history remains
+unproven. Backups and old versions remain. The finite baseline host exited, with
+zero legacy discovery reads and no business dispatch. See the
+[runtime checkpoint](docs/reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance).
+The [original BANKS scope recovery](docs/reference/020-i10-postgres-only-cutover.md#november-20-original-banks-request-recovery)
+also passes: 22 symbol-scoped requests, 355/355 unique attempts SUCCESS, three
+shared Symbols upstream attempts, 352 analytical proofs and preserved out-of-scope
+rows in all 44 affected containers. The original FAILED request remains immutable.
+ABB/BVB/HDB were excluded after automatic review rejected the 48-node expansion
+without explicit approval. Final DB unfinished/stale and Kafka known/unknown lag
+are zero; owned services exited. Provider Symbols count warnings remain.
+I10 remains in_progress; continuous rollout/recovery and the 12-hour schedule
+remain deferred. Physical maintenance and business replay have separate evidence.
+
+## 2026-11-19 - Select backfill sectors from the active catalog
+
+Console replaces free-text sector codes with a multi-select dropdown and defaults
+sector level to 2 (Recommended). Platform adds read-only GET
+/api/v1/jobs/backfills/sectors with a default level of 2; active symbol membership
+provides codes and existing ICB rows enrich names. Empty/error catalogs remain
+unavailable for analytical submission; changing level clears selection and stale
+responses are ignored. Symbols exchange scope and POST admission remain unchanged.
+No schema, Kafka, storage, schedule or deployment change is introduced.
+BACKFILL-SECTORS-20261119 passes 5/5: Platform 220 tests, Console 135 tests,
+Console typecheck/lint and changed-file format. The sector GET reaches 100%
+line/branch coverage. No numeric frontend coverage or live deployment is claimed;
+this follow-up remains separate from the earlier policy gate.
+
+## 2026-11-19 - Simplify backfill policy and share compatible work automatically
+
+Backfill HTTP/Console now uses dataPolicy=PREFER_EXISTING (default) or REFRESH;
+rerun/force request fields are rejected. Compatible in-flight graph attempts share
+across requests. A later REFRESH may strengthen EOD only before any dispatch
+claim/evidence; otherwise new EOD/downstream attempts preserve frozen lineage.
+Sealed outbox intent remains unchanged; a durable parent overlay is bound during
+publish/replay. Symbols sharing is independent of the EOD-only cache policy.
+Read compatibility for previously emitted worker commands remains unchanged.
+See [policy and regression inventory](docs/reference/013-backfill-attempt-and-data-policy.md).
+Focused local gate BACKFILL-POLICY-20261119 passes 6/6: Platform 211 tests,
+Console 126 tests with typecheck/lint, Ingestor 132 tests and changed-file format.
+Policy promotion has 100% line/branch coverage; binding has 96%/86.67%. Full shared
+component coverage and worker E2E remain open; see the linked coverage inventory.
+No live runtime action, deployment or increment completion is claimed.
+
+## 2026-11-18 - Add a bounded current Symbols goal
+
+Goal discovery and POST /api/v1/jobs/backfills now support SYNC_SYMBOLS for one
+configured exchange (HOSE, HNX or UPCOM), without sector/symbol selectors or
+historical dates. Omitted dates resolve to today's Vietnam snapshot. Existing
+Indicators/Signals contracts remain compatible. Console shows the exchange scope
+and submits the same authenticated, idempotent request; generic trigger routes
+remain retired. See the [Symbols request](docs/reference/009-indicators-backfill.md#current-symbols-snapshot-goal---november-18).
+
+Admission uses normal graph locks, frozen exchange membership, claims and outbox.
+It supports empty-catalog bootstrap and retains scope-bound idempotency; no
+analytical Symbols READY is invented. The existing analytical-writer drain guard
+still protects Indicators/Signals and does not block the Symbols-only goal.
+No actual job, schedule, retained data repair or deployment was activated.
+Verification: SYMBOLS-GOAL-20261118 PASS 5/5; 185 focused Platform tests and 127
+Console tests pass, with Console typecheck/lint and changed-file format passing.
+Platform controller coverage is 113/113 lines and 79/82 branches; graph request
+service coverage is 445/454 lines and 210/244 branches in the executed focused suite.
+
+## 2026-11-18 - Persist symbol upserts before projecting Platform metadata
+
+Symbol sync now collects and validates all VNDirect pages, upserts complete row
+attributes into the exchange Parquet by (exchange, code), then reads back and
+checks persisted content before publishing symbol/sector batches. Prior symbols
+and non-null fields absent from the provider response are retained. Failed pages
+or read-back prevent publication; provider count mismatches remain explicit
+warnings with fetched/persisted counts. This does not certify provider completeness.
+
+Platform no longer calls deactivateMissing for symbol-upsert batches. Missing
+codes are not delisting evidence; prepared membership and legacy child completion
+behavior are preserved. Existing topic/payload fields and storage paths remain
+compatible. Restoring existing inactive symbols requires a separately controlled
+sync/repair; this source change did not mutate retained Parquet or PostgreSQL.
+
+Local verification: Ingestor 132 tests and four focused Platform
+SymbolUpsertConsumer tests pass. Scoped Python formatting passes. Full-project
+Ruff check passes, but format-check still fails on the pre-existing
+tests/test_kafka_consumer.py outside the currently approved formatting scope.
+The final recorder SYMBOLS-PARQUET-UPSERT-20261118-final therefore remains FAIL;
+passing tests do not imply a passing complete gate.
+The earlier I10 checkpoint was committed separately as 6c59b88; I10 completion
+status is unchanged. No live provider sync, deployment or push was performed.
+
 ## 2026-11-18 - Defer continuous operations for session-based I10
 
 The owner currently runs Omni by session. [TD-020](docs/technical-debt/020-session-runtime-operations.md)

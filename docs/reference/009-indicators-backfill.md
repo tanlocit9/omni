@@ -18,6 +18,32 @@ Current worker-chain verification is pending; older Indicators evidence is histo
 For UI request discovery and compact polling, use the
 [request list API](014-atomic-request-polling.md); full graph/member detail remains separate.
 
+## Current Symbols snapshot goal - November 18
+
+Discovery and POST also support `SYNC_SYMBOLS` for one configured exchange:
+`HOSE`, `HNX` or `UPCOM`. Console shows an exchange selector and omits sector/date
+fields. This is a current metadata snapshot, not a historical analytical backfill.
+
+```json
+{
+  "goal": "SYNC_SYMBOLS",
+  "exchange": "HOSE",
+  "dataPolicy": "PREFER_EXISTING"
+}
+```
+
+Send to `POST /api/v1/jobs/backfills` with existing operator authentication,
+`X-Omni-User` and a unique `Idempotency-Key`. Select `targetDefinitionId` from GET
+goals when the goal has multiple targets. The server freezes today in
+Asia/Ho_Chi_Minh; explicit dates must be today. Sector/symbol selectors and
+unconfigured exchanges are rejected. Compatible in-flight attempts are shared;
+terminal snapshots receive a new attempt without an extra flag;
+same-key/same-scope replay returns the accepted request; changed scope conflicts.
+Empty symbol catalogs may bootstrap. Normal claims, outbox, identity, admission
+flags and worker status flow remain; Symbols gains no analytical READY proof.
+The analytical legacy-writer drain guard remains for Indicators/Signals and does
+not block a Symbols-only metadata request. No schedule or job is automatically enabled.
+
 ## Root execution counters
 
 At request settlement, GraphWorkRequestService aggregates recordsSynced and
@@ -42,10 +68,10 @@ Plan 030/registry/roadmap retain I10 in_progress; architecture/ADR, flow, Kafka/
 deployment/development ownership, service guides, indexes and agent guidance need
 no ownership, schema or activation amendment. No live history repair is performed.
 
-Current request policy: [separate rerun from provider refresh](013-backfill-attempt-and-data-policy.md).
-Both flags default false; force implies rerun and fresh provider EOD. Selected
-local policy/PostgreSQL/worker E2E checks pass; full I10 coverage/cutover remains
-open. Older dated runs below exercised old semantics.
+Current request policy (November 19): [automatic sharing and one dataPolicy](013-backfill-attempt-and-data-policy.md).
+The default is PREFER_EXISTING; REFRESH requires fresh provider EOD. Removed
+rerun/force HTTP fields are rejected. New source verification is pending; earlier
+policy checks below are historical. I10 remains in_progress.
 
 Current closed-owner follow-up: [safe settlement, reuse and attempt/output
 diagnostics](012-i10-closed-owner-reconciliation.md). Focused PostgreSQL regressions
@@ -64,6 +90,37 @@ graph into Symbols -> dated EOD -> dated Indicators. Frozen attempt membership,
 registration before SUCCESS and exact work READY gate downstream dispatch.
 
 ## API
+
+### Sector discovery and recommended Console default - November 19
+
+`GET /api/v1/jobs/backfills/sectors?sectorLevel=2` uses the existing trusted
+operator authentication and returns an array of `{code, name}`. The optional
+query parameter defaults to 2; values outside 1-4 return 400. This endpoint is
+read-only and creates no request, attempt, registration or job.
+
+Options come from distinct sectorLvNCode values on active symbols, matching
+backfill admission's membership source. Active ICB sector rows enrich names
+(English, then Vietnamese, then the code itself). Codes without active symbols
+are omitted; missing name mappings do not invent or suppress actual memberships.
+The response is sorted by code; an empty result stays empty. Discovery is not a
+guarantee that a selected target definition or date range will pass admission.
+
+Console defaults **Sector level** to **2 (Recommended)** while preserving levels
+1, 3 and 4 as choices. **Sector codes** is a dropdown with checkboxes for up to
+100 codes, displaying code and name. Changing level clears the old selection;
+stale responses are ignored. Loading, unavailable and empty catalogs block
+analytical submission and expose retry/empty semantics. Symbols uses exchange
+scope and does not depend on this catalog. POST still requires an explicit valid
+sectorLevel for analytical goals; the Console default does not change that API
+validation or server-side membership checks.
+
+Focused local gate BACKFILL-SECTORS-20261119 passes 5/5: 220 Platform tests
+(164 Graph/PostgreSQL, 56 controller), 135 Console tests, Console typecheck/lint
+and changed-file format. The sector GET reaches 8/8 lines and 4/4 branches;
+controller class coverage is 120/120 lines and 83/86 branches. Frontend coverage
+is not instrumented; executed component/API tests cover selection, defaults,
+loading/error/empty catalogs, limits, level changes, stale responses and retries.
+This is not a live browser/backend deployment or full I10 acceptance claim.
 
 ### Goal discovery
 
@@ -89,7 +146,8 @@ as the private jobs API and returns a JSON array:
 ]
 ```
 
-The allow-list is shared with POST: `SYNC_INDICATORS` and `SYNC_SIGNALS`. Only
+The allow-list is shared with POST: `SYNC_INDICATORS`, `SYNC_SIGNALS` and
+`SYNC_SYMBOLS`. Only
 active canonical definitions are returned; aliases and unsupported job types are
 excluded. Cron scheduling may be disabled. Goals without eligible definitions are
 omitted; an empty catalog returns `[]`. Goals follow the allow-list order and
@@ -121,8 +179,7 @@ operator. A metadata-reader bearer token does not grant this mutation permission
   "sectorLevel": 1,
   "dateFrom": "2026-09-01",
   "dateTo": "2026-09-30",
-  "rerun": false,
-  "force": false
+  "dataPolicy": "PREFER_EXISTING"
 }
 ```
 
@@ -142,29 +199,23 @@ historical reconstruction. Historical market work skips weekends; current
 Symbols/Metadata snapshots may run on any calendar day. Holidays are not inferred as
 no-trade. Missing exact EOD dates never become READY by inference.
 
-HTTP 202 returns `requestId`, `executionId`, `status=ACCEPTED`, `goal`, `rerun`, `force`
+HTTP 202 returns `requestId`, `executionId`, `status=ACCEPTED`, `goal`, `dataPolicy`
 and `membershipPolicy=CURRENT_ACTIVE_AT_ACCEPTANCE`. Acceptance is not completion.
 Poll `GET /api/v1/jobs/atomic-work/requests/{requestId}` for durable membership and
 state. Same actor/key and canonical request replay the original execution, even
-after failure; changed scope/rerun/force with that key returns 409. Retry uses a new key.
+after failure; changed scope/dataPolicy with that key returns 409. Retry uses a new key.
 Invalid input is 400; absent/ambiguous target is 409; disabled/unavailable admission
 or unpaused writers is 503. Rejected requests do not create audit-only graph rows.
 Retired generic trigger routes remain 410 under TD-017.
 
 ## Attempt policy, datasets and metadata
 
-Default rerun=false/force=false shares compatible unfinished attempts with live
-requesters. A new EOD execution reuses a validated existing day or fetches if
-missing. rerun=true creates fresh attempts while retaining that EOD preference.
-force=true implies rerun and requires provider fetch even when the requested day
-exists. Indicators compute on new executions from their frozen approved EOD input.
-Successful/failed attempts are not reused under the existing IN_FLIGHT_ONLY policy.
-Queued legacy commands without dataPolicy retain their former force semantics;
-see the policy handoff for matched-worker deployment and compatibility.
-
-Existing EOD/Indicators writers merge and deduplicate at their existing keys,
-preserving data outside the requested range. This is not an unconditional
-destructive reconstruction of all history. File existence alone
+Compatible unfinished attempts are shared across requests automatically.
+PREFER_EXISTING uses exact-day stored EOD rows when present and fetches missing
+rows. REFRESH requires provider EOD. A stronger requirement may promote only a
+never-dispatched pending EOD attempt; otherwise new compatible attempts are made.
+Upstream attempt bindings remain frozen, and terminal attempts are never reused.
+Refresh preserves unrelated history. File existence alone
 does not grant READY: workers validate exact scoped rows, register output, ACK the
 registration publication, and then report SUCCESS. Platform promotes only that
 work after both committed registration and SUCCESS, using frozen attempts and
@@ -172,16 +223,16 @@ row-scoped versions. Failed/missing-day output cannot release Indicators.
 Historical indicator warmup still depends on available provider/lookback history;
 the API does not guarantee complete pre-range history or trading-calendar coverage.
 
-Logical datasets and storage paths are unchanged. Workers write Parquet only;
-`SYNC_METADATA` remains the sole canonical `_metadata/metadata.json` writer.
-The enrolled chain uses PostgreSQL work readiness without waiting for metadata
-sync. This does not refresh the legacy discovery document automatically.
+Logical datasets and storage paths are unchanged. Workers validate Parquet and
+register PostgreSQL work proofs; retired `_metadata/metadata.json` is not active
+authority or fallback. The enrolled chain does not wait for legacy metadata sync.
 
 ## Contract impact and operations
 
-- Public HTTP: additive Indicators-only endpoint and the body above; no Console UI.
+- Public HTTP/Console: bounded Indicators, Signals and current Symbols goals use
+  one dataPolicy; removed rerun/force request fields are rejected.
 - Kafka/protobuf: no field/topic/schema change. Existing envelope metadata carries
-  `backfillPolicy.force`, `rerun`, `dataPolicy` and `verifyEodParquet`; these are request policy, not an
+  `backfillPolicy.dataPolicy` and `verifyEodParquet`; these are request policy, not an
   analytical work identity parameter. Deploy matched Ingestor/shared Python code.
 - Persistence: forward V25 permits `BACKFILL` on `atomic_work_requests`; underlying
   atomic attempts retain existing one-work runs. No existing migration is edited.
@@ -189,12 +240,10 @@ sync. This does not refresh the legacy discovery document automatically.
   promotion to backfill membership even with global graph/enrollment/promotion off.
   Admission also requires guarded planning and the registration consumer
   (`APP_OUTPUT_REGISTRATION_SHADOW_ENABLED=true`). Keep normal global flags unchanged.
-- Analyzer/shared reader: with `OUTPUT_READINESS_MODE=manifest`, configure the
-  existing output-readiness API URL/token and matching Platform reader token.
-  Enrolled jobs use the private frozen-work reader; normal jobs still read the
-  manifest. Missing work-reader credentials fail closed, without manifest fallback.
-  PostgreSQL reader mode also supports enrolled input; shadow-only mode is not
-  the scoped backfill configuration.
+- Analyzer/shared reader: PostgreSQL-only readiness is the current default. Configure
+  the private readiness API URL/token and matching Platform reader token; missing
+  proof, API or bytes fails/waits without JSON fallback. Enrolled workers read the
+  exact frozen attempt/version. See the owner-approved PostgreSQL-only cutover.
 - Pause EOD/Indicators schedules and drain legacy writers before admission; keep
   them paused throughout the backfill window. Admission locks/checks definitions
   and unfinished legacy children, but is not a permanent cross-mode writer fence.

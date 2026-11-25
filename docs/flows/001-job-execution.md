@@ -1,5 +1,12 @@
 # Job Execution Flow
 
+[November 19 policy amendment](../reference/013-backfill-attempt-and-data-policy.md):
+backfill requests expose one dataPolicy and automatically share compatible
+in-flight work across request boundaries. Only a never-dispatched pending EOD may
+be promoted to REFRESH; published commands and upstream lineage stay immutable.
+Focused local policy checks pass 6/6; full shared-component coverage and worker
+E2E remain open. Older dated flow evidence remains historical.
+
 [November 18 session-based amendment](../technical-debt/020-session-runtime-operations.md):
 continuous fleet rollout/recovery qualification and 12-hour reconciliation
 activation are deferred. Completion still validates exact proofs/bytes and
@@ -244,6 +251,13 @@ scheduled entry points and guard remain active. FIFO enqueue order does not
 prove predecessor completion. I3.d defers manual triggering and owns cron/entry
 target review; I4 owns safe predecessor-completion admission before activation. See
 [I3.c scope/evidence](../plans/030-static-graph-dispatch-planner.md#i3c-bounded-preparation--2026-10-18).
+
+SYNC_SYMBOLS first collects all provider pages and upserts full symbol attributes
+into the exchange Parquet, preserving absent historical identities/attributes.
+Only after successful Parquet read-back does it publish symbol/sector batches.
+Platform upserts those records without deactivating absent symbols. A partial
+provider response is not authoritative delisting evidence; no automatic membership
+removal is inferred from the expected/actual count diagnostics.
 
 Prepared SYNC_SYMBOLS freezes EXCHANGE executions before dispatch. Symbol-upsert
 messages update symbol data without appending SYMBOL executions to that membership;

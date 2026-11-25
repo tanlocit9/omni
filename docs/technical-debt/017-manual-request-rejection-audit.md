@@ -11,6 +11,12 @@ when V14 is applied, not merely by editing migration source.
 
 ## Current Evidence
 
+November 18 owner amendment: the bounded goals API additionally accepts
+SYNC_SYMBOLS as one configured exchange's current snapshot. It uses normal graph
+admission/claims/outbox, rejects historical/sector/symbol scope and does not restore
+generic trigger routes or standalone request audit. See the
+[Symbols goal contract](../reference/009-indicators-backfill.md#current-symbols-snapshot-goal---november-18).
+
 November 15 owner amendment: the obsolete POST
 `/api/v1/jobs/definitions/{definitionId}/triggers` stub is removed (authenticated
 HTTP 404). The GET audit stub remains HTTP 410. Authenticated

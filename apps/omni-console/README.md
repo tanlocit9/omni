@@ -5,6 +5,120 @@ retire active legacy JSON discovery. Console keeps existing Query/Platform read
 APIs; catalog availability now follows registered PostgreSQL evidence. Missing
 catalog rows do not prove physical data absence or justify another attempt's proof.
 
+## Create a goal request in Console - November 19
+
+For ranged goals, **Date range** groups the start/end inputs in one box. Enter
+`dd/mm/yyyy` or use the calendar controls; requests still send ISO `YYYY-MM-DD`.
+Invalid calendar dates, reversed ranges, future Vietnam dates and ranges longer
+than 366 days are rejected before submission.
+
+Open **Work Operations → New backfill**. The **Goal** selector loads active
+canonical targets from `GET /api/v1/jobs/backfills/goals`:
+
+- `SYNC_SYMBOLS`: select **Exchange** (`HOSE`, `HNX` or `UPCOM`). Sector/date
+  fields are hidden; Platform accepts today's Vietnam snapshot only.
+- `SYNC_INDICATORS` and `SYNC_SIGNALS`: select the sector level/codes and date
+  range, then choose the data policy. Sector level defaults to **2 (Recommended)**.
+  Sector codes is a dropdown with multi-select checkboxes, showing code and name
+  from Platform. Changing level clears the previous sector selection.
+- Select a **Target definition** when the goal has multiple eligible definitions.
+
+The **Data policy** selector offers `PREFER_EXISTING` (default) and `REFRESH`.
+It controls EOD cache/provider behavior. Symbols always fetches its current
+exchange snapshot. The form no longer sends `rerun` or `force`.
+Compatible in-flight attempts are shared across requests automatically. Terminal
+attempts require new attempts; a stronger EOD policy can upgrade pending work
+only before dispatch and input/storage-base freezing.
+
+Submit the form to create the request, then open its detail in the request list.
+`202 ACCEPTED` confirms admission; it does not mean execution completed or output
+is READY. An unchanged retry after an uncertain response retains its idempotency
+key. A different key creates a separate request that can still share live work.
+
+### Test the same API from Postman
+
+Import these cURL commands. Set `baseUrl` to the Platform address (locally
+`http://localhost:8080`), `operatorUuid` to the configured operator UUID, and
+`targetDefinitionId` to the appropriate ID returned by goal discovery.
+
+```bash
+curl --request GET '{{baseUrl}}/api/v1/jobs/backfills/goals' \
+  --header 'X-Omni-User: {{operatorUuid}}'
+```
+
+```bash
+curl --request POST '{{baseUrl}}/api/v1/jobs/backfills' \
+  --header 'Content-Type: application/json' \
+  --header 'X-Omni-User: {{operatorUuid}}' \
+  --header 'Idempotency-Key: symbols-hose-test-001' \
+  --data-raw '{
+    "goal": "SYNC_SYMBOLS",
+    "targetDefinitionId": "{{targetDefinitionId}}",
+    "exchange": "HOSE",
+    "dataPolicy": "PREFER_EXISTING"
+  }'
+```
+
+For sector-based goals, inspect the level-specific options (omitting sectorLevel
+also defaults this GET to level 2):
+
+```bash
+curl --request GET '{{baseUrl}}/api/v1/jobs/backfills/sectors?sectorLevel=2' \
+  --header 'X-Omni-User: {{operatorUuid}}'
+```
+
+Copy `requestId` from the POST response and inspect the accepted request:
+
+```bash
+curl --request GET '{{baseUrl}}/api/v1/jobs/atomic-work/requests/{{requestId}}' \
+  --header 'X-Omni-User: {{operatorUuid}}'
+```
+
+For a sharing test, submit the same body with `symbols-hose-test-002` while the
+first compatible attempt is still in flight. Reusing `symbols-hose-test-001`
+replays the first request instead of creating another one.
+
+Run Console through `nx run omni-console:serve` from the workspace root. Both
+Console and Platform must use the updated source. If `SYNC_SYMBOLS` is missing,
+check the goals response, confirm an active canonical Symbols definition exists,
+and restart Platform with the updated code; then reload Console. Goal discovery
+does not certify admission flags, configured exchange scope or worker readiness.
+
+Current sector-selector gate `BACKFILL-SECTORS-20261119` passes 5/5: 135 Console
+tests, typecheck/lint, 220 focused Platform tests and changed-file formatting.
+The new sector GET has 100% line/branch coverage in that Platform run. Earlier
+132-test Ingestor evidence belongs to the policy checkpoint; Ingestor is unchanged
+by the selector follow-up. No numeric frontend coverage, live browser/backend,
+deployment or I10 completion is claimed. See the
+[bounded goal API](../../docs/reference/009-indicators-backfill.md) and
+[data policy and coverage limits](../../docs/reference/013-backfill-attempt-and-data-policy.md).
+Earlier dated checkpoints below retain their historical test counts.
+
+## Repository and session operation
+
+Use the [root quick start](../../README.md#local-development) for infrastructure
+and the five-service host workflow. `omni:dev` includes this Vite Console and Query
+Service; the Docker application composition currently includes neither of them.
+The service selector's goals come from active canonical Platform definitions;
+no frontend constant can create a missing backend goal or enable its admission.
+
+For session-based use, continuous fleet rollout/recovery qualification and 12-hour
+reconciliation activation are deferred under
+[TD-020](../../docs/technical-debt/020-session-runtime-operations.md). Manual request
+inspection, authoritative proofs and affected-scope write safety remain required.
+Current views are Market Dashboard, Jobs, Work Operations, Dataset Explorer
+and SQL Console. Manual EOD Data Health scanning is planned under P13-I3; no
+current scan view/API is implied by this guide. The UI source/tests do not
+establish a live browser/backend rollout.
+
+### Styling
+
+Tailwind CSS 4 runs through the [Console Vite config](vite.config.ts). Use
+utilities in React components and share design tokens and component styles
+through [src/styles.css](src/styles.css). The stylesheet imports Tailwind's
+theme and utilities and uses the Console's existing base styles in place of
+Preflight.
+
 ## I10 UI alignment - November 15
 
 Request links use `?view=work&requestId=<UUID>`. Opening/reloading a link restores
@@ -65,14 +179,24 @@ below remains historical. No browser/backend integration, runtime rollout,
 numeric coverage or I10 completion is claimed.
 See [evidence semantics](../../docs/reference/012-i10-closed-owner-reconciliation.md#additive-request-diagnostics).
 
+November 18: SYNC_SYMBOLS is available through the same goal discovery and bounded
+request flow. Its form selects HOSE/HNX/UPCOM and shows current-snapshot semantics;
+sector/date fields are omitted. The November 19 policy above supersedes the old
+Recalculate option; compatible in-flight work now shares automatically. Admission
+still depends on Platform flags and active canonical target configuration.
+
 ## I10 backfill requests - source update, November 15
 
 Work Operations now contains a New backfill form and request list in addition to
 the read-only diagnostic panels. Goals and target definitions come from
 `GET /api/v1/jobs/backfills/goals`; creation uses the existing bounded
-`POST /api/v1/jobs/backfills`, never the removed definition trigger POST. The
-Default/Recalculate/Refresh policies preserve the existing rerun/force contract.
-Sector codes are user-entered current catalog codes, not inferred classifications.
+`POST /api/v1/jobs/backfills`, never the removed definition trigger POST.
+The two data policies use `dataPolicy=PREFER_EXISTING` or `REFRESH` with automatic
+compatible in-flight sharing. Removed `rerun`/`force` fields are not submitted.
+Sector codes are selected from Platform's active-symbol catalog, not free text or
+inferred classifications. Sector level defaults to 2 (Recommended); loading,
+unavailable and empty catalogs block analytical requests. Retry loads the current
+level again, while the Symbols exchange snapshot remains independent.
 Unknown submission outcomes retain the idempotency key for an unchanged retry.
 HTTP ACCEPTED means acceptance, not completed work or READY.
 
@@ -167,7 +291,8 @@ and Dataset Explorer metadata-sync actions remain deferred under TD-017. The old
 trigger POST is removed; the audit GET remains authenticated HTTP 410. Console
 does not call either route. Bounded backfill creation and request polling live in
 Work Operations as described above. Dataset
-browsing, partition selection, query preview and read-only Data Health scans remain.
+browsing, partition selection and query preview remain. Manual Data Health scans
+are planned under P13-I3, not an available view in the current App navigation.
 Future manual metadata refresh requires owner-approved trigger/API/audit support;
 do not substitute direct Kafka, storage writes or scheduler state changes.
 

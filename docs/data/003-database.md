@@ -1,5 +1,13 @@
 # Database
 
+November 19 policy source adds `dispatchDataPolicy` in the existing one-child
+atomic attempt parent execution metadata. Only guarded never-dispatched EOD
+promotion may set REFRESH; publish/replay reads it without changing sealed outbox
+intent or frozen lineage. No migration/table change is required. See
+[policy and verification boundary](../reference/013-backfill-attempt-and-data-policy.md).
+Focused local policy checks pass 6/6, including PostgreSQL lock/rollback and
+frozen-base regressions; full I10 acceptance remains open.
+
 [V27](../../database/migrations/V27__modulith_jpa_event_publications.sql) adds
 event_publication and event_publication_archive for the existing Spring Modulith
 2.0.1 JPA registry. Active/archive fields include status, completion attempts and
@@ -366,6 +374,12 @@ dispatch and are never stored in either notification table. The separate
 instances. `DEAD` rows are visible terminal records and are not replayed automatically.
 
 ### Symbols
+
+November 18 symbol projection amendment: topic-upsert-symbols only upserts the
+persisted Parquet records. A missing code does not set is_active=false; provider
+snapshot absence is not authoritative delisting evidence. No Symbols schema or
+migration change accompanies this behavior. Existing inactive flags are not
+repaired merely by deploying the source change.
 
 ### Deferred manual job triggers
 

@@ -14,6 +14,11 @@ No process, schedule, catch-up scan or deployment is activated by this record.
 
 ## Two deferred slices
 
+November 20: [physical baseline maintenance](../reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance)
+verified all 2,748 existing EOD/Indicators/Signals containers. The remaining-56
+count is historical. This resolves pinning for that inventory, while fleet recovery
+and periodic activation below remain deferred and have not passed by implication.
+
 1. **Continuous rollout and recovery:** qualify the entire deployed service and
    dataset inventory, coordinated configuration/credentials, restart and partial
    failure recovery, backup restoration, retention and referenced object versions.
@@ -70,5 +75,7 @@ commands and record actual evidence before marking either slice complete.
   includes the finite Signals/readers/repair gate PASS 3/3, 59/59 read-only parity
   and three pinned partitions. These dated results are not new runs for this debt.
 
-Documentation-only decision. No production code, database, object, Kafka offset,
-runtime flag, verification result or owner attestation changed.
+The November 18 decision was documentation-only: no code, database, object,
+offset, runtime flag, verification result or attestation changed in that decision.
+The separately dated November 20 maintenance records physical pin evidence; it
+does not activate either deferred slice or supply owner attestation.

@@ -1,5 +1,32 @@
 # Omni — Consolidated Implementation Roadmap
 
+## I10 completed - November 24
+
+[P14-I10 completion](../../reference/019-i10-review-20261111.md#november-24-owner-verified-completion)
+records parent PASS 28/28, reconciled graph/source/test/coverage and explicit owner
+review. Verifier ID is optional; the attestation remains bound to the exact gate.
+P14-I9 is completed and I10 acceptance is satisfied for the approved PostgreSQL-only
+session scope. TD-020/TD-018 and unrelated runtime/deployment gates remain deferred.
+Earlier dated in_progress checkpoints below retain their historical results.
+
+## Current operational navigation - November 19
+
+P14-I10 remains **in_progress**, with unchanged registry dependencies. The bounded
+goals API/Console already has source for SYNC_SYMBOLS, SYNC_INDICATORS and
+SYNC_SIGNALS; this is separate from generic operator triggering deferred by TD-017.
+The API uses one dataPolicy and automatic compatible in-flight sharing, not the
+superseded rerun/force request flags.
+
+Start with the [root guide](../../../README.md),
+[Console workflow](../../../apps/omni-console/README.md),
+[current policy/evidence](../../reference/013-backfill-attempt-and-data-policy.md)
+and [PostgreSQL-only authority](../../reference/020-i10-postgres-only-cutover.md).
+Full shared-component coverage, current worker E2E and acceptance remain distinct
+from the focused policy gate. Continuous fleet qualification and 12-hour schedule
+activation are deferred/nonblocking for session-based I10 under TD-020; per-scope
+proof, byte, physical write-safety and recovery requirements remain.
+Historical dated status/evidence below is not a second active schedule.
+
 November 18 owner scope amendment: [TD-020](../../technical-debt/020-session-runtime-operations.md)
 defers continuous fleet-wide rollout/recovery qualification and 12-hour
 reconciliation activation while Omni runs by session. Affected-scope proof,
@@ -35,9 +62,10 @@ I10 discovery: [polling API](../../reference/014-atomic-request-polling.md) and
 [delivery review](../../reference/015-i10-review-20261108.md). Status and dependencies
 remain unchanged; this is not increment acceptance or global cutover.
 
-Backfill policy: [rerun versus provider refresh](../../reference/013-backfill-attempt-and-data-policy.md).
-Default reuse remains IN_FLIGHT_ONLY; selected local worker E2E checks pass,
-with full I10 coverage/cutover still open.
+Backfill policy: [automatic sharing and EOD data policy](../../reference/013-backfill-attempt-and-data-policy.md).
+Sharing remains IN_FLIGHT_ONLY. November 19 focused local policy checks pass 6/6;
+whole-component coverage and current worker E2E remain open. Older worker E2E
+results cover the former flags contract. Full I10 gates remain open.
 
 I10 closed-owner checkpoint: [safe settlement and attempt/output diagnostics](../../reference/012-i10-closed-owner-reconciliation.md).
 Focused PostgreSQL regressions pass; I10 remains in_progress.
@@ -170,7 +198,7 @@ This table makes the roadmap hierarchy visible in one place. Status values are c
 | Deferred owner-gated                    | P11 — Cross-service observability                 | [Plan 024](../024-polyglot-correlation-structured-logging.md)                                      | `pending`: P11-I1, P11-I2, P11-I3, P11-I4, P11-I5                                  | Deferred under TD-011; not autonomously selectable.                                                                                                                                                          |
 | Deferred owner-gated                    | P12 — Worker throughput and writer batching       | [Plan 027](../027-concurrent-workers-and-writer-batching.md)                                       | `pending`: P12-I1, P12-I2, P12-I3, P12-I4                                          | Requires owner reactivation and the P13-I1 measurement gate.                                                                                                                                                 |
 | Milestone 1 — Operator trust            | P13 — Operator Trust Console                      | [Plan 029](../029-operator-trust-console.md)                                                       | `pending`: P13-I1, P13-I2, P13-I3, P13-I4                                          | Basic operations/shell remain active; P13-I3 retains its owner-decision gate.                                                                                                                                |
-| Milestone 1 — Scheduler topology        | P14 — Static Graph & DispatchPlanner              | [Plan 030](../030-static-graph-dispatch-planner.md)                                                | `completed`: P14-I1–I5/I7/I8/I9; I6 superseded; `in_progress`: P14-I10             | I2 static contract; I3 JobRun preparation; I4 guarded admission; I5 diagnostics/read-model handoff; I7 legacy cleanup; I8 expansion; I9 graph/shared-work/consolidation; I10 metadata registration/watchdog. |
+| Milestone 1 — Scheduler topology        | P14 — Static Graph & DispatchPlanner              | [Plan 030](../030-static-graph-dispatch-planner.md)                                                | `completed`: P14-I1–I5/I7/I8/I9/I10; I6 superseded                                 | I2 static contract; I3 JobRun preparation; I4 guarded admission; I5 diagnostics/read-model handoff; I7 legacy cleanup; I8 expansion; I9 graph/shared-work/consolidation; I10 metadata registration/watchdog. |
 
 Rules for reading the catalog:
 

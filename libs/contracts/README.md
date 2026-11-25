@@ -1,41 +1,24 @@
 # Omni Cross-Service Contracts
 
-WorkerCompletionEvent/WorkerCompletionStatus and worker-completion-v1.json define
-[unified I10 completion](../../docs/reference/018-i10-worker-completion.md): terminal
-status plus optional output evidence on the existing registration topic. Deploy paired adapters.
+## Current compatibility boundary - November 19
 
-I10 review correction (2026-11-04): signal row coordinates include model_version
-when non-null; omission identifies only a legacy/null-version row. Existing
-row_keys Struct fields carry the distinction without new protobuf fields. The
-shared output-registration-signal-models-v1.json fixture covers legacy/V1/V2
-coexistence in both JSON adapters. Deploy paired Java/Python adapters; see
-[compatibility and verification](../../docs/reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+Canonical protobuf schemas remain under `proto`; generated Java/Python output is
+build output and is never hand-edited. Producers, consumers and fixtures evolve
+together through the declared contracts targets.
 
-Owner identity revision (2026-11-03): enrolled work READY and direct upstream
-approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
-output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
-are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
-old source/checkpoint statements below are historical for this revised scope.
+The bounded goals API is owned by Platform, not by these protobuf definitions.
+Its new dataPolicy replaces HTTP rerun/force and travels through the existing
+metadata envelope as backfillPolicy.dataPolicy plus verifyEodParquet. No protobuf
+field number/topic/schema change was introduced by that policy revision.
+Previously emitted worker commands retain their existing adapters and semantics.
 
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
-
-I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
-
-Current local acceptance (2026-11-01): **I8/I9 completed**. Canonical proto is
-unchanged; pinned generation/artifact checks are recorded in the
-[closure evidence](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
-I10 remains planned/pending, and current runtime transport remains JSON.
-
-Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
-I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
-shared in-flight attempts and exact dependency barriers, plus reversible scheduled
-preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
-existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
-work diagnostics are additive; writer and broader output/version exclusion remain
-deferred. Prior indicator approval/byte-binding evidence remains historical.
-No verification ran for this continuation; defaults remain unactivated. See
-[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+PostgreSQL-only readiness, frozen work/attempt/version identity and unified terminal
+completion remain the current contracts; a generated schema or registration alone
+is not READY. See [Kafka ownership](../../docs/data/001-kafka-contracts.md),
+[policy compatibility](../../docs/reference/013-backfill-attempt-and-data-policy.md)
+and [completion](../../docs/reference/018-i10-worker-completion.md).
+The focused policy suite does not replace contracts generation/toolchain checks
+or establish full I10 acceptance.
 
 This Nx project owns Omni's versioned Protocol Buffer schemas for Kafka and other service-to-service boundaries.
 
@@ -93,3 +76,47 @@ contract, separate from Kafka/protobuf; it does not change registration bounds.
 `contracts:test` also requires generated OutputRegistrationEvent.java,
 WorkerCompletionEvent.java, WorkerCompletionStatus.java and
 output_registration_pb2.py. Never hand-edit generated artifacts.
+
+## Historical implementation checkpoints
+
+The dated notes below preserve their original source and verification boundaries.
+The current operation/contracts section above supersedes older manifest-default,
+shadow authority, retired API-policy and increment-status descriptions. Historical
+passes do not certify the present checkout, runtime or deployment.
+
+WorkerCompletionEvent/WorkerCompletionStatus and worker-completion-v1.json define
+[unified I10 completion](../../docs/reference/018-i10-worker-completion.md): terminal
+status plus optional output evidence on the existing registration topic. Deploy paired adapters.
+
+I10 review correction (2026-11-04): signal row coordinates include model_version
+when non-null; omission identifies only a legacy/null-version row. Existing
+row_keys Struct fields carry the distinction without new protobuf fields. The
+shared output-registration-signal-models-v1.json fixture covers legacy/V1/V2
+coexistence in both JSON adapters. Deploy paired Java/Python adapters; see
+[compatibility and verification](../../docs/reference/007-p14-i10-work-identity.md#review-corrections-and-writer-todos--2026-11-04).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Current local acceptance (2026-11-01): **I8/I9 completed**. Canonical proto is
+unchanged; pinned generation/artifact checks are recorded in the
+[closure evidence](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending, and current runtime transport remains JSON.
+
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
+shared in-flight attempts and exact dependency barriers, plus reversible scheduled
+preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
+existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
+work diagnostics are additive; writer and broader output/version exclusion remain
+deferred. Prior indicator approval/byte-binding evidence remains historical.
+No verification ran for this continuation; defaults remain unactivated. See
+[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).

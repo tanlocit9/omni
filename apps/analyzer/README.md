@@ -1,81 +1,30 @@
 # Analyzer Service
 
-The [active readiness default is PostgreSQL](../../docs/reference/020-i10-postgres-only-cutover.md).
-Configure the private API URL/reader token; API/byte errors fail without JSON
-fallback. PostgreSQL-mode SYNC_METADATA validates registered outputs instead of
-publishing legacy JSON. Explicit manifest/shadow fixtures below are historical;
-full inventory and the 12-hour operational gate remain separate. Active intraday
-confirmation reports UNAVAILABLE/MISSING_POSTGRES_INTRADAY_PROOF: intraday has no
-supported PostgreSQL registration contract and its JSON READY resolver is not wired.
+## Current operation - November 19
 
-New I10 Indicators/Signals/evaluation commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md).
-RUNNING stays separate. Two-message ordering below describes legacy commands.
+Use `nx run analyzer:sync` and `nx run analyzer:serve -- --port 8000` from the
+workspace root after configuring Kafka, storage and the private PostgreSQL proof
+API. The root `omni:dev` target includes Analyzer with HMR.
 
-I10 [versioned commands](../../docs/reference/017-i10-versioned-storage.md) merge
-declared output history from frozen accepted bases and read exact upstream versions.
-Registration precedes SUCCESS. Strategies/algorithms and logical paths are unchanged;
-paired deployment is required before enabling the versioned Platform flag.
+Analyzer computes Indicators, Signals, evaluation and Sector Wave outputs. Platform
+owns goal admission and scheduling; Analyzer reads exact frozen upstream attempts
+and approved versions. The public goal's dataPolicy controls upstream EOD fetching,
+not analytical identity or algorithms. New I10 commands publish unified completion;
+queued legacy commands keep their compatible ordering.
 
-Shadow mode keeps manifest catalog authority and routes enrolled inputs through
-frozen PostgreSQL proofs. Startup shares its Parquet validator with scoped shadow
-comparison; the [storage runbook](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows)
-defines the comparison and its limits.
+Active readiness is PostgreSQL-only: missing proof/API/bytes cannot fall back to
+legacy JSON. SYNC_METADATA validates registered PostgreSQL outputs in this path;
+it does not republish retired global metadata.json. Intraday confirmation is
+UNAVAILABLE/MISSING_POSTGRES_INTRADAY_PROOF until a supported registration contract
+exists. Historical manifest/shadow descriptions below are compatibility evidence.
 
-Shared Kafka consumers now ACK a RUNNING worker receipt before calling the
-handler. This is neither terminal completion nor READY; command commit still
-requires terminal status ACK. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
-
-For [scoped Indicators backfill](../../docs/reference/009-indicators-backfill.md),
-manifest-mode workers with configured private readiness URL/token read enrolled
-frozen EOD proofs through PostgreSQL while normal catalog reads retain manifests.
-Indicators recalculate and register before SUCCESS; no global reader switch is required.
-
-I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
-Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
-symbols in the same file are independent; whole-file snapshots are not required
-for new enrollment. Query executes validated READY rows from the checked buffer.
-Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
-See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
-
-Owner identity revision (2026-11-03): enrolled work READY and direct upstream
-approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
-output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
-are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
-old source/checkpoint statements below are historical for this revised scope.
-
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
-
-I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
-
-Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
-
-Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
-See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
-I10 remains planned/pending; no default activation, retained-environment deployment,
-PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
-handoffs below record their historical status and do not override this result.
-
-Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes now use evaluationDate/businessDate as scan day D, score saved origins T < D only when horizons mature, and append missing outcomes. Zero-row scans expose resultReason/asOfDate; prediction/outcome replay is immutable and conflicting analysis values fail before output writes. No tests ran for this source change.
-See [source, impact matrix and local handoff](../../docs/plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
-
-Atomic indicators now validate the execution's matching EOD approval and the exact
-bytes read before output. Stale/missing bindings fail closed; the error path does
-not publish a replacement dataset. Legacy unbound commands retain compatibility.
-
-Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
-I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
-shared in-flight attempts and exact dependency barriers, plus reversible scheduled
-preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
-existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
-work diagnostics are additive; writer and broader output/version exclusion remain
-deferred. Prior indicator approval/byte-binding evidence remains historical.
-No verification ran for this continuation; defaults remain unactivated. See
-[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
-Planned P14 handoff — 2026-10-29: Pending I8 requires explicit day/cutoff/lookback and atomic identity semantics. Future compute results retain work/execution identity when sent to writer; existing terminal-status commit loop does not already implement durable write-intent acknowledgement.
-This note changes no implementation, configuration, preparation flag or existing
-runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+I10 remains in_progress. Continuous fleet rollout/recovery qualification and
+12-hour schedule activation are deferred under TD-020 for session-based operation;
+per-scope frozen inputs, proof/byte validation, write safety and bounded recovery
+remain required. No analytical strategy, schedule or deployment is activated here.
+See [current authority](../../docs/reference/020-i10-postgres-only-cutover.md),
+[completion](../../docs/reference/018-i10-worker-completion.md) and
+[session operations](../../docs/technical-debt/020-session-runtime-operations.md).
 
 Analyzer is the Python analytical worker/API service for indicators, signals, signal evaluation, and Sector Wave calculations. Its Nx project name is `analyzer` and its source path is [`apps/analyzer`](.).
 
@@ -83,11 +32,10 @@ Analyzer is the Python analytical worker/API service for indicators, signals, si
 
 Analyzer owns analytical jobs that read Parquet inputs, compute derived datasets, write Parquet outputs, and publish job status or notification events back to Platform.
 
-Known activation blocker: the indicator worker reads current discovery/canonical
-Parquet rather than a snapshot bound to Platform's persisted approved inputs. The
-[shared-ancestor integration](../../docs/deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27)
-reproduces SUCCESS with a newer input version during overlapping runs/replay.
-The opt-in safety test remains red; no production version-pinning fix is claimed.
+The earlier [shared-ancestor incident](../../docs/deployment/004-job-run-admission-rollout.md#shared-ancestor-integration--2026-10-27)
+is historical evidence. The current enrolled path validates frozen upstream
+attempt/version proofs and exact bytes; it does not substitute latest discovery
+for approved inputs. Full I10 acceptance remains separate from this source contract.
 
 ## Owns
 
@@ -233,3 +181,87 @@ nx run analyzer:format
 | Kafka topics                         | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     |
 | S3 paths                             | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
 | Shared Python runtime/config/storage | [`libs/py-common`](../../libs/py-common)                             |
+
+## Historical implementation checkpoints
+
+The dated notes below preserve their original source and verification boundaries.
+The current operation/contracts section above supersedes older manifest-default,
+shadow authority, retired API-policy and increment-status descriptions. Historical
+passes do not certify the present checkout, runtime or deployment.
+
+The [active readiness default is PostgreSQL](../../docs/reference/020-i10-postgres-only-cutover.md).
+Configure the private API URL/reader token; API/byte errors fail without JSON
+fallback. PostgreSQL-mode SYNC_METADATA validates registered outputs instead of
+publishing legacy JSON. Explicit manifest/shadow fixtures below are historical;
+full inventory and the 12-hour operational gate remain separate. Active intraday
+confirmation reports UNAVAILABLE/MISSING_POSTGRES_INTRADAY_PROOF: intraday has no
+supported PostgreSQL registration contract and its JSON READY resolver is not wired.
+
+New I10 Indicators/Signals/evaluation commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md).
+RUNNING stays separate. Two-message ordering below describes legacy commands.
+
+I10 [versioned commands](../../docs/reference/017-i10-versioned-storage.md) merge
+declared output history from frozen accepted bases and read exact upstream versions.
+Registration precedes SUCCESS. Strategies/algorithms and logical paths are unchanged;
+paired deployment is required before enabling the versioned Platform flag.
+
+Shadow mode keeps manifest catalog authority and routes enrolled inputs through
+frozen PostgreSQL proofs. Startup shares its Parquet validator with scoped shadow
+comparison; the [storage runbook](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows)
+defines the comparison and its limits.
+
+Shared Kafka consumers now ACK a RUNNING worker receipt before calling the
+handler. This is neither terminal completion nor READY; command commit still
+requires terminal status ACK. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+For [scoped Indicators backfill](../../docs/reference/009-indicators-backfill.md),
+manifest-mode workers with configured private readiness URL/token read enrolled
+frozen EOD proofs through PostgreSQL while normal catalog reads retain manifests.
+Indicators recalculate and register before SUCCESS; no global reader switch is required.
+
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+Sector Transition outcomes correction — 2026-10-30: Sector Transition outcomes now use evaluationDate/businessDate as scan day D, score saved origins T < D only when horizons mature, and append missing outcomes. Zero-row scans expose resultReason/asOfDate; prediction/outcome replay is immutable and conflicting analysis values fail before output writes. No tests ran for this source change.
+See [source, impact matrix and local handoff](../../docs/plans/030-static-graph-dispatch-planner.md#sector-transition-outcomes-as-of-correction--2026-10-30).
+
+Atomic indicators now validate the execution's matching EOD approval and the exact
+bytes read before output. Stale/missing bindings fail closed; the error path does
+not publish a replacement dataset. Legacy unbound commands retain compatibility.
+
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
+shared in-flight attempts and exact dependency barriers, plus reversible scheduled
+preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
+existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
+work diagnostics are additive; writer and broader output/version exclusion remain
+deferred. Prior indicator approval/byte-binding evidence remains historical.
+No verification ran for this continuation; defaults remain unactivated. See
+[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+
+Planned P14 handoff — 2026-10-29: Pending I8 requires explicit day/cutoff/lookback and atomic identity semantics. Future compute results retain work/execution identity when sent to writer; existing terminal-status commit loop does not already implement durable write-intent acknowledgement.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).

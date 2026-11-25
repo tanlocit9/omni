@@ -1,5 +1,48 @@
 # Plan 030 — Static Graph & DispatchPlanner
 
+November 24 completion: [owner-verified I10 closure](../reference/019-i10-review-20261111.md#november-24-owner-verified-completion)
+records parent PASS 28/28, reconciled graph/source/test/coverage and explicit owner
+review. The owner removed mandatory verifier ID; optional legacy attribution and
+all summary/manifest guards remain. P14-I10 is completed for the approved session
+scope, with TD-020/TD-018 and unrelated runtime deferrals unchanged. No CI,
+deployment, Git publication or new retained operation is inferred.
+
+November 24 parent review: [complete verification package](../reference/019-i10-review-20261111.md#november-24-parent-verification-and-owner-review-package)
+now binds current results and dated retained evidence under P14-I10. Graph impact
+is refreshed and reconciled across services. New VND coverage is 100%/100%;
+Ingestor passes 141 tests. Shared-attempt/overlap fixtures use PostgreSQL and
+preserve cancellation, terminal replay, offsets and approved-version safety.
+Read the parent recorder for its final result. The last combined criterion and
+in_progress status remain until a passing parent gate and explicit owner review;
+no deferred runtime or deployment is activated.
+
+November 24: [verification continuation](../reference/019-i10-review-20261111.md#november-24-verification-continuation)
+executes the new safety tests and full Platform coverage: 992 cases, zero failures,
+13 opt-in skips. WorkExpansion and SchedulerOutboxService exceed 80% lines/branches;
+Ingestor's cold-start Symbols fix passes 134 tests and lint. Necessary verification
+follows updated AGENTS.md. Current worker-chain E2E passes 14/14 without skips;
+scoped gate P14-I10-coverage-20261124 passes 10/10 including Platform/Console builds;
+complete parent manifest and owner review remain open. I10 stays in_progress and
+TD-020/TD-018 remain.
+
+November 23: [session acceptance reconciliation](../reference/019-i10-review-20261111.md#november-23-session-acceptance-reconciliation)
+consolidates the PostgreSQL-reader criterion from existing source/runtime evidence
+and confirms an idle current DB/Kafka snapshot. The final current-source coverage,
+verification manifest and owner-review criterion remains open. Twelve added safety
+regressions are not yet executed; no new test/coverage pass or I10 completion is
+claimed. Continuous fleet recovery, 12-hour reconciliation and watchdog remain
+deferred under TD-020/TD-018.
+
+November 20 retained checkpoint: [full physical baseline maintenance](../reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance)
+verifies 2,748/2,748 EOD/Indicators/Signals containers, with 2,745 missing heads
+pinned and logical proofs preserved. The earlier remaining-56 snapshot is historical.
+P14-I10 remains in_progress. TD-020 still defers continuous rollout/recovery and
+12-hour activation. The [original BANKS scope recovery](../reference/020-i10-postgres-only-cutover.md#november-20-original-banks-request-recovery)
+separately passes 355/355 unique attempts via 22 scoped requests and three shared
+Symbols attempts, with 352 proofs and exact out-of-scope preservation in all 44
+containers. Original FAILED history remains; ABB/BVB/HDB expansion was not run.
+No full I10 acceptance or numeric regression coverage is inferred from this run.
+
 November 11 acceptance review: [findings, fresh checks and retained preflight](../reference/019-i10-review-20261111.md).
 Frozen proof history under concurrent refresh now has owner-approved V26/API source
 and passing focused regressions. Retained DB is V25 and bucket versioning is not enabled; I10 remains
@@ -39,10 +82,23 @@ I10 polling checkpoint: [request discovery and per-job summaries](../reference/0
 [Delivery review and remaining gates](../reference/015-i10-review-20261108.md)
 retain I10 in_progress; no new increment or coordinated cutover is introduced.
 
-Backfill execution/data policy: [rerun versus forced provider refresh](../reference/013-backfill-attempt-and-data-policy.md).
-Both flags default false; force implies rerun. Attempt sharing remains IN_FLIGHT_ONLY;
-selected local policy/PostgreSQL/worker E2E checks pass; full I10 coverage/cutover
-remains open and I10 remains in_progress.
+November 19 Console scope follow-up: Sector codes now uses a level-specific
+Platform dropdown with code/name options from active-symbol membership. Level 2
+is the recommended UI default; changing level clears selection. The additive
+read-only sectors GET does not change POST validation, frozen membership,
+readiness, persistence schema or job activation. See
+[scope discovery](../reference/009-indicators-backfill.md#sector-discovery-and-recommended-console-default---november-19).
+Focused gate BACKFILL-SECTORS-20261119 passes 5/5 with 220 Platform and 135
+Console tests; sector GET coverage is 100% line/branch. Frontend numeric coverage,
+live browser/backend deployment and full I10 acceptance are not claimed.
+
+Backfill execution/data policy: [automatic sharing and EOD data policy](../reference/013-backfill-attempt-and-data-policy.md).
+The current HTTP contract uses dataPolicy (PREFER_EXISTING by default, or REFRESH).
+Compatible in-flight work shares automatically; only never-dispatched pending EOD
+may be promoted. Terminal attempts are not reused. Focused local gate
+BACKFILL-POLICY-20261119 passes 6/6, including 211 Platform tests. Whole shared
+component coverage and current worker E2E remain open; older E2E checks cover the
+former flags contract. Sharing remains IN_FLIGHT_ONLY; I10 remains in_progress.
 
 I10 closed-owner checkpoint: [reuse fence, never-dispatched reconciliation and
 attempt/output diagnostics](../reference/012-i10-closed-owner-reconciliation.md).
@@ -356,6 +412,25 @@ lineage after registration. No new analytical formula or strategy is introduced.
 
 ### Contract Impact
 
+November 19 I10 amendment: bounded backfill HTTP/Console replaces rerun/force with
+one dataPolicy. New HTTP bodies reject the retired fields; previously emitted
+worker commands retain read compatibility. Existing execution parent JSON adds a
+guarded dispatchDataPolicy overlay for never-dispatched EOD only; sealed intent,
+upstream bindings, protobuf schemas, paths and readiness ownership remain unchanged.
+Sector selection additionally exposes read-only GET /api/v1/jobs/backfills/sectors
+with code/name DTOs from active-symbol membership. It does not change POST scope
+validation, schemas or job activation. No migration or deployment activation is
+introduced. See the
+[current contract and evidence](../reference/013-backfill-attempt-and-data-policy.md).
+
+November 18 bounded-goal amendment: owner-approved SYNC_SYMBOLS is discoverable
+and accepted through the existing backfills API for one configured EXCHANGE and
+today's Vietnam snapshot only. Optional exchange scope is additive to the JSON
+request; Indicators/Signals sector/date behavior stays compatible. Graph
+preparation freezes exactly the selected exchange and supports empty metadata
+bootstrap without analytical READY enrollment. No protobuf/topic/path, database
+schema or dataset owner changes. See the [request contract](../reference/009-indicators-backfill.md#current-symbols-snapshot-goal---november-18).
+
 - **Kafka/service-to-service protobuf:** add a versioned output-registration contract
   under libs/contracts/proto and a new logical metadata-updates topic/group in shared
   topic configuration. Generate boundary types through the contracts project only.
@@ -667,9 +742,12 @@ empty output, immutable duplicate/conflict, overlapping versions/attempts, both 
 orders, timeout races/late writes, DB/Kafka/storage outages, partial multi-output writes,
 restart/rebalance/offset prefixes, auth, exact date gaps and READY-last failures. Exercise
 real PostgreSQL migration/bulk upsert/locks and retained-data shadow/cutover/rollback.
-Select concrete approved Nx commands from project targets when implementation is scoped.
-Record required checks through tools/check_result.py under P14-I10 and wait for the owner's
-ready conclusion; no fabricated test, coverage, CI, provider or deployment evidence.
+Select concrete Nx commands from declared project targets within the authorized
+implementation scope under AGENTS.md; routine verification needs no separate
+command approval. Record required checks through tools/check_result.py under
+P14-I10. Explicit owner review remains required for owner attestation; agent-run
+PASS alone cannot provide it. Never fabricate test, coverage, CI, provider or
+deployment evidence.
 
 ### Acceptance Criteria
 
@@ -722,9 +800,12 @@ unchecked criterion is closed and no acceptance scope is changed by this result.
       fabricates READY, and failed replacement retains the last valid version.
 - [x] Both stream orders/replay/restart converge; authoritative SUCCESS requires complete
       metadata registration or explicit valid-empty, and failures cannot reopen terminal work.
-- [ ] All applicable readers use PostgreSQL via approved boundaries after verified
+- [x] All applicable readers use PostgreSQL via approved boundaries after verified
       registered-output coverage/cutover; exact work/attempt/version and byte/lineage
       checks remain required, with no retired JSON dependency or API-error fallback.
+      Consolidated November 23 from the November 16-20 source, retained reader/
+      repair, full physical baseline and BANKS evidence; this does not make
+      unregistered history READY or qualify continuous fleet recovery.
 - Deferred to [TD-020](../technical-debt/020-session-runtime-operations.md) by the
   owner on November 18: fleet-wide continuous rollout/recovery qualification and
   activation of reconciliation every 12 hours. Omni currently runs by session.
@@ -742,8 +823,10 @@ unchecked criterion is closed and no acceptance scope is changed by this result.
       multi-root linkage are documented; no tracing implementation is required in I10.
 - [x] Writer can emit the same metadata arrays after future batches; no P12 activation,
       direct worker DB access, new topology authority or physical-path business routing.
-- [ ] Source/field/test/coverage matrix, migrations, affected-scope rollout/recovery, cross-service docs
+- [x] Source/field/test/coverage matrix, migrations, affected-scope rollout/recovery, cross-service docs
       and owner-local verification gates are complete before I10 completion.
+      November 24: parent P14-I10 PASS 28/28 plus explicit owner review;
+      [completion scope and evidence](../reference/019-i10-review-20261111.md#november-24-owner-verified-completion).
 
 ## Sector Transition outcomes as-of correction — 2026-10-30
 

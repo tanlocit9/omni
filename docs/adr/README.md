@@ -1,5 +1,20 @@
 # Architecture Decision Records
 
+## Current implementation boundary - November 19
+
+ADR-008 is the accepted readiness owner: current runtime readers use PostgreSQL
+proofs with no retired JSON/shadow fallback. Scoped implementation and retained
+verification exist; P14-I10 remains in_progress rather than planned-only or fully
+accepted. Physical pinning, frozen exact lineage, validated bytes and READY-last
+remain required. ADR-003's older manifest architecture is historical where it
+conflicts with the owner-approved PostgreSQL-only amendment.
+
+See [current cutover and remaining scope](../reference/020-i10-postgres-only-cutover.md),
+[session-operation deferrals](../technical-debt/020-session-runtime-operations.md)
+and the [canonical increment registry](../plans/roadmap/implementation-increments.md).
+The bounded goal API's dataPolicy update uses existing metadata; it adds no new
+ADR, protobuf field, storage path or deployment activation.
+
 This directory is the canonical numbered index for accepted Omni architecture decisions. ADR filenames keep the stable `NNN-...` prefix; roadmap phases and implementation plans reference these records but do not replace them.
 
 ## How to Use This Index
@@ -21,7 +36,7 @@ This directory is the canonical numbered index for accepted Omni architecture de
 | 006 | [Use Precomputed Sector Wave Model](006-sector-wave-precompute-model.md)                         | Accepted | Precomputed symbol/sector features, rankings, and rotation backtests                                                                               | Pre-roadmap analytical baseline; Group A Phase 1 stabilization; Group B Phase 3 manifests; Group D extension inputs | [Backend/Core Stabilization](../plans/001-backend-core-stabilization.md), [Dataset Metadata Manifest](../plans/003-dataset-metadata-manifest.md), [Intraday EOD](../plans/013-intraday-eod.md), [Dataset-Component Market Dashboard](../plans/009-dataset-component-market-dashboard.md)                                       |
 | 007 | [Scheduler Claim and Outbox Boundary](007-scheduler-claim-and-outbox-boundary.md)                | Accepted | PostgreSQL leases, fencing, durable execution/outbox preparation, dependency-aware dispatch, terminal blocking, and reusable safe-write invariants | Group A Phase 1; extended by Group B Phase 4; prerequisite for Group C Phase 7 and Phase 11                         | [Backend/Core Stabilization](../plans/001-backend-core-stabilization.md), [Job Dependency Guard](../plans/005-job-dependency-guard.md), [Dependency-aware Outbox Dispatch](../plans/023-dependency-aware-outbox-dispatch.md), [Concurrent Workers and Writer Batching](../plans/027-concurrent-workers-and-writer-batching.md) |
 
-| 008 | [Platform-owned PostgreSQL Output Readiness via Kafka](008-postgres-output-readiness.md) | Accepted for planned target; not implemented | Kafka registration arrays, PostgreSQL readiness, staged manifest retirement; no direct worker DB access | P14-I10 pending after I9; P12 stays deferred | [Plan 030 I10](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog), [Writer plan](../plans/027-concurrent-workers-and-writer-batching.md) |
+| 008 | [Platform-owned PostgreSQL Output Readiness via Kafka](008-postgres-output-readiness.md) | Accepted; scoped source and retained evidence; I10 in_progress | PostgreSQL-only proofs, frozen lineage, READY-last; no direct worker DB access | P14-I10 in_progress; TD-020 session deferrals; P12 stays deferred | [Plan 030 I10](../plans/030-static-graph-dispatch-planner.md#p14-i10--output-metadata-registration-and-execution-watchdog), [Writer plan](../plans/027-concurrent-workers-and-writer-batching.md) |
 
 ## Roadmap View
 

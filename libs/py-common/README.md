@@ -1,89 +1,35 @@
 # py-common Library
 
-The [active metadata-reader default is postgres](../../docs/reference/020-i10-postgres-only-cutover.md).
-Supply the private API URL and reader token. The PostgreSQL path never falls back
-to JSON on missing proof, invalid bytes or API failure. Explicit manifest/shadow
-classes remain for compatibility fixtures, not the retired active authority.
+## Current contracts - November 19
 
-Enrolled input reads send the frozen atomicAttemptId to the private work-proof API.
-Matched Platform/V26 can retain actual immutable VERSIONED READY proofs across a
-refresh; workers keep work/day/attempt/version and exact-byte validation. Current
-discovery and mutable CANONICAL history semantics are unchanged. See
-[the approved refresh correction](../../docs/reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+py-common supplies shared infrastructure to Ingestor, Analyzer and Query Service.
+Run dependency synchronization and checks through declared `py-common` Nx targets
+from the workspace root. App-specific providers, analytics and admission policy
+remain in their owning service.
 
-KafkaClientFactory sets the Python consumer fetch-idle limit to 15 minutes by
-default. Override KafkaSettings.max_poll_interval_ms through the existing settings
-object or process-wide KAFKA_MAX_POLL_INTERVAL_MS; values are milliseconds. Restart
-Python services to load a new value. This does not change sequential processing,
-heartbeat/session settings or the Platform watchdog. Metadata scans can exceed
-15 minutes; see [the measured boundary](../../docs/reference/018-i10-worker-completion.md#consumer-poll-window).
+Runtime metadata-reader factories enforce PostgreSQL-only authority and reject
+legacy/shadow selection or disabling the PostgreSQL reader. Configure the private
+API URL/token. Missing work/attempt/version proofs, exact-date coverage or validated
+bytes cannot fall back to JSON. Retained legacy reader classes and fixtures are
+compatibility/test evidence rather than runtime discovery authority.
 
-WorkerCompletionEvent/publish_terminal_status implement [one terminal record](../../docs/reference/018-i10-worker-completion.md).
-OutputPublication stages embedded evidence for new commands and retains the old
-publisher for queued commands without the protocol marker. No recovery journal is added.
+Frozen input reads preserve exact attempt/version lineage; versioned storage
+helpers retain accepted merge bases and byte validation. New completion commands
+use the existing unified terminal envelope while previously emitted commands keep
+read compatibility. These helpers do not activate a writer service, worker recovery
+journal, tracing, a schedule or bucket versioning.
 
-I10 optional [versioned storage](../../docs/reference/017-i10-versioned-storage.md)
-adds VersionedStorage, frozen-base merges and exact-version proof reads. Historical
-physical pinning is explicit/fenced and does not create work READY. Default legacy
-commands remain compatible; workers never enable bucket versioning.
+The Platform API now exposes one dataPolicy instead of rerun/force; the shared
+transport uses existing metadata and requires no new protobuf fields. See
+[policy compatibility](../../docs/reference/013-backfill-attempt-and-data-policy.md),
+[PostgreSQL-only readers](../../docs/reference/020-i10-postgres-only-cutover.md) and
+[completion](../../docs/reference/018-i10-worker-completion.md).
 
-ShadowMetadataReader accepts the caller's Parquet validator for scoped byte/row
-parity. Its enrolled input adapter uses frozen PostgreSQL work proofs; catalog
-reads remain manifest-authoritative. See [scope and evidence](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows).
-
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
-
-Execution input context uses `messaging.approved_inputs.approved_input_version`.
-`ParquetStorage.read_bound_dataframe` verifies a canonical version against the same
-bytes decoded. These helpers preserve work identity and dataset paths; they do not
-provide a writer service, historical object retention or all-writer exclusion.
-
-Current P14 scheduling reconciliation (2026-10-29): I8 and I9 are now explicitly
-registered pending after completed I7, with I9.a/b/c internal checkpoints.
-Reuse atomic work/execution envelope, accepted parameter snapshots, validation
-and storage/status helpers. Result + work identity reaches writer through a
-future durable operation intent; output writeKey and deterministic intentId stay
-separate. Writer does not resolve graph or expand; actual handoff/offset loops
-remain deferred P12 work. This is no implementation or readiness/version-safety PASS.
-See [current handoff](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
-
-## I9 checkpoint and result-handoff alignment — 2026-10-28
-
-P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,
-I9.b shared ancestor work, I9.c definition consolidation with history/offset/
-migration/diagnostics/rollback evidence. These are not new registry IDs and do not
-change I9 status or activate P12.
-
-Future consumers send computed result plus unchanged atomic work identity to the
-writer: JobType, typed workKey, businessDate, canonical effective parameters and
-execution correlation. Add operation, logical output/row identity, deterministic
-intentId and result or a validated durable logical candidate reference. Keep
-physical paths out of business routing and retain execution attribution.
-
-Writer validates the intent, derives output writeKey and buffers only compatible
-operations; it does not resolve static graph or expand work. One work can emit
-multiple operations/outputs; several works or JobTypes can share a writeKey.
-Conflicting results under one intentId require explicit rejection/conflict handling.
-All required outputs must be durable before individual terminal SUCCESS.
-
-Current terminal-status commit loop is not the future durable-intent handoff loop.
-Preserve source-after-intent and writer-after-output/status commit boundaries.
-No implementation, new test/coverage PASS, version-binding solution or default
-activation is claimed. See [I9 checkpoints and handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
-
-P14 planned scope revision (2026-10-28): I8 — Unified work expansion first;
-then I9 — Graph-driven expansion and definition consolidation. Both are pending.
-Existing definitions remain the sole preset/configuration source. Full cron
-removal and definition-free runtime are outside scope; no second catalog.
-Preparation stays disabled. This describes plans, not implemented behavior.
-Reuse validation/storage/path/status/lifecycle helpers. Terminal-status commit loop cannot be reused unchanged for future durable-intent handoff.
-See [scope, impact and writer reuse](../../docs/plans/030-static-graph-dispatch-planner.md#i8i9-expansion-first-scope-revision--2026-10-28).
-
-py-common is the shared Python library for Omni worker services. Its Nx project name is `py-common` and its source path is [`libs/py-common`](.).
+py-common is the shared Python library for Omni services. Its Nx project name is `py-common` and its source path is [`libs/py-common`](.).
 
 ## Responsibility
 
-py-common owns reusable Python infrastructure that is shared by Analyzer and Ingestor: configuration loading, typed runtime settings, Kafka helpers, messaging payload foundations, runtime helpers, storage ports/adapters, and Parquet utilities.
+py-common owns reusable Python infrastructure that is shared by Analyzer, Ingestor and Query Service: configuration loading, typed runtime settings, Kafka helpers, messaging payload foundations, runtime helpers, storage ports/adapters, and Parquet utilities.
 
 ## Owns
 
@@ -209,3 +155,89 @@ See the [current recovery and entry policy](../../docs/deployment/004-job-run-ad
 - Keep service-specific business logic in the owning service.
 - Keep topic names and path patterns centralized in shared config files.
 - Prefer typed validation and fail-fast errors at contract boundaries.
+
+## Historical implementation checkpoints
+
+The dated notes below preserve their original source and verification boundaries.
+The current operation/contracts section above supersedes older manifest-default,
+shadow authority, retired API-policy and increment-status descriptions. Historical
+passes do not certify the present checkout, runtime or deployment.
+
+The [active metadata-reader default is postgres](../../docs/reference/020-i10-postgres-only-cutover.md).
+Supply the private API URL and reader token. The PostgreSQL path never falls back
+to JSON on missing proof, invalid bytes or API failure. Explicit manifest/shadow
+classes remain for compatibility fixtures, not the retired active authority.
+
+Enrolled input reads send the frozen atomicAttemptId to the private work-proof API.
+Matched Platform/V26 can retain actual immutable VERSIONED READY proofs across a
+refresh; workers keep work/day/attempt/version and exact-byte validation. Current
+discovery and mutable CANONICAL history semantics are unchanged. See
+[the approved refresh correction](../../docs/reference/017-i10-versioned-storage.md#frozen-attempts-across-refresh).
+
+KafkaClientFactory sets the Python consumer fetch-idle limit to 15 minutes by
+default. Override KafkaSettings.max_poll_interval_ms through the existing settings
+object or process-wide KAFKA_MAX_POLL_INTERVAL_MS; values are milliseconds. Restart
+Python services to load a new value. This does not change sequential processing,
+heartbeat/session settings or the Platform watchdog. Metadata scans can exceed
+15 minutes; see [the measured boundary](../../docs/reference/018-i10-worker-completion.md#consumer-poll-window).
+
+WorkerCompletionEvent/publish_terminal_status implement [one terminal record](../../docs/reference/018-i10-worker-completion.md).
+OutputPublication stages embedded evidence for new commands and retains the old
+publisher for queued commands without the protocol marker. No recovery journal is added.
+
+I10 optional [versioned storage](../../docs/reference/017-i10-versioned-storage.md)
+adds VersionedStorage, frozen-base merges and exact-version proof reads. Historical
+physical pinning is explicit/fenced and does not create work READY. Default legacy
+commands remain compatible; workers never enable bucket versioning.
+
+ShadowMetadataReader accepts the caller's Parquet validator for scoped byte/row
+parity. Its enrolled input adapter uses frozen PostgreSQL work proofs; catalog
+reads remain manifest-authoritative. See [scope and evidence](../../docs/reference/017-i10-versioned-storage.md#shadow-comparison-of-registered-rows).
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+Execution input context uses `messaging.approved_inputs.approved_input_version`.
+`ParquetStorage.read_bound_dataframe` verifies a canonical version against the same
+bytes decoded. These helpers preserve work identity and dataset paths; they do not
+provide a writer service, historical object retention or all-writer exclusion.
+
+Current P14 scheduling reconciliation (2026-10-29): I8 and I9 are now explicitly
+registered pending after completed I7, with I9.a/b/c internal checkpoints.
+Reuse atomic work/execution envelope, accepted parameter snapshots, validation
+and storage/status helpers. Result + work identity reaches writer through a
+future durable operation intent; output writeKey and deterministic intentId stay
+separate. Writer does not resolve graph or expand; actual handoff/offset loops
+remain deferred P12 work. This is no implementation or readiness/version-safety PASS.
+See [current handoff](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+
+## I9 checkpoint and result-handoff alignment — 2026-10-28
+
+P14-I9 is split into sequential internal checkpoints: I9.a graph-driven expansion,
+I9.b shared ancestor work, I9.c definition consolidation with history/offset/
+migration/diagnostics/rollback evidence. These are not new registry IDs and do not
+change I9 status or activate P12.
+
+Future consumers send computed result plus unchanged atomic work identity to the
+writer: JobType, typed workKey, businessDate, canonical effective parameters and
+execution correlation. Add operation, logical output/row identity, deterministic
+intentId and result or a validated durable logical candidate reference. Keep
+physical paths out of business routing and retain execution attribution.
+
+Writer validates the intent, derives output writeKey and buffers only compatible
+operations; it does not resolve static graph or expand work. One work can emit
+multiple operations/outputs; several works or JobTypes can share a writeKey.
+Conflicting results under one intentId require explicit rejection/conflict handling.
+All required outputs must be durable before individual terminal SUCCESS.
+
+Current terminal-status commit loop is not the future durable-intent handoff loop.
+Preserve source-after-intent and writer-after-output/status commit boundaries.
+No implementation, new test/coverage PASS, version-binding solution or default
+activation is claimed. See [I9 checkpoints and handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-checkpoints-and-writer-result-handoff--2026-10-28).
+
+P14 planned scope revision (2026-10-28): I8 — Unified work expansion first;
+then I9 — Graph-driven expansion and definition consolidation. Both are pending.
+Existing definitions remain the sole preset/configuration source. Full cron
+removal and definition-free runtime are outside scope; no second catalog.
+Preparation stays disabled. This describes plans, not implemented behavior.
+Reuse validation/storage/path/status/lifecycle helpers. Terminal-status commit loop cannot be reused unchanged for future durable-intent handoff.
+See [scope, impact and writer reuse](../../docs/plans/030-static-graph-dispatch-planner.md#i8i9-expansion-first-scope-revision--2026-10-28).

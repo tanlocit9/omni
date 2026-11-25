@@ -1,4 +1,19 @@
-# Technical Debt — Review and Priority
+# Technical Debt - Review and Priority
+
+## Current operator boundary - November 19
+
+The bounded Platform/Console goals SYNC_SYMBOLS, SYNC_INDICATORS and SYNC_SIGNALS
+are approved entry points; they do not restore generic manual triggering or
+rejection-audit scope deferred by [TD-017](017-manual-request-rejection-audit.md).
+Use [dataPolicy and sharing](../reference/013-backfill-attempt-and-data-policy.md)
+and the [Console walkthrough](../../apps/omni-console/README.md).
+
+Active readiness uses PostgreSQL without JSON fallback. [TD-020](020-session-runtime-operations.md)
+defers continuous fleet qualification and 12-hour reconciliation activation for
+session-based operation; per-scope safety is still required. [TD-018](018-execution-watchdog-observation.md)
+separately owns watchdog observation, and [TD-019](019-historical-recalculation-and-outcome-invalidation.md)
+retains historical correction/outcome invalidation. No debt is closed or activated
+by this README refresh; P14-I10 remains in_progress.
 
 Reviewed against docs/refactor at 56bd7e4125beed1a7bb58b7f6158a17609d4235a on 2026-10-07. Static source inspection only; no build/test/lint/format/load/provider verification was run. The 2026-10-08 Plan 030 promotion used code-review-graph plus targeted source inspection; it does not assert unrelated implementation completeness.
 
@@ -50,7 +65,7 @@ validation or authorize automatic retries/cleanup.
 | [TD-016](016-parquet-readiness-reconciliation.md)                 | data readiness / future read optimization      | DEFERRED / evidence and approval required                     | P2 on measured manifest/MinIO query pressure or P1 on proven readiness correctness risk; never infer JobRun SUCCESS from data files.                                                                                                                                                                                        |
 | [TD-017](017-manual-request-rejection-audit.md)                   | Deferred manual job triggering / request audit | DEFERRED / owner-accepted for current phase                   | P3 conditional: owner reactivation of manual triggering or durable rejected-request history/polling/recovery; nonblocking for current I3.d.                                                                                                                                                                                 |
 | [TD-018](018-execution-watchdog-observation.md)                   | Execution expiry / operational observation     | DEFERRED / owner-accepted; watchdog disabled                  | P2 conditional on observed stalled work; P1 on proven correctness impact. Nonblocking for current I10.                                                                                                                                                                                                                      |
-| [TD-020](020-session-runtime-operations.md) | Continuous runtime operations | DEFERRED / owner-accepted for session-based use | P3 before approved persistent/unattended operation or independent writers; P1 for demonstrated data-safety defects. Current affected-scope safety remains mandatory. |
+| [TD-020](020-session-runtime-operations.md)                       | Continuous runtime operations                  | DEFERRED / owner-accepted for session-based use               | P3 before approved persistent/unattended operation or independent writers; P1 for demonstrated data-safety defects. Current affected-scope safety remains mandatory.                                                                                                                                                        |
 
 ## Deferred Parquet-to-PostgreSQL readiness reconstruction — TD-016
 

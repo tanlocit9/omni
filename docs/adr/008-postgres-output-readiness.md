@@ -1,5 +1,11 @@
 # ADR-008: Platform-owned PostgreSQL Output Readiness via Kafka
 
+November 20 runtime evidence: [physical baseline maintenance](../reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance)
+verified 2,748/2,748 existing EOD/Indicators/Signals containers, preserving logical
+proofs. Earlier three-head counts are dated pilot evidence. This changes no ADR
+decision and does not establish fleet recovery, schedule activation or full I10
+acceptance. Business retry evidence remains separate from physical pinning.
+
 November 18 owner scope amendment: [TD-020](../technical-debt/020-session-runtime-operations.md)
 defers fleet-wide continuous rollout/recovery qualification and 12-hour
 reconciliation activation while Omni runs by session. These are nonblocking for

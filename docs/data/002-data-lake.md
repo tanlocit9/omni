@@ -270,15 +270,22 @@ for the canonical contract and acceptance criteria.
 
 ### symbols
 
-| Field           | Value                                                                                     |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| Config key      | `symbols`                                                                                 |
-| Path            | `symbols/{exchange}.parquet`                                                              |
-| Producer        | Ingestor                                                                                  |
-| Consumer        | Analyzer, Platform via upsert events                                                      |
-| Schema/key      | Exchange-level symbol metadata. Stable keys should include exchange and symbol code.      |
-| Update strategy | Refresh or merge exchange snapshot, then publish symbol/sector upsert events when needed. |
-| Ownership       | Ingestor owns Parquet production; Platform owns database projection.                      |
+November 18: collect all provider pages, upsert full row attributes by
+(exchange, code), retain absent historical rows/non-null fields, persist and
+read back before publishing symbol/sector batches. Failed/inconsistent page
+collection publishes nothing; failed Parquet read-back publishes nothing.
+Provider absence is not evidence of delisting or removal from Platform membership.
+Previously missing rows cannot be reconstructed from a partial provider response.
+
+| Field           | Value                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| Config key      | `symbols`                                                                                       |
+| Path            | `symbols/{exchange}.parquet`                                                                    |
+| Producer        | Ingestor                                                                                        |
+| Consumer        | Analyzer, Platform via upsert events                                                            |
+| Schema/key      | Exchange-level symbol metadata. Stable keys should include exchange and symbol code.            |
+| Update strategy | Upsert all fetched pages, read back persisted rows, then publish non-destructive upsert events. |
+| Ownership       | Ingestor owns Parquet production; Platform owns database projection.                            |
 
 ### eod
 

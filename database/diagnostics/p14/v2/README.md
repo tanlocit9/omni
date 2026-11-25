@@ -1,5 +1,26 @@
 # P14 diagnostics v2 — prepared, bounded local checks
 
+## Current use - November 19
+
+Use preflight to establish schema availability before the bounded request,
+attempt and outbox queries below. Their row/page/truncation bounds are diagnostic
+presentation limits, distinct from the graph admission limit of 20,000 work nodes
+per request. A truncated or unavailable snapshot is not an empty healthy system.
+
+Current P14-I8/I9 status is completed; P14-I10 remains in_progress. November 1 and
+October 30 notes below preserve their dated evidence, not current deployment or
+acceptance status. Continuous fleet rollout/recovery qualification and 12-hour
+reconciliation activation are deferred under [TD-020](../../../../docs/technical-debt/020-session-runtime-operations.md).
+Per-scope proof/byte validation, physical write safety and bounded recovery remain.
+
+The Console's New backfill flow uses authenticated Platform APIs for SYNC_SYMBOLS,
+SYNC_INDICATORS and SYNC_SIGNALS; this diagnostic pack stays read-only. See the
+[Console workflow](../../../../apps/omni-console/README.md),
+[current policy](../../../../docs/reference/013-backfill-attempt-and-data-policy.md)
+and [PostgreSQL-only readiness](../../../../docs/reference/020-i10-postgres-only-cutover.md).
+The existing v2 local checks are not current live execution, benchmark or READY
+proof, and this README update runs none of those operations.
+
 Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
 See [source-bound checks, coverage and rollout rehearsal](i8-i9-closure-20261101.md).
 I10 remains planned/pending; no default activation, retained-environment deployment,
@@ -32,7 +53,8 @@ repair ran GraphWorkRequestsPostgresTest, including snapshot/work SQL and bounde
 HTTP/authentication cases, within the 26-test passing local gate. This is not full
 SQL/API acceptance, Console/browser, performance or retained-data verification.
 See [repair scope/evidence](../../../../docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30)
-and [full review](review.md). I8/I9 remain verification_pending, I10 pending.
+and [full review](review.md). At that October 30 checkpoint, I8/I9 were
+verification_pending and I10 pending; current status is stated above.
 
 ## Files and scope
 

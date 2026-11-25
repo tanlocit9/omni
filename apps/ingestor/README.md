@@ -1,81 +1,31 @@
 # Ingestor Service
 
-[PostgreSQL readiness is the active shared default](../../docs/reference/020-i10-postgres-only-cutover.md).
-Configure its authenticated private API; missing proof/bytes must wait or fail
-without JSON fallback. Retirement of global discovery does not make unregistered
-historical dates READY or change provider/enrollment/publication semantics.
+## Current operation - November 19
 
-New enrolled EOD commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md)
-after validated writes. Errors have no output evidence; old commands keep two messages.
+Run `nx run ingestor:sync`, then `nx run ingestor:serve -- --port 8001` from the
+workspace root after configuring provider, Kafka, storage and private proof API
+access. The root `omni:dev` target includes Ingestor with HMR.
 
-I10 [versioned EOD commands](../../docs/reference/017-i10-versioned-storage.md) read
-existing EOD from the claim-frozen accepted base before deciding reuse/refresh.
-PUT captures/read-validates its immutable backend version before registration.
-Workers require externally configured bucket versioning; they never enable it.
+SYNC_SYMBOLS collects and validates every provider page, upserts complete attributes
+by (exchange, code) into Parquet, reads back the persisted result, then publishes
+symbol/sector batches. Missing codes or attributes are retained; absence from a
+provider response is not evidence to deactivate a Platform symbol. Provider count
+warnings remain visible and do not certify a complete source universe.
 
-Atomic SYNC_SYMBOLS accepts current Saturday/Sunday snapshots, matching Platform
-projection for historical backfills. This exception does not permit weekend EOD
-work or weaken identity validation. See [the correction and retry boundary](../../docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+For EOD, new backfill commands use metadata.backfillPolicy.dataPolicy:
+PREFER_EXISTING reuses actual requested-day rows or fetches missing rows; REFRESH
+fetches the provider and fails on missing/failed provider-day output without a
+cached-row fallback. Already emitted commands retain legacy policy semantics.
+Exact-day validation, immutable-version evidence where required and completion
+before terminal acknowledgement remain unchanged.
 
-The Kafka router ACKs a RUNNING worker receipt before entering a job handler.
-Receipt failure prevents provider work and command offset advancement; terminal
-output/status ordering remains unchanged. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
-
-[Indicators backfill](../../docs/reference/013-backfill-attempt-and-data-policy.md)
-attaches explicit PREFER_EXISTING/REFRESH data policy. Default/rerun reuses actual
-covered Parquet day rows or fetches missing days. Force always fetches provider
-data; missing provider-day output fails without falling back to old rows. Queued
-commands without dataPolicy preserve old force behavior. Both branches still
-validate/register before SUCCESS; existing merge keys and unrelated history remain.
-
-I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
-Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
-symbols in the same file are independent; whole-file snapshots are not required
-for new enrollment. Query executes validated READY rows from the checked buffer.
-Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
-See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
-
-Owner identity revision (2026-11-03): enrolled work READY and direct upstream
-approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
-output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
-are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
-old source/checkpoint statements below are historical for this revised scope.
-
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
-
-I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
-
-Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
-
-Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
-See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
-I10 remains planned/pending; no default activation, retained-environment deployment,
-PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
-handoffs below record their historical status and do not override this result.
-
-Symbols classification repair: provider sector lookup failure preserves previous
-classification and reports the existing partial warning; it does not replace stale
-classification with nulls or turn partial data into a blocking failure.
-
-Atomic stock bootstrap repair (2026-10-29): missing/empty output retains fetched
-history through the requested day (provider limit 10,000); existing output updates
-only that day. Missing requested-day data fails before write. Disposable integration
-no longer seeds EOD history before running ingestion. This was the historical I8 verification-pending handoff; the current closure is linked above.
-
-Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
-I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
-shared in-flight attempts and exact dependency barriers, plus reversible scheduled
-preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
-existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
-work diagnostics are additive; writer and broader output/version exclusion remain
-deferred. Prior indicator approval/byte-binding evidence remains historical.
-No verification ran for this continuation; defaults remain unactivated. See
-[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
-Planned P14 handoff — 2026-10-29: Pending I8 covers supported per-job atomic scope and dated-provider semantics. SYNC_SYMBOLS remains exchange-scoped; exact historical capability cannot be inferred from recent-record fetches. I9 keeps source/config/offset compatibility during consolidation.
-This note changes no implementation, configuration, preparation flag or existing
-runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+Active readiness is PostgreSQL-only; missing proofs/API/bytes wait or fail without
+JSON fallback. SYNC_SYMBOLS is available in the bounded goals API for a configured
+exchange's current snapshot, including weekends; that exception does not permit
+weekend EOD. No generic manual trigger or schedule is enabled by these instructions.
+See the [goal API](../../docs/reference/009-indicators-backfill.md),
+[data policy](../../docs/reference/013-backfill-attempt-and-data-policy.md) and
+[PostgreSQL-only scope](../../docs/reference/020-i10-postgres-only-cutover.md).
 
 Ingestor is the Python worker service for external market-data ingestion and raw/normalized Parquet dataset maintenance. Its Nx project name is `ingestor` and its source path is [`apps/ingestor`](.).
 
@@ -171,6 +121,15 @@ Ingestor owns these Parquet datasets. See [Data lake](../../docs/data/002-data-l
 
 ## Important Flows
 
+Symbol synchronization collects every provider page before storage. It upserts
+full attributes by `(exchange, code)` into the exchange Parquet, retaining prior
+symbols and non-null attributes absent from the response. It then reads back and
+checks the persisted rows before sending symbol/sector batches to Platform.
+Failed pages or failed read-back prevent batch publication. Count mismatches
+remain warnings, with fetched/persisted counts in result metadata. Platform treats
+the batch as upserts; absent codes are not evidence for automatic deactivation.
+This does not reconstruct symbols already missing from both provider and Parquet.
+
 - [Stock sync](../../docs/flows/002-stock-sync.md)
 - [Job execution](../../docs/flows/001-job-execution.md)
 
@@ -232,3 +191,87 @@ nx run ingestor:test-integration
 | Kafka topics                         | [`configs/shared/topics.yaml`](../../configs/shared/topics.yaml)     |
 | S3 paths                             | [`configs/shared/s3-paths.yaml`](../../configs/shared/s3-paths.yaml) |
 | Shared Python runtime/config/storage | [`libs/py-common`](../../libs/py-common)                             |
+
+## Historical implementation checkpoints
+
+The dated notes below preserve their original source and verification boundaries.
+The current operation/contracts section above supersedes older manifest-default,
+shadow authority, retired API-policy and increment-status descriptions. Historical
+passes do not certify the present checkout, runtime or deployment.
+
+[PostgreSQL readiness is the active shared default](../../docs/reference/020-i10-postgres-only-cutover.md).
+Configure its authenticated private API; missing proof/bytes must wait or fail
+without JSON fallback. Retirement of global discovery does not make unregistered
+historical dates READY or change provider/enrollment/publication semantics.
+
+New enrolled EOD commands use [one terminal completion](../../docs/reference/018-i10-worker-completion.md)
+after validated writes. Errors have no output evidence; old commands keep two messages.
+
+I10 [versioned EOD commands](../../docs/reference/017-i10-versioned-storage.md) read
+existing EOD from the claim-frozen accepted base before deciding reuse/refresh.
+PUT captures/read-validates its immutable backend version before registration.
+Workers require externally configured bucket versioning; they never enable it.
+
+Atomic SYNC_SYMBOLS accepts current Saturday/Sunday snapshots, matching Platform
+projection for historical backfills. This exception does not permit weekend EOD
+work or weaken identity validation. See [the correction and retry boundary](../../docs/reference/009-indicators-backfill.md#current-symbols-snapshots-on-weekends---2026-11-07).
+
+The Kafka router ACKs a RUNNING worker receipt before entering a job handler.
+Receipt failure prevents provider work and command offset advancement; terminal
+output/status ordering remains unchanged. See [paired lifecycle behavior](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+[Indicators backfill](../../docs/reference/013-backfill-attempt-and-data-policy.md)
+attaches explicit PREFER_EXISTING/REFRESH data policy. Default/rerun reuses actual
+covered Parquet day rows or fetches missing days. Force always fetches provider
+data; missing provider-day output fails without falling back to old rows. Queued
+commands without dataPolicy preserve old force behavior. Both branches still
+validate/register before SUCCESS; existing merge keys and unrelated history remain.
+
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+Symbols classification repair: provider sector lookup failure preserves previous
+classification and reports the existing partial warning; it does not replace stale
+classification with nulls or turn partial data into a blocking failure.
+
+Atomic stock bootstrap repair (2026-10-29): missing/empty output retains fetched
+history through the requested day (provider limit 10,000); existing output updates
+only that day. Missing requested-day data fails before write. Disposable integration
+no longer seeds EOD history before running ingestion. This was the historical I8 verification-pending handoff; the current closure is linked above.
+
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
+shared in-flight attempts and exact dependency barriers, plus reversible scheduled
+preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
+existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
+work diagnostics are additive; writer and broader output/version exclusion remain
+deferred. Prior indicator approval/byte-binding evidence remains historical.
+No verification ran for this continuation; defaults remain unactivated. See
+[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+
+Planned P14 handoff — 2026-10-29: Pending I8 covers supported per-job atomic scope and dated-provider semantics. SYNC_SYMBOLS remains exchange-scoped; exact historical capability cannot be inferred from recent-record fetches. I9 keeps source/config/offset compatibility during consolidation.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).

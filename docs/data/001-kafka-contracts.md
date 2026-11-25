@@ -39,11 +39,13 @@ hashes. First physical evidence wins across logically identical replay; logical
 conflicts remain rejected. Deploy matched adapters before opt-in; legacy wire records
 retain their behavior. See [exact protocol](../reference/017-i10-versioned-storage.md).
 
-Indicators backfill uses existing message metadata for backfillPolicy.force,
-rerun, dataPolicy and verifyEodParquet; topic names and protobuf schemas are
-unchanged. New PREFER_EXISTING/REFRESH values separate data policy from creating
-new attempts. Missing dataPolicy retains the old command semantics. Deploy matched
-Platform/Ingestor before relying on force refresh; old workers do not implement it.
+Backfill commands use existing metadata for backfillPolicy.dataPolicy and
+verifyEodParquet; topics and protobuf schemas are unchanged. New commands omit
+force/rerun. The PREFER_EXISTING/REFRESH policy is separate from automatic sharing
+of compatible in-flight attempts. A never-dispatched pending EOD may receive a
+durable parent policy overlay; publish/replay binds it without mutating sealed
+outbox intent, approved inputs or storage bases. Already emitted commands without
+dataPolicy retain legacy worker semantics. Deploy matched Platform/Ingestor/Console.
 See [the policy and compatibility boundary](../reference/013-backfill-attempt-and-data-policy.md).
 
 I10 review correction (2026-11-04): signal rowKeys include non-null model_version;
@@ -294,6 +296,14 @@ domain/work identity guards remain required. See [weekend snapshot correction](.
 | Related storage | [`symbols`](002-data-lake.md#symbols)                       |
 
 ### topic-upsert-symbols
+
+November 18 symbol-upsert semantics: Ingestor collects all provider pages before
+upserting full metadata into symbols/{exchange}.parquet by (exchange, code),
+retaining prior symbols/fields missing from a response. It reads back and checks
+the persisted rows before building the batch. Platform applies non-destructive
+upserts; an omitted code is not delisting evidence and does not deactivate rows.
+The existing JSON fields/topics remain unchanged; expectedCount/actualCount are
+diagnostics, not an authoritative completeness or membership-removal contract.
 
 | Field            | Value                                                                      |
 | ---------------- | -------------------------------------------------------------------------- |

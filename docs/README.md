@@ -1,11 +1,52 @@
 # Omni Documentation
 
+## I10 completion - November 24
+
+[Owner-verified I10 completion](reference/019-i10-review-20261111.md#november-24-owner-verified-completion)
+records parent PASS 28/28 for the approved PostgreSQL-only session scope, explicit
+owner review and reconciled coverage/graph/document evidence. Earlier dated
+in_progress checkpoints remain historical. TD-020 continuous-operation/12-hour
+activation and TD-018 watchdog deferrals remain; no deployment or new retained
+operation is claimed.
+
+## Retained operations - November 20
+
+[Physical baseline maintenance](reference/020-i10-postgres-only-cutover.md#november-20-full-physical-baseline-maintenance)
+verified all 2,748 EOD/Indicators/Signals containers, including the earlier 56
+missing catalog heads. Logical proofs remain unchanged by pinning. The separate
+[original BANKS recovery](reference/020-i10-postgres-only-cutover.md#november-20-original-banks-request-recovery)
+passes 355/355 work attempts through 22 exact symbol requests with shared upstreams;
+original terminal history remains. I10 remains in_progress and TD-020 schedules/
+recovery stay deferred.
+
+## Current entry points - November 19
+
+Use the [root README](../README.md) for setup, service ports, host versus Docker
+composition and the current data authority. Service-specific guides:
+[Platform](../apps/core/README.md), [Ingestor](../apps/ingestor/README.md),
+[Analyzer](../apps/analyzer/README.md), [Query Service](../apps/query-service/README.md),
+[Console](../apps/omni-console/README.md), [py-common](../libs/py-common/README.md)
+and [contracts](../libs/contracts/README.md).
+
+The current operator entry point is **Work Operations > New backfill**:
+GET /api/v1/jobs/backfills/goals lists SYNC_SYMBOLS, SYNC_INDICATORS and SYNC_SIGNALS
+when eligible active canonical targets exist. POST creates bounded requests through
+normal graph admission; generic trigger routes remain retired. Use the
+[Console/Postman guide](../apps/omni-console/README.md#create-a-goal-request-in-console---november-19),
+[goal API](reference/009-indicators-backfill.md) and
+[dataPolicy contract](reference/013-backfill-attempt-and-data-policy.md).
+
+This index distinguishes current contracts, dated implementation evidence and
+approved future work. PostgreSQL-only readiness and session-based deferrals below
+supersede older manifest-default and continuous-operation blocker descriptions.
+README reconciliation changes documentation only; it does not promote I10,
+run verification, migrate data or activate a schedule/deployment.
+
 Session-based I10 operations (November 18): [TD-020](technical-debt/020-session-runtime-operations.md)
 defers continuous rollout/recovery qualification and 12-hour reconciliation
 activation. Affected-scope proof/byte and write-safety checks remain mandatory;
 see the [56-partition checklist](reference/020-i10-postgres-only-cutover.md#remaining-56-partitions--bounded-work-checklist).
 Older broader operational-blocker notes are superseded. I10 remains in_progress.
-
 
 Current I10 authority: [020 - PostgreSQL-only defaults, JPA schema and legacy retirement](reference/020-i10-postgres-only-cutover.md).
 The owner retired JSON/shadow comparison; exact PostgreSQL proofs, byte validation
@@ -36,9 +77,10 @@ I10 request discovery: [bounded polling API](reference/014-atomic-request-pollin
 and [delivery review](reference/015-i10-review-20261108.md). I10 remains in_progress;
 local regression evidence does not authorize global cutover.
 
-Backfill request policy: [rerun versus forced provider refresh](reference/013-backfill-attempt-and-data-policy.md).
-Selected local PostgreSQL/worker E2E checks pass; default reuse remains
-IN_FLIGHT_ONLY with live owners. Full I10 coverage/cutover remains open.
+Backfill request policy: [automatic sharing and EOD data policy](reference/013-backfill-attempt-and-data-policy.md).
+November 19 focused local checks pass 6/6; full shared-component coverage and
+worker E2E remain open. Earlier E2E results cover the former flags contract. Sharing remains
+IN_FLIGHT_ONLY with live owners; full I10 coverage/cutover remains open.
 
 I10 closed-owner checkpoint: [safe settlement, reuse and execution/output
 diagnostics](reference/012-i10-closed-owner-reconciliation.md). Source/regressions

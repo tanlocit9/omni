@@ -1,70 +1,119 @@
 # Backfill attempt and data policy
 
-Source change: 2026-11-07. Focused local PostgreSQL/worker E2E checks passed;
-P14-I10 remains in_progress with its full coverage and cutover gate open.
-Separate creating an execution attempt from refreshing provider data. Keep the
-existing IN_FLIGHT_ONLY attempt policy; reuse of SUCCESS attempts is not enabled
-by this checkpoint or implied by Parquet/READY existence.
+## Current contract - November 19, 2026
 
-## HTTP behavior
+Owner-approved amendment with focused local verification: BACKFILL-POLICY-20261119
+passes 6/6 approved checks. Platform passes 211 tests (163 PostgreSQL graph and
+48 controller); Console passes 126 tests plus typecheck/lint; Ingestor passes 132
+tests; changed-file formatting passes. No failures or skips in the selected
+Platform suite. P14-I10 remains `in_progress`; full worker E2E, CI, deployment and
+whole-component coverage qualification are not established by this checkpoint.
+Earlier November 7 results below describe the former contract.
 
-`POST /api/v1/jobs/backfills` accepts optional booleans rerun and force; both default
-false. Force implies rerun, including an explicit rerun=false. The normalized
-values participate in request idempotency and the 202 response, not atomicWorkId.
+`POST /api/v1/jobs/backfills` accepts one optional `dataPolicy`:
 
-| Input                     | Attempts                                                                             | EOD                                                                      | Indicators                            |
-| ------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------- |
-| Flags absent / both false | Reuse compatible PENDING/RUNNING attempts with live requesters; otherwise create new | On new execution, reuse exact covered Parquet day; otherwise fetch       | Compute on new execution              |
-| rerun=true, force=false   | New attempts throughout the expanded chain                                           | Reuse exact covered day; fetch if missing                                | Recompute                             |
-| force=true                | New attempts throughout the expanded chain                                           | Always invoke provider; never satisfy the command from existing day rows | Recompute from approved refreshed EOD |
+- `PREFER_EXISTING` (default): new EOD work uses exact-day persisted rows when
+  available and fetches missing rows.
+- `REFRESH`: EOD must fetch provider data, even when stored rows cover the day.
+  Provider failure or a missing provider day cannot fall back to cached rows.
 
-FAILED/BLOCKED/SUCCESS or ownerless attempts are not reused. Frozen upstream
-attempts and work identity must match for sharing. Symbols still use a current-day
-catalog snapshot and fetch normally on a new attempt. No new reuse-policy enum,
-schema migration or status is introduced. Successful-attempt reuse would need a
-separate approved policy and exact READY/upstream compatibility work.
-
-Example body, with current active sector membership and bounded explicit dates:
+`rerun` and `force` are removed from new HTTP requests and the Console. Supplying
+removed or unknown fields is rejected. The 202 response returns `dataPolicy`.
+Policy participates in canonical request idempotency, not `atomicWorkId`.
+Same actor/key/scope/policy replays the accepted request; changing scope or policy
+under that key conflicts. Use a new key for a new request or terminal retry.
 
 ```json
 {
   "goal": "SYNC_INDICATORS",
-  "sectorCodes": ["BANKS"],
+  "sectorCodes": ["BANK"],
   "sectorLevel": 2,
   "dateFrom": "2026-10-19",
   "dateTo": "2026-10-23",
-  "rerun": false,
-  "force": false
+  "dataPolicy": "PREFER_EXISTING"
 }
 ```
 
-Use a new Idempotency-Key when changing rerun/force or retrying a terminal request.
-Same-key replay does not restart execution. Existing accepted rows/messages are
-not rewritten. New normalized request JSON can conflict with an older same-key
-request lacking rerun; use a new key after reviewing its existing work.
+## Sharing between requests
+
+Sharing compatible PENDING/RUNNING attempts with live owners is automatic across
+requests. Scope, analytical parameters, exact upstream attempt binding and storage
+policy must match. Terminal attempts are never reused. A stronger existing EOD
+attempt may satisfy a weaker request.
+
+If a later request requires REFRESH, an existing PREFER_EXISTING EOD attempt may
+be promoted only while it is PENDING and its single outbox message has never been
+claimed or published: zero attempts, no claim markers, no approved inputs or frozen storage write bases, no
+worker receipt, timeout, registration or completion evidence. Promotion follows
+run -> parent/child -> outbox lock order with SKIP LOCKED. If eligibility or locks
+cannot be established, a new EOD attempt is created, and downstream bindings use
+that attempt. Dispatched commands and frozen lineage are never rewritten.
+
+The sealed outbox payload remains immutable. The one-child attempt's parent
+stores `dispatchDataPolicy=REFRESH`; publish/replay reconstructs the effective
+`metadata.backfillPolicy` from this durable overlay. Approved-input and storage-base
+binding remain unchanged. Shared request membership and each request's accepted
+policy remain immutable; promotion strengthens the shared work rather than
+rewriting the earlier request.
+
+Only EOD consumes this data policy. Symbols always fetches its current exchange
+snapshot and may share compatible in-flight work regardless of the requested EOD
+policy. Analyzer calculations use frozen upstream attempts, so a changed EOD
+attempt naturally changes downstream sharing. Completed Symbols snapshots require
+a new attempt without an extra rerun flag.
 
 ## Worker compatibility and data safety
 
-Platform emits backfillPolicy.dataPolicy=PREFER_EXISTING or REFRESH alongside
-normalized rerun/force and the existing verifyEodParquet=true. New Ingestor uses
-dataPolicy explicitly; unknown values fail before provider fetch or Parquet write.
-PREFER_EXISTING requires actual requested-day rows, not just file existence.
-REFRESH takes the existing provider/lookback path even if the day is present;
-missing provider-day output fails instead of falling back to old rows.
+New commands contain `backfillPolicy.dataPolicy` and `verifyEodParquet=true`, without
+new force/rerun fields. Ingestor already consumes PREFER_EXISTING/REFRESH. Previously
+accepted request JSON and emitted commands retain read compatibility, including
+legacy commands without dataPolicy; they are not rewritten or reinterpreted at
+the worker. Unknown policies fail before provider fetch or Parquet write.
 
-For already queued commands without dataPolicy, preserve legacy semantics: old
-force=true plus verifyEodParquet may reuse the covered day; old force=false still
-uses normal provider sync. Do not reset offsets or mutate immutable payloads.
-Deploy matched Platform and Ingestor before relying on the new force contract;
-an older worker ignores dataPolicy and cannot guarantee forced provider refresh.
-Existing scoped backfill gates and the exclusive drained legacy-writer window
-remain required. No live deployment, feature activation or provider call was run.
+Refresh is scoped to requested business days and preserves unrelated history.
+Exact-date validation, registration ACK before SUCCESS, PostgreSQL-only authority,
+READY-last, frozen lineage and versioned write ownership remain mandatory.
+Deploy matched Platform/Ingestor/Console before using the new HTTP contract.
+No retained job, schedule, provider operation or deployment is activated here.
 
-Refresh is scoped to requested business days, not deletion/reconstruction of all
-history. Existing merge/dedup preserves unrelated dates. Reused EOD still validates
-and registers for its new attempt; fresh EOD must prove the date before writing.
-READY-last, output ACK before SUCCESS, exact frozen lineage, canonical metadata
-ownership and analytical work hashes remain unchanged.
+## Current impact and regression inventory
+
+| Boundary          | Source and regression scope                                                                                                                                       | Current evidence                                          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Platform HTTP     | IndicatorBackfillController; defaults, both policies, rejected removed/unknown fields, invalid scope, normalized response                                         | PASS selected local suite                                 |
+| Graph admission   | GraphWorkRequestService; cross-request sharing, pending promotion, claimed/published/running/terminal refusal, concurrent acceptance, immutable membership/intent | PASS selected local suite                                 |
+| Dispatch/replay   | SchedulerOutboxService; durable parent policy overlay with frozen inputs/storage bases                                                                            | PASS selected local suite                                 |
+| Expansion         | WorkExpansion; request-level policy excluded from analytical parameters/identity                                                                                  | PASS selected local suite                                 |
+| Console           | BackfillForm/types/API/component fixtures; two policy values, Symbols scope, stable idempotency retries                                                           | PASS selected local suite                                 |
+| Ingestor/Analyzer | Existing dataPolicy reader and exact approved-input execution; HTTP E2E fixtures migrated to the new contract                                                     | 132 Ingestor tests pass; Analyzer/full worker E2E not run |
+
+Query Service, shared protobuf/Python libraries, physical storage paths, schema,
+configuration flags, authorization and deployment ownership are unchanged.
+Persistence uses existing execution JSON metadata; no migration is introduced.
+The graph impact result is bounded (23 impacted files, 1395 unresolved call sites,
+index built at the current HEAD before these edits), so source/contract inspection
+is required alongside graph results. It does not prove isolation or test coverage.
+
+Focused JaCoCo: controller 111/111 lines, 79/82 branches; graph request service
+457/467 lines, 220/254 branches. Critical promotePendingDataPolicy is 13/13 lines
+and 6/6 branches; bindApprovedInputs is 24/25 lines and 26/30 branches. The selected
+suite covers lock contention, rollback, ambiguous publication, frozen write bases,
+claim/retry envelope stability and malformed binding refusal.
+
+Whole WorkExpansion branch coverage is 112/157 (71.34%); whole
+SchedulerOutboxService coverage is 139/239 lines (58.16%) and 74/146 branches
+(50.68%). These remain below the full-component 80% gate and are not hidden by
+higher method or aggregate coverage. Additional broad component coverage and
+worker-chain evidence remain required before I10 acceptance. Local artifacts:
+`.agent/reports/backfill-policy-20261119/` and check_result gate
+`BACKFILL-POLICY-20261119`. Static documentation review finds no new inconsistency
+in the changed current contract/links/status claims; historical evidence remains
+explicitly separate. No increment completion or deployment is claimed.
+
+## Historical November 7 evidence - former flags contract
+
+The following results and interpretation describe the superseded rerun/force
+contract. They are retained for traceability, not current verification evidence.
 
 ## Impact and verification inventory
 

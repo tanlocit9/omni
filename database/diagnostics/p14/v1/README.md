@@ -1,8 +1,23 @@
 # Scheduler diagnostics v1
 
+## Current use - November 19
+
+This is the historical frozen JobRun/path/legacy diagnostic pack. For shared
+atomic requests/attempts and the Console Work Operations read adapter, use
+[v2](../v2/README.md) and its separately dated source/test evidence. The v2 pack
+has local verification records; that does not establish current retained SQL
+compatibility, performance or live execution of either pack.
+
+Current goal discovery/creation belongs to Platform's bounded API, not this SQL.
+Use the [Console/API guide](../../../../apps/omni-console/README.md).
+I10 READY requires exact PostgreSQL work/attempt/version proofs and validated
+bytes, not these queue snapshots. Follow the [current authority](../../../../docs/reference/020-i10-postgres-only-cutover.md)
+and [session-operation scope](../../../../docs/technical-debt/020-session-runtime-operations.md).
+No read-only diagnostic activates reconciliation, requeues work or repairs data.
+
 For I9 shared atomic requests/attempts, use the separately prepared
-[v2 SQL and offline dashboard](../v2/README.md). V2 is not executed/benchmarked
-and does not replace v1 historical evidence or claim dataset readiness.
+[v2 SQL and offline dashboard](../v2/README.md). V2 has separately recorded local checks; they do not replace v1 historical
+evidence, establish current retained compatibility or claim dataset readiness.
 
 Owner: [Plan 030 / P14-I5](../../../../docs/plans/030-static-graph-dispatch-planner.md).
 These SELECT-only scripts observe persisted state. They do not claim messages,

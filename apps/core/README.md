@@ -1,147 +1,36 @@
 # Platform / Core Service
 
-[November 16 PostgreSQL-only default and JPA schema](../../docs/reference/020-i10-postgres-only-cutover.md):
-V27 supplies the existing Modulith active/archive event tables. Admission defaults
-to PostgreSQL (reader-enabled=true); do not select legacy JSON after retirement.
-Strict JPA and the scoped retained probe pass locally; full I10 rollout is open.
+## Current operation - November 19
 
-The private work-proof GET accepts optional atomicAttemptId; V26 records actual
-VERSIONED READY history so a refresh cannot erase frozen upstream availability.
-Default discovery remains current/latest. Registration/SUCCESS does not substitute
-for promotion evidence. See [review and gates](../../docs/reference/019-i10-review-20261111.md).
+Platform owns bounded goal discovery/creation, graph admission, independent atomic
+attempts, execution/outbox state and accepted PostgreSQL output proofs. Use
+`nx run platform:serve --configuration=dev` from the workspace root; the root
+`omni:dev` target includes this service. Configure its database, Kafka, storage and
+trusted operator/private reader credentials through local environment files.
 
-For terminal VERSIONED completion, preserve the first accepted result and use
-[V26 rejection audit](../../docs/reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
-before acknowledging valid late/conflicting output. The new handler requires the
-amended V26 schema. Active and legacy/CANONICAL processing retain their existing gates.
+`GET /api/v1/jobs/backfills/goals` and `POST /api/v1/jobs/backfills` support
+SYNC_SYMBOLS, SYNC_INDICATORS and SYNC_SIGNALS. Read-only
+`GET /api/v1/jobs/backfills/sectors?sectorLevel=2` supplies Console options from
+active symbol membership, with optional ICB names; it defaults to level 2 and
+rejects levels outside 1-4. Symbols is one configured exchange's
+current snapshot; analytical goals retain sector/date guards and writer-drain
+requirements. `dataPolicy` is PREFER_EXISTING by default or REFRESH; new HTTP
+requests reject rerun/force. Compatible live attempts share across requests;
+promotion to REFRESH requires never-dispatched EOD without frozen inputs/bases.
+Sealed intent and upstream bindings remain immutable; terminal attempts are new.
 
-Keep APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false during owner observation;
-automatic expiry is [deferred to TD-018](../../docs/technical-debt/018-execution-watchdog-observation.md).
-Source and diagnostics remain available; missing completion may require manual recovery.
+Admission defaults to PostgreSQL-only readiness without JSON fallback. V27 supplies
+the existing Modulith JPA publication registry. Proofs cover exact work rows, not
+whole Parquet files. Physical version safety and per-scope recovery still apply.
+I10 remains in_progress: full shared-component coverage and current worker E2E
+remain open. TD-020 defers continuous fleet qualification and 12-hour activation;
+TD-018 separately defers watchdog expiry during owner observation.
 
-For [new I10 commands](../../docs/reference/018-i10-worker-completion.md), one completion
-carries status and registration. The execution transaction commits evidence, status
-and eligible READY together. Queued legacy commands remain supported.
-
-I10 [physical version safety](../../docs/reference/017-i10-versioned-storage.md)
-adds V26, frozen claim-time merge bases, monotonic accepted heads and the fenced
-physical-baseline endpoint. The versioned flag remains default-off; local test
-evidence does not activate retained storage/readers.
-
-Signals backfill source extension: goal=SYNC_SIGNALS, optional targetDefinitionId
-for canonical strategy selection; ambiguous selection returns 409. See
-[current closure/verification scope](../../docs/reference/016-i10-signals-backfill-closure.md).
-
-Request discovery for polling: `GET /api/v1/jobs/atomic-work/requests` returns
-camelCase summaries with active/history filters, cursor pagination, timings and
-per-job counts, without graph payloads. See [API and UI flow](../../docs/reference/014-atomic-request-polling.md).
-
-Backfill accepts rerun/force, both false by default. Rerun creates attempts while
-preferring covered EOD; force implies rerun plus provider refresh. Default sharing
-remains IN_FLIGHT_ONLY with live owners. See [policy and local E2E evidence](../../docs/reference/013-backfill-attempt-and-data-policy.md).
-
-Closed-owner reconciliation excludes orphan attempts from reuse and closes only
-proven never-dispatched commands. Request members expose executionStatus separately
-from current work outputReady/readyOutputs, plus orphaned/review diagnostics.
-See [scope, activation behavior and focused PostgreSQL evidence](../../docs/reference/012-i10-closed-owner-reconciliation.md).
-
-Atomic request lifecycle: children prepare as PENDING; worker receipt establishes
-RUNNING. Requests remain PREPARED while any member is unfinished, so a failed
-target does not revoke healthy siblings' admission. Read diagnostics expose
-memberCounts, unfinishedMembers, hasFailure and isSettled. See [paired lifecycle
-rollout](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
-
-Indicators backfill: default-off `POST /api/v1/jobs/backfills` accepts bounded
-sector/date requests, enrolls EOD/Indicators and promotes only backfill work with
-global flags off. Requires V25, registration consumer and paused legacy writers.
-See [request, rollout and checks](../../docs/reference/009-indicators-backfill.md).
-
-I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
-Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
-symbols in the same file are independent; whole-file snapshots are not required
-for new enrollment. Query executes validated READY rows from the checked buffer.
-Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
-See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
-
-Owner identity revision (2026-11-03): enrolled work READY and direct upstream
-approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
-output version kept separate. Partition pointers remain physical/catalog projections;
-they cannot substitute for work identity. Consolidated V19 and the private work lookup
-are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
-old source/checkpoint statements below are historical for this revised scope.
-
-The private output-readiness GET is bounded to 200 items and 4 MiB UTF-8 bytes.
-A byte-shortened page returns `nextOffset = offset + items.size()` and `hasMore`;
-a single oversized item returns HTTP 413. Consumers keep the revision fixed and
-advance by the returned count. The shared Java/Python page fixture and fresh
-verification are in the [current handoff](../../docs/reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
-
-I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
-
-I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
-
-Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
-
-Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
-See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
-I10 remains planned/pending; no default activation, retained-environment deployment,
-PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
-handoffs below record their historical status and do not override this result.
-
-## I9 shared-attempt worker integration
-
-Run `nx run platform:test-atomic-sharing` for the opt-in graph-enabled workflow:
-four requests share catalog/stock/indicator attempts, each on a one-step JobRun;
-two owners complete while cancellation before dispatch and after publication leaves
-their shared work running. Actual
-Kafka/MinIO/Python workers exercise barriers, input approval, replay, committed
-offsets and Query Service output. Separate disposable containers are required.
-The existing `test-integration` and `test-overlap` fixtures explicitly retain the
-many-step route. See [scenario and execution evidence](../../database/diagnostics/p14/v2/i9-atomic-sharing-evidence.md).
-
-## P14 Work Operations diagnostics
-
-Add authenticated GET /api/v1/jobs/atomic-work/snapshot, /published-unfinished and
-/work for Console. Shared packaged SQL also powers psql diagnostics; fixed named
-parameters, <=7-day request windows, bounded pages and read-only repeatable-read
-transactions with query/lock timeouts. Missing schema/query failures return safe 503,
-invalid input 400. No schema migration, scheduler state/flags or Kafka contract change.
-See [full contract and bounded verification](../../database/diagnostics/p14/v2/README.md).
-The [expanded I9 evidence](../../database/diagnostics/p14/v2/i9-verification-20261031.md)
-records later HTTP/Console checks separately from activation and increment closure.
-
-I9 entry correction: all active scheduled non-retired non-signal presets retain
-independent schedules because JobType reachability cannot prove complete upstream
-work coverage. Existing signal/evaluation strategy, timeframe, exchange and request
-checks remain. More entries are claimed through the same bounded batches; graph
-acquisition still owns work reuse. No fixed seven-entry expectation or flag change.
-See [correction and verification](../../docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30).
-
-The 2026-10-30 repair checks aggregate work budgets before child/outbox writes,
-materializes accepted work without expanding again, preserves first input approvals
-on publish/replay, and projects metadata-child partial warnings onto parent diagnostics.
-Use `SchedulerOutboxService.boundPayload` for explicit replay of a stored intent.
-
-I9.a internal planning: `JobRunPreparationService.planGraphExpansion` uses active
-definitions and real producer previews in a repeatable-read, read-only transaction.
-Planning opens its own transaction even inside a writable caller; it sees committed
-configuration, suspends the caller transaction and restores it afterward.
-It returns immutable atomic work/dependencies without execution, outbox or Kafka
-writes. Existing scheduled/manual preparation is not switched to this planning API.
-
-Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
-I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
-shared in-flight attempts and exact dependency barriers, plus reversible scheduled
-preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
-existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
-work diagnostics are additive; writer and broader output/version exclusion remain
-deferred. Prior indicator approval/byte-binding evidence remains historical.
-No verification ran for this continuation; defaults remain unactivated. See
-[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
-
-Planned P14 handoff — 2026-10-29: Pending I8/I9 are planning extensions, not current runtime. Common expansion comes before graph-driven ancestors/shared ownership and definition consolidation; existing definitions remain config/presets and I9.a/b/c are internal gates.
-This note changes no implementation, configuration, preparation flag or existing
-runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).
+Start with the [Console/API walkthrough](../omni-console/README.md),
+[policy and current local evidence](../../docs/reference/013-backfill-attempt-and-data-policy.md),
+[PostgreSQL-only contract](../../docs/reference/020-i10-postgres-only-cutover.md) and
+[session operations](../../docs/technical-debt/020-session-runtime-operations.md).
+These source/local checkpoints are not a deployment or live-job claim.
 
 Platform is the Java/Spring Boot control-plane service for Omni. Its Nx project name is `platform` and its source path is [`apps/core`](.).
 
@@ -479,6 +368,157 @@ before retained deployment. Local evidence is recorded separately from rollout.
 
 The pre-outbox BlockedJob entity/repository/tracker are removed. V24 refuses to
 drop blocked_jobs if rows remain; export/resolve that history before deployment.
-Active WAITING/BLOCKED state stays in scheduler outbox/execution records. Existing
-legacy dispatch and manifest readiness remain supported. See
+Active WAITING/BLOCKED state stays in scheduler outbox/execution records. The
+legacy dispatch compatibility boundary remains separate from current PostgreSQL-only
+readiness; retired JSON manifest authority is not supported by the active reader. See
 [TD-013](../../docs/technical-debt/013-legacy-dependency-guard-residue.md).
+
+## Historical implementation checkpoints
+
+The dated notes below preserve their original source and verification boundaries.
+The current operation/contracts section above supersedes older manifest-default,
+shadow authority, retired API-policy and increment-status descriptions. Historical
+passes do not certify the present checkout, runtime or deployment.
+
+[November 16 PostgreSQL-only default and JPA schema](../../docs/reference/020-i10-postgres-only-cutover.md):
+V27 supplies the existing Modulith active/archive event tables. Admission defaults
+to PostgreSQL (reader-enabled=true); do not select legacy JSON after retirement.
+Strict JPA and the scoped retained probe pass locally; full I10 rollout is open.
+
+The private work-proof GET accepts optional atomicAttemptId; V26 records actual
+VERSIONED READY history so a refresh cannot erase frozen upstream availability.
+Default discovery remains current/latest. Registration/SUCCESS does not substitute
+for promotion evidence. See [review and gates](../../docs/reference/019-i10-review-20261111.md).
+
+For terminal VERSIONED completion, preserve the first accepted result and use
+[V26 rejection audit](../../docs/reference/017-i10-versioned-storage.md#terminal-completion-replay-audit-owner-approved-november-11)
+before acknowledging valid late/conflicting output. The new handler requires the
+amended V26 schema. Active and legacy/CANONICAL processing retain their existing gates.
+
+Keep APP_OUTPUT_REGISTRATION_WATCHDOG_ENABLED=false during owner observation;
+automatic expiry is [deferred to TD-018](../../docs/technical-debt/018-execution-watchdog-observation.md).
+Source and diagnostics remain available; missing completion may require manual recovery.
+
+For [new I10 commands](../../docs/reference/018-i10-worker-completion.md), one completion
+carries status and registration. The execution transaction commits evidence, status
+and eligible READY together. Queued legacy commands remain supported.
+
+I10 [physical version safety](../../docs/reference/017-i10-versioned-storage.md)
+adds V26, frozen claim-time merge bases, monotonic accepted heads and the fenced
+physical-baseline endpoint. The versioned flag remains default-off; local test
+evidence does not activate retained storage/readers.
+
+Signals backfill source extension: goal=SYNC_SIGNALS, optional targetDefinitionId
+for canonical strategy selection; ambiguous selection returns 409. See
+[current closure/verification scope](../../docs/reference/016-i10-signals-backfill-closure.md).
+
+Request discovery for polling: `GET /api/v1/jobs/atomic-work/requests` returns
+camelCase summaries with active/history filters, cursor pagination, timings and
+per-job counts, without graph payloads. See [API and UI flow](../../docs/reference/014-atomic-request-polling.md).
+
+Backfill accepts rerun/force, both false by default. Rerun creates attempts while
+preferring covered EOD; force implies rerun plus provider refresh. Default sharing
+remains IN_FLIGHT_ONLY with live owners. See [policy and local E2E evidence](../../docs/reference/013-backfill-attempt-and-data-policy.md).
+
+Closed-owner reconciliation excludes orphan attempts from reuse and closes only
+proven never-dispatched commands. Request members expose executionStatus separately
+from current work outputReady/readyOutputs, plus orphaned/review diagnostics.
+See [scope, activation behavior and focused PostgreSQL evidence](../../docs/reference/012-i10-closed-owner-reconciliation.md).
+
+Atomic request lifecycle: children prepare as PENDING; worker receipt establishes
+RUNNING. Requests remain PREPARED while any member is unfinished, so a failed
+target does not revoke healthy siblings' admission. Read diagnostics expose
+memberCounts, unfinishedMembers, hasFailure and isSettled. See [paired lifecycle
+rollout](../../docs/reference/009-indicators-backfill.md#request-settlement-and-worker-receipt---2026-11-06).
+
+Indicators backfill: default-off `POST /api/v1/jobs/backfills` accepts bounded
+sector/date requests, enrolls EOD/Indicators and promotes only backfill work with
+global flags off. Requires V25, registration consumer and paused legacy writers.
+See [request, rollout and checks](../../docs/reference/009-indicators-backfill.md).
+
+I10 scoped-data revision (2026-11-03): READY covers exact work rows in canonical
+Parquet, with row-scoped versions and frozen work-proof input reads. Other days or
+symbols in the same file are independent; whole-file snapshots are not required
+for new enrollment. Query executes validated READY rows from the checked buffer.
+Deploy matched Platform/shared Python adapters; defaults remain manifest/off.
+See [current scope and gates](../../docs/reference/007-p14-i10-work-identity.md).
+
+Owner identity revision (2026-11-03): enrolled work READY and direct upstream
+approvals use canonical atomicWorkId (type/key/day/parameters), with attempt and
+output version kept separate. Partition pointers remain physical/catalog projections;
+they cannot substitute for work identity. Consolidated V19 and the private work lookup
+are documented in the [current identity handoff](../../docs/reference/007-p14-i10-work-identity.md). I10 remains in_progress;
+old source/checkpoint statements below are historical for this revised scope.
+
+The private output-readiness GET is bounded to 200 items and 4 MiB UTF-8 bytes.
+A byte-shortened page returns `nextOffset = offset + items.size()` and `hasMore`;
+a single oversized item returns HTTP 413. Consumers keep the revision fixed and
+advance by the returned count. The shared Java/Python page fixture and fresh
+verification are in the [current handoff](../../docs/reference/006-p14-i10-ready-integration.md#contract-review--2026-11-03-utc7).
+
+I10 READY integration (2026-11-02): **in_progress; local checks recorded, release gate unresolved**. [Current source, baseline decision and release gates](../../docs/reference/006-p14-i10-ready-integration.md). Enrollment/worker registration, PostgreSQL READY/provider/readers, fenced baseline backfill and shadow/reconciliation now have opt-in source. Exact-date admission defers missing inputs; failed attempts remain terminal. Runtime remains manifest-authoritative by default; no flags/deployment or retained migrations were activated. Durable worker recovery, tracing and P12 remain deferred.
+
+I10 checkpoint (2026-11-01): `in_progress`; [shadow registration source and remaining gates](../../docs/reference/004-p14-i10-registration-checkpoint.md). Source is unverified, consumer disabled by default, worker handlers not connected. Manifest READY remains authoritative; no watchdog/cutover/tracing activation. Earlier pending statements describe the pre-implementation baseline.
+
+Main-source reconciliation (2026-11-01, `4cc0011`): [commit/source mapping and remaining gates](../../docs/reference/003-p14-main-source-reconciliation.md). I10 remains planned/pending; I11 has no confirmed registry/plan scope on this baseline. Existing diagnostics do not implement PostgreSQL readiness, a watchdog or tracing.
+
+Current local acceptance (2026-11-01): **P14-I8 and P14-I9 completed**.
+See [source-bound checks, coverage and rollout rehearsal](../../database/diagnostics/p14/v2/i8-i9-closure-20261101.md).
+I10 remains planned/pending; no default activation, retained-environment deployment,
+PostgreSQL readiness or P12 writer is implemented by this closure. Earlier dated
+handoffs below record their historical status and do not override this result.
+
+## I9 shared-attempt worker integration
+
+Run `nx run platform:test-atomic-sharing` for the opt-in graph-enabled workflow:
+four requests share catalog/stock/indicator attempts, each on a one-step JobRun;
+two owners complete while cancellation before dispatch and after publication leaves
+their shared work running. Actual
+Kafka/MinIO/Python workers exercise barriers, input approval, replay, committed
+offsets and Query Service output. Separate disposable containers are required.
+The existing `test-integration` and `test-overlap` fixtures explicitly retain the
+many-step route. See [scenario and execution evidence](../../database/diagnostics/p14/v2/i9-atomic-sharing-evidence.md).
+
+## P14 Work Operations diagnostics
+
+Add authenticated GET /api/v1/jobs/atomic-work/snapshot, /published-unfinished and
+/work for Console. Shared packaged SQL also powers psql diagnostics; fixed named
+parameters, <=7-day request windows, bounded pages and read-only repeatable-read
+transactions with query/lock timeouts. Missing schema/query failures return safe 503,
+invalid input 400. No schema migration, scheduler state/flags or Kafka contract change.
+See [full contract and bounded verification](../../database/diagnostics/p14/v2/README.md).
+The [expanded I9 evidence](../../database/diagnostics/p14/v2/i9-verification-20261031.md)
+records later HTTP/Console checks separately from activation and increment closure.
+
+I9 entry correction: all active scheduled non-retired non-signal presets retain
+independent schedules because JobType reachability cannot prove complete upstream
+work coverage. Existing signal/evaluation strategy, timeframe, exchange and request
+checks remain. More entries are claimed through the same bounded batches; graph
+acquisition still owns work reuse. No fixed seven-entry expectation or flag change.
+See [correction and verification](../../docs/plans/030-static-graph-dispatch-planner.md#i9-scheduled-coverage-correction--2026-10-30).
+
+The 2026-10-30 repair checks aggregate work budgets before child/outbox writes,
+materializes accepted work without expanding again, preserves first input approvals
+on publish/replay, and projects metadata-child partial warnings onto parent diagnostics.
+Use `SchedulerOutboxService.boundPayload` for explicit replay of a stored intent.
+
+I9.a internal planning: `JobRunPreparationService.planGraphExpansion` uses active
+definitions and real producer previews in a repeatable-read, read-only transaction.
+Planning opens its own transaction even inside a writable caller; it sees committed
+configuration, suspends the caller transaction and restores it afterward.
+It returns immutable atomic work/dependencies without execution, outbox or Kafka
+writes. Existing scheduled/manual preparation is not switched to this planning API.
+
+Historical P14 source delivery (2026-10-30): **I8/I9 verification_pending**.
+I9.a/b/c adds opt-in JobType graph preparation, independent atomic JobRuns with
+shared in-flight attempts and exact dependency barriers, plus reversible scheduled
+preset consolidation in the existing definitions catalog. V17/V18 are forward-only;
+existing V1 paths and I8 wire/worker semantics remain. New read-only authenticated
+work diagnostics are additive; writer and broader output/version exclusion remain
+deferred. Prior indicator approval/byte-binding evidence remains historical.
+No verification ran for this continuation; defaults remain unactivated. See
+[full contract, impact and review handoff](../../docs/plans/030-static-graph-dispatch-planner.md#i9-full-source-delivery-and-review-handoff--2026-10-30).
+
+Planned P14 handoff — 2026-10-29: Pending I8/I9 are planning extensions, not current runtime. Common expansion comes before graph-driven ancestors/shared ownership and definition consolidation; existing definitions remain config/presets and I9.a/b/c are internal gates.
+This note changes no implementation, configuration, preparation flag or existing
+runtime contract. See [current scope](../../docs/plans/030-static-graph-dispatch-planner.md#current-i8i9-handoff--2026-10-29).

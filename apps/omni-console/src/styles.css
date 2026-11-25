@@ -1,16 +1,38 @@
+@layer theme, utilities;
+/* Keep the Console's existing browser defaults for forms and content. */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source('./');
+@source not './**/*.test.{ts,tsx}';
+
+@theme static {
+  --color-console-canvas: #0c1110;
+  --color-console-panel: #141b19;
+  --color-console-raised: #1b2421;
+  --color-console-inset: #0f1714;
+  --color-console-line: #2c3934;
+  --color-console-muted: #9baea6;
+  --color-console-accent: #62dfa2;
+  --color-console-accent-soft: rgb(98 223 162 / 12%);
+  --color-console-danger: #f97066;
+}
+
 :root {
-  color: #dce6e3;
-  background: #08110f;
+  color-scheme: dark;
+  color: #e8eeeb;
+  background: var(--canvas);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-synthesis: none;
-  --panel: #0e1b18;
-  --panel-2: #13231f;
-  --line: #203a33;
-  --muted: #7d9991;
-  --accent: #32d583;
-  --accent-soft: rgba(50, 213, 131, 0.12);
-  --danger: #f97066;
+  --canvas: var(--color-console-canvas);
+  --panel: var(--color-console-panel);
+  --panel-2: var(--color-console-raised);
+  --surface-inset: var(--color-console-inset);
+  --line: var(--color-console-line);
+  --muted: var(--color-console-muted);
+  --accent: var(--color-console-accent);
+  --accent-soft: var(--color-console-accent-soft);
+  --danger: var(--color-console-danger);
+  --page-gutter: clamp(12px, 3vw, 40px);
 }
 
 * {
@@ -18,7 +40,6 @@
 }
 body {
   margin: 0;
-  min-width: 320px;
   min-height: 100vh;
 }
 button,
@@ -29,26 +50,19 @@ select {
 button {
   cursor: pointer;
 }
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
-.app-shell {
-  min-height: 100vh;
-  background: radial-gradient(circle at 70% -20%, #153d32 0, transparent 35%),
-    #08110f;
-}
-header {
-  height: 74px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 28px;
-  border-bottom: 1px solid var(--line);
-}
-header h1 {
+.app-shell > header h1 {
   margin: 0;
   font-size: 18px;
   letter-spacing: 0.01em;
 }
-header p {
+.app-shell > header p {
   margin: 3px 0 0;
   color: var(--muted);
   font-size: 12px;
@@ -58,11 +72,12 @@ header p {
   height: 38px;
   display: grid;
   place-items: center;
-  border: 1px solid #3adf92;
+  flex: 0 0 38px;
+  background: var(--accent-soft);
+  border: 1px solid #325745;
   color: var(--accent);
   border-radius: 11px;
   font-weight: 800;
-  box-shadow: inset 0 0 18px rgba(50, 213, 131, 0.12);
 }
 .environment {
   margin-left: auto;
@@ -78,38 +93,23 @@ header p {
   height: 7px;
   background: var(--accent);
   border-radius: 50%;
-  box-shadow: 0 0 10px var(--accent);
 }
 
-nav {
-  height: 52px;
-  display: flex;
-  gap: 6px;
-  align-items: end;
-  padding: 0 28px;
-  border-bottom: 1px solid var(--line);
+.app-shell > nav > button {
+  @apply min-h-10 rounded-[7px] border border-solid border-transparent bg-transparent px-3.5 text-[13px] font-semibold text-console-muted;
 }
-nav button {
-  height: 42px;
-  padding: 0 18px;
-  color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
+.app-shell > nav > button:hover {
+  color: #e8eeeb;
+  background: var(--panel-2);
 }
-nav button:hover,
-nav button.active {
-  color: #fff;
-  border-bottom-color: var(--accent);
+.app-shell > nav > button.active {
+  color: var(--accent);
+  border-color: #325745;
+  background: var(--accent-soft);
 }
-.content {
-  padding: 22px 28px 40px;
-}
-
 .workspace-grid,
 .console-grid {
-  display: grid;
-  gap: 18px;
+  @apply grid gap-4.5;
   min-height: calc(100vh - 175px);
 }
 .explorer-grid {
@@ -119,32 +119,19 @@ nav button.active {
   grid-template-columns: 280px minmax(0, 1fr);
 }
 .panel {
-  background: linear-gradient(
-    145deg,
-    rgba(18, 34, 30, 0.98),
-    rgba(11, 23, 20, 0.98)
-  );
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.16);
-  overflow: hidden;
+  @apply min-w-0 overflow-hidden rounded-xl border border-solid border-console-line bg-console-panel;
 }
 .dataset-list,
 .schema-browser {
-  padding: 16px;
+  @apply p-4;
 }
 .detail-panel,
 .sql-workbench {
-  padding: 20px;
-  min-width: 0;
+  @apply min-w-0 p-5;
 }
 .panel-heading {
   min-height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  @apply mb-4 flex flex-wrap items-center justify-between gap-3;
 }
 .panel-heading h2 {
   margin: 0;
@@ -164,25 +151,87 @@ nav button.active {
 
 input,
 select {
-  width: 100%;
+  @apply w-full rounded-[7px] border border-solid border-console-line bg-console-inset px-[11px] py-[9px];
   color: #e9f2ef;
-  background: #091512;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 9px 11px;
   outline: none;
 }
 input:focus,
 select:focus {
-  border-color: #309d6c;
-  box-shadow: 0 0 0 3px rgba(50, 213, 131, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
+
+select {
+  @apply min-w-0 cursor-pointer;
+}
+
+select:not(:disabled):hover,
+.sector-picker summary:not([aria-disabled='true']):hover {
+  @apply border-console-muted;
+}
+
+select:focus-visible,
+.sector-picker summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+select:disabled,
+.sector-picker summary[aria-disabled='true'] {
+  @apply cursor-not-allowed opacity-60;
+}
+
+@supports (appearance: base-select) and selector(::picker(select)) {
+  select,
+  select::picker(select) {
+    appearance: base-select;
+  }
+
+  select {
+    @apply items-center gap-2;
+    overflow-wrap: anywhere;
+  }
+
+  select::picker-icon {
+    @apply shrink-0 text-console-muted;
+  }
+
+  select:open::picker-icon {
+    @apply text-console-accent;
+    rotate: 180deg;
+  }
+
+  select::picker(select) {
+    @apply mt-1 max-w-[calc(100vw-24px)] overflow-auto rounded-lg border border-solid border-console-line bg-console-raised p-1 text-inherit shadow-lg;
+    max-height: min(18rem, 50dvh);
+  }
+
+  select option {
+    @apply min-h-9 items-center gap-3 rounded-md px-2.5 py-2;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  select option:checked {
+    @apply bg-console-accent-soft text-console-accent;
+  }
+
+  select option:not(:disabled):is(:hover, :focus-visible) {
+    @apply bg-console-inset;
+  }
+
+  select option:disabled {
+    @apply text-console-muted;
+  }
+
+  select option::checkmark {
+    @apply order-last ml-auto shrink-0 text-console-accent;
+  }
+}
+
 .stack-list,
 .history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 12px;
+  @apply mt-3 flex flex-col gap-1.5;
 }
 .list-item,
 .history-list button {
@@ -214,16 +263,10 @@ select:focus {
 }
 
 .stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
+  @apply mb-4 grid grid-cols-4 gap-2.5;
 }
 .stat-grid div {
-  padding: 14px;
-  background: #0a1613;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  @apply rounded-lg border border-solid border-console-line bg-console-inset p-3.5;
 }
 .stat-grid span,
 .stat-grid strong {
@@ -236,12 +279,10 @@ select:focus {
 }
 .stat-grid strong {
   font: 600 14px/1.2 monospace;
+  overflow-wrap: anywhere;
 }
 .schema-card {
-  background: #0a1613;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  margin-bottom: 14px;
+  @apply mb-3.5 rounded-lg border border-solid border-console-line bg-console-inset;
 }
 .schema-card summary {
   padding: 12px;
@@ -281,20 +322,15 @@ select:focus {
 }
 
 .query-toolbar {
-  display: grid;
-  grid-template-columns: minmax(280px, 1fr) 180px 70px auto;
-  gap: 8px;
-  margin-bottom: 14px;
+  @apply mb-3.5 grid gap-2;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 180px) 70px auto;
 }
 button.primary,
 button.secondary,
 button.danger,
 .pager button {
-  border-radius: 7px;
-  padding: 8px 13px;
-  border: 1px solid var(--line);
+  @apply rounded-[7px] border border-solid border-console-line bg-console-raised px-[13px] py-2;
   color: #dce6e3;
-  background: #142520;
 }
 button.primary {
   color: #062015;
@@ -307,20 +343,23 @@ button.danger {
   border-color: #7c3834;
   background: #391d1b;
 }
+button.secondary:not(:disabled):hover,
+.pager button:not(:disabled):hover {
+  border-color: var(--muted);
+}
+button.primary:not(:disabled):hover {
+  background: #83ebba;
+}
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 .actions {
-  display: flex;
-  gap: 8px;
+  @apply flex gap-2;
 }
 
 .result-wrap {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #08120f;
-  overflow: hidden;
+  @apply overflow-hidden rounded-lg border border-solid border-console-line bg-console-inset;
 }
 .result-meta {
   padding: 9px 12px;
@@ -329,33 +368,28 @@ button:disabled {
   font: 11px monospace;
 }
 .table-scroll {
-  max-height: 420px;
-  overflow: auto;
+  @apply max-h-105 overflow-auto;
 }
 table {
-  width: 100%;
-  border-collapse: collapse;
-  font: 12px/1.35 monospace;
+  @apply w-full border-collapse tabular-nums;
+  font: 12px/1.5 monospace;
 }
 th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  text-align: left;
-  color: #9db6ae;
-  background: #10201c;
+  @apply sticky top-0 z-1 bg-console-raised text-left;
+  color: #c4d2cc;
 }
 th,
 td {
   max-width: 380px;
   padding: 9px 11px;
-  border-bottom: 1px solid #172c26;
+  border-bottom: 1px solid var(--line);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-tbody tr:hover {
-  background: rgba(50, 213, 131, 0.04);
+tbody tr:hover,
+tbody tr:focus-within {
+  background: rgba(98, 223, 162, 0.06);
 }
 .pager {
   display: flex;
@@ -375,12 +409,13 @@ tbody tr:hover {
 .status-line {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 14px;
   min-height: 38px;
   padding: 8px 12px;
   margin: 10px 0;
   color: var(--muted);
-  background: #0a1613;
+  background: var(--surface-inset);
   border: 1px solid var(--line);
   border-radius: 7px;
   font: 11px monospace;
@@ -394,6 +429,7 @@ tbody tr:hover {
 }
 .status-line code {
   margin-left: auto;
+  overflow-wrap: anywhere;
 }
 .error-banner {
   margin: 10px 0;
@@ -473,18 +509,12 @@ tbody tr:hover {
   margin-top: 18px;
 }
 .dashboard-grid {
-  display: grid;
+  @apply grid gap-4;
   grid-template-columns: 1.1fr 0.9fr 1.25fr;
   grid-template-rows: minmax(210px, auto) minmax(190px, auto);
-  gap: 16px;
 }
 .widget-placeholder {
-  position: relative;
-  min-width: 0;
-  padding: 22px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  @apply relative min-w-0 overflow-hidden rounded-xl border border-solid border-console-line p-5.5;
   background: linear-gradient(145deg, #12221e, #0a1512);
 }
 .widget-placeholder::after {
@@ -824,14 +854,13 @@ tbody tr:hover {
 }
 
 .jobs-grid {
-  display: grid;
+  @apply grid gap-4.5;
   grid-template-columns: 320px minmax(0, 1fr);
-  gap: 18px;
   min-height: calc(100vh - 175px);
 }
 .jobs-list,
 .job-detail {
-  padding: 18px;
+  @apply p-4.5;
 }
 .jobs-list .list-item {
   position: relative;
@@ -969,23 +998,8 @@ tbody tr:hover {
 }
 
 @media (max-width: 760px) {
-  header {
-    padding: 0 18px;
-  }
-  .environment {
-    display: none;
-  }
-  nav {
-    height: auto;
-    align-items: stretch;
-    padding: 0 12px;
-    overflow-x: auto;
-  }
-  nav button {
-    flex: 0 0 auto;
-  }
-  .content {
-    padding: 16px 18px 30px;
+  .app-shell > nav > button {
+    padding-inline: 10px;
   }
   .dashboard-hero {
     display: block;
@@ -1010,7 +1024,7 @@ tbody tr:hover {
   .workspace-grid,
   .console-grid,
   .jobs-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .query-toolbar {
     grid-template-columns: 1fr;
@@ -1023,12 +1037,10 @@ tbody tr:hover {
 }
 
 .work-operations {
-  display: grid;
-  gap: 18px;
+  @apply grid gap-4.5;
 }
 .work-panel {
-  padding: 20px;
-  min-width: 0;
+  @apply min-w-0 p-5;
 }
 .work-panel h3 {
   margin-top: 0;
@@ -1074,12 +1086,15 @@ tbody tr:hover {
   border-radius: 8px;
   min-width: 0;
 }
+.panel:has(> .backfill-form) {
+  @apply overflow-visible;
+}
 .backfill-form legend {
   padding: 0 6px;
   color: var(--muted);
 }
 .backfill-form .work-toolbar {
-  display: grid;
+  @apply grid items-start;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 .backfill-form .work-toolbar label {
@@ -1206,10 +1221,7 @@ tbody tr:hover {
   padding-left: 18px;
 }
 .work-toolbar {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
+  @apply mb-4 flex flex-wrap gap-4;
 }
 .work-toolbar label {
   display: grid;
@@ -1252,114 +1264,54 @@ tbody tr:hover {
   font-size: 12px;
 }
 
-.app-shell > nav {
-  overflow-x: auto;
-  white-space: nowrap;
-}
-.app-shell > nav > button {
-  flex-shrink: 0;
-}
-
 .sector-picker-field {
-  display: grid;
-  min-width: 0;
-  gap: .5rem;
+  @apply grid min-w-0 gap-2;
 }
 .sector-picker {
-  position: relative;
+  @apply relative;
 }
 .sector-picker summary {
-  display: flex;
-  min-height: 40px;
-  cursor: pointer;
-  list-style: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  border-radius: 7px;
-  border: 1px solid var(--line);
-  background: #091512;
-  padding: 9px 11px;
+  @apply flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 rounded-[7px] border border-solid border-console-line bg-console-inset px-[11px] py-[9px];
   overflow-wrap: anywhere;
 }
 .sector-picker summary::-webkit-details-marker {
   display: none;
 }
 .sector-picker summary::after {
-  width: 8px;
-  height: 8px;
-  flex-shrink: 0;
-  color: var(--muted);
+  @apply size-2 shrink-0 text-console-muted;
   content: '';
   border-right: 1px solid;
   border-bottom: 1px solid;
   rotate: 45deg;
 }
 .sector-picker[open] summary::after {
-  color: var(--accent);
+  @apply text-console-accent;
   rotate: 225deg;
 }
 .sector-picker-options {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  z-index: 10;
-  margin-top: 4px;
-  display: grid;
-  gap: 4px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  padding: 4px;
-  box-shadow: 0 10px 15px rgb(0 0 0 / 25%);
+  @apply absolute inset-x-0 top-full z-10 mt-1 grid gap-1 overflow-y-auto overscroll-contain rounded-lg border border-solid border-console-line bg-console-raised p-1 shadow-lg;
   max-height: min(16rem, 50dvh);
 }
 .sector-picker-options label {
-  display: flex;
-  cursor: pointer;
-  align-items: flex-start;
-  gap: 8px;
-  border-radius: 6px;
-  padding: 8px 10px;
+  @apply flex cursor-pointer items-start gap-2 rounded-md px-2.5 py-2;
   overflow-wrap: anywhere;
 }
 .sector-picker-options label:has(input:checked) {
-  background: var(--accent-soft);
-  color: var(--accent);
+  @apply bg-console-accent-soft text-console-accent;
 }
 .sector-picker-options label:has(input:not(:disabled)):is(:hover, :focus-within) {
-  background: #091512;
+  @apply bg-console-inset;
 }
 .sector-picker-options label:has(input:disabled) {
-  cursor: not-allowed;
-  opacity: .6;
+  @apply cursor-not-allowed opacity-60;
 }
 .sector-picker-options input[type='checkbox'] {
-  margin-top: 2px;
-  width: auto;
-  flex-shrink: 0;
-  accent-color: var(--accent);
+  @apply mt-0.5 w-auto shrink-0 accent-console-accent;
 }
 .sector-picker-options input[type='checkbox']:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .sector-picker-options p {
-  margin: 0;
-  padding: 8px 10px;
-  color: var(--muted);
-}
-.sector-picker summary[aria-disabled='true'] {
-  cursor: not-allowed;
-  opacity: .6;
-}
-.sector-picker summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.panel:has(> .backfill-form) {
-  overflow: visible;
+  @apply m-0 px-2.5 py-2 text-console-muted;
 }

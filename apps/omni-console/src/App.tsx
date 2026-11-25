@@ -72,8 +72,8 @@ export function App() {
   }, []);
 
   return (
-    <div className="app-shell">
-      <header>
+    <div className="app-shell min-h-screen bg-console-canvas">
+      <header className="flex min-h-18 items-center gap-3.5 border-0 border-b border-solid border-console-line bg-console-panel px-(--page-gutter) py-3">
         <div className="brand-mark">O</div>
         <div>
           <h1>Omni Console</h1>
@@ -84,7 +84,10 @@ export function App() {
           PRIVATE
         </div>
       </header>
-      <nav aria-label="Console sections">
+      <nav
+        aria-label="Console sections"
+        className="flex flex-wrap gap-1 border-0 border-b border-solid border-console-line bg-console-panel px-(--page-gutter) py-2"
+      >
         {navigation.map((item) => (
           <button
             key={item.id}
@@ -96,7 +99,7 @@ export function App() {
           </button>
         ))}
       </nav>
-      <div className="content">
+      <div className="mx-auto max-w-[1720px] px-(--page-gutter) pt-6 pb-10 [@media(max-width:760px)]:pt-4 [@media(max-width:760px)]:pb-7.5">
         {view === 'explorer' && (
           <DatasetExplorer
             onSelect={selectManifest}

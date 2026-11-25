@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -10,7 +11,7 @@ export default defineConfig(({ mode }) => {
     env.SYSTEM_OPERATOR_UUID ?? 'b252fe62-80f3-4df9-9734-5dc549705a25';
 
   return {
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
     define: {
       'import.meta.env.SYSTEM_OPERATOR_UUID':
         JSON.stringify(systemOperatorUuid),
